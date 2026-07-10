@@ -165,7 +165,7 @@ def _resolve_manual_plan_cycle_end(
         cycle_start_at=granted_at,
     )
     if cycle_end_at is None or cycle_end_at <= granted_at:
-        raise_error("server.common.systemError")
+        raise_error("server.billing.manualPlanGrantFailed")
     return cycle_end_at
 
 
@@ -208,7 +208,7 @@ def grant_manual_plan_to_user(
             blocking_timeout=5,
         )
         if not grant_lock.acquire(blocking=True):
-            raise_error("server.common.systemError")
+            raise_error("server.billing.manualPlanGrantBusy")
 
         try:
             existing_order = _load_existing_manual_grant_order(
@@ -296,7 +296,7 @@ def grant_manual_plan_to_user(
                     raise_error("server.billing.adminPlanGrantProviderManagedConflict")
                 current_product = _load_plan_product_by_bid(existing_product_bid)
                 if current_product is None:
-                    raise_error("server.common.systemError")
+                    raise_error("server.billing.manualPlanGrantFailed")
                 if int(product.sort_order or 0) <= int(current_product.sort_order or 0):
                     raise_error("server.billing.subscriptionUpgradeOnly")
                 order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE

@@ -608,7 +608,7 @@ def save_credit_notification_policy(
         updated_by=updated_by,
     )
     if not ok:
-        raise_error("server.common.systemError")
+        raise_error("server.billing.notificationPolicySaveFailed")
     return load_credit_notification_policy()
 
 

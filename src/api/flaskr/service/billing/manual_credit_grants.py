@@ -161,7 +161,7 @@ def grant_manual_credits_to_user(
             },
         )
         if grant_result.status not in {"granted", "noop_existing"}:
-            raise_error("server.common.systemError")
+            raise_error("server.billing.manualCreditGrantFailed")
         if grant_result.status == "granted" and grant_result.ledger_bid:
             stage_credit_granted_notification(
                 app,
