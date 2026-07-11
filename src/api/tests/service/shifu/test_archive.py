@@ -8,7 +8,11 @@ from flaskr.service.common.models import AppException
 
 
 def _get_models():
-    from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, ShifuUserArchive
+    from flaskr.service.shifu.models import (
+        DraftOutlineItem,
+        DraftShifu,
+        ShifuUserArchive,
+    )
 
     return DraftOutlineItem, DraftShifu, ShifuUserArchive
 
@@ -145,14 +149,14 @@ def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(app, monkeypat
         assert draft.updated_at == created_at
 
 
-
-
 def test_create_shifu_draft_initializes_default_chapter_and_lesson(app, monkeypatch):
     owner_bid = "owner-default-outline"
     draft_module = _get_draft_module()
     DraftOutlineItem, _, _ = _get_models()
 
-    generated_ids = iter(["shifu-default-outline", "chapter-default-outline", "lesson-default-outline"])
+    generated_ids = iter(
+        ["shifu-default-outline", "chapter-default-outline", "lesson-default-outline"]
+    )
 
     monkeypatch.setattr(draft_module, "generate_id", lambda _app: next(generated_ids))
     monkeypatch.setattr(
@@ -191,6 +195,7 @@ def test_create_shifu_draft_initializes_default_chapter_and_lesson(app, monkeypa
         "lesson-default-outline",
     ]
     assert [item.position for item in outline_items] == ["01", "0101"]
+
 
 def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
     app, monkeypatch

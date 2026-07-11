@@ -100,9 +100,8 @@ def yidun_check(
         params["account"] = user_id
     params["signature"] = gen_signature(params)
 
-    timeout_seconds = float(
-        app.config.get("NETEASE_YIDUN_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
-        or DEFAULT_TIMEOUT_SECONDS
+    timeout_seconds = app.config.get(
+        "NETEASE_YIDUN_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS
     )
 
     try:

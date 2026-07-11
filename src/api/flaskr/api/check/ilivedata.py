@@ -63,9 +63,8 @@ def ilivedata_check(
 ) -> CheckResultDTO:
     pid = app.config.get("ILIVEDATA_PID")
     secret_key = app.config.get("ILIVEDATA_SECRET_KEY").encode("utf-8")
-    timeout_seconds = float(
-        app.config.get("ILIVEDATA_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
-        or DEFAULT_TIMEOUT_SECONDS
+    timeout_seconds = app.config.get(
+        "ILIVEDATA_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS
     )
     if not pid or not secret_key:
         app.logger.warning("ilivedata pid or secret_key is not set")
@@ -141,4 +140,9 @@ def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECOND
     req = Request(
         endpoint_url, querystring.encode("utf-8"), headers=headers, method="POST"
     )
-    return json.loads(urlopen(req, timeout=timeout).read().decode(), strict=False)
+    try:
+        return json.loads(urlopen(req, timeout=timeout).read().decode(), strict=False)
+    except URLError:
+        raise
+    except OSError as err:
+        raise URLError(err)

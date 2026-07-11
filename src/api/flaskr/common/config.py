@@ -1231,6 +1231,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     "ILIVEDATA_TIMEOUT_SECONDS": EnvVar(
         name="ILIVEDATA_TIMEOUT_SECONDS",
         default=5,
+        type=int,
         description="Timeout in seconds for ILIVEDATA text moderation requests",
         group="content_detection",
     ),
@@ -1257,6 +1258,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     "NETEASE_YIDUN_TIMEOUT_SECONDS": EnvVar(
         name="NETEASE_YIDUN_TIMEOUT_SECONDS",
         default=5,
+        type=int,
         description="Timeout in seconds for Netease Yidun text moderation requests",
         group="content_detection",
     ),

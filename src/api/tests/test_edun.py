@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_check_text_returns_unconfigured_for_yidun(app):
     from flaskr.api.check import check_text, CHECK_RESULT_UNCONF
 
@@ -15,7 +18,10 @@ def test_yidun_check_uses_configured_timeout(app, monkeypatch):
 
     class _Resp:
         def json(self):
-            return {"code": 200, "result": {"antispam": {"suggestion": 0, "label": 100}}}
+            return {
+                "code": 200,
+                "result": {"antispam": {"suggestion": 0, "label": 100}},
+            }
 
     def fake_post(url, data=None, headers=None, timeout=None):
         captured["url"] = url
@@ -25,7 +31,7 @@ def test_yidun_check_uses_configured_timeout(app, monkeypatch):
     monkeypatch.setattr(yidun_module, "YIDUN_SECRET_ID", "sid")
     monkeypatch.setattr(yidun_module, "YIDUN_SECRET_KEY", "skey")
     monkeypatch.setattr(yidun_module, "YIDUN_BUSINESS_ID", "bid")
-    monkeypatch.setitem(app.config, "NETEASE_YIDUN_TIMEOUT_SECONDS", 3.5)
+    monkeypatch.setitem(app.config, "NETEASE_YIDUN_TIMEOUT_SECONDS", 3)
     monkeypatch.setattr(yidun_module.requests, "post", fake_post)
 
     result = yidun_module.yidun_check(app, "data-id", "hello", "user-1")
@@ -33,7 +39,21 @@ def test_yidun_check_uses_configured_timeout(app, monkeypatch):
     assert result.check_result == CHECK_RESULT_PASS
     assert result.provider == "yidun"
     assert captured["url"] == yidun_module.URL
-    assert captured["timeout"] == 3.5
+    assert captured["timeout"] == 3
+
+
+def test_ilivedata_send_wraps_oserror_as_urlerror(monkeypatch):
+    from urllib.error import URLError
+
+    from flaskr.api.check import ilivedata as ilivedata_module
+
+    def fake_urlopen(*_args, **_kwargs):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(ilivedata_module, "urlopen", fake_urlopen)
+
+    with pytest.raises(URLError):
+        ilivedata_module.send("{}", b"sig", "2026-07-11T00:00:00Z", "pid", timeout=5)
 
 
 def test_ilivedata_check_uses_configured_timeout(app, monkeypatch):
@@ -52,7 +72,7 @@ def test_ilivedata_check_uses_configured_timeout(app, monkeypatch):
 
     monkeypatch.setitem(app.config, "ILIVEDATA_PID", "pid")
     monkeypatch.setitem(app.config, "ILIVEDATA_SECRET_KEY", "secret")
-    monkeypatch.setitem(app.config, "ILIVEDATA_TIMEOUT_SECONDS", 4.0)
+    monkeypatch.setitem(app.config, "ILIVEDATA_TIMEOUT_SECONDS", 4)
     monkeypatch.setattr(ilivedata_module, "urlopen", fake_urlopen)
 
     result = ilivedata_module.ilivedata_check(app, "data-id", "hello", "user-1")
@@ -60,4 +80,4 @@ def test_ilivedata_check_uses_configured_timeout(app, monkeypatch):
     assert result.check_result == CHECK_RESULT_PASS
     assert result.provider == "ilivedata"
     assert captured["host"] == ilivedata_module.endpoint_url
-    assert captured["timeout"] == 4.0
+    assert captured["timeout"] == 4

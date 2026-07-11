@@ -22,13 +22,12 @@ from .consts import (
     STATUS_DRAFT,
     STATUS_PUBLISHED,
     SHIFU_NAME_MAX_LENGTH,
-    UNIT_TYPE_GUEST,
     ASK_MODE_DEFAULT,
     ASK_MODE_DISABLE,
     ASK_MODE_ENABLE,
 )
 from ..check_risk.funcs import check_text_with_risk_control
-from ..common.models import raise_error, raise_error_with_args, AppException
+from ..common.models import raise_error, raise_error_with_args
 from .utils import (
     get_shifu_res_url,
     parse_shifu_res_bid,
