@@ -47,6 +47,14 @@ describe('buildCoursePageUrl', () => {
     ).toBe('http://localhost:3000/c/course-1');
   });
 
+  it('removes basic authentication credentials', () => {
+    expect(
+      buildCoursePageUrl(
+        'https://teacher:secret@learn.example.com/c/course-1?lessonid=lesson-1',
+      ),
+    ).toBe('https://learn.example.com/c/course-1');
+  });
+
   it.each(['not a url', 'mailto:teacher@example.com'])(
     'rejects invalid course page urls: %s',
     currentUrl => {

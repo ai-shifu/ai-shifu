@@ -38,6 +38,8 @@ export const buildCoursePageUrl = (currentUrl: string) => {
       return '';
     }
 
+    url.username = '';
+    url.password = '';
     url.search = '';
     url.hash = '';
     return url.toString();
