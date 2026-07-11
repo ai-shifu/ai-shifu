@@ -21,7 +21,7 @@ These tests pin the new semantics:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from flask import Flask
 import pytest
@@ -47,6 +47,7 @@ from flaskr.service.billing.models import (
     BillingSubscription,
 )
 from flaskr.service.billing.renewal import run_billing_renewal_event
+from flaskr.util.datetime import now_utc
 from tests.common.fixtures.bill_products import build_bill_products
 
 CREATOR_BID = "creator-uow-renewal"
@@ -76,7 +77,7 @@ def renewal_uow_app() -> Flask:
 
 
 def _seed_subscription(subscription_bid: str) -> BillingSubscription:
-    now = datetime.now()
+    now = now_utc()
     subscription = BillingSubscription(
         subscription_bid=subscription_bid,
         creator_bid=CREATOR_BID,
@@ -108,7 +109,7 @@ def _seed_event(
         subscription_bid=subscription_bid,
         creator_bid=CREATOR_BID,
         event_type=event_type,
-        scheduled_at=datetime.now() - timedelta(minutes=1),
+        scheduled_at=now_utc() - timedelta(minutes=1),
         status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
         attempt_count=0,
         last_error="",
@@ -306,7 +307,7 @@ def test_expire_notification_fires_after_commit_and_drops_on_rollback(
     Nested in a failing outer unit of work the callback is dropped with the
     rollback; at top level it fires exactly once, after the commit.
     """
-    now = datetime.now()
+    now = now_utc()
     subscription = _seed_subscription("sub-uow-notify")
     subscription.current_period_start_at = now - timedelta(days=31)
     subscription.current_period_end_at = now - timedelta(minutes=5)
