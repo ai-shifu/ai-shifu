@@ -237,6 +237,13 @@
   }
 }
 
+.lessonPdfOffscreen {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  pointer-events: none;
+}
+
 .scrollToBottom {
   position: absolute;
   bottom: 90px;

@@ -10,6 +10,9 @@ let mockCourseAvatar = '';
 let mockLearningMode = 'listen';
 let mockLogoHorizontal = '';
 let mockLogoWideUrl = '';
+let mockLessonPdfReady = false;
+let mockLessonPdfPreparing = false;
+const mockPrintLessonPdf = jest.fn();
 
 jest.mock('react-i18next', () => {
   const translations: Record<string, string> = {
@@ -100,8 +103,15 @@ jest.mock('./lessonFeedbackPromptState', () => ({
 }));
 
 jest.mock('./lessonPdfState', () => ({
-  isLessonPdfContentReady: () => false,
+  isLessonPdfContentReady: () => mockLessonPdfReady,
   shouldExcludeLessonPdfInteraction: () => false,
+}));
+
+jest.mock('./useLessonPdfPrint', () => ({
+  useLessonPdfPrint: () => ({
+    isPreparing: mockLessonPdfPreparing,
+    printLessonPdf: mockPrintLessonPdf,
+  }),
 }));
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
@@ -236,7 +246,7 @@ jest.mock(
   './ListenModeSlideRenderer',
   () =>
     function MockListenModeSlideRenderer() {
-      return <div />;
+      return <div data-testid='listen-mode-renderer' />;
     },
 );
 jest.mock(
@@ -253,6 +263,13 @@ jest.mock(
       return <div />;
     },
 );
+jest.mock(
+  './LessonPdfPreparingOverlay',
+  () =>
+    function MockLessonPdfPreparingOverlay() {
+      return <div data-testid='lesson-pdf-preparing-overlay' />;
+    },
+);
 jest.mock('@/components/audio/AudioPlayer', () => ({
   AudioPlayer: function MockAudioPlayer() {
     return <div />;
@@ -261,6 +278,7 @@ jest.mock('@/components/audio/AudioPlayer', () => ({
 
 const renderNewChatComponents = (
   onLessonUpdateNoticeVisibilityChange = jest.fn(),
+  onLessonPdfActionChange = jest.fn(),
 ) => {
   mockUseChatLogicHook.mockReturnValue({
     currentStreamingElementBid: '',
@@ -312,6 +330,7 @@ const renderNewChatComponents = (
         onLessonUpdateNoticeVisibilityChange={
           onLessonUpdateNoticeVisibilityChange
         }
+        onLessonPdfActionChange={onLessonPdfActionChange}
       />
     </AppContext.Provider>,
   );
@@ -335,6 +354,8 @@ describe('NewChatComponents', () => {
     mockLearningMode = 'listen';
     mockLogoHorizontal = '';
     mockLogoWideUrl = '';
+    mockLessonPdfReady = false;
+    mockLessonPdfPreparing = false;
     requestAnimationFrameSpy = jest
       .spyOn(window, 'requestAnimationFrame')
       .mockImplementation(() => 0);
@@ -384,6 +405,38 @@ describe('NewChatComponents', () => {
     expect(
       screen.queryByText('本节课程已更新，建议重修'),
     ).not.toBeInTheDocument();
+  });
+
+  it('exposes the PDF action while a desktop slide mode is active', async () => {
+    mockLessonPdfReady = true;
+    const onLessonPdfActionChange = jest.fn();
+
+    renderNewChatComponents(jest.fn(), onLessonPdfActionChange);
+
+    await waitFor(() => {
+      expect(onLessonPdfActionChange).toHaveBeenLastCalledWith({
+        lessonId: 'lesson-1',
+        isFollowUpStreaming: false,
+        isPreparing: false,
+        onDownload: mockPrintLessonPdf,
+      });
+    });
+    expect(screen.getByTestId('listen-mode-renderer')).toBeInTheDocument();
+  });
+
+  it('keeps the slide renderer mounted while preparing the read-mode print tree', () => {
+    mockLessonPdfReady = true;
+    mockLessonPdfPreparing = true;
+
+    const { container } = renderNewChatComponents();
+
+    expect(screen.getByTestId('listen-mode-renderer')).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-lesson-print-scroll="true"]'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('lesson-pdf-preparing-overlay'),
+    ).toBeInTheDocument();
   });
 
   it('includes the course avatar and configured site brand in the print header', () => {

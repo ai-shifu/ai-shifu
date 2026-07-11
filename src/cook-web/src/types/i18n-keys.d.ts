@@ -760,8 +760,6 @@ export type I18nKey =
   | 'module.chat.lessonPdfPrepareFailed'
   | 'module.chat.lessonPdfPreparing'
   | 'module.chat.lessonPdfPrintHint'
-  | 'module.chat.lessonPdfReadyDescription'
-  | 'module.chat.lessonPdfReadyTitle'
   | 'module.chat.lessonUpdateRecommendRetake'
   | 'module.chat.lessonUpdateRetakeAccessibleLabel'
   | 'module.chat.lessonUpdateRetakeAction'

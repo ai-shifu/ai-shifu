@@ -55,7 +55,6 @@ describe('isLessonPdfContentReady', () => {
     ['main output', { isOutputInProgress: true }],
     ['generation error', { hasGenerationError: true }],
     ['streaming element', { currentStreamingElementBid: 'text-1' }],
-    ['slide mode', { isSlideMode: true }],
   ])('blocks the PDF entry while %s is unsettled', (_label, overrides) => {
     expect(
       isLessonPdfContentReady({
@@ -63,6 +62,17 @@ describe('isLessonPdfContentReady', () => {
         ...overrides,
       }),
     ).toBe(false);
+  });
+
+  it('allows slide modes before the read-mode typewriter has been mounted', () => {
+    expect(
+      isLessonPdfContentReady({
+        ...readyOptions,
+        isSlideMode: true,
+        visibleReadModeItems: [],
+        readModeTypewriterCache: {},
+      }),
+    ).toBe(true);
   });
 
   it('blocks the PDF entry until every read-mode item is visible', () => {

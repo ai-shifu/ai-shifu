@@ -82,7 +82,7 @@ import {
   projectReadModeItems,
 } from './chatUiModeProjection';
 import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
-import LessonPdfDownloadCard from './LessonPdfDownloadCard';
+import type { LessonPdfDownloadAction } from './LessonPdfDownloadButton';
 import {
   isLessonPdfContentReady,
   shouldExcludeLessonPdfInteraction,
@@ -117,6 +117,7 @@ interface NewChatComponentsProps {
   onListenMobileViewModeChange?: ListenMobileViewModeChangeHandler;
   showGenerateBtn?: boolean;
   onLessonUpdateNoticeVisibilityChange?: (visible: boolean) => void;
+  onLessonPdfActionChange?: (action: LessonPdfDownloadAction | null) => void;
 }
 
 const isContentItemWithElementBid = (item: ChatContentItem) =>
@@ -143,6 +144,7 @@ export const NewChatComponents = ({
   onListenMobileViewModeChange,
   showGenerateBtn = false,
   onLessonUpdateNoticeVisibilityChange,
+  onLessonPdfActionChange,
 }: NewChatComponentsProps) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
@@ -185,6 +187,7 @@ export const NewChatComponents = ({
   const { mobileStyle } = useContext(AppContext);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
+  const lessonPrintRootRef = useRef<HTMLDivElement | null>(null);
   const { scrollToLesson } = useChatComponentsScroll({
     chatRef,
     containerStyle: styles.chatComponents,
@@ -651,12 +654,35 @@ export const NewChatComponents = ({
   }, [t]);
   const { isPreparing: isPreparingLessonPdf, printLessonPdf } =
     useLessonPdfPrint({
-      printRootRef: chatRef,
+      printRootRef: isSlideMode ? lessonPrintRootRef : chatRef,
       lessonId: resolvedLessonId,
       courseName,
       lessonTitle,
       onError: handleLessonPdfPrintError,
     });
+  const renderedReadModeItems = isPreparingLessonPdf
+    ? readModeItems
+    : visibleReadModeItems;
+
+  useEffect(() => {
+    onLessonPdfActionChange?.(
+      isLessonPdfReady
+        ? {
+            lessonId: resolvedLessonId,
+            isFollowUpStreaming,
+            isPreparing: isPreparingLessonPdf,
+            onDownload: printLessonPdf,
+          }
+        : null,
+    );
+  }, [
+    isFollowUpStreaming,
+    isLessonPdfReady,
+    isPreparingLessonPdf,
+    onLessonPdfActionChange,
+    printLessonPdf,
+    resolvedLessonId,
+  ]);
 
   useEffect(() => {
     ensureLessonScope(resolvedLessonId);
@@ -1327,11 +1353,16 @@ export const NewChatComponents = ({
             )}
           />
         )
-      ) : (
+      ) : null}
+      {(!isSlideMode || isPreparingLessonPdf) && (
         <div
           data-lesson-print-scroll='true'
-          className={containerClassName}
-          ref={chatRef}
+          className={cn(
+            containerClassName,
+            isSlideMode ? styles.lessonPdfOffscreen : '',
+          )}
+          ref={isSlideMode ? lessonPrintRootRef : chatRef}
+          aria-hidden={isSlideMode ? 'true' : undefined}
           style={{ width: '100%', height: '100%', overflowY: 'auto' }}
         >
           <div>
@@ -1392,7 +1423,7 @@ export const NewChatComponents = ({
               <></>
             ) : (
               <>
-                {visibleReadModeItems.map((item, idx) => {
+                {renderedReadModeItems.map((item, idx) => {
                   const isLongPressed =
                     longPressedBlockBid === item.element_bid;
                   const baseKey = item.element_bid || `${item.type}-${idx}`;
@@ -1435,10 +1466,13 @@ export const NewChatComponents = ({
                       parentContentItem?.audioTracks ?? [],
                     );
                     const canRequestAudio =
-                      !previewMode && Boolean(parentElementBid);
+                      !isPreparingLessonPdf &&
+                      !previewMode &&
+                      Boolean(parentElementBid);
                     const hasAudioForElement =
                       hasAudioContentInTrack(parentPrimaryTrack);
                     const shouldAutoPlayElement =
+                      !isPreparingLessonPdf &&
                       autoPlayTargetBlockBid === parentElementBid;
                     const isInteractionFollowUp =
                       parentContentItem?.type ===
@@ -1478,6 +1512,7 @@ export const NewChatComponents = ({
                           }
                           showGenerateBtn={!mobileStyle && showGenerateBtn}
                           extraActions={
+                            !isPreparingLessonPdf &&
                             !mobileStyle &&
                             shouldShowAudioAction &&
                             (canRequestAudio || hasAudioForElement) ? (
@@ -1599,26 +1634,32 @@ export const NewChatComponents = ({
                         printMode={isPreparingLessonPdf && isCourseInteraction}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}
-                        enableStreamingTypewriter={shouldEnableReadModeTypewriter(
-                          item,
-                          readModeTypewriterCache[item.element_bid || ''],
-                          {
-                            keepAliveWhileStreaming:
-                              isOutputInProgress &&
-                              isTrailingVisibleReadModeItemText &&
-                              readModeTypewriterKeepAliveElementBid ===
-                                item.element_bid &&
-                              trailingVisibleReadModeTextBid ===
-                                item.element_bid,
-                          },
-                        )}
+                        enableStreamingTypewriter={
+                          !isPreparingLessonPdf &&
+                          shouldEnableReadModeTypewriter(
+                            item,
+                            readModeTypewriterCache[item.element_bid || ''],
+                            {
+                              keepAliveWhileStreaming:
+                                isOutputInProgress &&
+                                isTrailingVisibleReadModeItemText &&
+                                readModeTypewriterKeepAliveElementBid ===
+                                  item.element_bid &&
+                                trailingVisibleReadModeTextBid ===
+                                  item.element_bid,
+                            },
+                          )
+                        }
                         onClickCustomButtonAfterContent={handleClickAskButton}
                         onSend={memoizedOnSend}
                         onLongPress={handleLongPress}
                         autoPlayAudio={
+                          !isPreparingLessonPdf &&
                           autoPlayTargetBlockBid === item.element_bid
                         }
-                        showAudioAction={shouldShowAudioAction}
+                        showAudioAction={
+                          !isPreparingLessonPdf && shouldShowAudioAction
+                        }
                         onAudioPlayStateChange={handleAudioPlayStateChange}
                         onAudioEnded={handleAudioEnded}
                         onTypeFinished={handleReadModeTypeFinished}
@@ -1630,7 +1671,7 @@ export const NewChatComponents = ({
                   <div
                     data-lesson-print-exclude='true'
                     style={{
-                      margin: visibleReadModeItems.length
+                      margin: renderedReadModeItems.length
                         ? '16px auto 0'
                         : '0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
@@ -1641,13 +1682,6 @@ export const NewChatComponents = ({
                   >
                     <StreamingLoadingDotsBar />
                   </div>
-                ) : null}
-                {isLessonPdfReady ? (
-                  <LessonPdfDownloadCard
-                    isFollowUpStreaming={isFollowUpStreaming}
-                    isPreparing={isPreparingLessonPdf}
-                    onDownload={printLessonPdf}
-                  />
                 ) : null}
               </>
             )}

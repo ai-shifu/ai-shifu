@@ -47,17 +47,23 @@ export const isLessonPdfContentReady = ({
   readModeItems,
   visibleReadModeItems,
   readModeTypewriterCache,
-}: LessonPdfContentReadyOptions) =>
-  !isSlideMode &&
-  Boolean(courseName.trim()) &&
-  Boolean(lessonTitle.trim()) &&
-  lessonStatus === LESSON_STATUS_VALUE.COMPLETED &&
-  !isLoading &&
-  !isOutputInProgress &&
-  !hasGenerationError &&
-  !currentStreamingElementBid &&
-  hasPrintableLessonBody(readModeItems) &&
-  visibleReadModeItems.length === readModeItems.length &&
-  readModeItems.every(item =>
-    isReadModeTextContentItemReady(item, readModeTypewriterCache),
+}: LessonPdfContentReadyOptions) => {
+  const isReadModePresentationReady =
+    isSlideMode ||
+    (visibleReadModeItems.length === readModeItems.length &&
+      readModeItems.every(item =>
+        isReadModeTextContentItemReady(item, readModeTypewriterCache),
+      ));
+
+  return (
+    Boolean(courseName.trim()) &&
+    Boolean(lessonTitle.trim()) &&
+    lessonStatus === LESSON_STATUS_VALUE.COMPLETED &&
+    !isLoading &&
+    !isOutputInProgress &&
+    !hasGenerationError &&
+    !currentStreamingElementBid &&
+    hasPrintableLessonBody(readModeItems) &&
+    isReadModePresentationReady
   );
+};
