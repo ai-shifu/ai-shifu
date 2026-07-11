@@ -102,6 +102,51 @@ const decodeImage = async (image: HTMLImageElement) => {
   }
 };
 
+const CSS_URL_PATTERN =
+  /url\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|((?:\\.|[^)\\])*))\s*\)/gi;
+
+const extractCssUrlValues = (value: string) =>
+  Array.from(value.matchAll(CSS_URL_PATTERN), match =>
+    (match[1] ?? match[2] ?? match[3] ?? '')
+      .replace(/\\([\\'"()])/g, '$1')
+      .trim(),
+  ).filter(Boolean);
+
+const getAssetRootElements = (root: ParentNode) => [
+  ...(root.nodeType === 1 ? [root as Element] : []),
+  ...Array.from(root.querySelectorAll('*')),
+];
+
+const getBackgroundImageUrls = (roots: ParentNode[]) =>
+  Array.from(
+    new Set(
+      roots.flatMap(root =>
+        getAssetRootElements(root).flatMap(element => {
+          const elementWindow = element.ownerDocument.defaultView;
+          if (!elementWindow) {
+            return [];
+          }
+          try {
+            return extractCssUrlValues(
+              elementWindow.getComputedStyle(element).backgroundImage,
+            ).flatMap(url => {
+              if (url.startsWith('#')) {
+                return [];
+              }
+              try {
+                return [new URL(url, element.ownerDocument.baseURI).href];
+              } catch {
+                return [];
+              }
+            });
+          } catch {
+            return [];
+          }
+        }),
+      ),
+    ),
+  );
+
 const getVideoPosterUrl = (video: HTMLVideoElement) => {
   if (!video.getAttribute('poster')?.trim()) {
     return '';
@@ -186,6 +231,22 @@ const waitForPrintAssets = async (
     waiters.push(waiter);
     return waiter.promise.then(() => decodeImage(image));
   });
+  const backgroundImageReady = getBackgroundImageUrls([
+    root,
+    ...iframeDocuments.map(
+      ({ iframeDocument }) => iframeDocument.documentElement,
+    ),
+    ...extraRoots,
+  ]).map(backgroundImageUrl => {
+    const backgroundImage = new Image();
+    const waiter = createLoadWaiter(backgroundImage);
+    waiters.push(waiter);
+    backgroundImage.src = backgroundImageUrl;
+    if (backgroundImage.complete) {
+      waiter.cancel();
+    }
+    return waiter.promise.then(() => decodeImage(backgroundImage));
+  });
   const videos = Array.from(
     new Set(
       assetRoots.flatMap(assetRoot =>
@@ -263,6 +324,7 @@ const waitForPrintAssets = async (
   const result = await Promise.race([
     Promise.all([
       ...imageReady,
+      ...backgroundImageReady,
       ...videoReady,
       ...stylesheetReady,
       ...iframeReady,

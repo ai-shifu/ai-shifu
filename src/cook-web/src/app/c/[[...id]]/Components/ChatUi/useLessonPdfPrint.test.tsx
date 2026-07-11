@@ -193,6 +193,61 @@ describe('useLessonPdfPrint', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it('waits for CSS background images before printing', async () => {
+    const printRoot = document.createElement('div');
+    const backgroundElement = document.createElement('div');
+    backgroundElement.style.backgroundImage = 'url("/lesson-background.png")';
+    printRoot.appendChild(backgroundElement);
+    const pendingBackgroundImages: HTMLImageElement[] = [];
+    const imageSpy = jest.spyOn(window, 'Image').mockImplementation(() => {
+      const image = document.createElement('img');
+      Object.defineProperty(image, 'complete', {
+        configurable: true,
+        value: false,
+      });
+      Object.defineProperty(image, 'decode', {
+        configurable: true,
+        value: jest.fn(async () => undefined),
+      });
+      pendingBackgroundImages.push(image);
+      return image;
+    });
+    const onError = jest.fn();
+    printSpy.mockImplementation(() => {
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    const { result } = renderHook(() =>
+      useLessonPdfPrint({
+        printRootRef: { current: printRoot },
+        lessonId: 'lesson-1',
+        courseName: 'Course',
+        lessonTitle: 'Lesson',
+        onError,
+      }),
+    );
+    let printPromise!: Promise<void>;
+
+    act(() => {
+      printPromise = result.current.printLessonPdf();
+    });
+    await waitFor(() => expect(pendingBackgroundImages).toHaveLength(1));
+
+    expect(pendingBackgroundImages[0].src).toContain('/lesson-background.png');
+    expect(printSpy).not.toHaveBeenCalled();
+    pendingBackgroundImages[0].dispatchEvent(new Event('load'));
+
+    await waitFor(() => expect(pendingBackgroundImages).toHaveLength(2));
+    expect(printSpy).not.toHaveBeenCalled();
+    pendingBackgroundImages[1].dispatchEvent(new Event('load'));
+    await act(async () => {
+      await printPromise;
+    });
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
+    imageSpy.mockRestore();
+  });
+
   it('waits for source and sandbox stylesheets before freezing iframe snapshots', async () => {
     const printRoot = document.createElement('div');
     const sourceStylesheet = document.createElement('link');
