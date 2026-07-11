@@ -22,7 +22,7 @@ jest.mock('react-i18next', () => {
     'module.chat.lessonUpdateRecommendRetake':
       '本节课程已更新，建议<action>重修</action>',
     'module.chat.lessonFeedbackSubmit': '提交',
-    'module.chat.lessonPdfCourseQrLabel': '扫码访问课程',
+    'module.chat.lessonPdfCourseQrLabel': '扫码进入课程，获得一对一讲解与答疑',
     'module.chat.lessonUpdateRetakeAccessibleLabel': '重修本节课程',
     'module.chat.lessonUpdateRetakeAction': '重修',
     'module.lesson.reset.confirmContent': '重修会清空本节学习数据。确定重修？',
@@ -467,12 +467,17 @@ describe('NewChatComponents', () => {
     const qrCode = footer.querySelector('svg');
 
     expect(footer).toHaveAttribute('data-lesson-print-only', 'true');
-    expect(footer).toHaveTextContent('扫码访问课程');
+    expect(footer).toHaveTextContent('扫码进入课程，获得一对一讲解与答疑');
     expect(link).toHaveAttribute('href', courseUrl);
-    expect(link).toHaveAttribute('aria-label', '扫码访问课程');
+    expect(link).toHaveAttribute(
+      'aria-label',
+      '扫码进入课程，获得一对一讲解与答疑',
+    );
     expect(qrCode).toHaveAttribute('width', '144');
     expect(qrCode).toHaveAttribute('height', '144');
-    expect(qrCode?.querySelector('title')).toHaveTextContent('扫码访问课程');
+    expect(qrCode?.querySelector('title')).toHaveTextContent(
+      '扫码进入课程，获得一对一讲解与答疑',
+    );
     expect(footer.nextElementSibling).toHaveAttribute('id', 'chat-box-bottom');
   });
 
