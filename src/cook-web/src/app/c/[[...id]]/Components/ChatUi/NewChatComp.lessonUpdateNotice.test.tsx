@@ -6,6 +6,13 @@ import { NewChatComponents } from './NewChatComp';
 import LessonUpdateNotice from '../LessonUpdateNotice';
 
 const mockUseChatLogicHook = jest.fn();
+let mockCourseAvatar = '';
+let mockLearningMode = 'listen';
+let mockLogoHorizontal = '';
+let mockLogoWideUrl = '';
+let mockLessonPdfReady = false;
+let mockLessonPdfPreparing = false;
+const mockPrintLessonPdf = jest.fn();
 
 jest.mock('react-i18next', () => {
   const translations: Record<string, string> = {
@@ -15,6 +22,7 @@ jest.mock('react-i18next', () => {
     'module.chat.lessonUpdateRecommendRetake':
       '本节课程已更新，建议<action>重修</action>',
     'module.chat.lessonFeedbackSubmit': '提交',
+    'module.chat.lessonPdfCourseQrLabel': '扫码进入课程，获得一对一讲解与答疑',
     'module.chat.lessonUpdateRetakeAccessibleLabel': '重修本节课程',
     'module.chat.lessonUpdateRetakeAction': '重修',
     'module.lesson.reset.confirmContent': '重修会清空本节学习数据。确定重修？',
@@ -56,6 +64,15 @@ jest.mock('@/c-assets/newchat/light/icon_ask.svg', () => ({
   default: { src: '/ask.svg' },
 }));
 
+jest.mock('@/c-assets/logos/ai-shifu-logo-horizontal.png', () => ({
+  __esModule: true,
+  default: {
+    src: '/ai-shifu-logo-horizontal.png',
+    width: 488,
+    height: 128,
+  },
+}));
+
 jest.mock('@/app/c/[[...id]]/events', () => ({
   stopActiveLessonStream: jest.fn(),
 }));
@@ -86,6 +103,18 @@ jest.mock('./lessonFeedbackPromptState', () => ({
   findLastVisibleLessonFeedbackElementBid: () => '',
 }));
 
+jest.mock('./lessonPdfState', () => ({
+  isLessonPdfContentReady: () => mockLessonPdfReady,
+  shouldExcludeLessonPdfInteraction: () => false,
+}));
+
+jest.mock('./useLessonPdfPrint', () => ({
+  useLessonPdfPrint: () => ({
+    isPreparing: mockLessonPdfPreparing,
+    printLessonPdf: mockPrintLessonPdf,
+  }),
+}));
+
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: jest.fn(),
@@ -102,11 +131,18 @@ jest.mock('@/c-service/Shifu', () => ({
 }));
 
 jest.mock('@/c-store/envStore', () => ({
-  useEnvStore: {
-    getState: () => ({
-      courseId: 'shifu-1',
-    }),
-  },
+  useEnvStore: Object.assign(
+    (selector: (state: any) => unknown) =>
+      selector({
+        logoHorizontal: mockLogoHorizontal,
+        logoWideUrl: mockLogoWideUrl,
+      }),
+    {
+      getState: () => ({
+        courseId: 'shifu-1',
+      }),
+    },
+  ),
 }));
 
 jest.mock('@/store', () => ({
@@ -119,7 +155,7 @@ jest.mock('@/store', () => ({
 jest.mock('@/c-store/useCourseStore', () => ({
   useCourseStore: (selector: (state: any) => unknown) =>
     selector({
-      courseAvatar: '',
+      courseAvatar: mockCourseAvatar,
       courseName: '测试课程',
       courseTtsEnabled: true,
       openPayModal: jest.fn(),
@@ -134,7 +170,7 @@ jest.mock('@/c-store/useCourseStore', () => ({
 jest.mock('@/c-store/useSystemStore', () => ({
   useSystemStore: (selector: (state: any) => unknown) =>
     selector({
-      learningMode: 'listen',
+      learningMode: mockLearningMode,
       updateLearningMode: jest.fn(),
     }),
 }));
@@ -211,7 +247,7 @@ jest.mock(
   './ListenModeSlideRenderer',
   () =>
     function MockListenModeSlideRenderer() {
-      return <div />;
+      return <div data-testid='listen-mode-renderer' />;
     },
 );
 jest.mock(
@@ -228,6 +264,13 @@ jest.mock(
       return <div />;
     },
 );
+jest.mock(
+  './LessonPdfPreparingOverlay',
+  () =>
+    function MockLessonPdfPreparingOverlay() {
+      return <div data-testid='lesson-pdf-preparing-overlay' />;
+    },
+);
 jest.mock('@/components/audio/AudioPlayer', () => ({
   AudioPlayer: function MockAudioPlayer() {
     return <div />;
@@ -236,6 +279,7 @@ jest.mock('@/components/audio/AudioPlayer', () => ({
 
 const renderNewChatComponents = (
   onLessonUpdateNoticeVisibilityChange = jest.fn(),
+  onLessonPdfActionChange = jest.fn(),
 ) => {
   mockUseChatLogicHook.mockReturnValue({
     currentStreamingElementBid: '',
@@ -287,6 +331,7 @@ const renderNewChatComponents = (
         onLessonUpdateNoticeVisibilityChange={
           onLessonUpdateNoticeVisibilityChange
         }
+        onLessonPdfActionChange={onLessonPdfActionChange}
       />
     </AppContext.Provider>,
   );
@@ -301,11 +346,23 @@ const renderTitlebarLessonUpdateNotice = () =>
     />,
   );
 
-describe('NewChatComponents lesson update notice', () => {
+describe('NewChatComponents', () => {
   let requestAnimationFrameSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    Object.assign(window.location, {
+      href: 'http://localhost:3000/c/course-1?lessonid=lesson-1&mode=listen&preview=true#follow-up',
+      pathname: '/c/course-1',
+      search: '?lessonid=lesson-1&mode=listen&preview=true',
+      hash: '#follow-up',
+    });
+    mockCourseAvatar = '';
+    mockLearningMode = 'listen';
+    mockLogoHorizontal = '';
+    mockLogoWideUrl = '';
+    mockLessonPdfReady = false;
+    mockLessonPdfPreparing = false;
     requestAnimationFrameSpy = jest
       .spyOn(window, 'requestAnimationFrame')
       .mockImplementation(() => 0);
@@ -355,5 +412,122 @@ describe('NewChatComponents lesson update notice', () => {
     expect(
       screen.queryByText('本节课程已更新，建议重修'),
     ).not.toBeInTheDocument();
+  });
+
+  it('exposes the PDF action while a desktop slide mode is active', async () => {
+    mockLessonPdfReady = true;
+    const onLessonPdfActionChange = jest.fn();
+
+    renderNewChatComponents(jest.fn(), onLessonPdfActionChange);
+
+    await waitFor(() => {
+      expect(onLessonPdfActionChange).toHaveBeenLastCalledWith({
+        lessonId: 'lesson-1',
+        isFollowUpStreaming: false,
+        isPreparing: false,
+        onDownload: mockPrintLessonPdf,
+      });
+    });
+    expect(screen.getByTestId('listen-mode-renderer')).toBeInTheDocument();
+  });
+
+  it('keeps the slide renderer mounted while preparing the read-mode print tree', async () => {
+    mockLessonPdfReady = true;
+    mockLessonPdfPreparing = true;
+
+    const { container } = renderNewChatComponents();
+
+    expect(screen.getByTestId('listen-mode-renderer')).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-lesson-print-scroll="true"]'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('lesson-pdf-preparing-overlay'),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-lesson-print-course-qr="true"]'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('ends the print tree with a QR code for the course page only', async () => {
+    mockLearningMode = 'read';
+
+    const { container } = renderNewChatComponents();
+    const footer = await waitFor(() => {
+      const element = container.querySelector(
+        '[data-lesson-print-course-qr="true"]',
+      );
+      expect(element).toBeInTheDocument();
+      return element as HTMLElement;
+    });
+    const courseUrl = `${window.location.origin}/c/course-1`;
+    const link = footer.querySelector('a');
+    const qrCode = footer.querySelector('svg');
+
+    expect(footer).toHaveAttribute('data-lesson-print-only', 'true');
+    expect(footer).toHaveTextContent('扫码进入课程，获得一对一讲解与答疑');
+    expect(link).toHaveAttribute('href', courseUrl);
+    expect(link).toHaveAttribute(
+      'aria-label',
+      '扫码进入课程，获得一对一讲解与答疑',
+    );
+    expect(qrCode).toHaveAttribute('width', '144');
+    expect(qrCode).toHaveAttribute('height', '144');
+    expect(qrCode?.querySelector('title')).toHaveTextContent(
+      '扫码进入课程，获得一对一讲解与答疑',
+    );
+    expect(footer.nextElementSibling).toHaveAttribute('id', 'chat-box-bottom');
+  });
+
+  it('includes the course avatar and configured site brand in the print header', () => {
+    mockCourseAvatar = '/course-avatar.png';
+    mockLearningMode = 'read';
+    mockLogoHorizontal = '/runtime-horizontal-logo.png';
+    mockLogoWideUrl = '/configured-wide-logo.png';
+
+    const { container } = renderNewChatComponents();
+
+    const courseAvatar = container.querySelector(
+      '[data-lesson-print-course-avatar="true"]',
+    );
+    const siteLogo = container.querySelector(
+      '[data-lesson-print-site-logo="true"]',
+    );
+    expect(courseAvatar).toHaveAttribute('src', '/course-avatar.png');
+    expect(courseAvatar).toHaveAttribute('loading', 'eager');
+    expect(siteLogo).toHaveAttribute('src', '/configured-wide-logo.png');
+    expect(siteLogo).toHaveAttribute('loading', 'eager');
+    expect(
+      container.querySelector('[data-lesson-print-course-name="true"]'),
+    ).toHaveTextContent('测试课程');
+    expect(
+      container.querySelector('[data-lesson-print-lesson-title="true"]'),
+    ).toHaveTextContent('第一课');
+  });
+
+  it('keeps the configured site brand when the course has no avatar', () => {
+    mockLearningMode = 'read';
+    mockLogoHorizontal = '/runtime-horizontal-logo.png';
+
+    const { container } = renderNewChatComponents();
+
+    expect(
+      container.querySelector('[data-lesson-print-course-avatar="true"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-lesson-print-site-logo="true"]'),
+    ).toHaveAttribute('src', '/runtime-horizontal-logo.png');
+  });
+
+  it('uses the default brand only when the site has no logo configuration', () => {
+    mockLearningMode = 'read';
+
+    const { container } = renderNewChatComponents();
+
+    expect(
+      container.querySelector('[data-lesson-print-site-logo="true"]'),
+    ).toHaveAttribute('src', '/ai-shifu-logo-horizontal.png');
   });
 });

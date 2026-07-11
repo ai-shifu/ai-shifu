@@ -99,6 +99,33 @@ describe('ContentBlock pay interaction overrides', () => {
     );
   });
 
+  it('freezes a course interaction for printing without dropping its answer', () => {
+    render(
+      <ContentBlock
+        item={
+          {
+            type: 'interaction',
+            content: '请选择\n?[继续学习//continue]',
+            element_bid: 'print-block',
+            readonly: false,
+            user_input: 'continue',
+          } as any
+        }
+        printMode={true}
+        mobileStyle={false}
+        blockBid='print-block'
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledWith(
+      expect.objectContaining({
+        readonly: true,
+        userInput: 'continue',
+      }),
+    );
+  });
+
   it('adapts a variable-free ellipsis interaction into a text input', () => {
     const onSend = jest.fn();
     render(
@@ -162,6 +189,31 @@ describe('ContentBlock pay interaction overrides', () => {
         enableTypewriter: true,
         typingSpeed: 30,
       }),
+    );
+  });
+
+  it('disables typewriter while preparing printable content', () => {
+    render(
+      <ContentBlock
+        item={
+          {
+            type: 'content',
+            element_type: 'text',
+            content: '完整打印正文',
+            element_bid: 'print-text',
+            shouldUseTypewriter: true,
+          } as any
+        }
+        printMode={true}
+        mobileStyle={false}
+        blockBid='print-text'
+        enableStreamingTypewriter={true}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledWith(
+      expect.objectContaining({ enableTypewriter: false }),
     );
   });
 
@@ -249,5 +301,148 @@ describe('ContentBlock pay interaction overrides', () => {
         enableTypewriter: false,
       }),
     );
+  });
+
+  it('rerenders when an item changes from content to interaction', () => {
+    const onSend = jest.fn();
+    const baseItem = {
+      type: 'content',
+      content: '?[...你叫什么名字]',
+      element_bid: 'changing-type',
+    } as any;
+    const { rerender } = render(
+      <ContentBlock
+        item={baseItem}
+        mobileStyle={false}
+        blockBid='changing-type'
+        onSend={onSend}
+      />,
+    );
+    const initialCallCount = mockContentRender.mock.calls.length;
+
+    rerender(
+      <ContentBlock
+        item={{ ...baseItem, type: 'interaction' }}
+        mobileStyle={false}
+        blockBid='changing-type'
+        onSend={onSend}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledTimes(initialCallCount + 1);
+    expect(mockContentRender).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        content:
+          '<custom-variable placeholder="你叫什么名字"></custom-variable>',
+      }),
+    );
+  });
+
+  it('rerenders when an item becomes a typewriter candidate', () => {
+    const onSend = jest.fn();
+    const baseItem = {
+      type: 'content',
+      element_type: 'text',
+      content: '流式正文',
+      element_bid: 'changing-typewriter',
+      shouldUseTypewriter: false,
+    } as any;
+    const { rerender } = render(
+      <ContentBlock
+        item={baseItem}
+        mobileStyle={false}
+        blockBid='changing-typewriter'
+        enableStreamingTypewriter={true}
+        onSend={onSend}
+      />,
+    );
+    const initialCallCount = mockContentRender.mock.calls.length;
+
+    rerender(
+      <ContentBlock
+        item={{ ...baseItem, shouldUseTypewriter: true }}
+        mobileStyle={false}
+        blockBid='changing-typewriter'
+        enableStreamingTypewriter={true}
+        onSend={onSend}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledTimes(initialCallCount + 1);
+    expect(mockContentRender).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enableTypewriter: true }),
+    );
+  });
+
+  it('rerenders when an item replaces its custom render bar', () => {
+    const onSend = jest.fn();
+    const firstCustomRenderBar = jest.fn(() => null);
+    const nextCustomRenderBar = jest.fn(() => null);
+    const baseItem = {
+      type: 'content',
+      content: '正文',
+      element_bid: 'changing-render-bar',
+      customRenderBar: firstCustomRenderBar,
+    } as any;
+    const { rerender } = render(
+      <ContentBlock
+        item={baseItem}
+        mobileStyle={false}
+        blockBid='changing-render-bar'
+        onSend={onSend}
+      />,
+    );
+    const initialCallCount = mockContentRender.mock.calls.length;
+
+    rerender(
+      <ContentBlock
+        item={{ ...baseItem, customRenderBar: nextCustomRenderBar }}
+        mobileStyle={false}
+        blockBid='changing-render-bar'
+        onSend={onSend}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledTimes(initialCallCount + 1);
+    expect(mockContentRender).toHaveBeenLastCalledWith(
+      expect.objectContaining({ customRenderBar: nextCustomRenderBar }),
+    );
+  });
+
+  it('rerenders when callback props are replaced', () => {
+    const item = {
+      type: 'content',
+      content: '正文',
+      element_bid: 'changing-callbacks',
+    } as any;
+    let callbackProps: React.ComponentProps<typeof ContentBlock> = {
+      item,
+      mobileStyle: false,
+      blockBid: 'changing-callbacks',
+      onSend: jest.fn(),
+      onClickCustomButtonAfterContent: jest.fn(),
+      onLongPress: jest.fn(),
+      onAudioPlayStateChange: jest.fn(),
+      onAudioEnded: jest.fn(),
+      onTypeFinished: jest.fn(),
+    };
+    const { rerender } = render(<ContentBlock {...callbackProps} />);
+    const callbackUpdates: Array<
+      Partial<React.ComponentProps<typeof ContentBlock>>
+    > = [
+      { onSend: jest.fn() },
+      { onClickCustomButtonAfterContent: jest.fn() },
+      { onLongPress: jest.fn() },
+      { onAudioPlayStateChange: jest.fn() },
+      { onAudioEnded: jest.fn() },
+      { onTypeFinished: jest.fn() },
+    ];
+
+    callbackUpdates.forEach(update => {
+      const previousCallCount = mockContentRender.mock.calls.length;
+      callbackProps = { ...callbackProps, ...update };
+      rerender(<ContentBlock {...callbackProps} />);
+      expect(mockContentRender).toHaveBeenCalledTimes(previousCallCount + 1);
+    });
   });
 });
