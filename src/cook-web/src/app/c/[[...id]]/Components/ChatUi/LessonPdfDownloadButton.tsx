@@ -8,28 +8,37 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-export interface LessonPdfDownloadButtonProps {
+interface LessonPdfDownloadState {
   isFollowUpStreaming: boolean;
   isPreparing: boolean;
+}
+
+export interface LessonPdfDownloadButtonProps extends LessonPdfDownloadState {
+  isContentReady: boolean;
+  onDownload?: () => void;
+}
+
+export interface LessonPdfDownloadAction extends LessonPdfDownloadState {
+  lessonId: string;
   onDownload: () => void;
 }
 
-export interface LessonPdfDownloadAction extends LessonPdfDownloadButtonProps {
-  lessonId: string;
-}
-
 export default function LessonPdfDownloadButton({
+  isContentReady,
   isFollowUpStreaming,
   isPreparing,
   onDownload,
 }: LessonPdfDownloadButtonProps) {
   const { t } = useTranslation();
-  const isDisabled = isFollowUpStreaming || isPreparing;
-  const hint = isFollowUpStreaming
-    ? t('module.chat.lessonPdfFollowUpInProgress')
-    : isPreparing
-      ? t('module.chat.lessonPdfPreparing')
-      : t('module.chat.lessonPdfPrintHint');
+  const isContentAvailable = isContentReady && Boolean(onDownload);
+  const isDisabled = !isContentAvailable || isFollowUpStreaming || isPreparing;
+  const hint = isPreparing
+    ? t('module.chat.lessonPdfPreparing')
+    : !isContentAvailable
+      ? t('module.chat.lessonPdfContentInProgress')
+      : isFollowUpStreaming
+        ? t('module.chat.lessonPdfFollowUpInProgress')
+        : t('module.chat.lessonPdfPrintHint');
   const accessibleLabel = isPreparing
     ? t('module.chat.lessonPdfPreparing')
     : t('module.chat.lessonPdfDownload');

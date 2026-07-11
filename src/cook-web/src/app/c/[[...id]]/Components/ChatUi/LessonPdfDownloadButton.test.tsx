@@ -9,11 +9,39 @@ jest.mock('react-i18next', () => ({
 }));
 
 describe('LessonPdfDownloadButton', () => {
+  it('keeps the action visible while lesson content is still generating', async () => {
+    const onDownload = jest.fn();
+    const user = userEvent.setup();
+    render(
+      <LessonPdfDownloadButton
+        isContentReady={false}
+        isFollowUpStreaming={false}
+        isPreparing={false}
+        onDownload={onDownload}
+      />,
+    );
+
+    const button = screen.getByRole('button', {
+      name: 'module.chat.lessonPdfDownload',
+    });
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(button);
+    expect(onDownload).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await user.hover(button);
+    });
+    expect(
+      await screen.findAllByText('module.chat.lessonPdfContentInProgress'),
+    ).not.toHaveLength(0);
+  });
+
   it('keeps the unavailable action focusable and explains why it is disabled', async () => {
     const onDownload = jest.fn();
     const user = userEvent.setup();
     render(
       <LessonPdfDownloadButton
+        isContentReady={true}
         isFollowUpStreaming={true}
         isPreparing={false}
         onDownload={onDownload}
@@ -43,6 +71,7 @@ describe('LessonPdfDownloadButton', () => {
     const user = userEvent.setup();
     render(
       <LessonPdfDownloadButton
+        isContentReady={true}
         isFollowUpStreaming={false}
         isPreparing={false}
         onDownload={onDownload}
@@ -67,6 +96,7 @@ describe('LessonPdfDownloadButton', () => {
   it('announces the preparing state and prevents duplicate downloads', () => {
     render(
       <LessonPdfDownloadButton
+        isContentReady={true}
         isFollowUpStreaming={false}
         isPreparing={true}
         onDownload={jest.fn()}
