@@ -22,6 +22,7 @@ jest.mock('react-i18next', () => {
     'module.chat.lessonUpdateRecommendRetake':
       '本节课程已更新，建议<action>重修</action>',
     'module.chat.lessonFeedbackSubmit': '提交',
+    'module.chat.lessonPdfCourseQrLabel': '扫码访问课程',
     'module.chat.lessonUpdateRetakeAccessibleLabel': '重修本节课程',
     'module.chat.lessonUpdateRetakeAction': '重修',
     'module.lesson.reset.confirmContent': '重修会清空本节学习数据。确定重修？',
@@ -350,6 +351,12 @@ describe('NewChatComponents', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    Object.assign(window.location, {
+      href: 'http://localhost:3000/c/course-1?lessonid=lesson-1&mode=listen&preview=true#follow-up',
+      pathname: '/c/course-1',
+      search: '?lessonid=lesson-1&mode=listen&preview=true',
+      hash: '#follow-up',
+    });
     mockCourseAvatar = '';
     mockLearningMode = 'listen';
     mockLogoHorizontal = '';
@@ -424,7 +431,7 @@ describe('NewChatComponents', () => {
     expect(screen.getByTestId('listen-mode-renderer')).toBeInTheDocument();
   });
 
-  it('keeps the slide renderer mounted while preparing the read-mode print tree', () => {
+  it('keeps the slide renderer mounted while preparing the read-mode print tree', async () => {
     mockLessonPdfReady = true;
     mockLessonPdfPreparing = true;
 
@@ -437,6 +444,36 @@ describe('NewChatComponents', () => {
     expect(
       screen.getByTestId('lesson-pdf-preparing-overlay'),
     ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-lesson-print-course-qr="true"]'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('ends the print tree with a QR code for the course page only', async () => {
+    mockLearningMode = 'read';
+
+    const { container } = renderNewChatComponents();
+    const footer = await waitFor(() => {
+      const element = container.querySelector(
+        '[data-lesson-print-course-qr="true"]',
+      );
+      expect(element).toBeInTheDocument();
+      return element as HTMLElement;
+    });
+    const courseUrl = `${window.location.origin}/c/course-1`;
+    const link = footer.querySelector('a');
+    const qrCode = footer.querySelector('svg');
+
+    expect(footer).toHaveAttribute('data-lesson-print-only', 'true');
+    expect(footer).toHaveTextContent('扫码访问课程');
+    expect(link).toHaveAttribute('href', courseUrl);
+    expect(link).toHaveAttribute('aria-label', '扫码访问课程');
+    expect(qrCode).toHaveAttribute('width', '144');
+    expect(qrCode).toHaveAttribute('height', '144');
+    expect(qrCode?.querySelector('title')).toHaveTextContent('扫码访问课程');
+    expect(footer.nextElementSibling).toHaveAttribute('id', 'chat-box-bottom');
   });
 
   it('includes the course avatar and configured site brand in the print header', () => {

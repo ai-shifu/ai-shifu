@@ -31,6 +31,21 @@ const toRelativeUrl = (urlObj: URL) => {
   return `${urlObj.pathname}${urlObj.search}${urlObj.hash}`;
 };
 
+export const buildCoursePageUrl = (currentUrl: string) => {
+  try {
+    const url = new URL(currentUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return '';
+    }
+
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+};
+
 export const buildUrlWithQueryParam = (
   url: string,
   key: string,

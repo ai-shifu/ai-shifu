@@ -755,6 +755,7 @@ export type I18nKey =
   | 'module.chat.lessonFeedbackScoreRequired'
   | 'module.chat.lessonFeedbackSubmit'
   | 'module.chat.lessonFeedbackSubmitted'
+  | 'module.chat.lessonPdfCourseQrLabel'
   | 'module.chat.lessonPdfDownload'
   | 'module.chat.lessonPdfFollowUpInProgress'
   | 'module.chat.lessonPdfPrepareFailed'

@@ -332,6 +332,33 @@ body.listen-mode-vh-fallback #root {
     display: block !important;
   }
 
+  html.lesson-pdf-print [data-lesson-print-course-qr='true'] {
+    margin-top: 48px !important;
+    padding-top: 32px !important;
+    border-top: 1px solid #e5e7eb !important;
+    text-align: center;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  html.lesson-pdf-print .lesson-pdf-course-qr-link {
+    display: inline-flex !important;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: #525252 !important;
+    font-size: 13px;
+    line-height: 1.5;
+    text-decoration: none !important;
+  }
+
+  html.lesson-pdf-print .lesson-pdf-course-qr-code {
+    width: 144px !important;
+    height: 144px !important;
+    max-width: none !important;
+    background: #fff !important;
+  }
+
   html.lesson-pdf-print [data-lesson-print-interaction='true'] {
     pointer-events: none !important;
     break-inside: avoid;

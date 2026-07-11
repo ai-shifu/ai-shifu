@@ -3,6 +3,7 @@ import { ChevronsDown, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   useContext,
   useRef,
@@ -89,6 +90,7 @@ import {
 } from './lessonPdfState';
 import { useLessonPdfPrint } from './useLessonPdfPrint';
 import LessonPdfPreparingOverlay from './LessonPdfPreparingOverlay';
+import { buildCoursePageUrl } from '@/c-utils/urlUtils';
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
@@ -150,6 +152,7 @@ export const NewChatComponents = ({
   const { t } = useTranslation();
   const router = useRouter();
   const lessonFeedbackSubmitLabel = t('module.chat.lessonFeedbackSubmit');
+  const lessonPdfCourseQrLabel = t('module.chat.lessonPdfCourseQrLabel');
   const askButtonMarkup = useMemo(
     () =>
       `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
@@ -166,6 +169,10 @@ export const NewChatComponents = ({
   }, [router]);
 
   const { courseId: shifuBid } = useEnvStore.getState();
+  const [lessonPdfCourseUrl, setLessonPdfCourseUrl] = useState('');
+  useEffect(() => {
+    setLessonPdfCourseUrl(buildCoursePageUrl(window.location.href));
+  }, [shifuBid]);
   const { logoHorizontal, logoWideUrl } = useEnvStore(
     useShallow(state => ({
       logoHorizontal: state.logoHorizontal,
@@ -1685,6 +1692,29 @@ export const NewChatComponents = ({
                 ) : null}
               </>
             )}
+            {lessonPdfCourseUrl ? (
+              <footer
+                data-lesson-print-only='true'
+                data-lesson-print-course-qr='true'
+                className='lesson-pdf-course-qr mx-auto max-w-[1000px] px-5'
+              >
+                <a
+                  href={lessonPdfCourseUrl}
+                  aria-label={lessonPdfCourseQrLabel}
+                  className='lesson-pdf-course-qr-link'
+                >
+                  <QRCodeSVG
+                    value={lessonPdfCourseUrl}
+                    size={144}
+                    level='M'
+                    marginSize={4}
+                    title={lessonPdfCourseQrLabel}
+                    className='lesson-pdf-course-qr-code'
+                  />
+                  <span>{lessonPdfCourseQrLabel}</span>
+                </a>
+              </footer>
+            ) : null}
             <div
               data-lesson-print-exclude='true'
               ref={chatBoxBottomRef}
