@@ -285,6 +285,10 @@ describe('useLessonPdfPrint', () => {
     sandboxStylesheet.rel = 'stylesheet';
     sandboxStylesheet.href = '/lesson-sandbox.css';
     sandboxStylesheet.dataset.printStylesheet = 'sandbox';
+    sandboxStylesheet.setAttribute(
+      'onload',
+      "document.documentElement.dataset.lessonPdfEscaped = 'true'",
+    );
     let sandboxStylesheetReady = false;
     Object.defineProperty(sandboxStylesheet, 'sheet', {
       configurable: true,
@@ -359,6 +363,7 @@ describe('useLessonPdfPrint', () => {
     );
 
     expect(printSpy).not.toHaveBeenCalled();
+    expect(snapshotStylesheet).not.toHaveAttribute('onload');
     snapshotStylesheet!.dispatchEvent(new Event('load'));
     await act(async () => {
       await printPromise;
@@ -709,6 +714,153 @@ describe('useLessonPdfPrint', () => {
     expect(sourceLateImage).toHaveAttribute('loading', 'lazy');
     expect(sourceNestedIframe).toHaveAttribute('loading', 'lazy');
 
+    printRoot.remove();
+  });
+
+  it('neutralizes active sandbox markup before attaching a print snapshot', async () => {
+    const printRoot = document.createElement('div');
+    const iframeWrapper = document.createElement('div');
+    iframeWrapper.className = 'content-render-iframe-sandbox';
+    const iframe = document.createElement('iframe');
+    iframe.className = 'content-render-iframe';
+    iframeWrapper.appendChild(iframe);
+    printRoot.appendChild(iframeWrapper);
+    document.body.appendChild(printRoot);
+
+    const iframeDocument = iframe.contentDocument;
+    expect(iframeDocument).toBeTruthy();
+    iframeDocument!.documentElement.setAttribute(
+      'onload',
+      "document.documentElement.dataset.lessonPdfEscaped = 'true'",
+    );
+    iframeDocument!.body.setAttribute(
+      'onload',
+      "document.documentElement.dataset.lessonPdfEscaped = 'true'",
+    );
+    const activeHeadStyle = iframeDocument!.createElement('style');
+    activeHeadStyle.dataset.activeStyle = 'true';
+    activeHeadStyle.setAttribute(
+      'onload',
+      "document.documentElement.dataset.lessonPdfEscaped = 'true'",
+    );
+    activeHeadStyle.textContent = '.sandbox-container { color: #123456; }';
+    iframeDocument!.head.appendChild(activeHeadStyle);
+    iframeDocument!.body.innerHTML += `
+      <div id='root'>
+        <div class='sandbox-wrapper' aria-busy='false'>
+          <img
+            data-active-handler='true'
+            onerror="document.documentElement.dataset.lessonPdfEscaped = 'true'"
+          />
+          <script data-active-script='true'>
+            document.documentElement.dataset.lessonPdfEscaped = 'true';
+          </script>
+          <object data-active-object='true' data='about:blank'></object>
+          <embed data-active-embed='true' src='about:blank' />
+          <meta data-active-refresh='true' http-equiv='refresh' content='0' />
+          <a data-unsafe-link='true' href='javascript:void(0)'>unsafe link</a>
+          <input data-active-focus='true' autofocus />
+          <audio data-active-audio='true' autoplay></audio>
+          <iframe
+            data-active-frame='true'
+            sandbox='allow-scripts allow-same-origin'
+            allow='camera'
+            srcdoc='<p>static nested content</p><script>document.documentElement.dataset.lessonPdfEscaped = "true";</script>'
+          ></iframe>
+        </div>
+      </div>
+    `;
+
+    const onError = jest.fn();
+    printSpy.mockImplementation(() => {
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    const { result } = renderHook(() =>
+      useLessonPdfPrint({
+        printRootRef: { current: printRoot },
+        lessonId: 'lesson-1',
+        courseName: 'Course',
+        lessonTitle: 'Lesson',
+        onError,
+      }),
+    );
+    let printPromise!: Promise<void>;
+
+    act(() => {
+      printPromise = result.current.printLessonPdf();
+    });
+    let snapshotFrame: HTMLIFrameElement | null = null;
+    let snapshotShadowRoot: ShadowRoot | null = null;
+    await waitFor(
+      () => {
+        snapshotShadowRoot =
+          printRoot.querySelector<HTMLElement>(
+            '[data-lesson-print-iframe-snapshot="true"]',
+          )?.shadowRoot ?? null;
+        snapshotFrame =
+          snapshotShadowRoot?.querySelector<HTMLIFrameElement>(
+            '[data-active-frame="true"]',
+          ) ?? null;
+        expect(snapshotFrame).toBeTruthy();
+      },
+      { timeout: 3000 },
+    );
+
+    const snapshotHandlerImage =
+      snapshotShadowRoot!.querySelector<HTMLImageElement>(
+        '[data-active-handler="true"]',
+      );
+    expect(snapshotHandlerImage).not.toHaveAttribute('onerror');
+    expect(snapshotShadowRoot!.querySelector('html')).not.toHaveAttribute(
+      'onload',
+    );
+    expect(snapshotShadowRoot!.querySelector('body')).not.toHaveAttribute(
+      'onload',
+    );
+    expect(
+      snapshotShadowRoot!.querySelector('[data-active-style="true"]'),
+    ).not.toHaveAttribute('onload');
+    expect(
+      snapshotShadowRoot!.querySelector('[data-unsafe-link="true"]'),
+    ).not.toHaveAttribute('href');
+    expect(
+      snapshotShadowRoot!.querySelector('[data-active-focus="true"]'),
+    ).not.toHaveAttribute('autofocus');
+    expect(
+      snapshotShadowRoot!.querySelector('[data-active-audio="true"]'),
+    ).not.toHaveAttribute('autoplay');
+    expect(
+      snapshotShadowRoot!.querySelector('[data-active-script]'),
+    ).toBeNull();
+    expect(
+      snapshotShadowRoot!.querySelector('[data-active-object]'),
+    ).toBeNull();
+    expect(snapshotShadowRoot!.querySelector('[data-active-embed]')).toBeNull();
+    expect(
+      snapshotShadowRoot!.querySelector('[data-active-refresh]'),
+    ).toBeNull();
+    expect(snapshotFrame).toHaveAttribute('sandbox', '');
+    expect(snapshotFrame).not.toHaveAttribute('allow');
+    expect(snapshotFrame?.getAttribute('srcdoc')).toContain(
+      'static nested content',
+    );
+    expect(
+      iframeDocument!.querySelector('[data-active-handler="true"]'),
+    ).toHaveAttribute('onerror');
+    expect(
+      iframeDocument!.querySelector('[data-active-frame="true"]'),
+    ).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin');
+    snapshotHandlerImage!.dispatchEvent(new Event('error'));
+    expect(document.documentElement.dataset.lessonPdfEscaped).toBeUndefined();
+    expect(printSpy).not.toHaveBeenCalled();
+
+    snapshotFrame!.dispatchEvent(new Event('load'));
+    await act(async () => {
+      await printPromise;
+    });
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
     printRoot.remove();
   });
 

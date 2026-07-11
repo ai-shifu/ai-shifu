@@ -26,6 +26,24 @@ const SNAPSHOT_HIDDEN_CONTROL_SELECTOR = [
   '.copy-button',
   '.content-render-custom-button-after-content',
 ].join(',');
+const SNAPSHOT_ACTIVE_ELEMENT_SELECTOR = [
+  'script',
+  'object',
+  'embed',
+  'applet',
+  'portal',
+  'base',
+  'meta[http-equiv="refresh" i]',
+].join(',');
+const SNAPSHOT_URL_ATTRIBUTES = new Set([
+  'action',
+  'data',
+  'formaction',
+  'href',
+  'src',
+  'xlink:href',
+]);
+const UNSAFE_SNAPSHOT_URL_PATTERN = /^\s*(?:javascript|vbscript):/i;
 const ASYNC_PRINT_CONTENT_SELECTOR = [
   '.content-render-mermaid',
   '.content-render-mermaid-inner',
@@ -645,6 +663,35 @@ const copyElementAttributes = (source: Element, target: Element) => {
   });
 };
 
+const neutralizeSnapshotElement = (element: Element) => {
+  Array.from(element.attributes).forEach(attribute => {
+    const attributeName = attribute.name.toLowerCase();
+    if (
+      attributeName.startsWith('on') ||
+      (SNAPSHOT_URL_ATTRIBUTES.has(attributeName) &&
+        UNSAFE_SNAPSHOT_URL_PATTERN.test(attribute.value))
+    ) {
+      element.removeAttribute(attribute.name);
+    }
+  });
+  element.removeAttribute('autofocus');
+  element.removeAttribute('autoplay');
+
+  if (element.tagName.toLowerCase() === 'iframe') {
+    element.setAttribute('sandbox', '');
+    element.removeAttribute('allow');
+  }
+};
+
+const neutralizeSnapshotMarkup = (snapshotRoot: Element) => {
+  [snapshotRoot, ...Array.from(snapshotRoot.querySelectorAll('*'))].forEach(
+    neutralizeSnapshotElement,
+  );
+  snapshotRoot
+    .querySelectorAll(SNAPSHOT_ACTIVE_ELEMENT_SELECTOR)
+    .forEach(element => element.remove());
+};
+
 const trackSnapshotIframeLoads = (snapshotRoot: ParentNode) => {
   snapshotRoot
     .querySelectorAll<HTMLIFrameElement>('iframe[src], iframe[srcdoc]')
@@ -757,11 +804,12 @@ const createIframePrintSnapshots = (
       iframeDocument
         .querySelectorAll('head style, head link[rel="stylesheet"]')
         .forEach(styleElement => {
-          shadowRoot.appendChild(document.importNode(styleElement, true));
+          const snapshotStyleElement = document.importNode(styleElement, true);
+          neutralizeSnapshotMarkup(snapshotStyleElement);
+          shadowRoot.appendChild(snapshotStyleElement);
         });
 
       const snapshotRoot = document.importNode(iframeRoot, true);
-      trackSnapshotIframeLoads(snapshotRoot);
       copySnapshotCanvasBitmaps(iframeRoot, snapshotRoot);
       copySnapshotFormState(iframeRoot, snapshotRoot);
       const snapshotHtml = document.createElement('html');
@@ -781,6 +829,8 @@ const createIframePrintSnapshots = (
         snapshotRoot,
         iframeWindow,
       );
+      neutralizeSnapshotMarkup(snapshotHtml);
+      trackSnapshotIframeLoads(snapshotRoot);
       hideSnapshotOnlyControls(snapshotRoot);
 
       const iframeRect = iframe.getBoundingClientRect();
