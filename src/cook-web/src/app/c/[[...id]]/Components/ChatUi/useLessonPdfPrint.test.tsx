@@ -87,6 +87,112 @@ describe('useLessonPdfPrint', () => {
     expect(result.current.isPreparing).toBe(false);
   });
 
+  it('waits for a video poster before printing without changing its preload policy', async () => {
+    const printRoot = document.createElement('div');
+    const video = document.createElement('video');
+    video.setAttribute('poster', '/lesson-poster.jpg');
+    video.setAttribute('preload', 'none');
+    printRoot.appendChild(video);
+    const posterImages: HTMLImageElement[] = [];
+    let posterReady = false;
+    const imageSpy = jest.spyOn(window, 'Image').mockImplementation(() => {
+      const image = document.createElement('img');
+      Object.defineProperty(image, 'complete', {
+        configurable: true,
+        get: () => posterReady,
+      });
+      Object.defineProperty(image, 'decode', {
+        configurable: true,
+        value: jest.fn(async () => undefined),
+      });
+      posterImages.push(image);
+      return image;
+    });
+    const onError = jest.fn();
+    let preloadDuringPrint = '';
+    printSpy.mockImplementation(() => {
+      preloadDuringPrint = video.getAttribute('preload') || '';
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    const { result } = renderHook(() =>
+      useLessonPdfPrint({
+        printRootRef: { current: printRoot },
+        lessonId: 'lesson-1',
+        courseName: 'Course',
+        lessonTitle: 'Lesson',
+        onError,
+      }),
+    );
+    let printPromise!: Promise<void>;
+
+    act(() => {
+      printPromise = result.current.printLessonPdf();
+    });
+    await waitFor(() => expect(posterImages).toHaveLength(1));
+
+    expect(printSpy).not.toHaveBeenCalled();
+    expect(video).toHaveAttribute('preload', 'none');
+    posterReady = true;
+    posterImages[0].dispatchEvent(new Event('load'));
+    await act(async () => {
+      await printPromise;
+    });
+
+    expect(imageSpy).toHaveBeenCalledTimes(2);
+    expect(posterImages[0].src).toContain('/lesson-poster.jpg');
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(preloadDuringPrint).toBe('none');
+    expect(video).toHaveAttribute('preload', 'none');
+    expect(onError).not.toHaveBeenCalled();
+    imageSpy.mockRestore();
+  });
+
+  it('waits for a video frame and restores its preload policy after printing', async () => {
+    const printRoot = document.createElement('div');
+    const video = document.createElement('video');
+    video.setAttribute('src', '/lesson-video.mp4');
+    video.setAttribute('preload', 'none');
+    let videoReadyState = 0;
+    Object.defineProperty(video, 'readyState', {
+      configurable: true,
+      get: () => videoReadyState,
+    });
+    printRoot.appendChild(video);
+    const onError = jest.fn();
+    let preloadDuringPrint = '';
+    printSpy.mockImplementation(() => {
+      preloadDuringPrint = video.getAttribute('preload') || '';
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    const { result } = renderHook(() =>
+      useLessonPdfPrint({
+        printRootRef: { current: printRoot },
+        lessonId: 'lesson-1',
+        courseName: 'Course',
+        lessonTitle: 'Lesson',
+        onError,
+      }),
+    );
+    let printPromise!: Promise<void>;
+
+    act(() => {
+      printPromise = result.current.printLessonPdf();
+    });
+    await waitFor(() => expect(video).toHaveAttribute('preload', 'auto'));
+
+    expect(printSpy).not.toHaveBeenCalled();
+    videoReadyState = video.HAVE_CURRENT_DATA;
+    video.dispatchEvent(new Event('loadeddata'));
+    await act(async () => {
+      await printPromise;
+    });
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(preloadDuringPrint).toBe('auto');
+    expect(video).toHaveAttribute('preload', 'none');
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it('reports an error and restores preparation state when print is unavailable', async () => {
     const onError = jest.fn();
     const { result } = renderHook(() =>

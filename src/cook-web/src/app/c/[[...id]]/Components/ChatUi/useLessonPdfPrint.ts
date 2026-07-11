@@ -63,12 +63,15 @@ interface LoadWaiter {
   cancel: () => void;
 }
 
-const createLoadWaiter = (element: HTMLElement): LoadWaiter => {
+const createLoadWaiter = (
+  element: HTMLElement,
+  readyEvent = 'load',
+): LoadWaiter => {
   let settled = false;
   let resolvePromise = () => {};
 
   function cleanup() {
-    element.removeEventListener('load', settle);
+    element.removeEventListener(readyEvent, settle);
     element.removeEventListener('error', settle);
   }
   function settle() {
@@ -81,7 +84,7 @@ const createLoadWaiter = (element: HTMLElement): LoadWaiter => {
   }
   const promise = new Promise<void>(resolve => {
     resolvePromise = resolve;
-    element.addEventListener('load', settle, { once: true });
+    element.addEventListener(readyEvent, settle, { once: true });
     element.addEventListener('error', settle, { once: true });
   });
 
@@ -98,6 +101,28 @@ const decodeImage = async (image: HTMLImageElement) => {
     // A failed decode still leaves the browser's broken-image fallback printable.
   }
 };
+
+const getVideoPosterUrl = (video: HTMLVideoElement) => {
+  if (!video.getAttribute('poster')?.trim()) {
+    return '';
+  }
+  return video.poster;
+};
+
+const hasVideoSource = (video: HTMLVideoElement) =>
+  Boolean(
+    video.currentSrc ||
+    video.getAttribute('src')?.trim() ||
+    Array.from(video.querySelectorAll<HTMLSourceElement>('source[src]')).some(
+      source => source.getAttribute('src')?.trim(),
+    ),
+  );
+
+const shouldWaitForVideoFrame = (video: HTMLVideoElement) =>
+  !getVideoPosterUrl(video) &&
+  !video.error &&
+  hasVideoSource(video) &&
+  video.readyState < video.HAVE_CURRENT_DATA;
 
 const shouldWaitForIframe = (iframe: HTMLIFrameElement) => {
   if (pendingSnapshotIframeLoads.has(iframe)) {
@@ -161,6 +186,32 @@ const waitForPrintAssets = async (
     waiters.push(waiter);
     return waiter.promise.then(() => decodeImage(image));
   });
+  const videos = Array.from(
+    new Set(
+      assetRoots.flatMap(assetRoot =>
+        Array.from(assetRoot.querySelectorAll<HTMLVideoElement>('video')),
+      ),
+    ),
+  );
+  const videoReady = videos.flatMap(video => {
+    const posterUrl = getVideoPosterUrl(video);
+    if (posterUrl) {
+      const posterImage = new Image();
+      const waiter = createLoadWaiter(posterImage);
+      waiters.push(waiter);
+      posterImage.src = posterUrl;
+      if (posterImage.complete) {
+        waiter.cancel();
+      }
+      return [waiter.promise.then(() => decodeImage(posterImage))];
+    }
+    if (!shouldWaitForVideoFrame(video)) {
+      return [];
+    }
+    const waiter = createLoadWaiter(video, 'loadeddata');
+    waiters.push(waiter);
+    return [waiter.promise];
+  });
   const stylesheetReady = extraRoots
     .flatMap(extraRoot =>
       Array.from(
@@ -193,7 +244,12 @@ const waitForPrintAssets = async (
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   let handleAbort = () => {};
   const result = await Promise.race([
-    Promise.all([...imageReady, ...stylesheetReady, ...iframeReady])
+    Promise.all([
+      ...imageReady,
+      ...videoReady,
+      ...stylesheetReady,
+      ...iframeReady,
+    ])
       .then(() =>
         Promise.all(
           fontDocuments.map(assetDocument =>
@@ -387,6 +443,23 @@ const preparePrintAssets = (
     element.setAttribute('loading', 'eager');
   });
 
+  const videoStates = Array.from(
+    new Set(
+      assetRoots.flatMap(assetRoot =>
+        Array.from(assetRoot.querySelectorAll<HTMLVideoElement>('video')),
+      ),
+    ),
+  )
+    .filter(shouldWaitForVideoFrame)
+    .map(video => ({
+      video,
+      preload: video.getAttribute('preload'),
+    }));
+
+  videoStates.forEach(({ video }) => {
+    video.setAttribute('preload', 'auto');
+  });
+
   return () => {
     elementStates.forEach(({ element, loading }) => {
       if (loading === null) {
@@ -394,6 +467,13 @@ const preparePrintAssets = (
         return;
       }
       element.setAttribute('loading', loading);
+    });
+    videoStates.forEach(({ video, preload }) => {
+      if (preload === null) {
+        video.removeAttribute('preload');
+        return;
+      }
+      video.setAttribute('preload', preload);
     });
   };
 };
