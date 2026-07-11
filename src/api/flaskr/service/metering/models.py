@@ -15,7 +15,6 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
 from flaskr.util.datetime import now_utc
 
 from flaskr.dao import db
@@ -266,7 +265,6 @@ class BillUsageRecord(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         comment="Creation timestamp",
     )
 
@@ -274,7 +272,6 @@ class BillUsageRecord(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         onupdate=now_utc,
         comment="Last update timestamp",
     )

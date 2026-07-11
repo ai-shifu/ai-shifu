@@ -5,7 +5,7 @@ import threading
 import time
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -108,6 +108,8 @@ from flaskr.service.learn.context_v2 import (
     BlockType as PreviewBlockType,
     MdflowContextV2,
     PaidException,
+    _find_outline_path_or_raise,
+    _resolve_runtime_output_language,
     RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
@@ -170,6 +172,56 @@ class _FakeLangfuseTrace:
 
 _HAS_COLLECT_ASYNC = hasattr(RunScriptContextV2, "_collect_async_generator")
 _HAS_RUN_ASYNC = hasattr(RunScriptContextV2, "_run_async_in_safe_context")
+
+
+class OutlinePathGuardTests(unittest.TestCase):
+    def test_get_next_outline_item_ignores_missing_current_outline_item(self):
+        ctx = _make_context()
+        ctx._struct = HistoryItem(bid="shifu-bid", id=1, type="shifu", children=[])
+        ctx._current_outline_item = None
+        ctx._current_attend = types.SimpleNamespace(
+            block_position=0,
+            status=LEARN_STATUS_IN_PROGRESS,
+        )
+        ctx._outline_model = types.SimpleNamespace(
+            outline_item_bid=MagicMock(),
+            hidden=MagicMock(),
+            title=MagicMock(),
+            deleted=MagicMock(),
+        )
+        query = MagicMock()
+        query.filter.return_value.all.return_value = []
+
+        with patch.object(context_v2_module.db.session, "query", return_value=query):
+            result = ctx._get_next_outline_item()
+
+        self.assertEqual(result, [])
+
+    def test_find_outline_path_returns_path_when_outline_exists(self):
+        root = HistoryItem(
+            bid="shifu-bid",
+            id=1,
+            type="shifu",
+            children=[
+                HistoryItem(bid="outline-bid", id=2, type="outline", children=[])
+            ],
+        )
+
+        path = _find_outline_path_or_raise(root, "outline-bid")
+
+        self.assertEqual([item.bid for item in path], ["shifu-bid", "outline-bid"])
+
+    def test_find_outline_path_raises_app_error_when_outline_missing(self):
+        root = HistoryItem(bid="shifu-bid", id=1, type="shifu", children=[])
+
+        with patch(
+            "flaskr.service.learn.context_v2.raise_error",
+            side_effect=RuntimeError("lesson missing"),
+        ) as raise_error_mock:
+            with self.assertRaises(RuntimeError):
+                _find_outline_path_or_raise(root, "missing-outline")
+
+        raise_error_mock.assert_called_once_with("server.shifu.lessonNotFoundInCourse")
 
 
 @unittest.skipIf(
@@ -1109,6 +1161,60 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
         self.assertFalse(context._mdflow.visual_mode)
 
+    def test_init_uses_explicit_output_language_when_enabled(self):
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.output_language = None
+
+            def set_output_language(self, language):
+                self.output_language = language
+                return self
+
+        with (
+            patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow),
+            patch(
+                "flaskr.service.learn.context_v2.get_markdownflow_output_language",
+                return_value="English",
+            ),
+        ):
+            context = MdflowContextV2(
+                document="doc",
+                use_learner_language=True,
+                output_language="zh-CN",
+            )
+
+        self.assertEqual(context._mdflow.output_language, "简体中文")
+
+    def test_filter_context_removes_stale_english_output_instruction(self):
+        context = [
+            {
+                "role": "user",
+                "content": "<output_language_instruction>\nOUTPUT: 100% English\n</output_language_instruction>",
+            },
+            {"role": "assistant", "content": "English answer"},
+            {"role": "user", "content": "中文问题"},
+        ]
+
+        filtered = MdflowContextV2.filter_context_by_output_language(
+            context,
+            "zh-CN",
+        )
+
+        self.assertEqual(filtered, context[1:])
+
+
+class RuntimeOutputLanguageTests(unittest.TestCase):
+    def test_runtime_language_overrides_stale_profile_language(self):
+        with patch(
+            "flaskr.service.learn.context_v2.get_current_language",
+            return_value="zh-CN",
+        ):
+            output_language = _resolve_runtime_output_language(
+                {"sys_user_language": "en-US", "language": "en-US"}
+            )
+
+        self.assertEqual(output_language, "zh-CN")
+
 
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
     def test_falls_back_to_allowlist_when_persisted_model_not_allowed(self):
@@ -1148,30 +1254,92 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
 
 
 class PreviewResolveVariablesTests(unittest.TestCase):
-    def test_does_not_inject_sys_user_language_when_missing(self):
+    def test_injects_request_language_when_missing(self):
         app = Flask("preview-variables")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(block_index=0)
 
-        with patch("flaskr.service.learn.context_v2.get_user_profiles") as mock_fetch:
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.get_user_profiles",
+                return_value={"sys_user_nickname": "017"},
+            ) as mock_fetch,
+            patch(
+                "flaskr.service.learn.context_v2.get_current_language",
+                return_value="zh-CN",
+            ),
+        ):
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
                 user_bid="user-1",
                 shifu_bid="shifu-1",
             )
 
-        self.assertIsNone(variables.get("sys_user_language"))
-        mock_fetch.assert_not_called()
+        self.assertEqual(variables.get("sys_user_language"), "zh-CN")
+        self.assertEqual(variables.get("language"), "zh-CN")
+        self.assertEqual(variables.get("sys_user_nickname"), "017")
+        mock_fetch.assert_called_once_with(app, "user-1", "shifu-1")
+
+    def test_empty_sys_user_language_uses_request_language(self):
+        app = Flask("preview-variables-empty-language")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            variables={"sys_user_language": "", "language": ""},
+        )
+
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.get_user_profiles",
+                return_value={"sys_user_language": "en-US", "language": "en-US"},
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.get_current_language",
+                return_value="zh-CN",
+            ),
+        ):
+            variables = preview_ctx._resolve_preview_variables(
+                preview_request=preview_request,
+                user_bid="user-1",
+                shifu_bid="shifu-1",
+            )
+
+        self.assertEqual(variables.get("sys_user_language"), "zh-CN")
+        self.assertEqual(variables.get("language"), "zh-CN")
+
+    def test_request_language_overrides_stale_profile_language(self):
+        app = Flask("preview-variables-request-language")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            variables={"sys_user_language": "en-US", "language": "zh-CN"},
+        )
+
+        with patch(
+            "flaskr.service.learn.context_v2.get_user_profiles",
+            return_value={"sys_user_language": "en-US", "language": "en-US"},
+        ):
+            variables = preview_ctx._resolve_preview_variables(
+                preview_request=preview_request,
+                user_bid="user-1",
+                shifu_bid="shifu-1",
+            )
+
+        self.assertEqual(variables.get("sys_user_language"), "zh-CN")
+        self.assertEqual(variables.get("language"), "zh-CN")
 
     def test_keeps_existing_sys_user_language(self):
         app = Flask("preview-variables-existing")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
             block_index=0,
-            variables={"sys_user_language": "fr-FR"},
+            variables={"sys_user_language": "fr-FR", "language": "fr-FR"},
         )
 
-        with patch("flaskr.service.learn.context_v2.get_user_profiles") as mock_fetch:
+        with patch(
+            "flaskr.service.learn.context_v2.get_user_profiles",
+            return_value={"sys_user_nickname": "017"},
+        ) as mock_fetch:
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
                 user_bid="user-1",
@@ -1179,7 +1347,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
             )
 
         self.assertEqual(variables.get("sys_user_language"), "fr-FR")
-        mock_fetch.assert_not_called()
+        self.assertEqual(variables.get("language"), "fr-FR")
+        mock_fetch.assert_called_once_with(app, "user-1", "shifu-1")
 
 
 class PreviewRunLlmLoggingTests(unittest.TestCase):
@@ -1388,6 +1557,10 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
             @staticmethod
             def normalize_context_messages(_value):
                 return None
+
+            @staticmethod
+            def filter_context_by_output_language(context, _output_language):
+                return context
 
             def get_block(self, _block_index):
                 return types.SimpleNamespace(
@@ -1990,6 +2163,91 @@ class BuildContextFromBlocksTests(unittest.TestCase):
                 prev == "user" and cur == "user",
                 f"adjacent user messages in {roles}",
             )
+
+
+class BuildContextNoVariableInteractionTests(unittest.TestCase):
+    """No-variable interactions carry a real learner answer, but markdown-flow
+    has no variable to recover it from and would collapse the turn into
+    {user: "ok"} + {assistant: "ok"}, dropping the answer.
+    build_context_from_blocks must reuse the value captured in
+    generated_content, and skip the turn entirely when it is empty."""
+
+    DOC = (
+        "Content one.\n"
+        "---\n"
+        "?[网络招聘网站 | 猎头公司 | 人才测评 | 培训业务]\n"
+        "---\n"
+        "Second content."
+    )
+
+    def _blocks(self, selection):
+        return [
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                position=0,
+                generated_content="reply zero",
+            ),
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                position=1,
+                generated_content=selection,
+            ),
+        ]
+
+    def test_selection_reused_instead_of_collapsing_to_ok(self):
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks("猎头公司"), self.DOC, {}
+            )
+
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "Content one."},
+                {"role": "assistant", "content": "reply zero"},
+                {"role": "user", "content": "猎头公司"},
+                {"role": "assistant", "content": "ok"},
+            ],
+        )
+        # No raw ?[...] leaks and the user turn is the real choice, not "ok".
+        self.assertTrue(all("?[" not in m["content"] for m in messages))
+
+    def test_empty_selection_skips_the_interaction_turn(self):
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks("   "), self.DOC, {}
+            )
+
+        # Only the content block survives; the empty interaction contributes
+        # nothing rather than a fabricated {user: "ok"} pair.
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "Content one."},
+                {"role": "assistant", "content": "reply zero"},
+            ],
+        )
+
+    def test_variable_free_text_input_reuses_the_learner_answer(self):
+        document = "Content one.\n---\n?[...What is your name?]\n---\nSecond content."
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks("Alice"), document, {}
+            )
+
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "Content one."},
+                {"role": "assistant", "content": "reply zero"},
+                {"role": "user", "content": "Alice"},
+                {"role": "assistant", "content": "ok"},
+            ],
+        )
+        self.assertTrue(all("?[" not in message["content"] for message in messages))
 
 
 if __name__ == "__main__":

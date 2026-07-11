@@ -39,10 +39,15 @@ def acquire_tts_rpm_slot(
     api_key: str,
     rpm_limit: int | float,
     max_wait_seconds: int | float,
+    model: str = "",
     now_fn: Callable[[], float] = time.time,
     sleep_fn: Callable[[float], None] = time.sleep,
 ) -> TTSRpmGateResult:
-    """Reserve one smoothed RPM slot for a provider/API-key pair.
+    """Reserve one smoothed RPM slot for a provider/API-key/model tuple.
+
+    Provider RPM quotas are per-model (e.g. MiniMax turbo vs hd tiers), so the
+    queue is scoped by model as well as provider/API key: each model smooths
+    against its own limit instead of sharing a single global queue.
 
     The Redis path coordinates all workers. When Redis is not configured or is
     unreachable, the local process path still protects a single worker so the
@@ -56,7 +61,7 @@ def acquire_tts_rpm_slot(
 
     wait_cap = max(float(max_wait_seconds or 0), 0.0)
     interval = 60.0 / limit
-    scope_key = _scope_key(provider=provider, api_key=api_key)
+    scope_key = _model_scope_key(provider=provider, api_key=api_key, model=model)
     start = now_fn()
     deadline = start + wait_cap
 
@@ -167,6 +172,17 @@ def _scope_key(*, provider: str, api_key: str) -> str:
     normalized_provider = (provider or "default").strip().lower() or "default"
     key_hash = hashlib.sha256((api_key or "").encode("utf-8")).hexdigest()[:24]
     return f"{normalized_provider}:{key_hash}"
+
+
+def _model_scope_key(*, provider: str, api_key: str, model: str) -> str:
+    # Extend the provider/api-key scope with the model so each model smooths
+    # against its own queue. Kept separate from _scope_key so that function
+    # stays byte-identical to its original single-scope form.
+    base = _scope_key(provider=provider, api_key=api_key)
+    normalized_model = (model or "").strip().lower()
+    if normalized_model:
+        return f"{base}:{normalized_model}"
+    return base
 
 
 def _parse_timestamp(

@@ -83,7 +83,7 @@ export function CreditNotificationDryRunPanel({
       ) : null}
       {dryRunResult ? (
         <details className='rounded-md border border-border bg-white p-3 text-xs text-muted-foreground'>
-          <summary className='cursor-pointer text-foreground'>
+          <summary className='text-foreground'>
             {t('module.operationsCreditNotifications.dryRun.rawResult')}
           </summary>
           <pre className='mt-3 max-h-[220px] overflow-auto rounded-md bg-muted p-3'>

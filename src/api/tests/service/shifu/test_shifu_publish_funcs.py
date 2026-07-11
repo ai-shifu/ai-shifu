@@ -163,6 +163,55 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch):
     assert trace.updated["output"] == "summary result"
 
 
+def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
+    from unittest.mock import MagicMock
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
+
+    def _raise_shutdown(*_a, **_k):
+        raise RuntimeError(
+            "litellm.MidStreamFallbackError: APIConnectionError: OpenAIException - "
+            "cannot schedule new futures after shutdown"
+        )
+
+    monkeypatch.setattr(module, "get_shifu_summary", _raise_shutdown)
+
+    app = Flask("shifu-summary-shutdown")
+    warning_mock = MagicMock()
+    error_mock = MagicMock()
+    monkeypatch.setattr(app.logger, "warning", warning_mock)
+    monkeypatch.setattr(app.logger, "error", error_mock)
+
+    module._run_summary_with_error_handling(app, "shifu-1")
+
+    warning_mock.assert_called_once()
+    error_mock.assert_not_called()
+
+
+def test_run_summary_logs_error_for_other_failures(monkeypatch):
+    from unittest.mock import MagicMock
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
+
+    def _raise_other(*_a, **_k):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(module, "get_shifu_summary", _raise_other)
+
+    app = Flask("shifu-summary-error")
+    warning_mock = MagicMock()
+    error_mock = MagicMock()
+    monkeypatch.setattr(app.logger, "warning", warning_mock)
+    monkeypatch.setattr(app.logger, "error", error_mock)
+
+    module._run_summary_with_error_handling(app, "shifu-1")
+
+    error_mock.assert_called_once()
+    warning_mock.assert_not_called()
+
+
 def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
     from flaskr.service.shifu import shifu_publish_funcs as module
 

@@ -11,6 +11,16 @@ jest.mock('markdown-flow-ui/renderer', () => ({
   },
 }));
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: {
+      language: 'zh-CN',
+      resolvedLanguage: 'zh-CN',
+    },
+  }),
+}));
+
 jest.mock('react-use', () => ({
   useLongPress: () => ({}),
 }));
@@ -28,6 +38,7 @@ jest.mock('@/c-utils/system-interaction', () => ({
   isPaySystemInteractionContent: jest.fn((content?: string) =>
     Boolean(content?.includes('_sys_pay')),
   ),
+  localizeSystemInteractionContent: (content: string) => content,
 }));
 
 describe('ContentBlock pay interaction overrides', () => {
@@ -55,6 +66,7 @@ describe('ContentBlock pay interaction overrides', () => {
 
     expect(mockContentRender).toHaveBeenCalledWith(
       expect.objectContaining({
+        locale: 'zh-CN',
         readonly: false,
         userInput: '',
       }),
@@ -84,6 +96,45 @@ describe('ContentBlock pay interaction overrides', () => {
         readonly: true,
         userInput: 'continue',
       }),
+    );
+  });
+
+  it('adapts a variable-free ellipsis interaction into a text input', () => {
+    const onSend = jest.fn();
+    render(
+      <ContentBlock
+        item={
+          {
+            type: 'interaction',
+            content: '?[...你叫什么名字]',
+            element_bid: 'anonymous-input',
+            readonly: false,
+            user_input: '小明',
+          } as any
+        }
+        mobileStyle={false}
+        blockBid='anonymous-input'
+        onSend={onSend}
+      />,
+    );
+
+    const contentRenderProps = mockContentRender.mock.calls[0]?.[0];
+    expect(contentRenderProps).toEqual(
+      expect.objectContaining({
+        content:
+          '<custom-variable placeholder="你叫什么名字"></custom-variable>',
+        userInput: '小明',
+      }),
+    );
+
+    const onContentRenderSend = contentRenderProps?.onSend as
+      | ((content: Record<string, unknown>) => void)
+      | undefined;
+    onContentRenderSend?.({ variableName: '', inputText: '小红' });
+
+    expect(onSend).toHaveBeenCalledWith(
+      { variableName: '', inputText: '小红' },
+      'anonymous-input',
     );
   });
 

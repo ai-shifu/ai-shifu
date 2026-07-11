@@ -6,6 +6,8 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 from datetime import datetime
+
+from flaskr.util.datetime import now_utc
 from typing import Any, Dict, Sequence
 from flask import Flask, current_app
 from flaskr.common.cache_provider import cache as redis
@@ -372,7 +374,7 @@ def _update_course_creator_bid(
     published_values = {PublishedShifu.created_user_bid: creator_user_bid}
     normalized_updated_user_bid = str(updated_user_bid or "").strip()
     if normalized_updated_user_bid:
-        updated_at = datetime.now()
+        updated_at = now_utc()
         draft_values[DraftShifu.updated_user_bid] = normalized_updated_user_bid
         draft_values[DraftShifu.updated_at] = updated_at
         published_values[PublishedShifu.updated_user_bid] = normalized_updated_user_bid
@@ -483,7 +485,7 @@ def copy_operator_course(
             raise_error("server.shifu.copyCourseDemoNotAllowed")
 
         action_user_bid = normalized_operator_user_bid
-        now = datetime.now()
+        now = now_utc()
         new_shifu_bid = generate_id(app)
         resolved_new_course_name = _resolve_course_copy_title(
             source_draft.title,

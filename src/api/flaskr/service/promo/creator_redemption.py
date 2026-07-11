@@ -54,7 +54,7 @@ def list_creator_course_redemption_coupons(
             total=0,
             active=0,
             usage_count=0,
-            latest_usage_at="",
+            latest_usage_at=None,
             covered_courses=0,
             discount_amount="0",
         )

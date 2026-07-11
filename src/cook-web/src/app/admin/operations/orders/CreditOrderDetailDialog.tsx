@@ -409,7 +409,7 @@ export default function CreditOrderDetailDialog({
 
               {metadata ? (
                 <details className='rounded-xl border border-border bg-white p-4'>
-                  <summary className='cursor-pointer text-sm font-semibold text-foreground'>
+                  <summary className='text-sm font-semibold text-foreground'>
                     {tOperationsOrder('creditOrders.detail.sections.metadata')}
                   </summary>
                   <pre className='mt-3 overflow-x-auto rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700'>

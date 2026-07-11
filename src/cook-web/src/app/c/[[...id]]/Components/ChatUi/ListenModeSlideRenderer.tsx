@@ -22,8 +22,12 @@ import {
 } from '@/components/ui/Popover';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
+import { adaptMarkdownFlowInteractionForRender } from '@/c-utils/markdown-flow-interaction';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
-import { isSystemInteractionContent } from '@/c-utils/system-interaction';
+import {
+  isSystemInteractionContent,
+  localizeSystemInteractionContent,
+} from '@/c-utils/system-interaction';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
@@ -67,6 +71,7 @@ import {
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
 import { requestClassroomBrowserFullscreen } from '../learningModeUrl';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -76,23 +81,6 @@ type ListenSlideElement = SlideElement & {
   ask_list?: AskMessage[];
   subtitle_cues?: ElementSubtitleCue[];
 };
-
-type ListenSlideBufferingText =
-  | string
-  | {
-      waitingForAudio?: string;
-      loadingAudio?: string;
-      waitingForMoreAudio?: string;
-    };
-
-type ListenSlideProps = Omit<
-  React.ComponentProps<typeof Slide>,
-  'bufferingText'
-> & {
-  bufferingText?: ListenSlideBufferingText;
-};
-
-const ListenSlide = Slide as React.ComponentType<ListenSlideProps>;
 
 const CLASSROOM_PAGE_SHORTCUT_KEY_MAP: Record<
   string,
@@ -197,7 +185,7 @@ interface ListenSlidePresentationProfile {
   showLeadingTextPlaceholder: boolean;
   trackBrowserFullscreen: boolean;
   enablePageShortcutBridge: boolean;
-  showPlayerCustomActions: boolean;
+  enableCustomActions: boolean;
   pausePlayerCustomActionOnActive: boolean;
   showMobileAskEntry: boolean;
   showAskOverlays: boolean;
@@ -217,7 +205,7 @@ const LISTEN_SLIDE_PRESENTATION_PROFILES: Record<
     showLeadingTextPlaceholder: true,
     trackBrowserFullscreen: false,
     enablePageShortcutBridge: false,
-    showPlayerCustomActions: true,
+    enableCustomActions: true,
     pausePlayerCustomActionOnActive: true,
     showMobileAskEntry: true,
     showAskOverlays: true,
@@ -229,7 +217,7 @@ const LISTEN_SLIDE_PRESENTATION_PROFILES: Record<
     showLeadingTextPlaceholder: false,
     trackBrowserFullscreen: true,
     enablePageShortcutBridge: true,
-    showPlayerCustomActions: false,
+    enableCustomActions: false,
     pausePlayerCustomActionOnActive: false,
     showMobileAskEntry: false,
     showAskOverlays: false,
@@ -532,6 +520,7 @@ const buildSlideElementList = ({
   includeAudio,
   showLeadingTextPlaceholder,
   resolveRenderSequence,
+  localizeSystemContent,
 }: {
   items: ChatContentItem[];
   askListByAnchorElementBid: Map<string, AskMessage[]>;
@@ -543,6 +532,7 @@ const buildSlideElementList = ({
   includeAudio: boolean;
   showLeadingTextPlaceholder: boolean;
   resolveRenderSequence: ResolveRenderSequence;
+  localizeSystemContent: (content: string) => string;
 }) => {
   let pageCursor = 0;
   let sequenceNumber = 0;
@@ -616,6 +606,7 @@ const buildSlideElementList = ({
     const askList = askListByAnchorElementBid.get(item.element_bid);
 
     sequenceNumber += 1;
+    const localizedContent = localizeSystemContent(item.content || '');
     elementList.push({
       sequence_number: resolveRenderSequence({
         item,
@@ -623,7 +614,7 @@ const buildSlideElementList = ({
         fallbackSequence: sequenceNumber,
       }),
       type: 'interaction',
-      content: item.content || '',
+      content: adaptMarkdownFlowInteractionForRender(localizedContent),
       is_marker: item.is_marker ?? true,
       is_renderable: item.is_renderable ?? true,
       is_new: item.is_new ?? true,
@@ -673,14 +664,17 @@ const ListenModeSlideRenderer = ({
   onLessonFeedbackPromptStateChange,
   onMobileViewModeChange,
 }: ListenModeSlideRendererProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const markdownFlowLocale = resolveMarkdownFlowLocale(
+    i18n.resolvedLanguage ?? i18n.language,
+  );
   const presentationProfile = resolveListenSlidePresentationProfile(variant);
   const {
     includeAudio,
     showLeadingTextPlaceholder,
     trackBrowserFullscreen,
     enablePageShortcutBridge,
-    showPlayerCustomActions,
+    enableCustomActions,
     pausePlayerCustomActionOnActive,
     showMobileAskEntry,
     showAskOverlays,
@@ -882,6 +876,8 @@ const ListenModeSlideRenderer = ({
       includeAudio,
       showLeadingTextPlaceholder,
       resolveRenderSequence,
+      localizeSystemContent: content =>
+        localizeSystemInteractionContent(content, t),
     });
 
     for (const streamKey of Array.from(sequenceMap.keys())) {
@@ -902,6 +898,7 @@ const ListenModeSlideRenderer = ({
     sectionTitle,
     sectionPlaceholderTips,
     showLeadingTextPlaceholder,
+    t,
   ]);
   const markerStepCount = useMemo(
     () => elementList.filter(element => Boolean(element.is_marker)).length,
@@ -1716,18 +1713,6 @@ const ListenModeSlideRenderer = ({
   const shouldRenderMobileAskEntry =
     showMobileAskEntry && mobileStyle && !shouldRenderEmptyPpt;
   const isMobileFullscreen = mobileViewMode === 'fullscreen';
-  const playerTexts = useMemo(
-    () => ({
-      settingsTitle: t('module.chat.listenPlayerSettingsTitle'),
-      subtitleLabel: t('module.chat.listenPlayerSubtitleLabel'),
-      subtitleToggleAriaLabel: t('module.chat.listenPlayerSubtitleToggle'),
-      screenLabel: t('module.chat.listenPlayerScreenLabel'),
-      nonFullscreenLabel: t('module.chat.listenPlayerPortraitLabel'),
-      fullscreenLabel: t('module.chat.listenPlayerLandscapeLabel'),
-      fullscreenHintText: t('module.chat.listenPlayerFullscreenHint'),
-    }),
-    [t],
-  );
   const fullscreenHeaderContent = useMemo(() => {
     if (!courseName && !sectionTitle) {
       return null;
@@ -1761,9 +1746,8 @@ const ListenModeSlideRenderer = ({
   const fullscreenHeader = useMemo(
     () => ({
       content: fullscreenHeaderContent,
-      backAriaLabel: t('module.chat.listenPlayerBack'),
     }),
-    [fullscreenHeaderContent, t],
+    [fullscreenHeaderContent],
   );
   const handleMobileViewModeChange = useCallback((viewMode: MobileViewMode) => {
     setMobileViewMode(viewMode);
@@ -1961,27 +1945,18 @@ const ListenModeSlideRenderer = ({
             ? createPortal(desktopAskOverlay, fullscreenPortalContainer)
             : desktopAskOverlay
           : null}
-        <ListenSlide
-          // playerAlwaysVisible={true}
+        <Slide
           className={cn(
             'h-full w-full listen-slide-root',
             isMobileFullscreen && 'listen-slide-root--landscape',
           )}
+          locale={markdownFlowLocale}
           elementList={elementList}
           interactionTexts={{
             title: t('module.chat.listenInteractionHint'),
-            confirmButtonText: t('module.renderUi.core.confirm'),
-            copyButtonText: t('module.renderUi.core.copyCode'),
-            copiedButtonText: t('module.renderUi.core.copied'),
           }}
           bufferingText={{
-            waitingForAudio: t(
-              'module.chat.slideAudioBufferingWaitingForAudio',
-            ),
-            loadingAudio: t('module.chat.slideAudioBufferingLoadingAudio'),
-            waitingForMoreAudio: t(
-              'module.chat.slideAudioBufferingWaitingForMoreAudio',
-            ),
+            waitingForAudio: t('module.chat.thinking'),
           }}
           onPlayerVisibilityChange={handlePlayerVisibilityChange}
           onStepChange={handleStepChange}
@@ -1998,11 +1973,8 @@ const ListenModeSlideRenderer = ({
             playerClassName,
           )}
           playerCustomActionPauseOnActive={pausePlayerCustomActionOnActive}
-          playerCustomActions={
-            showPlayerCustomActions ? playerCustomActions : null
-          }
-          playerTexts={playerTexts}
-          showPlayer={!shouldRenderEmptyPpt}
+          playerCustomActions={enableCustomActions ? playerCustomActions : null}
+          playerEnabled={!shouldRenderEmptyPpt}
         />
         {shouldRenderManualFullscreenButton ? (
           <button
@@ -2031,7 +2003,7 @@ const ListenModeSlideRenderer = ({
           >
             <div className='flex flex-col items-center gap-3 text-primary'>
               <LoadingDots
-                ariaLabel={t('module.chat.slideAudioBufferingLoadingAudio')}
+                ariaLabel={t('module.chat.audioLoading')}
                 count={4}
                 durationMs={960}
                 dotClassName='bg-primary'

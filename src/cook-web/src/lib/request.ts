@@ -49,6 +49,9 @@ type RequestDebugMeta = {
 
 const getBusinessFallbackMessage = () => i18n.t('common.core.actionFailed');
 
+const isServerSideStatus = (status?: number) =>
+  typeof status === 'number' && status >= 500;
+
 const getRequestFallbackMessage = (error?: Partial<ErrorWithCode>) => {
   if (
     typeof navigator !== 'undefined' &&
@@ -58,7 +61,16 @@ const getRequestFallbackMessage = (error?: Partial<ErrorWithCode>) => {
     return i18n.t('common.core.networkError');
   }
 
+  if (isServerSideStatus(error?.status)) {
+    return i18n.t('common.core.serviceUnavailable');
+  }
+
   return i18n.t('common.core.requestFailed');
+};
+
+export const getCurrentLanguageHeaders = (): Record<string, string> => {
+  const currentLanguage = i18n.resolvedLanguage || i18n.language;
+  return currentLanguage ? { 'Accept-Language': currentLanguage } : {};
 };
 
 // ===== Error Handling =====
@@ -456,6 +468,7 @@ export class Request {
         }
       : {};
     const traceHeaders = buildTraceHeaders({
+      ...getCurrentLanguageHeaders(),
       ...authHeaders,
       ...headersToRecord(mergedConfig.headers),
     });
@@ -699,10 +712,9 @@ export class Request {
         responseTraceHeaders.harnessRunId || harnessRunId;
 
       if (!response.ok) {
-        const isDevelopment = process.env.NODE_ENV === 'development';
-        const errorMessage = isDevelopment
-          ? `Request failed with status ${response.status}`
-          : 'Network request failed';
+        const errorMessage = getRequestFallbackMessage({
+          status: response.status,
+        });
         const error = new ErrorWithCode(errorMessage, response.status);
         error.status = response.status;
         error.requestId = activeRequestId;
@@ -792,10 +804,9 @@ export class Request {
         responseTraceHeaders.harnessRunId || harnessRunId;
 
       if (!response.ok) {
-        const isDevelopment = process.env.NODE_ENV === 'development';
-        const errorMessage = isDevelopment
-          ? `Request failed with status ${response.status}`
-          : 'Network request failed';
+        const errorMessage = getRequestFallbackMessage({
+          status: response.status,
+        });
         const error = new ErrorWithCode(errorMessage, response.status);
         error.status = response.status;
         error.requestId = activeRequestId;

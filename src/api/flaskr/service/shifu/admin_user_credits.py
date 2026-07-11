@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+
+from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from json import JSONDecodeError
 from typing import Any, Dict, Optional, Sequence
@@ -1165,7 +1167,7 @@ def _load_operator_user_credit_summary_map(
     if not normalized_user_bids:
         return {}
 
-    now = datetime.now()
+    now = now_utc()
     active_subscription_end_map = _load_active_subscription_end_map(
         normalized_user_bids,
         as_of=now,

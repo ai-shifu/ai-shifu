@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from collections import defaultdict
 import hashlib
@@ -220,6 +220,13 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
             return parsed
         except ValueError:
             continue
+    try:
+        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
     return None
 
 
@@ -778,7 +785,7 @@ def import_activation_orders(
             results["failed"].append(
                 {
                     "mobile": normalized_mobile,
-                    "message": _("server.common.unknownError"),
+                    "message": _("server.order.importActivationFailed"),
                 }
             )
     return results
@@ -828,7 +835,7 @@ def import_activation_orders_from_entries(
             results["failed"].append(
                 {
                     "mobile": normalized_mobile,
-                    "message": _("server.common.unknownError"),
+                    "message": _("server.order.importActivationFailed"),
                 }
             )
     return results

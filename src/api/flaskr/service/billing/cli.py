@@ -21,6 +21,7 @@ from flaskr.service.user.repository import (
     mark_user_roles,
 )
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .checkout import reconcile_billing_provider_reference
 from .consts import (
@@ -1113,7 +1114,7 @@ def grant_billing_plan_by_identify(
 
         existing_subscription = load_primary_active_subscription(
             aggregate.user_bid,
-            as_of=datetime.now(),
+            as_of=now_utc(),
         )
         order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_START
         if existing_subscription is not None:
@@ -1160,7 +1161,7 @@ def grant_billing_plan_by_identify(
                 )
             order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
 
-        granted_at = datetime.now()
+        granted_at = now_utc()
         cycle_end_at = (
             _parse_effective_to_option(normalized_effective_to)
             if normalized_effective_to
@@ -1394,7 +1395,7 @@ def _build_cli_credit_grant_request_id(
         ]
     )
     fingerprint = hashlib.sha256(fingerprint_payload.encode("utf-8")).hexdigest()[:16]
-    return f"cli:{datetime.now():%Y%m%d}:{fingerprint}"
+    return f"cli:{now_utc():%Y%m%d}:{fingerprint}"
 
 
 def _upsert_bootstrap_rows(
@@ -1528,7 +1529,7 @@ def _enforce_manual_subscription_expire_event(
         "cancel_at_period_end": bool(subscription.cancel_at_period_end),
         "manual_grant": True,
     }
-    now = datetime.now()
+    now = now_utc()
     expire_event: BillingRenewalEvent | None = None
     rows = (
         BillingRenewalEvent.query.filter(

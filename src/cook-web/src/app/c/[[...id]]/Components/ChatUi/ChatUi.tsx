@@ -1,11 +1,13 @@
+'use client';
+
 import styles from './ChatUi.module.scss';
 
-import { memo, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
-import ChatComponents from './NewChatComp';
 import UserSettings from '../Settings/UserSettings';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { useSystemStore } from '@/c-store/useSystemStore';
@@ -15,6 +17,11 @@ import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import CourseHeaderSummary from '../CourseHeaderSummary';
 import LearningModeSwitch from '../LearningModeSwitch';
 import PreviewHeaderBanner from '../PreviewHeaderBanner';
+import LessonUpdateNotice from '../LessonUpdateNotice';
+
+const ChatComponents = dynamic(() => import('./NewChatComp'), {
+  ssr: false,
+});
 
 interface ChatUiProps {
   chapterId: string;
@@ -35,6 +42,7 @@ interface ChatUiProps {
   isNavOpen?: boolean;
   onListenMobileViewModeChange?: ListenMobileViewModeChangeHandler;
   showGenerateBtn?: boolean;
+  onLessonUpdateNoticeVisibilityChange?: (visible: boolean) => void;
 }
 
 /**
@@ -58,6 +66,7 @@ export const ChatUi = ({
   isNavOpen = false,
   onListenMobileViewModeChange,
   showGenerateBtn = false,
+  onLessonUpdateNoticeVisibilityChange,
 }: ChatUiProps) => {
   const { t } = useTranslation();
   const { frameLayout } = useUiLayoutStore(state => state);
@@ -85,12 +94,34 @@ export const ChatUi = ({
   const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const footerSeparator = String.fromCharCode(124);
   const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(false);
+  const [showLessonUpdateNoticeInHeader, setShowLessonUpdateNoticeInHeader] =
+    useState(false);
+
+  const handleLessonUpdateNoticeVisibilityChange = useCallback(
+    (visible: boolean) => {
+      setShowLessonUpdateNoticeInHeader(visible);
+      onLessonUpdateNoticeVisibilityChange?.(visible);
+    },
+    [onLessonUpdateNoticeVisibilityChange],
+  );
 
   useEffect(() => {
     if (!isSlideMode) {
       setIsListenPlayerVisible(false);
     }
   }, [isSlideMode]);
+
+  useEffect(() => {
+    setShowLessonUpdateNoticeInHeader(false);
+    onLessonUpdateNoticeVisibilityChange?.(false);
+  }, [lessonId, onLessonUpdateNoticeVisibilityChange]);
+
+  useEffect(
+    () => () => {
+      onLessonUpdateNoticeVisibilityChange?.(false);
+    },
+    [onLessonUpdateNoticeVisibilityChange],
+  );
 
   return (
     <div
@@ -131,6 +162,15 @@ export const ChatUi = ({
                   titleClassName={styles.courseSummaryTitle}
                 />
               </div>
+              {showLessonUpdateNoticeInHeader ? (
+                <div className={styles.lessonUpdateNoticeTarget}>
+                  <LessonUpdateNotice
+                    chapterId={chapterId}
+                    lessonId={lessonId}
+                    lessonTitle={lessonTitle}
+                  />
+                </div>
+              ) : null}
               {showModeToggle ? (
                 <div className={styles.headerActions}>
                   <LearningModeSwitch size='desktop' />
@@ -163,6 +203,9 @@ export const ChatUi = ({
           onListenMobileViewModeChange={onListenMobileViewModeChange}
           onListenPlayerVisibilityChange={setIsListenPlayerVisible}
           showGenerateBtn={showGenerateBtn}
+          onLessonUpdateNoticeVisibilityChange={
+            handleLessonUpdateNoticeVisibilityChange
+          }
         />
       }
       {showUserSettings && (

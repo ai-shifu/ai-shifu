@@ -10,7 +10,7 @@ def _shared_i18n_root() -> Path:
     return Path(__file__).resolve().parents[3] / "i18n"
 
 
-def test_common_handler_returns_translated_operation_failed_for_unhandled_exceptions(
+def test_common_handler_returns_translated_unexpected_error_for_unhandled_exceptions(
     monkeypatch,
 ):
     monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
@@ -28,7 +28,7 @@ def test_common_handler_returns_translated_operation_failed_for_unhandled_except
     assert response.status_code == 200
     assert response.get_json() == {
         "code": -1,
-        "message": _translations["en-US"]["server.common.operationFailed"],
+        "message": _translations["en-US"]["server.common.unexpectedError"],
     }
 
 
@@ -51,7 +51,7 @@ def test_common_handler_uses_request_language_for_unhandled_exceptions(monkeypat
     assert response.status_code == 200
     assert response.get_json() == {
         "code": -1,
-        "message": _translations["zh-CN"]["server.common.operationFailed"],
+        "message": _translations["zh-CN"]["server.common.unexpectedError"],
     }
 
     with app.test_client() as client:
@@ -63,7 +63,7 @@ def test_common_handler_uses_request_language_for_unhandled_exceptions(monkeypat
     assert response.status_code == 200
     assert response.get_json() == {
         "code": -1,
-        "message": _translations["zh-CN"]["server.common.operationFailed"],
+        "message": _translations["zh-CN"]["server.common.unexpectedError"],
     }
 
     with app.test_client() as client:
@@ -75,7 +75,7 @@ def test_common_handler_uses_request_language_for_unhandled_exceptions(monkeypat
     assert response.status_code == 200
     assert response.get_json() == {
         "code": -1,
-        "message": _translations["zh-CN"]["server.common.operationFailed"],
+        "message": _translations["zh-CN"]["server.common.unexpectedError"],
     }
 
 
@@ -98,5 +98,5 @@ def test_common_handler_uses_json_language_for_patch_requests(monkeypatch):
     assert response.status_code == 200
     assert response.get_json() == {
         "code": -1,
-        "message": _translations["zh-CN"]["server.common.operationFailed"],
+        "message": _translations["zh-CN"]["server.common.unexpectedError"],
     }

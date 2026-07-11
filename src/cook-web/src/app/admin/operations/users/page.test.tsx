@@ -18,6 +18,8 @@ const mockGrantDialogPrefix = 'grant-dialog-';
 const mockGrantSuccessLabel = 'mock-grant-success';
 const buildGrantDialogLabel = (userBid: string) =>
   `${mockGrantDialogPrefix}${userBid}`;
+const formatUtcBoundary = (date: Date) =>
+  date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 let mockLanguage = 'en-US';
 const translationCache = new Map<
   string,
@@ -904,6 +906,12 @@ describe('AdminOperationUsersPage', () => {
     try {
       await renderResolvedPage();
 
+      const expectedEndDate = new Date();
+      const expectedStartDate = new Date(expectedEndDate);
+      expectedStartDate.setDate(expectedEndDate.getDate() - 29);
+      expectedStartDate.setHours(0, 0, 0, 0);
+      expectedEndDate.setHours(23, 59, 59, 0);
+
       fireEvent.click(
         screen.getByRole('button', {
           name: /module\.operationsUser\.overview\.metrics\.newUsers30d/i,
@@ -914,8 +922,8 @@ describe('AdminOperationUsersPage', () => {
         expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
           expect.objectContaining({
             quick_filter: 'created_last_30d',
-            start_time: '2026-04-07',
-            end_time: '2026-05-06',
+            start_time: formatUtcBoundary(expectedStartDate),
+            end_time: formatUtcBoundary(expectedEndDate),
           }),
         );
       });

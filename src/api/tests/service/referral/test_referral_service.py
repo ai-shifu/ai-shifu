@@ -546,6 +546,7 @@ def test_post_auth_preserves_reward_when_billing_grant_fails_then_repairs(
         ).one()
         assert relation.relation_status == REFERRAL_RELATION_STATUS_REGISTERED
         assert reward.billing_artifacts["grant_error"] == "billing offline"
+        assert reward.billing_artifacts["last_failed_at"].endswith("Z")
 
         dry_run = retry_pending_referral_rewards(referral_app, dry_run=True)
         assert dry_run == [

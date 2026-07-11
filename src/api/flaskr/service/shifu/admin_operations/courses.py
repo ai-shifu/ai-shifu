@@ -24,6 +24,7 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.i18n import _
+from flaskr.util.datetime import now_utc
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,

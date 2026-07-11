@@ -225,7 +225,7 @@ describe('AdminDashboardCourseRatingsPage', () => {
     });
   });
 
-  test('renders ratings list with breadcrumbs back to dashboard and course detail', async () => {
+  test('renders ratings list', async () => {
     render(<AdminDashboardCourseRatingsPage />);
 
     expect(
@@ -247,12 +247,6 @@ describe('AdminDashboardCourseRatingsPage', () => {
       });
     });
 
-    expect(
-      screen.getByText('module.dashboard.title').closest('a'),
-    ).toHaveAttribute('href', '/admin/dashboard');
-    expect(
-      screen.getByText('module.dashboard.detail.title').closest('a'),
-    ).toHaveAttribute('href', '/admin/dashboard/course-1');
     expect(
       screen.getByText('module.dashboard.detail.ratings.summary.averageScore'),
     ).toBeInTheDocument();

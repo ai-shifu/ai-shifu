@@ -11,7 +11,10 @@ import {
 import styles from './ListenPlayer.module.scss';
 import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
-import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
+import {
+  isPaySystemInteractionContent,
+  localizeSystemInteractionContent,
+} from '@/c-utils/system-interaction';
 import type { ChatContentItem } from './useChatLogicHook';
 import {
   ContentRender,
@@ -19,6 +22,7 @@ import {
 } from 'markdown-flow-ui/renderer';
 import { useTranslation } from 'react-i18next';
 import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 
 interface ListenPlayerProps {
   className?: string;
@@ -61,7 +65,10 @@ const ListenPlayer = ({
   onSend,
   showControls = true,
 }: ListenPlayerProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const markdownFlowLocale = resolveMarkdownFlowLocale(
+    i18n.resolvedLanguage ?? i18n.language,
+  );
   const [isInteractionOpen, setIsInteractionOpen] = useState(false);
   const lastInteractionBidRef = useRef<string | null>(null);
   const disabledClassName = '!cursor-not-allowed !opacity-20';
@@ -160,16 +167,17 @@ const ListenPlayer = ({
               )}
             >
               <ContentRender
+                locale={markdownFlowLocale}
                 enableTypewriter={false}
-                content={effectiveInteraction.content || ''}
+                content={localizeSystemInteractionContent(
+                  effectiveInteraction.content || '',
+                  t,
+                )}
                 customRenderBar={effectiveInteraction.customRenderBar}
                 userInput={resolvedInteractionUserInput}
                 interactionDefaultValueOptions={
                   lessonFeedbackInteractionDefaultValueOptions
                 }
-                confirmButtonText={t('module.renderUi.core.confirm')}
-                copyButtonText={t('module.renderUi.core.copyCode')}
-                copiedButtonText={t('module.renderUi.core.copied')}
                 readonly={resolvedInteractionReadonly}
                 sandboxMode='content'
                 onSend={_onSend}

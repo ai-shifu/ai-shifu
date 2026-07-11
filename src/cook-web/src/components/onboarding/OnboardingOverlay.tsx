@@ -191,7 +191,7 @@ export function OnboardingOverlay({
             type='button'
             aria-label={advanceAriaLabel}
             onClick={onAdvance}
-            className='absolute inset-0 z-10'
+            className='absolute inset-0 z-10 cursor-default'
           />
           <div
             className='pointer-events-none absolute border border-white/70'
@@ -210,13 +210,13 @@ export function OnboardingOverlay({
           type='button'
           aria-label={advanceAriaLabel}
           onClick={onAdvance}
-          className='absolute inset-0 z-10'
+          className='absolute inset-0 z-10 cursor-default'
           style={{ backgroundColor: OVERLAY_BG }}
         />
       )}
       <div
         ref={cardRef}
-        className='pointer-events-auto absolute z-20'
+        className='pointer-events-auto absolute z-20 cursor-default'
         style={{
           ...cardStyle,
           visibility: isCardMeasured ? 'visible' : 'hidden',

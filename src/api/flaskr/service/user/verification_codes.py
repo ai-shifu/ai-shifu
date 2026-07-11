@@ -15,7 +15,8 @@ from flask import Flask
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
-from flaskr.service.common.models import raise_error
+from flaskr.util.datetime import now_utc
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.user.models import UserVerifyCode
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 
@@ -31,7 +32,7 @@ def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
     except Exception:
         # Defensive: keep original value if tzinfo manipulation fails.
         pass
-    now = datetime.datetime.utcnow()
+    now = now_utc()
     return (now - value).total_seconds() <= seconds
 
 
@@ -96,10 +97,12 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
 
     identifier = (identifier or "").strip()
     code = (code or "").strip()
-    # Parameter validation is handled by route handlers. Keep this helper focused
-    # on verification logic.
-    if not identifier or not code:
-        raise_error("server.common.unknownError")
+    # Keep helper-level parameter checks for direct service callers such as
+    # password setup/reset flows.
+    if not identifier:
+        raise_param_error("identifier")
+    if not code:
+        raise_param_error("code")
 
     fix_code: Optional[str] = app.config.get("UNIVERSAL_VERIFICATION_CODE")
     if fix_code and code == fix_code:
@@ -167,7 +170,7 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
     raw_identifier = identifier
     identifier = normalize_phone_identifier(raw_identifier)
     if not identifier:
-        raise_error("server.common.unknownError")
+        raise_param_error("identifier")
 
     lookup_identifiers = [identifier]
     if raw_identifier and raw_identifier not in lookup_identifiers:

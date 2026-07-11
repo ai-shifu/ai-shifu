@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 from flask import Flask
 
 from flaskr.common.public_urls import build_stripe_learner_result_url
+from flaskr.util.datetime import now_utc
 from flaskr.service.config import get_config
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.i18n import _
@@ -1849,7 +1850,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                             "record:{} not found".format(pingxx_order.order_bid)
                         )
                         return None
-                    pingxx_order.update = datetime.datetime.now()
+                    pingxx_order.update = now_utc()
                     pingxx_order.status = 1
                     pingxx_order.charge_object = json.dumps(body)
                     try:

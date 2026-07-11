@@ -10,21 +10,25 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { ModelOption } from '@/types/shifu';
 
-const MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME = 'left-auto right-3';
+const MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME = 'right-3';
 
 function ModelOptionLabel({
   label,
   creditMultiplier,
+  creditMultiplierLabel,
 }: {
   label: string;
   creditMultiplier?: number | null;
+  creditMultiplierLabel?: string;
 }) {
+  const multiplierLabel =
+    creditMultiplierLabel || (creditMultiplier ? `${creditMultiplier}x` : '');
   return (
     <span className='flex w-full min-w-0 items-center'>
       <span className='min-w-0 flex-1 truncate text-left'>{label}</span>
-      {creditMultiplier ? (
+      {multiplierLabel ? (
         <span className='ml-2 shrink-0 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-medium leading-none text-primary'>
-          {creditMultiplier}x
+          {multiplierLabel}
         </span>
       ) : null}
       <span
@@ -40,29 +44,36 @@ export default function ModelList({
   className,
   onChange,
   disabled,
+  options,
+  showDefaultOption = true,
 }: {
   value: string;
   className?: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  options?: ModelOption[];
+  showDefaultOption?: boolean;
 }) {
   const { models } = useShifu();
   const { t } = useTranslation();
 
-  const options: ModelOption[] = models || [];
+  const modelOptions: ModelOption[] = options || models || [];
 
   // Empty string is used to represent using the default model. However, the Select component uses empty string as unselected.
   // So we need to use a special value to represent the empty state in the Select component.
   const DEFAULT_MODEL_OPTION_VALUE = '__empty__';
-  const displayValue = value === '' ? DEFAULT_MODEL_OPTION_VALUE : value;
-  const defaultOption = {
+  const displayValue =
+    showDefaultOption && value === '' ? DEFAULT_MODEL_OPTION_VALUE : value;
+  const defaultOption: ModelOption = {
+    value: DEFAULT_MODEL_OPTION_VALUE,
     label: t('common.core.default'),
     creditMultiplier: 1,
+    creditMultiplierLabel: '',
   };
   const selectedOption =
-    displayValue === DEFAULT_MODEL_OPTION_VALUE
+    showDefaultOption && displayValue === DEFAULT_MODEL_OPTION_VALUE
       ? defaultOption
-      : options.find(item => item.value === displayValue);
+      : modelOptions.find(item => item.value === displayValue);
 
   const handleChange = (selectedValue: string) => {
     // If the selected value is the empty value, we need to pass an empty string
@@ -92,6 +103,7 @@ export default function ModelList({
               <ModelOptionLabel
                 label={selectedOption.label}
                 creditMultiplier={selectedOption.creditMultiplier}
+                creditMultiplierLabel={selectedOption.creditMultiplierLabel}
               />
             ) : (
               t('common.core.selectModel')
@@ -100,19 +112,21 @@ export default function ModelList({
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem
-          key='default'
-          value={DEFAULT_MODEL_OPTION_VALUE}
-          textValue={defaultOption.label}
-          indicatorClassName={MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME}
-          className='pl-3 pr-0'
-        >
-          <ModelOptionLabel
-            label={defaultOption.label}
-            creditMultiplier={defaultOption.creditMultiplier}
-          />
-        </SelectItem>
-        {options.map(item => {
+        {showDefaultOption && (
+          <SelectItem
+            key='default'
+            value={DEFAULT_MODEL_OPTION_VALUE}
+            textValue={defaultOption.label}
+            indicatorClassName={MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME}
+            className='pl-3 pr-0'
+          >
+            <ModelOptionLabel
+              label={defaultOption.label}
+              creditMultiplier={defaultOption.creditMultiplier}
+            />
+          </SelectItem>
+        )}
+        {modelOptions.map(item => {
           return (
             <SelectItem
               key={item.value}
@@ -124,6 +138,7 @@ export default function ModelList({
               <ModelOptionLabel
                 label={item.label}
                 creditMultiplier={item.creditMultiplier}
+                creditMultiplierLabel={item.creditMultiplierLabel}
               />
             </SelectItem>
           );

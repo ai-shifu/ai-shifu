@@ -24,6 +24,7 @@ from sqlalchemy.orm import defer
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.i18n import _
 from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from flaskr.service.billing.bucket_categories import (
     resolve_wallet_bucket_runtime_category,
     wallet_bucket_requires_active_subscription,

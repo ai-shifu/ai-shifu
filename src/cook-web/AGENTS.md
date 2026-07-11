@@ -25,6 +25,14 @@ hard frontend constraints close to `src/cook-web/`.
   local Docker dev stack.
 - Treat legacy `c-*` directories as maintained compatibility surfaces until a
   planned migration removes them.
+- For clickable UI, prefer semantic elements (`button`, `a`, `summary`) or
+  shared Radix/shadcn primitives. If a non-semantic element must handle clicks,
+  mark the actual clickable target with `data-clickable="true"` and preserve
+  disabled states with `disabled`, `aria-disabled="true"`, or `data-disabled`.
+  Do not rely on page-local cursor styles or broad `* { cursor: pointer; }`
+  rules. Full-screen onboarding/backdrop advance surfaces are the exception:
+  keep their large background or card hit areas on the default cursor so the
+  whole page does not read as a button.
 
 ## Avoid
 

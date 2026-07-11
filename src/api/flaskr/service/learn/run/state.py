@@ -51,6 +51,15 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle guard, typing only
     from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 
 
+def _find_outline_path_or_raise(
+    struct: HistoryItem, outline_bid: str
+) -> list[HistoryItem]:
+    path = find_node_with_parents(struct, outline_bid)
+    if not path:
+        raise_error("server.shifu.lessonNotFoundInCourse")
+    return path
+
+
 def _runtime():
     """Resolve the context_v2 module lazily.
 
@@ -274,7 +283,7 @@ class RunStateResolver:
         def _mark_sub_node_start(
             outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
         ):
-            path = find_node_with_parents(self._struct, outline_item_info.bid)
+            path = _find_outline_path_or_raise(self._struct, outline_item_info.bid)
             for item in path:
                 if item.type == "outline":
                     if item.children and item.children[0].type == "outline":
@@ -296,12 +305,15 @@ class RunStateResolver:
                             )
                         )
 
-        if (
+        if self._current_outline_item and (
             self._current_attend.block_position
             >= ctx._get_current_outline_block_count()
         ):
             _mark_sub_node_completed(self._current_outline_item, res)
-        if self._current_attend.status == LEARN_STATUS_NOT_STARTED:
+        if (
+            self._current_outline_item
+            and self._current_attend.status == LEARN_STATUS_NOT_STARTED
+        ):
             _mark_sub_node_start(self._current_outline_item, res)
         return res
 

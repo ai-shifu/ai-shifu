@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
@@ -15,6 +15,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
 )
+from flaskr.util.datetime import to_utc_iso
 
 from .consts import BILL_CONFIG_KEY_CREDIT_PRECISION, BILL_CONFIG_KEY_ENABLED
 from .value_objects import JsonObjectMap
@@ -152,23 +153,37 @@ def coerce_datetime(value: Any) -> datetime | None:
     if isinstance(value, (int, float)):
         if value <= 0:
             return None
-        return datetime.fromtimestamp(value)
+        return datetime.fromtimestamp(value, timezone.utc).replace(tzinfo=None)
     text = str(value).strip()
     if not text:
         return None
     if text.isdigit():
-        return datetime.fromtimestamp(int(text))
+        epoch_seconds = int(text)
+        if epoch_seconds <= 0:
+            return None
+        return datetime.fromtimestamp(epoch_seconds, timezone.utc).replace(tzinfo=None)
     try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00")).replace(tzinfo=None)
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if parsed.tzinfo is not None:
+        return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def normalize_mysql_datetime(value: datetime) -> datetime:
+    """Normalize to MySQL DATETIME(0)'s default fractional-second rounding."""
+
+    if value.microsecond >= 500_000:
+        value = value + timedelta(seconds=1)
+    return value.replace(microsecond=0)
 
 
 def normalize_json_value(value: Any) -> Any:
     if isinstance(value, Decimal):
         return decimal_to_number(value)
     if isinstance(value, datetime):
-        return value.isoformat()
+        return to_utc_iso(value)
     if isinstance(value, list):
         return [normalize_json_value(item) for item in value]
     if isinstance(value, JsonObjectMap):

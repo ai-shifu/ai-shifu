@@ -18,6 +18,7 @@ from flaskr.api.langfuse import (
 )
 from flaskr.common.config import get_explicit_env_override
 from flaskr.service.config import get_config
+from flaskr.util.datetime import now_utc
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
@@ -1119,7 +1120,7 @@ def _attach_credit_multipliers(
 
     try:
         rows = _load_llm_output_rate_rows(app)
-        now = datetime.now()
+        now = now_utc()
         default_provider, default_model_candidates = _resolve_billing_rate_identity(
             default_model
         )

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { useEnvStore } from '@/c-store';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
@@ -51,15 +50,6 @@ export default function AdminBillingConsolePage() {
         className='flex h-full flex-col pb-4'
         data-testid='admin-billing-console-page'
       >
-        <AdminBreadcrumb
-          items={[
-            {
-              label: t('module.billing.page.title'),
-              href: '/admin/billing',
-            },
-            { label: t('module.billing.admin.title') },
-          ]}
-        />
         <Tabs
           value={activeTab}
           className='flex flex-col'

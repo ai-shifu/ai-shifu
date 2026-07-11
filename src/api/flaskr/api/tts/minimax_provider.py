@@ -134,6 +134,65 @@ def _coerce_float_config(name: str, default: float) -> float:
         return default
 
 
+# Per-tier default RPM quotas for MiniMax synchronous speech synthesis, matching
+# MiniMax's published per-model limits (turbo tier vs hd tier). MiniMax enforces
+# these per model, so the RPM gate must resolve a limit per model rather than
+# applying one global number to every model.
+MINIMAX_TTS_RPM_TIER_DEFAULTS = {"turbo": 200, "hd": 20}
+
+
+def _minimax_model_tier(model: str) -> str:
+    normalized = (model or "").strip().lower()
+    if normalized.endswith("-hd"):
+        return "hd"
+    if normalized.endswith("-turbo"):
+        return "turbo"
+    return ""
+
+
+def _parse_minimax_rpm_overrides() -> Dict[str, int]:
+    """Parse the optional MINIMAX_TTS_RPM_LIMITS JSON map (model -> rpm)."""
+    raw = get_config("MINIMAX_TTS_RPM_LIMITS")
+    if not raw:
+        return {}
+    if isinstance(raw, dict):
+        candidate = raw
+    else:
+        try:
+            candidate = json.loads(raw)
+        except (TypeError, ValueError):
+            logger.warning("Ignoring invalid MINIMAX_TTS_RPM_LIMITS JSON: %r", raw)
+            return {}
+    if not isinstance(candidate, dict):
+        logger.warning("Ignoring non-object MINIMAX_TTS_RPM_LIMITS: %r", raw)
+        return {}
+    overrides: Dict[str, int] = {}
+    for key, value in candidate.items():
+        try:
+            overrides[str(key).strip()] = int(value)
+        except (TypeError, ValueError):
+            continue
+    return overrides
+
+
+def _resolve_minimax_rpm_limit(model: str) -> int:
+    """Resolve the RPM limit for a MiniMax TTS model.
+
+    Resolution order:
+    1. Explicit per-model override in the MINIMAX_TTS_RPM_LIMITS JSON map.
+    2. The tier default (turbo vs hd) derived from the model suffix.
+    3. The global MINIMAX_TTS_RPM_LIMIT fallback (0 disables gating).
+    """
+    normalized = (model or "").strip()
+    overrides = _parse_minimax_rpm_overrides()
+    if normalized in overrides:
+        return overrides[normalized]
+    tier = _minimax_model_tier(normalized)
+    if tier in MINIMAX_TTS_RPM_TIER_DEFAULTS:
+        return MINIMAX_TTS_RPM_TIER_DEFAULTS[tier]
+    return _coerce_int_config("MINIMAX_TTS_RPM_LIMIT", 0)
+
+
 @dataclass
 class MinimaxHTTPStreamChunk:
     """One parsed MiniMax HTTP streaming response event."""
@@ -408,10 +467,11 @@ class MinimaxTTSProvider(BaseTTSProvider):
         acquire_tts_rpm_slot(
             provider="minimax",
             api_key=api_key,
-            rpm_limit=_coerce_int_config("MINIMAX_TTS_RPM_LIMIT", 0),
+            rpm_limit=_resolve_minimax_rpm_limit(tts_model),
             max_wait_seconds=_coerce_float_config(
                 "MINIMAX_TTS_QUEUE_MAX_WAIT_SECONDS", 10.0
             ),
+            model=tts_model,
         )
 
         logger.debug(
@@ -552,6 +612,14 @@ class MinimaxTTSProvider(BaseTTSProvider):
         if status_code != 0:
             status_msg = base_resp.get("status_msg", "Unknown error")
             logger.error(f"Minimax TTS API error: {status_code} - {status_msg}")
+            # 2054 means the requested voice id does not exist on MiniMax (a stale
+            # or foreign clone id that passed local shape validation). Surface it
+            # as an actionable message instead of a generic API error.
+            if status_code == 2054:
+                raise ValueError(
+                    "Minimax TTS voice is not available "
+                    f"(voice id does not exist on provider): {status_msg}"
+                )
             raise ValueError(f"Minimax TTS API error: {status_code} - {status_msg}")
 
         return result
@@ -567,6 +635,13 @@ class MinimaxTTSProvider(BaseTTSProvider):
             models=MINIMAX_MODELS,
             voices=MINIMAX_VOICES,
             emotions=MINIMAX_EMOTIONS,
-            supports_custom_voice_id=True,
-            supports_voice_cloning=True,
+            # Voice cloning is now an operations-managed flow: operators clone
+            # on the MiniMax console and register the voice via the admin
+            # backend, then assign it to a teacher. Teachers can no longer
+            # self-clone or paste raw voice ids, so both entry points are
+            # hidden in the course editor. Assigned voices still surface in the
+            # voice dropdown because that list is fetched independently of these
+            # flags.
+            supports_custom_voice_id=False,
+            supports_voice_cloning=False,
         )

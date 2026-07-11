@@ -4,6 +4,7 @@ import queue
 import threading
 import time
 import traceback
+from datetime import datetime
 from typing import Any, Generator, Optional
 
 from flask import Flask
@@ -35,7 +36,6 @@ from flaskr.service.order.models import Order
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.learn.context_v2 import RunScriptContextV2
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
-import datetime
 from flaskr.common.log import thread_local as log_thread_local
 from flaskr.service.learn.exceptions import BreakException
 from flaskr.i18n import get_current_language, set_language
@@ -43,6 +43,7 @@ from flaskr.common.shifu_context import (
     get_shifu_context_snapshot,
     apply_shifu_context_snapshot,
 )
+from flaskr.util.datetime import to_utc_iso
 
 RUN_SCRIPT_TIMEOUT_SECONDS = 5 * 60
 RUN_SCRIPT_STATUS_REFRESH_SECONDS = 30
@@ -426,10 +427,9 @@ def run_script_inner(
 
 
 def fmt(o):
-    if isinstance(o, datetime.datetime):
-        return o.isoformat()
-    else:
-        return o.__json__()
+    if isinstance(o, datetime):
+        return to_utc_iso(o)
+    return o.__json__()
 
 
 def _to_sse_chunk(payload: object) -> str:
@@ -438,6 +438,38 @@ def _to_sse_chunk(payload: object) -> str:
         + json.dumps(payload, default=fmt, ensure_ascii=False)
         + "\n\n".encode("utf-8").decode("utf-8")
     )
+
+
+def _log_run_script_stream_error(app: Flask, stream_error: Exception) -> None:
+    """Log a run-script stream error, keeping handled AppExceptions off ERROR.
+
+    Unexpected errors are logged at ERROR for operational alerting, while a
+    handled, user-facing AppException is logged at INFO so it stays out of the
+    alert stream but remains diagnosable.
+    """
+    error_traceback = "".join(
+        traceback.format_exception(
+            type(stream_error),
+            stream_error,
+            stream_error.__traceback__,
+        )
+    )
+    error_info = {
+        "name": type(stream_error).__name__,
+        "description": str(stream_error),
+        "traceback": error_traceback,
+    }
+
+    if isinstance(stream_error, AppException):
+        # AppException is already a handled, user-facing business error (for example,
+        # a stale lesson URL after a course republish). Keep it out of ERROR-level
+        # operational alerts while preserving enough context for diagnostics.
+        app.logger.info("run_script handled app exception")
+        app.logger.info(error_info)
+        return
+
+    app.logger.error("run_script error")
+    app.logger.error(error_info)
 
 
 def _make_terminal_event(
@@ -769,26 +801,10 @@ def run_script(
 
             if stream_error and not client_disconnected:
                 if isinstance(stream_error, Exception):
-                    app.logger.error("run_script error")
-                    app.logger.error(stream_error)
-                    error_traceback = "".join(
-                        traceback.format_exception(
-                            type(stream_error),
-                            stream_error,
-                            stream_error.__traceback__,
-                        )
-                    )
-                    error_info = {
-                        "name": type(stream_error).__name__,
-                        "description": str(stream_error),
-                        "traceback": error_traceback,
-                    }
-
+                    _log_run_script_stream_error(app, stream_error)
                     if isinstance(stream_error, AppException):
-                        app.logger.info(error_info)
                         error_content = str(stream_error)
                     else:
-                        app.logger.error(error_info)
                         error_content = str(_("server.common.unknownError"))
                     yield _to_sse_chunk(
                         _make_terminal_event(

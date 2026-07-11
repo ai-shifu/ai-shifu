@@ -4,7 +4,7 @@
 
 ## 1. 设计目标
 
-- 保持所有 `/admin` 页面在布局、标题、面包屑、筛选器、表格、分页、数据卡片、操作按钮上的视觉一致性。
+- 保持所有 `/admin` 页面在布局、标题、筛选器、表格、分页、数据卡片、操作按钮上的视觉一致性。
 - 优先使用项目已有 CSS 变量和 Tailwind class，减少硬编码色值、字号、阴影和边距。
 - admin 页面新增能力时，优先扩展共享组件能力，而不是在具体页面复制样式。
 - 页面结构要适配现有后台工作台场景：左侧固定导航，右侧内容区滚动。
@@ -36,7 +36,6 @@
 
 ```tsx
 <div className='flex h-full flex-col'>
-  <AdminBreadcrumb items={[{ label: pageTitle }]} />
   <AdminTitle
     title={pageTitle}
     actions={actions}
@@ -51,9 +50,6 @@
 
 ```tsx
 <div className='flex h-full flex-col'>
-  <AdminBreadcrumb
-    items={[{ label: parentTitle, href: parentHref }, { label: currentTitle }]}
-  />
   <AdminTitle
     title={currentTitle}
     actions={actions}
@@ -63,34 +59,7 @@
 </div>
 ```
 
-## 3. 面包屑
-
-所有 admin 页面必须使用：
-
-```text
-src/app/admin/components/AdminBreadcrumb.tsx
-```
-
-### 3.1 使用规则
-
-- 所有 `/admin` 页面都必须展示面包屑。
-- 面包屑必须独占页面内容区最顶端的一行。
-- `首页` 链接固定指向 `/admin`。
-- 如果调用方未传入 `/admin`，`AdminBreadcrumb` 会自动补齐首页。
-- 列表页结构：`首页 > 当前页`
-- 详情页结构：`首页 > 上级页 > 当前页`
-- 最后一项为当前页，不可点击。
-- 只有一个面包屑项时，当前项使用弱提示样式。
-- 面包屑下方到标题或内容区的间距统一由 `AdminBreadcrumb` 控制，默认 `mb-[22px]`。
-
-### 3.2 文案规则
-
-- 面包屑文案必须使用 i18n。
-- 新增文案时同步更新：
-  - `src/i18n/<locale>/...`
-  - `src/cook-web/src/types/i18n-keys.d.ts`
-
-## 4. 页面标题区
+## 3. 页面标题区
 
 所有 admin 页面标题区必须优先使用：
 
@@ -98,7 +67,7 @@ src/app/admin/components/AdminBreadcrumb.tsx
 src/app/admin/components/AdminTitle.tsx
 ```
 
-### 4.1 标题样式
+### 3.1 标题样式
 
 统一标题规格：
 
@@ -107,7 +76,7 @@ src/app/admin/components/AdminTitle.tsx
 - 行高：`var(--heading-md-line-height, 36px)`
 - 颜色：`var(--base-foreground, #0A0A0A)`
 
-### 4.2 标题布局
+### 3.2 标题布局
 
 `AdminTitle` 负责承接：
 
@@ -125,16 +94,27 @@ src/app/admin/components/AdminTitle.tsx
 - 标题与右侧操作区在大屏下左右分布
 - 小屏下垂直排列
 
-### 4.3 右侧操作区
+### 3.3 右侧操作区
 
 - 页面主操作按钮放在 `AdminTitle.actions` 中。
 - 主 CTA 使用默认 `Button` 样式，保持主按钮视觉权重。
 - 弱操作使用 `Button variant="ghost"` 或 `variant="outline"`。
 - 右侧操作不额外添加右侧 padding，确保和表格、卡片右边缘对齐。
 
-## 5. Tabs 规范
+### 3.4 运营面包屑
 
-### 5.1 大号标题 Tabs
+`/admin/operations` 运营模块下的页面使用面包屑导航，用于表达运营列表、课程详情、追问、评价、用户详情等层级关系。
+
+默认复用：
+
+```text
+src/app/admin/components/AdminBreadcrumb.tsx
+src/app/admin/operations/AdminOperationsBreadcrumb.tsx
+```
+
+## 4. Tabs 规范
+
+### 4.1 大号标题 Tabs
 
 如果页面使用大号 tab 代替普通标题，使用 `AdminTitle` 暴露的 headline tabs class：
 
@@ -152,7 +132,7 @@ ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE
 - 下划线与文字底部间距：约 `12px`
 - tab 容器不使用默认背景和圆角
 
-### 5.2 普通二选一 Tabs
+### 4.2 普通二选一 Tabs
 
 例如 `/admin` 课程首页的“全部 / 归档”：
 
@@ -169,7 +149,7 @@ ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE
 
 课程首页这类 tabs 与工具行默认不额外添加上下 padding，底部间距保持 `32px`。
 
-## 6. 筛选器
+## 5. 筛选器
 
 后台筛选区域优先使用：
 
@@ -177,7 +157,7 @@ ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE
 src/app/admin/components/AdminFilter.tsx
 ```
 
-### 6.1 使用场景
+### 5.1 使用场景
 
 - 用户列表筛选
 - 订单筛选
@@ -187,7 +167,7 @@ src/app/admin/components/AdminFilter.tsx
 
 不要在页面内重复写筛选项 label、按钮组、展开/收起布局。
 
-### 6.2 布局规则
+### 5.2 布局规则
 
 收起态：
 
@@ -202,7 +182,7 @@ src/app/admin/components/AdminFilter.tsx
 - 筛选项使用三列网格。
 - 操作按钮仍靠右。
 
-### 6.3 筛选项 label
+### 5.3 筛选项 label
 
 统一样式：
 
@@ -213,7 +193,7 @@ src/app/admin/components/AdminFilter.tsx
 
 如果需要 label 纵向对齐，通过 `labelClassName`、`collapsedLabelClassName`、`expandedLabelClassName` 传入固定宽度，不要在具体页面硬写多套布局。
 
-### 6.4 操作按钮
+### 5.4 操作按钮
 
 按钮顺序：
 
@@ -232,7 +212,7 @@ src/app/admin/components/AdminFilter.tsx
 
 当筛选项数量不超过收起态展示数量时，不展示展开 / 收起按钮。
 
-## 7. 表格系统
+## 6. 表格系统
 
 后台所有表格优先使用：
 
@@ -244,7 +224,7 @@ src/components/ui/Table.tsx
 
 不要在页面内重复写表格外框、表头背景、单元格高度、分页容器等视觉样式。
 
-### 7.1 表格外框
+### 6.1 表格外框
 
 统一外框：
 
@@ -254,7 +234,7 @@ src/components/ui/Table.tsx
 - 阴影：默认无阴影
 - overflow 由具体表格滚动容器控制
 
-### 7.2 表头
+### 6.2 表头
 
 表头统一规则：
 
@@ -269,7 +249,7 @@ src/components/ui/Table.tsx
 - 默认左对齐
 - 首列表头左侧 padding：`16px`
 
-### 7.3 表格单元格
+### 6.3 表格单元格
 
 tbody 单元格统一规则：
 
@@ -287,13 +267,13 @@ tbody 单元格统一规则：
 
 不要在 `td` 上强制 `flex`，避免破坏原生 table 布局。如需某一列右对齐，仅在单元格内容层包一层元素处理。
 
-### 7.4 行 hover
+### 6.4 行 hover
 
 - 普通行 hover 背景使用 `var(--base-muted, #F5F5F5)`。
 - sticky 操作列也要同步 hover，不允许固定列保持白底造成断层。
 - loading 骨架屏行需要禁用 `tr:hover` 和 `td:hover` 背景，避免翻页时出现整行灰色条。
 
-### 7.5 空态与 loading
+### 6.5 空态与 loading
 
 `AdminTableShell` 负责：
 
@@ -308,7 +288,7 @@ tbody 单元格统一规则：
 
 loading 态需要保持底部分页和说明时，传入 `showFooterWhenLoading`。
 
-### 7.6 表格注脚
+### 6.6 表格注脚
 
 表格底部左侧说明、总数、统计范围说明等，优先使用 `AdminTableShell.footnote`。
 
@@ -325,7 +305,7 @@ loading 态需要保持底部分页和说明时，传入 `showFooterWhenLoading`
 课程数：37（统计范围说明...）
 ```
 
-### 7.7 分页器
+### 6.7 分页器
 
 表格分页统一走：
 
@@ -348,7 +328,7 @@ src/app/admin/components/AdminPagination.tsx
 - “下一页”末尾需要和表格右边缘视觉对齐，统一由 `AdminPagination` 处理，不在页面里用 margin 偏移。
 - 除非产品明确要求隐藏，否则后台列表表格即使只有一页也默认展示分页器。
 
-### 7.8 操作列
+### 6.8 操作列
 
 所有 admin 表格操作列都应固定在右侧。
 
@@ -372,7 +352,7 @@ getAdminStickyRightCellClass();
 - 不要沿用 `ghost` 按钮默认 hover 底色，避免形成块状高亮。
 - 操作列不应通过普通最后一列替代 sticky right。
 
-### 7.9 文本溢出
+### 6.9 文本溢出
 
 长文本、省略号、课程名、用户信息等，优先使用：
 
@@ -386,7 +366,7 @@ src/app/admin/components/AdminTooltipText.tsx
 - 如果省略由外层 table layout 裁剪导致无法可靠判断 overflow，可启用强制 tooltip。
 - 多行信息单元格应分别给关键文本加 tooltip，而不是只包外层。
 
-## 8. 数据卡片
+## 7. 数据卡片
 
 后台数据统计卡片统一使用：
 
@@ -394,14 +374,14 @@ src/app/admin/components/AdminTooltipText.tsx
 src/app/admin/components/AdminCountCard.tsx
 ```
 
-### 8.1 使用场景
+### 7.1 使用场景
 
 - 数据页 KPI
 - 课程详情核心指标
 - 运营后台核心统计
 - 未来新增的统计概览卡片
 
-### 8.2 视觉规则
+### 7.2 视觉规则
 
 容器：
 
@@ -426,11 +406,11 @@ src/app/admin/components/AdminCountCard.tsx
 - 颜色：`var(--base-card-foreground, #0A0A0A)`
 - 标题与数值间距：`6px`
 
-## 9. 课程首页卡片
+## 8. 课程首页卡片
 
 `/admin` 课程首页课程卡片为后台卡片视觉基准之一，未来类似“卡片型入口”可参考该规范。
 
-### 9.1 卡片容器
+### 8.1 卡片容器
 
 统一规则：
 
@@ -441,13 +421,13 @@ src/app/admin/components/AdminCountCard.tsx
 - 阴影：`shadow-sm` CSS 变量
 - hover：使用低透明度 `primary` 背景，不额外增强阴影，避免抖动
 
-### 9.2 卡片内容
+### 8.2 卡片内容
 
 - 内边距：`16px`
 - 整卡作为进入作者工作台的导航时，默认新标签页打开，避免打断当前筛选上下文。
 - hover 菜单、更多操作必须阻止事件冒泡，避免触发整卡导航。
 
-### 9.3 课程头像
+### 8.3 课程头像
 
 - 尺寸：`28px x 28px`
 - 圆角：`8px`
@@ -460,7 +440,7 @@ src/app/admin/components/AdminCountCard.tsx
   - 图标尺寸：`16px x 19px`
   - 不再使用 `TrophyIcon` 作为占位图标
 
-### 9.4 课程名
+### 8.4 课程名
 
 - 颜色：黑色
 - 字号：`16px`
@@ -468,7 +448,7 @@ src/app/admin/components/AdminCountCard.tsx
 - 行高：`20px`
 - 单行省略
 
-### 9.5 课程描述
+### 8.5 课程描述
 
 - 距离头像 / 标题行：`16px`
 - 颜色：`rgba(10, 10, 10, 0.65)`
@@ -477,18 +457,16 @@ src/app/admin/components/AdminCountCard.tsx
 - 行高：`20px`
 - 最多三行截断
 
-## 10. 积分与会员页面特殊规则
+## 9. 积分与会员页面特殊规则
 
-会员与积分页面同样属于 admin 后台页面，应遵循上述面包屑、标题、表格、分页和卡片规范。
+会员与积分页面同样属于 admin 后台页面，应遵循上述标题、表格、分页和卡片规范。
 
-### 10.1 积分购买页
+### 9.1 积分购买页
 
-- 当前页面标题优先通过面包屑承载。
-- 页面主体不要再重复展示同名大标题，避免出现：
-  - `首页 > 积分购买`
-  - 下方又展示一个 `积分购买`
+- 当前页面标题优先通过标题区或顶部 tabs 承载。
+- 页面主体不要再重复展示同名大标题。
 
-### 10.2 积分消耗明细表格
+### 9.2 积分消耗明细表格
 
 积分消耗明细表格应复用 `AdminTableShell` 和标准 `Table`。
 
@@ -501,9 +479,9 @@ src/app/admin/components/AdminCountCard.tsx
 - 时间列不要保留旧版 grid 表格中的 `text-right`、`justify-end`、`ml-auto`。
 - loading 骨架屏行必须禁用 hover 背景，避免翻页时底部出现灰色条。
 
-## 11. 按钮规范
+## 10. 按钮规范
 
-### 11.1 主按钮
+### 10.1 主按钮
 
 页面主 CTA 使用默认 `Button`：
 
@@ -517,7 +495,7 @@ src/app/admin/components/AdminCountCard.tsx
 - 不要为了弱化视觉而使用 `outline`。
 - 如果设计没有要求，不默认添加左侧图标。
 
-### 11.2 弱按钮
+### 10.2 弱按钮
 
 弱操作使用：
 
@@ -533,7 +511,7 @@ src/app/admin/components/AdminCountCard.tsx
 - 展开 / 收起
 - 弱化辅助入口
 
-### 11.3 表格文本操作
+### 10.3 表格文本操作
 
 表格里的文本操作按钮：
 
@@ -543,13 +521,13 @@ src/app/admin/components/AdminCountCard.tsx
 - 跟随单元格内容左对齐
 - 需要 sticky right 时放在固定操作列中
 
-## 12. 图标规范
+## 11. 图标规范
 
 - 14px 文字旁边的 chevron 图标统一使用 `h-4 w-4`。
 - 图标容器使用 `items-center` 和 `leading-none`。
 - 文本自身保留 `leading-5`，避免图标因继承文本行高导致视觉不对齐。
 
-## 13. 响应式规则
+## 12. 响应式规则
 
 admin 页面以桌面工作台为主，但仍需保持窄屏基本可用。
 
@@ -566,7 +544,7 @@ admin 页面以桌面工作台为主，但仍需保持窄屏基本可用。
 - 不使用 `vh`，如需视口高度使用 `dvh`。
 - 不使用 `env(safe-area-inset-bottom)`。
 
-## 14. i18n 与类型同步
+## 13. i18n 与类型同步
 
 新增或修改 admin 页面文案时，必须同步：
 
@@ -583,11 +561,10 @@ npm run i18n:keys
 
 或项目对应的 key 生成脚本。
 
-## 15. 新增 admin 页面检查清单
+## 14. 新增 admin 页面检查清单
 
 新增 `/admin` 页面时，应逐项检查：
 
-- 是否使用 `AdminBreadcrumb`
 - 是否使用 `AdminTitle`
 - 是否复用 `AdminFilter`
 - 是否复用 `AdminTableShell`
@@ -600,12 +577,11 @@ npm run i18n:keys
 - 是否避免重复实现已有共享组件能力
 - 是否运行相关 focused test 或 `npm run type-check`
 
-## 16. 推荐组件索引
+## 15. 推荐组件索引
 
 后台页面优先复用以下组件：
 
 ```text
-src/app/admin/components/AdminBreadcrumb.tsx
 src/app/admin/components/AdminTitle.tsx
 src/app/admin/components/AdminFilter.tsx
 src/app/admin/components/AdminTableShell.tsx

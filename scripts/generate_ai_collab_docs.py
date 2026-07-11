@@ -1644,10 +1644,11 @@ def build_documents() -> dict[Path, str]:
                 "description in sync with the latest code changes so they "
                 "accurately describe the current implementation and "
                 "verification state.",
-                "Follow the canonical commit-message policy in "
-                "`docs/engineering-baseline.md#commit-message-policy`; keep "
-                "agent-specific rule files pointing there instead of "
-                "duplicating the policy.",
+                "For git commit message title, body, and classification "
+                "requirements, read "
+                "`AGENTS.md#git-commit-message-requirements`; keep "
+                "agent-specific rule files from duplicating the detailed "
+                "commit-message policy.",
                 "Keep generated knowledge artifacts in sync by running "
                 "`python scripts/build_repo_knowledge_index.py` after docs "
                 "structure or metadata changes.",
@@ -1775,6 +1776,16 @@ def build_documents() -> dict[Path, str]:
                 "path or ad-hoc component fetch logic.",
                 "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
                 "and preserve the unified request/business-code handling flow.",
+                "For clickable UI, prefer semantic elements (`button`, `a`, "
+                "`summary`) or shared Radix/shadcn primitives. If a "
+                "non-semantic element must handle clicks, mark the actual "
+                'clickable target with `data-clickable="true"` and preserve '
+                'disabled states with `disabled`, `aria-disabled="true"`, or '
+                "`data-disabled`. Do not rely on page-local cursor styles or "
+                "broad `* { cursor: pointer; }` rules. Full-screen "
+                "onboarding/backdrop advance surfaces are the exception: keep "
+                "their large background or card hit areas on the default "
+                "cursor so the whole page does not read as a button.",
                 "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
                 "`route.ts`, and treat legacy `c-*` directories as active "
                 "compatibility surfaces until a planned migration removes them.",
@@ -1810,10 +1821,11 @@ def build_documents() -> dict[Path, str]:
                 "description in sync with the latest code changes so they "
                 "accurately describe the current implementation and "
                 "verification state.",
-                "Follow the canonical commit-message policy in "
-                "`docs/engineering-baseline.md#commit-message-policy`; keep "
-                "agent-specific rule files pointing there instead of "
-                "duplicating the policy.",
+                "For git commit message title, body, and classification "
+                "requirements, read "
+                "`AGENTS.md#git-commit-message-requirements`; keep "
+                "agent-specific rule files from duplicating the detailed "
+                "commit-message policy.",
                 "Regenerate repository knowledge indexes with "
                 "`python scripts/build_repo_knowledge_index.py` after moving docs "
                 "or changing required metadata.",
@@ -1893,6 +1905,16 @@ def build_documents() -> dict[Path, str]:
                 "implementations or ad-hoc component fetch logic.",
                 "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
                 "and preserve the unified business-code handling path.",
+                "For clickable UI, prefer semantic elements (`button`, `a`, "
+                "`summary`) or shared Radix/shadcn primitives. If a "
+                "non-semantic element must handle clicks, mark the actual "
+                'clickable target with `data-clickable="true"` and preserve '
+                'disabled states with `disabled`, `aria-disabled="true"`, or '
+                "`data-disabled`. Do not rely on page-local cursor styles or "
+                "broad `* { cursor: pointer; }` rules. Full-screen "
+                "onboarding/backdrop advance surfaces are the exception: keep "
+                "their large background or card hit areas on the default "
+                "cursor so the whole page does not read as a button.",
                 "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
                 "`route.ts`, and treat legacy `c-*` directories as active "
                 "compatibility surfaces until a deliberate migration removes them.",

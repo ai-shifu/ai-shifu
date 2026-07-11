@@ -239,6 +239,9 @@ export const REFERRAL_CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
   campaignTime: 280,
   relationCount: 110,
   rewardCount: 110,
+  inviteCodeCount: 110,
+  inviteEventCount: 120,
+  latestInviteEventAt: 170,
   updatedAt: 170,
   action: 120,
 } as const;
@@ -251,7 +254,7 @@ export const PROMOTION_USAGE_DIALOG_COLUMN_COUNT = {
   withCourse: 5,
 } as const;
 export const SINGLE_SELECT_ITEM_CLASS =
-  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
+  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
 export const TABLE_HEAD_CLASS = ADMIN_TABLE_HEADER_CELL_CENTER_CLASS;
 export const TABLE_ACTION_HEAD_CLASS =
   getAdminStickyRightHeaderClass('text-center');
@@ -525,6 +528,22 @@ export const stringifyReferralCampaignJson = (value: unknown) => {
   return JSON.stringify(value, null, 2);
 };
 
+export const normalizeReferralCampaignDecimalInput = (
+  value: string | null | undefined,
+) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return '';
+  }
+  if (!normalized.includes('.')) {
+    return normalized;
+  }
+  return normalized
+    .replace(/(\.\d*?[1-9])0+$/, '$1')
+    .replace(/\.0+$/, '')
+    .replace(/\.$/, '');
+};
+
 export const createReferralCampaignFormFromDetail = (
   detail: AdminReferralCampaignDetail,
 ): ReferralCampaignFormState => {
@@ -537,7 +556,9 @@ export const createReferralCampaignFormFromDetail = (
     ends_at: normalizePromotionFormDateTimeValue(campaign.ends_at),
     reward_product_code: campaign.reward_product_code || '',
     reward_cycle_count: String(campaign.reward_cycle_count || ''),
-    reward_credit_amount: campaign.reward_credit_amount || '',
+    reward_credit_amount: normalizeReferralCampaignDecimalInput(
+      campaign.reward_credit_amount,
+    ),
     reward_credit_validity_days: String(
       campaign.reward_credit_validity_days || '',
     ),

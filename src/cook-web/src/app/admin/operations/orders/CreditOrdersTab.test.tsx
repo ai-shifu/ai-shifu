@@ -1,6 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/lib/admin-date-time';
 import CreditOrdersTab from './CreditOrdersTab';
 
 const translationCache = new Map<
@@ -173,8 +177,20 @@ jest.mock('@/components/ui/Select', () => {
 
 jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
   __esModule: true,
-  default: ({ placeholder }: { placeholder: string }) => (
-    <div>{placeholder}</div>
+  default: ({
+    placeholder,
+    onChange,
+  }: {
+    placeholder: string;
+    onChange: (range: { start: string; end: string }) => void;
+  }) => (
+    <button
+      type='button'
+      data-testid={`date-range-${placeholder}`}
+      onClick={() => onChange({ start: '2026-07-02', end: '2026-07-02' })}
+    >
+      {placeholder}
+    </button>
   ),
 }));
 
@@ -605,6 +621,11 @@ describe('CreditOrdersTab', () => {
         target: { value: 'creator-topup-small' },
       },
     );
+    fireEvent.click(
+      screen.getByTestId(
+        'date-range-module.operationsOrder.filters.timeRangePlaceholder',
+      ),
+    );
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -618,6 +639,8 @@ describe('CreditOrdersTab', () => {
           creator_keyword: '13800138000',
           product_keyword: 'creator-topup-small',
           status: 'paid',
+          start_time: formatAdminDateRangeStartUtc('2026-07-02'),
+          end_time: formatAdminDateRangeEndUtc('2026-07-02'),
         }),
       );
     });

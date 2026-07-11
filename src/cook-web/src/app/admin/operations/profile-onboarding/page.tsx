@@ -152,7 +152,7 @@ export default function ProfileOnboardingAdminPage() {
   }
 
   return (
-    <div className='flex min-h-0 flex-1 flex-col px-8 py-6'>
+    <>
       <AdminBreadcrumb
         items={[
           {
@@ -321,6 +321,6 @@ export default function ProfileOnboardingAdminPage() {
           ) : null}
         </aside>
       </div>
-    </div>
+    </>
   );
 }

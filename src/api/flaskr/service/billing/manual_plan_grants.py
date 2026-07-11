@@ -13,6 +13,7 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .credit_notifications import (
     enqueue_credit_notification,
@@ -164,7 +165,7 @@ def _resolve_manual_plan_cycle_end(
         cycle_start_at=granted_at,
     )
     if cycle_end_at is None or cycle_end_at <= granted_at:
-        raise_error("server.common.systemError")
+        raise_error("server.billing.manualPlanGrantFailed")
     return cycle_end_at
 
 
@@ -207,14 +208,14 @@ def grant_manual_plan_to_user(
             blocking_timeout=5,
         )
         if not grant_lock.acquire(blocking=True):
-            raise_error("server.common.systemError")
+            raise_error("server.billing.manualPlanGrantBusy")
 
         try:
             existing_order = _load_existing_manual_grant_order(
                 user_bid=normalized_user_bid,
                 request_id=normalized_request_id,
             )
-            now = datetime.now()
+            now = now_utc()
             if existing_order is not None:
                 granted = grant_paid_order_credits(app, existing_order)
                 notification_bid = ""
@@ -295,12 +296,12 @@ def grant_manual_plan_to_user(
                     raise_error("server.billing.adminPlanGrantProviderManagedConflict")
                 current_product = _load_plan_product_by_bid(existing_product_bid)
                 if current_product is None:
-                    raise_error("server.common.systemError")
+                    raise_error("server.billing.manualPlanGrantFailed")
                 if int(product.sort_order or 0) <= int(current_product.sort_order or 0):
                     raise_error("server.billing.subscriptionUpgradeOnly")
                 order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
 
-            granted_at = datetime.now()
+            granted_at = now_utc()
             cycle_end_at = _resolve_manual_plan_cycle_end(
                 product=product,
                 granted_at=granted_at,

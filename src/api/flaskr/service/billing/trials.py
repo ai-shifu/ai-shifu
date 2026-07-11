@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from flaskr.dao import db
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import get_user_entity_by_bid
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
@@ -43,6 +44,7 @@ from .primitives import credit_decimal_to_number as _credit_decimal_to_number
 from .primitives import is_billing_enabled as _is_billing_enabled
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
+from .primitives import normalize_mysql_datetime as _normalize_mysql_datetime
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import safe_to_positive_int as _safe_to_positive_int
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
@@ -362,7 +364,7 @@ def _bootstrap_trial_subscription(
     if valid_days <= 0 or credit_amount <= 0:
         return
 
-    now = datetime.now()
+    now = _normalize_mysql_datetime(now_utc())
     expires_at = now + timedelta(days=valid_days)
     product_bid = str(
         _trial_product_field(product_ref, "product_bid", BILLING_TRIAL_PRODUCT_BID)
@@ -809,7 +811,7 @@ def _acknowledge_trial_welcome_dialog(
                 acknowledged_at=None,
             )
 
-        acknowledged_at = datetime.now()
+        acknowledged_at = now_utc()
         _set_trial_welcome_acknowledged_at(
             target_record,
             acknowledged_at=acknowledged_at,

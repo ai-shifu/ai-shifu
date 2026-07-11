@@ -22,6 +22,13 @@ from flaskr.service.promo.consts import (
     PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
     PROMO_CAMPAIGN_JOIN_TYPE_MANUAL,
 )
+from flaskr.service.promo.admin_dtos import (
+    AdminPromotionCampaignItemDTO,
+    AdminPromotionSummaryDTO,
+)
+from flaskr.service.promo.creator_redemption import (
+    list_creator_course_redemption_coupons,
+)
 from flaskr.service.promo.models import (
     Coupon,
     CouponUsage,
@@ -61,6 +68,60 @@ def _isolate_tables(app):
         db.session.query(UserEntity).delete()
         db.session.commit()
         db.session.remove()
+
+
+def test_promotion_dtos_coerce_empty_and_zero_datetime_values_to_none():
+    summary = AdminPromotionSummaryDTO(
+        total=0,
+        active=0,
+        usage_count=0,
+        latest_usage_at="",
+        covered_courses=0,
+        discount_amount="0",
+    )
+    assert summary.latest_usage_at is None
+
+    campaign = AdminPromotionCampaignItemDTO(
+        promo_bid="promo-1",
+        name="Campaign",
+        shifu_bid="shifu-1",
+        course_name="Course",
+        apply_type=PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+        discount_type=COUPON_TYPE_FIXED,
+        discount_type_key="module.operationsPromotion.discountType.fixed",
+        value="1",
+        channel="",
+        start_at=None,
+        end_at=None,
+        computed_status="active",
+        computed_status_key="module.operationsPromotion.status.active",
+        applied_order_count=0,
+        has_redemptions=False,
+        total_discount_amount="0",
+        created_user_bid="user-1",
+        created_user_name="Operator",
+        created_at="0000-00-00 00:00:00",
+        updated_at="0000-00-00",
+    )
+    assert campaign.created_at is None
+    assert campaign.updated_at is None
+    assert campaign.channel == ""
+
+
+def test_creator_redemption_empty_result_summary_uses_none_latest_usage_at(app):
+    # Exercise the actual empty-result service branch (not just the DTO) so a
+    # regression reverting latest_usage_at back to "" would be caught here.
+    with app.app_context():
+        response = list_creator_course_redemption_coupons(
+            app,
+            creator_user_bid="creator-without-any-course",
+            page=1,
+            page_size=20,
+            filters={},
+        )
+
+    assert response.summary.latest_usage_at is None
+    assert response.items == []
 
 
 def _mock_operator(
@@ -633,6 +694,49 @@ def test_creator_redemption_code_list_shows_only_owned_course_batches(
     assert all_payload["data"]["total"] == 1
     assert all_payload["data"]["items"][0]["coupon_bid"] != "other-coupon"
     assert all_payload["data"]["items"][0]["ops_states"] == []
+
+
+def test_creator_redemption_code_list_accepts_utc_date_filter_bounds(
+    app, test_client, monkeypatch
+):
+    _mock_creator(monkeypatch, user_id="creator-1")
+    captured_filters = {}
+
+    def fake_list(_app, creator_user_bid, page_index, page_size, filters):
+        captured_filters.update(filters)
+        assert creator_user_bid == "creator-1"
+        assert page_index == 1
+        assert page_size == 20
+        return {
+            "summary": {},
+            "items": [],
+            "page": page_index,
+            "page_size": page_size,
+            "page_count": 0,
+            "total": 0,
+        }
+
+    monkeypatch.setattr(
+        "flaskr.route.order.list_creator_course_redemption_coupons",
+        fake_list,
+    )
+
+    response = test_client.get(
+        "/api/order/admin/orders/redemption-codes",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "start_time": "2026-07-01T16:00:00Z",
+            "end_time": "2026-07-02T15:59:59Z",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert captured_filters["start_time"] == datetime(2026, 7, 1, 16, 0, 0)
+    assert captured_filters["end_time"] == datetime(2026, 7, 2, 15, 59, 59)
 
 
 def test_creator_redemption_code_usage_route_requires_owned_course_coupon(

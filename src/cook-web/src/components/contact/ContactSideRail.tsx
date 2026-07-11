@@ -48,7 +48,7 @@ export function ContactSideRail({ className, label }: ContactSideRailProps) {
           });
         }}
         title={resolvedLabel}
-        className='pointer-events-auto group relative ml-auto flex h-10 w-10 cursor-pointer items-center justify-start overflow-hidden rounded-l-md bg-primary text-primary-foreground shadow-lg shadow-black/15 transition-[width] duration-200 hover:w-auto focus-visible:w-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
+        className='pointer-events-auto group relative ml-auto flex h-10 w-10 items-center justify-start overflow-hidden rounded-l-md bg-primary text-primary-foreground shadow-lg shadow-black/15 transition-[width] duration-200 hover:w-auto focus-visible:w-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
       >
         <span
           className='flex h-10 w-10 shrink-0 items-center justify-center'

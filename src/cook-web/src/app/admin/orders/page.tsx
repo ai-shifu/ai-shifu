@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
@@ -37,7 +41,6 @@ import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
@@ -444,8 +447,8 @@ const OrdersPage = () => {
           shifu_bid: shifuBidValue,
           status: resolvedFilters.status,
           payment_channel: resolvedFilters.payment_channel,
-          start_time: resolvedFilters.start_time,
-          end_time: resolvedFilters.end_time,
+          start_time: formatAdminDateRangeStartUtc(resolvedFilters.start_time),
+          end_time: formatAdminDateRangeEndUtc(resolvedFilters.end_time),
         })) as OrderListResponse;
 
         const list = response.items || [];
@@ -555,7 +558,6 @@ const OrdersPage = () => {
   return (
     <div className='h-full p-0'>
       <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden'>
-        <AdminBreadcrumb items={[{ label: t('module.order.title') }]} />
         <Tabs
           value={activeTab}
           className='flex min-h-0 flex-1 flex-col'

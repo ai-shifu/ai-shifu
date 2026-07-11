@@ -14,17 +14,15 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
+import { runWithConcurrency } from '@/lib/runWithConcurrency';
 import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
-import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 import { AppContext } from '../AppContext';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
 import { useTracking } from '@/c-common/hooks/useTracking';
-import { shifu } from '@/c-service/Shifu';
 import { useEnvStore } from '@/c-store/envStore';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { fail, toast } from '@/hooks/useToast';
-import { useSingleFlight } from '@/hooks/useSingleFlight';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import InteractionBlock from './InteractionBlock';
@@ -82,6 +80,12 @@ import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptS
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
+// Max concurrent listen-mode audio backfill requests. Entering listen mode used
+// to fire TTS synthesis for every missing block at once (Promise.all), which
+// could burst past the provider RPM limit; a small bounded pool keeps the
+// instantaneous request rate well under it.
+const LISTEN_AUDIO_BACKFILL_CONCURRENCY = 3;
+
 interface NewChatComponentsProps {
   className?: string;
   lessonUpdate: (val: any) => void;
@@ -100,6 +104,7 @@ interface NewChatComponentsProps {
   onListenPlayerVisibilityChange?: (visible: boolean) => void;
   onListenMobileViewModeChange?: ListenMobileViewModeChangeHandler;
   showGenerateBtn?: boolean;
+  onLessonUpdateNoticeVisibilityChange?: (visible: boolean) => void;
 }
 
 const isContentItemWithElementBid = (item: ChatContentItem) =>
@@ -125,13 +130,12 @@ export const NewChatComponents = ({
   onListenPlayerVisibilityChange,
   onListenMobileViewModeChange,
   showGenerateBtn = false,
+  onLessonUpdateNoticeVisibilityChange,
 }: NewChatComponentsProps) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
   const router = useRouter();
-  const confirmButtonText = t('module.renderUi.core.confirm');
-  const copyButtonText = t('module.renderUi.core.copyCode');
-  const copiedButtonText = t('module.renderUi.core.copied');
+  const lessonFeedbackSubmitLabel = t('module.chat.lessonFeedbackSubmit');
   const askButtonMarkup = useMemo(
     () =>
       `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
@@ -273,23 +277,15 @@ export const NewChatComponents = ({
     });
   }, [resolveScrollPresentation]);
 
-  const {
-    openPayModal,
-    payModalResult,
-    resetChapter,
-    resetedLessonId,
-    resettingLessonId,
-    updateLessonId,
-  } = useCourseStore(
-    useShallow(state => ({
-      openPayModal: state.openPayModal,
-      payModalResult: state.payModalResult,
-      resetChapter: state.resetChapter,
-      resetedLessonId: state.resetedLessonId,
-      resettingLessonId: state.resettingLessonId,
-      updateLessonId: state.updateLessonId,
-    })),
-  );
+  const { openPayModal, payModalResult, resetedLessonId, resettingLessonId } =
+    useCourseStore(
+      useShallow(state => ({
+        openPayModal: state.openPayModal,
+        payModalResult: state.payModalResult,
+        resetedLessonId: state.resetedLessonId,
+        resettingLessonId: state.resettingLessonId,
+      })),
+    );
   const shouldShowResetLoading =
     mobileStyle &&
     (resettingLessonId === lessonId || resetedLessonId === lessonId);
@@ -314,48 +310,6 @@ export const NewChatComponents = ({
   const previousListenModeActiveRef = useRef(isListenModeActive);
   // Normalize lesson scope for downstream APIs and stores that require a string key.
   const resolvedLessonId = lessonId || '';
-  const isRetakingCurrentLesson =
-    Boolean(resolvedLessonId) && resettingLessonId === resolvedLessonId;
-  const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
-  const handleRetakeCurrentLesson = useSingleFlight(async () => {
-    if (!resolvedLessonId) {
-      return false;
-    }
-
-    try {
-      stopActiveLessonStream(resolvedLessonId);
-      await resetChapter(resolvedLessonId);
-      updateLessonId(resolvedLessonId);
-      shifu.resetTools.resetChapter({
-        chapter_id: chapterId,
-        lesson_id: resolvedLessonId,
-        chapter_name: lessonTitle,
-      });
-      return true;
-    } catch (error) {
-      fail(
-        (error as Error).message || t('module.backend.common.operationFailed'),
-      );
-      return false;
-    }
-  });
-  const handleRetakeButtonClick = useCallback(() => {
-    if (!resolvedLessonId || isRetakingCurrentLesson) {
-      return;
-    }
-
-    setShowRetakeConfirm(true);
-  }, [isRetakingCurrentLesson, resolvedLessonId]);
-  const handleRetakeConfirmOpenChange = useCallback(
-    (open: boolean) => {
-      if (!open && isRetakingCurrentLesson) {
-        return;
-      }
-
-      setShowRetakeConfirm(open);
-    },
-    [isRetakingCurrentLesson],
-  );
   const promptContextKey = `${resolvedLessonId}:${
     isClassroomMode ? 'classroom' : isListenModeActive ? 'listen' : 'read'
   }`;
@@ -491,6 +445,17 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
+
+  useEffect(() => {
+    onLessonUpdateNoticeVisibilityChange?.(showLessonUpdateNotice);
+  }, [onLessonUpdateNoticeVisibilityChange, showLessonUpdateNotice]);
+
+  useEffect(
+    () => () => {
+      onLessonUpdateNoticeVisibilityChange?.(false);
+    },
+    [onLessonUpdateNoticeVisibilityChange],
+  );
 
   const requestListenAudioBackfillForBlock = useCallback(
     (blockBid: string, lessonIdAtRequest: string) => {
@@ -749,25 +714,40 @@ export const NewChatComponents = ({
 
     listenAudioBackfillLessonIdRef.current = lessonIdAtRequest;
 
-    const backfillPromises = missingAudioBlockBids.map(blockBid =>
-      requestListenAudioBackfillForBlock(blockBid, lessonIdAtRequest)
-        .then(result => {
-          if (listenAudioBackfillLessonIdRef.current !== lessonIdAtRequest) {
-            return null;
-          }
-
-          return result;
-        })
-        .catch(() => null),
+    // Prioritise blocks that will actually be played (non-history) so the first
+    // playable block is synthesised before history blocks, which auto-play
+    // skips. Otherwise the bounded pool could spend its slots on leading history
+    // blocks and delay first playback.
+    const historyBlockBidSet = new Set(
+      readyBackfillCandidateItems
+        .filter(item => item.isHistory)
+        .map(item => item.element_bid),
     );
+    const prioritizedBlockBids = [
+      ...missingAudioBlockBids.filter(bid => !historyBlockBidSet.has(bid)),
+      ...missingAudioBlockBids.filter(bid => historyBlockBidSet.has(bid)),
+    ];
 
-    void Promise.all(backfillPromises).then(results => {
+    void runWithConcurrency(
+      prioritizedBlockBids,
+      LISTEN_AUDIO_BACKFILL_CONCURRENCY,
+      blockBid =>
+        requestListenAudioBackfillForBlock(blockBid, lessonIdAtRequest)
+          .then(result => {
+            if (listenAudioBackfillLessonIdRef.current !== lessonIdAtRequest) {
+              return null;
+            }
+
+            return result;
+          })
+          .catch(() => null),
+    ).then(results => {
       if (listenAudioBackfillLessonIdRef.current !== lessonIdAtRequest) {
         return;
       }
 
       const hasGeneratedAudio = results.some(Boolean);
-      const failedBlockBids = missingAudioBlockBids.filter(
+      const failedBlockBids = prioritizedBlockBids.filter(
         (_, index) => !results[index],
       );
       failedBlockBids.forEach(blockBid => {
@@ -1247,7 +1227,7 @@ export const NewChatComponents = ({
             defaultScoreText={lessonFeedbackPopup.defaultScoreText}
             defaultCommentText={lessonFeedbackPopup.defaultCommentText}
             placeholder={t('module.chat.lessonFeedbackCommentPlaceholder')}
-            submitLabel={confirmButtonText}
+            submitLabel={lessonFeedbackSubmitLabel}
             clearLabel={t('module.chat.lessonFeedbackClearInput')}
             readonly={lessonFeedbackPopup.readonly}
             onSubmit={lessonFeedbackPopup.onSubmit}
@@ -1255,72 +1235,6 @@ export const NewChatComponents = ({
         </div>
       </div>
     ) : null;
-  const lessonUpdateNotice = showLessonUpdateNotice ? (
-    <div className='mx-auto mb-3 mt-2 max-w-[1000px] px-4 md:px-5'>
-      <div className='inline-flex max-w-full items-center gap-3 rounded-full border border-amber-200/80 bg-amber-50/90 px-4 py-2 text-sm leading-6 text-amber-900 shadow-sm shadow-amber-100/40'>
-        <span>{t('module.chat.lessonUpdateRecommendRetake')}</span>
-        <Button
-          type='button'
-          size='sm'
-          variant='outline'
-          className='h-8 rounded-[15px] border border-amber-300 bg-white/85 px-3 text-[13px] font-medium text-amber-900 shadow-none hover:bg-white'
-          onClick={handleRetakeButtonClick}
-          disabled={isRetakingCurrentLesson}
-        >
-          {t('module.chat.lessonUpdateRetakeAction')}
-        </Button>
-        <Dialog
-          open={showRetakeConfirm}
-          onOpenChange={handleRetakeConfirmOpenChange}
-        >
-          <DialogContent
-            showClose={!isRetakingCurrentLesson}
-            onEscapeKeyDown={event => {
-              if (isRetakingCurrentLesson) {
-                event.preventDefault();
-              }
-            }}
-            onPointerDownOutside={event => {
-              if (isRetakingCurrentLesson) {
-                event.preventDefault();
-              }
-            }}
-          >
-            <DialogHeader>
-              <DialogTitle>{t('module.lesson.reset.confirmTitle')}</DialogTitle>
-              <DialogDescription>
-                {t('module.lesson.reset.confirmContent')}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                type='button'
-                variant='outline'
-                onClick={() => setShowRetakeConfirm(false)}
-                disabled={isRetakingCurrentLesson}
-              >
-                {t('common.core.cancel')}
-              </Button>
-              <Button
-                type='button'
-                onClick={() => {
-                  void handleRetakeCurrentLesson().then(didReset => {
-                    if (didReset) {
-                      setShowRetakeConfirm(false);
-                    }
-                  });
-                }}
-                disabled={isRetakingCurrentLesson}
-              >
-                {t('common.core.ok')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </div>
-  ) : null;
-
   return (
     <div
       className={containerClassName}
@@ -1329,7 +1243,6 @@ export const NewChatComponents = ({
       {isSlideMode ? (
         isClassroomMode || isListenModeAvailable ? (
           <>
-            {lessonUpdateNotice}
             <ListenModeSlideRenderer
               items={slideModeItems}
               mobileStyle={mobileStyle}
@@ -1381,7 +1294,6 @@ export const NewChatComponents = ({
               <></>
             ) : (
               <>
-                {lessonUpdateNotice}
                 {visibleReadModeItems.map((item, idx) => {
                   const isLongPressed =
                     longPressedBlockBid === item.element_bid;
@@ -1518,9 +1430,6 @@ export const NewChatComponents = ({
                           item={item}
                           mobileStyle={mobileStyle}
                           blockBid={item.element_bid}
-                          confirmButtonText={confirmButtonText}
-                          copyButtonText={copyButtonText}
-                          copiedButtonText={copiedButtonText}
                           onClickCustomButtonAfterContent={handleClickAskButton}
                           onSend={memoizedOnSend}
                           onLongPress={handleLongPress}
@@ -1587,9 +1496,6 @@ export const NewChatComponents = ({
                                 item.element_bid,
                           },
                         )}
-                        confirmButtonText={confirmButtonText}
-                        copyButtonText={copyButtonText}
-                        copiedButtonText={copiedButtonText}
                         onClickCustomButtonAfterContent={handleClickAskButton}
                         onSend={memoizedOnSend}
                         onLongPress={handleLongPress}

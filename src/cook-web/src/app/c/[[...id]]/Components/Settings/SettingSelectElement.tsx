@@ -14,6 +14,7 @@ export const SettingSelectElement = ({
   return (
     <div
       className={clsx(styles.settingSelect, className)}
+      data-clickable='true'
       onClick={onClick}
     >
       <div className={styles.title}>{value && title}</div>

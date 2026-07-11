@@ -30,7 +30,10 @@ from markdown_flow import (
 )
 from markdown_flow.llm import LLMResult
 from flask import Flask
-from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.common.i18n_utils import (
+    get_markdownflow_output_language,
+    resolve_markdownflow_output_language,
+)
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import (
@@ -124,6 +127,15 @@ from flaskr.common.shifu_context import (
 context_local = threading.local()
 
 
+def _find_outline_path_or_raise(
+    struct: HistoryItem, outline_bid: str
+) -> list[HistoryItem]:
+    path = find_node_with_parents(struct, outline_bid)
+    if not path:
+        raise_error("server.shifu.lessonNotFoundInCourse")
+    return path
+
+
 def _normalize_stream_number(value: Any) -> int | None:
     try:
         return int(value) if value is not None else None
@@ -201,6 +213,13 @@ class RunScriptInfo:
         self.outline_bid = outline_bid
         self.block_position = block_position
         self.mdflow = mdflow
+
+
+def _resolve_runtime_output_language(user_profile: dict | None) -> str:
+    runtime_language = get_current_language()
+    profile = user_profile or {}
+    profile_language = profile.get(SYS_USER_LANGUAGE) or profile.get("language") or ""
+    return str(runtime_language or profile_language or "")
 
 
 class RUNLLMProvider(LLMProvider):
@@ -378,6 +397,7 @@ class MdflowContextV2:
         interaction_error_prompt: Optional[str] = None,
         use_learner_language: bool = False,
         visual_mode: bool = True,
+        output_language: Optional[str] = None,
     ):
         self._mdflow = MarkdownFlow(
             document=document,
@@ -390,11 +410,16 @@ class MdflowContextV2:
         set_visual_mode = getattr(self._mdflow, "set_visual_mode", None)
         if callable(set_visual_mode):
             set_visual_mode(visual_mode)
-        # Only set output language if use_learner_language is enabled
+        # Language must follow the learner profile/preview variables when provided;
+        # falling back to the request-local language keeps existing callers compatible.
         if use_learner_language:
-            self._mdflow = self._mdflow.set_output_language(
-                get_markdownflow_output_language()
+            language = (output_language or "").strip()
+            resolved_output_language = (
+                resolve_markdownflow_output_language(language)
+                if language
+                else get_markdownflow_output_language()
             )
+            self._mdflow = self._mdflow.set_output_language(resolved_output_language)
 
     def get_block(self, block_index: int):
         return self._mdflow.get_block(block_index)
@@ -434,6 +459,27 @@ class MdflowContextV2:
             if not role or not content or not str(content).strip():
                 continue
             filtered.append({"role": role, "content": str(content)})
+        return filtered or None
+
+    @staticmethod
+    def filter_context_by_output_language(
+        context: Optional[list[dict[str, str]]],
+        output_language: str,
+    ) -> Optional[list[dict[str, str]]]:
+        if not context:
+            return context
+        normalized_language = (output_language or "").strip().lower()
+        if not normalized_language or normalized_language in {"en", "en-us", "english"}:
+            return context
+
+        filtered: list[dict[str, str]] = []
+        for message in context:
+            content = str(message.get("content") or "")
+            if "OUTPUT: 100% English" in content:
+                continue
+            if "Translate ALL non-English" in content:
+                continue
+            filtered.append(message)
         return filtered or None
 
     @staticmethod
@@ -511,17 +557,30 @@ class MdflowContextV2:
                     }
                 )
             elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
-                # Hand the raw interaction syntax to markdown-flow as an
-                # assistant message. Its _transform_context_messages expands
-                # ?[%{{var}}...] into {user: <value>} + {assistant: "ok"}
-                # using `variables`, instead of us crudely flattening the
-                # input into a bare user message.
-                message_list.append(
-                    {
-                        "role": "assistant",
-                        "content": block.content or "",
-                    }
-                )
+                interaction = InteractionParser().parse(block.content or "")
+                if interaction.get("variable"):
+                    # Variable interaction (e.g. ?[%{{var}} A | B]): hand the
+                    # raw syntax to markdown-flow, whose
+                    # _transform_context_messages expands it into
+                    # {user: <value>} + {assistant: "ok"} using `variables`.
+                    message_list.append(
+                        {
+                            "role": "assistant",
+                            "content": block.content or "",
+                        }
+                    )
+                else:
+                    # No-variable interaction (e.g. plain button choice
+                    # ?[A | B | C]): markdown-flow has no variable to recover
+                    # the learner's choice from and would collapse the turn
+                    # into {user: "ok"} + {assistant: "ok"}, dropping the
+                    # actual selection. Use the selection captured in
+                    # generated_content instead; if it is empty, skip the turn
+                    # rather than fabricate an "ok".
+                    user_content = (generated_block.generated_content or "").strip()
+                    if user_content:
+                        message_list.append({"role": "user", "content": user_content})
+                        message_list.append({"role": "assistant", "content": "ok"})
         return message_list
 
 
@@ -539,11 +598,16 @@ class _PreviewContextStore:
         shifu_bid: str,
         outline_bid: str,
         ttl_seconds: Optional[int] = None,
+        language: Optional[str] = None,
     ):
         self._cache = cache_provider
         self._ttl_seconds = ttl_seconds or self._DEFAULT_TTL_SECONDS
         prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
-        self._key = f"{prefix}:preview_context:{user_bid}:{shifu_bid}:{outline_bid}"
+        language_suffix = f":{language}" if language else ""
+        self._key = (
+            f"{prefix}:preview_context:{user_bid}:{shifu_bid}:{outline_bid}"
+            f"{language_suffix}"
+        )
 
     def _hash_document(self, document: str) -> str:
         if not document:
@@ -792,7 +856,9 @@ class RunScriptPreviewContextV2:
             user_bid=user_bid,
             shifu_bid=shifu_bid,
         )
-        preview_language = resolved_variables.get(SYS_USER_LANGUAGE)
+        preview_language = resolved_variables.get("language") or resolved_variables.get(
+            SYS_USER_LANGUAGE
+        )
         original_language = get_current_language()
         restore_language = (
             bool(preview_language) and preview_language != original_language
@@ -819,7 +885,15 @@ class RunScriptPreviewContextV2:
             )
 
             context_store = _PreviewContextStore(
-                self.app, user_bid, shifu_bid, outline_bid
+                self.app,
+                user_bid,
+                shifu_bid,
+                outline_bid,
+                language=str(
+                    resolved_variables.get("language")
+                    or resolved_variables.get(SYS_USER_LANGUAGE)
+                    or ""
+                ),
             )
             request_context = MdflowContextV2.normalize_context_messages(
                 preview_request.context
@@ -832,6 +906,16 @@ class RunScriptPreviewContextV2:
                 context_messages = request_context
                 context_store.replace_context(document, request_context)
 
+            preview_output_language = str(
+                resolved_variables.get("language")
+                or resolved_variables.get(SYS_USER_LANGUAGE)
+                or ""
+            )
+            context_messages = MdflowContextV2.filter_context_by_output_language(
+                context_messages,
+                preview_output_language,
+            )
+
             mdflow_context = MdflowContextV2(
                 document=document,
                 llm_provider=provider,
@@ -840,6 +924,7 @@ class RunScriptPreviewContextV2:
                 interaction_error_prompt=preview_request.interaction_error_prompt,
                 use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
                 visual_mode=bool(preview_request.visual_mode),
+                output_language=preview_output_language,
             )
 
             block_index = preview_request.block_index
@@ -950,11 +1035,31 @@ class RunScriptPreviewContextV2:
         user_bid: str,
         shifu_bid: str,
     ) -> Optional[dict]:
-        variables = (
+        request_variables = (
             dict(preview_request.variables)
             if isinstance(preview_request.variables, dict)
             else {}
         )
+        variables = get_user_profiles(self.app, user_bid, shifu_bid)
+        variables.update(request_variables)
+
+        request_language = str(
+            request_variables.get("language")
+            or request_variables.get(SYS_USER_LANGUAGE)
+            or ""
+        ).strip()
+        if request_language:
+            variables[SYS_USER_LANGUAGE] = request_language
+            variables["language"] = request_language
+
+        # The editor preview may submit an empty sys_user_language placeholder.
+        # Runtime language should follow the current request, not an empty variable.
+        if not str(variables.get(SYS_USER_LANGUAGE) or "").strip():
+            variables[SYS_USER_LANGUAGE] = get_current_language()
+        if not str(variables.get("language") or "").strip():
+            variables["language"] = variables[SYS_USER_LANGUAGE]
+        elif variables.get("language") != variables.get(SYS_USER_LANGUAGE):
+            variables[SYS_USER_LANGUAGE] = variables["language"]
         return variables
 
     def _iter_preview_generated_events(
@@ -1226,12 +1331,16 @@ class RunScriptPreviewContextV2:
         ]
         temperature_candidates = [
             preview_request.temperature,
-            self._decimal_to_float(getattr(outline, "llm_temperature", None))
-            if outline
-            else None,
-            self._decimal_to_float(getattr(shifu, "llm_temperature", None))
-            if shifu
-            else None,
+            (
+                self._decimal_to_float(getattr(outline, "llm_temperature", None))
+                if outline
+                else None
+            ),
+            (
+                self._decimal_to_float(getattr(shifu, "llm_temperature", None))
+                if shifu
+                else None
+            ),
             float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
         ]
 
@@ -1407,6 +1516,11 @@ class RunScriptContextV2:
         self.shifu_ids = []
         self.outline_item_ids = []
         self.current_outline_item = None
+        # Initialize the private attribute the runtime actually reads: it is only
+        # assigned later when a matching outline is found in the struct, so
+        # without this default it stays undefined (AttributeError) whenever the
+        # requested outline is missing from the struct.
+        self._current_outline_item = None
         self._run_type = RunType.INPUT
         self._can_continue = True
         self._stop_event = stop_event
@@ -1528,6 +1642,7 @@ class RunScriptContextV2:
         """Create StreamingTTSProcessor if TTS is configured, else return None."""
         try:
             from flaskr.common.config import get_config
+            from flaskr.service.learn.learn_funcs import _resolve_runtime_tts_voice_id
             from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
             from flaskr.service.tts.validation import validate_tts_settings_strict
 
@@ -1567,6 +1682,13 @@ class RunScriptContextV2:
             if not validated:
                 return None
 
+            runtime_voice_id = _resolve_runtime_tts_voice_id(
+                self.app,
+                validated.provider,
+                validated.voice_id,
+                shifu_bid=effective_shifu_bid,
+            )
+
             max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
             if not max_segment_chars:
                 max_segment_chars = 300
@@ -1578,7 +1700,7 @@ class RunScriptContextV2:
                 user_bid=self._user_info.user_id,
                 shifu_bid=effective_shifu_bid,
                 position=int(position or 0),
-                voice_id=validated.voice_id,
+                voice_id=runtime_voice_id,
                 speed=validated.speed,
                 pitch=validated.pitch,
                 emotion=validated.emotion,
@@ -1740,7 +1862,7 @@ class RunScriptContextV2:
                     and not self._user_info.email
                 ):
                     raise UserNotLoginException()
-            parent_path = find_node_with_parents(self._struct, outline_bid)
+            parent_path = _find_outline_path_or_raise(self._struct, outline_bid)
             attend_info = None
             new_records: list[LearnProgressRecord] = []
             for item in parent_path:
@@ -2217,17 +2339,18 @@ class RunScriptContextV2:
             usage_context,
             usage_scene,
         )
+        user_profile = get_user_profiles(
+            app, self._user_info.user_id, self._outline_item_info.shifu_bid
+        )
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
             document_prompt=system_prompt,
             llm_provider=llm_provider,
             use_learner_language=self._shifu_info.use_learner_language,
             visual_mode=True,
+            output_language=_resolve_runtime_output_language(user_profile),
         )
         block_list = mdflow_context.get_all_blocks()
-        user_profile = get_user_profiles(
-            app, self._user_info.user_id, self._outline_item_info.shifu_bid
-        )
         message_list = MdflowContextV2.build_context_from_blocks(
             generated_blocks, run_script_info.mdflow, user_profile
         )
@@ -3204,7 +3327,7 @@ class RunScriptContextV2:
                     payload,
                 ) in self._iter_stream_result_with_idle_callback(
                     stream_result,
-                    idle_callback=_drain_tts_ready_events if tts_enabled else None,
+                    idle_callback=(_drain_tts_ready_events if tts_enabled else None),
                     idle_poll_interval=idle_poll_interval,
                 ):
                     if source == "idle":
@@ -3311,7 +3434,7 @@ class RunScriptContextV2:
         return self._can_continue
 
     def get_system_prompt(self, outline_item_bid: str) -> str:
-        path = find_node_with_parents(self._struct, outline_item_bid)
+        path = _find_outline_path_or_raise(self._struct, outline_item_bid)
         path = list(reversed(path))
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]
@@ -3352,7 +3475,7 @@ class RunScriptContextV2:
         return None
 
     def get_llm_settings(self, outline_bid: str) -> LLMSettings:
-        path = find_node_with_parents(self._struct, outline_bid)
+        path = _find_outline_path_or_raise(self._struct, outline_bid)
         path.reverse()
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]

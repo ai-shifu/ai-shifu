@@ -108,6 +108,63 @@ def test_rpm_gate_uses_independent_queues_for_different_api_keys(monkeypatch):
     assert second.waited_seconds == 0
 
 
+def test_rpm_gate_uses_independent_queues_for_different_models(monkeypatch):
+    fake_redis = _FakeRedis()
+    monkeypatch.setattr(rpm_gate, "_get_redis_client", lambda: fake_redis)
+    now_fn, sleep_fn = _clock()
+
+    first = rpm_gate.acquire_tts_rpm_slot(
+        provider="minimax",
+        api_key="api-key-a",
+        rpm_limit=60,
+        max_wait_seconds=10,
+        model="speech-2.8-turbo",
+        now_fn=now_fn,
+        sleep_fn=sleep_fn,
+    )
+    second = rpm_gate.acquire_tts_rpm_slot(
+        provider="minimax",
+        api_key="api-key-a",
+        rpm_limit=60,
+        max_wait_seconds=10,
+        model="speech-2.8-hd",
+        now_fn=now_fn,
+        sleep_fn=sleep_fn,
+    )
+
+    # Per-model quotas: different models smooth against independent queues.
+    assert first.waited_seconds == 0
+    assert second.waited_seconds == 0
+
+
+def test_rpm_gate_smooths_same_model(monkeypatch):
+    fake_redis = _FakeRedis()
+    monkeypatch.setattr(rpm_gate, "_get_redis_client", lambda: fake_redis)
+    now_fn, sleep_fn = _clock()
+
+    first = rpm_gate.acquire_tts_rpm_slot(
+        provider="minimax",
+        api_key="api-key-a",
+        rpm_limit=60,
+        max_wait_seconds=10,
+        model="speech-2.8-hd",
+        now_fn=now_fn,
+        sleep_fn=sleep_fn,
+    )
+    second = rpm_gate.acquire_tts_rpm_slot(
+        provider="minimax",
+        api_key="api-key-a",
+        rpm_limit=60,
+        max_wait_seconds=10,
+        model="speech-2.8-hd",
+        now_fn=now_fn,
+        sleep_fn=sleep_fn,
+    )
+
+    assert first.waited_seconds == 0
+    assert second.waited_seconds == pytest.approx(1.0)
+
+
 def test_rpm_gate_times_out_when_queue_exceeds_max_wait(monkeypatch):
     fake_redis = _FakeRedis()
     monkeypatch.setattr(rpm_gate, "_get_redis_client", lambda: fake_redis)

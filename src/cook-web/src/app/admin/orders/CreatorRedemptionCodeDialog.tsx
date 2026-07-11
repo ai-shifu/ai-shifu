@@ -45,7 +45,6 @@ import { useCreatorPublishedCourseOptions } from './useCreatorPublishedCourseOpt
 
 const SELECT_ITEM_CLASS =
   'pl-3 pr-8 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
-const SELECT_ITEM_INDICATOR_CLASS = 'left-auto right-2';
 
 const CreatorRedemptionCodeDialog = ({
   open,
@@ -222,14 +221,12 @@ const CreatorRedemptionCodeDialog = ({
                 <SelectItem
                   value='801'
                   className={SELECT_ITEM_CLASS}
-                  indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
                 >
                   {tPromotion('usageType.generic')}
                 </SelectItem>
                 <SelectItem
                   value='802'
                   className={SELECT_ITEM_CLASS}
-                  indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
                 >
                   {tPromotion('usageType.singleUse')}
                 </SelectItem>
@@ -251,14 +248,12 @@ const CreatorRedemptionCodeDialog = ({
                 <SelectItem
                   value='701'
                   className={SELECT_ITEM_CLASS}
-                  indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
                 >
                   {tPromotion('discountType.fixed')}
                 </SelectItem>
                 <SelectItem
                   value='702'
                   className={SELECT_ITEM_CLASS}
-                  indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
                 >
                   {tPromotion('discountType.percent')}
                 </SelectItem>
@@ -351,7 +346,6 @@ const CreatorRedemptionCodeDialog = ({
                             key={course.bid}
                             value={course.bid}
                             className={SELECT_ITEM_CLASS}
-                            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
                           >
                             {course.name || course.bid}
                           </SelectItem>

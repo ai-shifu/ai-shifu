@@ -4,6 +4,7 @@
     "checkout": "Checkout",
     "courseNotPaid": "Course not purchased, please purchase the course first",
     "emailAlreadyActivated": "Email {email} is already activated for this course",
+    "importActivationFailed": "Failed to import this activation row. Check the row data and try again.",
     "learnStatusBranch": "Branch",
     "learnStatusCompleted": "Done",
     "learnStatusInProgress": "Lrning",

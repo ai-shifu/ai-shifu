@@ -99,17 +99,48 @@ export function buildMiniMaxVoiceOptions({
   builtInVoices,
   clonedVoices,
   currentVoiceId,
+  clonedVoiceLabelFormatter,
   manualLabel,
   statusLabels = {},
 }: {
   builtInVoices: TTSVoiceOptionBase[];
   clonedVoices: MiniMaxClonedVoice[];
   currentVoiceId: string;
+  clonedVoiceLabelFormatter?: (name: string) => string;
   manualLabel: string;
   statusLabels?: Record<string, string>;
 }): MiniMaxVoiceOption[] {
   const seen = new Set<string>();
+  const builtInVoiceIds = new Set(
+    (builtInVoices || [])
+      .map(voice => (voice.value || '').trim())
+      .filter(Boolean),
+  );
   const options: MiniMaxVoiceOption[] = [];
+
+  for (const voice of clonedVoices || []) {
+    const value = (voice.voice_id || '').trim();
+    if (!value || seen.has(value) || builtInVoiceIds.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    const status = String(voice.status || '').trim();
+    const ready = status === 'ready';
+    const statusLabel = statusLabels[status] || status;
+    const baseName = voice.display_name || value;
+    const displayLabel = clonedVoiceLabelFormatter
+      ? clonedVoiceLabelFormatter(baseName)
+      : baseName;
+    options.push({
+      value,
+      label: ready ? displayLabel : `${displayLabel} · ${statusLabel}`,
+      source: 'cloned',
+      status,
+      voice_bid: voice.voice_bid,
+      minimax_demo_audio_url: voice.minimax_demo_audio_url || '',
+      disabled: !ready,
+    });
+  }
 
   for (const voice of builtInVoices || []) {
     const value = (voice.value || '').trim();
@@ -122,28 +153,6 @@ export function buildMiniMaxVoiceOptions({
       value,
       source: 'built_in',
       disabled: false,
-    });
-  }
-
-  for (const voice of clonedVoices || []) {
-    const value = (voice.voice_id || '').trim();
-    if (!value || seen.has(value)) {
-      continue;
-    }
-    seen.add(value);
-    const status = String(voice.status || '').trim();
-    const ready = status === 'ready';
-    const statusLabel = statusLabels[status] || status;
-    options.push({
-      value,
-      label: ready
-        ? voice.display_name || value
-        : `${voice.display_name || value} · ${statusLabel}`,
-      source: 'cloned',
-      status,
-      voice_bid: voice.voice_bid,
-      minimax_demo_audio_url: voice.minimax_demo_audio_url || '',
-      disabled: !ready,
     });
   }
 

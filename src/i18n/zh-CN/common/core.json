@@ -2,7 +2,7 @@
   "__namespace__": "common.core",
   "actionFailed": "操作未完成，请稍后重试",
   "adminTitle": "管理后台",
-  "aiCourseCreator": "龙虾助理智能建课",
+  "aiCourseCreator": "AI 助理（龙虾）智能建课",
   "all": "全部",
   "archived": "归档",
   "brandName": "AI 师傅",
@@ -40,6 +40,7 @@
   "requestFailed": "请求失败，请稍后重试",
   "retry": "重试",
   "selectModel": "模型",
+  "serviceUnavailable": "服务暂不可用，请稍后重试",
   "settings": "设置",
   "shifu": "课程",
   "shortcut": {

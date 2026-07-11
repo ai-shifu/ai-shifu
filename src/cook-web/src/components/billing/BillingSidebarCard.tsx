@@ -63,7 +63,7 @@ export function BillingSidebarCard({
       data-href={BILLING_PACKAGES_HREF}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
-      className='mt-4 block cursor-pointer rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] py-[14px] pl-4 pr-3 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition-colors hover:border-[var(--base-border-hover,#D4D4D4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400'
+      className='mt-4 block rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] py-[14px] pl-4 pr-3 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition-colors hover:border-[var(--base-border-hover,#D4D4D4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400'
       data-testid='admin-billing-sidebar-card'
       {...buildOnboardingTargetProps(ONBOARDING_TARGET_IDS.billingCard)}
     >

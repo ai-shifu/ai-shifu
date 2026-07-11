@@ -11,6 +11,7 @@ from flask import Flask
 from flaskr.dao import db, retry_on_deadlock
 from flaskr.dao import uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.util.datetime import now_utc
 
 from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
@@ -49,6 +50,7 @@ from .queries import (
 from .subscriptions import (
     activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
     ensure_subscription_renewal_order,
+    is_paid_referral_invitation_renewal as _is_paid_referral_invitation_renewal,
     load_billing_product_by_bid as _load_billing_product_by_bid,
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
     load_subscription_by_bid as _load_subscription_by_bid,
@@ -207,7 +209,7 @@ def run_billing_renewal_event(
         if claim_status != "claimed":
             return _result_from_event(claim_status, event)
 
-        now = datetime.now()
+        now = now_utc()
         if event.scheduled_at and event.scheduled_at > now:
             with unit_of_work():
                 _release_renewal_event(event, now=now)
@@ -571,7 +573,7 @@ def _align_preorder_cycle_to_boundary(
         }
     )
     order.metadata_json = metadata
-    order.updated_at = datetime.now()
+    order.updated_at = now_utc()
     db.session.add(order)
 
 
@@ -614,6 +616,14 @@ def _execute_subscription_renewal(
         payload_json["bill_order_bid"] = order.bill_order_bid
         event.payload_json = payload_json
         db.session.add(event)
+
+        if _is_paid_referral_invitation_renewal(order):
+            _complete_renewal_event(event, now=now)
+            return _result_from_event(
+                "queued_for_reconcile",
+                event,
+                bill_order_bid=order.bill_order_bid,
+            )
 
         if order.payment_provider == "pingxx" and not order.provider_reference_id:
             _complete_renewal_event(event, now=now)
@@ -809,7 +819,7 @@ def _claim_target_renewal_event(
     if int(event.status or 0) == BILLING_RENEWAL_EVENT_STATUS_PROCESSING:
         return "already_claimed", event
 
-    now = datetime.now()
+    now = now_utc()
     expected_attempt_count = int(event.attempt_count or 0)
     updated_rows = BillingRenewalEvent.query.filter(
         BillingRenewalEvent.deleted == 0,

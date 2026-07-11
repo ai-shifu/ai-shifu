@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
 import { BillingRecentActivitySection } from './components/BillingRecentActivitySection';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle, {
   ADMIN_TITLE_HEADLINE_TABS_LIST_CLASSNAME,
   ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME,
@@ -36,6 +35,11 @@ export function AdminBillingPageClient({
   const [activeTab, setActiveTab] = React.useState<BillingTab>(initialTab);
   const [scrollToOrdersRequested, setScrollToOrdersRequested] =
     React.useState(false);
+  const activeTabTitle =
+    activeTab === 'details'
+      ? t('module.billing.page.tabs.ledger')
+      : t('module.billing.page.tabs.plans');
+  const pageHeading = `${t('module.billing.page.title')} · ${activeTabTitle}`;
 
   React.useEffect(() => {
     setActiveTab(activeTabFromUrl);
@@ -100,23 +104,15 @@ export function AdminBillingPageClient({
     return null;
   }
 
-  const breadcrumbTitle =
-    activeTab === 'details'
-      ? t('module.billing.page.tabs.ledger')
-      : t('module.billing.package.title');
-
   return (
     <div
-      className='h-full min-h-0 overscroll-none p-0'
+      className='overscroll-none p-0'
       data-testid='admin-billing-page'
     >
-      <div className='flex h-full min-h-0 flex-col px-1 pb-6'>
-        <AdminBreadcrumb
-          className='shrink-0'
-          items={[{ label: breadcrumbTitle }]}
-        />
+      <div className='px-1 pb-6'>
+        <h1 className='sr-only'>{pageHeading}</h1>
         <Tabs
-          className='flex min-h-0 flex-1 flex-col'
+          className='flex flex-col'
           value={activeTab}
           onValueChange={v => updateTab(v as BillingTab)}
         >
@@ -145,7 +141,7 @@ export function AdminBillingPageClient({
           />
 
           <TabsContent
-            className='mt-0 min-h-0'
+            className='mt-0'
             value='packages'
             data-testid='admin-billing-packages-panel'
           >
@@ -155,18 +151,15 @@ export function AdminBillingPageClient({
           </TabsContent>
 
           <TabsContent
-            className='mt-0 min-h-0 flex-1'
+            className='mt-0'
             value='details'
             data-testid='admin-billing-details-panel'
           >
-            <div className='flex h-full min-h-0 flex-col gap-8 pb-6'>
+            <div className='space-y-8 pb-6'>
               <BillingCreditDetailsPanel
                 onUpgrade={() => updateTab('packages')}
               />
-              <BillingRecentActivitySection
-                className='flex-1'
-                stretchToFill
-              />
+              <BillingRecentActivitySection />
             </div>
           </TabsContent>
         </Tabs>

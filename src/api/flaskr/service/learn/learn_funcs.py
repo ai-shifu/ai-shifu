@@ -81,11 +81,12 @@ from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.api.tts import (
     get_default_audio_settings,
     get_default_voice_settings,
+    get_tts_provider,
     is_tts_configured,
     synthesize_text,
 )
 from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
-from flaskr.service.tts.api import create_streaming_tts_processor
+from flaskr.service.tts.api import create_streaming_tts_processor, TTSRpmQueueTimeout
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     get_audio_duration_ms,
@@ -98,7 +99,12 @@ from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
 )
-from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
+from flaskr.service.tts.models import (
+    AUDIO_STATUS_COMPLETED,
+    LearnGeneratedAudio,
+    TTSMiniMaxClonedVoice,
+    TTS_MINIMAX_CLONE_STATUS_READY,
+)
 from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
@@ -724,6 +730,78 @@ def get_generated_content(
         )
 
 
+def _resolve_runtime_tts_voice_id(
+    app: Flask, provider: str, voice_id: str, *, shifu_bid: str
+) -> str:
+    """Return a voice id that is safe to send to the provider at runtime.
+
+    MiniMax accepts user-defined clone IDs that share the same character shape as
+    historical built-in voices. A stale DB value can therefore pass local shape
+    validation and fail only after the external API call with `2054 - voice id not
+    exist`. For learner-facing audio generation, keep built-in voices and clone
+    IDs that are verified by a ready local row, while falling back when this
+    shifu explicitly points at a local cloned voice row that is not ready yet.
+    """
+    normalized_provider = (provider or "").strip().lower()
+    normalized_voice_id = (voice_id or "").strip()
+    if normalized_provider != "minimax" or not normalized_voice_id:
+        return normalized_voice_id
+
+    provider_config = get_tts_provider(normalized_provider).get_provider_config()
+    built_in_voice_ids = {
+        (voice.get("value") or "").strip()
+        for voice in (provider_config.voices or [])
+        if (voice.get("value") or "").strip()
+    }
+    if normalized_voice_id in built_in_voice_ids:
+        return normalized_voice_id
+
+    # If this shifu tracks a local clone row for the selected voice id, only
+    # accept it when the latest row is ready. This prevents preview/runtime
+    # from trying to use a clone that is still queued or has already failed.
+    normalized_shifu_bid = (shifu_bid or "").strip()
+    cloned_voice = (
+        TTSMiniMaxClonedVoice.query.filter(
+            TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+            TTSMiniMaxClonedVoice.shifu_bid == normalized_shifu_bid,
+            TTSMiniMaxClonedVoice.deleted == 0,
+        )
+        .order_by(TTSMiniMaxClonedVoice.id.desc())
+        .first()
+    )
+    if cloned_voice and cloned_voice.status == TTS_MINIMAX_CLONE_STATUS_READY:
+        return normalized_voice_id
+    if cloned_voice:
+        app.logger.warning(
+            "MiniMax TTS voice_id %s for shifu %s is tracked locally but not ready; falling back to a default voice",
+            normalized_voice_id,
+            normalized_shifu_bid,
+        )
+    else:
+        ready_clone = (
+            TTSMiniMaxClonedVoice.query.filter(
+                TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+                TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
+                TTSMiniMaxClonedVoice.deleted == 0,
+            )
+            .order_by(TTSMiniMaxClonedVoice.id.desc())
+            .first()
+        )
+        if ready_clone:
+            return normalized_voice_id
+
+    default_voice_settings = get_default_voice_settings(normalized_provider)
+    fallback_voice_id = (getattr(default_voice_settings, "voice_id", "") or "").strip()
+    if not fallback_voice_id and built_in_voice_ids:
+        fallback_voice_id = sorted(built_in_voice_ids)[0]
+    app.logger.warning(
+        "MiniMax TTS voice_id %s is not a current built-in voice or ready cloned voice; falling back to %s",
+        normalized_voice_id,
+        fallback_voice_id,
+    )
+    return fallback_voice_id or normalized_voice_id
+
+
 def _resolve_shifu_tts_settings(
     app: Flask,
     *,
@@ -761,8 +839,15 @@ def _resolve_shifu_tts_settings(
         emotion=emotion,
     )
 
+    runtime_voice_id = _resolve_runtime_tts_voice_id(
+        app,
+        validated.provider,
+        validated.voice_id,
+        shifu_bid=shifu_bid,
+    )
+
     voice_settings = get_default_voice_settings(validated.provider)
-    voice_settings.voice_id = validated.voice_id
+    voice_settings.voice_id = runtime_voice_id
     voice_settings.speed = validated.speed
     voice_settings.pitch = validated.pitch
     voice_settings.emotion = validated.emotion
@@ -911,9 +996,175 @@ def _yield_with_tts_error_mapping(
         yield from body()
     except ValueError as exc:
         raise_error_with_args("server.common.paramsError", param_message=str(exc))
+    except TTSRpmQueueTimeout as exc:
+        # The TTS provider's RPM quota is saturated. This is expected
+        # backpressure, not a crash: log at WARNING (so it does not page ops as
+        # an ERROR) and surface a retryable message instead of a generic
+        # unknown error.
+        app.logger.warning("%s: %s", unknown_error_log, exc)
+        raise_error("server.learn.ttsRateLimited")
     except Exception:
         app.logger.error(unknown_error_log, exc_info=True)
         raise_error("server.common.unknownError")
+
+
+# --- Per-(user, outline) TTS synthesis concurrency gate --------------------
+#
+# A client that enters listen mode may fan out block-audio synthesis for a whole
+# lesson at once, which can saturate the shared provider RPM gate. This counting
+# semaphore caps how many block-audio syntheses a single learner runs in parallel
+# for one outline. It mirrors the ask semaphore in runscript_v2 (Redis Lua
+# counter, TTL leak-protection, fail-open when Redis is unavailable).
+
+DEFAULT_MAX_PARALLEL_TTS_SYNTH_COUNT = 6
+# Leak protection: the counter self-expires this long after the last acquire, in
+# case a release is ever missed (the finally block normally releases far sooner).
+TTS_SYNTH_SEM_TTL_SECONDS = 300
+
+_LUA_ACQUIRE_TTS_SYNTH_SLOT = """
+local key = KEYS[1]
+local max_count = tonumber(ARGV[1])
+local ttl = tonumber(ARGV[2])
+local current = tonumber(redis.call('get', key) or '0')
+if current < max_count then
+    redis.call('set', key, current + 1, 'EX', ttl)
+    return 1
+end
+return 0
+"""
+
+_LUA_RELEASE_TTS_SYNTH_SLOT = """
+local key = KEYS[1]
+local current = tonumber(redis.call('get', key) or '0')
+if current > 0 then
+    redis.call('decr', key)
+end
+return 1
+"""
+
+
+def _get_max_parallel_tts_synth_count(app: Flask) -> int:
+    try:
+        return int(
+            app.config.get(
+                "MAX_PARALLEL_TTS_SYNTH_COUNT",
+                DEFAULT_MAX_PARALLEL_TTS_SYNTH_COUNT,
+            )
+        )
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_PARALLEL_TTS_SYNTH_COUNT
+
+
+def _get_tts_synth_sem_key(app: Flask, user_bid: str, outline_bid: str) -> str:
+    return (
+        app.config.get("REDIS_KEY_PREFIX", "")
+        + ":tts_synth_sem:"
+        + user_bid
+        + ":"
+        + outline_bid
+    )
+
+
+# Outcomes of a TTS-synthesis slot acquisition.
+_TTS_SLOT_ACQUIRED = "acquired"  # a real Redis slot was reserved -> must release
+_TTS_SLOT_FULL = "full"  # cap reached -> shed the request
+_TTS_SLOT_BYPASS = "bypass"  # limiter inactive -> proceed, nothing to release
+
+
+def _tts_synth_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> str:
+    """Try to reserve a TTS-synthesis slot.
+
+    Returns one of:
+    - ``_TTS_SLOT_ACQUIRED``: a Redis slot was actually reserved; the caller must
+      release it.
+    - ``_TTS_SLOT_FULL``: the cap is reached; the caller should shed the request.
+    - ``_TTS_SLOT_BYPASS``: the limiter is inactive (disabled, incomplete key, or
+      Redis unavailable/erroring); proceed without a slot and do NOT release, so a
+      fail-open acquire can never decrement a slot it did not reserve.
+    """
+    max_count = _get_max_parallel_tts_synth_count(app)
+    if max_count <= 0 or not user_bid or not outline_bid:
+        return _TTS_SLOT_BYPASS
+    try:
+        from flaskr.dao import redis_client
+
+        if redis_client is None:
+            return _TTS_SLOT_BYPASS  # fail open when Redis is unavailable
+        result = redis_client.eval(
+            _LUA_ACQUIRE_TTS_SYNTH_SLOT,
+            1,
+            _get_tts_synth_sem_key(app, user_bid, outline_bid),
+            str(max_count),
+            str(TTS_SYNTH_SEM_TTL_SECONDS),
+        )
+        return _TTS_SLOT_ACQUIRED if bool(result) else _TTS_SLOT_FULL
+    except Exception as exc:
+        app.logger.warning(
+            "tts_synth_sem_acquire failed, failing open: user_bid=%s outline_bid=%s error=%s",
+            user_bid,
+            outline_bid,
+            repr(exc),
+        )
+        return _TTS_SLOT_BYPASS  # fail open
+
+
+def _tts_synth_sem_release(app: Flask, user_bid: str, outline_bid: str) -> None:
+    """Release a TTS-synthesis slot (no-op when the cap is disabled)."""
+    if _get_max_parallel_tts_synth_count(app) <= 0 or not user_bid or not outline_bid:
+        return
+    try:
+        from flaskr.dao import redis_client
+
+        if redis_client is None:
+            return
+        redis_client.eval(
+            _LUA_RELEASE_TTS_SYNTH_SLOT,
+            1,
+            _get_tts_synth_sem_key(app, user_bid, outline_bid),
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "tts_synth_sem_release failed: user_bid=%s outline_bid=%s error=%s",
+            user_bid,
+            outline_bid,
+            repr(exc),
+        )
+
+
+def _yield_tts_synthesis(
+    app: Flask,
+    *,
+    user_bid: str,
+    outline_bid: str,
+    unknown_error_log: str,
+    body,
+):
+    """Run a TTS synthesis body under a per-(user, outline) concurrency slot.
+
+    Cache-hit paths never reach here, so they do not consume a slot. When the
+    per-(user, outline) cap is already full, the request is shed (yields nothing
+    and returns) instead of piling onto the shared provider RPM queue; the client
+    treats the block as having no audio yet and retries later.
+    """
+    slot = _tts_synth_sem_acquire(app, user_bid, outline_bid)
+    if slot == _TTS_SLOT_FULL:
+        app.logger.warning(
+            "tts synthesis concurrency limit reached; shedding request | user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+        )
+        return
+    try:
+        yield from _yield_with_tts_error_mapping(
+            app,
+            unknown_error_log=unknown_error_log,
+            body=body,
+        )
+    finally:
+        # Only release a slot we actually reserved; a fail-open bypass never
+        # incremented the counter, so it must not decrement it.
+        if slot == _TTS_SLOT_ACQUIRED:
+            _tts_synth_sem_release(app, user_bid, outline_bid)
 
 
 def _record_stream_segment_usage(
@@ -1111,6 +1362,53 @@ def _audio_record_matches_speakable_text(
     return record_text_length > 0 and record_text_length == expected_length
 
 
+def _float_settings_match(left, right) -> bool:
+    try:
+        return abs(float(left) - float(right)) < 0.0001
+    except (TypeError, ValueError):
+        return False
+
+
+def _audio_record_matches_tts_settings(
+    audio_record: LearnGeneratedAudio | None,
+    *,
+    voice_settings,
+    tts_model: str,
+) -> bool:
+    if audio_record is None:
+        return False
+
+    record_voice_id = (getattr(audio_record, "voice_id", "") or "").strip()
+    current_voice_id = (getattr(voice_settings, "voice_id", "") or "").strip()
+    if record_voice_id != current_voice_id:
+        return False
+
+    record_model = (getattr(audio_record, "model", "") or "").strip()
+    current_model = (tts_model or "").strip()
+    if record_model != current_model:
+        return False
+
+    record_settings = getattr(audio_record, "voice_settings", None)
+    if not isinstance(record_settings, dict):
+        record_settings = {}
+
+    if not _float_settings_match(
+        record_settings.get("speed", 1.0), getattr(voice_settings, "speed", 1.0)
+    ):
+        return False
+    if not _float_settings_match(
+        record_settings.get("volume", 1.0), getattr(voice_settings, "volume", 1.0)
+    ):
+        return False
+    if int(record_settings.get("pitch", 0) or 0) != int(
+        getattr(voice_settings, "pitch", 0) or 0
+    ):
+        return False
+    return (record_settings.get("emotion", "") or "") == (
+        getattr(voice_settings, "emotion", "") or ""
+    )
+
+
 def _yield_stream_tts_audio_segments(
     *,
     app: Flask,
@@ -1269,6 +1567,14 @@ def stream_generated_block_audio(
 
         raw_text = generated_block.generated_content or ""
 
+        provider, tts_model, voice_settings, _audio_settings = (
+            _resolve_shifu_tts_settings(
+                app,
+                shifu_bid=shifu_bid,
+                preview_mode=preview_mode,
+            )
+        )
+
         def _resolve_existing_single_block_audio():
             existing_audios = (
                 LearnGeneratedAudio.query.filter(
@@ -1286,6 +1592,11 @@ def stream_generated_block_audio(
                     audio
                     for audio in existing_audios
                     if _audio_record_matches_speakable_text(audio, raw_text)
+                    and _audio_record_matches_tts_settings(
+                        audio,
+                        voice_settings=voice_settings,
+                        tts_model=tts_model,
+                    )
                     and audio.oss_url
                 ),
                 None,
@@ -1306,14 +1617,6 @@ def stream_generated_block_audio(
             if existing_audio:
                 yield from _yield_existing_single_block_audio(existing_audio)
                 return
-
-        provider, tts_model, voice_settings, _audio_settings = (
-            _resolve_shifu_tts_settings(
-                app,
-                shifu_bid=shifu_bid,
-                preview_mode=preview_mode,
-            )
-        )
 
         def _yield_single_block_audio():
             cleaned_text = preprocess_for_tts(raw_text)
@@ -1336,8 +1639,10 @@ def stream_generated_block_audio(
                     preview_mode=preview_mode,
                 )
 
-            yield from _yield_with_tts_error_mapping(
+            yield from _yield_tts_synthesis(
                 app,
+                user_bid=user_bid,
+                outline_bid=generated_block.outline_item_bid or "",
                 unknown_error_log="TTS streaming synthesis failed",
                 body=_generate_single_audio,
             )
@@ -1427,8 +1732,10 @@ def stream_generated_block_audio(
                     subtitle_cues=subtitle_cues,
                 )
 
-            yield from _yield_with_tts_error_mapping(
+            yield from _yield_tts_synthesis(
                 app,
+                user_bid=user_bid,
+                outline_bid=generated_block.outline_item_bid or "",
                 unknown_error_log="Preview listen fallback TTS synthesis failed",
                 body=_generate_preview_audio,
             )
@@ -1463,10 +1770,50 @@ def stream_generated_block_audio(
                         generated_block_bid=generated_block_bid,
                     )
                     return
-                raise_error_with_args(
-                    "server.common.paramsError",
-                    param_message="No speakable text elements available for TTS synthesis",
+
+                # Non-preview historical blocks may have generated_content but
+                # no learn_generated_elements. Fall back to synthesizing audio
+                # from the raw block text instead of failing.
+                cleaned_fallback_text = preprocess_for_tts(raw_text)
+                if not cleaned_fallback_text or len(cleaned_fallback_text.strip()) < 2:
+                    app.logger.info(
+                        "skip listen-mode TTS for non-speakable generated block | shifu_bid=%s | generated_block_bid=%s | user_bid=%s",
+                        shifu_bid,
+                        generated_block_bid,
+                        user_bid,
+                    )
+                    yield _build_tts_done_message(
+                        outline_bid=generated_block.outline_item_bid or "",
+                        generated_block_bid=generated_block_bid,
+                    )
+                    return
+
+                def _generate_legacy_audio():
+                    yield from _yield_run_tts_audio_events(
+                        app=app,
+                        text=raw_text,
+                        provider=provider,
+                        tts_model=tts_model,
+                        voice_settings=voice_settings,
+                        generated_block=generated_block,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        preview_mode=preview_mode,
+                        position=0,
+                    )
+
+                yield from _yield_tts_synthesis(
+                    app,
+                    user_bid=user_bid,
+                    outline_bid=generated_block.outline_item_bid or "",
+                    unknown_error_log="Legacy listen TTS synthesis failed",
+                    body=_generate_legacy_audio,
                 )
+                yield _build_tts_done_message(
+                    outline_bid=generated_block.outline_item_bid or "",
+                    generated_block_bid=generated_block_bid,
+                )
+                return
 
             expected_segment_count = len(speakable_segments)
             existing_by_position: dict[int, LearnGeneratedAudio] = {}
@@ -1493,6 +1840,12 @@ def stream_generated_block_audio(
                     continue
                 if not _audio_record_matches_speakable_text(
                     record, speakable_segments[pos]
+                ):
+                    continue
+                if not _audio_record_matches_tts_settings(
+                    record,
+                    voice_settings=voice_settings,
+                    tts_model=tts_model,
                 ):
                     continue
                 existing_by_position[pos] = record
@@ -1558,8 +1911,10 @@ def stream_generated_block_audio(
                         stream_element_type=_audio_stream_element_type(element),
                     )
 
-            yield from _yield_with_tts_error_mapping(
+            yield from _yield_tts_synthesis(
                 app,
+                user_bid=user_bid,
+                outline_bid=generated_block.outline_item_bid or "",
                 unknown_error_log="AV TTS synthesis failed",
                 body=_generate_av_audio,
             )
