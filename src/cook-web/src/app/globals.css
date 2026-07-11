@@ -302,7 +302,7 @@ body.listen-mode-vh-fallback #root {
     :is(body, body *):has([data-lesson-print-scroll='true'])
     > :not([data-lesson-print-scroll='true']):not(
       :has([data-lesson-print-scroll='true'])
-    ),
+    ):not([data-lesson-print-only='true']),
   html.lesson-pdf-print [data-lesson-print-exclude='true'] {
     display: none !important;
   }
