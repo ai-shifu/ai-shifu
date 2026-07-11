@@ -212,18 +212,35 @@ const waitForPrintAssets = async (
     waiters.push(waiter);
     return [waiter.promise];
   });
-  const stylesheetReady = extraRoots
-    .flatMap(extraRoot =>
-      Array.from(
-        extraRoot.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
+  const stylesheetRoots: ParentNode[] = [
+    root,
+    ...iframeDocuments.map(({ iframeDocument }) => iframeDocument),
+    ...extraRoots,
+  ];
+  const stylesheets = Array.from(
+    new Set(
+      stylesheetRoots.flatMap(stylesheetRoot =>
+        Array.from(
+          stylesheetRoot.querySelectorAll<HTMLLinkElement>(
+            'link[rel="stylesheet"]',
+          ),
+        ),
       ),
-    )
-    .filter(link => !link.sheet)
-    .map(link => {
-      const waiter = createLoadWaiter(link);
-      waiters.push(waiter);
-      return waiter.promise;
-    });
+    ),
+  );
+  const stylesheetReady = stylesheets.flatMap(link => {
+    if (link.sheet) {
+      return [];
+    }
+    const waiter = createLoadWaiter(link);
+    waiters.push(waiter);
+    // Close the race where the stylesheet loads between the readiness check
+    // and listener registration.
+    if (link.sheet) {
+      waiter.cancel();
+    }
+    return [waiter.promise];
+  });
   const iframes = Array.from(
     new Set(
       assetRoots.flatMap(assetRoot =>

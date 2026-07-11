@@ -193,6 +193,130 @@ describe('useLessonPdfPrint', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it('waits for source and sandbox stylesheets before freezing iframe snapshots', async () => {
+    const printRoot = document.createElement('div');
+    const sourceStylesheet = document.createElement('link');
+    sourceStylesheet.rel = 'stylesheet';
+    sourceStylesheet.href = '/lesson-source.css';
+    let sourceStylesheetReady = false;
+    Object.defineProperty(sourceStylesheet, 'sheet', {
+      configurable: true,
+      get: () => (sourceStylesheetReady ? {} : null),
+    });
+    const sourceLoadListenerSpy = jest.spyOn(
+      sourceStylesheet,
+      'addEventListener',
+    );
+    printRoot.appendChild(sourceStylesheet);
+
+    const iframeWrapper = document.createElement('div');
+    iframeWrapper.className = 'content-render-iframe-sandbox';
+    const iframe = document.createElement('iframe');
+    iframe.className = 'content-render-iframe';
+    iframeWrapper.appendChild(iframe);
+    printRoot.appendChild(iframeWrapper);
+    document.body.appendChild(printRoot);
+
+    const iframeDocument = iframe.contentDocument;
+    expect(iframeDocument).toBeTruthy();
+    iframeDocument!.body.innerHTML = `
+      <div id='root'>
+        <div class='sandbox-wrapper' aria-busy='false'>
+          <div class='sandbox-container'>styled lesson content</div>
+        </div>
+      </div>
+    `;
+    const sandboxStylesheet = iframeDocument!.createElement('link');
+    sandboxStylesheet.rel = 'stylesheet';
+    sandboxStylesheet.href = '/lesson-sandbox.css';
+    sandboxStylesheet.dataset.printStylesheet = 'sandbox';
+    let sandboxStylesheetReady = false;
+    Object.defineProperty(sandboxStylesheet, 'sheet', {
+      configurable: true,
+      get: () => (sandboxStylesheetReady ? {} : null),
+    });
+    const sandboxLoadListenerSpy = jest.spyOn(
+      sandboxStylesheet,
+      'addEventListener',
+    );
+    iframeDocument!.head.appendChild(sandboxStylesheet);
+
+    const onError = jest.fn();
+    printSpy.mockImplementation(() => {
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    const { result } = renderHook(() =>
+      useLessonPdfPrint({
+        printRootRef: { current: printRoot },
+        lessonId: 'lesson-1',
+        courseName: 'Course',
+        lessonTitle: 'Lesson',
+        onError,
+      }),
+    );
+    let printPromise!: Promise<void>;
+
+    act(() => {
+      printPromise = result.current.printLessonPdf();
+    });
+    await waitFor(
+      () => {
+        expect(sourceLoadListenerSpy).toHaveBeenCalledWith(
+          'load',
+          expect.any(Function),
+          { once: true },
+        );
+        expect(sandboxLoadListenerSpy).toHaveBeenCalledWith(
+          'load',
+          expect.any(Function),
+          { once: true },
+        );
+      },
+      { timeout: 2000 },
+    );
+
+    sourceStylesheetReady = true;
+    sourceStylesheet.dispatchEvent(new Event('load'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(printSpy).not.toHaveBeenCalled();
+    expect(
+      printRoot.querySelector('[data-lesson-print-iframe-snapshot="true"]'),
+    ).not.toBeInTheDocument();
+
+    sandboxStylesheetReady = true;
+    sandboxStylesheet.dispatchEvent(new Event('load'));
+    let snapshotStylesheet: HTMLLinkElement | null = null;
+    await waitFor(
+      () => {
+        snapshotStylesheet =
+          printRoot
+            .querySelector<HTMLElement>(
+              '[data-lesson-print-iframe-snapshot="true"]',
+            )
+            ?.shadowRoot?.querySelector<HTMLLinkElement>(
+              'link[data-print-stylesheet="sandbox"]',
+            ) ?? null;
+        expect(snapshotStylesheet).toBeTruthy();
+      },
+      { timeout: 2500 },
+    );
+
+    expect(printSpy).not.toHaveBeenCalled();
+    snapshotStylesheet!.dispatchEvent(new Event('load'));
+    await act(async () => {
+      await printPromise;
+    });
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
+    expect(
+      printRoot.querySelector('[data-lesson-print-iframe-snapshot="true"]'),
+    ).not.toBeInTheDocument();
+    printRoot.remove();
+  });
+
   it('reports an error and restores preparation state when print is unavailable', async () => {
     const onError = jest.fn();
     const { result } = renderHook(() =>
