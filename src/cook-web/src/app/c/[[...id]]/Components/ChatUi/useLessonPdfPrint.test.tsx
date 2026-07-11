@@ -387,6 +387,100 @@ describe('useLessonPdfPrint', () => {
     printRoot.remove();
   });
 
+  it('freezes the reading-mode viewport before scaling a sandbox snapshot', async () => {
+    const printRoot = document.createElement('div');
+    const iframeWrapper = document.createElement('div');
+    iframeWrapper.className = 'content-render-iframe-sandbox';
+    const iframe = document.createElement('iframe');
+    iframe.className = 'content-render-iframe';
+    Object.defineProperty(iframe, 'clientWidth', {
+      configurable: true,
+      value: 960,
+    });
+    Object.defineProperty(iframe, 'clientHeight', {
+      configurable: true,
+      value: 540,
+    });
+    iframeWrapper.appendChild(iframe);
+    printRoot.appendChild(iframeWrapper);
+    document.body.appendChild(printRoot);
+
+    const iframeDocument = iframe.contentDocument;
+    expect(iframeDocument).toBeTruthy();
+    iframeDocument!.body.innerHTML = `
+      <div id='root'>
+        <div class='sandbox-wrapper' aria-busy='false'>
+          <div class='sandbox-container'>
+            <main data-viewport-art style='height: 100vh; display: grid;'>
+              <span>left</span><span>right</span>
+            </main>
+          </div>
+        </div>
+      </div>
+    `;
+    iframeDocument!.body.appendChild(iframeDocument!.createElement('script'));
+
+    const onError = jest.fn();
+    let snapshotLayoutDuringPrint = {};
+    printSpy.mockImplementation(() => {
+      const snapshot = printRoot.querySelector<HTMLElement>(
+        '[data-lesson-print-iframe-snapshot="true"]',
+      );
+      const shadowRoot = snapshot?.shadowRoot;
+      snapshotLayoutDuringPrint = {
+        sourceWidth: snapshot?.style.getPropertyValue(
+          '--lesson-print-iframe-source-width',
+        ),
+        sourceHeight: snapshot?.style.getPropertyValue(
+          '--lesson-print-iframe-source-height',
+        ),
+        hasStage: Boolean(
+          shadowRoot?.querySelector('[data-lesson-print-iframe-stage="true"]'),
+        ),
+        styles: Array.from(shadowRoot?.querySelectorAll('style') ?? [])
+          .map(style => style.textContent ?? '')
+          .join('\n'),
+        frozenHeightPriority:
+          shadowRoot
+            ?.querySelector<HTMLElement>('[data-viewport-art]')
+            ?.style.getPropertyPriority('height') ?? '',
+      };
+      window.dispatchEvent(new Event('afterprint'));
+    });
+
+    const { result } = renderHook(() =>
+      useLessonPdfPrint({
+        printRootRef: { current: printRoot },
+        lessonId: 'lesson-1',
+        courseName: 'Course',
+        lessonTitle: 'Lesson',
+        onError,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.printLessonPdf();
+    });
+
+    expect(snapshotLayoutDuringPrint).toEqual(
+      expect.objectContaining({
+        sourceWidth: '960px',
+        sourceHeight: '540px',
+        hasStage: true,
+        frozenHeightPriority: 'important',
+      }),
+    );
+    expect((snapshotLayoutDuringPrint as { styles: string }).styles).toContain(
+      'calc(100cqw / var(--lesson-print-iframe-source-width))',
+    );
+    expect(onError).not.toHaveBeenCalled();
+    expect(
+      printRoot.querySelector('[data-lesson-print-iframe-snapshot="true"]'),
+    ).not.toBeInTheDocument();
+
+    printRoot.remove();
+  });
+
   it('cancels preparation when the current lesson changes', async () => {
     const printRoot = document.createElement('div');
     const pendingImage = document.createElement('img');

@@ -286,6 +286,20 @@ body.listen-mode-vh-fallback #root {
     print-color-adjust: exact;
   }
 
+  html.lesson-pdf-print .lesson-pdf-print-header,
+  html.lesson-pdf-print .lesson-pdf-print-header * {
+    font-family:
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'PingFang SC',
+      'Hiragino Sans GB',
+      'Microsoft YaHei',
+      'Source Han Sans SC',
+      'Noto Sans CJK SC',
+      sans-serif !important;
+  }
+
   /* Keep only the ancestor branch that contains the exact lesson scroll root.
      This remains valid if layout components add intermediate wrappers. */
   html.lesson-pdf-print

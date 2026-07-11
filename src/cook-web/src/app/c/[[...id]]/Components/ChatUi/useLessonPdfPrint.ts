@@ -15,6 +15,17 @@ const PRINT_DOM_WAIT_TIMEOUT_MS = 5000;
 const SANDBOX_IFRAME_SELECTOR =
   '.content-render-iframe-sandbox > iframe.content-render-iframe, .content-render-iframe-sandbox > iframe';
 const IFRAME_PRINT_SNAPSHOT_ATTRIBUTE = 'data-lesson-print-iframe-snapshot';
+const IFRAME_PRINT_STAGE_ATTRIBUTE = 'data-lesson-print-iframe-stage';
+const IFRAME_PRINT_SOURCE_WIDTH_PROPERTY = '--lesson-print-iframe-source-width';
+const IFRAME_PRINT_SOURCE_HEIGHT_PROPERTY =
+  '--lesson-print-iframe-source-height';
+const SNAPSHOT_HIDDEN_CONTROL_SELECTOR = [
+  'audio',
+  '.multi-select-confirm-button',
+  '.input-container > button',
+  '.copy-button',
+  '.content-render-custom-button-after-content',
+].join(',');
 const ASYNC_PRINT_CONTENT_SELECTOR = [
   '.content-render-mermaid',
   '.content-render-mermaid-inner',
@@ -309,44 +320,19 @@ const PRINT_SNAPSHOT_STYLES = `
     display: block;
     width: 100%;
     max-width: 100%;
+    container-type: inline-size;
     color-scheme: light;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
-  html,
-  body {
-    width: 100% !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    margin: 0;
-    padding: 0;
-    overflow: visible !important;
-  }
-  #root,
-  .sandbox-wrapper,
-  .sandbox-container {
-    width: 100% !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-  audio,
-  .multi-select-confirm-button,
-  .input-container > button,
-  .copy-button,
-  .content-render-custom-button-after-content {
-    display: none !important;
-  }
-  img,
-  svg,
-  video,
-  canvas,
-  table {
-    max-width: 100% !important;
-  }
-  pre {
-    white-space: pre-wrap !important;
-    overflow-wrap: anywhere;
+  [${IFRAME_PRINT_STAGE_ATTRIBUTE}='true'] {
+    width: var(${IFRAME_PRINT_SOURCE_WIDTH_PROPERTY});
+    height: var(${IFRAME_PRINT_SOURCE_HEIGHT_PROPERTY});
+    overflow: hidden;
+    zoom: min(
+      1,
+      calc(100cqw / var(${IFRAME_PRINT_SOURCE_WIDTH_PROPERTY}))
+    );
   }
 `;
 
@@ -480,6 +466,55 @@ const copyElementAttributes = (source: Element, target: Element) => {
   });
 };
 
+const copyComputedStyle = (
+  source: Element,
+  target: Element,
+  sourceWindow: Window,
+) => {
+  const targetStyle = (target as HTMLElement).style;
+  if (!targetStyle) {
+    return;
+  }
+  const computedStyle = sourceWindow.getComputedStyle(source);
+  Array.from(computedStyle).forEach(property => {
+    targetStyle.setProperty(
+      property,
+      computedStyle.getPropertyValue(property),
+      'important',
+    );
+  });
+};
+
+const copyComputedStyleTree = (
+  sourceRoot: Element,
+  targetRoot: Element,
+  sourceWindow: Window,
+) => {
+  const sourceElements = [
+    sourceRoot,
+    ...Array.from(sourceRoot.querySelectorAll('*')),
+  ];
+  const targetElements = [
+    targetRoot,
+    ...Array.from(targetRoot.querySelectorAll('*')),
+  ];
+  if (sourceElements.length !== targetElements.length) {
+    return false;
+  }
+  sourceElements.forEach((sourceElement, index) => {
+    copyComputedStyle(sourceElement, targetElements[index], sourceWindow);
+  });
+  return true;
+};
+
+const hideSnapshotOnlyControls = (snapshotRoot: HTMLElement) => {
+  snapshotRoot
+    .querySelectorAll<HTMLElement>(SNAPSHOT_HIDDEN_CONTROL_SELECTOR)
+    .forEach(element => {
+      element.style.setProperty('display', 'none', 'important');
+    });
+};
+
 interface IframePrintSnapshots {
   assetRoots: ShadowRoot[];
   cleanup: () => void;
@@ -542,7 +577,44 @@ const createIframePrintSnapshots = (
       copyElementAttributes(iframeDocument.body, snapshotBody);
       snapshotBody.appendChild(snapshotRoot);
       snapshotHtml.appendChild(snapshotBody);
-      shadowRoot.appendChild(snapshotHtml);
+      copyComputedStyle(
+        iframeDocument.documentElement,
+        snapshotHtml,
+        iframeWindow,
+      );
+      copyComputedStyle(iframeDocument.body, snapshotBody, iframeWindow);
+      const didFreezeRootLayout = copyComputedStyleTree(
+        iframeRoot,
+        snapshotRoot,
+        iframeWindow,
+      );
+      hideSnapshotOnlyControls(snapshotRoot);
+
+      const iframeRect = iframe.getBoundingClientRect();
+      const sourceWidth = iframe.clientWidth || iframeRect.width;
+      const sourceHeight = iframe.clientHeight || iframeRect.height;
+      if (
+        didFreezeRootLayout &&
+        Number.isFinite(sourceWidth) &&
+        Number.isFinite(sourceHeight) &&
+        sourceWidth > 0 &&
+        sourceHeight > 0
+      ) {
+        snapshot.style.setProperty(
+          IFRAME_PRINT_SOURCE_WIDTH_PROPERTY,
+          `${sourceWidth}px`,
+        );
+        snapshot.style.setProperty(
+          IFRAME_PRINT_SOURCE_HEIGHT_PROPERTY,
+          `${sourceHeight}px`,
+        );
+        const snapshotStage = document.createElement('div');
+        snapshotStage.setAttribute(IFRAME_PRINT_STAGE_ATTRIBUTE, 'true');
+        snapshotStage.appendChild(snapshotHtml);
+        shadowRoot.appendChild(snapshotStage);
+      } else {
+        shadowRoot.appendChild(snapshotHtml);
+      }
       wrapper.insertAdjacentElement('afterend', snapshot);
       snapshots.push(snapshot);
       assetRoots.push(shadowRoot);
