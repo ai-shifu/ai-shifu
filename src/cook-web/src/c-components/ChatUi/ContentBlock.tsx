@@ -37,6 +37,7 @@ interface ContentBlockProps {
   onAudioPlayStateChange?: (blockBid: string, isPlaying: boolean) => void;
   onAudioEnded?: (blockBid: string) => void;
   showAudioAction?: boolean;
+  printMode?: boolean;
   onTypeFinished?: (blockBid: string, content: string) => void;
   enableStreamingTypewriter?: boolean;
 }
@@ -54,6 +55,7 @@ const ContentBlock = memo(
     onAudioPlayStateChange,
     onAudioEnded,
     showAudioAction = true,
+    printMode = false,
     onTypeFinished,
     enableStreamingTypewriter = false,
   }: ContentBlockProps) => {
@@ -95,9 +97,14 @@ const ContentBlock = memo(
     const isPayInteraction =
       item.type === ChatContentItemType.INTERACTION &&
       isPaySystemInteractionContent(item.content);
-    const resolvedReadonly = isPayInteraction ? false : item.readonly;
+    const resolvedReadonly = printMode
+      ? true
+      : isPayInteraction
+        ? false
+        : item.readonly;
     const resolvedUserInput = isPayInteraction ? '' : item.user_input;
     const shouldEnableTypewriter =
+      !printMode &&
       enableStreamingTypewriter &&
       item.shouldUseTypewriter === true &&
       item.element_type === 'text';
@@ -202,12 +209,24 @@ const ContentBlock = memo(
       prevProps.blockBid === nextProps.blockBid &&
       prevProps.contentRenderKey === nextProps.contentRenderKey &&
       prevProps.item.isHistory === nextProps.item.isHistory &&
+      prevProps.item.type === nextProps.item.type &&
       prevProps.item.element_type === nextProps.item.element_type &&
+      Boolean(prevProps.item.shouldUseTypewriter) ===
+        Boolean(nextProps.item.shouldUseTypewriter) &&
+      prevProps.item.customRenderBar === nextProps.item.customRenderBar &&
       Boolean(prevProps.enableStreamingTypewriter) ===
         Boolean(nextProps.enableStreamingTypewriter) &&
       Boolean(prevProps.autoPlayAudio) === Boolean(nextProps.autoPlayAudio) &&
       Boolean(prevProps.showAudioAction) ===
         Boolean(nextProps.showAudioAction) &&
+      Boolean(prevProps.printMode) === Boolean(nextProps.printMode) &&
+      prevProps.onSend === nextProps.onSend &&
+      prevProps.onClickCustomButtonAfterContent ===
+        nextProps.onClickCustomButtonAfterContent &&
+      prevProps.onLongPress === nextProps.onLongPress &&
+      prevProps.onAudioPlayStateChange === nextProps.onAudioPlayStateChange &&
+      prevProps.onAudioEnded === nextProps.onAudioEnded &&
+      prevProps.onTypeFinished === nextProps.onTypeFinished &&
       (prevPrimaryTrack?.audioUrl ?? '') ===
         (nextPrimaryTrack?.audioUrl ?? '') &&
       Boolean(prevPrimaryTrack?.isAudioStreaming) ===

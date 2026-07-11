@@ -29,7 +29,7 @@
 
     .headerMain {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr);
       column-gap: 12px;
       width: 100%;
       min-height: 64px;
