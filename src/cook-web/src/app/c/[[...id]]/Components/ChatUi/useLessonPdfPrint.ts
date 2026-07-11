@@ -1,0 +1,1295 @@
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
+
+const LESSON_PDF_PRINT_CLASS = 'lesson-pdf-print';
+const PRINT_ASSET_WAIT_TIMEOUT_MS = 5000;
+const PRINT_DIALOG_FALLBACK_MS = 15000;
+const PRINT_DOM_MIN_SETTLE_MS = 600;
+const PRINT_DOM_QUIET_MS = 250;
+const PRINT_DOM_WAIT_TIMEOUT_MS = 5000;
+const SANDBOX_IFRAME_SELECTOR =
+  '.content-render-iframe-sandbox > iframe.content-render-iframe, .content-render-iframe-sandbox > iframe';
+const IFRAME_PRINT_SNAPSHOT_ATTRIBUTE = 'data-lesson-print-iframe-snapshot';
+const IFRAME_PRINT_STAGE_ATTRIBUTE = 'data-lesson-print-iframe-stage';
+const IFRAME_PRINT_SOURCE_WIDTH_PROPERTY = '--lesson-print-iframe-source-width';
+const IFRAME_PRINT_SOURCE_HEIGHT_PROPERTY =
+  '--lesson-print-iframe-source-height';
+const SNAPSHOT_HIDDEN_CONTROL_SELECTOR = [
+  'audio',
+  '.multi-select-confirm-button',
+  '.input-container > button',
+  '.copy-button',
+  '.content-render-custom-button-after-content',
+].join(',');
+const SNAPSHOT_ACTIVE_ELEMENT_SELECTOR = [
+  'script',
+  'object',
+  'embed',
+  'applet',
+  'portal',
+  'base',
+  'meta[http-equiv="refresh" i]',
+].join(',');
+const SNAPSHOT_URL_ATTRIBUTES = new Set([
+  'action',
+  'data',
+  'formaction',
+  'href',
+  'src',
+  'xlink:href',
+]);
+const SNAPSHOT_RESOLVABLE_URL_ATTRIBUTES = [
+  'background',
+  'href',
+  'poster',
+  'src',
+  'xlink:href',
+];
+const UNSAFE_SNAPSHOT_URL_PATTERN = /^\s*(?:javascript|vbscript):/i;
+const ASYNC_PRINT_CONTENT_SELECTOR = [
+  '.content-render-mermaid',
+  '.content-render-mermaid-inner',
+  '.mermaid-chart-container',
+  '.content-render-iframe',
+  '.content-render-iframe-sandbox',
+  'iframe',
+].join(',');
+// Cross-origin contentDocument stays inaccessible even after load. Track only
+// newly cloned embeds so completed source iframes do not incur false timeouts.
+const pendingSnapshotIframeLoads = new WeakSet<HTMLIFrameElement>();
+
+const waitForNextPaint = (signal: AbortSignal) =>
+  new Promise<void>(resolve => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+
+    let rafId = 0;
+    function settle() {
+      signal.removeEventListener('abort', handleAbort);
+      resolve();
+    }
+    function handleAbort() {
+      window.cancelAnimationFrame(rafId);
+      settle();
+    }
+    rafId = window.requestAnimationFrame(settle);
+    signal.addEventListener('abort', handleAbort, { once: true });
+  });
+
+interface LoadWaiter {
+  promise: Promise<void>;
+  cancel: () => void;
+}
+
+const createLoadWaiter = (
+  element: HTMLElement,
+  readyEvent = 'load',
+): LoadWaiter => {
+  let settled = false;
+  let resolvePromise = () => {};
+
+  function cleanup() {
+    element.removeEventListener(readyEvent, settle);
+    element.removeEventListener('error', settle);
+  }
+  function settle() {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    cleanup();
+    resolvePromise();
+  }
+  const promise = new Promise<void>(resolve => {
+    resolvePromise = resolve;
+    element.addEventListener(readyEvent, settle, { once: true });
+    element.addEventListener('error', settle, { once: true });
+  });
+
+  return { promise, cancel: settle };
+};
+
+const decodeImage = async (image: HTMLImageElement) => {
+  if (typeof image.decode !== 'function') {
+    return;
+  }
+  try {
+    await image.decode();
+  } catch {
+    // A failed decode still leaves the browser's broken-image fallback printable.
+  }
+};
+
+const CSS_URL_PATTERN =
+  /url\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|((?:\\.|[^)\\])*))\s*\)/gi;
+const CSS_QUOTED_IMPORT_PATTERN =
+  /(@import\s+)(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)')/gi;
+
+const decodeCssUrlValue = (value: string) =>
+  value.replace(/\\([\\'"()])/g, '$1').trim();
+
+const extractCssUrlValues = (value: string) =>
+  Array.from(value.matchAll(CSS_URL_PATTERN), match =>
+    decodeCssUrlValue(match[1] ?? match[2] ?? match[3] ?? ''),
+  ).filter(Boolean);
+
+const resolveCssResourceUrl = (value: string, baseUri: string) => {
+  const url = decodeCssUrlValue(value);
+  if (!url || url.startsWith('#')) {
+    return '';
+  }
+  try {
+    return new URL(url, baseUri).href.replace(
+      /[\\"]/g,
+      character => `\\${character}`,
+    );
+  } catch {
+    return '';
+  }
+};
+
+const resolveCssUrlValues = (value: string, baseUri: string) => {
+  let resolvedValue = value;
+  if (value.toLowerCase().includes('url(')) {
+    resolvedValue = resolvedValue.replace(
+      CSS_URL_PATTERN,
+      (originalValue, doubleQuoted, singleQuoted, unquoted) => {
+        const absoluteUrl = resolveCssResourceUrl(
+          doubleQuoted ?? singleQuoted ?? unquoted ?? '',
+          baseUri,
+        );
+        return absoluteUrl ? `url("${absoluteUrl}")` : originalValue;
+      },
+    );
+  }
+  if (value.toLowerCase().includes('@import')) {
+    resolvedValue = resolvedValue.replace(
+      CSS_QUOTED_IMPORT_PATTERN,
+      (originalValue, importPrefix, doubleQuoted, singleQuoted) => {
+        const absoluteUrl = resolveCssResourceUrl(
+          doubleQuoted ?? singleQuoted ?? '',
+          baseUri,
+        );
+        return absoluteUrl ? `${importPrefix}"${absoluteUrl}"` : originalValue;
+      },
+    );
+  }
+  return resolvedValue;
+};
+
+const getAssetRootElements = (root: ParentNode) => [
+  ...(root.nodeType === 1 ? [root as Element] : []),
+  ...Array.from(root.querySelectorAll('*')),
+];
+
+const getBackgroundImageUrls = (roots: ParentNode[]) =>
+  Array.from(
+    new Set(
+      roots.flatMap(root =>
+        getAssetRootElements(root).flatMap(element => {
+          const elementWindow = element.ownerDocument.defaultView;
+          if (!elementWindow) {
+            return [];
+          }
+          try {
+            return extractCssUrlValues(
+              elementWindow.getComputedStyle(element).backgroundImage,
+            ).flatMap(url => {
+              if (url.startsWith('#')) {
+                return [];
+              }
+              try {
+                return [new URL(url, element.ownerDocument.baseURI).href];
+              } catch {
+                return [];
+              }
+            });
+          } catch {
+            return [];
+          }
+        }),
+      ),
+    ),
+  );
+
+const getVideoPosterUrl = (video: HTMLVideoElement) => {
+  if (!video.getAttribute('poster')?.trim()) {
+    return '';
+  }
+  return video.poster;
+};
+
+const hasVideoSource = (video: HTMLVideoElement) =>
+  Boolean(
+    video.currentSrc ||
+    video.getAttribute('src')?.trim() ||
+    Array.from(video.querySelectorAll<HTMLSourceElement>('source[src]')).some(
+      source => source.getAttribute('src')?.trim(),
+    ),
+  );
+
+const shouldWaitForVideoFrame = (video: HTMLVideoElement) =>
+  !getVideoPosterUrl(video) &&
+  !video.error &&
+  hasVideoSource(video) &&
+  video.readyState < video.HAVE_CURRENT_DATA;
+
+const shouldWaitForIframe = (iframe: HTMLIFrameElement) => {
+  if (pendingSnapshotIframeLoads.has(iframe)) {
+    return true;
+  }
+  try {
+    return Boolean(
+      iframe.contentDocument &&
+      iframe.contentDocument.readyState !== 'complete',
+    );
+  } catch {
+    return false;
+  }
+};
+
+interface SandboxIframeDocument {
+  iframe: HTMLIFrameElement;
+  iframeDocument: Document;
+}
+
+const getSandboxIframes = (root: HTMLElement) =>
+  Array.from(root.querySelectorAll<HTMLIFrameElement>(SANDBOX_IFRAME_SELECTOR));
+
+const getAccessibleSandboxIframeDocuments = (root: HTMLElement) =>
+  getSandboxIframes(root).flatMap<SandboxIframeDocument>(iframe => {
+    try {
+      return iframe.contentDocument
+        ? [{ iframe, iframeDocument: iframe.contentDocument }]
+        : [];
+    } catch {
+      return [];
+    }
+  });
+
+const waitForPrintAssets = async (
+  root: HTMLElement,
+  signal: AbortSignal,
+  extraRoots: ParentNode[] = [],
+) => {
+  const waiters: LoadWaiter[] = [];
+  const iframeDocuments = getAccessibleSandboxIframeDocuments(root);
+  const assetRoots: ParentNode[] = [
+    root,
+    ...iframeDocuments.flatMap(({ iframeDocument }) =>
+      iframeDocument.body ? [iframeDocument.body] : [],
+    ),
+    ...extraRoots,
+  ];
+  const images = Array.from(
+    new Set(
+      assetRoots.flatMap(assetRoot =>
+        Array.from(assetRoot.querySelectorAll<HTMLImageElement>('img')),
+      ),
+    ),
+  );
+  const imageReady = images.map(image => {
+    if (image.complete) {
+      return decodeImage(image);
+    }
+    const waiter = createLoadWaiter(image);
+    waiters.push(waiter);
+    return waiter.promise.then(() => decodeImage(image));
+  });
+  const backgroundImageReady = getBackgroundImageUrls([
+    root,
+    ...iframeDocuments.map(
+      ({ iframeDocument }) => iframeDocument.documentElement,
+    ),
+    ...extraRoots,
+  ]).map(backgroundImageUrl => {
+    const backgroundImage = new Image();
+    const waiter = createLoadWaiter(backgroundImage);
+    waiters.push(waiter);
+    backgroundImage.src = backgroundImageUrl;
+    if (backgroundImage.complete) {
+      waiter.cancel();
+    }
+    return waiter.promise.then(() => decodeImage(backgroundImage));
+  });
+  const videos = Array.from(
+    new Set(
+      assetRoots.flatMap(assetRoot =>
+        Array.from(assetRoot.querySelectorAll<HTMLVideoElement>('video')),
+      ),
+    ),
+  );
+  const videoReady = videos.flatMap(video => {
+    const posterUrl = getVideoPosterUrl(video);
+    if (posterUrl) {
+      const posterImage = new Image();
+      const waiter = createLoadWaiter(posterImage);
+      waiters.push(waiter);
+      posterImage.src = posterUrl;
+      if (posterImage.complete) {
+        waiter.cancel();
+      }
+      return [waiter.promise.then(() => decodeImage(posterImage))];
+    }
+    if (!shouldWaitForVideoFrame(video)) {
+      return [];
+    }
+    const waiter = createLoadWaiter(video, 'loadeddata');
+    waiters.push(waiter);
+    return [waiter.promise];
+  });
+  const stylesheetRoots: ParentNode[] = [
+    root,
+    ...iframeDocuments.map(({ iframeDocument }) => iframeDocument),
+    ...extraRoots,
+  ];
+  const stylesheets = Array.from(
+    new Set(
+      stylesheetRoots.flatMap(stylesheetRoot =>
+        Array.from(
+          stylesheetRoot.querySelectorAll<HTMLLinkElement>(
+            'link[rel="stylesheet"]',
+          ),
+        ),
+      ),
+    ),
+  );
+  const stylesheetReady = stylesheets.flatMap(link => {
+    if (link.sheet) {
+      return [];
+    }
+    const waiter = createLoadWaiter(link);
+    waiters.push(waiter);
+    // Close the race where the stylesheet loads between the readiness check
+    // and listener registration.
+    if (link.sheet) {
+      waiter.cancel();
+    }
+    return [waiter.promise];
+  });
+  const iframes = Array.from(
+    new Set(
+      assetRoots.flatMap(assetRoot =>
+        Array.from(assetRoot.querySelectorAll<HTMLIFrameElement>('iframe')),
+      ),
+    ),
+  );
+  const iframeReady = iframes.filter(shouldWaitForIframe).map(iframe => {
+    const waiter = createLoadWaiter(iframe);
+    waiters.push(waiter);
+    return waiter.promise;
+  });
+  const fontDocuments = [
+    document,
+    ...iframeDocuments.map(({ iframeDocument }) => iframeDocument),
+  ];
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let handleAbort = () => {};
+  const result = await Promise.race([
+    Promise.all([
+      ...imageReady,
+      ...backgroundImageReady,
+      ...videoReady,
+      ...stylesheetReady,
+      ...iframeReady,
+    ])
+      .then(() =>
+        Promise.all(
+          fontDocuments.map(assetDocument =>
+            (assetDocument.fonts?.ready ?? Promise.resolve()).catch(
+              () => undefined,
+            ),
+          ),
+        ),
+      )
+      .then(() => 'ready' as const),
+    new Promise<'timeout'>(resolve => {
+      timeoutId = setTimeout(
+        () => resolve('timeout'),
+        PRINT_ASSET_WAIT_TIMEOUT_MS,
+      );
+    }),
+    new Promise<'aborted'>(resolve => {
+      handleAbort = () => resolve('aborted');
+      signal.addEventListener('abort', handleAbort, { once: true });
+    }),
+  ]);
+
+  if (timeoutId) {
+    clearTimeout(timeoutId);
+  }
+  signal.removeEventListener('abort', handleAbort);
+  waiters.forEach(waiter => waiter.cancel());
+
+  return result;
+};
+
+const waitForPrintDomToSettle = (root: HTMLElement, signal: AbortSignal) => {
+  const iframeDocuments = getAccessibleSandboxIframeDocuments(root);
+  if (
+    signal.aborted ||
+    (!root.querySelector(ASYNC_PRINT_CONTENT_SELECTOR) &&
+      iframeDocuments.length === 0) ||
+    typeof MutationObserver === 'undefined'
+  ) {
+    return Promise.resolve(signal.aborted ? 'aborted' : 'ready');
+  }
+
+  return new Promise<'ready' | 'timeout' | 'aborted'>(resolve => {
+    const startedAt = Date.now();
+    let lastMutationAt = startedAt;
+    let quietTimer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+
+    const cleanup = () => {
+      observer.disconnect();
+      if (quietTimer) {
+        clearTimeout(quietTimer);
+      }
+      if (timeoutTimer) {
+        clearTimeout(timeoutTimer);
+      }
+      signal.removeEventListener('abort', handleAbort);
+    };
+    const finish = (result: 'ready' | 'timeout' | 'aborted') => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+    const areSandboxIframesReady = () =>
+      iframeDocuments.every(({ iframeDocument }) => {
+        const sandboxWrapper = iframeDocument.querySelector('.sandbox-wrapper');
+        return (
+          sandboxWrapper !== null &&
+          sandboxWrapper.getAttribute('aria-busy') !== 'true'
+        );
+      });
+    const areMermaidChartsReady = () =>
+      [
+        root,
+        ...iframeDocuments.flatMap(({ iframeDocument }) =>
+          iframeDocument.body ? [iframeDocument.body] : [],
+        ),
+      ].every(contentRoot =>
+        Array.from(
+          contentRoot.querySelectorAll('.content-render-mermaid'),
+        ).every(chart =>
+          chart.querySelector('.content-render-mermaid-inner svg'),
+        ),
+      );
+    const scheduleQuietCheck = () => {
+      if (quietTimer) {
+        clearTimeout(quietTimer);
+      }
+      const elapsed = Date.now() - startedAt;
+      const waitMs = Math.max(
+        PRINT_DOM_QUIET_MS,
+        PRINT_DOM_MIN_SETTLE_MS - elapsed,
+      );
+      quietTimer = setTimeout(() => {
+        const now = Date.now();
+        if (
+          now - startedAt >= PRINT_DOM_MIN_SETTLE_MS &&
+          now - lastMutationAt >= PRINT_DOM_QUIET_MS &&
+          areSandboxIframesReady() &&
+          areMermaidChartsReady()
+        ) {
+          finish('ready');
+          return;
+        }
+        scheduleQuietCheck();
+      }, waitMs);
+    };
+    const observer = new MutationObserver(() => {
+      lastMutationAt = Date.now();
+      scheduleQuietCheck();
+    });
+    const handleAbort = () => finish('aborted');
+    const timeoutTimer = setTimeout(
+      () => finish('timeout'),
+      PRINT_DOM_WAIT_TIMEOUT_MS,
+    );
+
+    observer.observe(root, {
+      attributes: true,
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+    iframeDocuments.forEach(({ iframeDocument }) => {
+      if (iframeDocument.body) {
+        observer.observe(iframeDocument.body, {
+          attributes: true,
+          characterData: true,
+          childList: true,
+          subtree: true,
+        });
+      }
+    });
+    signal.addEventListener('abort', handleAbort, { once: true });
+    scheduleQuietCheck();
+  });
+};
+
+const PRINT_SNAPSHOT_STYLES = `
+  :host {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    container-type: inline-size;
+    color-scheme: light;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  [${IFRAME_PRINT_STAGE_ATTRIBUTE}='true'] {
+    width: var(${IFRAME_PRINT_SOURCE_WIDTH_PROPERTY});
+    height: var(${IFRAME_PRINT_SOURCE_HEIGHT_PROPERTY});
+    overflow: hidden;
+    zoom: min(
+      1,
+      calc(100cqw / var(${IFRAME_PRINT_SOURCE_WIDTH_PROPERTY}))
+    );
+  }
+`;
+
+const preparePrintAssets = (
+  root: HTMLElement,
+  extraRoots: ParentNode[] = [],
+) => {
+  const assetRoots: ParentNode[] = [
+    root,
+    ...getAccessibleSandboxIframeDocuments(root).flatMap(
+      ({ iframeDocument }) =>
+        iframeDocument.body ? [iframeDocument.body] : [],
+    ),
+    ...extraRoots,
+  ];
+  const elementStates = Array.from(
+    new Set(
+      assetRoots.flatMap(assetRoot =>
+        Array.from(
+          assetRoot.querySelectorAll<HTMLImageElement | HTMLIFrameElement>(
+            'img, iframe',
+          ),
+        ),
+      ),
+    ),
+  ).map(element => ({
+    element,
+    loading: element.getAttribute('loading'),
+  }));
+
+  elementStates.forEach(({ element }) => {
+    element.setAttribute('loading', 'eager');
+  });
+
+  const videoStates = Array.from(
+    new Set(
+      assetRoots.flatMap(assetRoot =>
+        Array.from(assetRoot.querySelectorAll<HTMLVideoElement>('video')),
+      ),
+    ),
+  )
+    .filter(shouldWaitForVideoFrame)
+    .map(video => ({
+      video,
+      preload: video.getAttribute('preload'),
+    }));
+
+  videoStates.forEach(({ video }) => {
+    video.setAttribute('preload', 'auto');
+  });
+
+  return () => {
+    elementStates.forEach(({ element, loading }) => {
+      if (loading === null) {
+        element.removeAttribute('loading');
+        return;
+      }
+      element.setAttribute('loading', loading);
+    });
+    videoStates.forEach(({ video, preload }) => {
+      if (preload === null) {
+        video.removeAttribute('preload');
+        return;
+      }
+      video.setAttribute('preload', preload);
+    });
+  };
+};
+
+const copySnapshotCanvasBitmaps = (
+  sourceRoot: HTMLElement,
+  snapshotRoot: HTMLElement,
+) => {
+  const sourceCanvases = Array.from(sourceRoot.querySelectorAll('canvas'));
+  const snapshotCanvases = Array.from(snapshotRoot.querySelectorAll('canvas'));
+
+  sourceCanvases.forEach((sourceCanvas, index) => {
+    const snapshotCanvas = snapshotCanvases[index];
+    if (!snapshotCanvas) {
+      return;
+    }
+    try {
+      snapshotCanvas.width = sourceCanvas.width;
+      snapshotCanvas.height = sourceCanvas.height;
+      snapshotCanvas
+        .getContext('2d')
+        ?.drawImage(
+          sourceCanvas,
+          0,
+          0,
+          sourceCanvas.width,
+          sourceCanvas.height,
+        );
+    } catch {
+      // Keep the cloned canvas if the browser cannot copy its current bitmap.
+    }
+  });
+};
+
+const copySnapshotFormState = (
+  sourceRoot: HTMLElement,
+  snapshotRoot: HTMLElement,
+) => {
+  const sourceFields = Array.from(
+    sourceRoot.querySelectorAll<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >('input, textarea, select'),
+  );
+  const snapshotFields = Array.from(
+    snapshotRoot.querySelectorAll<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >('input, textarea, select'),
+  );
+
+  sourceFields.forEach((sourceField, index) => {
+    const snapshotField = snapshotFields[index];
+    if (!snapshotField || sourceField.tagName !== snapshotField.tagName) {
+      return;
+    }
+    if (sourceField.tagName === 'INPUT') {
+      const sourceInput = sourceField as HTMLInputElement;
+      const snapshotInput = snapshotField as HTMLInputElement;
+      if (sourceInput.type !== 'file') {
+        snapshotInput.value = sourceInput.value;
+      }
+      snapshotInput.checked = sourceInput.checked;
+      return;
+    }
+    if (sourceField.tagName === 'TEXTAREA') {
+      const sourceTextarea = sourceField as HTMLTextAreaElement;
+      const snapshotTextarea = snapshotField as HTMLTextAreaElement;
+      snapshotTextarea.value = sourceTextarea.value;
+      snapshotTextarea.textContent = sourceTextarea.value;
+      return;
+    }
+    if (sourceField.tagName === 'SELECT') {
+      const sourceSelect = sourceField as HTMLSelectElement;
+      const snapshotSelect = snapshotField as HTMLSelectElement;
+      Array.from(sourceSelect.options).forEach((sourceOption, optionIndex) => {
+        const snapshotOption = snapshotSelect.options[optionIndex];
+        if (snapshotOption) {
+          snapshotOption.selected = sourceOption.selected;
+        }
+      });
+      if (!sourceSelect.multiple) {
+        snapshotSelect.selectedIndex = sourceSelect.selectedIndex;
+      }
+    }
+  });
+};
+
+const copyElementAttributes = (source: Element, target: Element) => {
+  Array.from(source.attributes).forEach(attribute => {
+    target.setAttribute(attribute.name, attribute.value);
+  });
+};
+
+const addBaseToSrcdoc = (srcdoc: string, baseUri: string) => {
+  const srcdocDocument = new DOMParser().parseFromString(srcdoc, 'text/html');
+  const base = srcdocDocument.createElement('base');
+  base.href = baseUri;
+  srcdocDocument.head.prepend(base);
+  return srcdocDocument.documentElement.outerHTML;
+};
+
+const getIframeSrcdocBaseUri = (iframe: HTMLIFrameElement) => {
+  try {
+    const iframeDocument = iframe.contentDocument;
+    if (iframeDocument?.querySelector('base[href]')) {
+      return iframeDocument.baseURI;
+    }
+  } catch {
+    // Cross-origin iframe documents fall back to their embedding document.
+  }
+  const srcdoc = iframe.getAttribute('srcdoc');
+  if (srcdoc) {
+    const srcdocDocument = new DOMParser().parseFromString(srcdoc, 'text/html');
+    const declaredBase = srcdocDocument
+      .querySelector('base[href]')
+      ?.getAttribute('href')
+      ?.trim();
+    if (declaredBase) {
+      try {
+        return new URL(declaredBase, iframe.ownerDocument.baseURI).href;
+      } catch {
+        // Invalid base URLs fall back to the embedding document.
+      }
+    }
+  }
+  return iframe.ownerDocument.baseURI;
+};
+
+const resolveSnapshotElementUrls = (source: Element, target: Element) => {
+  SNAPSHOT_RESOLVABLE_URL_ATTRIBUTES.forEach(attributeName => {
+    const attributeValue = source.getAttribute(attributeName)?.trim();
+    if (!attributeValue || attributeValue.startsWith('#')) {
+      return;
+    }
+    try {
+      target.setAttribute(
+        attributeName,
+        new URL(attributeValue, source.baseURI).href,
+      );
+    } catch {
+      // Keep the original attribute when the browser cannot resolve it.
+    }
+  });
+
+  const tagName = source.tagName.toLowerCase();
+  if (tagName === 'img') {
+    const sourceImage = source as HTMLImageElement;
+    const selectedSource = sourceImage.currentSrc;
+    if (selectedSource) {
+      target.setAttribute('src', selectedSource);
+      target.removeAttribute('srcset');
+      target.removeAttribute('sizes');
+      if (target.parentElement?.tagName.toLowerCase() === 'picture') {
+        target.parentElement
+          .querySelectorAll('source')
+          .forEach(sourceElement => {
+            sourceElement.removeAttribute('srcset');
+            sourceElement.removeAttribute('sizes');
+          });
+      }
+    }
+  } else if (tagName === 'iframe' && source.hasAttribute('srcdoc')) {
+    target.setAttribute(
+      'srcdoc',
+      addBaseToSrcdoc(
+        source.getAttribute('srcdoc') ?? '',
+        getIframeSrcdocBaseUri(source as HTMLIFrameElement),
+      ),
+    );
+  } else if (tagName === 'style') {
+    target.textContent = resolveCssUrlValues(
+      source.textContent ?? '',
+      source.baseURI,
+    );
+  }
+};
+
+const copyResolvedSnapshotUrls = (sourceRoot: Element, targetRoot: Element) => {
+  const sourceElements = [
+    sourceRoot,
+    ...Array.from(sourceRoot.querySelectorAll('*')),
+  ];
+  const targetElements = [
+    targetRoot,
+    ...Array.from(targetRoot.querySelectorAll('*')),
+  ];
+  if (sourceElements.length !== targetElements.length) {
+    return;
+  }
+  sourceElements.forEach((sourceElement, index) => {
+    resolveSnapshotElementUrls(sourceElement, targetElements[index]);
+  });
+};
+
+const neutralizeSnapshotElement = (element: Element) => {
+  Array.from(element.attributes).forEach(attribute => {
+    const attributeName = attribute.name.toLowerCase();
+    if (
+      attributeName.startsWith('on') ||
+      (SNAPSHOT_URL_ATTRIBUTES.has(attributeName) &&
+        UNSAFE_SNAPSHOT_URL_PATTERN.test(attribute.value))
+    ) {
+      element.removeAttribute(attribute.name);
+    }
+  });
+  element.removeAttribute('autofocus');
+  element.removeAttribute('autoplay');
+
+  if (element.tagName.toLowerCase() === 'iframe') {
+    element.setAttribute('sandbox', '');
+    element.removeAttribute('allow');
+  }
+};
+
+const neutralizeSnapshotMarkup = (snapshotRoot: Element) => {
+  [snapshotRoot, ...Array.from(snapshotRoot.querySelectorAll('*'))].forEach(
+    neutralizeSnapshotElement,
+  );
+  snapshotRoot
+    .querySelectorAll(SNAPSHOT_ACTIVE_ELEMENT_SELECTOR)
+    .forEach(element => element.remove());
+};
+
+const trackSnapshotIframeLoads = (snapshotRoot: ParentNode) => {
+  snapshotRoot
+    .querySelectorAll<HTMLIFrameElement>('iframe[src], iframe[srcdoc]')
+    .forEach(iframe => {
+      pendingSnapshotIframeLoads.add(iframe);
+      iframe.addEventListener(
+        'load',
+        () => pendingSnapshotIframeLoads.delete(iframe),
+        { once: true },
+      );
+    });
+};
+
+const copyComputedStyle = (
+  source: Element,
+  target: Element,
+  sourceWindow: Window,
+) => {
+  const targetStyle = (target as HTMLElement).style;
+  if (!targetStyle) {
+    return;
+  }
+  const computedStyle = sourceWindow.getComputedStyle(source);
+  Array.from(computedStyle).forEach(property => {
+    targetStyle.setProperty(
+      property,
+      resolveCssUrlValues(
+        computedStyle.getPropertyValue(property),
+        source.baseURI,
+      ),
+      'important',
+    );
+  });
+};
+
+const copyComputedStyleTree = (
+  sourceRoot: Element,
+  targetRoot: Element,
+  sourceWindow: Window,
+) => {
+  const sourceElements = [
+    sourceRoot,
+    ...Array.from(sourceRoot.querySelectorAll('*')),
+  ];
+  const targetElements = [
+    targetRoot,
+    ...Array.from(targetRoot.querySelectorAll('*')),
+  ];
+  if (sourceElements.length !== targetElements.length) {
+    return false;
+  }
+  sourceElements.forEach((sourceElement, index) => {
+    copyComputedStyle(sourceElement, targetElements[index], sourceWindow);
+  });
+  return true;
+};
+
+const hideSnapshotOnlyControls = (snapshotRoot: HTMLElement) => {
+  snapshotRoot
+    .querySelectorAll<HTMLElement>(SNAPSHOT_HIDDEN_CONTROL_SELECTOR)
+    .forEach(element => {
+      element.style.setProperty('display', 'none', 'important');
+    });
+};
+
+interface IframePrintSnapshots {
+  assetRoots: ShadowRoot[];
+  cleanup: () => void;
+}
+
+const createIframePrintSnapshots = (
+  root: HTMLElement,
+): IframePrintSnapshots | null => {
+  const sandboxIframes = getSandboxIframes(root);
+  const snapshots: HTMLElement[] = [];
+  const assetRoots: ShadowRoot[] = [];
+
+  sandboxIframes.forEach(iframe => {
+    try {
+      const iframeDocument = iframe.contentDocument;
+      const iframeWindow = iframe.contentWindow;
+      const iframeRoot = iframeDocument?.getElementById('root');
+      const wrapper = iframe.closest<HTMLElement>(
+        '.content-render-iframe-sandbox',
+      );
+      if (!iframeDocument || !iframeWindow || !iframeRoot || !wrapper) {
+        return;
+      }
+
+      const snapshot = document.createElement('div');
+      snapshot.setAttribute(IFRAME_PRINT_SNAPSHOT_ATTRIBUTE, 'true');
+      const bodyStyle = iframeWindow.getComputedStyle(iframeDocument.body);
+      const documentStyle = iframeWindow.getComputedStyle(
+        iframeDocument.documentElement,
+      );
+      snapshot.style.setProperty('font-family', bodyStyle.fontFamily);
+      snapshot.style.setProperty('font-size', bodyStyle.fontSize);
+      snapshot.style.setProperty('line-height', bodyStyle.lineHeight);
+      snapshot.style.setProperty('color', bodyStyle.color);
+      Array.from(documentStyle).forEach(property => {
+        if (property.startsWith('--')) {
+          snapshot.style.setProperty(
+            property,
+            resolveCssUrlValues(
+              documentStyle.getPropertyValue(property),
+              iframeDocument.documentElement.baseURI,
+            ),
+          );
+        }
+      });
+
+      const shadowRoot = snapshot.attachShadow({ mode: 'open' });
+      const snapshotStyles = document.createElement('style');
+      snapshotStyles.textContent = PRINT_SNAPSHOT_STYLES;
+      shadowRoot.appendChild(snapshotStyles);
+      iframeDocument
+        .querySelectorAll('head style, head link[rel="stylesheet"]')
+        .forEach(styleElement => {
+          const snapshotStyleElement = document.importNode(styleElement, true);
+          copyResolvedSnapshotUrls(styleElement, snapshotStyleElement);
+          neutralizeSnapshotMarkup(snapshotStyleElement);
+          shadowRoot.appendChild(snapshotStyleElement);
+        });
+
+      const snapshotRoot = document.importNode(iframeRoot, true);
+      copySnapshotCanvasBitmaps(iframeRoot, snapshotRoot);
+      copySnapshotFormState(iframeRoot, snapshotRoot);
+      copyResolvedSnapshotUrls(iframeRoot, snapshotRoot);
+      const snapshotHtml = document.createElement('html');
+      const snapshotBody = document.createElement('body');
+      copyElementAttributes(iframeDocument.documentElement, snapshotHtml);
+      copyElementAttributes(iframeDocument.body, snapshotBody);
+      resolveSnapshotElementUrls(iframeDocument.documentElement, snapshotHtml);
+      resolveSnapshotElementUrls(iframeDocument.body, snapshotBody);
+      snapshotBody.appendChild(snapshotRoot);
+      snapshotHtml.appendChild(snapshotBody);
+      copyComputedStyle(
+        iframeDocument.documentElement,
+        snapshotHtml,
+        iframeWindow,
+      );
+      copyComputedStyle(iframeDocument.body, snapshotBody, iframeWindow);
+      const didFreezeRootLayout = copyComputedStyleTree(
+        iframeRoot,
+        snapshotRoot,
+        iframeWindow,
+      );
+      neutralizeSnapshotMarkup(snapshotHtml);
+      trackSnapshotIframeLoads(snapshotRoot);
+      hideSnapshotOnlyControls(snapshotRoot);
+
+      const iframeRect = iframe.getBoundingClientRect();
+      const sourceWidth = iframe.clientWidth || iframeRect.width;
+      const sourceHeight = iframe.clientHeight || iframeRect.height;
+      if (
+        didFreezeRootLayout &&
+        Number.isFinite(sourceWidth) &&
+        Number.isFinite(sourceHeight) &&
+        sourceWidth > 0 &&
+        sourceHeight > 0
+      ) {
+        snapshot.style.setProperty(
+          IFRAME_PRINT_SOURCE_WIDTH_PROPERTY,
+          `${sourceWidth}px`,
+        );
+        snapshot.style.setProperty(
+          IFRAME_PRINT_SOURCE_HEIGHT_PROPERTY,
+          `${sourceHeight}px`,
+        );
+        const snapshotStage = document.createElement('div');
+        snapshotStage.setAttribute(IFRAME_PRINT_STAGE_ATTRIBUTE, 'true');
+        snapshotStage.appendChild(snapshotHtml);
+        shadowRoot.appendChild(snapshotStage);
+      } else {
+        shadowRoot.appendChild(snapshotHtml);
+      }
+      wrapper.insertAdjacentElement('afterend', snapshot);
+      snapshots.push(snapshot);
+      assetRoots.push(shadowRoot);
+    } catch {
+      // A missing same-origin document is handled as a preparation failure.
+    }
+  });
+
+  if (snapshots.length !== sandboxIframes.length) {
+    snapshots.forEach(snapshot => snapshot.remove());
+    return null;
+  }
+
+  return {
+    assetRoots,
+    cleanup: () => snapshots.forEach(snapshot => snapshot.remove()),
+  };
+};
+
+const waitForPrintDialogToClose = (signal: AbortSignal) =>
+  new Promise<void>(resolve => {
+    let settled = false;
+    let printMediaSeen = false;
+    const printMedia =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('print')
+        : null;
+    const supportsModernMediaListener = Boolean(
+      printMedia && typeof printMedia.addEventListener === 'function',
+    );
+
+    const cleanup = () => {
+      window.removeEventListener('afterprint', settle);
+      signal.removeEventListener('abort', settle);
+      if (supportsModernMediaListener) {
+        printMedia?.removeEventListener('change', handlePrintMediaChange);
+      } else {
+        printMedia?.removeListener?.(handlePrintMediaChange);
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+    const settle = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve();
+    };
+    const handlePrintMediaChange = (event: MediaQueryListEvent) => {
+      if (event.matches) {
+        printMediaSeen = true;
+        return;
+      }
+      if (printMediaSeen) {
+        settle();
+      }
+    };
+    const timeoutId = setTimeout(settle, PRINT_DIALOG_FALLBACK_MS);
+
+    window.addEventListener('afterprint', settle, { once: true });
+    signal.addEventListener('abort', settle, { once: true });
+    if (supportsModernMediaListener) {
+      printMedia?.addEventListener('change', handlePrintMediaChange);
+    } else {
+      printMedia?.addListener?.(handlePrintMediaChange);
+    }
+  });
+
+const sanitizeTitlePart = (value: string) =>
+  value
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const buildPrintTitle = (courseName: string, lessonTitle: string) =>
+  [courseName, lessonTitle].map(sanitizeTitlePart).filter(Boolean).join(' - ');
+
+interface UseLessonPdfPrintOptions {
+  printRootRef: RefObject<HTMLElement | null>;
+  lessonId: string;
+  courseName: string;
+  lessonTitle: string;
+  onError: () => void;
+}
+
+export const useLessonPdfPrint = ({
+  printRootRef,
+  lessonId,
+  courseName,
+  lessonTitle,
+  onError,
+}: UseLessonPdfPrintOptions) => {
+  const [isPreparing, setIsPreparing] = useState(false);
+  const inProgressRef = useRef(false);
+  const mountedRef = useRef(true);
+  const operationSerialRef = useRef(0);
+  const cleanupRef = useRef<(() => void) | null>(null);
+  const printIdentity = `${lessonId}\u0000${courseName}\u0000${lessonTitle}`;
+  const previousPrintIdentityRef = useRef(printIdentity);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      cleanupRef.current?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (previousPrintIdentityRef.current !== printIdentity) {
+      cleanupRef.current?.();
+      previousPrintIdentityRef.current = printIdentity;
+    }
+  }, [printIdentity]);
+
+  const printLessonPdf = useCallback(async () => {
+    if (inProgressRef.current || typeof window === 'undefined') {
+      return;
+    }
+
+    const operationId = operationSerialRef.current + 1;
+    operationSerialRef.current = operationId;
+    const abortController = new AbortController();
+    inProgressRef.current = true;
+    setIsPreparing(true);
+
+    const originalTitle = document.title;
+    let printStateApplied = false;
+    let cleaned = false;
+    const restorePrintAssetStates: Array<() => void> = [];
+    let cleanupPrintSnapshots = () => {};
+
+    const isOperationActive = () =>
+      mountedRef.current &&
+      !cleaned &&
+      !abortController.signal.aborted &&
+      operationSerialRef.current === operationId;
+
+    const cleanup = () => {
+      if (cleaned) {
+        return;
+      }
+      cleaned = true;
+      abortController.abort();
+
+      if (printStateApplied) {
+        document.documentElement.classList.remove(LESSON_PDF_PRINT_CLASS);
+        document.title = originalTitle;
+      }
+      cleanupPrintSnapshots();
+      [...restorePrintAssetStates].reverse().forEach(restore => restore());
+
+      if (cleanupRef.current === cleanup) {
+        cleanupRef.current = null;
+      }
+      if (operationSerialRef.current === operationId) {
+        operationSerialRef.current += 1;
+      }
+      inProgressRef.current = false;
+      if (mountedRef.current) {
+        setIsPreparing(false);
+      }
+    };
+
+    cleanupRef.current = cleanup;
+
+    try {
+      // Give React time to reveal every collapsed follow-up before waiting for
+      // MarkdownFlow's asynchronous diagrams and embeds.
+      await waitForNextPaint(abortController.signal);
+      await waitForNextPaint(abortController.signal);
+      if (!isOperationActive()) {
+        return;
+      }
+
+      const printRoot = printRootRef.current;
+      if (!printRoot || typeof window.print !== 'function') {
+        throw new Error('Lesson print view is unavailable');
+      }
+
+      const printTitle = buildPrintTitle(courseName, lessonTitle);
+      if (printTitle) {
+        document.title = printTitle;
+      }
+      document.documentElement.classList.add(LESSON_PDF_PRINT_CLASS);
+      printStateApplied = true;
+
+      const initialDomState = await waitForPrintDomToSettle(
+        printRoot,
+        abortController.signal,
+      );
+      if (!isOperationActive()) {
+        return;
+      }
+      if (initialDomState !== 'ready') {
+        throw new Error('Lesson content did not finish rendering');
+      }
+
+      restorePrintAssetStates.push(preparePrintAssets(printRoot));
+      const assetState = await waitForPrintAssets(
+        printRoot,
+        abortController.signal,
+      );
+      if (!isOperationActive()) {
+        return;
+      }
+      if (assetState !== 'ready') {
+        throw new Error('Lesson assets did not finish loading');
+      }
+
+      const finalDomState = await waitForPrintDomToSettle(
+        printRoot,
+        abortController.signal,
+      );
+      if (!isOperationActive()) {
+        return;
+      }
+      if (finalDomState !== 'ready') {
+        throw new Error('Lesson content did not stabilize');
+      }
+
+      const iframeSnapshots = createIframePrintSnapshots(printRoot);
+      if (!iframeSnapshots) {
+        throw new Error('Lesson embeds could not be prepared for printing');
+      }
+      cleanupPrintSnapshots = iframeSnapshots.cleanup;
+
+      restorePrintAssetStates.push(
+        preparePrintAssets(printRoot, iframeSnapshots.assetRoots),
+      );
+      if (iframeSnapshots.assetRoots.length > 0) {
+        await waitForNextPaint(abortController.signal);
+        if (!isOperationActive()) {
+          return;
+        }
+      }
+      const finalAssetState = await waitForPrintAssets(
+        printRoot,
+        abortController.signal,
+        iframeSnapshots.assetRoots,
+      );
+      if (!isOperationActive()) {
+        return;
+      }
+      if (finalAssetState !== 'ready') {
+        throw new Error('Lesson print assets did not finish loading');
+      }
+
+      const printDialogClosed = waitForPrintDialogToClose(
+        abortController.signal,
+      );
+      window.print();
+      await printDialogClosed;
+    } catch {
+      if (isOperationActive()) {
+        onError();
+      }
+    } finally {
+      cleanup();
+    }
+  }, [courseName, lessonTitle, onError, printRootRef]);
+
+  return {
+    isPreparing,
+    printLessonPdf,
+  };
+};

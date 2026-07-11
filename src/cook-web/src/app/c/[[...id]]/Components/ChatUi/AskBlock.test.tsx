@@ -27,7 +27,20 @@ jest.mock('@/c-utils/markdownUtils', () => ({
 }));
 
 jest.mock('markdown-flow-ui/renderer', () => ({
-  ContentRender: ({ content }: { content: string }) => <div>{content}</div>,
+  ContentRender: ({
+    content,
+    enableTypewriter,
+  }: {
+    content: string;
+    enableTypewriter?: boolean;
+  }) => (
+    <div
+      data-testid='follow-up-answer'
+      data-typewriter={String(Boolean(enableTypewriter))}
+    >
+      {content}
+    </div>
+  ),
   MarkdownFlowInput: ({
     value,
     onChange,
@@ -240,8 +253,111 @@ describe('AskBlock', () => {
       });
 
       await waitFor(() => expect(activeRun?.source.close).toHaveBeenCalled());
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1'],
+      ).toHaveLength(2);
     },
   );
+
+  it('rolls back a partial follow-up answer when the transport fails', async () => {
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: false,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[]}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'follow up question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.CONTENT,
+        content: 'partial answer',
+      });
+    });
+
+    expect(screen.getByText('partial answer')).toBeInTheDocument();
+
+    act(() => {
+      activeRun?.source.emit('error');
+    });
+
+    await waitFor(() =>
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1'] ?? [],
+      ).toHaveLength(0),
+    );
+    expect(screen.queryByText('partial answer')).not.toBeInTheDocument();
+    expect(
+      (screen.getByLabelText('ask-input') as HTMLTextAreaElement).value,
+    ).toBe('follow up question');
+    expect(activeRun?.source.close).toHaveBeenCalled();
+  });
+
+  it('rolls back and closes the follow-up stream when response handling throws', async () => {
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: false,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[]}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'follow up question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    const invalidResponse = {
+      type: SSE_OUTPUT_TYPE.ELEMENT,
+      get content(): Record<string, unknown> {
+        throw new Error('invalid response payload');
+      },
+    };
+    await act(async () => {
+      await activeRun?.onMessage(invalidResponse);
+    });
+
+    await waitFor(() =>
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1'] ?? [],
+      ).toHaveLength(0),
+    );
+    expect(activeRun?.source.close).toHaveBeenCalled();
+    expect(
+      (screen.getByLabelText('ask-input') as HTMLTextAreaElement).value,
+    ).toBe('follow up question');
+  });
 
   it('updates the live answer when the server emits answer element patches', async () => {
     render(
@@ -693,6 +809,54 @@ describe('AskBlock', () => {
         shouldUseTypewriter: false,
       }),
     );
+  });
+
+  it('renders every follow-up inline without controls or typewriter in print mode', () => {
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={false}
+          printMode={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[
+            { type: 'ask', content: '第一条追问问题' },
+            {
+              type: 'answer',
+              content: '第一条追问回答',
+              shouldUseTypewriter: true,
+            },
+            { type: 'ask', content: '第二条追问问题' },
+            {
+              type: 'answer',
+              content: '第二条追问回答',
+              shouldUseTypewriter: true,
+            },
+          ]}
+        />
+      </AppContext.Provider>,
+    );
+
+    expect(screen.getByText('第一条追问问题')).toBeInTheDocument();
+    expect(screen.getByText('第一条追问回答')).toBeInTheDocument();
+    expect(screen.getByText('第二条追问问题')).toBeInTheDocument();
+    expect(screen.getByText('第二条追问回答')).toBeInTheDocument();
+    expect(screen.queryByLabelText('ask-input')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    screen
+      .getAllByTestId('follow-up-answer')
+      .forEach(answer =>
+        expect(answer).toHaveAttribute('data-typewriter', 'false'),
+      );
   });
 
   describe('when the backend rejects the ask via SSE error', () => {

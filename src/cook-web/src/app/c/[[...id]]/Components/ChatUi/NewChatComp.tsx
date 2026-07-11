@@ -1,7 +1,9 @@
 import styles from './ChatComponents.module.scss';
 import { ChevronsDown, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   useContext,
   useRef,
@@ -25,6 +27,7 @@ import { useCourseStore } from '@/c-store/useCourseStore';
 import { fail, toast } from '@/hooks/useToast';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
+import { resolveWideLogoSource } from '@/c-components/logo/logoSource';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
@@ -49,7 +52,10 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useSystemStore } from '@/c-store/useSystemStore';
-import { buildAskListByAnchorElementBid } from './askState';
+import {
+  buildAskListByAnchorElementBid,
+  hasStreamingAskMessage,
+} from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
@@ -77,6 +83,14 @@ import {
   projectReadModeItems,
 } from './chatUiModeProjection';
 import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
+import type { LessonPdfDownloadAction } from './LessonPdfDownloadButton';
+import {
+  isLessonPdfContentReady,
+  shouldExcludeLessonPdfInteraction,
+} from './lessonPdfState';
+import { useLessonPdfPrint } from './useLessonPdfPrint';
+import LessonPdfPreparingOverlay from './LessonPdfPreparingOverlay';
+import { buildCoursePageUrl } from '@/c-utils/urlUtils';
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
@@ -105,6 +119,7 @@ interface NewChatComponentsProps {
   onListenMobileViewModeChange?: ListenMobileViewModeChangeHandler;
   showGenerateBtn?: boolean;
   onLessonUpdateNoticeVisibilityChange?: (visible: boolean) => void;
+  onLessonPdfActionChange?: (action: LessonPdfDownloadAction | null) => void;
 }
 
 const isContentItemWithElementBid = (item: ChatContentItem) =>
@@ -131,11 +146,13 @@ export const NewChatComponents = ({
   onListenMobileViewModeChange,
   showGenerateBtn = false,
   onLessonUpdateNoticeVisibilityChange,
+  onLessonPdfActionChange,
 }: NewChatComponentsProps) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
   const router = useRouter();
   const lessonFeedbackSubmitLabel = t('module.chat.lessonFeedbackSubmit');
+  const lessonPdfCourseQrLabel = t('module.chat.lessonPdfCourseQrLabel');
   const askButtonMarkup = useMemo(
     () =>
       `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
@@ -152,6 +169,17 @@ export const NewChatComponents = ({
   }, [router]);
 
   const { courseId: shifuBid } = useEnvStore.getState();
+  const [lessonPdfCourseUrl, setLessonPdfCourseUrl] = useState('');
+  useEffect(() => {
+    setLessonPdfCourseUrl(buildCoursePageUrl(window.location.href));
+  }, [shifuBid]);
+  const { logoHorizontal, logoWideUrl } = useEnvStore(
+    useShallow(state => ({
+      logoHorizontal: state.logoHorizontal,
+      logoWideUrl: state.logoWideUrl,
+    })),
+  );
+  const printBrandLogo = resolveWideLogoSource(logoWideUrl, logoHorizontal);
   const { refreshUserInfo } = useUserStore(
     useShallow(state => ({
       refreshUserInfo: state.refreshUserInfo,
@@ -166,6 +194,7 @@ export const NewChatComponents = ({
   const { mobileStyle } = useContext(AppContext);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
+  const lessonPrintRootRef = useRef<HTMLDivElement | null>(null);
   const { scrollToLesson } = useChatComponentsScroll({
     chatRef,
     containerStyle: styles.chatComponents,
@@ -408,6 +437,7 @@ export const NewChatComponents = ({
     items,
     isLoading,
     isOutputInProgress,
+    hasRunFailed,
     currentStreamingElementBid,
     currentTypewriterElementBid,
     onSend,
@@ -527,6 +557,13 @@ export const NewChatComponents = ({
     () => buildVisibleReadModeItems(readModeItems, readModeTypewriterCache),
     [readModeItems, readModeTypewriterCache],
   );
+  const isFollowUpStreaming = useMemo(
+    () =>
+      Object.values(scopedAskListByAnchorElementBid).some(
+        hasStreamingAskMessage,
+      ),
+    [scopedAskListByAnchorElementBid],
+  );
   const trailingVisibleReadModeTextBid = useMemo(
     () =>
       [...visibleReadModeItems]
@@ -604,6 +641,55 @@ export const NewChatComponents = ({
     hasReadModeItems: visibleReadModeItems.length > 0,
     shouldShowReadModeStreamingDots,
   });
+  const isLessonPdfReady = isLessonPdfContentReady({
+    courseName,
+    lessonTitle,
+    lessonStatus,
+    isSlideMode,
+    isLoading,
+    isOutputInProgress,
+    hasGenerationError:
+      hasRunFailed ||
+      items.some(item => item.type === ChatContentItemType.ERROR),
+    currentStreamingElementBid,
+    readModeItems,
+    visibleReadModeItems,
+    readModeTypewriterCache,
+  });
+  const handleLessonPdfPrintError = useCallback(() => {
+    fail(t('module.chat.lessonPdfPrepareFailed'));
+  }, [t]);
+  const { isPreparing: isPreparingLessonPdf, printLessonPdf } =
+    useLessonPdfPrint({
+      printRootRef: isSlideMode ? lessonPrintRootRef : chatRef,
+      lessonId: resolvedLessonId,
+      courseName,
+      lessonTitle,
+      onError: handleLessonPdfPrintError,
+    });
+  const renderedReadModeItems = isPreparingLessonPdf
+    ? readModeItems
+    : visibleReadModeItems;
+
+  useEffect(() => {
+    onLessonPdfActionChange?.(
+      isLessonPdfReady
+        ? {
+            lessonId: resolvedLessonId,
+            isFollowUpStreaming,
+            isPreparing: isPreparingLessonPdf,
+            onDownload: printLessonPdf,
+          }
+        : null,
+    );
+  }, [
+    isFollowUpStreaming,
+    isLessonPdfReady,
+    isPreparingLessonPdf,
+    onLessonPdfActionChange,
+    printLessonPdf,
+    resolvedLessonId,
+  ]);
 
   useEffect(() => {
     ensureLessonScope(resolvedLessonId);
@@ -1237,6 +1323,7 @@ export const NewChatComponents = ({
     ) : null;
   return (
     <div
+      data-lesson-print-content='true'
       className={containerClassName}
       style={{ position: 'relative', overflow: 'hidden', padding: 0 }}
     >
@@ -1273,13 +1360,62 @@ export const NewChatComponents = ({
             )}
           />
         )
-      ) : (
+      ) : null}
+      {(!isSlideMode || isPreparingLessonPdf) && (
         <div
-          className={containerClassName}
-          ref={chatRef}
+          data-lesson-print-scroll='true'
+          className={cn(
+            containerClassName,
+            isSlideMode ? styles.lessonPdfOffscreen : '',
+          )}
+          ref={isSlideMode ? lessonPrintRootRef : chatRef}
+          aria-hidden={isSlideMode ? 'true' : undefined}
           style={{ width: '100%', height: '100%', overflowY: 'auto' }}
         >
           <div>
+            <header
+              data-lesson-print-only='true'
+              className='lesson-pdf-print-header mx-auto max-w-[1000px] border-b border-border px-5 pb-5'
+            >
+              <div className='flex items-center gap-4'>
+                {courseAvatar ? (
+                  <Image
+                    data-lesson-print-course-avatar='true'
+                    src={courseAvatar}
+                    alt=''
+                    width={44}
+                    height={44}
+                    loading='eager'
+                    unoptimized
+                    className='h-11 w-11 shrink-0 rounded-full object-cover'
+                  />
+                ) : null}
+                <div className='min-w-0 flex-1'>
+                  <h1
+                    data-lesson-print-course-name='true'
+                    className='break-words text-2xl font-semibold leading-tight text-foreground'
+                  >
+                    {courseName}
+                  </h1>
+                  <h2
+                    data-lesson-print-lesson-title='true'
+                    className='mt-2 break-words text-lg font-medium leading-tight text-muted-foreground'
+                  >
+                    {lessonTitle}
+                  </h2>
+                </div>
+                <Image
+                  data-lesson-print-site-logo='true'
+                  src={printBrandLogo}
+                  alt=''
+                  width={92}
+                  height={24}
+                  loading='eager'
+                  unoptimized
+                  className='h-6 w-auto shrink-0 object-contain'
+                />
+              </div>
+            </header>
             {shouldShowResetLoading ? (
               <div
                 style={{
@@ -1294,7 +1430,7 @@ export const NewChatComponents = ({
               <></>
             ) : (
               <>
-                {visibleReadModeItems.map((item, idx) => {
+                {renderedReadModeItems.map((item, idx) => {
                   const isLongPressed =
                     longPressedBlockBid === item.element_bid;
                   const baseKey = item.element_bid || `${item.type}-${idx}`;
@@ -1302,6 +1438,7 @@ export const NewChatComponents = ({
                   if (item.type === ChatContentItemType.ASK) {
                     return (
                       <div
+                        data-lesson-print-follow-up='true'
                         key={`ask-${parentKey}`}
                         style={{
                           position: 'relative',
@@ -1312,6 +1449,7 @@ export const NewChatComponents = ({
                       >
                         <AskBlock
                           isExpanded={item.isAskExpanded}
+                          printMode={isPreparingLessonPdf}
                           shifu_bid={shifuBid}
                           outline_bid={resolvedLessonId}
                           preview_mode={previewMode}
@@ -1335,10 +1473,13 @@ export const NewChatComponents = ({
                       parentContentItem?.audioTracks ?? [],
                     );
                     const canRequestAudio =
-                      !previewMode && Boolean(parentElementBid);
+                      !isPreparingLessonPdf &&
+                      !previewMode &&
+                      Boolean(parentElementBid);
                     const hasAudioForElement =
                       hasAudioContentInTrack(parentPrimaryTrack);
                     const shouldAutoPlayElement =
+                      !isPreparingLessonPdf &&
                       autoPlayTargetBlockBid === parentElementBid;
                     const isInteractionFollowUp =
                       parentContentItem?.type ===
@@ -1352,6 +1493,7 @@ export const NewChatComponents = ({
 
                     return (
                       <div
+                        data-lesson-print-exclude='true'
                         key={`like-${parentKey}`}
                         className={cn(!mobileStyle && 'flex justify-end')}
                         style={{
@@ -1377,6 +1519,7 @@ export const NewChatComponents = ({
                           }
                           showGenerateBtn={!mobileStyle && showGenerateBtn}
                           extraActions={
+                            !isPreparingLessonPdf &&
                             !mobileStyle &&
                             shouldShowAudioAction &&
                             (canRequestAudio || hasAudioForElement) ? (
@@ -1418,6 +1561,7 @@ export const NewChatComponents = ({
                   if (item.type === ChatContentItemType.ERROR) {
                     return (
                       <div
+                        data-lesson-print-exclude='true'
                         key={`error-${baseKey}`}
                         style={{
                           position: 'relative',
@@ -1452,8 +1596,21 @@ export const NewChatComponents = ({
                     );
                   }
 
+                  const isCourseInteraction =
+                    item.type === ChatContentItemType.INTERACTION &&
+                    !shouldExcludeLessonPdfInteraction(item.content);
+
                   return (
                     <div
+                      data-lesson-print-exclude={
+                        item.type === ChatContentItemType.INTERACTION &&
+                        !isCourseInteraction
+                          ? 'true'
+                          : undefined
+                      }
+                      data-lesson-print-interaction={
+                        isCourseInteraction ? 'true' : undefined
+                      }
                       key={`content-${baseKey}`}
                       style={{
                         position: 'relative',
@@ -1481,28 +1638,35 @@ export const NewChatComponents = ({
                       */}
                       <ContentBlock
                         item={item}
+                        printMode={isPreparingLessonPdf && isCourseInteraction}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}
-                        enableStreamingTypewriter={shouldEnableReadModeTypewriter(
-                          item,
-                          readModeTypewriterCache[item.element_bid || ''],
-                          {
-                            keepAliveWhileStreaming:
-                              isOutputInProgress &&
-                              isTrailingVisibleReadModeItemText &&
-                              readModeTypewriterKeepAliveElementBid ===
-                                item.element_bid &&
-                              trailingVisibleReadModeTextBid ===
-                                item.element_bid,
-                          },
-                        )}
+                        enableStreamingTypewriter={
+                          !isPreparingLessonPdf &&
+                          shouldEnableReadModeTypewriter(
+                            item,
+                            readModeTypewriterCache[item.element_bid || ''],
+                            {
+                              keepAliveWhileStreaming:
+                                isOutputInProgress &&
+                                isTrailingVisibleReadModeItemText &&
+                                readModeTypewriterKeepAliveElementBid ===
+                                  item.element_bid &&
+                                trailingVisibleReadModeTextBid ===
+                                  item.element_bid,
+                            },
+                          )
+                        }
                         onClickCustomButtonAfterContent={handleClickAskButton}
                         onSend={memoizedOnSend}
                         onLongPress={handleLongPress}
                         autoPlayAudio={
+                          !isPreparingLessonPdf &&
                           autoPlayTargetBlockBid === item.element_bid
                         }
-                        showAudioAction={shouldShowAudioAction}
+                        showAudioAction={
+                          !isPreparingLessonPdf && shouldShowAudioAction
+                        }
                         onAudioPlayStateChange={handleAudioPlayStateChange}
                         onAudioEnded={handleAudioEnded}
                         onTypeFinished={handleReadModeTypeFinished}
@@ -1512,8 +1676,9 @@ export const NewChatComponents = ({
                 })}
                 {shouldShowReadModeStreamingDots ? (
                   <div
+                    data-lesson-print-exclude='true'
                     style={{
-                      margin: visibleReadModeItems.length
+                      margin: renderedReadModeItems.length
                         ? '16px auto 0'
                         : '0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
@@ -1527,7 +1692,31 @@ export const NewChatComponents = ({
                 ) : null}
               </>
             )}
+            {lessonPdfCourseUrl ? (
+              <footer
+                data-lesson-print-only='true'
+                data-lesson-print-course-qr='true'
+                className='lesson-pdf-course-qr mx-auto max-w-[1000px] px-5'
+              >
+                <a
+                  href={lessonPdfCourseUrl}
+                  aria-label={lessonPdfCourseQrLabel}
+                  className='lesson-pdf-course-qr-link'
+                >
+                  <QRCodeSVG
+                    value={lessonPdfCourseUrl}
+                    size={144}
+                    level='M'
+                    marginSize={4}
+                    title={lessonPdfCourseQrLabel}
+                    className='lesson-pdf-course-qr-code'
+                  />
+                  <span>{lessonPdfCourseQrLabel}</span>
+                </a>
+              </footer>
+            ) : null}
             <div
+              data-lesson-print-exclude='true'
               ref={chatBoxBottomRef}
               id='chat-box-bottom'
             ></div>
@@ -1572,6 +1761,7 @@ export const NewChatComponents = ({
             )
           : lessonFeedbackPopupContent
         : null}
+      {isPreparingLessonPdf ? <LessonPdfPreparingOverlay /> : null}
       <Dialog
         open={reGenerateConfirm.open}
         onOpenChange={open => {
