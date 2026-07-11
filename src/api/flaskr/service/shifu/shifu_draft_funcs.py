@@ -10,10 +10,10 @@ Date: 2025-08-07
 from typing import Any, Optional
 import math
 import json
+from time import perf_counter
 
 from flask import Flask
 from ...dao import db
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime
 from flaskr.util.datetime import now_utc
 from .dtos import ShifuDto, ShifuDetailDto
@@ -41,7 +41,7 @@ from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
 from .funcs import shifu_permission_verification
-from .shifu_outline_funcs import create_outline
+from .shifu_outline_funcs import create_default_outlines_for_new_shifu
 from .demo_courses import is_builtin_demo_course
 from flaskr.i18n import _
 from ..tts.validation import validate_tts_settings_strict
@@ -245,6 +245,8 @@ def create_shifu_draft(
         ShifuDto: Shifu dto
     """
     with app.app_context():
+        total_started_at = perf_counter()
+        stage_started_at = total_started_at
         now_time = now_utc()
 
         shifu_id = generate_id(app)
@@ -280,55 +282,49 @@ def create_shifu_draft(
         if shifu_keywords:
             check_content += " " + " ".join(shifu_keywords)
         check_text_with_risk_control(app, shifu_id, user_id, check_content)
+        risk_check_elapsed_ms = round((perf_counter() - stage_started_at) * 1000, 2)
+        app.logger.info(
+            "create_shifu_draft risk check finished | shifu_id=%s user_id=%s elapsed_ms=%s",
+            shifu_id,
+            user_id,
+            risk_check_elapsed_ms,
+        )
 
         # save to database
+        stage_started_at = perf_counter()
         db.session.add(shifu_draft)
         db.session.flush()
 
         save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
 
-        # Initialize default chapter and lesson
-        try:
-            # Get default names using i18n system
-            chapter_name = _("server.shifu.defaultChapterName")
-            lesson_name = _("server.shifu.defaultLessonName")
+        # Initialize default chapter and lesson in the same transaction as the
+        # new draft. They use system-generated names, so no external risk check
+        # is needed here.
+        chapter_name = _("server.shifu.defaultChapterName")
+        lesson_name = _("server.shifu.defaultLessonName")
+        create_default_outlines_for_new_shifu(
+            app=app,
+            user_id=user_id,
+            shifu_id=shifu_id,
+            chapter_name=chapter_name,
+            lesson_name=lesson_name,
+            now_time=now_time,
+        )
 
-            # Create default chapter
-            chapter = create_outline(
-                app=app,
-                user_id=user_id,
-                shifu_id=shifu_id,
-                parent_id="",  # Root level
-                outline_name=chapter_name,
-                outline_description="",
-                outline_index=0,
-                outline_type=UNIT_TYPE_GUEST,
-                system_prompt=None,
-                is_hidden=False,
-            )
-
-            # Create default lesson under the chapter
-            create_outline(
-                app=app,
-                user_id=user_id,
-                shifu_id=shifu_id,
-                parent_id=chapter.bid,  # Under the chapter
-                outline_name=lesson_name,
-                outline_description="",
-                outline_index=0,
-                outline_type=UNIT_TYPE_GUEST,
-                system_prompt=None,
-                is_hidden=False,
-            )
-
-        except (AppException, SQLAlchemyError, IntegrityError) as e:
-            app.logger.warning(
-                f"Failed to initialize default chapter and lesson: "
-                f"{type(e).__name__}: {e}"
-            )
-            # Don't fail the entire creation process if chapter initialization fails
-
+        draft_persist_elapsed_ms = round((perf_counter() - stage_started_at) * 1000, 2)
+        stage_started_at = perf_counter()
         db.session.commit()
+        commit_elapsed_ms = round((perf_counter() - stage_started_at) * 1000, 2)
+        total_elapsed_ms = round((perf_counter() - total_started_at) * 1000, 2)
+        app.logger.info(
+            "create_shifu_draft finished | shifu_id=%s user_id=%s risk_check_ms=%s draft_persist_ms=%s commit_ms=%s total_ms=%s",
+            shifu_id,
+            user_id,
+            risk_check_elapsed_ms,
+            draft_persist_elapsed_ms,
+            commit_elapsed_ms,
+            total_elapsed_ms,
+        )
 
         return ShifuDto(
             shifu_id=shifu_id,
@@ -444,6 +440,9 @@ def save_shifu_draft_info(
         ShifuDetailDto: Shifu detail dto
     """
     with app.app_context():
+        total_started_at = perf_counter()
+        risk_check_elapsed_ms = 0.0
+        persist_elapsed_ms = 0.0
         # Fetch the current draft first — PATCH callers may omit TTS fields,
         # so we merge the incoming (non-None) values with the existing draft
         # before validation, rather than validating partial data.
@@ -651,14 +650,22 @@ def save_shifu_draft_info(
             if shifu_system_prompt is not None:
                 new_shifu_draft.llm_system_prompt = shifu_system_prompt
             if not new_shifu_draft.eq(shifu_draft):
+                risk_started_at = perf_counter()
                 check_text_with_risk_control(
                     app, shifu_id, user_id, new_shifu_draft.get_str_to_check()
                 )
+                risk_check_elapsed_ms = round(
+                    (perf_counter() - risk_started_at) * 1000, 2
+                )
+                persist_started_at = perf_counter()
                 # mark the old version as deleted
                 db.session.add(new_shifu_draft)
                 db.session.flush()
                 save_shifu_history(app, user_id, shifu_id, new_shifu_draft.id)
                 db.session.commit()
+                persist_elapsed_ms = round(
+                    (perf_counter() - persist_started_at) * 1000, 2
+                )
                 shifu_draft = new_shifu_draft
         has_edit_permission = shifu_permission_verification(
             app, user_id, shifu_id, "edit"
@@ -672,6 +679,16 @@ def save_shifu_draft_info(
         readonly = not (has_edit_permission or has_publish_permission)
         archive_map = _get_user_archive_map(app, user_id, [shifu_id])
         archived_override = archive_map.get(shifu_id)
+        total_elapsed_ms = round((perf_counter() - total_started_at) * 1000, 2)
+        app.logger.info(
+            "save_shifu_draft_info finished | shifu_id=%s user_id=%s risk_check_ms=%s persist_ms=%s total_ms=%s changed=%s",
+            shifu_id,
+            user_id,
+            risk_check_elapsed_ms,
+            persist_elapsed_ms,
+            total_elapsed_ms,
+            bool(risk_check_elapsed_ms or persist_elapsed_ms),
+        )
         return return_shifu_draft_dto(
             shifu_draft,
             base_url,
