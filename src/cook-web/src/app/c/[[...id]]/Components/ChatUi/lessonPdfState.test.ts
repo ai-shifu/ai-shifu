@@ -87,6 +87,47 @@ describe('isLessonPdfContentReady', () => {
       }),
     ).toBe(false);
   });
+
+  it('allows a completed lesson whose only body is a course interaction', () => {
+    const interactionItem: ChatContentItem = {
+      type: ChatContentItemType.INTERACTION,
+      element_bid: 'interaction-1',
+      content: '?[%{{knowledge_level}} Beginner | Advanced]',
+      is_final: true,
+    };
+
+    expect(
+      isLessonPdfContentReady({
+        ...readyOptions,
+        readModeItems: [interactionItem],
+        visibleReadModeItems: [interactionItem],
+        readModeTypewriterCache: {},
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    ['lesson feedback', '%{{sys_lesson_feedback_score}}1|2|3|4|5'],
+    ['next lesson', '?[Continue//_sys_next_chapter]'],
+    ['payment', '?[Buy//_sys_pay]'],
+    ['login', '?[Log in//_sys_login]'],
+  ])('does not treat a %s interaction as lesson body', (_label, content) => {
+    const interactionItem: ChatContentItem = {
+      type: ChatContentItemType.INTERACTION,
+      element_bid: 'interaction-1',
+      content,
+      is_final: true,
+    };
+
+    expect(
+      isLessonPdfContentReady({
+        ...readyOptions,
+        readModeItems: [interactionItem],
+        visibleReadModeItems: [interactionItem],
+        readModeTypewriterCache: {},
+      }),
+    ).toBe(false);
+  });
 });
 
 describe('shouldExcludeLessonPdfInteraction', () => {

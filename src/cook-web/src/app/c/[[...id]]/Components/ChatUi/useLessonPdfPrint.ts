@@ -34,6 +34,9 @@ const ASYNC_PRINT_CONTENT_SELECTOR = [
   '.content-render-iframe-sandbox',
   'iframe',
 ].join(',');
+// Cross-origin contentDocument stays inaccessible even after load. Track only
+// newly cloned embeds so completed source iframes do not incur false timeouts.
+const pendingSnapshotIframeLoads = new WeakSet<HTMLIFrameElement>();
 
 const waitForNextPaint = (signal: AbortSignal) =>
   new Promise<void>(resolve => {
@@ -97,6 +100,9 @@ const decodeImage = async (image: HTMLImageElement) => {
 };
 
 const shouldWaitForIframe = (iframe: HTMLIFrameElement) => {
+  if (pendingSnapshotIframeLoads.has(iframe)) {
+    return true;
+  }
   try {
     return Boolean(
       iframe.contentDocument &&
@@ -262,6 +268,19 @@ const waitForPrintDomToSettle = (root: HTMLElement, signal: AbortSignal) => {
           sandboxWrapper.getAttribute('aria-busy') !== 'true'
         );
       });
+    const areMermaidChartsReady = () =>
+      [
+        root,
+        ...iframeDocuments.flatMap(({ iframeDocument }) =>
+          iframeDocument.body ? [iframeDocument.body] : [],
+        ),
+      ].every(contentRoot =>
+        Array.from(
+          contentRoot.querySelectorAll('.content-render-mermaid'),
+        ).every(chart =>
+          chart.querySelector('.content-render-mermaid-inner svg'),
+        ),
+      );
     const scheduleQuietCheck = () => {
       if (quietTimer) {
         clearTimeout(quietTimer);
@@ -276,7 +295,8 @@ const waitForPrintDomToSettle = (root: HTMLElement, signal: AbortSignal) => {
         if (
           now - startedAt >= PRINT_DOM_MIN_SETTLE_MS &&
           now - lastMutationAt >= PRINT_DOM_QUIET_MS &&
-          areSandboxIframesReady()
+          areSandboxIframesReady() &&
+          areMermaidChartsReady()
         ) {
           finish('ready');
           return;
@@ -466,6 +486,19 @@ const copyElementAttributes = (source: Element, target: Element) => {
   });
 };
 
+const trackSnapshotIframeLoads = (snapshotRoot: ParentNode) => {
+  snapshotRoot
+    .querySelectorAll<HTMLIFrameElement>('iframe[src], iframe[srcdoc]')
+    .forEach(iframe => {
+      pendingSnapshotIframeLoads.add(iframe);
+      iframe.addEventListener(
+        'load',
+        () => pendingSnapshotIframeLoads.delete(iframe),
+        { once: true },
+      );
+    });
+};
+
 const copyComputedStyle = (
   source: Element,
   target: Element,
@@ -569,6 +602,7 @@ const createIframePrintSnapshots = (
         });
 
       const snapshotRoot = document.importNode(iframeRoot, true);
+      trackSnapshotIframeLoads(snapshotRoot);
       copySnapshotCanvasBitmaps(iframeRoot, snapshotRoot);
       copySnapshotFormState(iframeRoot, snapshotRoot);
       const snapshotHtml = document.createElement('html');

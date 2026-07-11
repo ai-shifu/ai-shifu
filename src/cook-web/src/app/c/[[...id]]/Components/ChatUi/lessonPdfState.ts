@@ -21,17 +21,19 @@ interface LessonPdfContentReadyOptions {
   readModeTypewriterCache: ReadModeTypewriterCache;
 }
 
-const hasPrintableLessonBody = (items: ChatContentItem[]) =>
-  items.some(
-    item =>
-      item.type === ChatContentItemType.CONTENT &&
-      item.element_bid !== 'loading' &&
-      Boolean(item.content?.trim()),
-  );
-
 export const shouldExcludeLessonPdfInteraction = (content?: string | null) =>
   isLessonFeedbackInteractionContent(content) ||
   isSystemInteractionContent(content);
+
+const hasPrintableLessonBody = (items: ChatContentItem[]) =>
+  items.some(
+    item =>
+      item.element_bid !== 'loading' &&
+      Boolean(item.content?.trim()) &&
+      (item.type === ChatContentItemType.CONTENT ||
+        (item.type === ChatContentItemType.INTERACTION &&
+          !shouldExcludeLessonPdfInteraction(item.content))),
+  );
 
 export const isLessonPdfContentReady = ({
   courseName,

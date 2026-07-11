@@ -140,6 +140,46 @@ describe('useLessonPdfPrint', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it('waits for Mermaid output instead of printing its loading placeholder', async () => {
+    const printRoot = document.createElement('div');
+    const mermaid = document.createElement('div');
+    mermaid.className = 'content-render-mermaid';
+    mermaid.innerHTML = '<div>Loading Mermaid chart...</div>';
+    printRoot.appendChild(mermaid);
+    const onError = jest.fn();
+    printSpy.mockImplementation(() => {
+      window.dispatchEvent(new Event('afterprint'));
+    });
+
+    const { result } = renderHook(() =>
+      useLessonPdfPrint({
+        printRootRef: { current: printRoot },
+        lessonId: 'lesson-1',
+        courseName: 'Course',
+        lessonTitle: 'Lesson',
+        onError,
+      }),
+    );
+    let printPromise!: Promise<void>;
+
+    act(() => {
+      printPromise = result.current.printLessonPdf();
+    });
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 700));
+    });
+
+    expect(printSpy).not.toHaveBeenCalled();
+    mermaid.innerHTML =
+      '<div class="content-render-mermaid-inner"><svg></svg></div>';
+    await act(async () => {
+      await printPromise;
+    });
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it('prints a paginatable snapshot after the sandbox finishes rendering', async () => {
     const printRoot = document.createElement('div');
     const iframeWrapper = document.createElement('div');
@@ -384,6 +424,80 @@ describe('useLessonPdfPrint', () => {
     expect(sourceLateImage).toHaveAttribute('loading', 'lazy');
     expect(sourceNestedIframe).toHaveAttribute('loading', 'lazy');
 
+    printRoot.remove();
+  });
+
+  it('waits for a newly cloned cross-origin iframe before printing', async () => {
+    const printRoot = document.createElement('div');
+    const iframeWrapper = document.createElement('div');
+    iframeWrapper.className = 'content-render-iframe-sandbox';
+    const iframe = document.createElement('iframe');
+    iframe.className = 'content-render-iframe';
+    iframeWrapper.appendChild(iframe);
+    printRoot.appendChild(iframeWrapper);
+    document.body.appendChild(printRoot);
+
+    const iframeDocument = iframe.contentDocument;
+    expect(iframeDocument).toBeTruthy();
+    iframeDocument!.body.innerHTML = `
+      <div id='root'>
+        <div class='sandbox-wrapper' aria-busy='false'>
+          <div class='sandbox-container'>
+            <iframe data-print-iframe='cross-origin' src='https://example.invalid/embed'></iframe>
+          </div>
+        </div>
+      </div>
+    `;
+    const sourceNestedIframe = iframeDocument!.querySelector<HTMLIFrameElement>(
+      '[data-print-iframe="cross-origin"]',
+    );
+    Object.defineProperty(sourceNestedIframe, 'contentDocument', {
+      configurable: true,
+      value: null,
+    });
+
+    const onError = jest.fn();
+    printSpy.mockImplementation(() => {
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    const { result } = renderHook(() =>
+      useLessonPdfPrint({
+        printRootRef: { current: printRoot },
+        lessonId: 'lesson-1',
+        courseName: 'Course',
+        lessonTitle: 'Lesson',
+        onError,
+      }),
+    );
+    let printPromise!: Promise<void>;
+
+    act(() => {
+      printPromise = result.current.printLessonPdf();
+    });
+    let snapshotNestedIframe: HTMLIFrameElement | null = null;
+    await waitFor(
+      () => {
+        snapshotNestedIframe =
+          printRoot
+            .querySelector<HTMLElement>(
+              '[data-lesson-print-iframe-snapshot="true"]',
+            )
+            ?.shadowRoot?.querySelector<HTMLIFrameElement>(
+              '[data-print-iframe="cross-origin"]',
+            ) ?? null;
+        expect(snapshotNestedIframe).toBeTruthy();
+      },
+      { timeout: 3000 },
+    );
+
+    expect(printSpy).not.toHaveBeenCalled();
+    snapshotNestedIframe!.dispatchEvent(new Event('load'));
+    await act(async () => {
+      await printPromise;
+    });
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
     printRoot.remove();
   });
 
