@@ -841,7 +841,7 @@ describe('useLessonPdfPrint', () => {
     ).toBeNull();
     expect(snapshotFrame).toHaveAttribute('sandbox', '');
     expect(snapshotFrame).not.toHaveAttribute('allow');
-    expect(snapshotFrame?.getAttribute('srcdoc')).toContain(
+    expect(snapshotFrame!.getAttribute('srcdoc')).toContain(
       'static nested content',
     );
     expect(
