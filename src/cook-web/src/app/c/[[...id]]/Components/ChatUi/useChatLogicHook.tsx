@@ -1691,7 +1691,6 @@ function useChatLogicHook({
           setIsOutputInProgress(false);
         }
       }
-      // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       isStreamingRef.current = true;
       setIsOutputInProgress(true);
@@ -1701,7 +1700,6 @@ function useChatLogicHook({
       setCurrentStreamingElementBid('');
       setCurrentTypewriterElementBid('');
       currentContentRef.current = '';
-      // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
       if (!isListenMode) {
         setTrackedContentList(prev => {
@@ -1795,26 +1793,6 @@ function useChatLogicHook({
           }
           armRunStreamTimeout();
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
-          //   if (!isEnd) {
-          //     currentBlockIdRef.current = 'loading';
-          //     setTrackedContentList(prev => {
-          //       const hasLoading = prev.some(
-          //         item => item.element_bid === 'loading',
-          //       );
-          //       if (hasLoading) {
-          //         return prev;
-          //       }
-          //       const placeholderItem: ChatContentItem = {
-          //         element_bid: 'loading',
-          //         content: '',
-          //         customRenderBar: () => <LoadingBar />,
-          //         type: ChatContentItemType.CONTENT,
-          //       };
-          //       return [...prev, placeholderItem];
-          //     });
-          //   }
-          //   return;
-          // }
           try {
             if (response?.type === SSE_OUTPUT_TYPE.ERROR) {
               clearRunStreamTimeout();
@@ -2630,7 +2608,6 @@ function useChatLogicHook({
     setTrackedContentList(() => []);
     resetLessonFeedbackPopup();
 
-    // setIsTypeFinished(true);
     isTypeFinishedRef.current = true;
     lastInteractionBlockRef.current = null;
     setIsLoading(true);
@@ -2705,7 +2682,6 @@ function useChatLogicHook({
             deferOpen: true,
           });
         }
-        // setIsTypeFinished(true);
         isTypeFinishedRef.current = true;
         if (chapterId) {
           setLoadedChapterId(chapterId);
@@ -2839,9 +2815,7 @@ function useChatLogicHook({
       if (targetChapterId !== loadedChapterId) {
         return;
       }
-      // setIsTypeFinished(true);
       isTypeFinishedRef.current = true;
-      // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
       scrollToLesson(targetLessonId);
       updateSelectedLesson(targetLessonId);
@@ -2968,7 +2942,6 @@ function useChatLogicHook({
       newList.length = needChangeItemIndex;
       setTrackedContentList(newList);
 
-      // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       runRef.current?.({
         input: '',
@@ -3189,9 +3162,7 @@ function useChatLogicHook({
         setTrackedContentList(newList);
       }
 
-      // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
-      // scrollToBottom();
 
       const { values } = resolveInteractionSubmission(content);
       const reload_generated_block_bid =

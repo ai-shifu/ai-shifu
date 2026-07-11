@@ -1889,8 +1889,6 @@ const ListenModeSlideRenderer = ({
     </button>
   ) : null;
 
-  // console.log('elementlist', elementList);
-
   const shouldRenderDesktopAskOverlay =
     showAskOverlays &&
     isDesktopAskPanelMounted &&

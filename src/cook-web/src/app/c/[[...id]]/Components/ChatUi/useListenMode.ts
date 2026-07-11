@@ -175,7 +175,6 @@ export const useListenContentData = (items: ChatContentItem[]) => {
 
         pageCursor += slideSegments.length;
       });
-      // console.log('items', items);
       return {
         slideItems: nextSlideItems,
         interactionByPage: mapping,
@@ -503,10 +502,8 @@ export const useListenPpt = ({
   useEffect(() => {
     if (!slideItems.length && deckRef.current) {
       try {
-        console.log('销毁reveal实例 (no content)');
         deckRef.current?.destroy();
-      } catch (e) {
-        console.warn('Reveal.js destroy 調用失敗。');
+      } catch {
       } finally {
         deckRef.current = null;
         hasAutoSlidToLatestRef.current = false;
@@ -523,8 +520,7 @@ export const useListenPpt = ({
       }
       try {
         deckRef.current?.destroy();
-      } catch (e) {
-        console.warn('Reveal.js destroy 調用失敗。');
+      } catch {
       } finally {
         deckRef.current = null;
         hasAutoSlidToLatestRef.current = false;
