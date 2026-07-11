@@ -202,6 +202,26 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   .env default deepseek key is dead and the qwen account is overdue;
   silicon works. Phase 2 is COMPLETE — this plan's scope is fully
   delivered; move it to completed/ after the tail follow-ups below close.
+- [x] 2026-07-11: main merged into the branch (merge commit 3fbf71e2d; main
+  was 81 commits ahead, mostly the UTC timestamp sweep, TTS billing, and
+  referral features). 11 files conflicted; every main-side semantic change
+  landing on branch-refactored code was ported to its new home: UTC
+  `now_utc()` calls into `admin_user_credits.py`, `courses_listing.py`,
+  `courses_transfer_copy.py`; the `_get_next_outline_item` null guards and
+  `_find_outline_path_or_raise` into `learn/run/state.py`; the paid-referral
+  renewal early-return into the first `unit_of_work()` block of
+  `_execute_subscription_renewal`. main's new code referencing helpers B3
+  had replaced was pointed at the shared ones (`normalize_pagination`,
+  `to_utc_iso`); campaign_admin's legacy `""`-for-None `_serialize_dt`
+  contract was superseded by main's null contract (frontend now expects
+  null). The uow commit-site ratchet caught 2 new direct commits from main
+  (`voice_clones.py`, `shifu_outline_funcs.py`) — grandfathered into the
+  baseline (157 sites) as future migration targets. One branch test fixed:
+  renewal uow failure-path tests seeded with local `datetime.now()` while
+  the runtime now compares against `now_utc()`. Verification: full
+  `pytest` 2092 passed / 6 skipped (golden fixtures included), compileall,
+  ruff, architecture-boundary and repo-harness checks, plus an independent
+  three-way audit of all 10 conflict resolutions — no lost changes.
 
 ## Surprises & Discoveries
 
