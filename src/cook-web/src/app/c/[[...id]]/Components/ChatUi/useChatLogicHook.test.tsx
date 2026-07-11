@@ -3079,7 +3079,9 @@ describe('useChatLogicHook stream cleanup', () => {
       records: [],
     };
 
-    const renderWithStreamingRun = async (options?: { isListenMode?: boolean }) => {
+    const renderWithStreamingRun = async (options?: {
+      isListenMode?: boolean;
+    }) => {
       mockGetLessonStudyRecord.mockResolvedValueOnce(
         HISTORY_WITH_TWO_INTERACTIONS,
       );
@@ -3191,14 +3193,18 @@ describe('useChatLogicHook stream cleanup', () => {
 
       await waitFor(() =>
         expect(
-          result.current.items.find(item => item.element_bid === 'interaction-new'),
+          result.current.items.find(
+            item => item.element_bid === 'interaction-new',
+          ),
         ).toBeUndefined(),
       );
       expect(
         result.current.items.find(item => item.element_bid === 'content-new'),
       ).toBeUndefined();
       expect(
-        result.current.items.find(item => item.element_bid === 'interaction-old'),
+        result.current.items.find(
+          item => item.element_bid === 'interaction-old',
+        ),
       ).toMatchObject({
         user_input: 'B',
       });

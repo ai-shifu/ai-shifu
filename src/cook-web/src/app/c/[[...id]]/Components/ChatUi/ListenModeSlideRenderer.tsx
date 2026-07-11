@@ -700,7 +700,9 @@ const ListenModeSlideRenderer = ({
   const [playbackSpeed, setPlaybackSpeed] = useState<ListenPlaybackSpeed>(() =>
     readListenPlaybackSpeedFromStorage(shifuBid),
   );
-  const initialChatContainerRef = useRef<HTMLDivElement | null>(chatRef.current);
+  const initialChatContainerRef = useRef<HTMLDivElement | null>(
+    chatRef.current,
+  );
   const playbackSpeedRef = useRef<ListenPlaybackSpeed>(playbackSpeed);
   const [interactionInputMap, setInteractionInputMap] = useState<
     Record<string, string>
