@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { ChatUi } from './ChatUi';
 import {
   FRAME_LAYOUT_MOBILE,
@@ -132,6 +132,29 @@ describe('ChatUi lesson PDF action', () => {
     mockChatComponentProps = {};
   });
 
+  it('keeps the action visible and disabled before the lesson content is ready', () => {
+    renderChatUi();
+
+    expect(
+      screen.getByRole('button', {
+        name: 'module.chat.lessonPdfDownload',
+      }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      screen.queryByTestId('learning-mode-switch'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the disabled action visible before a lesson is selected', () => {
+    renderChatUi('');
+
+    expect(
+      screen.getByRole('button', {
+        name: 'module.chat.lessonPdfDownload',
+      }),
+    ).toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('shows the action in the desktop titlebar without requiring a mode switch', () => {
     renderChatUi();
 
@@ -143,7 +166,7 @@ describe('ChatUi lesson PDF action', () => {
       screen.getByRole('button', {
         name: 'module.chat.lessonPdfDownload',
       }),
-    ).toBeInTheDocument();
+    ).toHaveAttribute('aria-disabled', 'false');
     expect(
       screen.queryByTestId('learning-mode-switch'),
     ).not.toBeInTheDocument();
@@ -164,7 +187,7 @@ describe('ChatUi lesson PDF action', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('hides a stale action immediately when the lesson changes', () => {
+  it('disables a stale action immediately when the lesson changes', () => {
     const { rerender } = renderChatUi();
 
     act(() => {
@@ -178,11 +201,22 @@ describe('ChatUi lesson PDF action', () => {
 
     rerender(createChatUi('lesson-2'));
 
-    expect(
-      screen.queryByRole('button', {
-        name: 'module.chat.lessonPdfDownload',
-      }),
-    ).not.toBeInTheDocument();
+    const button = screen.getByRole('button', {
+      name: 'module.chat.lessonPdfDownload',
+    });
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(button);
+    expect(pdfAction.onDownload).not.toHaveBeenCalled();
+
+    act(() => {
+      mockChatComponentProps.onLessonPdfActionChange({
+        ...pdfAction,
+        lessonId: 'lesson-2',
+      });
+    });
+    expect(button).toHaveAttribute('aria-disabled', 'false');
+    fireEvent.click(button);
+    expect(pdfAction.onDownload).toHaveBeenCalledTimes(1);
   });
 
   it('uses the compact mode switch in narrow desktop layouts', () => {
