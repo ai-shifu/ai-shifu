@@ -32,8 +32,6 @@
   "listenModeTtsDisabled": "Listen mode is not enabled for this course.",
   "listenPlaybackSpeedAriaLabel": "Playback speed: {speed}",
   "listenPlaybackSpeedLabel": "Playback speed",
-  "listenPlayerBack": "Back to non-full screen",
-  "listenPlayerFullscreenHint": "Please rotate your screen for the best experience",
   "markdownFlow": "MarkdownFlow",
   "noMoreLessons": "You've completed all available sections.",
   "openCatalog": "Open catalog",
@@ -46,8 +44,6 @@
   "regenerateConfirmDescription": "Regenerating will replace this content and all subsequent content. The current content will be cleared.",
   "regenerateConfirmTitle": "Confirm regenerate this content?",
   "slideAudioBuffering": "Buffering...",
-  "slideAudioBufferingLoadingAudio": "Loading audio...",
-  "slideAudioBufferingWaitingForMoreAudio": "Waiting for more audio...",
   "streamTimeoutRetry": "The service timed out. Please refresh and try again.",
   "thinking": "Thinking...",
   "ttsSynthesisPreview": "Listen Mode"
