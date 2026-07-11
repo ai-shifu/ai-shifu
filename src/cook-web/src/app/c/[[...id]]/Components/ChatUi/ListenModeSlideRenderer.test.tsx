@@ -326,9 +326,135 @@ describe('ListenModeSlideRenderer', () => {
       expect.objectContaining({
         type: 'interaction',
         user_input: '比较熟悉',
+        readonly: false,
+      }),
+    );
+  });
+
+  it('keeps resolved button-and-input interactions editable and forwards reselection', () => {
+    const onSend = jest.fn();
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+          {
+            type: 'interaction',
+            content: '?[%{{nickname}} 老师 || 同学 || ...怎么称呼你？]',
+            element_bid: 'nickname-1',
+            user_input: '老师, 小王',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        onSend={onSend}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | {
+          elementList?: Array<Record<string, unknown>>;
+          onSend?: (
+            content: Record<string, unknown>,
+            element?: Record<string, unknown>,
+          ) => void;
+        }
+      | undefined;
+    const interactionElement = slideProps?.elementList?.find(
+      element => element.blockBid === 'nickname-1',
+    );
+
+    expect(interactionElement).toEqual(
+      expect.objectContaining({
+        type: 'interaction',
+        user_input: '老师, 小王',
+        readonly: false,
+      }),
+    );
+
+    act(() => {
+      slideProps?.onSend?.(
+        {
+          variableName: 'nickname',
+          selectedValues: ['同学'],
+          inputText: '小李',
+        },
+        interactionElement,
+      );
+    });
+
+    expect(onSend).toHaveBeenCalledWith(
+      {
+        variableName: 'nickname',
+        selectedValues: ['同学'],
+        inputText: '小李',
+      },
+      'nickname-1',
+    );
+  });
+
+  it('keeps resolved interactions visually locked while output is in progress', () => {
+    const onSend = jest.fn();
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+          {
+            type: 'interaction',
+            content: '?[%{{nickname}} 老师 || 同学 || ...怎么称呼你？]',
+            element_bid: 'nickname-1',
+            user_input: '老师, 小王',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        onSend={onSend}
+        disableInteractionEdits={true}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | {
+          elementList?: Array<Record<string, unknown>>;
+          onSend?: (
+            content: Record<string, unknown>,
+            element?: Record<string, unknown>,
+          ) => void;
+        }
+      | undefined;
+    const interactionElement = slideProps?.elementList?.find(
+      element => element.blockBid === 'nickname-1',
+    );
+
+    expect(interactionElement).toEqual(
+      expect.objectContaining({
+        type: 'interaction',
+        user_input: '老师, 小王',
         readonly: true,
       }),
     );
+
+    act(() => {
+      slideProps?.onSend?.(
+        {
+          variableName: 'nickname',
+          selectedValues: ['同学'],
+          inputText: '小李',
+        },
+        interactionElement,
+      );
+    });
+
+    expect(onSend).not.toHaveBeenCalled();
   });
 
   it('adapts a variable-free ellipsis interaction into a slide text input', () => {
@@ -432,6 +558,28 @@ describe('ListenModeSlideRenderer', () => {
         user_input: '',
       }),
     );
+  });
+
+  it('pauses listen playback when the regenerate confirm dialog is open', () => {
+    const container = document.createElement('div');
+    const audio = document.createElement('audio');
+    const pauseSpy = jest.spyOn(audio, 'pause').mockImplementation(() => {});
+    Object.defineProperty(audio, 'paused', {
+      configurable: true,
+      get: () => false,
+    });
+    container.append(audio);
+
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={{ current: container }}
+        pausePlaybackWhen={true}
+      />,
+    );
+
+    expect(pauseSpy).toHaveBeenCalled();
   });
 
   it('shows classroom paging tips on the empty title placeholder', () => {

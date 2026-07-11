@@ -2867,6 +2867,7 @@ function useChatLogicHook({
     (
       params: OnSendContentParams,
       blockBid: string,
+      options?: { truncateFollowingItems?: boolean },
     ): { newList: ChatContentItem[]; needChangeItemIndex: number } => {
       const newList = [...contentListRef.current];
       // first find the item with the same variable value
@@ -2889,17 +2890,20 @@ function useChatLogicHook({
           readonly: false,
           user_input: resolveInteractionSubmission(params).userInput,
         };
-        if (!isListenMode) {
+        if (options?.truncateFollowingItems || !isListenMode) {
           // Preserve follow-up helper rows for the current interaction item
           // so ask actions do not disappear when entering the thinking state.
           const trailingRows = newList.slice(needChangeItemIndex + 1);
-          const preservedHelperRows = trailingRows.filter(
-            item =>
-              item.parent_element_bid === blockBid &&
-              (item.type === ChatContentItemType.LIKE_STATUS ||
-                item.type === ChatContentItemType.ASK),
-          );
           newList.length = needChangeItemIndex + 1;
+          const preservedHelperRows =
+            options?.truncateFollowingItems || isListenMode
+              ? []
+              : trailingRows.filter(
+                  item =>
+                    item.parent_element_bid === blockBid &&
+                    (item.type === ChatContentItemType.LIKE_STATUS ||
+                      item.type === ChatContentItemType.ASK),
+                );
           if (preservedHelperRows.length > 0) {
             newList.push(...preservedHelperRows);
           }
@@ -3178,6 +3182,7 @@ function useChatLogicHook({
       const { newList, needChangeItemIndex } = updateContentListWithUserOperate(
         content,
         blockBid,
+        { truncateFollowingItems: isReGenerate },
       );
 
       if (needChangeItemIndex === -1) {

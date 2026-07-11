@@ -945,7 +945,7 @@ export const useListenAudioSequence = ({
         }
         audioSequenceTimerRef.current = setTimeout(() => {
           playAudioSequenceFromIndex(index + 1);
-        }, 2000);
+        }, 3000);
         return;
       }
       setSequenceInteraction(null);

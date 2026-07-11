@@ -1347,6 +1347,8 @@ export const NewChatComponents = ({
               onSend={memoizedOnSend}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
               onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
+              pausePlaybackWhen={reGenerateConfirm.open}
+              disableInteractionEdits={isOutputInProgress}
             />
           </>
         ) : (
