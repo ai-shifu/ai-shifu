@@ -1,6 +1,7 @@
 import styles from './ChatComponents.module.scss';
 import { ChevronsDown, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   useContext,
@@ -25,6 +26,7 @@ import { useCourseStore } from '@/c-store/useCourseStore';
 import { fail, toast } from '@/hooks/useToast';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
+import { resolveWideLogoSource } from '@/c-components/logo/logoSource';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
@@ -162,6 +164,13 @@ export const NewChatComponents = ({
   }, [router]);
 
   const { courseId: shifuBid } = useEnvStore.getState();
+  const { logoHorizontal, logoWideUrl } = useEnvStore(
+    useShallow(state => ({
+      logoHorizontal: state.logoHorizontal,
+      logoWideUrl: state.logoWideUrl,
+    })),
+  );
+  const printBrandLogo = resolveWideLogoSource(logoWideUrl, logoHorizontal);
   const { refreshUserInfo } = useUserStore(
     useShallow(state => ({
       refreshUserInfo: state.refreshUserInfo,
@@ -1330,18 +1339,44 @@ export const NewChatComponents = ({
               data-lesson-print-only='true'
               className='lesson-pdf-print-header mx-auto max-w-[1000px] border-b border-border px-5 pb-5'
             >
-              <h1
-                data-lesson-print-course-name='true'
-                className='text-2xl font-semibold leading-tight text-foreground'
-              >
-                {courseName}
-              </h1>
-              <h2
-                data-lesson-print-lesson-title='true'
-                className='mt-2 text-lg font-medium leading-tight text-muted-foreground'
-              >
-                {lessonTitle}
-              </h2>
+              <div className='flex items-center gap-4'>
+                {courseAvatar ? (
+                  <Image
+                    data-lesson-print-course-avatar='true'
+                    src={courseAvatar}
+                    alt=''
+                    width={44}
+                    height={44}
+                    loading='eager'
+                    unoptimized
+                    className='h-11 w-11 shrink-0 rounded-full object-cover'
+                  />
+                ) : null}
+                <div className='min-w-0 flex-1'>
+                  <h1
+                    data-lesson-print-course-name='true'
+                    className='break-words text-2xl font-semibold leading-tight text-foreground'
+                  >
+                    {courseName}
+                  </h1>
+                  <h2
+                    data-lesson-print-lesson-title='true'
+                    className='mt-2 break-words text-lg font-medium leading-tight text-muted-foreground'
+                  >
+                    {lessonTitle}
+                  </h2>
+                </div>
+                <Image
+                  data-lesson-print-site-logo='true'
+                  src={printBrandLogo}
+                  alt=''
+                  width={92}
+                  height={24}
+                  loading='eager'
+                  unoptimized
+                  className='h-6 w-auto shrink-0 object-contain'
+                />
+              </div>
             </header>
             {shouldShowResetLoading ? (
               <div

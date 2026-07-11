@@ -437,6 +437,23 @@ body.listen-mode-vh-fallback #root {
     height: auto !important;
   }
 
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    img[data-lesson-print-course-avatar='true'] {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 9999px !important;
+    object-fit: cover !important;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    img[data-lesson-print-site-logo='true'] {
+    width: 92px !important;
+    height: 24px !important;
+    object-fit: contain !important;
+  }
+
   html.lesson-pdf-print [data-lesson-print-scroll] :is(iframe, table) {
     max-width: 100% !important;
   }

@@ -6,6 +6,10 @@ import { NewChatComponents } from './NewChatComp';
 import LessonUpdateNotice from '../LessonUpdateNotice';
 
 const mockUseChatLogicHook = jest.fn();
+let mockCourseAvatar = '';
+let mockLearningMode = 'listen';
+let mockLogoHorizontal = '';
+let mockLogoWideUrl = '';
 
 jest.mock('react-i18next', () => {
   const translations: Record<string, string> = {
@@ -56,6 +60,15 @@ jest.mock('@/c-assets/newchat/light/icon_ask.svg', () => ({
   default: { src: '/ask.svg' },
 }));
 
+jest.mock('@/c-assets/logos/ai-shifu-logo-horizontal.png', () => ({
+  __esModule: true,
+  default: {
+    src: '/ai-shifu-logo-horizontal.png',
+    width: 488,
+    height: 128,
+  },
+}));
+
 jest.mock('@/app/c/[[...id]]/events', () => ({
   stopActiveLessonStream: jest.fn(),
 }));
@@ -86,6 +99,11 @@ jest.mock('./lessonFeedbackPromptState', () => ({
   findLastVisibleLessonFeedbackElementBid: () => '',
 }));
 
+jest.mock('./lessonPdfState', () => ({
+  isLessonPdfContentReady: () => false,
+  shouldExcludeLessonPdfInteraction: () => false,
+}));
+
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: jest.fn(),
@@ -102,11 +120,18 @@ jest.mock('@/c-service/Shifu', () => ({
 }));
 
 jest.mock('@/c-store/envStore', () => ({
-  useEnvStore: {
-    getState: () => ({
-      courseId: 'shifu-1',
-    }),
-  },
+  useEnvStore: Object.assign(
+    (selector: (state: any) => unknown) =>
+      selector({
+        logoHorizontal: mockLogoHorizontal,
+        logoWideUrl: mockLogoWideUrl,
+      }),
+    {
+      getState: () => ({
+        courseId: 'shifu-1',
+      }),
+    },
+  ),
 }));
 
 jest.mock('@/store', () => ({
@@ -119,7 +144,7 @@ jest.mock('@/store', () => ({
 jest.mock('@/c-store/useCourseStore', () => ({
   useCourseStore: (selector: (state: any) => unknown) =>
     selector({
-      courseAvatar: '',
+      courseAvatar: mockCourseAvatar,
       courseName: '测试课程',
       courseTtsEnabled: true,
       openPayModal: jest.fn(),
@@ -134,7 +159,7 @@ jest.mock('@/c-store/useCourseStore', () => ({
 jest.mock('@/c-store/useSystemStore', () => ({
   useSystemStore: (selector: (state: any) => unknown) =>
     selector({
-      learningMode: 'listen',
+      learningMode: mockLearningMode,
       updateLearningMode: jest.fn(),
     }),
 }));
@@ -301,11 +326,15 @@ const renderTitlebarLessonUpdateNotice = () =>
     />,
   );
 
-describe('NewChatComponents lesson update notice', () => {
+describe('NewChatComponents', () => {
   let requestAnimationFrameSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCourseAvatar = '';
+    mockLearningMode = 'listen';
+    mockLogoHorizontal = '';
+    mockLogoWideUrl = '';
     requestAnimationFrameSpy = jest
       .spyOn(window, 'requestAnimationFrame')
       .mockImplementation(() => 0);
@@ -355,5 +384,55 @@ describe('NewChatComponents lesson update notice', () => {
     expect(
       screen.queryByText('本节课程已更新，建议重修'),
     ).not.toBeInTheDocument();
+  });
+
+  it('includes the course avatar and configured site brand in the print header', () => {
+    mockCourseAvatar = '/course-avatar.png';
+    mockLearningMode = 'read';
+    mockLogoHorizontal = '/runtime-horizontal-logo.png';
+    mockLogoWideUrl = '/configured-wide-logo.png';
+
+    const { container } = renderNewChatComponents();
+
+    const courseAvatar = container.querySelector(
+      '[data-lesson-print-course-avatar="true"]',
+    );
+    const siteLogo = container.querySelector(
+      '[data-lesson-print-site-logo="true"]',
+    );
+    expect(courseAvatar).toHaveAttribute('src', '/course-avatar.png');
+    expect(courseAvatar).toHaveAttribute('loading', 'eager');
+    expect(siteLogo).toHaveAttribute('src', '/configured-wide-logo.png');
+    expect(siteLogo).toHaveAttribute('loading', 'eager');
+    expect(
+      container.querySelector('[data-lesson-print-course-name="true"]'),
+    ).toHaveTextContent('测试课程');
+    expect(
+      container.querySelector('[data-lesson-print-lesson-title="true"]'),
+    ).toHaveTextContent('第一课');
+  });
+
+  it('keeps the configured site brand when the course has no avatar', () => {
+    mockLearningMode = 'read';
+    mockLogoHorizontal = '/runtime-horizontal-logo.png';
+
+    const { container } = renderNewChatComponents();
+
+    expect(
+      container.querySelector('[data-lesson-print-course-avatar="true"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-lesson-print-site-logo="true"]'),
+    ).toHaveAttribute('src', '/runtime-horizontal-logo.png');
+  });
+
+  it('uses the default brand only when the site has no logo configuration', () => {
+    mockLearningMode = 'read';
+
+    const { container } = renderNewChatComponents();
+
+    expect(
+      container.querySelector('[data-lesson-print-site-logo="true"]'),
+    ).toHaveAttribute('src', '/ai-shifu-logo-horizontal.png');
   });
 });

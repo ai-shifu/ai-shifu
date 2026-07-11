@@ -3,8 +3,8 @@ import Image, { type StaticImageData } from 'next/image';
 
 import { useEnvStore } from '@/c-store/envStore';
 
-import imgLogoRow from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import imgLogoColumn from '@/c-assets/logos/ai-shifu-logo-vertical.png';
+import { DEFAULT_WIDE_LOGO, resolveWideLogoSource } from './logoSource';
 
 /**
  *
@@ -21,7 +21,7 @@ export const LogoWithText = ({ direction, size = 64 }) => {
   const logoSquareUrl = useEnvStore(state => state.logoSquareUrl);
   const homeUrl = useEnvStore(state => state.homeUrl);
   const wideLogoSrc: string | StaticImageData = useMemo(() => {
-    return logoWideUrl || logoHorizontal || imgLogoRow;
+    return resolveWideLogoSource(logoWideUrl, logoHorizontal);
   }, [logoHorizontal, logoWideUrl]);
 
   const squareLogoSrc: string | StaticImageData = useMemo(() => {
@@ -37,7 +37,9 @@ export const LogoWithText = ({ direction, size = 64 }) => {
     ) {
       return Math.round((size * wideLogoSrc.width) / wideLogoSrc.height);
     }
-    return Math.round(size * (imgLogoRow.width / imgLogoRow.height));
+    return Math.round(
+      size * (DEFAULT_WIDE_LOGO.width / DEFAULT_WIDE_LOGO.height),
+    );
   }, [size, wideLogoSrc]);
 
   return (
