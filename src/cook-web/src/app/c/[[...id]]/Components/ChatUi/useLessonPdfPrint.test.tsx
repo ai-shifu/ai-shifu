@@ -864,6 +864,215 @@ describe('useLessonPdfPrint', () => {
     printRoot.remove();
   });
 
+  it('preserves sandbox base URLs in an imported print snapshot', async () => {
+    const printRoot = document.createElement('div');
+    const iframeWrapper = document.createElement('div');
+    iframeWrapper.className = 'content-render-iframe-sandbox';
+    const iframe = document.createElement('iframe');
+    iframe.className = 'content-render-iframe';
+    iframeWrapper.appendChild(iframe);
+    printRoot.appendChild(iframeWrapper);
+    document.body.appendChild(printRoot);
+
+    const iframeDocument = iframe.contentDocument;
+    expect(iframeDocument).toBeTruthy();
+    const base = iframeDocument!.createElement('base');
+    base.href = 'https://cdn.example/course/unit/';
+    iframeDocument!.head.appendChild(base);
+    const sourceStyle = iframeDocument!.createElement('style');
+    sourceStyle.dataset.relativeStyle = 'true';
+    sourceStyle.textContent = `
+      @import "styles/theme.css";
+      .unused-background { background-image: url("images/background.png"); }
+    `;
+    iframeDocument!.head.appendChild(sourceStyle);
+    const sourceStylesheet = iframeDocument!.createElement('link');
+    sourceStylesheet.rel = 'stylesheet';
+    sourceStylesheet.href = 'styles/lesson.css';
+    sourceStylesheet.dataset.relativeStylesheet = 'true';
+    Object.defineProperty(sourceStylesheet, 'sheet', {
+      configurable: true,
+      value: {},
+    });
+    iframeDocument!.head.appendChild(sourceStylesheet);
+    iframeDocument!.body.innerHTML = `
+      <div id='root'>
+        <div class='sandbox-wrapper' aria-busy='false'>
+          <img data-relative-image='true' src='images/card.png' />
+          <picture>
+            <source
+              data-responsive-source='true'
+              srcset='images/card.png 1x, images/card@2x.png 2x'
+              sizes='100vw'
+            />
+            <img
+              data-responsive-image='true'
+              src='images/fallback.png'
+              srcset='images/card.png 1x, images/card@2x.png 2x'
+              sizes='100vw'
+            />
+          </picture>
+          <a data-relative-link='true' href='docs/notes.pdf'>notes</a>
+          <svg>
+            <defs><path id='shape' d='M0 0h1v1z' /></defs>
+            <use data-fragment-reference='true' href='#shape'></use>
+          </svg>
+          <iframe
+            data-relative-frame='true'
+            src='embeds/chart.html'
+          ></iframe>
+          <iframe
+            data-srcdoc-frame='true'
+            srcdoc='<base href="../shared/" /><img src="images/nested.png" />'
+          ></iframe>
+        </div>
+      </div>
+    `;
+    const sourceImages = Array.from(
+      iframeDocument!.querySelectorAll<HTMLImageElement>('img'),
+    );
+    sourceImages.forEach(image => {
+      Object.defineProperty(image, 'complete', {
+        configurable: true,
+        value: true,
+      });
+    });
+    const sourceResponsiveImage =
+      iframeDocument!.querySelector<HTMLImageElement>(
+        '[data-responsive-image="true"]',
+      );
+    Object.defineProperty(sourceResponsiveImage, 'currentSrc', {
+      configurable: true,
+      value: 'https://cdn.example/course/unit/images/card@2x.png',
+    });
+    const sourceRelativeFrame =
+      iframeDocument!.querySelector<HTMLIFrameElement>(
+        '[data-relative-frame="true"]',
+      );
+    const sourceSrcdocFrame = iframeDocument!.querySelector<HTMLIFrameElement>(
+      '[data-srcdoc-frame="true"]',
+    );
+    Object.defineProperty(sourceRelativeFrame, 'contentDocument', {
+      configurable: true,
+      value: null,
+    });
+    Object.defineProperty(sourceSrcdocFrame, 'contentDocument', {
+      configurable: true,
+      value: null,
+    });
+
+    const onError = jest.fn();
+    printSpy.mockImplementation(() => {
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    const { result } = renderHook(() =>
+      useLessonPdfPrint({
+        printRootRef: { current: printRoot },
+        lessonId: 'lesson-1',
+        courseName: 'Course',
+        lessonTitle: 'Lesson',
+        onError,
+      }),
+    );
+    let printPromise!: Promise<void>;
+
+    act(() => {
+      printPromise = result.current.printLessonPdf();
+    });
+    let snapshotShadowRoot: ShadowRoot | null = null;
+    await waitFor(
+      () => {
+        snapshotShadowRoot =
+          printRoot.querySelector<HTMLElement>(
+            '[data-lesson-print-iframe-snapshot="true"]',
+          )?.shadowRoot ?? null;
+        expect(snapshotShadowRoot).toBeTruthy();
+      },
+      { timeout: 3000 },
+    );
+
+    const snapshotStylesheet =
+      snapshotShadowRoot!.querySelector<HTMLLinkElement>(
+        '[data-relative-stylesheet="true"]',
+      );
+    const snapshotStyle = snapshotShadowRoot!.querySelector<HTMLStyleElement>(
+      '[data-relative-style="true"]',
+    );
+    const snapshotImage = snapshotShadowRoot!.querySelector<HTMLImageElement>(
+      '[data-relative-image="true"]',
+    );
+    const snapshotResponsiveSource =
+      snapshotShadowRoot!.querySelector<HTMLSourceElement>(
+        '[data-responsive-source="true"]',
+      );
+    const snapshotResponsiveImage =
+      snapshotShadowRoot!.querySelector<HTMLImageElement>(
+        '[data-responsive-image="true"]',
+      );
+    const snapshotRelativeFrame =
+      snapshotShadowRoot!.querySelector<HTMLIFrameElement>(
+        '[data-relative-frame="true"]',
+      );
+    const snapshotSrcdocFrame =
+      snapshotShadowRoot!.querySelector<HTMLIFrameElement>(
+        '[data-srcdoc-frame="true"]',
+      );
+
+    expect(snapshotStylesheet).toHaveAttribute(
+      'href',
+      'https://cdn.example/course/unit/styles/lesson.css',
+    );
+    expect(snapshotStyle?.textContent).toContain(
+      'url("https://cdn.example/course/unit/images/background.png")',
+    );
+    expect(snapshotStyle?.textContent).toContain(
+      '@import "https://cdn.example/course/unit/styles/theme.css"',
+    );
+    expect(snapshotImage).toHaveAttribute(
+      'src',
+      'https://cdn.example/course/unit/images/card.png',
+    );
+    expect(snapshotResponsiveImage).toHaveAttribute(
+      'src',
+      'https://cdn.example/course/unit/images/card@2x.png',
+    );
+    expect(snapshotResponsiveImage).not.toHaveAttribute('srcset');
+    expect(snapshotResponsiveImage).not.toHaveAttribute('sizes');
+    expect(snapshotResponsiveSource).not.toHaveAttribute('srcset');
+    expect(snapshotResponsiveSource).not.toHaveAttribute('sizes');
+    expect(
+      snapshotShadowRoot!.querySelector('[data-relative-link="true"]'),
+    ).toHaveAttribute('href', 'https://cdn.example/course/unit/docs/notes.pdf');
+    expect(
+      snapshotShadowRoot!.querySelector('[data-fragment-reference="true"]'),
+    ).toHaveAttribute('href', '#shape');
+    expect(snapshotRelativeFrame).toHaveAttribute(
+      'src',
+      'https://cdn.example/course/unit/embeds/chart.html',
+    );
+    expect(snapshotRelativeFrame).toHaveAttribute('sandbox', '');
+    expect(snapshotSrcdocFrame).toHaveAttribute('sandbox', '');
+    expect(snapshotSrcdocFrame?.getAttribute('srcdoc')).toContain(
+      '<base href="https://cdn.example/course/shared/">',
+    );
+    expect(sourceStylesheet).toHaveAttribute('href', 'styles/lesson.css');
+    expect(sourceImages[0]).toHaveAttribute('src', 'images/card.png');
+    expect(printSpy).not.toHaveBeenCalled();
+
+    snapshotStylesheet!.dispatchEvent(new Event('load'));
+    snapshotImage!.dispatchEvent(new Event('load'));
+    snapshotResponsiveImage!.dispatchEvent(new Event('load'));
+    snapshotRelativeFrame!.dispatchEvent(new Event('load'));
+    snapshotSrcdocFrame!.dispatchEvent(new Event('load'));
+    await act(async () => {
+      await printPromise;
+    });
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
+    printRoot.remove();
+  });
+
   it('waits for a newly cloned cross-origin iframe before printing', async () => {
     const printRoot = document.createElement('div');
     const iframeWrapper = document.createElement('div');

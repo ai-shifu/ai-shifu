@@ -43,6 +43,13 @@ const SNAPSHOT_URL_ATTRIBUTES = new Set([
   'src',
   'xlink:href',
 ]);
+const SNAPSHOT_RESOLVABLE_URL_ATTRIBUTES = [
+  'background',
+  'href',
+  'poster',
+  'src',
+  'xlink:href',
+];
 const UNSAFE_SNAPSHOT_URL_PATTERN = /^\s*(?:javascript|vbscript):/i;
 const ASYNC_PRINT_CONTENT_SELECTOR = [
   '.content-render-mermaid',
@@ -122,13 +129,60 @@ const decodeImage = async (image: HTMLImageElement) => {
 
 const CSS_URL_PATTERN =
   /url\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|((?:\\.|[^)\\])*))\s*\)/gi;
+const CSS_QUOTED_IMPORT_PATTERN =
+  /(@import\s+)(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)')/gi;
+
+const decodeCssUrlValue = (value: string) =>
+  value.replace(/\\([\\'"()])/g, '$1').trim();
 
 const extractCssUrlValues = (value: string) =>
   Array.from(value.matchAll(CSS_URL_PATTERN), match =>
-    (match[1] ?? match[2] ?? match[3] ?? '')
-      .replace(/\\([\\'"()])/g, '$1')
-      .trim(),
+    decodeCssUrlValue(match[1] ?? match[2] ?? match[3] ?? ''),
   ).filter(Boolean);
+
+const resolveCssResourceUrl = (value: string, baseUri: string) => {
+  const url = decodeCssUrlValue(value);
+  if (!url || url.startsWith('#')) {
+    return '';
+  }
+  try {
+    return new URL(url, baseUri).href.replace(
+      /[\\"]/g,
+      character => `\\${character}`,
+    );
+  } catch {
+    return '';
+  }
+};
+
+const resolveCssUrlValues = (value: string, baseUri: string) => {
+  let resolvedValue = value;
+  if (value.toLowerCase().includes('url(')) {
+    resolvedValue = resolvedValue.replace(
+      CSS_URL_PATTERN,
+      (originalValue, doubleQuoted, singleQuoted, unquoted) => {
+        const absoluteUrl = resolveCssResourceUrl(
+          doubleQuoted ?? singleQuoted ?? unquoted ?? '',
+          baseUri,
+        );
+        return absoluteUrl ? `url("${absoluteUrl}")` : originalValue;
+      },
+    );
+  }
+  if (value.toLowerCase().includes('@import')) {
+    resolvedValue = resolvedValue.replace(
+      CSS_QUOTED_IMPORT_PATTERN,
+      (originalValue, importPrefix, doubleQuoted, singleQuoted) => {
+        const absoluteUrl = resolveCssResourceUrl(
+          doubleQuoted ?? singleQuoted ?? '',
+          baseUri,
+        );
+        return absoluteUrl ? `${importPrefix}"${absoluteUrl}"` : originalValue;
+      },
+    );
+  }
+  return resolvedValue;
+};
 
 const getAssetRootElements = (root: ParentNode) => [
   ...(root.nodeType === 1 ? [root as Element] : []),
@@ -663,6 +717,107 @@ const copyElementAttributes = (source: Element, target: Element) => {
   });
 };
 
+const addBaseToSrcdoc = (srcdoc: string, baseUri: string) => {
+  const srcdocDocument = new DOMParser().parseFromString(srcdoc, 'text/html');
+  const base = srcdocDocument.createElement('base');
+  base.href = baseUri;
+  srcdocDocument.head.prepend(base);
+  return srcdocDocument.documentElement.outerHTML;
+};
+
+const getIframeSrcdocBaseUri = (iframe: HTMLIFrameElement) => {
+  try {
+    const iframeDocument = iframe.contentDocument;
+    if (iframeDocument?.querySelector('base[href]')) {
+      return iframeDocument.baseURI;
+    }
+  } catch {
+    // Cross-origin iframe documents fall back to their embedding document.
+  }
+  const srcdoc = iframe.getAttribute('srcdoc');
+  if (srcdoc) {
+    const srcdocDocument = new DOMParser().parseFromString(srcdoc, 'text/html');
+    const declaredBase = srcdocDocument
+      .querySelector('base[href]')
+      ?.getAttribute('href')
+      ?.trim();
+    if (declaredBase) {
+      try {
+        return new URL(declaredBase, iframe.ownerDocument.baseURI).href;
+      } catch {
+        // Invalid base URLs fall back to the embedding document.
+      }
+    }
+  }
+  return iframe.ownerDocument.baseURI;
+};
+
+const resolveSnapshotElementUrls = (source: Element, target: Element) => {
+  SNAPSHOT_RESOLVABLE_URL_ATTRIBUTES.forEach(attributeName => {
+    const attributeValue = source.getAttribute(attributeName)?.trim();
+    if (!attributeValue || attributeValue.startsWith('#')) {
+      return;
+    }
+    try {
+      target.setAttribute(
+        attributeName,
+        new URL(attributeValue, source.baseURI).href,
+      );
+    } catch {
+      // Keep the original attribute when the browser cannot resolve it.
+    }
+  });
+
+  const tagName = source.tagName.toLowerCase();
+  if (tagName === 'img') {
+    const sourceImage = source as HTMLImageElement;
+    const selectedSource = sourceImage.currentSrc;
+    if (selectedSource) {
+      target.setAttribute('src', selectedSource);
+      target.removeAttribute('srcset');
+      target.removeAttribute('sizes');
+      if (target.parentElement?.tagName.toLowerCase() === 'picture') {
+        target.parentElement
+          .querySelectorAll('source')
+          .forEach(sourceElement => {
+            sourceElement.removeAttribute('srcset');
+            sourceElement.removeAttribute('sizes');
+          });
+      }
+    }
+  } else if (tagName === 'iframe' && source.hasAttribute('srcdoc')) {
+    target.setAttribute(
+      'srcdoc',
+      addBaseToSrcdoc(
+        source.getAttribute('srcdoc') ?? '',
+        getIframeSrcdocBaseUri(source as HTMLIFrameElement),
+      ),
+    );
+  } else if (tagName === 'style') {
+    target.textContent = resolveCssUrlValues(
+      source.textContent ?? '',
+      source.baseURI,
+    );
+  }
+};
+
+const copyResolvedSnapshotUrls = (sourceRoot: Element, targetRoot: Element) => {
+  const sourceElements = [
+    sourceRoot,
+    ...Array.from(sourceRoot.querySelectorAll('*')),
+  ];
+  const targetElements = [
+    targetRoot,
+    ...Array.from(targetRoot.querySelectorAll('*')),
+  ];
+  if (sourceElements.length !== targetElements.length) {
+    return;
+  }
+  sourceElements.forEach((sourceElement, index) => {
+    resolveSnapshotElementUrls(sourceElement, targetElements[index]);
+  });
+};
+
 const neutralizeSnapshotElement = (element: Element) => {
   Array.from(element.attributes).forEach(attribute => {
     const attributeName = attribute.name.toLowerCase();
@@ -718,7 +873,10 @@ const copyComputedStyle = (
   Array.from(computedStyle).forEach(property => {
     targetStyle.setProperty(
       property,
-      computedStyle.getPropertyValue(property),
+      resolveCssUrlValues(
+        computedStyle.getPropertyValue(property),
+        source.baseURI,
+      ),
       'important',
     );
   });
@@ -792,7 +950,10 @@ const createIframePrintSnapshots = (
         if (property.startsWith('--')) {
           snapshot.style.setProperty(
             property,
-            documentStyle.getPropertyValue(property),
+            resolveCssUrlValues(
+              documentStyle.getPropertyValue(property),
+              iframeDocument.documentElement.baseURI,
+            ),
           );
         }
       });
@@ -805,6 +966,7 @@ const createIframePrintSnapshots = (
         .querySelectorAll('head style, head link[rel="stylesheet"]')
         .forEach(styleElement => {
           const snapshotStyleElement = document.importNode(styleElement, true);
+          copyResolvedSnapshotUrls(styleElement, snapshotStyleElement);
           neutralizeSnapshotMarkup(snapshotStyleElement);
           shadowRoot.appendChild(snapshotStyleElement);
         });
@@ -812,10 +974,13 @@ const createIframePrintSnapshots = (
       const snapshotRoot = document.importNode(iframeRoot, true);
       copySnapshotCanvasBitmaps(iframeRoot, snapshotRoot);
       copySnapshotFormState(iframeRoot, snapshotRoot);
+      copyResolvedSnapshotUrls(iframeRoot, snapshotRoot);
       const snapshotHtml = document.createElement('html');
       const snapshotBody = document.createElement('body');
       copyElementAttributes(iframeDocument.documentElement, snapshotHtml);
       copyElementAttributes(iframeDocument.body, snapshotBody);
+      resolveSnapshotElementUrls(iframeDocument.documentElement, snapshotHtml);
+      resolveSnapshotElementUrls(iframeDocument.body, snapshotBody);
       snapshotBody.appendChild(snapshotRoot);
       snapshotHtml.appendChild(snapshotBody);
       copyComputedStyle(
