@@ -829,16 +829,16 @@ describe('AskBlock', () => {
           outline_bid='lesson-1'
           element_bid='block-1'
           askList={[
-            { type: 'ask', content: 'first question' },
+            { type: 'ask', content: '第一条追问问题' },
             {
               type: 'answer',
-              content: 'first answer',
+              content: '第一条追问回答',
               shouldUseTypewriter: true,
             },
-            { type: 'ask', content: 'second question' },
+            { type: 'ask', content: '第二条追问问题' },
             {
               type: 'answer',
-              content: 'second answer',
+              content: '第二条追问回答',
               shouldUseTypewriter: true,
             },
           ]}
@@ -846,10 +846,10 @@ describe('AskBlock', () => {
       </AppContext.Provider>,
     );
 
-    expect(screen.getByText('first question')).toBeInTheDocument();
-    expect(screen.getByText('first answer')).toBeInTheDocument();
-    expect(screen.getByText('second question')).toBeInTheDocument();
-    expect(screen.getByText('second answer')).toBeInTheDocument();
+    expect(screen.getByText('第一条追问问题')).toBeInTheDocument();
+    expect(screen.getByText('第一条追问回答')).toBeInTheDocument();
+    expect(screen.getByText('第二条追问问题')).toBeInTheDocument();
+    expect(screen.getByText('第二条追问回答')).toBeInTheDocument();
     expect(screen.queryByLabelText('ask-input')).not.toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     screen
