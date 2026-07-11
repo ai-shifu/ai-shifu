@@ -1713,12 +1713,6 @@ const ListenModeSlideRenderer = ({
   const shouldRenderMobileAskEntry =
     showMobileAskEntry && mobileStyle && !shouldRenderEmptyPpt;
   const isMobileFullscreen = mobileViewMode === 'fullscreen';
-  const playerTexts = useMemo(
-    () => ({
-      fullscreenHintText: t('module.chat.listenPlayerFullscreenHint'),
-    }),
-    [t],
-  );
   const fullscreenHeaderContent = useMemo(() => {
     if (!courseName && !sectionTitle) {
       return null;
@@ -1752,9 +1746,8 @@ const ListenModeSlideRenderer = ({
   const fullscreenHeader = useMemo(
     () => ({
       content: fullscreenHeaderContent,
-      backAriaLabel: t('module.chat.listenPlayerBack'),
     }),
-    [fullscreenHeaderContent, t],
+    [fullscreenHeaderContent],
   );
   const handleMobileViewModeChange = useCallback((viewMode: MobileViewMode) => {
     setMobileViewMode(viewMode);
@@ -1964,10 +1957,6 @@ const ListenModeSlideRenderer = ({
           }}
           bufferingText={{
             waitingForAudio: t('module.chat.thinking'),
-            loadingAudio: t('module.chat.slideAudioBufferingLoadingAudio'),
-            waitingForMoreAudio: t(
-              'module.chat.slideAudioBufferingWaitingForMoreAudio',
-            ),
           }}
           onPlayerVisibilityChange={handlePlayerVisibilityChange}
           onStepChange={handleStepChange}
@@ -1985,7 +1974,6 @@ const ListenModeSlideRenderer = ({
           )}
           playerCustomActionPauseOnActive={pausePlayerCustomActionOnActive}
           playerCustomActions={enableCustomActions ? playerCustomActions : null}
-          playerTexts={playerTexts}
           playerEnabled={!shouldRenderEmptyPpt}
         />
         {shouldRenderManualFullscreenButton ? (
@@ -2015,7 +2003,7 @@ const ListenModeSlideRenderer = ({
           >
             <div className='flex flex-col items-center gap-3 text-primary'>
               <LoadingDots
-                ariaLabel={t('module.chat.slideAudioBufferingLoadingAudio')}
+                ariaLabel={t('module.chat.audioLoading')}
                 count={4}
                 durationMs={960}
                 dotClassName='bg-primary'
