@@ -25,7 +25,7 @@
   "lessonFeedbackSubmit": "Submit",
   "lessonFeedbackSubmitted": "Thanks for your feedback!",
   "lessonPdfContentInProgress": "Available when the lesson content finishes generating",
-  "lessonPdfCourseQrLabel": "Scan to enter the course for one-to-one teaching and Q&A",
+  "lessonPdfCourseQrLabel": "Scan to enter the course for one-on-one teaching and Q&A",
   "lessonPdfDownload": "Download lesson PDF",
   "lessonPdfFollowUpInProgress": "Available when the follow-up answer finishes",
   "lessonPdfPrepareFailed": "Couldn't prepare the PDF. Please try again.",
