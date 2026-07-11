@@ -24,6 +24,7 @@
   "lessonFeedbackScoreRequired": "Veuillez choisir une note de 1 à 5.",
   "lessonFeedbackSubmit": "Envoyer",
   "lessonFeedbackSubmitted": "Merci pour votre retour !",
+  "lessonPdfContentInProgress": "Disponible une fois le contenu de la leçon généré",
   "lessonPdfCourseQrLabel": "Scannez pour accéder au cours",
   "lessonPdfDownload": "Télécharger le PDF de la leçon",
   "lessonPdfFollowUpInProgress": "Disponible une fois la réponse de suivi terminée",

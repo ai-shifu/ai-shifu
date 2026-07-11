@@ -24,6 +24,7 @@
   "lessonFeedbackScoreRequired": "请选择1-5分后再提交",
   "lessonFeedbackSubmit": "提交",
   "lessonFeedbackSubmitted": "感谢你的反馈",
+  "lessonPdfContentInProgress": "本节内容生成完成后可下载",
   "lessonPdfCourseQrLabel": "扫码访问课程",
   "lessonPdfDownload": "下载本节 PDF",
   "lessonPdfFollowUpInProgress": "追问回答生成后可下载",

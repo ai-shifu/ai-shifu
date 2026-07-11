@@ -184,26 +184,25 @@ export const ChatUi = ({
                   />
                 </div>
               ) : null}
-              {currentLessonPdfDownloadAction || showModeToggle ? (
-                <div className={styles.headerActions}>
-                  {currentLessonPdfDownloadAction ? (
-                    <LessonPdfDownloadButton
-                      isFollowUpStreaming={
-                        currentLessonPdfDownloadAction.isFollowUpStreaming
-                      }
-                      isPreparing={currentLessonPdfDownloadAction.isPreparing}
-                      onDownload={currentLessonPdfDownloadAction.onDownload}
-                    />
-                  ) : null}
-                  {showModeToggle ? (
-                    <LearningModeSwitch
-                      size={
-                        frameLayout === FRAME_LAYOUT_PC ? 'desktop' : 'mobile'
-                      }
-                    />
-                  ) : null}
-                </div>
-              ) : null}
+              <div className={styles.headerActions}>
+                <LessonPdfDownloadButton
+                  isContentReady={Boolean(currentLessonPdfDownloadAction)}
+                  isFollowUpStreaming={
+                    currentLessonPdfDownloadAction?.isFollowUpStreaming ?? false
+                  }
+                  isPreparing={
+                    currentLessonPdfDownloadAction?.isPreparing ?? false
+                  }
+                  onDownload={currentLessonPdfDownloadAction?.onDownload}
+                />
+                {showModeToggle ? (
+                  <LearningModeSwitch
+                    size={
+                      frameLayout === FRAME_LAYOUT_PC ? 'desktop' : 'mobile'
+                    }
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
         ) : null
