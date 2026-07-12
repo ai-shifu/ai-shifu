@@ -3,6 +3,7 @@ import types
 from datetime import datetime
 from decimal import Decimal
 
+import pytest
 from flask import Flask
 
 from flaskr.dao import db
@@ -277,7 +278,7 @@ def test_rename_and_republish_preserve_the_original_slug(app, monkeypatch):
     original_slug = "original-rename-course-link"
 
     def fail_slug_regeneration(*_args, **_kwargs):
-        raise AssertionError("rename and republish must not regenerate the slug")
+        pytest.fail("rename and republish must not regenerate the slug")
 
     monkeypatch.setattr(
         shifu_publish_funcs,
