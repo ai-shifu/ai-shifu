@@ -295,6 +295,7 @@ export interface UseChatSessionResult {
   items: ChatContentItem[];
   isLoading: boolean;
   isOutputInProgress: boolean;
+  hasRunFailed: boolean;
   currentStreamingElementBid: string;
   currentTypewriterElementBid: string;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
@@ -365,6 +366,7 @@ function useChatLogicHook({
   );
   const isStreamingRef = useRef(false);
   const [isOutputInProgress, setIsOutputInProgress] = useState(false);
+  const [hasRunFailed, setHasRunFailed] = useState(false);
   const { updateResetedChapterId, updateResetedLessonId, resetedLessonId } =
     useCourseStore(
       useShallow(state => ({
@@ -462,6 +464,10 @@ function useChatLogicHook({
   // Learner preview uses the same generated-block TTS contract as live courses.
   // Keep preview-specific request params, but do not disable audio streaming.
   const allowTtsStreaming = true;
+
+  useEffect(() => {
+    setHasRunFailed(false);
+  }, [lessonRunContentCacheKey]);
 
   const resolveElementItemBid = useCallback(
     (
@@ -1689,6 +1695,7 @@ function useChatLogicHook({
       isTypeFinishedRef.current = false;
       isStreamingRef.current = true;
       setIsOutputInProgress(true);
+      setHasRunFailed(false);
       isInitHistoryRef.current = false;
       currentBlockIdRef.current = null;
       setCurrentStreamingElementBid('');
@@ -1713,6 +1720,7 @@ function useChatLogicHook({
       }
 
       let isEnd = false;
+      let didReachTerminalSuccess = false;
       const clearLoadingPlaceholder = () => {
         setTrackedContentList(prev =>
           prev.filter(item => item.element_bid !== 'loading'),
@@ -1749,6 +1757,7 @@ function useChatLogicHook({
         }
 
         cleanupRunStreamState();
+        setHasRunFailed(true);
         appendRunTimeoutError(runSerial);
 
         try {
@@ -1809,6 +1818,7 @@ function useChatLogicHook({
           try {
             if (response?.type === SSE_OUTPUT_TYPE.ERROR) {
               clearRunStreamTimeout();
+              setHasRunFailed(true);
               const rawContent = response?.content;
               const errorContent =
                 typeof rawContent === 'string'
@@ -2144,6 +2154,7 @@ function useChatLogicHook({
                   });
                   if (status === LESSON_STATUS_VALUE.COMPLETED) {
                     isEnd = true;
+                    setHasRunFailed(false);
                   }
                 }
               } else {
@@ -2151,6 +2162,7 @@ function useChatLogicHook({
                 if (outline_bid && outline_bid === lessonId) {
                   if (status === LESSON_STATUS_VALUE.COMPLETED) {
                     isEnd = true;
+                    setHasRunFailed(false);
                   }
                   lessonUpdateResp(response, isEnd);
                 }
@@ -2160,6 +2172,8 @@ function useChatLogicHook({
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
               if (response.is_terminal === true) {
+                didReachTerminalSuccess = true;
+                setHasRunFailed(false);
                 cleanupRunStreamState();
                 try {
                   source?.close?.();
@@ -2362,6 +2376,9 @@ function useChatLogicHook({
           }
         },
         error => {
+          if (didReachTerminalSuccess) {
+            return;
+          }
           const isLatestRun = runSerial === sseRunSerialRef.current;
           const isCurrentSource =
             sseRef.current === source || sseRef.current === null;
@@ -2381,12 +2398,14 @@ function useChatLogicHook({
               variant: 'destructive',
             });
             cleanupRunStreamState();
+            setHasRunFailed(true);
             appendRunBusinessError(
               businessError.message.trim(),
               businessError.code,
             );
             return;
           }
+          setHasRunFailed(true);
           cleanupRunStreamState();
         },
       );
@@ -3766,6 +3785,7 @@ function useChatLogicHook({
     items,
     isLoading,
     isOutputInProgress,
+    hasRunFailed,
     currentStreamingElementBid,
     currentTypewriterElementBid,
     onSend,

@@ -868,6 +868,7 @@ export default function ChatPage() {
 
   return (
     <div
+      data-lesson-print-page='true'
       data-testid='course-chat-page'
       className={clsx(
         styles.newChatPage,

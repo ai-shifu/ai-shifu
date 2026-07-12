@@ -1,4 +1,5 @@
 import {
+  buildCoursePageUrl,
   buildLoginRedirectPath,
   buildUrlWithLessonId,
   getCourseCreatorUrl,
@@ -21,6 +22,45 @@ describe('buildLoginRedirectPath', () => {
     const url = 'https://example.com/c/123?code=wxcode&state=wxstate';
     expect(buildLoginRedirectPath(url)).toBe('/c/123');
   });
+});
+
+describe('buildCoursePageUrl', () => {
+  it('keeps the current origin and course path without lesson state', () => {
+    expect(
+      buildCoursePageUrl(
+        'https://learn.example.com/c/course-1?lessonid=lesson-1&mode=classroom&preview=true#follow-up',
+      ),
+    ).toBe('https://learn.example.com/c/course-1');
+  });
+
+  it('preserves custom domains and their current course path', () => {
+    expect(
+      buildCoursePageUrl(
+        'https://course.example.com/c?lessonid=lesson-1&listen=1',
+      ),
+    ).toBe('https://course.example.com/c');
+  });
+
+  it('preserves localhost ports', () => {
+    expect(
+      buildCoursePageUrl('http://localhost:3000/c/course-1?lessonid=lesson-1'),
+    ).toBe('http://localhost:3000/c/course-1');
+  });
+
+  it('removes basic authentication credentials', () => {
+    expect(
+      buildCoursePageUrl(
+        'https://teacher:secret@learn.example.com/c/course-1?lessonid=lesson-1',
+      ),
+    ).toBe('https://learn.example.com/c/course-1');
+  });
+
+  it.each(['not a url', 'mailto:teacher@example.com'])(
+    'rejects invalid course page urls: %s',
+    currentUrl => {
+      expect(buildCoursePageUrl(currentUrl)).toBe('');
+    },
+  );
 });
 
 describe('buildUrlWithLessonId', () => {
