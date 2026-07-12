@@ -29,12 +29,6 @@ permissions, progress, metering, authoring, and operations continue to use
 - [x] 2026-07-12 09:53 CST: Prepared slug storage for future changes with
   versioned current and historical records while retaining v1's no-edit
   behavior; passed focused and full backend verification.
-- [x] 2026-07-12 17:16 CST: Ran the fresh-MySQL migration and real allocator
-  concurrency probe against local MySQL 9.7, then repeated the concurrency
-  probe twice in parallel; all runs passed.
-- [ ] 2026-07-12 09:27 CST: Run browser E2E against the default dev stack;
-  Playwright launches outside the sandbox, but no server is running on port
-  8080 and Docker is unavailable in this environment.
 - [x] 2026-07-12 16:45 CST: Closed the post-review coverage gaps: replaced the
   stale learner smoke fixture, exercised every learner route through slug and
   BID identifiers, validated unpublished-course admission, and added real
@@ -42,6 +36,18 @@ permissions, progress, metering, authoring, and operations continue to use
 - [x] 2026-07-12 16:45 CST: Added end-to-end lifecycle, backfill recovery,
   authentication, current/historical slug, DTO, export, and payment branch
   coverage, then rerun focused and full verification.
+- [x] 2026-07-12 17:16 CST: Ran the fresh-MySQL migration and real allocator
+  concurrency probe against local MySQL 9.7, then repeated the concurrency
+  probe twice in parallel; all runs passed.
+- [x] 2026-07-12 17:31 CST: Ran the runtime harness against the default dev
+  stack in CI, including fresh MySQL migrations, identifier concurrency,
+  frontend contracts, and all three browser E2E scenarios; the full harness
+  passed.
+- [x] 2026-07-12 18:12 CST: Closed the final transaction-safety review gaps:
+  flushed root/savepoint writes can no longer be mistaken for read-only state,
+  deadlock retry refuses flushed caller writes, and multi-course backfill tests
+  prove every model call starts without an active database transaction. The
+  full backend and runtime harnesses passed again after these fixes.
 
 ## Surprises & Discoveries
 
@@ -49,6 +55,10 @@ permissions, progress, metering, authoring, and operations continue to use
   globally unique slug cannot live on either table.
 - LLM usage persistence commits the scoped SQLAlchemy session. Slug generation
   must therefore finish before any course mutation is staged.
+- SQLAlchemy clears `Session.new`, `Session.dirty`, and `Session.deleted` after
+  a flush even though the transaction can still be rolled back. Its active
+  root/savepoint rollback snapshots must also be checked before releasing a
+  presumed read transaction or retrying an allocator transaction.
 - The learner frontend currently propagates the route segment into API paths,
   tracking, payment, and local-storage keys. Canonical BID resolution must
   complete before learner children start.
@@ -118,10 +128,14 @@ permissions, progress, metering, authoring, and operations continue to use
 - A transient learner bootstrap error keeps downstream requests gated and
   presents an i18n-backed retry action instead of leaving a permanent blank
   page.
+- Slug preflight queries run under `no_autoflush`. Pending or already-flushed
+  ORM writes in any active root/savepoint transaction fail before model I/O and
+  remain owned by the caller; only verified read-only state may be released or
+  retried.
 
 ## Outcomes & Retrospective
 
-The implementation is complete locally. New courses receive a
+The implementation and runtime verification are complete. New courses receive a
 current slug before any course row is staged; every learner route resolves a
 current or historical slug, or a legacy BID, to the canonical BID; all public
 URL producers prefer the current slug; and the learner frontend does not mount
@@ -130,7 +144,7 @@ idempotent, keyset-paged, resumable, and reports remaining coverage.
 
 Verification completed locally:
 
-- backend full suite: 2211 passed, 7 skipped;
+- backend full suite: 2218 passed, 7 skipped;
 - fresh MySQL migration plus same-title, same-BID, cross-namespace,
   case-insensitive, and symmetric deadlock concurrency probe: 3 passed, then
   the concurrency case passed twice more in parallel;
@@ -141,11 +155,9 @@ Verification completed locally:
 - Ruff check/format, repository harness, architecture boundaries, shared i18n,
   development-tool checks, and the full lefthook pre-commit gate.
 
-One environment-dependent rollout check remains. Playwright discovers all
-three smoke tests, but the browser suite needs the
-default application stack at `http://localhost:8080`; Docker is not installed
-in this environment. The runtime-harness workflow now runs the MySQL probe,
-focused frontend contracts, type/lint checks, and browser E2E in CI.
+The runtime-harness workflow passed against the default application stack. It
+runs the MySQL probe, focused frontend contracts, type/lint checks, and all
+three browser E2E scenarios in CI.
 
 ## Context and Orientation
 
