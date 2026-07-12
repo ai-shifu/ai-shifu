@@ -107,8 +107,8 @@ def _parse_model_slug(raw_response: str) -> str:
         payload = json.loads(str(raw_response or ""))
     except (TypeError, json.JSONDecodeError) as exc:
         raise InvalidCourseSlug("model response must be valid JSON") from exc
-    if not isinstance(payload, dict) or set(payload) != {"slug"}:
-        raise InvalidCourseSlug("model response must contain only the slug field")
+    if not isinstance(payload, dict) or "slug" not in payload:
+        raise InvalidCourseSlug("model response must contain the slug field")
     if not isinstance(payload["slug"], str):
         raise InvalidCourseSlug("model slug must be a string")
     return validate_course_slug(payload["slug"])

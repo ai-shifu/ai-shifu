@@ -96,6 +96,34 @@ def test_prepare_course_slug_retries_invalid_json_with_feedback(app, monkeypatch
     assert "valid JSON" in feedback[1]
 
 
+def test_prepare_course_slug_ignores_additional_json_fields(app, monkeypatch):
+    calls = 0
+
+    def fake_invoke(_app, **_kwargs):
+        nonlocal calls
+        calls += 1
+        return json.dumps(
+            {
+                "slug": "practical-ai-teaching-methods",
+                "explanation": "A concise English course link",
+            }
+        )
+
+    monkeypatch.setattr("flaskr.service.shifu.slug._invoke_slug_model", fake_invoke)
+
+    prepared = prepare_course_slug(
+        app,
+        shifu_bid="slug-extra-fields-course",
+        title="AI 赋能教学",
+    )
+
+    assert prepared == PreparedCourseSlug(
+        base_slug="practical-ai-teaching-methods",
+        generation_source="llm",
+    )
+    assert calls == 1
+
+
 def test_slug_llm_contract_uses_course_generation_and_non_billable_usage(
     app, monkeypatch
 ):
