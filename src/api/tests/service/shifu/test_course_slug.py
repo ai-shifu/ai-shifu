@@ -899,6 +899,7 @@ def test_import_with_new_explicit_bid_rejects_existing_slug(app, monkeypatch):
 
 def test_backfill_cli_forwards_scope_and_prints_json(app, monkeypatch):
     from flaskr import command as command_module
+    from flaskr.service.shifu import slug as slug_module
 
     if "console" not in app.cli.commands:
         command_module.enable_commands(app)
@@ -919,7 +920,7 @@ def test_backfill_cli_forwards_scope_and_prints_json(app, monkeypatch):
         captured.update(kwargs)
         return expected
 
-    monkeypatch.setattr(command_module, "backfill_course_slugs", fake_backfill)
+    monkeypatch.setattr(slug_module, "backfill_course_slugs", fake_backfill)
 
     result = app.test_cli_runner().invoke(
         args=[

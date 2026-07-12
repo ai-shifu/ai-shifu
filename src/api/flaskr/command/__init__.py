@@ -11,7 +11,6 @@ from .import_user import import_user
 from .unified_migration_task import UnifiedMigrationTask, MigrationConfig
 from ..service.billing.cli import register_billing_commands
 from ..service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
-from ..service.shifu.slug import backfill_course_slugs
 from .update_shifu_demo import update_demo_shifu
 
 
@@ -55,6 +54,8 @@ def enable_commands(app: Flask):
     )
     def backfill_course_slugs_command(dry_run, batch_size, shifu_bid):
         """Backfill current public course slug records."""
+
+        from ..service.shifu.slug import backfill_course_slugs
 
         payload = backfill_course_slugs(
             app,
