@@ -888,6 +888,7 @@ def test_backfill_continues_after_failure_and_rerun_recovers_exact_stats(
         course_bids[1]: "middle-recovery-course-link",
         course_bids[2]: "last-recovery-course-link",
     }
+    prepare_transaction_states: list[bool] = []
     fail_middle_once = True
 
     with app.app_context():
@@ -912,6 +913,7 @@ def test_backfill_continues_after_failure_and_rerun_recovers_exact_stats(
 
         def fake_prepare(_app, **kwargs):
             nonlocal fail_middle_once
+            prepare_transaction_states.append(db.session().in_transaction())
             course_bid = kwargs["shifu_bid"]
             if course_bid == course_bids[1] and fail_middle_once:
                 fail_middle_once = False
@@ -949,6 +951,7 @@ def test_backfill_continues_after_failure_and_rerun_recovers_exact_stats(
             "missing": 0,
         }
         assert get_shifu_slug(course_bids[1]) == prepared_slugs[course_bids[1]]
+        assert prepare_transaction_states == [False, False, False, False]
 
 
 def test_backfill_bid_loader_uses_stable_keyset_pages(app):
