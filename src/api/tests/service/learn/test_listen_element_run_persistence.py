@@ -59,7 +59,9 @@ def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(ap
             element_bids=["element-a"],
         )
 
-        rows = LearnGeneratedElement.query.order_by(LearnGeneratedElement.id.asc()).all()
+        rows = LearnGeneratedElement.query.order_by(
+            LearnGeneratedElement.id.asc()
+        ).all()
         expected_ids = [
             row.id
             for row in rows
@@ -126,6 +128,8 @@ def test_deactivate_active_element_rows_retires_rows_without_touching_others(app
         )
         db.session.commit()
 
-        rows = LearnGeneratedElement.query.order_by(LearnGeneratedElement.id.asc()).all()
+        rows = LearnGeneratedElement.query.order_by(
+            LearnGeneratedElement.id.asc()
+        ).all()
 
         assert [row.status for row in rows] == [0, 0, 1]
