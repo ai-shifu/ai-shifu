@@ -613,6 +613,83 @@ def test_ensure_slug_uses_callers_transaction_and_rolls_back_with_course(
         assert DraftShifu.query.filter_by(shifu_bid=course_bid).first() is None
 
 
+@pytest.mark.parametrize("mutation", ["new", "dirty", "deleted"])
+@pytest.mark.parametrize("use_savepoint", [False, True])
+def test_ensure_slug_refuses_flushed_orm_writes_without_rollback(
+    app, monkeypatch, mutation, use_savepoint
+):
+    from flaskr.service.shifu import slug as slug_module
+
+    with app.app_context():
+        transaction_kind = "nested" if use_savepoint else "root"
+        flushed_bid = f"flushed-{transaction_kind}-{mutation}-write"
+        target_bid = f"slug-after-{transaction_kind}-{mutation}"
+        if mutation != "new":
+            db.session.add(
+                DraftShifu(
+                    shifu_bid=flushed_bid,
+                    title="Original caller value",
+                    created_user_bid="transaction-owner",
+                    updated_user_bid="transaction-owner",
+                )
+            )
+            db.session.commit()
+
+        outer_session = db.session()
+        nested_transaction = db.session.begin_nested() if use_savepoint else None
+        if mutation == "new":
+            flushed_draft = DraftShifu(
+                shifu_bid=flushed_bid,
+                title="Flushed new caller value",
+                created_user_bid="transaction-owner",
+                updated_user_bid="transaction-owner",
+            )
+            db.session.add(flushed_draft)
+        else:
+            flushed_draft = DraftShifu.query.filter_by(shifu_bid=flushed_bid).one()
+            if mutation == "dirty":
+                flushed_draft.title = "Flushed dirty caller value"
+            else:
+                db.session.delete(flushed_draft)
+        db.session.flush()
+        outer_transaction = outer_session.get_transaction()
+
+        assert not outer_session.new
+        assert not outer_session.dirty
+        assert not outer_session.deleted
+        assert outer_transaction is not None
+        if nested_transaction is not None:
+            assert outer_session.get_nested_transaction() is nested_transaction
+        assert slug_module._session_has_flushed_orm_writes(outer_session) is True
+
+        monkeypatch.setattr(
+            "flaskr.service.shifu.slug.prepare_course_slug",
+            lambda *_args, **_kwargs: pytest.fail(
+                "the model must not run after ORM writes have been flushed"
+            ),
+        )
+
+        with pytest.raises(RuntimeError, match="before staging database writes"):
+            ensure_shifu_slug(
+                app,
+                shifu_bid=target_bid,
+                title="Slug after flushed transaction",
+            )
+
+        assert outer_session.get_transaction() is outer_transaction
+        if nested_transaction is not None:
+            assert outer_session.get_nested_transaction() is nested_transaction
+
+        db.session.rollback()
+        persisted = DraftShifu.query.filter_by(shifu_bid=flushed_bid).first()
+        if mutation == "new":
+            assert persisted is None
+        else:
+            assert persisted is not None
+            assert persisted.title == "Original caller value"
+        assert ShifuCourseSlug.query.filter_by(shifu_bid=target_bid).first() is None
+
+
 def test_ensure_slug_refuses_to_rollback_staged_course_writes(app, monkeypatch):
     course_bid = "staged-write-before-slug-course"
     with app.app_context():

@@ -324,7 +324,10 @@ def test_allocator_retries_mysql_deadlock_with_same_prepared_slug(app, monkeypat
         assert seen_prepared == [prepared, prepared]
 
 
-def test_allocator_does_not_retry_deadlock_with_staged_course_writes(app, monkeypatch):
+@pytest.mark.parametrize("flush_before_allocate", [False, True])
+def test_allocator_does_not_retry_deadlock_with_staged_course_writes(
+    app, monkeypatch, flush_before_allocate
+):
     from flaskr.service.shifu import slug as slug_module
 
     attempts = 0
@@ -353,6 +356,8 @@ def test_allocator_does_not_retry_deadlock_with_staged_course_writes(app, monkey
             updated_user_bid="owner",
         )
         db.session.add(staged)
+        if flush_before_allocate:
+            db.session.flush()
 
         with pytest.raises(OperationalError):
             allocate_course_slug(
@@ -363,7 +368,10 @@ def test_allocator_does_not_retry_deadlock_with_staged_course_writes(app, monkey
             )
 
         assert attempts == 1
-        assert staged in db.session.new
+        if flush_before_allocate:
+            assert staged not in db.session.new
+        else:
+            assert staged in db.session.new
         db.session.rollback()
 
 

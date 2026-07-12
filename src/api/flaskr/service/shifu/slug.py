@@ -496,14 +496,40 @@ def _ensure_outer_transaction_for_savepoint() -> None:
         connection.exec_driver_sql("BEGIN")
 
 
+def _session_has_flushed_orm_writes(session) -> bool:
+    """Return whether the active transaction stack has flushed ORM state."""
+
+    transaction = session.get_nested_transaction() or session.get_transaction()
+    while transaction is not None:
+        # A flush clears Session.new/dirty/deleted, but SQLAlchemy retains these
+        # rollback snapshots until the transaction ends. Inspecting the whole
+        # stack prevents a write transaction from being mistaken for read-only.
+        if any(
+            bool(getattr(transaction, attribute, None))
+            for attribute in ("_new", "_dirty", "_deleted", "_key_switches")
+        ):
+            return True
+        transaction = transaction.parent
+    return False
+
+
+def _assert_generation_session_has_no_writes(session) -> None:
+    if (
+        session.new
+        or session.dirty
+        or session.deleted
+        or _session_has_flushed_orm_writes(session)
+    ):
+        raise RuntimeError(
+            "course slug generation must run before staging database writes"
+        )
+
+
 def _release_read_transaction_before_generation() -> None:
     """Release read-only DB resources before the external model request."""
 
     session = db.session()
-    if session.new or session.dirty or session.deleted:
-        raise RuntimeError(
-            "course slug generation must run before staging database writes"
-        )
+    _assert_generation_session_has_no_writes(session)
     if session.in_transaction():
         session.rollback()
 
@@ -619,7 +645,12 @@ def allocate_course_slug(
 
     normalized_bid = str(shifu_bid or "").strip()
     session = db.session()
-    retry_safe = not (session.new or session.dirty or session.deleted)
+    retry_safe = not (
+        session.new
+        or session.dirty
+        or session.deleted
+        or _session_has_flushed_orm_writes(session)
+    )
     for attempt in range(1, SLUG_ALLOCATION_TRANSACTION_ATTEMPTS + 1):
         try:
             return _allocate_course_slug_once(
@@ -658,21 +689,24 @@ def ensure_shifu_slug(
 
     if not has_app_context() or current_app._get_current_object() is not app:
         raise RuntimeError("ensure_shifu_slug requires the caller's app context")
-    with db.session.no_autoflush:
+    session = db.session()
+    with session.no_autoflush:
         existing = _current_slug_query(shifu_bid).first()
-    if existing:
+        if existing:
+            if claim_new_bid:
+                raise ShifuIdentifierConflict(f"shifu_bid already exists: {shifu_bid}")
+            _reserve_existing_course_identifiers(str(existing.shifu_bid))
+            return existing
         if claim_new_bid:
-            raise ShifuIdentifierConflict(f"shifu_bid already exists: {shifu_bid}")
-        _reserve_existing_course_identifiers(str(existing.shifu_bid))
-        return existing
-    if claim_new_bid:
-        normalized_bid = str(shifu_bid or "").strip()
-        if (
-            _bid_exists(normalized_bid)
-            or _public_identifier_query(normalized_bid).first()
-        ):
-            raise ShifuIdentifierConflict(f"shifu_bid already exists: {normalized_bid}")
-        assert_shifu_bid_available(normalized_bid)
+            normalized_bid = str(shifu_bid or "").strip()
+            if (
+                _bid_exists(normalized_bid)
+                or _public_identifier_query(normalized_bid).first()
+            ):
+                raise ShifuIdentifierConflict(
+                    f"shifu_bid already exists: {normalized_bid}"
+                )
+            assert_shifu_bid_available(normalized_bid)
     _release_read_transaction_before_generation()
     prepared = prepare_course_slug(
         app,
