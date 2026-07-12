@@ -22,6 +22,7 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_PAID,
 )
+from flaskr.service.user.course_identity import resolve_auth_course_id
 from flaskr.service.user.models import UserInfo as UserEntity, UserVerifyCode
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.utils import (
@@ -333,7 +334,7 @@ def verify_phone_code(
 
     created_new_user = False
     creator_granted_now = False
-    normalized_course_id = str(course_id or "").strip() or None
+    normalized_course_id = resolve_auth_course_id(app, course_id)
 
     with transactional_session():
         target_aggregate = load_user_aggregate_by_identifier(

@@ -152,6 +152,107 @@ def test_phone_flow_sets_user_identify(app):
             _reset_user_auth_tables()
 
 
+def test_phone_flow_resolves_public_slug_before_study_record_migration(
+    app, monkeypatch
+):
+    import flaskr.service.user.phone_flow as phone_flow
+    import flaskr.service.profile.funcs as profile_funcs
+    from flaskr.dao import db
+    from flaskr.service.learn.models import LearnProgressRecord
+    from flaskr.service.shifu.models import DraftShifu, ShifuCourseSlug
+    from flaskr.service.user.consts import USER_STATE_UNREGISTERED
+    from flaskr.service.user.models import UserInfo as UserEntity
+
+    course_bid = "auth-course-canonical-bid"
+    course_slug = "canonical-auth-course-link"
+    origin_user_bid = "slug-login-origin-user"
+
+    with app.app_context():
+        app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+        app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
+        phone_flow.redis = _FakeRedis()
+        monkeypatch.setattr(
+            profile_funcs,
+            "get_user_profile_labels",
+            lambda *_args, **_kwargs: [],
+        )
+        monkeypatch.setattr(
+            profile_funcs,
+            "update_user_profile_with_lable",
+            lambda *_args, **_kwargs: True,
+        )
+
+        _reset_user_auth_tables()
+        LearnProgressRecord.query.filter_by(shifu_bid=course_bid).delete()
+        ShifuCourseSlug.query.filter_by(shifu_bid=course_bid).delete()
+        DraftShifu.query.filter_by(shifu_bid=course_bid).delete()
+        db.session.add(
+            DraftShifu(
+                shifu_bid=course_bid,
+                title="Canonical auth course",
+                created_user_bid="auth-course-owner",
+                updated_user_bid="auth-course-owner",
+            )
+        )
+        db.session.add(
+            ShifuCourseSlug(
+                shifu_bid=course_bid,
+                slug=course_slug,
+                version=1,
+                is_current=1,
+                generation_source="llm",
+            )
+        )
+        db.session.commit()
+
+        try:
+            target_token, _created, _context = phone_flow.verify_phone_code(
+                app,
+                user_id=None,
+                phone="15500008888",
+                code="9999",
+            )
+            db.session.add(
+                UserEntity(
+                    user_bid=origin_user_bid,
+                    user_identify=origin_user_bid,
+                    nickname="",
+                    language="zh-CN",
+                    state=USER_STATE_UNREGISTERED,
+                    deleted=0,
+                )
+            )
+            db.session.add(
+                LearnProgressRecord(
+                    progress_record_bid="slug-login-progress-record",
+                    shifu_bid=course_bid,
+                    outline_item_bid="slug-login-outline-item",
+                    user_bid=origin_user_bid,
+                )
+            )
+            db.session.commit()
+
+            _token, _created, context = phone_flow.verify_phone_code(
+                app,
+                user_id=origin_user_bid,
+                phone="15500008888",
+                code="9999",
+                course_id=course_slug,
+            )
+
+            migrated = LearnProgressRecord.query.filter_by(
+                progress_record_bid="slug-login-progress-record"
+            ).one()
+            assert context["course_id"] == course_bid
+            assert migrated.user_bid == target_token.userInfo.user_id
+        finally:
+            LearnProgressRecord.query.filter_by(shifu_bid=course_bid).delete()
+            ShifuCourseSlug.query.filter_by(shifu_bid=course_bid).delete()
+            DraftShifu.query.filter_by(shifu_bid=course_bid).delete()
+            db.session.commit()
+            _reset_user_auth_tables()
+
+
 def test_email_flow_sets_user_identify(app):
     import flaskr.service.user.email_flow as email_flow
     from flaskr.service.user.models import UserInfo as UserEntity

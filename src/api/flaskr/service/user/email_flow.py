@@ -15,6 +15,7 @@ from flaskr.util.datetime import now_utc
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.user.phone_flow import migrate_user_study_record, init_first_course
+from flaskr.service.user.course_identity import resolve_auth_course_id
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.utils import generate_token
 from flaskr.service.user.models import UserVerifyCode
@@ -126,6 +127,7 @@ def verify_email_code(
     redis.delete(code_key)
 
     normalized_email = email_key.lower() if email_key else ""
+    normalized_course_id = resolve_auth_course_id(app, course_id)
 
     created_new_user = False
 
@@ -142,18 +144,22 @@ def verify_email_code(
             target_aggregate
             and user_id
             and target_aggregate.user_bid != user_id
-            and course_id is not None
+            and normalized_course_id is not None
         ):
-            new_profiles = get_user_profile_labels(app, user_id, course_id)
+            new_profiles = get_user_profile_labels(app, user_id, normalized_course_id)
             update_user_profile_with_lable(
-                app, target_aggregate.user_bid, new_profiles, False, course_id
+                app,
+                target_aggregate.user_bid,
+                new_profiles,
+                False,
+                normalized_course_id,
             )
             if origin_aggregate:
                 migrate_user_study_record(
                     app,
                     origin_aggregate.user_bid,
                     target_aggregate.user_bid,
-                    course_id,
+                    normalized_course_id,
                 )
                 if (
                     origin_aggregate.wechat_open_id
@@ -206,7 +212,7 @@ def verify_email_code(
             subject_id=normalized_email,
             subject_format="email",
             identifier=normalized_email,
-            metadata={"course_id": course_id, "language": language},
+            metadata={"course_id": normalized_course_id, "language": language},
             verified=True,
         )
 
@@ -221,7 +227,7 @@ def verify_email_code(
         UserToken(userInfo=user_dto, token=token),
         created_new_user,
         {
-            "course_id": course_id,
+            "course_id": normalized_course_id,
             "language": language,
             "snapshot": snapshot.to_dict(),
         },
