@@ -4,13 +4,28 @@
 
 body,
 html {
-  font-family: var(--font-geist-sans);
+  font-family: var(--font-app-sans);
   font-size: 16px;
   -webkit-font-smoothing: subpixel-antialiased;
   -moz-osx-font-smoothing: auto;
 }
 
 :root {
+  /*
+   * Host UI typography. MarkdownFlow content and code blocks intentionally
+   * keep their own reading and monospace font contracts.
+   */
+  --font-app-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Open Sans', 'Helvetica Neue',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Source Han Sans SC',
+    'Noto Sans CJK SC', 'Noto Sans SC', Arial, 'Noto Sans', 'Liberation Sans',
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji', sans-serif;
+  /* Compatibility aliases for existing design tokens and Tailwind font-sans. */
+  --font-geist-sans: var(--font-app-sans);
+  --font-font-sans: var(--font-app-sans);
+  --font-sans: var(--font-app-sans);
   --app-viewport-block-unit: 1dvh;
 }
 
@@ -42,11 +57,6 @@ body.listen-mode-vh-fallback #root {
 
 @layer base {
   :root {
-    --font-geist-sans:
-      ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-      'Roboto', 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans',
-      sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-      'Noto Color Emoji';
     --font-geist-mono:
       ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
       'Courier New', monospace;
@@ -257,4 +267,221 @@ body.listen-mode-vh-fallback #root {
 .reveal video,
 .reveal iframe {
   max-width: 100% !important;
+}
+
+[data-lesson-print-only='true'] {
+  display: none;
+}
+
+[data-lesson-print-iframe-snapshot='true'] {
+  display: none;
+}
+
+@media print {
+  html.lesson-pdf-print,
+  html.lesson-pdf-print body,
+  html.lesson-pdf-print body #root {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  html.lesson-pdf-print body {
+    background: #fff !important;
+    color: #0a0a0a !important;
+    overscroll-behavior: auto !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Keep only the ancestor branch that contains the exact lesson scroll root.
+     This remains valid if layout components add intermediate wrappers. */
+  html.lesson-pdf-print
+    :is(body, body *):has([data-lesson-print-scroll='true'])
+    > :not([data-lesson-print-scroll='true']):not(
+      :has([data-lesson-print-scroll='true'])
+    ):not([data-lesson-print-only='true']),
+  html.lesson-pdf-print [data-lesson-print-exclude='true'] {
+    display: none !important;
+  }
+
+  html.lesson-pdf-print body #root,
+  html.lesson-pdf-print body #root :has([data-lesson-print-scroll='true']),
+  html.lesson-pdf-print [data-lesson-print-scroll] {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    flex: none !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] > div {
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-only='true'] {
+    display: block !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-course-qr='true'] {
+    margin-top: 48px !important;
+    padding-top: 32px !important;
+    border-top: 1px solid #e5e7eb !important;
+    text-align: center;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  html.lesson-pdf-print .lesson-pdf-course-qr-link {
+    display: inline-flex !important;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: #525252 !important;
+    font-size: 13px;
+    line-height: 1.5;
+    text-decoration: none !important;
+  }
+
+  html.lesson-pdf-print .lesson-pdf-course-qr-code {
+    width: 144px !important;
+    height: 144px !important;
+    max-width: none !important;
+    background: #fff !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-interaction='true'] {
+    pointer-events: none !important;
+    break-inside: avoid;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-interaction='true']
+    :is(button, label, input, textarea, select) {
+    opacity: 1 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-iframe-sandbox {
+    display: none !important;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    [data-lesson-print-iframe-snapshot='true'] {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] audio,
+  html.lesson-pdf-print
+    [data-lesson-print-interaction='true']
+    .multi-select-confirm-button,
+  html.lesson-pdf-print
+    [data-lesson-print-interaction='true']
+    .input-container
+    > button,
+  html.lesson-pdf-print [data-lesson-print-scroll] custom-button-after-content,
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-custom-button-after-content,
+  html.lesson-pdf-print [data-lesson-print-scroll] .copy-button,
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-iframe-sandbox
+    > button {
+    display: none !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] .content-render,
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-table-container,
+  html.lesson-pdf-print [data-lesson-print-scroll] .content-render-mermaid,
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-mermaid-inner,
+  html.lesson-pdf-print [data-lesson-print-scroll] .mermaid-chart-container,
+  html.lesson-pdf-print [data-lesson-print-scroll] .content-render-svg-scroll,
+  html.lesson-pdf-print [data-lesson-print-scroll] .content-render-iframe,
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-iframe-sandbox,
+  html.lesson-pdf-print [data-lesson-print-scroll] pre {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-svg.content-render-svg--fixed {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-svg.content-render-svg--fixed
+    svg {
+    width: auto !important;
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] .content-render-table {
+    width: 100% !important;
+    table-layout: fixed;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    :is(.content-render-th, .content-render-td) {
+    overflow-wrap: anywhere;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] pre {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] :is(img, video, canvas) {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    img[data-lesson-print-course-avatar='true'] {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 9999px !important;
+    object-fit: cover !important;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    img[data-lesson-print-site-logo='true'] {
+    width: 92px !important;
+    height: 24px !important;
+    object-fit: contain !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] :is(iframe, table) {
+    max-width: 100% !important;
+  }
 }

@@ -17,6 +17,7 @@
     display: flex;
     justify-content: flex-end;
     padding: 8px 12px;
+    font-family: var(--font-app-sans);
     font-size: 14px;
     line-height: 20px;
     border-radius: 8px;
@@ -40,7 +41,7 @@
     display: flex;
     justify-content: flex-start;
     color: rgba(0, 0, 0, 0.65);
-    font-family: 'PingFang SC';
+    font-family: var(--font-app-sans);
     font-size: 16px;
     font-style: normal;
     font-weight: var(--font-weight-normal, 400);
@@ -101,7 +102,6 @@
       .userMessage {
         background: transparent;
         color: rgba(0, 0, 0, 0.65);
-        font-family: 'PingFang SC';
         font-size: 12px;
         font-style: normal;
         font-weight: var(--font-weight-normal, 400);
