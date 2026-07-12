@@ -2524,6 +2524,7 @@ def copy_operator_course(
             shifu_bid=new_shifu_bid,
             title=resolved_new_course_name,
             user_id=action_user_bid,
+            claim_new_bid=True,
         )
 
         target_creator_result = _prepare_operator_target_creator(

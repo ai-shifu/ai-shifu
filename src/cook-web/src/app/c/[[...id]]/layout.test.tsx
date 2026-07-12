@@ -20,6 +20,10 @@ const mockReplaceState = jest
   .spyOn(window.history, 'replaceState')
   .mockImplementation(() => {});
 
+afterAll(() => {
+  mockReplaceState.mockRestore();
+});
+
 jest.mock('next/navigation', () => ({
   useParams: () =>
     mockRouteIdentifier ? { id: [mockRouteIdentifier] } : { id: undefined },
@@ -106,6 +110,20 @@ const courseInfo = {
   course_tts_enabled: true,
 };
 
+const DownstreamCourseProbe = ({
+  onMount,
+}: {
+  onMount: (courseId: string) => void;
+}) => {
+  const courseId = useEnvStore(state => state.courseId);
+
+  React.useEffect(() => {
+    onMount(courseId);
+  }, [courseId, onMount]);
+
+  return <div data-testid='downstream-course-probe'>{courseId}</div>;
+};
+
 describe('learner course identity bootstrap', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -139,6 +157,7 @@ describe('learner course identity bootstrap', () => {
   });
 
   test('gates children until a route identifier resolves to the canonical BID', async () => {
+    const downstreamRequest = jest.fn();
     let resolveCourseInfo: (value: typeof courseInfo) => void = () => {};
     (getCourseInfo as jest.Mock).mockReturnValue(
       new Promise(resolve => {
@@ -148,14 +167,17 @@ describe('learner course identity bootstrap', () => {
 
     render(
       <ChatLayout>
-        <div data-testid='learner-child' />
+        <DownstreamCourseProbe onMount={downstreamRequest} />
       </ChatLayout>,
     );
 
     expect(getQueryParams(window.location.href)).toMatchObject({
       preview: 'true',
     });
-    expect(screen.queryByTestId('learner-child')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('downstream-course-probe'),
+    ).not.toBeInTheDocument();
+    expect(downstreamRequest).not.toHaveBeenCalled();
     expect(getCourseInfo).toHaveBeenCalledWith('legacy-bid', true);
 
     await act(async () => {
@@ -164,8 +186,12 @@ describe('learner course identity bootstrap', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('learner-child')).toBeInTheDocument();
+      expect(screen.getByTestId('downstream-course-probe')).toHaveTextContent(
+        'canonical-bid',
+      );
     });
+    expect(downstreamRequest).toHaveBeenCalledTimes(1);
+    expect(downstreamRequest).toHaveBeenCalledWith('canonical-bid');
     expect(useEnvStore.getState()).toMatchObject({
       courseId: 'canonical-bid',
       courseSlug: 'practical-ai-teaching-methods',
@@ -179,6 +205,268 @@ describe('learner course identity bootstrap', () => {
       window.history.state,
       '',
       '/c/practical-ai-teaching-methods?lessonid=lesson-1&mode=listen&preview=true#follow-up',
+    );
+  });
+
+  test('does not replace an already-canonical slug route', async () => {
+    mockRouteIdentifier = 'practical-ai-teaching-methods';
+    Object.assign(window.location, {
+      href: 'http://localhost:3000/c/practical-ai-teaching-methods?mode=read#lesson',
+      pathname: '/c/practical-ai-teaching-methods',
+      search: '?mode=read',
+      hash: '#lesson',
+    });
+    (getCourseInfo as jest.Mock).mockResolvedValue(courseInfo);
+
+    render(
+      <ChatLayout>
+        <div data-testid='learner-child' />
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('learner-child')).toBeInTheDocument();
+    });
+    expect(getCourseInfo).toHaveBeenCalledWith(
+      'practical-ai-teaching-methods',
+      false,
+    );
+    expect(mockReplaceState).not.toHaveBeenCalled();
+    expect(useEnvStore.getState()).toMatchObject({
+      courseId: 'canonical-bid',
+      courseSlug: 'practical-ai-teaching-methods',
+      courseCanonicalUrl: '/c/practical-ai-teaching-methods',
+    });
+  });
+
+  test('converges a historical slug to the current slug while preserving query and hash', async () => {
+    mockRouteIdentifier = 'historical-ai-teaching-course';
+    Object.assign(window.location, {
+      href: 'http://localhost:3000/c/historical-ai-teaching-course?preview=true&mode=listen&lessonid=lesson-2&utm_source=history#follow-up',
+      pathname: '/c/historical-ai-teaching-course',
+      search: '?preview=true&mode=listen&lessonid=lesson-2&utm_source=history',
+      hash: '#follow-up',
+    });
+    (getCourseInfo as jest.Mock).mockResolvedValue(courseInfo);
+
+    render(
+      <ChatLayout>
+        <div data-testid='learner-child' />
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('learner-child')).toBeInTheDocument();
+    });
+    expect(getCourseInfo).toHaveBeenCalledWith(
+      'historical-ai-teaching-course',
+      true,
+    );
+    expect(mockReplaceState).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/c/practical-ai-teaching-methods?preview=true&mode=listen&lessonid=lesson-2&utm_source=history#follow-up',
+    );
+    expect(useEnvStore.getState()).toMatchObject({
+      courseId: 'canonical-bid',
+      courseSlug: 'practical-ai-teaching-methods',
+      courseCanonicalUrl: '/c/practical-ai-teaching-methods',
+    });
+  });
+
+  test('keeps a canonical BID route when the course does not have a slug yet', async () => {
+    mockRouteIdentifier = 'canonical-bid';
+    Object.assign(window.location, {
+      href: 'http://localhost:3000/c/canonical-bid?preview=true#lesson',
+      pathname: '/c/canonical-bid',
+      search: '?preview=true',
+      hash: '#lesson',
+    });
+    (getCourseInfo as jest.Mock).mockResolvedValue({
+      ...courseInfo,
+      course_slug: '',
+      course_canonical_url: '/c/canonical-bid',
+    });
+
+    render(
+      <ChatLayout>
+        <div data-testid='learner-child' />
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('learner-child')).toBeInTheDocument();
+    });
+    expect(mockReplaceState).not.toHaveBeenCalled();
+    expect(useEnvStore.getState()).toMatchObject({
+      courseId: 'canonical-bid',
+      courseSlug: '',
+      courseCanonicalUrl: '/c/canonical-bid',
+    });
+  });
+
+  test('gates an already-mounted course immediately while the next course resolves', async () => {
+    type CourseInfo = typeof courseInfo;
+    const downstreamRequest = jest.fn();
+    let resolveCourseB: (value: CourseInfo) => void = () => {};
+    const courseAInfo: CourseInfo = {
+      ...courseInfo,
+      course_id: 'canonical-bid-a',
+      course_slug: 'current-course-a-link',
+      course_canonical_url: '/c/current-course-a-link',
+      course_name: 'Current Course A',
+    };
+    const courseBInfo: CourseInfo = {
+      ...courseInfo,
+      course_id: 'canonical-bid-b',
+      course_slug: 'current-course-b-link',
+      course_canonical_url: '/c/current-course-b-link',
+      course_name: 'Current Course B',
+    };
+    (getCourseInfo as jest.Mock).mockImplementation((identifier: string) => {
+      if (identifier === 'current-course-a-link') {
+        return Promise.resolve(courseAInfo);
+      }
+      if (identifier === 'historical-course-b-link') {
+        return new Promise<CourseInfo>(resolve => {
+          resolveCourseB = resolve;
+        });
+      }
+      throw new Error(`Unexpected course identifier: ${identifier}`);
+    });
+    mockRouteIdentifier = 'current-course-a-link';
+    Object.assign(window.location, {
+      href: 'http://localhost:3000/c/current-course-a-link',
+      pathname: '/c/current-course-a-link',
+      search: '',
+      hash: '',
+    });
+
+    const { rerender } = render(
+      <ChatLayout>
+        <DownstreamCourseProbe onMount={downstreamRequest} />
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('downstream-course-probe')).toHaveTextContent(
+        'canonical-bid-a',
+      );
+    });
+    expect(downstreamRequest).toHaveBeenCalledWith('canonical-bid-a');
+    downstreamRequest.mockClear();
+
+    mockRouteIdentifier = 'historical-course-b-link';
+    Object.assign(window.location, {
+      href: 'http://localhost:3000/c/historical-course-b-link',
+      pathname: '/c/historical-course-b-link',
+    });
+    rerender(
+      <ChatLayout>
+        <DownstreamCourseProbe onMount={downstreamRequest} />
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(getCourseInfo).toHaveBeenCalledWith(
+        'historical-course-b-link',
+        false,
+      );
+    });
+    expect(
+      screen.queryByTestId('downstream-course-probe'),
+    ).not.toBeInTheDocument();
+    expect(downstreamRequest).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveCourseB(courseBInfo);
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('downstream-course-probe')).toHaveTextContent(
+        'canonical-bid-b',
+      );
+    });
+    expect(downstreamRequest).toHaveBeenCalledTimes(1);
+    expect(downstreamRequest).toHaveBeenCalledWith('canonical-bid-b');
+  });
+
+  test('ignores a late bootstrap response after navigating to another course', async () => {
+    type CourseInfo = typeof courseInfo;
+    let resolveCourseA: (value: CourseInfo) => void = () => {};
+    let resolveCourseB: (value: CourseInfo) => void = () => {};
+    const courseBInfo: CourseInfo = {
+      ...courseInfo,
+      course_id: 'canonical-bid-b',
+      course_slug: 'advanced-course-design-methods',
+      course_canonical_url: '/c/advanced-course-design-methods',
+      course_name: 'Advanced Course Design Methods',
+    };
+    (getCourseInfo as jest.Mock).mockImplementation((identifier: string) => {
+      if (identifier === 'legacy-bid-a') {
+        return new Promise<CourseInfo>(resolve => {
+          resolveCourseA = resolve;
+        });
+      }
+      if (identifier === 'legacy-bid-b') {
+        return new Promise<CourseInfo>(resolve => {
+          resolveCourseB = resolve;
+        });
+      }
+      throw new Error(`Unexpected course identifier: ${identifier}`);
+    });
+    mockRouteIdentifier = 'legacy-bid-a';
+    Object.assign(window.location, {
+      href: 'http://localhost:3000/c/legacy-bid-a',
+      pathname: '/c/legacy-bid-a',
+      search: '',
+      hash: '',
+    });
+
+    const { rerender } = render(
+      <ChatLayout>
+        <div data-testid='learner-child' />
+      </ChatLayout>,
+    );
+    expect(getCourseInfo).toHaveBeenCalledWith('legacy-bid-a', false);
+
+    mockRouteIdentifier = 'legacy-bid-b';
+    Object.assign(window.location, {
+      href: 'http://localhost:3000/c/legacy-bid-b',
+      pathname: '/c/legacy-bid-b',
+    });
+    rerender(
+      <ChatLayout>
+        <div data-testid='learner-child' />
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(getCourseInfo).toHaveBeenCalledWith('legacy-bid-b', false);
+    });
+    await act(async () => {
+      resolveCourseB(courseBInfo);
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('learner-child')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      resolveCourseA(courseInfo);
+      await Promise.resolve();
+    });
+
+    expect(useEnvStore.getState()).toMatchObject({
+      courseId: 'canonical-bid-b',
+      courseSlug: 'advanced-course-design-methods',
+      courseCanonicalUrl: '/c/advanced-course-design-methods',
+    });
+    expect(mockReplaceState).toHaveBeenCalledTimes(1);
+    expect(mockReplaceState).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/c/advanced-course-design-methods',
     );
   });
 

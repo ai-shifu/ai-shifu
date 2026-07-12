@@ -12,7 +12,7 @@ from typing import Iterable
 
 from flask import Flask, current_app, has_app_context
 from sqlalchemy import and_, func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
@@ -24,7 +24,12 @@ from flaskr.service.metering.api import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.util.prompt_loader import load_prompt_template
 
-from .models import DraftShifu, PublishedShifu, ShifuCourseSlug
+from .models import (
+    DraftShifu,
+    PublishedShifu,
+    ShifuCourseSlug,
+    ShifuPublicIdentifier,
+)
 
 
 SLUG_MIN_LENGTH = 18
@@ -32,6 +37,10 @@ SLUG_MAX_LENGTH = 48
 SLUG_MIN_WORDS = 3
 SLUG_MAX_WORDS = 6
 SLUG_GENERATION_ATTEMPTS = 2
+SLUG_ALLOCATION_TRANSACTION_ATTEMPTS = 3
+
+_MYSQL_RETRYABLE_TRANSACTION_ERRORS = {1205, 1213}
+_MYSQL_MISSING_SAVEPOINT_ERROR = 1305
 
 _SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _BID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
@@ -80,7 +89,9 @@ def _app_context_if_needed(app: Flask):
 def validate_course_slug(slug: str) -> str:
     """Validate and return one normal model-generated slug."""
 
-    normalized = str(slug or "").strip()
+    normalized = str(slug or "")
+    if normalized != normalized.strip():
+        raise InvalidCourseSlug("slug must not contain leading or trailing whitespace")
     if len(normalized) < SLUG_MIN_LENGTH or len(normalized) > SLUG_MAX_LENGTH:
         raise InvalidCourseSlug(
             f"slug length must be {SLUG_MIN_LENGTH}-{SLUG_MAX_LENGTH} characters"
@@ -236,6 +247,14 @@ def assert_shifu_bid_available(shifu_bid: str) -> None:
     """Reject a new BID that is already owned by a public slug."""
 
     normalized = str(shifu_bid or "").strip()
+    reservation = ShifuPublicIdentifier.query.filter_by(identifier=normalized).first()
+    if reservation and not (
+        reservation.identifier_type == "bid"
+        and str(reservation.shifu_bid) == normalized
+    ):
+        raise ShifuIdentifierConflict(
+            f"shifu_bid conflicts with the public identifier for {reservation.shifu_bid}"
+        )
     conflict = ShifuCourseSlug.query.filter(
         ShifuCourseSlug.slug == normalized,
         ShifuCourseSlug.shifu_bid != normalized,
@@ -243,6 +262,128 @@ def assert_shifu_bid_available(shifu_bid: str) -> None:
     if conflict:
         raise ShifuIdentifierConflict(
             f"shifu_bid conflicts with the public slug for {conflict.shifu_bid}"
+        )
+
+
+def _public_identifier_query(identifier: str):
+    return ShifuPublicIdentifier.query.filter_by(identifier=identifier)
+
+
+def _reserve_public_identifier(
+    *,
+    identifier: str,
+    shifu_bid: str,
+    identifier_type: str,
+    require_new: bool = False,
+    prefer_committed_bid: bool = False,
+) -> ShifuPublicIdentifier:
+    """Reserve one identifier with a unique-key wait safe under MySQL isolation."""
+
+    existing = _public_identifier_query(identifier).first()
+    if existing:
+        if (
+            str(existing.shifu_bid) == shifu_bid
+            and str(existing.identifier_type) == identifier_type
+        ):
+            if require_new:
+                raise ShifuIdentifierConflict(
+                    f"public identifier is already reserved for {existing.shifu_bid}"
+                )
+            return existing
+        if prefer_committed_bid:
+            existing.shifu_bid = shifu_bid
+            existing.identifier_type = "bid"
+            db.session.flush()
+            return existing
+        raise ShifuIdentifierConflict(
+            f"public identifier is already reserved for {existing.shifu_bid}"
+        )
+
+    reservation = ShifuPublicIdentifier(
+        identifier=identifier,
+        shifu_bid=shifu_bid,
+        identifier_type=identifier_type,
+    )
+    _ensure_outer_transaction_for_savepoint()
+    try:
+        with db.session.begin_nested():
+            db.session.add(reservation)
+            db.session.flush()
+        return reservation
+    except IntegrityError as exc:
+        winner = _public_identifier_query(identifier).with_for_update().first()
+        if winner and (
+            str(winner.shifu_bid) == shifu_bid
+            and str(winner.identifier_type) == identifier_type
+        ):
+            if require_new:
+                raise ShifuIdentifierConflict(
+                    f"public identifier is already reserved for {winner.shifu_bid}"
+                ) from exc
+            return winner
+        if winner and prefer_committed_bid:
+            winner.shifu_bid = shifu_bid
+            winner.identifier_type = "bid"
+            db.session.flush()
+            return winner
+        owner = str(winner.shifu_bid) if winner else "another course"
+        raise ShifuIdentifierConflict(
+            f"public identifier is already reserved for {owner}"
+        ) from exc
+
+
+def _reserve_committed_course_bid(shifu_bid: str) -> ShifuPublicIdentifier:
+    """Reserve an existing BID with precedence over any shadowed legacy slug."""
+
+    normalized = str(shifu_bid or "").strip()
+    if not _bid_exists(normalized):
+        raise RuntimeError(f"cannot reserve unknown committed BID {normalized}")
+    return _reserve_public_identifier(
+        identifier=normalized,
+        shifu_bid=normalized,
+        identifier_type="bid",
+        prefer_committed_bid=True,
+    )
+
+
+def _reserve_course_bid(
+    shifu_bid: str,
+    *,
+    claim_new_bid: bool = False,
+) -> ShifuPublicIdentifier:
+    normalized = str(shifu_bid or "").strip()
+    if _bid_exists(normalized):
+        if claim_new_bid:
+            raise ShifuIdentifierConflict(f"shifu_bid already exists: {normalized}")
+        return _reserve_committed_course_bid(normalized)
+    assert_shifu_bid_available(normalized)
+    return _reserve_public_identifier(
+        identifier=normalized,
+        shifu_bid=normalized,
+        identifier_type="bid",
+        require_new=claim_new_bid,
+    )
+
+
+def _reserve_existing_course_identifiers(shifu_bid: str) -> None:
+    """Reconcile one existing BID plus all current and historical slug aliases."""
+
+    normalized_bid = str(shifu_bid or "").strip()
+    _reserve_course_bid(normalized_bid)
+    bindings = ShifuCourseSlug.query.filter_by(shifu_bid=normalized_bid).order_by(
+        ShifuCourseSlug.version.asc()
+    )
+    for binding in bindings.all():
+        slug = str(binding.slug)
+        if _bid_exists(slug):
+            # Legacy BIDs always win resolution. Reserve that committed BID and
+            # leave the shadowed slug represented only by its historical binding.
+            _reserve_committed_course_bid(slug)
+            continue
+        _reserve_public_identifier(
+            identifier=slug,
+            shifu_bid=normalized_bid,
+            identifier_type="slug",
         )
 
 
@@ -333,6 +474,8 @@ def _candidate_with_suffix(base_slug: str, suffix: str) -> str:
 
 
 def _candidate_is_available(candidate: str) -> bool:
+    if _public_identifier_query(candidate).first():
+        return False
     slug_owner = ShifuCourseSlug.query.filter_by(slug=candidate).first()
     if slug_owner:
         return False
@@ -378,44 +521,69 @@ def _next_slug_version(shifu_bid: str) -> int:
     return int(latest.version) + 1 if latest else 1
 
 
-def allocate_course_slug(
-    app: Flask,
+def _is_retryable_mysql_operational_error(exc: OperationalError) -> bool:
+    bind = db.session.get_bind()
+    if bind.dialect.name != "mysql":
+        return False
+    original_args = getattr(exc.orig, "args", ())
+    if not original_args:
+        return False
+    error_code = original_args[0]
+    if error_code in _MYSQL_RETRYABLE_TRANSACTION_ERRORS:
+        return True
+    # InnoDB rolls back the full transaction on a deadlock. SQLAlchemy then
+    # attempts to roll back the nested allocation savepoint and surfaces 1305
+    # instead of the original 1213. Retrying is safe because the caller has no
+    # staged course writes and allocate_course_slug rolls back the whole session.
+    return (
+        error_code == _MYSQL_MISSING_SAVEPOINT_ERROR
+        and "SAVEPOINT" in str(exc.orig).upper()
+    )
+
+
+def _allocate_course_slug_once(
     *,
     shifu_bid: str,
     prepared: PreparedCourseSlug,
+    claim_new_bid: bool,
 ) -> SlugAllocation:
-    """Atomically bind a prepared base while preserving global namespace rules."""
-
-    normalized_bid = str(shifu_bid or "").strip()
-    existing = _current_slug_query(normalized_bid).first()
+    existing = _current_slug_query(shifu_bid).first()
     if existing:
+        if claim_new_bid:
+            raise ShifuIdentifierConflict(f"shifu_bid already exists: {shifu_bid}")
+        _reserve_existing_course_identifiers(shifu_bid)
         return SlugAllocation(existing, created=False, collided=False)
-    assert_shifu_bid_available(normalized_bid)
+    _reserve_course_bid(shifu_bid, claim_new_bid=claim_new_bid)
 
     candidates = [prepared.base_slug]
     candidates.extend(
         _candidate_with_suffix(
             prepared.base_slug,
-            _stable_suffix(normalized_bid, suffix_length),
+            _stable_suffix(shifu_bid, suffix_length),
         )
         for suffix_length in range(8, 27, 2)
     )
     _ensure_outer_transaction_for_savepoint()
-    next_version = _next_slug_version(normalized_bid)
+    next_version = _next_slug_version(shifu_bid)
 
     for index, candidate in enumerate(candidates):
         if not _candidate_is_available(candidate):
             continue
         binding = ShifuCourseSlug(
-            shifu_bid=normalized_bid,
+            shifu_bid=shifu_bid,
             slug=candidate,
             version=next_version,
             is_current=1,
             generation_source=prepared.generation_source,
         )
+        reservation = ShifuPublicIdentifier(
+            identifier=candidate,
+            shifu_bid=shifu_bid,
+            identifier_type="slug",
+        )
         try:
             with db.session.begin_nested():
-                db.session.add(binding)
+                db.session.add_all([reservation, binding])
                 db.session.flush()
             return SlugAllocation(binding, created=True, collided=index > 0)
         except IntegrityError:
@@ -423,15 +591,57 @@ def allocate_course_slug(
             # the pre-conflict snapshot. A locking read is a current read, so
             # after the unique-key wait resolves it can see a committed BID
             # winner and return the current binding.
-            existing = _current_slug_query(normalized_bid).with_for_update().first()
+            existing = _current_slug_query(shifu_bid).with_for_update().first()
             if existing:
+                if claim_new_bid:
+                    raise ShifuIdentifierConflict(
+                        f"shifu_bid already exists: {shifu_bid}"
+                    )
                 return SlugAllocation(
                     existing,
                     created=False,
                     collided=str(existing.slug) != prepared.base_slug,
                 )
-            next_version = _next_slug_version(normalized_bid)
+            next_version = _next_slug_version(shifu_bid)
             continue
+
+    raise RuntimeError(f"unable to allocate a unique course slug for {shifu_bid}")
+
+
+def allocate_course_slug(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    prepared: PreparedCourseSlug,
+    claim_new_bid: bool = False,
+) -> SlugAllocation:
+    """Atomically bind a prepared base while preserving global namespace rules."""
+
+    normalized_bid = str(shifu_bid or "").strip()
+    session = db.session()
+    retry_safe = not (session.new or session.dirty or session.deleted)
+    for attempt in range(1, SLUG_ALLOCATION_TRANSACTION_ATTEMPTS + 1):
+        try:
+            return _allocate_course_slug_once(
+                shifu_bid=normalized_bid,
+                prepared=prepared,
+                claim_new_bid=claim_new_bid,
+            )
+        except OperationalError as exc:
+            if (
+                not retry_safe
+                or not _is_retryable_mysql_operational_error(exc)
+                or attempt == SLUG_ALLOCATION_TRANSACTION_ATTEMPTS
+            ):
+                raise
+            session.rollback()
+            app.logger.warning(
+                "Retrying course slug allocation transaction %s/%s for %s: %s",
+                attempt + 1,
+                SLUG_ALLOCATION_TRANSACTION_ATTEMPTS,
+                normalized_bid,
+                exc,
+            )
 
     raise RuntimeError(f"unable to allocate a unique course slug for {normalized_bid}")
 
@@ -442,6 +652,7 @@ def ensure_shifu_slug(
     shifu_bid: str,
     title: str,
     user_id: str = "",
+    claim_new_bid: bool = False,
 ) -> ShifuCourseSlug:
     """Return the current binding or generate and allocate the first version."""
 
@@ -450,7 +661,18 @@ def ensure_shifu_slug(
     with db.session.no_autoflush:
         existing = _current_slug_query(shifu_bid).first()
     if existing:
+        if claim_new_bid:
+            raise ShifuIdentifierConflict(f"shifu_bid already exists: {shifu_bid}")
+        _reserve_existing_course_identifiers(str(existing.shifu_bid))
         return existing
+    if claim_new_bid:
+        normalized_bid = str(shifu_bid or "").strip()
+        if (
+            _bid_exists(normalized_bid)
+            or _public_identifier_query(normalized_bid).first()
+        ):
+            raise ShifuIdentifierConflict(f"shifu_bid already exists: {normalized_bid}")
+        assert_shifu_bid_available(normalized_bid)
     _release_read_transaction_before_generation()
     prepared = prepare_course_slug(
         app,
@@ -462,6 +684,7 @@ def ensure_shifu_slug(
         app,
         shifu_bid=shifu_bid,
         prepared=prepared,
+        claim_new_bid=claim_new_bid,
     ).binding
 
 
@@ -585,6 +808,19 @@ def backfill_course_slugs(
                 stats["scanned"] = int(stats["scanned"]) + 1
                 if course_bid in existing_slugs:
                     stats["existing"] = int(stats["existing"]) + 1
+                    if not dry_run:
+                        try:
+                            _reserve_existing_course_identifiers(course_bid)
+                            db.session.commit()
+                        except Exception as exc:
+                            db.session.rollback()
+                            stats["failed"] = int(stats["failed"]) + 1
+                            app.logger.error(
+                                "Course identifier reconciliation failed for %s: %s",
+                                course_bid,
+                                exc,
+                                exc_info=True,
+                            )
                     continue
                 stats["missing"] = int(stats["missing"]) + 1
                 missing_bids.append(course_bid)
@@ -613,6 +849,7 @@ def backfill_course_slugs(
                         shifu_bid=course_bid,
                         prepared=prepared,
                     )
+                    _reserve_existing_course_identifiers(course_bid)
                     source = str(allocation.binding.generation_source)
                     collided = allocation.collided
                     db.session.commit()

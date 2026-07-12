@@ -139,6 +139,51 @@ def test_preview_course_info_resolves_slug_before_permission(
     assert contextualized_bids == [shifu_bid]
 
 
+def test_historical_slug_resolves_but_course_info_returns_current_canonical_path(
+    test_client,
+    app,
+):
+    from flaskr.service.shifu.models import ShifuCourseSlug
+    from flaskr.util.datetime import now_utc
+
+    shifu_bid = "historical-http-alias-course"
+    owner_bid = "historical-http-alias-owner"
+    historical_slug = "historical-http-course-link"
+    current_slug = "current-http-course-link"
+    _seed_course(app, shifu_bid, owner_bid)
+
+    with app.app_context():
+        dao.db.session.add_all(
+            [
+                ShifuCourseSlug(
+                    shifu_bid=shifu_bid,
+                    slug=historical_slug,
+                    version=1,
+                    is_current=None,
+                    generation_source="llm",
+                    retired_at=now_utc(),
+                ),
+                ShifuCourseSlug(
+                    shifu_bid=shifu_bid,
+                    slug=current_slug,
+                    version=2,
+                    is_current=1,
+                    generation_source="manual",
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    response = test_client.get(f"/api/learn/shifu/{historical_slug}?preview_mode=false")
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["bid"] == shifu_bid
+    assert payload["data"]["slug"] == current_slug
+    assert payload["data"]["canonical_path"] == f"/c/{current_slug}"
+
+
 def test_unknown_public_identifier_is_rejected_before_context_and_business(
     monkeypatch, test_client
 ):

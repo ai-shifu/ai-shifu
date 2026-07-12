@@ -402,8 +402,23 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
 
 
 def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
-    monkeypatch, test_client
+    monkeypatch, test_client, app
 ):
+    from flaskr.dao import db
+    from flaskr.service.shifu.models import PublishedShifu
+
+    with app.app_context():
+        PublishedShifu.query.filter_by(shifu_bid="builtin-demo-1").delete()
+        db.session.add(
+            PublishedShifu(
+                shifu_bid="builtin-demo-1",
+                title="Built-in demo",
+                created_user_bid="builtin-demo-owner",
+                updated_user_bid="builtin-demo-owner",
+            )
+        )
+        db.session.commit()
+
     _mock_user(monkeypatch, "user-run")
     monkeypatch.setattr(
         "flaskr.service.learn.routes.resolve_shifu_identifier",

@@ -295,6 +295,7 @@ def create_shifu_draft(
             shifu_bid=shifu_id,
             title=shifu_name,
             user_id=user_id,
+            claim_new_bid=True,
         )
 
         # save to database
@@ -590,6 +591,7 @@ def save_shifu_draft_info(
                 shifu_bid=shifu_id,
                 title=shifu_name or "",
                 user_id=user_id,
+                claim_new_bid=True,
             )
             shifu_draft: DraftShifu = DraftShifu(
                 shifu_bid=shifu_id,

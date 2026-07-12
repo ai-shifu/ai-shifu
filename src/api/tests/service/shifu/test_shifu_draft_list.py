@@ -8,8 +8,13 @@ from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
     PublishedOutlineItem,
+    PublishedShifu,
+    ShifuCourseSlug,
 )
-from flaskr.service.shifu.shifu_draft_funcs import get_shifu_draft_list
+from flaskr.service.shifu.shifu_draft_funcs import (
+    get_shifu_draft_list,
+    get_shifu_published_list,
+)
 
 
 def _seed_draft(
@@ -245,4 +250,66 @@ def test_get_shifu_draft_list_ignores_published_outline_activity(app):
     assert [item.bid for item in result.data[:2]] == [
         "draft-published-outline-reference",
         "draft-published-outline-course",
+    ]
+
+
+def test_author_draft_and_published_lists_include_current_slug(app):
+    owner_bid = "slug-list-owner"
+    course_bid = "slug-list-course"
+    course_slug = "author-list-course-link"
+    created_at = datetime(2026, 7, 12, 8, 0, 0)
+
+    with app.app_context():
+        _seed_draft(
+            shifu_bid=course_bid,
+            title="Slug list course",
+            owner_bid=owner_bid,
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        dao.db.session.add_all(
+            [
+                PublishedShifu(
+                    shifu_bid=course_bid,
+                    title="Slug list course",
+                    description="desc",
+                    avatar_res_bid="res",
+                    created_user_bid=owner_bid,
+                    updated_user_bid=owner_bid,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+                ShifuCourseSlug(
+                    shifu_bid=course_bid,
+                    slug=course_slug,
+                    version=1,
+                    is_current=1,
+                    generation_source="llm",
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        drafts = get_shifu_draft_list(
+            app,
+            owner_bid,
+            page_index=1,
+            page_size=10,
+            is_favorite=False,
+            archived=False,
+            creator_only=True,
+        )
+        published = get_shifu_published_list(
+            app,
+            owner_bid,
+            page_index=1,
+            page_size=10,
+            creator_only=True,
+        )
+
+    assert [(item.bid, item.slug) for item in drafts.data] == [
+        (course_bid, course_slug)
+    ]
+    assert [(item.bid, item.slug) for item in published.data] == [
+        (course_bid, course_slug)
     ]

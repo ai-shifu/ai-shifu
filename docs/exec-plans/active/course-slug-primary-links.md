@@ -29,11 +29,19 @@ permissions, progress, metering, authoring, and operations continue to use
 - [x] 2026-07-12 09:53 CST: Prepared slug storage for future changes with
   versioned current and historical records while retaining v1's no-edit
   behavior; passed focused and full backend verification.
-- [ ] 2026-07-12 09:26 CST: Run the fresh-MySQL migration smoke with an external
-  MySQL DSN; this checkout does not provide `TEST_SQLALCHEMY_DATABASE_URI`.
+- [x] 2026-07-12 17:16 CST: Ran the fresh-MySQL migration and real allocator
+  concurrency probe against local MySQL 9.7, then repeated the concurrency
+  probe twice in parallel; all runs passed.
 - [ ] 2026-07-12 09:27 CST: Run browser E2E against the default dev stack;
   Playwright launches outside the sandbox, but no server is running on port
   8080 and Docker is unavailable in this environment.
+- [x] 2026-07-12 16:45 CST: Closed the post-review coverage gaps: replaced the
+  stale learner smoke fixture, exercised every learner route through slug and
+  BID identifiers, validated unpublished-course admission, and added real
+  MySQL concurrency coverage for the shared identifier namespace.
+- [x] 2026-07-12 16:45 CST: Added end-to-end lifecycle, backfill recovery,
+  authentication, current/historical slug, DTO, export, and payment branch
+  coverage, then rerun focused and full verification.
 
 ## Surprises & Discoveries
 
@@ -57,6 +65,24 @@ permissions, progress, metering, authoring, and operations continue to use
 - The legacy query parser included the URL fragment in the final query value.
   Canonicalization exposed this for `preview=true#fragment`; query parsing now
   strips the fragment first.
+- The existing learner smoke test was a false positive on `main`: its fixed
+  demo BID returned business code 4008, but the test accepted any HTTP response
+  and the old learner shell mounted before course identity succeeded. Bootstrap
+  gating correctly exposed the stale fixture.
+- `CourseInfoFetchError` spread an `Error` instance before classifying it;
+  because `Error.message` is non-enumerable and code 4008 was not explicit,
+  a real course-not-found response was misclassified as transient.
+- BID and slug availability were checked in separate tables before writes.
+  Those sequential checks do not make the global namespace atomic across two
+  concurrent transactions and need a shared database reservation primitive.
+- MySQL rolls back the full transaction after a deadlock, then SQLAlchemy can
+  surface error 1305 while trying to roll back the now-missing nested
+  savepoint instead of surfacing the original 1213. Allocation treats that
+  specific missing-savepoint case as a bounded whole-transaction retry only
+  when no course writes are staged.
+- The migration probe must use an explicit `mysql+pymysql` DSN because the
+  repository installs PyMySQL, and a standalone probe must initialize the
+  Flask app before importing database models.
 
 ## Decision Log
 
@@ -75,6 +101,10 @@ permissions, progress, metering, authoring, and operations continue to use
   creation is not blocked by model availability.
 - Keep the public identifier namespace global. Existing BIDs win during
   resolution and future slug/BID allocation rejects cross-namespace clashes.
+- Reserve BID and slug claims in `shifu_public_identifiers`. Explicit new-course
+  paths use winner/loser claiming, while publish, backfill, and existing-course
+  paths remain idempotent. Backfill also reconciles current and historical
+  aliases so upgrades from a partially populated slug table are recoverable.
 - Keep authoring and operations routes BID-only. Only learner/public links gain
   slug aliases.
 - Canonicalization uses browser replace semantics and preserves all query
@@ -91,7 +121,7 @@ permissions, progress, metering, authoring, and operations continue to use
 
 ## Outcomes & Retrospective
 
-The implementation is complete in the working tree. New courses receive a
+The implementation is complete locally. New courses receive a
 current slug before any course row is staged; every learner route resolves a
 current or historical slug, or a legacy BID, to the canonical BID; all public
 URL producers prefer the current slug; and the learner frontend does not mount
@@ -100,20 +130,22 @@ idempotent, keyset-paged, resumable, and reports remaining coverage.
 
 Verification completed locally:
 
-- backend full suite: 2056 passed, 6 skipped;
-- focused slug history and constraint suite: 39 passed;
-- expanded shifu/learn/payment/migration suite: 661 passed, 6 skipped;
-- frontend focused slug suites: 33 passed;
+- backend full suite: 2211 passed, 7 skipped;
+- fresh MySQL migration plus same-title, same-BID, cross-namespace,
+  case-insensitive, and symmetric deadlock concurrency probe: 3 passed, then
+  the concurrency case passed twice more in parallel;
+- frontend focused slug suites: 47 passed across 11 suites;
+- frontend full Jest inventory: 136 suites and 1002 tests passed; four
+  unchanged baseline suites fail on `main` for unrelated test-harness issues;
 - frontend type-check, lint, and full Prettier check;
 - Ruff check/format, repository harness, architecture boundaries, shared i18n,
-  and the full lefthook pre-commit gate.
+  development-tool checks, and the full lefthook pre-commit gate.
 
-Two environment-dependent rollout checks remain. The fresh-MySQL test now
-asserts the version/history columns, three unique constraints, and state checks
-but needs an external DSN.
-Playwright launches when run outside the sandbox, but the smoke suite needs the
+One environment-dependent rollout check remains. Playwright discovers all
+three smoke tests, but the browser suite needs the
 default application stack at `http://localhost:8080`; Docker is not installed
-in this environment.
+in this environment. The runtime-harness workflow now runs the MySQL probe,
+focused frontend contracts, type/lint checks, and browser E2E in CI.
 
 ## Context and Orientation
 

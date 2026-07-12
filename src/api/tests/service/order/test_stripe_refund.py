@@ -5,9 +5,16 @@ import flaskr.dao as dao
 from flaskr.dao import db
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
 from flaskr.service.order.funs import refund_order_payment, get_payment_details
-from flaskr.service.order.models import Order, StripeOrder
+from flaskr.service.order.models import (
+    AlipayOrder,
+    Order,
+    PingxxOrder,
+    StripeOrder,
+    WechatPayOrder,
+)
 from flaskr.service.order.payment_providers.base import PaymentRefundResult
 from flaskr.service.shifu.models import ShifuCourseSlug
+from flaskr.util.datetime import now_utc
 
 
 class DummyStripeRefundProvider:
@@ -158,14 +165,24 @@ def test_get_payment_details_returns_stripe_payload(app):
             checkout_session_object="{}",
         )
         db.session.add(stripe_order)
-        db.session.add(
-            ShifuCourseSlug(
-                shifu_bid=order.shifu_bid,
-                slug="practical-stripe-course-link",
-                version=1,
-                is_current=1,
-                generation_source="llm",
-            )
+        db.session.add_all(
+            [
+                ShifuCourseSlug(
+                    shifu_bid=order.shifu_bid,
+                    slug="historical-stripe-course-link",
+                    version=1,
+                    is_current=None,
+                    generation_source="llm",
+                    retired_at=now_utc(),
+                ),
+                ShifuCourseSlug(
+                    shifu_bid=order.shifu_bid,
+                    slug="practical-stripe-course-link",
+                    version=2,
+                    is_current=1,
+                    generation_source="manual",
+                ),
+            ]
         )
         db.session.add(
             StripeOrder(
@@ -200,3 +217,92 @@ def test_get_payment_details_returns_stripe_payload(app):
     assert details["payment_intent_id"] == "pi_test"
     assert details["checkout_session_id"] == "cs_test"
     assert details["metadata"] == {}
+
+
+@pytest.mark.parametrize(
+    ("payment_channel", "native_model", "provider_bid_field"),
+    [
+        ("alipay", AlipayOrder, "alipay_order_bid"),
+        ("wechatpay", WechatPayOrder, "wechatpay_order_bid"),
+    ],
+)
+def test_get_payment_details_returns_canonical_url_for_native_branches(
+    app,
+    payment_channel,
+    native_model,
+    provider_bid_field,
+):
+    with app.app_context():
+        order_bid = f"order-{payment_channel}-details"
+        order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)
+        order.payment_channel = payment_channel
+        native_order = native_model(
+            **{provider_bid_field: f"{payment_channel}-snapshot"},
+            biz_domain="order",
+            order_bid=order_bid,
+            user_bid=order.user_bid,
+            shifu_bid=order.shifu_bid,
+            provider_attempt_id=f"{payment_channel}-attempt",
+            transaction_id=f"{payment_channel}-transaction",
+            channel=f"{payment_channel}-qr",
+            amount=100,
+            currency="CNY",
+            status=1,
+            raw_status="success",
+            raw_request="{}",
+            raw_response="{}",
+            raw_notification="{}",
+            metadata_json="{}",
+        )
+        db.session.add_all(
+            [
+                native_order,
+                ShifuCourseSlug(
+                    shifu_bid=order.shifu_bid,
+                    slug="native-payment-course-link",
+                    version=1,
+                    is_current=1,
+                    generation_source="llm",
+                ),
+            ]
+        )
+        db.session.commit()
+
+    details = get_payment_details(app, order_bid)
+
+    assert details["payment_channel"] == payment_channel
+    assert details["course_id"] == "shifu-1"
+    assert details["course_url"] == "/c/native-payment-course-link"
+    assert details["provider_attempt_id"] == f"{payment_channel}-attempt"
+
+
+def test_get_payment_details_returns_bid_fallback_for_pingxx_branch(app):
+    with app.app_context():
+        order_bid = "order-pingxx-details"
+        order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)
+        order.payment_channel = "pingxx"
+        db.session.add(
+            PingxxOrder(
+                pingxx_order_bid="pingxx-snapshot",
+                biz_domain="order",
+                order_bid=order_bid,
+                user_bid=order.user_bid,
+                shifu_bid=order.shifu_bid,
+                transaction_no="pingxx-transaction",
+                channel="alipay_qr",
+                amount=100,
+                currency="CNY",
+                extra="{}",
+                status=1,
+                charge_id="charge-pingxx",
+                charge_object="{}",
+            )
+        )
+        db.session.commit()
+
+    details = get_payment_details(app, order_bid)
+
+    assert details["payment_channel"] == "pingxx"
+    assert details["course_id"] == "shifu-1"
+    assert details["course_url"] == "/c/shifu-1"
+    assert details["charge_id"] == "charge-pingxx"

@@ -119,8 +119,6 @@ export default function ChatLayout({
     updateWechatCode,
     setShowVip,
     updateLanguage,
-    previewMode,
-    skip,
     updatePreviewMode,
     updateSkip,
     updateShowLearningModeToggle,
@@ -226,16 +224,6 @@ export default function ChatLayout({
 
   if (channel !== currChannel) {
     updateChannel(currChannel);
-  }
-
-  // Apply preview/skip flags eagerly so child components (and their effects) see
-  // the correct mode on the first render.
-  if (previewMode !== isPreviewMode) {
-    updatePreviewMode(isPreviewMode);
-  }
-
-  if (skip !== isSkipMode) {
-    updateSkip(isSkipMode);
   }
 
   useEffect(() => {

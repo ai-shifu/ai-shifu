@@ -18,6 +18,7 @@ from flaskr.service.shifu.models import (
     DraftShifu,
     LogDraftStruct,
     PublishedShifu,
+    ShifuCourseSlug,
 )
 from flaskr.service.shifu.permissions import get_user_shifu_permissions
 from flaskr.service.shifu.utils import get_shifu_creator_bid
@@ -160,25 +161,53 @@ def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
     viewer_bid = uuid.uuid4().hex[:32]
     target_email = f"{uuid.uuid4().hex[:10]}@example.com"
     demo_bid = uuid.uuid4().hex[:32]
+    course_slug = "transfer-stable-course-link"
 
     with app.app_context():
         _seed_user(app, user_bid=old_creator_bid, email="old@example.com")
         _seed_user(app, user_bid=viewer_bid, email="viewer@example.com")
         _seed_course(shifu_bid, old_creator_bid)
-        db.session.add(
-            AiCourseAuth(
-                course_auth_id=uuid.uuid4().hex[:32],
-                user_id=viewer_bid,
-                course_id=shifu_bid,
-                auth_type=json.dumps(["view"]),
-                status=1,
-            )
+        original_binding = ShifuCourseSlug(
+            shifu_bid=shifu_bid,
+            slug=course_slug,
+            version=1,
+            is_current=1,
+            generation_source="llm",
+        )
+        db.session.add_all(
+            [
+                AiCourseAuth(
+                    course_auth_id=uuid.uuid4().hex[:32],
+                    user_id=viewer_bid,
+                    course_id=shifu_bid,
+                    auth_type=json.dumps(["view"]),
+                    status=1,
+                ),
+                original_binding,
+            ]
         )
         db.session.commit()
+        original_binding_state = (
+            original_binding.id,
+            original_binding.slug,
+            original_binding.version,
+            original_binding.is_current,
+            original_binding.generation_source,
+            original_binding.created_at,
+            original_binding.retired_at,
+        )
 
         monkeypatch.setattr(
             "flaskr.service.shifu.admin.load_existing_demo_shifu_ids",
             lambda: {demo_bid},
+        )
+
+        def fail_slug_regeneration(*_args, **_kwargs):
+            raise AssertionError("creator transfer must not regenerate the course slug")
+
+        monkeypatch.setattr(
+            "flaskr.service.shifu.slug.prepare_course_slug",
+            fail_slug_regeneration,
         )
 
         result = transfer_operator_course_creator(
@@ -205,6 +234,7 @@ def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
             identifier=target_email,
             deleted=0,
         ).first()
+        slug_bindings = ShifuCourseSlug.query.filter_by(shifu_bid=shifu_bid).all()
 
         assert result["created_new_user"] is True
         assert result["granted_demo_permissions"] is True
@@ -223,6 +253,18 @@ def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
             is False
         )
         assert shared_auth is not None
+        assert [
+            (
+                binding.id,
+                binding.slug,
+                binding.version,
+                binding.is_current,
+                binding.generation_source,
+                binding.created_at,
+                binding.retired_at,
+            )
+            for binding in slug_bindings
+        ] == [original_binding_state]
 
 
 def test_transfer_creator_promotes_unregistered_existing_user(app, monkeypatch):

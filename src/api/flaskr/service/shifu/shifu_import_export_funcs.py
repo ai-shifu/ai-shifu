@@ -270,6 +270,7 @@ def import_shifu(
                     shifu_bid=shifu_bid,
                     title=new_shifu.title,
                     user_id=user_id,
+                    claim_new_bid=True,
                 )
 
                 db.session.add(new_shifu)
@@ -313,6 +314,7 @@ def import_shifu(
                 shifu_bid=shifu_bid,
                 title=new_shifu.title,
                 user_id=user_id,
+                claim_new_bid=True,
             )
 
             db.session.add(new_shifu)

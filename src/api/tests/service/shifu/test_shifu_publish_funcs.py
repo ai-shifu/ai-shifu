@@ -1,6 +1,7 @@
 import sys
 import types
 from datetime import datetime
+from decimal import Decimal
 
 from flask import Flask
 
@@ -9,6 +10,7 @@ from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
     PublishedOutlineItem,
+    PublishedShifu,
     ShifuCourseSlug,
 )
 
@@ -265,3 +267,114 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
     assert published_outline is not None
     assert published_outline.updated_at == draft_updated_at
     assert published_url == f"https://example.com/c/{slug.slug}"
+
+
+def test_rename_and_republish_preserve_the_original_slug(app, monkeypatch):
+    from flaskr.service.shifu import shifu_draft_funcs, shifu_publish_funcs
+
+    course_bid = "rename-republish-slug-course"
+    owner_bid = "rename-republish-owner"
+    original_slug = "original-rename-course-link"
+
+    def fail_slug_regeneration(*_args, **_kwargs):
+        raise AssertionError("rename and republish must not regenerate the slug")
+
+    monkeypatch.setattr(
+        shifu_publish_funcs,
+        "_run_summary_with_error_handling",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        shifu_draft_funcs,
+        "check_text_with_risk_control",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        shifu_draft_funcs,
+        "shifu_permission_verification",
+        lambda *_args, **_kwargs: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.slug.prepare_course_slug",
+        fail_slug_regeneration,
+    )
+
+    with app.app_context():
+        db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=course_bid,
+                    title="Original course title",
+                    description="Description",
+                    price=Decimal("0.50"),
+                    created_user_bid=owner_bid,
+                    updated_user_bid=owner_bid,
+                ),
+                DraftOutlineItem(
+                    outline_item_bid="rename-republish-lesson",
+                    shifu_bid=course_bid,
+                    title="Lesson",
+                    position="1",
+                    type=401,
+                    hidden=0,
+                    content="# Lesson",
+                    created_user_bid=owner_bid,
+                    updated_user_bid=owner_bid,
+                ),
+                ShifuCourseSlug(
+                    shifu_bid=course_bid,
+                    slug=original_slug,
+                    version=1,
+                    is_current=1,
+                    generation_source="llm",
+                ),
+            ]
+        )
+        db.session.commit()
+
+    renamed = shifu_draft_funcs.save_shifu_draft_info(
+        app,
+        user_id=owner_bid,
+        shifu_id=course_bid,
+        shifu_name="Renamed course title",
+        shifu_description=None,
+        shifu_avatar=None,
+        shifu_keywords=None,
+        shifu_model=None,
+        shifu_temperature=None,
+        shifu_price=None,
+        shifu_system_prompt=None,
+        base_url="https://example.com",
+    )
+    first_url = shifu_publish_funcs.publish_shifu_draft(
+        app,
+        user_id=owner_bid,
+        shifu_id=course_bid,
+        base_url="https://example.com",
+        sync_summary=True,
+    )
+    second_url = shifu_publish_funcs.publish_shifu_draft(
+        app,
+        user_id=owner_bid,
+        shifu_id=course_bid,
+        base_url="https://example.com",
+        sync_summary=True,
+    )
+
+    with app.app_context():
+        slug_bindings = ShifuCourseSlug.query.filter_by(shifu_bid=course_bid).all()
+        current_publish = PublishedShifu.query.filter_by(
+            shifu_bid=course_bid,
+            deleted=0,
+        ).one()
+        published_versions = PublishedShifu.query.filter_by(shifu_bid=course_bid).all()
+
+        assert renamed.slug == original_slug
+        assert renamed.url == f"https://example.com/c/{original_slug}"
+        assert first_url == f"https://example.com/c/{original_slug}"
+        assert second_url == first_url
+        assert current_publish.title == "Renamed course title"
+        assert len(published_versions) == 2
+        assert [(binding.slug, binding.is_current) for binding in slug_bindings] == [
+            (original_slug, 1)
+        ]

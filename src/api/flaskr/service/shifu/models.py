@@ -167,6 +167,51 @@ class ShifuUserArchive(db.Model):
     )
 
 
+class ShifuPublicIdentifier(db.Model):
+    """Atomically reserved public BID or slug in the shared route namespace."""
+
+    __tablename__ = "shifu_public_identifiers"
+    __table_args__ = (
+        UniqueConstraint(
+            "identifier",
+            name="uk_shifu_public_identifiers_identifier",
+        ),
+        CheckConstraint(
+            "identifier_type IN ('bid', 'slug')",
+            name="ck_shifu_public_identifiers_type",
+        ),
+        CheckConstraint(
+            "identifier_type <> 'bid' OR identifier = shifu_bid",
+            name="ck_shifu_public_identifiers_bid_owner",
+        ),
+        {"comment": "Atomic BID and slug reservations for public course routes"},
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    identifier = Column(
+        String(48),
+        nullable=False,
+        comment="Globally unique public BID or slug",
+    )
+    shifu_bid = Column(
+        String(32),
+        nullable=False,
+        index=True,
+        comment="Canonical shifu business identifier",
+    )
+    identifier_type = Column(
+        String(8),
+        nullable=False,
+        comment="Identifier kind: bid or slug",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="UTC reservation timestamp",
+    )
+
+
 class ShifuCourseSlug(db.Model):
     """Versioned public slug record for a shifu."""
 

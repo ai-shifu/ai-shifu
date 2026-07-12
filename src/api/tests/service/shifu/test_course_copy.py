@@ -21,6 +21,7 @@ from flaskr.service.shifu.models import (
     ShifuCourseSlug,
 )
 from flaskr.service.shifu.shifu_history_manager import get_shifu_history
+from flaskr.service.shifu.slug import ShifuIdentifierConflict
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.service.user.repository import create_user_entity, upsert_credential
@@ -28,6 +29,7 @@ from flaskr.service.user.repository import create_user_entity, upsert_credential
 
 SOURCE_TITLE = "复制源课程"
 SOURCE_OPERATOR_BID = "operator-copy-1"
+SOURCE_SLUG = "source-course-primary-link"
 
 
 def _unique_email(label: str) -> str:
@@ -252,12 +254,17 @@ def _seed_course_variable(
     _clear_config_caches()
 
 
-def test_copy_course_allows_same_creator_and_clones_latest_draft(app):
+def test_copy_course_allows_same_creator_and_clones_latest_draft(app, monkeypatch):
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     viewer_bid = uuid.uuid4().hex[:32]
     creator_email = _unique_email("owner")
     viewer_email = _unique_email("viewer")
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.slug._invoke_slug_model",
+        lambda *_args, **_kwargs: json.dumps({"slug": SOURCE_SLUG}),
+    )
 
     with app.app_context():
         _seed_user(app, user_bid=creator_bid, email=creator_email)
@@ -268,6 +275,15 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app):
             app,
             shifu_bid=shifu_bid,
             creator_user_bid=creator_bid,
+        )
+        db.session.add(
+            ShifuCourseSlug(
+                shifu_bid=shifu_bid,
+                slug=SOURCE_SLUG,
+                version=1,
+                is_current=1,
+                generation_source="llm",
+            )
         )
         db.session.add(
             AiCourseAuth(
@@ -310,7 +326,8 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app):
         assert result["target_creator_user_bid"] == creator_bid
         assert result["created_new_user"] is False
         assert copied_draft.shifu_bid != shifu_bid
-        assert copied_slug.slug
+        assert copied_slug.slug != SOURCE_SLUG
+        assert copied_slug.slug.startswith(f"{SOURCE_SLUG}-")
         assert (
             copied_draft.title
             == f"{SOURCE_TITLE}{_('server.shifu.copyCourseTitleSuffix')}"
@@ -360,6 +377,63 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app):
         )
         assert len(copied_history.children[0].children) == 2
         assert copied_auths == []
+
+
+def test_copy_course_rejects_mocked_generate_id_collision(app, monkeypatch):
+    from flaskr.service.shifu.admin_operations import courses as courses_module
+
+    source_bid = uuid.uuid4().hex[:32]
+    target_bid = uuid.uuid4().hex[:32]
+    creator_bid = uuid.uuid4().hex[:32]
+    creator_email = _unique_email("collision-owner")
+
+    with app.app_context():
+        _seed_user(app, user_bid=creator_bid, email=creator_email)
+        creator = UserEntity.query.filter_by(user_bid=creator_bid).one()
+        creator.is_creator = 1
+        _seed_course_with_outlines(
+            app,
+            shifu_bid=source_bid,
+            creator_user_bid=creator_bid,
+        )
+        db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=target_bid,
+                    title="Existing collision target",
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                ),
+                ShifuCourseSlug(
+                    shifu_bid=target_bid,
+                    slug="existing-copy-collision-link",
+                    version=1,
+                    is_current=1,
+                    generation_source="llm",
+                ),
+            ]
+        )
+        db.session.commit()
+
+    monkeypatch.setattr(courses_module, "generate_id", lambda _app: target_bid)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.slug._invoke_slug_model",
+        lambda *_args, **_kwargs: pytest.fail(
+            "an existing generated BID must fail before calling the model"
+        ),
+    )
+
+    with pytest.raises(ShifuIdentifierConflict, match="already exists"):
+        copy_operator_course(
+            app,
+            shifu_bid=source_bid,
+            contact_type="email",
+            identifier=creator_email,
+            operator_user_bid=SOURCE_OPERATOR_BID,
+        )
+
+    with app.app_context():
+        assert DraftShifu.query.filter_by(shifu_bid=target_bid).count() == 1
 
 
 def test_copy_course_creates_missing_target_user_and_grants_creator_role(

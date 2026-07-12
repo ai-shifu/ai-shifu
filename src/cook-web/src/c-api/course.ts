@@ -10,6 +10,7 @@ type GetCourseInfoOptions = {
 };
 
 const COURSE_NOT_FOUND_MESSAGE_FALLBACKS = ['course not found'];
+const COURSE_NOT_FOUND_CODES = new Set([4001, 4008, 404]);
 let cachedNotFoundMessages: { language: string; messages: string[] } | null =
   null;
 
@@ -46,7 +47,7 @@ const getCourseNotFoundMessages = (): string[] => {
 const isCourseNotFoundError = (error: any): boolean => {
   const code = Number(error?.code);
   const status = Number(error?.status);
-  if (code === 4001 || code === 404 || status === 404) {
+  if (COURSE_NOT_FOUND_CODES.has(code) || status === 404) {
     return true;
   }
   const message = String(error?.message || '').toLowerCase();
@@ -70,9 +71,9 @@ export class CourseInfoFetchError extends Error {
         ? Number(error?.code)
         : undefined;
     this.isCourseNotFound = isCourseNotFoundError({
-      ...error,
       code: this.code,
       status: this.status,
+      message: this.message,
     });
   }
 }

@@ -52,9 +52,38 @@ def _seed_shifu(app, shifu_bid: str, owner_bid: str):
 
 
 def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
+    from flaskr.service.shifu.models import ShifuCourseSlug
+
     shifu_bid = "test-archive-toggle"
     owner_bid = "owner-123"
+    course_slug = "archive-stable-course-link"
     _seed_shifu(app, shifu_bid, owner_bid)
+    with app.app_context():
+        original_binding = ShifuCourseSlug(
+            shifu_bid=shifu_bid,
+            slug=course_slug,
+            version=1,
+            is_current=1,
+            generation_source="llm",
+        )
+        dao.db.session.add(original_binding)
+        dao.db.session.commit()
+        original_binding_state = (
+            original_binding.id,
+            original_binding.slug,
+            original_binding.version,
+            original_binding.is_current,
+            original_binding.generation_source,
+            original_binding.created_at,
+            original_binding.retired_at,
+        )
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.slug.prepare_course_slug",
+        lambda *_args, **_kwargs: pytest.fail(
+            "archive lifecycle must not regenerate the course slug"
+        ),
+    )
 
     archived_at = datetime(2026, 4, 21, 0, 0, 0)
     unarchived_at = datetime(2026, 4, 22, 0, 0, 0)
@@ -74,6 +103,10 @@ def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
         archive = ShifuUserArchive.query.filter_by(
             shifu_bid=shifu_bid, user_bid=owner_bid
         ).first()
+        slug_binding = ShifuCourseSlug.query.filter_by(
+            shifu_bid=shifu_bid,
+            is_current=1,
+        ).one()
 
         assert draft is not None
         assert archive is not None
@@ -81,6 +114,15 @@ def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
         assert archive.created_at == archived_at
         assert archive.updated_at == archived_at
         assert archive.archived_at == archived_at
+        assert (
+            slug_binding.id,
+            slug_binding.slug,
+            slug_binding.version,
+            slug_binding.is_current,
+            slug_binding.generation_source,
+            slug_binding.created_at,
+            slug_binding.retired_at,
+        ) == original_binding_state
 
     monkeypatch.setattr(draft_module, "now_utc", lambda: unarchived_at)
     unarchive_shifu(app, owner_bid, shifu_bid)
@@ -95,6 +137,7 @@ def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
         archive = ShifuUserArchive.query.filter_by(
             shifu_bid=shifu_bid, user_bid=owner_bid
         ).first()
+        slug_bindings = ShifuCourseSlug.query.filter_by(shifu_bid=shifu_bid).all()
 
         assert draft is not None
         assert archive is not None
@@ -102,6 +145,18 @@ def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
         assert archive.created_at == archived_at
         assert archive.updated_at == unarchived_at
         assert archive.archived_at is None
+        assert [
+            (
+                binding.id,
+                binding.slug,
+                binding.version,
+                binding.is_current,
+                binding.generation_source,
+                binding.created_at,
+                binding.retired_at,
+            )
+            for binding in slug_bindings
+        ] == [original_binding_state]
 
 
 def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(app, monkeypatch):

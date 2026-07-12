@@ -1893,6 +1893,7 @@ def test_get_record_api_returns_element_payload_by_default(app, monkeypatch):
     from flaskr.dao import db
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+    from flaskr.service.shifu.models import PublishedShifu
 
     user_bid = "user-record-api-elements"
     shifu_bid = "shifu-record-api-elements"
@@ -1908,7 +1909,15 @@ def test_get_record_api_returns_element_payload_by_default(app, monkeypatch):
     with app.app_context():
         LearnGeneratedElement.query.delete()
         LearnProgressRecord.query.delete()
+        PublishedShifu.query.filter_by(shifu_bid=shifu_bid).delete()
         db.session.commit()
+
+        published_shifu = PublishedShifu(
+            shifu_bid=shifu_bid,
+            title="Record API course",
+            created_user_bid="record-api-owner",
+            updated_user_bid="record-api-owner",
+        )
 
         progress = LearnProgressRecord(
             progress_record_bid=progress_bid,
@@ -1940,7 +1949,7 @@ def test_get_record_api_returns_element_payload_by_default(app, monkeypatch):
             payload=json.dumps({"audio": None, "previous_visuals": []}),
             status=1,
         )
-        db.session.add_all([progress, final])
+        db.session.add_all([published_shifu, progress, final])
         db.session.commit()
 
     with app.test_request_context(

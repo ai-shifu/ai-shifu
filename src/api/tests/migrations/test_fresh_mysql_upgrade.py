@@ -28,7 +28,7 @@ def test_alembic_migrations_have_single_head():
     config.set_main_option("script_location", str(API_ROOT / "migrations"))
     heads = ScriptDirectory.from_config(config).get_heads()
 
-    assert heads == ["c7e4a9d2f6b1"]
+    assert heads == ["d9f1c3e5a7b2"]
 
 
 def _get_base_mysql_uri() -> str:
@@ -179,6 +179,25 @@ def test_fresh_mysql_upgrade_reaches_head():
             column["name"]: column
             for column in inspector.get_columns("shifu_course_slugs")
         }
+        identifier_unique_constraints = {
+            constraint["name"]
+            for constraint in inspector.get_unique_constraints(
+                "shifu_public_identifiers"
+            )
+        }
+        identifier_check_constraints = {
+            constraint["name"]
+            for constraint in inspector.get_check_constraints(
+                "shifu_public_identifiers"
+            )
+        }
+        identifier_indexes = {
+            index["name"] for index in inspector.get_indexes("shifu_public_identifiers")
+        }
+        identifier_columns = {
+            column["name"]: column
+            for column in inspector.get_columns("shifu_public_identifiers")
+        }
         engine.dispose()
 
         assert current_head == expected_head
@@ -188,6 +207,7 @@ def test_fresh_mysql_upgrade_reaches_head():
             "var_variables",
             "learn_lesson_feedbacks",
             "shifu_course_slugs",
+            "shifu_public_identifiers",
         }.issubset(tables)
         assert slug_unique_constraints == {
             "uk_shifu_course_slugs_slug",
@@ -202,5 +222,67 @@ def test_fresh_mysql_upgrade_reaches_head():
         assert not slug_columns["version"]["nullable"]
         assert slug_columns["is_current"]["nullable"]
         assert slug_columns["retired_at"]["nullable"]
+        assert identifier_unique_constraints == {
+            "uk_shifu_public_identifiers_identifier"
+        }
+        assert identifier_check_constraints == {
+            "ck_shifu_public_identifiers_type",
+            "ck_shifu_public_identifiers_bid_owner",
+        }
+        assert "ix_shifu_public_identifiers_shifu_bid" in identifier_indexes
+        assert not identifier_columns["identifier"]["nullable"]
+        assert not identifier_columns["identifier_type"]["nullable"]
+        assert not identifier_columns["created_at"]["nullable"]
+    finally:
+        _drop_temp_database(base_uri, database_name)
+
+
+def test_mysql_course_slug_allocator_handles_real_concurrency():
+    base_uri = _get_base_mysql_uri()
+    temp_uri, database_name = _create_temp_database(base_uri)
+    env = os.environ.copy()
+    env["SQLALCHEMY_DATABASE_URI"] = temp_uri
+
+    try:
+        migration = subprocess.run(
+            [sys.executable, "-c", _migration_subprocess_script()],
+            cwd=API_ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert migration.returncode == 0, (
+            "Fresh MySQL migration failed before concurrency probe.\n"
+            f"STDOUT:\n{migration.stdout}\n"
+            f"STDERR:\n{migration.stderr}"
+        )
+
+        probe = subprocess.run(
+            [
+                sys.executable,
+                str(
+                    API_ROOT
+                    / "tests"
+                    / "migrations"
+                    / "mysql_slug_concurrency_runner.py"
+                ),
+            ],
+            cwd=API_ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=120,
+        )
+        assert probe.returncode == 0, (
+            "MySQL course slug concurrency probe failed.\n"
+            f"STDOUT:\n{probe.stdout}\n"
+            f"STDERR:\n{probe.stderr}"
+        )
+        assert '"same_title"' in probe.stdout
+        assert '"same_bid"' in probe.stdout
+        assert '"cross_namespace"' in probe.stdout
+        assert '"symmetric_cross_namespace"' in probe.stdout
     finally:
         _drop_temp_database(base_uri, database_name)
