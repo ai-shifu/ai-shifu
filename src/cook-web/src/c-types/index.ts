@@ -26,6 +26,8 @@ export interface UserInfo {
 
 export interface CourseInfo {
   course_id: string;
+  course_slug: string;
+  course_canonical_url: string;
   course_name: string;
   course_desc: string;
   course_keywords: string;

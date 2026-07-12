@@ -76,6 +76,7 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.api import build_course_public_path, get_shifu_slug
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.api.tts import (
@@ -252,6 +253,10 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
         tts_enabled = bool(shifu.tts_enabled)
         return LearnShifuInfoDTO(
             bid=shifu.shifu_bid,
+            slug=get_shifu_slug(shifu.shifu_bid),
+            canonical_path=build_course_public_path(
+                shifu.shifu_bid, preview=preview_mode
+            ),
             title=shifu.title,
             description=shifu.description,
             avatar=get_shifu_res_url(shifu.avatar_res_bid),

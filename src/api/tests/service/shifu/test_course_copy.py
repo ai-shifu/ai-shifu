@@ -14,7 +14,12 @@ from flaskr.i18n import _
 from flaskr.service.common.models import AppException, ERROR_CODE, raise_error
 from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.admin import copy_operator_course
-from flaskr.service.shifu.models import AiCourseAuth, DraftOutlineItem, DraftShifu
+from flaskr.service.shifu.models import (
+    AiCourseAuth,
+    DraftOutlineItem,
+    DraftShifu,
+    ShifuCourseSlug,
+)
 from flaskr.service.shifu.shifu_history_manager import get_shifu_history
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
@@ -296,11 +301,13 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app):
         copied_by_title = {item.title: item for item in copied_outlines}
         copied_history = get_shifu_history(app, new_shifu_bid)
         copied_auths = AiCourseAuth.query.filter_by(course_id=new_shifu_bid).all()
+        copied_slug = ShifuCourseSlug.query.filter_by(shifu_bid=new_shifu_bid).one()
 
         assert result["source_shifu_bid"] == shifu_bid
         assert result["target_creator_user_bid"] == creator_bid
         assert result["created_new_user"] is False
         assert copied_draft.shifu_bid != shifu_bid
+        assert copied_slug.slug
         assert (
             copied_draft.title
             == f"{SOURCE_TITLE}{_('server.shifu.copyCourseTitleSuffix')}"

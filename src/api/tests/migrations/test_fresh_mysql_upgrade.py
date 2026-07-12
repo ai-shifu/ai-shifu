@@ -28,7 +28,7 @@ def test_alembic_migrations_have_single_head():
     config.set_main_option("script_location", str(API_ROOT / "migrations"))
     heads = ScriptDirectory.from_config(config).get_heads()
 
-    assert heads == ["f6b2a4d8c9e0"]
+    assert heads == ["c7e4a9d2f6b1"]
 
 
 def _get_base_mysql_uri() -> str:
@@ -167,6 +167,10 @@ def test_fresh_mysql_upgrade_reaches_head():
             ).scalar_one()
         inspector = inspect(engine)
         tables = set(inspector.get_table_names())
+        slug_unique_constraints = {
+            constraint["name"]
+            for constraint in inspector.get_unique_constraints("shifu_course_slugs")
+        }
         engine.dispose()
 
         assert current_head == expected_head
@@ -175,6 +179,11 @@ def test_fresh_mysql_upgrade_reaches_head():
             "user_users",
             "var_variables",
             "learn_lesson_feedbacks",
+            "shifu_course_slugs",
         }.issubset(tables)
+        assert slug_unique_constraints == {
+            "uk_shifu_course_slugs_shifu_bid",
+            "uk_shifu_course_slugs_slug",
+        }
     finally:
         _drop_temp_database(base_uri, database_name)

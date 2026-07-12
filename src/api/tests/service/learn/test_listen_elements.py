@@ -1885,7 +1885,7 @@ def test_listen_run_persists_exception_gate_block_before_element_rows(app):
     assert rows[0].generated_block_bid == generated_blocks[0].generated_block_bid
 
 
-def test_get_record_api_returns_element_payload_by_default(app):
+def test_get_record_api_returns_element_payload_by_default(app, monkeypatch):
     _require_app(app)
 
     from flask import request
@@ -1900,6 +1900,10 @@ def test_get_record_api_returns_element_payload_by_default(app):
     progress_bid = "progress-record-api-elements"
     generated_block_bid = "generated-record-api-elements"
     element_bid = "element-record-api-001"
+    monkeypatch.setattr(
+        "flaskr.service.learn.routes.resolve_shifu_identifier",
+        lambda _app, identifier: identifier,
+    )
 
     with app.app_context():
         LearnGeneratedElement.query.delete()

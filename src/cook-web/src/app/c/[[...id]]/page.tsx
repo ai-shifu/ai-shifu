@@ -8,7 +8,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import type { MobileViewMode } from 'markdown-flow-ui/slide';
 
-import { useParams, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 
 import {
   calcFrameLayout,
@@ -323,26 +323,10 @@ export default function ChatPage() {
   /**
    * Lesson part
    */
-  let courseId = '';
-  const params = useParams();
+  const courseId = useEnvStore(state => state.courseId);
   const searchParams = useSearchParams();
   const urlLessonId = getLessonIdFromQuery(searchParams);
   const debugEnabled = searchParams?.get('debug') === '1';
-  if (params?.id?.[0]) {
-    courseId = params.id[0];
-  }
-
-  const { updateCourseId } = useEnvStore.getState();
-
-  useEffect(() => {
-    const updateCourse = async () => {
-      if (courseId) {
-        await updateCourseId(courseId);
-      }
-    };
-    updateCourse();
-  }, [courseId]);
-
   const {
     tree,
     selectedLessonId,

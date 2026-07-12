@@ -157,7 +157,11 @@ const Header = ({
   const historyTooltip = t('module.shifu.history.title');
   const showHistoryEntry = !error && !isSaving && Boolean(lessonHistoryUrl);
   const getCourseUrl = () =>
-    buildCourseLearningUrl(currentShifu?.bid || '', currentShifu?.url);
+    buildCourseLearningUrl(
+      currentShifu?.bid || '',
+      currentShifu?.url,
+      currentShifu?.slug,
+    );
   const getLearningModeUrl = (mode: LearningMode) =>
     buildLearningModeUrl(getCourseUrl(), mode);
   const isLearningModeAvailable = (mode: LearningMode) =>

@@ -33,6 +33,9 @@ class ShifuDto(BaseModel):
     """
 
     bid: str = Field(..., description="shifu id", required=False)
+    slug: str | None = Field(
+        None, description="immutable public course slug", required=False
+    )
     name: str = Field(..., description="shifu name", required=False)
     description: str = Field(..., description="shifu description", required=False)
     avatar: str = Field(..., description="shifu avatar", required=False)
@@ -69,10 +72,12 @@ class ShifuDto(BaseModel):
         can_manage_permissions: bool = False,
         created_user_bid: str = "",
         is_guide_course: bool = False,
+        slug: str | None = None,
         **kwargs,
     ):
         super().__init__(
             bid=shifu_id,
+            slug=slug,
             name=shifu_name,
             description=shifu_description,
             avatar=shifu_avatar,
@@ -88,6 +93,7 @@ class ShifuDto(BaseModel):
     def __json__(self):
         return {
             "bid": self.bid,
+            "slug": self.slug,
             "name": self.name,
             "description": self.description,
             "avatar": self.avatar,
@@ -107,6 +113,9 @@ class ShifuDetailDto(BaseModel):
     """
 
     bid: str = Field(..., description="shifu id", required=False)
+    slug: str | None = Field(
+        None, description="immutable public course slug", required=False
+    )
     name: str = Field(..., description="shifu name", required=False)
     description: str = Field(..., description="shifu description", required=False)
     avatar: str = Field(..., description="shifu avatar", required=False)
@@ -208,9 +217,11 @@ class ShifuDetailDto(BaseModel):
         ask_temperature: float = 0.0,
         ask_system_prompt: str = "",
         ask_provider_config: dict[str, Any] | None = None,
+        slug: str | None = None,
     ):
         super().__init__(
             bid=shifu_id,
+            slug=slug,
             name=shifu_name,
             description=shifu_description,
             avatar=shifu_avatar,
@@ -244,6 +255,7 @@ class ShifuDetailDto(BaseModel):
     def __json__(self):
         return {
             "bid": self.bid,
+            "slug": self.slug,
             "name": self.name,
             "description": self.description,
             "avatar": self.avatar,

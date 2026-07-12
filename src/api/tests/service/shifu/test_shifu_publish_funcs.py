@@ -9,6 +9,7 @@ from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
     PublishedOutlineItem,
+    ShifuCourseSlug,
 )
 
 
@@ -238,7 +239,7 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
         db.session.add_all([draft, outline])
         db.session.commit()
 
-    module.publish_shifu_draft(
+    published_url = module.publish_shifu_draft(
         app,
         user_id="user-1",
         shifu_id="publish-preserve-outline-updated-at",
@@ -256,6 +257,10 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
             .order_by(PublishedOutlineItem.id.desc())
             .first()
         )
+        slug = ShifuCourseSlug.query.filter_by(
+            shifu_bid="publish-preserve-outline-updated-at"
+        ).one()
 
     assert published_outline is not None
     assert published_outline.updated_at == draft_updated_at
+    assert published_url == f"https://example.com/c/{slug.slug}"

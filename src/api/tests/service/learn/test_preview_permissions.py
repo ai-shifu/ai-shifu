@@ -54,6 +54,20 @@ def _add_course_auth(
         dao.db.session.commit()
 
 
+def _add_course_slug(app, *, shifu_bid: str, slug: str) -> None:
+    from flaskr.service.shifu.models import ShifuCourseSlug
+
+    with app.app_context():
+        dao.db.session.add(
+            ShifuCourseSlug(
+                shifu_bid=shifu_bid,
+                slug=slug,
+                generation_source="llm",
+            )
+        )
+        dao.db.session.commit()
+
+
 def _mock_user(monkeypatch, user_bid: str, *, is_creator: bool = False) -> None:
     dummy_user = SimpleNamespace(
         user_id=user_bid,
@@ -90,6 +104,87 @@ def test_preview_course_info_allows_creator(monkeypatch, test_client, app):
     assert resp.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["bid"] == shifu_bid
+
+
+def test_preview_course_info_resolves_slug_before_permission(
+    monkeypatch, test_client, app
+):
+    shifu_bid = "preview-permission-slug"
+    slug = "practical-course-preview-link"
+    owner_bid = "owner-preview-slug"
+    _seed_course(app, shifu_bid, owner_bid)
+    _add_course_slug(app, shifu_bid=shifu_bid, slug=slug)
+    _mock_user(monkeypatch, owner_bid, is_creator=True)
+    contextualized_bids = []
+    monkeypatch.setattr(
+        "flaskr.common.shifu_context._get_shifu_creator_bid_cached",
+        lambda _app, resolved_bid: (
+            contextualized_bids.append(resolved_bid) or owner_bid
+        ),
+    )
+
+    resp = test_client.get(
+        f"/api/learn/shifu/{slug}?preview_mode=true",
+        headers={"Token": "test-token"},
+    )
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["bid"] == shifu_bid
+    assert payload["data"]["slug"] == slug
+    assert payload["data"]["canonical_path"] == f"/c/{slug}?preview=true"
+    assert contextualized_bids == [shifu_bid]
+
+
+def test_unknown_public_identifier_is_rejected_before_context_and_business(
+    monkeypatch, test_client
+):
+    monkeypatch.setattr(
+        "flaskr.common.shifu_context._get_shifu_creator_bid_cached",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("unresolved identifiers must not populate shifu context")
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.routes.get_shifu_info",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("unresolved identifiers must not reach business logic")
+        ),
+    )
+
+    resp = test_client.get(
+        "/api/learn/shifu/unknown-public-course-link?preview_mode=false"
+    )
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == 4008
+
+
+def test_unpublished_slug_remains_not_found_outside_preview(
+    monkeypatch, test_client, app
+):
+    from flaskr.service.shifu.models import PublishedShifu
+
+    shifu_bid = "unpublished-course-slug"
+    slug = "unpublished-course-primary-link"
+    owner_bid = "owner-unpublished-course"
+    _seed_course(app, shifu_bid, owner_bid)
+    _add_course_slug(app, shifu_bid=shifu_bid, slug=slug)
+    with app.app_context():
+        PublishedShifu.query.filter_by(shifu_bid=shifu_bid).delete()
+        dao.db.session.commit()
+    _mock_user(monkeypatch, owner_bid, is_creator=True)
+
+    resp = test_client.get(
+        f"/api/learn/shifu/{slug}?preview_mode=false",
+        headers={"Token": "test-token"},
+    )
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == 4008
 
 
 def test_preview_course_info_allows_active_view_collaborator(

@@ -7,6 +7,7 @@ from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCES
 from flaskr.service.order.funs import refund_order_payment, get_payment_details
 from flaskr.service.order.models import Order, StripeOrder
 from flaskr.service.order.payment_providers.base import PaymentRefundResult
+from flaskr.service.shifu.models import ShifuCourseSlug
 
 
 class DummyStripeRefundProvider:
@@ -158,6 +159,13 @@ def test_get_payment_details_returns_stripe_payload(app):
         )
         db.session.add(stripe_order)
         db.session.add(
+            ShifuCourseSlug(
+                shifu_bid=order.shifu_bid,
+                slug="practical-stripe-course-link",
+                generation_source="llm",
+            )
+        )
+        db.session.add(
             StripeOrder(
                 order_bid=order.order_bid,
                 stripe_order_bid="billing-stripe-order",
@@ -185,6 +193,8 @@ def test_get_payment_details_returns_stripe_payload(app):
 
     details = get_payment_details(app, order_bid)
     assert details["payment_channel"] == "stripe"
+    assert details["course_id"] == "shifu-1"
+    assert details["course_url"] == "/c/practical-stripe-course-link"
     assert details["payment_intent_id"] == "pi_test"
     assert details["checkout_session_id"] == "cs_test"
     assert details["metadata"] == {}

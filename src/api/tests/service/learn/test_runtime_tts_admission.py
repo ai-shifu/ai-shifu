@@ -358,6 +358,10 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
 ):
     _mock_user(monkeypatch, "user-preview")
     monkeypatch.setattr(
+        "flaskr.service.learn.routes.resolve_shifu_identifier",
+        lambda _app, identifier: identifier,
+    )
+    monkeypatch.setattr(
         "flaskr.service.learn.routes.is_builtin_demo_shifu",
         lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
     )
@@ -401,6 +405,10 @@ def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
     monkeypatch, test_client
 ):
     _mock_user(monkeypatch, "user-run")
+    monkeypatch.setattr(
+        "flaskr.service.learn.routes.resolve_shifu_identifier",
+        lambda _app, identifier: identifier,
+    )
 
     monkeypatch.setattr(
         "flaskr.service.learn.routes.is_builtin_demo_shifu",

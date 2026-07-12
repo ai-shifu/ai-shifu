@@ -168,11 +168,18 @@ export const NewChatComponents = ({
     router.push(BILLING_PACKAGES_HREF);
   }, [router]);
 
-  const { courseId: shifuBid } = useEnvStore.getState();
+  const { courseId: shifuBid, courseCanonicalUrl } = useEnvStore(
+    useShallow(state => ({
+      courseId: state.courseId,
+      courseCanonicalUrl: state.courseCanonicalUrl,
+    })),
+  );
   const [lessonPdfCourseUrl, setLessonPdfCourseUrl] = useState('');
   useEffect(() => {
-    setLessonPdfCourseUrl(buildCoursePageUrl(window.location.href));
-  }, [shifuBid]);
+    setLessonPdfCourseUrl(
+      buildCoursePageUrl(window.location.href, courseCanonicalUrl),
+    );
+  }, [courseCanonicalUrl]);
   const { logoHorizontal, logoWideUrl } = useEnvStore(
     useShallow(state => ({
       logoHorizontal: state.logoHorizontal,

@@ -4,7 +4,16 @@ import { environment } from '@/config/environment';
 
 export const useEnvStore = create<EnvStoreState>(set => ({
   courseId: environment.courseId,
-  updateCourseId: async (courseId: string) => set({ courseId }),
+  courseSlug: '',
+  courseCanonicalUrl: '',
+  updateCourseId: async (courseId: string) =>
+    set({ courseId, courseSlug: '', courseCanonicalUrl: '' }),
+  updateCourseIdentity: async identity =>
+    set({
+      courseId: identity.courseId,
+      courseSlug: identity.courseSlug,
+      courseCanonicalUrl: identity.courseCanonicalUrl,
+    }),
   defaultLlmModel: environment.defaultLlmModel,
   updateDefaultLlmModel: async (defaultLlmModel: string) =>
     set({ defaultLlmModel }),

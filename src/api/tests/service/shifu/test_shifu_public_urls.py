@@ -219,7 +219,12 @@ def test_shifu_preview_endpoint_admits_course_owner_usage_for_collaborator(
 
     assert resp.status_code == 200
     assert payload["code"] == 0
-    assert payload["data"].endswith(f"/c/{shifu_bid}?preview=true")
+    with app.app_context():
+        from flaskr.service.shifu.slug import get_shifu_slug
+
+        slug = get_shifu_slug(shifu_bid)
+    assert slug
+    assert payload["data"].endswith(f"/c/{slug}?preview=true")
     assert captured["admission"] == {
         "shifu_bid": shifu_bid,
         "usage_scene": BILL_USAGE_SCENE_PREVIEW,

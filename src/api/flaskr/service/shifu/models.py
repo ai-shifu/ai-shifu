@@ -166,6 +166,43 @@ class ShifuUserArchive(db.Model):
     )
 
 
+class ShifuCourseSlug(db.Model):
+    """Immutable public slug binding for a shifu."""
+
+    __tablename__ = "shifu_course_slugs"
+    __table_args__ = (
+        UniqueConstraint("shifu_bid", name="uk_shifu_course_slugs_shifu_bid"),
+        UniqueConstraint("slug", name="uk_shifu_course_slugs_slug"),
+        {"comment": "Immutable public slug bindings for shifus"},
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    shifu_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+    )
+    slug = Column(
+        String(48),
+        nullable=False,
+        default="",
+        comment="Globally unique public course slug",
+    )
+    generation_source = Column(
+        String(16),
+        nullable=False,
+        default="llm",
+        comment="Slug generation source: llm or fallback",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Creation timestamp",
+    )
+
+
 # draft shifu's model
 class DraftShifu(db.Model):
     """

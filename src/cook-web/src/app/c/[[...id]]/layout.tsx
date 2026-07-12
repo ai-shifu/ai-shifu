@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { parseUrlParams } from '@/c-utils/urlUtils';
+import {
+  parseUrlParams,
+  replaceCurrentUrlWithCanonicalCourseRoute,
+} from '@/c-utils/urlUtils';
 // import routes from './Router/index';
 // import { useRoutes } from 'react-router-dom';
 // import { ConfigProvider } from 'antd';
@@ -46,6 +49,18 @@ const classroomAccessRequestByCourseId = new Map<
   string,
   Promise<boolean | null>
 >();
+
+type ResolvedCourseIdentity = {
+  requestedIdentifier: string;
+  bid: string;
+  slug: string;
+  previewMode: boolean;
+};
+
+type CourseBootstrapFailure = {
+  requestedIdentifier: string;
+  previewMode: boolean;
+};
 
 const isDefinitiveClassroomAccessDenial = (error: unknown) => {
   const fetchError = error as {
@@ -124,8 +139,8 @@ export default function ChatLayout({
   >(null);
 
   const courseId = useEnvStore((state: EnvStoreState) => state.courseId);
-  const updateCourseId = useEnvStore(
-    (state: EnvStoreState) => state.updateCourseId,
+  const updateCourseIdentity = useEnvStore(
+    (state: EnvStoreState) => state.updateCourseIdentity,
   );
   const enableWxcode = useEnvStore(
     (state: EnvStoreState) => state.enableWxcode,
@@ -158,12 +173,37 @@ export default function ChatLayout({
 
   // const [loading, setLoading] = useState<boolean>(true);
   const params = parseUrlParams() as Record<string, string>;
-  const routeCourseId = Array.isArray(routeParams?.id) ? routeParams.id[0] : '';
-  const storageCourseId = routeCourseId || params.courseId || courseId;
+  const routeCourseIdentifier = Array.isArray(routeParams?.id)
+    ? routeParams.id[0]
+    : '';
+  const queryCourseIdentifier = params.courseId || '';
+  const courseIdentifier =
+    routeCourseIdentifier || queryCourseIdentifier || courseId;
+  const storageCourseId = courseId;
   const outlineBid = params.lessonid || '';
   const currChannel = params.channel || '';
   const isPreviewMode = parseBooleanQueryParam(params.preview) ?? false;
   const isSkipMode = parseBooleanQueryParam(params.skip) ?? false;
+  const [resolvedCourseIdentity, setResolvedCourseIdentity] =
+    useState<ResolvedCourseIdentity | null>(null);
+  const [courseBootstrapFailure, setCourseBootstrapFailure] =
+    useState<CourseBootstrapFailure | null>(null);
+  const [courseBootstrapAttempt, setCourseBootstrapAttempt] = useState(0);
+  const courseBootstrapReady = Boolean(
+    envDataInitialized &&
+    resolvedCourseIdentity &&
+    resolvedCourseIdentity.previewMode === isPreviewMode &&
+    resolvedCourseIdentity.bid === courseId &&
+    (!courseIdentifier ||
+      courseIdentifier === resolvedCourseIdentity.requestedIdentifier ||
+      courseIdentifier === resolvedCourseIdentity.bid ||
+      courseIdentifier === resolvedCourseIdentity.slug),
+  );
+  const courseBootstrapFailed = Boolean(
+    courseBootstrapFailure &&
+    courseBootstrapFailure.requestedIdentifier === courseIdentifier &&
+    courseBootstrapFailure.previewMode === isPreviewMode,
+  );
   const listenModeParam = parseBooleanQueryParam(params.listen);
   const urlModeParam = parseLearningModeQueryParam(params.mode);
   const hasListenModeOverride = listenModeParam !== null;
@@ -236,16 +276,6 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
-    const fetchCourseInfo = async () => {
-      if (!envDataInitialized) return;
-      if (params.courseId) {
-        await updateCourseId(params.courseId);
-      }
-    };
-    fetchCourseInfo();
-  }, [envDataInitialized, updateCourseId, courseId, params.courseId]);
-
-  useEffect(() => {
     updatePreviewMode(isPreviewMode);
     updateSkip(isSkipMode);
     updateShowLearningModeToggle(showLearningModeToggle);
@@ -266,29 +296,13 @@ export default function ChatLayout({
   }, [listenModeParam, urlModeParam]);
 
   useEffect(() => {
-    if (
-      classroomAccessCourseId !== storageCourseId &&
-      canUseClassroomMode !== null
-    ) {
-      updateCanUseClassroomMode(null);
-    }
-  }, [
-    canUseClassroomMode,
-    classroomAccessCourseId,
-    storageCourseId,
-    updateCanUseClassroomMode,
-  ]);
-
-  useEffect(() => {
-    if (!envDataInitialized || !storageCourseId) {
-      setClassroomAccessCourseId(null);
-      updateCanUseClassroomMode(null);
+    if (!courseBootstrapReady || !storageCourseId) {
       return;
     }
 
     if (isPreviewMode) {
-      setClassroomAccessCourseId(null);
-      updateCanUseClassroomMode(null);
+      setClassroomAccessCourseId(storageCourseId);
+      updateCanUseClassroomMode(true);
       return;
     }
 
@@ -326,7 +340,7 @@ export default function ChatLayout({
       canceled = true;
     };
   }, [
-    envDataInitialized,
+    courseBootstrapReady,
     isInitialized,
     isLoggedIn,
     isPreviewMode,
@@ -335,7 +349,7 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
-    if (!hasClassroomModeOverride) {
+    if (!courseBootstrapReady || !hasClassroomModeOverride) {
       return;
     }
 
@@ -345,12 +359,13 @@ export default function ChatLayout({
     }
   }, [
     canUseClassroomModeForCourse,
+    courseBootstrapReady,
     hasClassroomModeOverride,
     updateLearningMode,
   ]);
 
   useEffect(() => {
-    if (!storageCourseId) {
+    if (!courseBootstrapReady || !storageCourseId) {
       return;
     }
 
@@ -382,6 +397,7 @@ export default function ChatLayout({
     });
   }, [
     hasListenModeOverride,
+    courseBootstrapReady,
     listenModeParam,
     outlineBid,
     storageCourseId,
@@ -390,6 +406,9 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
+    if (!courseBootstrapReady || !storageCourseId) {
+      return;
+    }
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
     const nextLearningMode = resolveCourseLearningMode({
       courseTtsEnabled,
@@ -409,6 +428,7 @@ export default function ChatLayout({
   }, [
     courseTtsEnabled,
     canUseClassroomModeForCourse,
+    courseBootstrapReady,
     hasListenModeOverride,
     listenModeParam,
     storageCourseId,
@@ -417,7 +437,7 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
-    if (!storageCourseId) {
+    if (!courseBootstrapReady || !storageCourseId) {
       return;
     }
 
@@ -448,6 +468,7 @@ export default function ChatLayout({
     writeLearningModeToStorage(storageCourseId, learningMode);
   }, [
     canUseClassroomModeForCourse,
+    courseBootstrapReady,
     hasListenModeOverride,
     learningMode,
     storageCourseId,
@@ -455,124 +476,176 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
-    const fetchCourseInfo = async () => {
-      if (!envDataInitialized) return;
-      if (courseId) {
-        debugInfo('[course-info] request start', {
-          courseId,
-          previewMode: isPreviewMode,
-          path:
-            typeof window !== 'undefined'
-              ? `${window.location.pathname}${window.location.search}`
-              : '',
-        });
-        try {
-          const resp = await getCourseInfo(courseId, isPreviewMode);
-          debugInfo('[course-info] request success', {
-            courseId,
-            previewMode: isPreviewMode,
-            courseName: resp.course_name,
-            coursePrice: resp.course_price,
-            ttsEnabled: resp.course_tts_enabled,
-          });
-          setShowVip(resp.course_price > 0);
-          updateCourseName(resp.course_name);
-          updateCourseAvatar(resp.course_avatar);
-          updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
-          if (isPreviewMode) {
-            setClassroomAccessCourseId(courseId);
-            updateCanUseClassroomMode(true);
-          }
-          const titleSuffix = t('common.core.brandName');
-          document.title = `${resp.course_name} - ${titleSuffix}`;
-          const metaDescription = document.querySelector(
-            'meta[name="description"]',
-          );
-          if (metaDescription) {
-            metaDescription.setAttribute('content', resp.course_desc);
-          } else {
-            const newMetaDescription = document.createElement('meta');
-            newMetaDescription.setAttribute('name', 'description');
-            newMetaDescription.setAttribute('content', resp.course_desc);
-            document.head.appendChild(newMetaDescription);
-          }
-          const metaKeywords = document.querySelector('meta[name="keywords"]');
-          if (metaKeywords) {
-            metaKeywords.setAttribute('content', resp.course_keywords);
-          } else {
-            const newMetaKeywords = document.createElement('meta');
-            newMetaKeywords.setAttribute('name', 'keywords');
-            newMetaKeywords.setAttribute('content', resp.course_keywords);
-            document.head.appendChild(newMetaKeywords);
-          }
-        } catch (error) {
-          const isCourseNotFound = Boolean(
-            (error as { isCourseNotFound?: boolean })?.isCourseNotFound,
-          );
-          debugError('[course-info] request failed', {
-            courseId,
-            previewMode: isPreviewMode,
-            isCourseNotFound,
-            errorMessage:
-              error instanceof Error ? error.message : String(error),
-            businessCode: (error as { code?: number | string })?.code ?? '',
-            httpStatus: (error as { status?: number | string })?.status ?? '',
-          });
-          if (isCourseNotFound) {
-            tracking('learner_course_404_redirect', {
-              shifu_bid: courseId,
-              preview_mode: isPreviewMode,
-              reason: 'course_not_found',
-              path: window.location.pathname,
-              ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-              is_wechat:
-                typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
-              has_token: Boolean(useUserStore.getState().getToken()),
-            });
-            window.location.href = '/404';
-            return;
-          }
+    if (!envDataInitialized || !courseIdentifier) {
+      setResolvedCourseIdentity(null);
+      setCourseBootstrapFailure(null);
+      return;
+    }
 
-          // Keep users on page for transient failures instead of forcing 404.
-          tracking('learner_course_info_non_404_error', {
-            shifu_bid: courseId,
+    const matchesResolvedIdentity = Boolean(
+      resolvedCourseIdentity &&
+      resolvedCourseIdentity.previewMode === isPreviewMode &&
+      (courseIdentifier === resolvedCourseIdentity.requestedIdentifier ||
+        courseIdentifier === resolvedCourseIdentity.bid ||
+        courseIdentifier === resolvedCourseIdentity.slug),
+    );
+    if (matchesResolvedIdentity) {
+      return;
+    }
+
+    let canceled = false;
+    setCourseBootstrapFailure(null);
+    debugInfo('[course-info] request start', {
+      courseIdentifier,
+      previewMode: isPreviewMode,
+      path:
+        typeof window !== 'undefined'
+          ? `${window.location.pathname}${window.location.search}`
+          : '',
+    });
+
+    void getCourseInfo(courseIdentifier, isPreviewMode)
+      .then(resp => {
+        if (canceled) {
+          return;
+        }
+
+        const canonicalBid = resp.course_id?.trim();
+        if (!canonicalBid) {
+          throw new Error('Course info response is missing canonical bid');
+        }
+
+        debugInfo('[course-info] request success', {
+          courseIdentifier,
+          canonicalBid,
+          slug: resp.course_slug,
+          previewMode: isPreviewMode,
+          courseName: resp.course_name,
+          coursePrice: resp.course_price,
+          ttsEnabled: resp.course_tts_enabled,
+        });
+        void updateCourseIdentity({
+          courseId: canonicalBid,
+          courseSlug: resp.course_slug || '',
+          courseCanonicalUrl: resp.course_canonical_url || '',
+        });
+        setShowVip(resp.course_price > 0);
+        updateCourseName(resp.course_name);
+        updateCourseAvatar(resp.course_avatar);
+        updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
+
+        if (
+          routeCourseIdentifier &&
+          resp.course_slug &&
+          routeCourseIdentifier !== resp.course_slug
+        ) {
+          replaceCurrentUrlWithCanonicalCourseRoute(resp.course_canonical_url);
+        }
+
+        const titleSuffix = t('common.core.brandName');
+        document.title = `${resp.course_name} - ${titleSuffix}`;
+        const metaDescription = document.querySelector(
+          'meta[name="description"]',
+        );
+        if (metaDescription) {
+          metaDescription.setAttribute('content', resp.course_desc);
+        } else {
+          const newMetaDescription = document.createElement('meta');
+          newMetaDescription.setAttribute('name', 'description');
+          newMetaDescription.setAttribute('content', resp.course_desc);
+          document.head.appendChild(newMetaDescription);
+        }
+        const metaKeywords = document.querySelector('meta[name="keywords"]');
+        if (metaKeywords) {
+          metaKeywords.setAttribute('content', resp.course_keywords);
+        } else {
+          const newMetaKeywords = document.createElement('meta');
+          newMetaKeywords.setAttribute('name', 'keywords');
+          newMetaKeywords.setAttribute('content', resp.course_keywords);
+          document.head.appendChild(newMetaKeywords);
+        }
+        setResolvedCourseIdentity({
+          requestedIdentifier: courseIdentifier,
+          bid: canonicalBid,
+          slug: resp.course_slug || '',
+          previewMode: isPreviewMode,
+        });
+      })
+      .catch(error => {
+        if (canceled) {
+          return;
+        }
+        const isCourseNotFound = Boolean(
+          (error as { isCourseNotFound?: boolean })?.isCourseNotFound,
+        );
+        debugError('[course-info] request failed', {
+          courseIdentifier,
+          previewMode: isPreviewMode,
+          isCourseNotFound,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          businessCode: (error as { code?: number | string })?.code ?? '',
+          httpStatus: (error as { status?: number | string })?.status ?? '',
+        });
+        if (isCourseNotFound) {
+          tracking('learner_course_404_redirect', {
+            shifu_bid: courseIdentifier,
             preview_mode: isPreviewMode,
-            reason: 'transient_or_unknown_error',
+            reason: 'course_not_found',
             path: window.location.pathname,
-            error_code:
-              (error as { code?: number | string })?.code?.toString?.() || '',
-            http_status:
-              (error as { status?: number | string })?.status?.toString?.() ||
-              '',
-            error_type:
-              (error as { status?: number | string })?.status ||
-              (error as { code?: number | string })?.code
-                ? 'http_error'
-                : 'unknown_error',
+            ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
             is_wechat:
               typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
             has_token: Boolean(useUserStore.getState().getToken()),
           });
-          console.warn('Skip 404 redirect for non-notfound course info error', {
-            courseId,
-            error,
-          });
-          // TODO(lesson-mobile-404): sequence OAuth/checkWxcode/user init and course-info
-          // requests to eliminate race windows on weak mobile networks.
+          window.location.href = '/404';
+          return;
         }
-      }
+
+        tracking('learner_course_info_non_404_error', {
+          shifu_bid: courseIdentifier,
+          preview_mode: isPreviewMode,
+          reason: 'transient_or_unknown_error',
+          path: window.location.pathname,
+          error_code:
+            (error as { code?: number | string })?.code?.toString?.() || '',
+          http_status:
+            (error as { status?: number | string })?.status?.toString?.() || '',
+          error_type:
+            (error as { status?: number | string })?.status ||
+            (error as { code?: number | string })?.code
+              ? 'http_error'
+              : 'unknown_error',
+          is_wechat:
+            typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
+          has_token: Boolean(useUserStore.getState().getToken()),
+        });
+        console.warn('Skip 404 redirect for non-notfound course info error', {
+          courseIdentifier,
+          error,
+        });
+        setCourseBootstrapFailure({
+          requestedIdentifier: courseIdentifier,
+          previewMode: isPreviewMode,
+        });
+      });
+
+    return () => {
+      canceled = true;
     };
-    fetchCourseInfo();
   }, [
-    courseId,
+    courseBootstrapAttempt,
+    courseIdentifier,
     envDataInitialized,
+    isPreviewMode,
+    resolvedCourseIdentity,
+    routeCourseIdentifier,
     setShowVip,
     t,
-    updateCourseName,
-    updateCourseAvatar,
-    updateCourseTtsEnabled,
     updateCanUseClassroomMode,
-    isPreviewMode,
+    updateCourseAvatar,
+    updateCourseIdentity,
+    updateCourseName,
+    updateCourseTtsEnabled,
   ]);
 
   const userLanguage = userInfo?.language;
@@ -598,5 +671,30 @@ export default function ChatLayout({
     initUser();
   }, [envDataInitialized, checkWxcode, initUser]);
 
-  return <UserProvider>{children}</UserProvider>;
+  return (
+    <UserProvider>
+      {courseBootstrapReady ? (
+        children
+      ) : courseBootstrapFailed ? (
+        <main className='flex min-h-dvh items-center justify-center px-6 text-center'>
+          <div className='flex max-w-sm flex-col items-center gap-4'>
+            <p className='text-sm text-muted-foreground'>
+              {t('common.core.requestFailed')}
+            </p>
+            <button
+              type='button'
+              className='rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground'
+              onClick={() => {
+                setCourseBootstrapFailure(null);
+                setResolvedCourseIdentity(null);
+                setCourseBootstrapAttempt(attempt => attempt + 1);
+              }}
+            >
+              {t('common.core.retry')}
+            </button>
+          </div>
+        </main>
+      ) : null}
+    </UserProvider>
+  );
 }

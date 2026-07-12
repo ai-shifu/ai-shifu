@@ -16,6 +16,7 @@ from flaskr.service.billing.runtime_config import (
     build_runtime_billing_context,
 )
 from flaskr.service.config.funcs import get_config
+from flaskr.service.shifu.api import resolve_shifu_identifier
 
 from .common import bypass_token_validation, make_common_response
 
@@ -62,9 +63,17 @@ def _extract_request_host() -> str:
 
 
 def register_config_handler(app: Flask, path_prefix: str) -> Flask:
+    def _resolve_runtime_config_shifu_bid(*_args, **_kwargs):
+        identifier = (
+            request.args.get("shifu_bid") or request.args.get("shifu-bid") or ""
+        )
+        if not identifier:
+            return None
+        return resolve_shifu_identifier(app, identifier)
+
     @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
-    @with_shifu_context()
+    @with_shifu_context(resolve_shifu_bid=_resolve_runtime_config_shifu_bid)
     def get_runtime_config():
         # An explicit creator_bid lets surfaces without a shifu in the path
         # (e.g. the /admin backend) fetch a creator's branding. Falls back to

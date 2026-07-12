@@ -1,6 +1,7 @@
 from flask import Flask
 import click
 import asyncio
+import json
 import logging
 import os
 from io import BytesIO
@@ -10,6 +11,7 @@ from .import_user import import_user
 from .unified_migration_task import UnifiedMigrationTask, MigrationConfig
 from ..service.billing.cli import register_billing_commands
 from ..service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
+from ..service.shifu.slug import backfill_course_slugs
 from .update_shifu_demo import update_demo_shifu
 
 
@@ -32,6 +34,35 @@ def enable_commands(app: Flask):
         pass
 
     register_billing_commands(console)
+
+    @console.command(name="backfill_course_slugs")
+    @click.option(
+        "--dry-run",
+        is_flag=True,
+        help="Report missing slug bindings without calling the model or writing data.",
+    )
+    @click.option(
+        "--batch-size",
+        type=click.IntRange(min=1),
+        default=100,
+        show_default=True,
+        help="Number of courses to load in each batch.",
+    )
+    @click.option(
+        "--shifu-bid",
+        default="",
+        help="Backfill one course business identifier only.",
+    )
+    def backfill_course_slugs_command(dry_run, batch_size, shifu_bid):
+        """Backfill immutable public course slug bindings."""
+
+        payload = backfill_course_slugs(
+            app,
+            dry_run=dry_run,
+            batch_size=batch_size,
+            shifu_bid=shifu_bid,
+        )
+        click.echo(json.dumps(payload, ensure_ascii=False, sort_keys=True))
 
     @console.command(name="import_user")
     @click.argument("mobile")

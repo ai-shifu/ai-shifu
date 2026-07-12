@@ -19,6 +19,7 @@ export interface ModelOption {
 
 export interface Shifu {
   bid: string;
+  slug?: string | null;
   name?: string;
   description?: string;
   avatar?: string;

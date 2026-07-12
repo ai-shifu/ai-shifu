@@ -10,6 +10,7 @@ let mockCourseAvatar = '';
 let mockLearningMode = 'listen';
 let mockLogoHorizontal = '';
 let mockLogoWideUrl = '';
+let mockCourseCanonicalUrl = '/c/practical-ai-teaching-methods';
 let mockLessonPdfReady = false;
 let mockLessonPdfPreparing = false;
 const mockPrintLessonPdf = jest.fn();
@@ -134,6 +135,8 @@ jest.mock('@/c-store/envStore', () => ({
   useEnvStore: Object.assign(
     (selector: (state: any) => unknown) =>
       selector({
+        courseId: 'shifu-1',
+        courseCanonicalUrl: mockCourseCanonicalUrl,
         logoHorizontal: mockLogoHorizontal,
         logoWideUrl: mockLogoWideUrl,
       }),
@@ -361,6 +364,7 @@ describe('NewChatComponents', () => {
     mockLearningMode = 'listen';
     mockLogoHorizontal = '';
     mockLogoWideUrl = '';
+    mockCourseCanonicalUrl = '/c/practical-ai-teaching-methods';
     mockLessonPdfReady = false;
     mockLessonPdfPreparing = false;
     requestAnimationFrameSpy = jest
@@ -462,7 +466,7 @@ describe('NewChatComponents', () => {
       expect(element).toBeInTheDocument();
       return element as HTMLElement;
     });
-    const courseUrl = `${window.location.origin}/c/course-1`;
+    const courseUrl = `${window.location.origin}/c/practical-ai-teaching-methods`;
     const link = footer.querySelector('a');
     const qrCode = footer.querySelector('svg');
 

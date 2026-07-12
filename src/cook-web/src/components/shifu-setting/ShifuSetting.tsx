@@ -108,6 +108,7 @@ import {
 interface Shifu {
   description: string;
   bid: string;
+  slug?: string | null;
   keywords: string[];
   model: string;
   name: string;
