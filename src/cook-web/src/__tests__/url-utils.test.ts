@@ -159,7 +159,7 @@ describe('domain aware urls', () => {
     });
 
     expect(getCourseCreatorUrl()).toBe(
-      'https://app.ai-shifu.cn/c/ed0e57ded79d4b7b88d1be348c151509?lessonid=77ff6ea94e4245d19172a29c0a279848',
+      'https://zhentouai.feishu.cn/wiki/AUE5wpipJi5bL4k6GticmxddnPb?from=from_copylink',
     );
   });
 
