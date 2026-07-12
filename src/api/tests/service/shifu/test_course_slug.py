@@ -541,11 +541,14 @@ def test_ensure_slug_uses_callers_transaction_and_rolls_back_with_course(
     course_bid = "same-transaction-slug-course"
     with app.app_context():
         outer_session = db.session()
+
+        def fake_prepare(*_args, **_kwargs):
+            assert not db.session().in_transaction()
+            return PreparedCourseSlug("same-transaction-public-link", "llm")
+
         monkeypatch.setattr(
             "flaskr.service.shifu.slug.prepare_course_slug",
-            lambda *_args, **_kwargs: PreparedCourseSlug(
-                "same-transaction-public-link", "llm"
-            ),
+            fake_prepare,
         )
 
         binding = ensure_shifu_slug(
@@ -569,6 +572,35 @@ def test_ensure_slug_uses_callers_transaction_and_rolls_back_with_course(
         db.session.rollback()
         assert ShifuCourseSlug.query.filter_by(shifu_bid=course_bid).first() is None
         assert DraftShifu.query.filter_by(shifu_bid=course_bid).first() is None
+
+
+def test_ensure_slug_refuses_to_rollback_staged_course_writes(app, monkeypatch):
+    course_bid = "staged-write-before-slug-course"
+    with app.app_context():
+        db.session.add(
+            DraftShifu(
+                shifu_bid=course_bid,
+                title="Staged before slug generation",
+                created_user_bid="transaction-owner",
+                updated_user_bid="transaction-owner",
+            )
+        )
+        monkeypatch.setattr(
+            "flaskr.service.shifu.slug.prepare_course_slug",
+            lambda *_args, **_kwargs: pytest.fail(
+                "the model must not run after database writes are staged"
+            ),
+        )
+
+        with pytest.raises(RuntimeError, match="before staging database writes"):
+            ensure_shifu_slug(
+                app,
+                shifu_bid=course_bid,
+                title="Staged before slug generation",
+            )
+
+        assert db.session().new
+        db.session.rollback()
 
 
 def test_new_bid_cannot_reuse_an_existing_slug(app):
@@ -611,6 +643,7 @@ def test_backfill_prefers_published_title_and_is_idempotent(app, monkeypatch):
         db.session.commit()
 
         def fake_prepare(_app, **kwargs):
+            assert not db.session().in_transaction()
             captured_titles.append(kwargs["title"])
             return PreparedCourseSlug("published-course-primary-link", "llm")
 

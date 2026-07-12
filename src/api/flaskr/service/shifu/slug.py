@@ -353,6 +353,18 @@ def _ensure_outer_transaction_for_savepoint() -> None:
         connection.exec_driver_sql("BEGIN")
 
 
+def _release_read_transaction_before_generation() -> None:
+    """Release read-only DB resources before the external model request."""
+
+    session = db.session()
+    if session.new or session.dirty or session.deleted:
+        raise RuntimeError(
+            "course slug generation must run before staging database writes"
+        )
+    if session.in_transaction():
+        session.rollback()
+
+
 def _next_slug_version(shifu_bid: str) -> int:
     query = ShifuCourseSlug.query.filter_by(shifu_bid=shifu_bid).order_by(
         ShifuCourseSlug.version.desc()
@@ -435,9 +447,11 @@ def ensure_shifu_slug(
 
     if not has_app_context() or current_app._get_current_object() is not app:
         raise RuntimeError("ensure_shifu_slug requires the caller's app context")
-    existing = _current_slug_query(shifu_bid).first()
+    with db.session.no_autoflush:
+        existing = _current_slug_query(shifu_bid).first()
     if existing:
         return existing
+    _release_read_transaction_before_generation()
     prepared = prepare_course_slug(
         app,
         shifu_bid=shifu_bid,
@@ -577,6 +591,7 @@ def backfill_course_slugs(
             if dry_run or not missing_bids:
                 continue
             titles = _load_backfill_title_map(missing_bids)
+            _release_read_transaction_before_generation()
             for course_bid in missing_bids:
                 title = titles.get(course_bid, "")
                 try:
