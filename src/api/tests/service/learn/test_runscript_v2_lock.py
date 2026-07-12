@@ -1092,6 +1092,41 @@ def test_run_script_maps_llm_stream_connection_error_to_retryable_message(
         assert events[2]["is_terminal"] is True
 
 
+def test_run_script_maps_standard_timeout_error_to_retryable_message(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
+
+        def fake_run_script_inner(**_kwargs):
+            raise RuntimeError("stream failed") from TimeoutError(
+                "The read operation timed out"
+            )
+            yield  # pragma: no cover
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        chunks = list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input={"input": ["x"]},
+                input_type="normal",
+                listen=True,
+            )
+        )
+        events = _parse_sse_events(chunks)
+
+        assert [event["type"] for event in events] == ["error", "break", "done"]
+        assert events[0]["content"] == "translated:server.learn.llmStreamInterrupted"
+        assert events[2]["is_terminal"] is True
+
+
 def test_run_script_listen_done_uses_element_protocol(monkeypatch):
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)

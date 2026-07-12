@@ -483,6 +483,9 @@ def _iter_exception_chain(error: BaseException) -> Generator[BaseException, None
 
 def _is_retryable_llm_stream_connection_error(stream_error: Exception) -> bool:
     for exc in _iter_exception_chain(stream_error):
+        if isinstance(exc, (ConnectionError, TimeoutError)):
+            return True
+
         exc_module = (exc.__class__.__module__ or "").lower()
         exc_name = (exc.__class__.__name__ or "").lower()
         message = str(exc).lower()
@@ -496,6 +499,7 @@ def _is_retryable_llm_stream_connection_error(stream_error: Exception) -> bool:
                 "apiconnectionerror",
                 "httpx.readerror",
                 "httpcore.readerror",
+                "incompleteread",
                 "record layer failure",
                 "[ssl]",
             )
