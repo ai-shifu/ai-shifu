@@ -663,6 +663,64 @@ def test_backfill_bid_loader_uses_stable_keyset_pages(app):
         assert second_page == course_bids[2:]
 
 
+def test_backfill_batches_slug_and_title_lookups(app, monkeypatch):
+    from flaskr.service.shifu import slug as slug_module
+
+    course_bids = [
+        "existing-batch-course",
+        "missing-batch-course-one",
+        "missing-batch-course-two",
+    ]
+    captured: dict[str, list[list[str]]] = {"slug_batches": [], "title_batches": []}
+
+    monkeypatch.setattr(
+        slug_module,
+        "_iter_active_shifu_bid_batches",
+        lambda **_kwargs: iter([course_bids]),
+    )
+
+    def fake_slug_map(shifu_bids):
+        captured["slug_batches"].append(list(shifu_bids))
+        return {course_bids[0]: "existing-course-public-link"}
+
+    def fake_title_map(shifu_bids):
+        captured["title_batches"].append(list(shifu_bids))
+        return {
+            course_bids[1]: "Missing course one",
+            course_bids[2]: "Missing course two",
+        }
+
+    monkeypatch.setattr(slug_module, "get_shifu_slug_map", fake_slug_map)
+    monkeypatch.setattr(slug_module, "_load_backfill_title_map", fake_title_map)
+    monkeypatch.setattr(
+        slug_module,
+        "prepare_course_slug",
+        lambda _app, **kwargs: PreparedCourseSlug(
+            f"generated-{kwargs['shifu_bid']}-link",
+            "llm",
+        ),
+    )
+    monkeypatch.setattr(
+        slug_module,
+        "allocate_course_slug",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            binding=SimpleNamespace(generation_source="llm"),
+            created=True,
+            collided=False,
+        ),
+    )
+
+    result = backfill_course_slugs(app, batch_size=3)
+
+    assert captured == {
+        "slug_batches": [course_bids],
+        "title_batches": [course_bids[1:]],
+    }
+    assert result["scanned"] == 3
+    assert result["existing"] == 1
+    assert result["created"] == 2
+
+
 def test_backfill_restores_current_slug_after_historical_record(app, monkeypatch):
     course_bid = "historical-only-backfill-course"
     old_slug = "historical-only-course-link"

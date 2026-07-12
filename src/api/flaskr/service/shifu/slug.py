@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from flask import Flask, current_app, has_app_context
+from sqlalchemy import and_, func
 from sqlalchemy.exc import IntegrityError
 
 from flaskr.api.langfuse import (
@@ -450,28 +451,53 @@ def ensure_shifu_slug(
     ).binding
 
 
-def _load_backfill_title(shifu_bid: str) -> str | None:
-    published = (
-        PublishedShifu.query.filter(
-            PublishedShifu.shifu_bid == shifu_bid,
-            PublishedShifu.deleted == 0,
+def _load_latest_active_title_map(model, shifu_bids: Iterable[str]) -> dict[str, str]:
+    normalized_bids = {str(shifu_bid or "").strip() for shifu_bid in shifu_bids}
+    normalized_bids.discard("")
+    if not normalized_bids:
+        return {}
+    latest_ids = (
+        db.session.query(
+            model.shifu_bid.label("shifu_bid"),
+            func.max(model.id).label("latest_id"),
         )
-        .order_by(PublishedShifu.id.desc())
-        .first()
-    )
-    if published and str(published.title or "").strip():
-        return str(published.title).strip()
-    draft = (
-        DraftShifu.query.filter(
-            DraftShifu.shifu_bid == shifu_bid,
-            DraftShifu.deleted == 0,
+        .filter(
+            model.shifu_bid.in_(normalized_bids),
+            model.deleted == 0,
         )
-        .order_by(DraftShifu.id.desc())
-        .first()
+        .group_by(model.shifu_bid)
+        .subquery()
     )
-    if draft and str(draft.title or "").strip():
-        return str(draft.title).strip()
-    return None
+    rows = (
+        db.session.query(model.shifu_bid, model.title)
+        .join(
+            latest_ids,
+            and_(
+                model.shifu_bid == latest_ids.c.shifu_bid,
+                model.id == latest_ids.c.latest_id,
+            ),
+        )
+        .all()
+    )
+    return {
+        str(row.shifu_bid): str(row.title).strip()
+        for row in rows
+        if str(row.title or "").strip()
+    }
+
+
+def _load_backfill_title_map(shifu_bids: Iterable[str]) -> dict[str, str]:
+    normalized_bids = {str(shifu_bid or "").strip() for shifu_bid in shifu_bids}
+    normalized_bids.discard("")
+    published_titles = _load_latest_active_title_map(
+        PublishedShifu,
+        normalized_bids,
+    )
+    draft_titles = _load_latest_active_title_map(DraftShifu, normalized_bids)
+    return {
+        course_bid: published_titles.get(course_bid) or draft_titles.get(course_bid, "")
+        for course_bid in normalized_bids
+    }
 
 
 def _load_active_shifu_bid_page(*, after_bid: str, batch_size: int) -> list[str]:
@@ -539,15 +565,20 @@ def backfill_course_slugs(
             batch_size=batch_size,
             shifu_bid=normalized_bid,
         ):
+            existing_slugs = get_shifu_slug_map(batch)
+            missing_bids: list[str] = []
             for course_bid in batch:
                 stats["scanned"] = int(stats["scanned"]) + 1
-                if get_shifu_slug(course_bid):
+                if course_bid in existing_slugs:
                     stats["existing"] = int(stats["existing"]) + 1
                     continue
                 stats["missing"] = int(stats["missing"]) + 1
-                title = _load_backfill_title(course_bid)
-                if dry_run:
-                    continue
+                missing_bids.append(course_bid)
+            if dry_run or not missing_bids:
+                continue
+            titles = _load_backfill_title_map(missing_bids)
+            for course_bid in missing_bids:
+                title = titles.get(course_bid, "")
                 try:
                     prepared = (
                         prepare_course_slug(
