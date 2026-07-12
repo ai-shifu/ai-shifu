@@ -17,6 +17,7 @@ from sqlalchemy import (
     SmallInteger,
     DateTime,
     UniqueConstraint,
+    CheckConstraint,
     Index,
 )
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
@@ -167,13 +168,35 @@ class ShifuUserArchive(db.Model):
 
 
 class ShifuCourseSlug(db.Model):
-    """Immutable public slug binding for a shifu."""
+    """Versioned public slug record for a shifu."""
 
     __tablename__ = "shifu_course_slugs"
     __table_args__ = (
-        UniqueConstraint("shifu_bid", name="uk_shifu_course_slugs_shifu_bid"),
         UniqueConstraint("slug", name="uk_shifu_course_slugs_slug"),
-        {"comment": "Immutable public slug bindings for shifus"},
+        UniqueConstraint(
+            "shifu_bid",
+            "version",
+            name="uk_shifu_course_slugs_version",
+        ),
+        UniqueConstraint(
+            "shifu_bid",
+            "is_current",
+            name="uk_shifu_course_slugs_current",
+        ),
+        CheckConstraint(
+            "version >= 1",
+            name="ck_shifu_course_slugs_positive_version",
+        ),
+        CheckConstraint(
+            "is_current IS NULL OR is_current = 1",
+            name="ck_shifu_course_slugs_current_marker",
+        ),
+        CheckConstraint(
+            "((is_current IS NOT NULL AND retired_at IS NULL) OR "
+            "(is_current IS NULL AND retired_at IS NOT NULL))",
+            name="ck_shifu_course_slugs_retirement_state",
+        ),
+        {"comment": "Current and historical public slug records for shifus"},
     )
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
@@ -187,19 +210,34 @@ class ShifuCourseSlug(db.Model):
         String(48),
         nullable=False,
         default="",
-        comment="Globally unique public course slug",
+        comment="Globally unique and permanently reserved public course slug",
+    )
+    version = Column(
+        Integer,
+        nullable=False,
+        comment="Monotonic slug version within the shifu",
+    )
+    is_current = Column(
+        SmallInteger,
+        nullable=True,
+        comment="Current marker: 1=current, NULL=historical alias",
     )
     generation_source = Column(
         String(16),
         nullable=False,
         default="llm",
-        comment="Slug generation source: llm or fallback",
+        comment="Slug generation source: llm, fallback, or manual",
     )
     created_at = Column(
         DateTime,
         nullable=False,
         default=now_utc,
         comment="Creation timestamp",
+    )
+    retired_at = Column(
+        DateTime,
+        nullable=True,
+        comment="UTC timestamp when this slug became a historical alias",
     )
 
 

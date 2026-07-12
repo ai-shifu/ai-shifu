@@ -301,7 +301,10 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app):
         copied_by_title = {item.title: item for item in copied_outlines}
         copied_history = get_shifu_history(app, new_shifu_bid)
         copied_auths = AiCourseAuth.query.filter_by(course_id=new_shifu_bid).all()
-        copied_slug = ShifuCourseSlug.query.filter_by(shifu_bid=new_shifu_bid).one()
+        copied_slug = ShifuCourseSlug.query.filter_by(
+            shifu_bid=new_shifu_bid,
+            is_current=1,
+        ).one()
 
         assert result["source_shifu_bid"] == shifu_bid
         assert result["target_creator_user_bid"] == creator_bid

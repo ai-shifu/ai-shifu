@@ -1,4 +1,4 @@
-"""Immutable public slug generation and resolution for shifus."""
+"""Versioned public slug generation and resolution for shifus."""
 
 from __future__ import annotations
 
@@ -245,12 +245,19 @@ def assert_shifu_bid_available(shifu_bid: str) -> None:
         )
 
 
+def _current_slug_query(shifu_bid: str):
+    return ShifuCourseSlug.query.filter_by(
+        shifu_bid=str(shifu_bid or "").strip(),
+        is_current=1,
+    )
+
+
 def get_shifu_slug(shifu_bid: str) -> str | None:
     normalized = str(shifu_bid or "").strip()
     if not normalized:
         return None
     try:
-        binding = ShifuCourseSlug.query.filter_by(shifu_bid=normalized).first()
+        binding = _current_slug_query(normalized).first()
     except RuntimeError as exc:
         # A few URL-builder unit tests intentionally use a bare Flask app with
         # no SQLAlchemy registration. Preserve the documented legacy-BID
@@ -267,7 +274,8 @@ def get_shifu_slug_map(shifu_bids: Iterable[str]) -> dict[str, str]:
     if not normalized_bids:
         return {}
     rows = ShifuCourseSlug.query.filter(
-        ShifuCourseSlug.shifu_bid.in_(normalized_bids)
+        ShifuCourseSlug.shifu_bid.in_(normalized_bids),
+        ShifuCourseSlug.is_current == 1,
     ).all()
     return {str(row.shifu_bid): str(row.slug) for row in rows}
 
@@ -323,9 +331,9 @@ def _candidate_with_suffix(base_slug: str, suffix: str) -> str:
     return f"{shortened_base}-{suffix}"
 
 
-def _candidate_is_available(candidate: str, shifu_bid: str) -> bool:
+def _candidate_is_available(candidate: str) -> bool:
     slug_owner = ShifuCourseSlug.query.filter_by(slug=candidate).first()
-    if slug_owner and str(slug_owner.shifu_bid) != shifu_bid:
+    if slug_owner:
         return False
     return not _bid_exists(candidate)
 
@@ -344,6 +352,19 @@ def _ensure_outer_transaction_for_savepoint() -> None:
         connection.exec_driver_sql("BEGIN")
 
 
+def _next_slug_version(shifu_bid: str) -> int:
+    query = ShifuCourseSlug.query.filter_by(shifu_bid=shifu_bid).order_by(
+        ShifuCourseSlug.version.desc()
+    )
+    latest = query.first()
+    if latest is None:
+        # Avoid a MySQL next-key lock on the empty BID range. Initial-version
+        # races are resolved by the version/current unique keys below.
+        return 1
+    latest = query.with_for_update().first()
+    return int(latest.version) + 1 if latest else 1
+
+
 def allocate_course_slug(
     app: Flask,
     *,
@@ -353,7 +374,7 @@ def allocate_course_slug(
     """Atomically bind a prepared base while preserving global namespace rules."""
 
     normalized_bid = str(shifu_bid or "").strip()
-    existing = ShifuCourseSlug.query.filter_by(shifu_bid=normalized_bid).first()
+    existing = _current_slug_query(normalized_bid).first()
     if existing:
         return SlugAllocation(existing, created=False, collided=False)
     assert_shifu_bid_available(normalized_bid)
@@ -367,13 +388,16 @@ def allocate_course_slug(
         for suffix_length in range(8, 27, 2)
     )
     _ensure_outer_transaction_for_savepoint()
+    next_version = _next_slug_version(normalized_bid)
 
     for index, candidate in enumerate(candidates):
-        if not _candidate_is_available(candidate, normalized_bid):
+        if not _candidate_is_available(candidate):
             continue
         binding = ShifuCourseSlug(
             shifu_bid=normalized_bid,
             slug=candidate,
+            version=next_version,
+            is_current=1,
             generation_source=prepared.generation_source,
         )
         try:
@@ -385,18 +409,15 @@ def allocate_course_slug(
             # MySQL's default REPEATABLE READ would let a normal SELECT reuse
             # the pre-conflict snapshot. A locking read is a current read, so
             # after the unique-key wait resolves it can see a committed BID
-            # winner and return the immutable binding.
-            existing = (
-                ShifuCourseSlug.query.filter_by(shifu_bid=normalized_bid)
-                .with_for_update()
-                .first()
-            )
+            # winner and return the current binding.
+            existing = _current_slug_query(normalized_bid).with_for_update().first()
             if existing:
                 return SlugAllocation(
                     existing,
                     created=False,
                     collided=str(existing.slug) != prepared.base_slug,
                 )
+            next_version = _next_slug_version(normalized_bid)
             continue
 
     raise RuntimeError(f"unable to allocate a unique course slug for {normalized_bid}")
@@ -409,11 +430,11 @@ def ensure_shifu_slug(
     title: str,
     user_id: str = "",
 ) -> ShifuCourseSlug:
-    """Return an immutable existing binding or generate and allocate one."""
+    """Return the current binding or generate and allocate the first version."""
 
     if not has_app_context() or current_app._get_current_object() is not app:
         raise RuntimeError("ensure_shifu_slug requires the caller's app context")
-    existing = ShifuCourseSlug.query.filter_by(shifu_bid=shifu_bid).first()
+    existing = _current_slug_query(shifu_bid).first()
     if existing:
         return existing
     prepared = prepare_course_slug(

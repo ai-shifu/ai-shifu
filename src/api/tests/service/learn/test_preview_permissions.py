@@ -62,6 +62,8 @@ def _add_course_slug(app, *, shifu_bid: str, slug: str) -> None:
             ShifuCourseSlug(
                 shifu_bid=shifu_bid,
                 slug=slug,
+                version=1,
+                is_current=1,
                 generation_source="llm",
             )
         )

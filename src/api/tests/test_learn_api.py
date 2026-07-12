@@ -28,6 +28,8 @@ def test_get_shifu_info_returns_dto(app):
         slug = ShifuCourseSlug(
             shifu_bid="shifu-learn-1",
             slug="practical-ai-learning-course",
+            version=1,
+            is_current=1,
             generation_source="llm",
         )
         db.session.add_all([shifu, slug])

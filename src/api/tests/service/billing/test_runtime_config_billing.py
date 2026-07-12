@@ -156,6 +156,8 @@ def runtime_config_client(monkeypatch):
                 ShifuCourseSlug(
                     shifu_bid="shifu-1",
                     slug="practical-course-branding-link",
+                    version=1,
+                    is_current=1,
                     generation_source="llm",
                 ),
             ]

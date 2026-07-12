@@ -258,7 +258,8 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
             .first()
         )
         slug = ShifuCourseSlug.query.filter_by(
-            shifu_bid="publish-preserve-outline-updated-at"
+            shifu_bid="publish-preserve-outline-updated-at",
+            is_current=1,
         ).one()
 
     assert published_outline is not None

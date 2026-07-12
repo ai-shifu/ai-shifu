@@ -2,11 +2,13 @@
 
 ## Purpose / Big Picture
 
-Give every course one globally unique, immutable, human-readable slug and use
+Give every course one globally unique, human-readable current slug and use
 `/c/<slug>` as its public learner link. Existing `/c/<shifu_bid>` links remain
-valid and converge to the slug URL after the course is resolved. Internal
-orders, permissions, progress, metering, authoring, and operations continue to
-use `shifu_bid`.
+valid and converge to the current slug URL after the course is resolved. The
+storage model is ready to retain future slug versions as permanent aliases,
+although v1 does not expose editing or regeneration. Internal orders,
+permissions, progress, metering, authoring, and operations continue to use
+`shifu_bid`.
 
 ## Progress
 
@@ -24,6 +26,9 @@ use `shifu_bid`.
 - [x] 2026-07-12 09:26 CST: Added lifecycle, collision, transaction, route,
   canonical URL, retry, and backfill tests; passed full backend, focused
   frontend, formatting, lint, type, architecture, and repository checks.
+- [x] 2026-07-12 09:53 CST: Prepared slug storage for future changes with
+  versioned current and historical records while retaining v1's no-edit
+  behavior; passed focused and full backend verification.
 - [ ] 2026-07-12 09:26 CST: Run the fresh-MySQL migration smoke with an external
   MySQL DSN; this checkout does not provide `TEST_SQLALCHEMY_DATABASE_URI`.
 - [ ] 2026-07-12 09:27 CST: Run browser E2E against the default dev stack;
@@ -55,10 +60,13 @@ use `shifu_bid`.
 
 ## Decision Log
 
-- Store one current binding in `shifu_course_slugs`, unique by both
-  `shifu_bid` and `slug`, without a business-key foreign key.
-- Generate one immutable slug per course. Renaming, publishing, transferring,
-  archiving, and updating an import never regenerate it.
+- Store every slug version in `shifu_course_slugs`. Keep `slug` globally unique
+  so historical values stay permanently reserved; enforce one current record
+  per BID with a nullable current marker and a `(shifu_bid, version)` sequence.
+- Generate one current slug per course in v1. Renaming, publishing,
+  transferring, archiving, and updating an import do not regenerate it, and no
+  edit API is exposed yet. A future rotation will retire the current record and
+  add a new version without invalidating the old slug.
 - Normal slugs contain 3-6 English semantic words, are 18-48 characters long,
   and use lowercase ASCII kebab-case. A uniqueness suffix does not count as a
   semantic word but must remain inside the 48-character limit.
@@ -83,16 +91,17 @@ use `shifu_bid`.
 
 ## Outcomes & Retrospective
 
-The implementation is complete in the working tree. New courses receive an
-immutable slug before any course row is staged; every learner route resolves a
-slug or legacy BID to the canonical BID; all public URL producers prefer the
-slug; and the learner frontend does not mount course consumers until canonical
-identity is available. The backfill is idempotent, keyset-paged, resumable, and
-reports remaining coverage.
+The implementation is complete in the working tree. New courses receive a
+current slug before any course row is staged; every learner route resolves a
+current or historical slug, or a legacy BID, to the canonical BID; all public
+URL producers prefer the current slug; and the learner frontend does not mount
+course consumers until canonical identity is available. The backfill is
+idempotent, keyset-paged, resumable, and reports remaining coverage.
 
 Verification completed locally:
 
-- backend full suite: 2049 passed, 6 skipped;
+- backend full suite: 2056 passed, 6 skipped;
+- focused slug history and constraint suite: 39 passed;
 - expanded shifu/learn/payment/migration suite: 661 passed, 6 skipped;
 - frontend focused slug suites: 33 passed;
 - frontend type-check, lint, and full Prettier check;
@@ -100,7 +109,8 @@ Verification completed locally:
   and the full lefthook pre-commit gate.
 
 Two environment-dependent rollout checks remain. The fresh-MySQL test now
-asserts the table and both unique constraints but needs an external DSN.
+asserts the version/history columns, three unique constraints, and state checks
+but needs an external DSN.
 Playwright launches when run outside the sandbox, but the smoke suite needs the
 default application stack at `http://localhost:8080`; Docker is not installed
 in this environment.
@@ -132,7 +142,8 @@ under `src/cook-web/src/c-store/` and `src/cook-web/src/c-api/`.
 
 ## Concrete Steps
 
-- Create `shifu_course_slugs` with unique constraints and UTC application-side
+- Create `shifu_course_slugs` with versioned current/history records, permanent
+  slug reservation, one-current-per-BID constraints, and UTC application-side
   timestamps; update the migration-head test.
 - Add `course_slug.md` and a service helper that validates 3-6 words and the
   18-48 character envelope, retries invalid output once, allocates collisions
@@ -162,12 +173,12 @@ under `src/cook-web/src/c-store/` and `src/cook-web/src/c-api/`.
 
 ## Idempotence and Recovery
 
-Slug allocation first returns an existing binding for the same `shifu_bid`.
-The backfill skips bound courses and commits each successful course separately,
-so interruption or provider failure is recoverable by rerunning it. Legacy BID
-resolution remains available indefinitely. The migration is additive; after
-slug links are exposed, recovery should roll forward rather than drop the
-binding table.
+Slug allocation first returns the current record for the same `shifu_bid`.
+The backfill skips courses with a current slug and commits each successful
+course separately, so interruption or provider failure is recoverable by
+rerunning it. Historical slugs and legacy BID resolution remain available
+indefinitely. The migration is additive; after slug links are exposed,
+recovery should roll forward rather than drop the slug table.
 
 ## Interfaces and Dependencies
 

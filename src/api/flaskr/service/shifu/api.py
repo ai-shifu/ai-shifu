@@ -1,4 +1,4 @@
-"""Stable cross-service API for immutable public course identities."""
+"""Stable cross-service API for public course identities."""
 
 from .slug import (
     build_course_public_path,

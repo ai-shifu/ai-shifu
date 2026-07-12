@@ -162,6 +162,8 @@ def test_get_payment_details_returns_stripe_payload(app):
             ShifuCourseSlug(
                 shifu_bid=order.shifu_bid,
                 slug="practical-stripe-course-link",
+                version=1,
+                is_current=1,
                 generation_source="llm",
             )
         )

@@ -54,7 +54,7 @@ def enable_commands(app: Flask):
         help="Backfill one course business identifier only.",
     )
     def backfill_course_slugs_command(dry_run, batch_size, shifu_bid):
-        """Backfill immutable public course slug bindings."""
+        """Backfill current public course slug records."""
 
         payload = backfill_course_slugs(
             app,

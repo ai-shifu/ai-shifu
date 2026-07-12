@@ -25,10 +25,12 @@ from flaskr.service.shifu.slug import (
     build_course_public_path,
     ensure_shifu_slug,
     get_shifu_slug,
+    get_shifu_slug_map,
     prepare_course_slug,
     resolve_shifu_identifier,
     validate_course_slug,
 )
+from flaskr.util.datetime import now_utc
 
 
 @pytest.mark.parametrize(
@@ -225,6 +227,8 @@ def test_collision_suffix_truncates_long_base_without_losing_three_words(app):
             ShifuCourseSlug(
                 shifu_bid="long-slug-owner-course",
                 slug=long_base,
+                version=1,
+                is_current=1,
                 generation_source="llm",
             )
         )
@@ -276,11 +280,15 @@ def test_allocator_retries_integrity_error_inside_savepoint(app, monkeypatch):
         assert allocation.binding.slug.startswith("race-safe-course-primary-link-")
 
 
-def test_slug_binding_is_immutable_and_bid_precedence_is_preserved(app, monkeypatch):
+def test_existing_current_slug_is_preserved_and_bid_precedence_is_preserved(
+    app, monkeypatch
+):
     with app.app_context():
         binding = ShifuCourseSlug(
-            shifu_bid="immutable-course",
+            shifu_bid="stable-course",
             slug="durable-course-public-link",
+            version=1,
+            is_current=1,
             generation_source="llm",
         )
         db.session.add(binding)
@@ -300,22 +308,203 @@ def test_slug_binding_is_immutable_and_bid_precedence_is_preserved(app, monkeypa
         )
         same_binding = ensure_shifu_slug(
             app,
-            shifu_bid="immutable-course",
+            shifu_bid="stable-course",
             title="A completely different title",
         )
 
         assert same_binding.id == binding.id
-        assert get_shifu_slug("immutable-course") == "durable-course-public-link"
-        assert build_course_public_path("immutable-course") == (
+        assert get_shifu_slug("stable-course") == "durable-course-public-link"
+        assert build_course_public_path("stable-course") == (
             "/c/durable-course-public-link"
         )
-        assert build_course_public_path("immutable-course", preview=True) == (
+        assert build_course_public_path("stable-course", preview=True) == (
             "/c/durable-course-public-link?preview=true"
         )
         assert (
             resolve_shifu_identifier(app, "durable-course-public-link")
             == "durable-course-public-link"
         )
+
+
+def test_slug_history_preserves_aliases_and_selects_only_current_record(
+    app, monkeypatch
+):
+    course_bid = "versioned-slug-course"
+    old_slug = "original-course-public-link"
+    current_slug = "updated-course-public-link"
+    with app.app_context():
+        original = ShifuCourseSlug(
+            shifu_bid=course_bid,
+            slug=old_slug,
+            version=1,
+            is_current=1,
+            generation_source="llm",
+        )
+        db.session.add(original)
+        db.session.flush()
+
+        original.is_current = None
+        original.retired_at = now_utc()
+        db.session.flush()
+        current = ShifuCourseSlug(
+            shifu_bid=course_bid,
+            slug=current_slug,
+            version=2,
+            is_current=1,
+            generation_source="manual",
+        )
+        db.session.add(current)
+        db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.shifu.slug.prepare_course_slug",
+            lambda *_args, **_kwargs: pytest.fail(
+                "an existing current slug must not regenerate"
+            ),
+        )
+        selected = ensure_shifu_slug(
+            app,
+            shifu_bid=course_bid,
+            title="A later course title",
+        )
+
+        assert selected.id == current.id
+        assert get_shifu_slug(course_bid) == current_slug
+        assert get_shifu_slug_map([course_bid]) == {course_bid: current_slug}
+        assert build_course_public_path(course_bid) == f"/c/{current_slug}"
+        assert resolve_shifu_identifier(app, old_slug) == course_bid
+        assert resolve_shifu_identifier(app, current_slug) == course_bid
+        with pytest.raises(ShifuIdentifierConflict):
+            assert_shifu_bid_available(old_slug)
+
+        allocation = allocate_course_slug(
+            app,
+            shifu_bid="historical-alias-collision-target",
+            prepared=PreparedCourseSlug(old_slug, "llm"),
+        )
+        db.session.commit()
+        assert allocation.collided is True
+        assert allocation.binding.slug != old_slug
+
+
+def test_slug_history_constraints_allow_many_aliases_but_one_current(app):
+    course_bid = "slug-history-constraints-course"
+    retired_at = now_utc()
+    with app.app_context():
+        db.session.add_all(
+            [
+                ShifuCourseSlug(
+                    shifu_bid=course_bid,
+                    slug="first-historical-course-link",
+                    version=1,
+                    is_current=None,
+                    generation_source="llm",
+                    retired_at=retired_at,
+                ),
+                ShifuCourseSlug(
+                    shifu_bid=course_bid,
+                    slug="second-historical-course-link",
+                    version=2,
+                    is_current=None,
+                    generation_source="manual",
+                    retired_at=retired_at,
+                ),
+                ShifuCourseSlug(
+                    shifu_bid=course_bid,
+                    slug="current-versioned-course-link",
+                    version=3,
+                    is_current=1,
+                    generation_source="manual",
+                ),
+            ]
+        )
+        db.session.commit()
+
+        db.session.add(
+            ShifuCourseSlug(
+                shifu_bid=course_bid,
+                slug="another-current-course-link",
+                version=4,
+                is_current=1,
+                generation_source="manual",
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
+
+        db.session.add(
+            ShifuCourseSlug(
+                shifu_bid=course_bid,
+                slug="duplicate-version-course-link",
+                version=2,
+                is_current=None,
+                generation_source="manual",
+                retired_at=retired_at,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
+
+        assert ShifuCourseSlug.query.filter_by(shifu_bid=course_bid).count() == 3
+
+
+def test_allocator_continues_version_after_history_without_current(app):
+    course_bid = "resume-versioned-slug-course"
+    with app.app_context():
+        db.session.add(
+            ShifuCourseSlug(
+                shifu_bid=course_bid,
+                slug="retired-course-public-link",
+                version=3,
+                is_current=None,
+                generation_source="manual",
+                retired_at=now_utc(),
+            )
+        )
+        db.session.commit()
+
+        allocation = allocate_course_slug(
+            app,
+            shifu_bid=course_bid,
+            prepared=PreparedCourseSlug("replacement-course-public-link", "manual"),
+        )
+        db.session.commit()
+
+        assert allocation.created is True
+        assert allocation.binding.version == 4
+        assert allocation.binding.is_current == 1
+        assert get_shifu_slug(course_bid) == "replacement-course-public-link"
+        assert resolve_shifu_identifier(app, "retired-course-public-link") == course_bid
+
+
+@pytest.mark.parametrize(
+    ("is_current", "has_retired_at"),
+    [
+        (None, False),
+        (1, True),
+        (0, False),
+    ],
+)
+def test_slug_history_rejects_invalid_current_retirement_states(
+    app, is_current, has_retired_at
+):
+    state_name = "none" if is_current is None else str(is_current)
+    with app.app_context():
+        db.session.add(
+            ShifuCourseSlug(
+                shifu_bid=f"invalid-slug-state-{state_name}-{int(has_retired_at)}",
+                slug=f"invalid-state-{state_name}-course-link-{int(has_retired_at)}",
+                version=1,
+                is_current=is_current,
+                generation_source="manual",
+                retired_at=now_utc() if has_retired_at else None,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
 
 
 def test_ensure_slug_uses_callers_transaction_and_rolls_back_with_course(
@@ -360,6 +549,8 @@ def test_new_bid_cannot_reuse_an_existing_slug(app):
             ShifuCourseSlug(
                 shifu_bid="slug-owner-course",
                 slug="existing-course-public-link",
+                version=1,
+                is_current=1,
                 generation_source="llm",
             )
         )
@@ -444,6 +635,50 @@ def test_backfill_bid_loader_uses_stable_keyset_pages(app):
         assert second_page == course_bids[2:]
 
 
+def test_backfill_restores_current_slug_after_historical_record(app, monkeypatch):
+    course_bid = "historical-only-backfill-course"
+    old_slug = "historical-only-course-link"
+    with app.app_context():
+        db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=course_bid,
+                    title="Backfill a current course link",
+                    created_user_bid="slug-owner",
+                    updated_user_bid="slug-owner",
+                ),
+                ShifuCourseSlug(
+                    shifu_bid=course_bid,
+                    slug=old_slug,
+                    version=1,
+                    is_current=None,
+                    generation_source="manual",
+                    retired_at=now_utc(),
+                ),
+            ]
+        )
+        db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.shifu.slug.prepare_course_slug",
+            lambda *_args, **_kwargs: PreparedCourseSlug(
+                "restored-current-course-link",
+                "llm",
+            ),
+        )
+        result = backfill_course_slugs(app, shifu_bid=course_bid, batch_size=1)
+
+        current = ShifuCourseSlug.query.filter_by(
+            shifu_bid=course_bid,
+            is_current=1,
+        ).one()
+        assert result["created"] == 1
+        assert result["missing"] == 0
+        assert current.version == 2
+        assert current.slug == "restored-current-course-link"
+        assert resolve_shifu_identifier(app, old_slug) == course_bid
+
+
 def test_backfill_dry_run_never_calls_model_or_writes(app, monkeypatch):
     course_bid = "dry-run-slug-backfill-course"
     with app.app_context():
@@ -496,7 +731,10 @@ def test_backfill_empty_title_uses_fallback_and_reaches_zero_missing(app, monkey
             shifu_bid=course_bid,
             batch_size=1,
         )
-        binding = ShifuCourseSlug.query.filter_by(shifu_bid=course_bid).one()
+        binding = ShifuCourseSlug.query.filter_by(
+            shifu_bid=course_bid,
+            is_current=1,
+        ).one()
 
         assert result["created"] == 1
         assert result["fallback"] == 1
@@ -599,6 +837,8 @@ def test_import_with_new_explicit_bid_rejects_existing_slug(app, monkeypatch):
             ShifuCourseSlug(
                 shifu_bid="existing-import-course",
                 slug=conflicting_identifier,
+                version=1,
+                is_current=1,
                 generation_source="llm",
             )
         )

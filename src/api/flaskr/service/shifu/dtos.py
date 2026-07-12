@@ -34,7 +34,7 @@ class ShifuDto(BaseModel):
 
     bid: str = Field(..., description="shifu id", required=False)
     slug: str | None = Field(
-        None, description="immutable public course slug", required=False
+        None, description="current public course slug", required=False
     )
     name: str = Field(..., description="shifu name", required=False)
     description: str = Field(..., description="shifu description", required=False)
@@ -114,7 +114,7 @@ class ShifuDetailDto(BaseModel):
 
     bid: str = Field(..., description="shifu id", required=False)
     slug: str | None = Field(
-        None, description="immutable public course slug", required=False
+        None, description="current public course slug", required=False
     )
     name: str = Field(..., description="shifu name", required=False)
     description: str = Field(..., description="shifu description", required=False)

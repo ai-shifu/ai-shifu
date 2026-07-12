@@ -171,6 +171,14 @@ def test_fresh_mysql_upgrade_reaches_head():
             constraint["name"]
             for constraint in inspector.get_unique_constraints("shifu_course_slugs")
         }
+        slug_check_constraints = {
+            constraint["name"]
+            for constraint in inspector.get_check_constraints("shifu_course_slugs")
+        }
+        slug_columns = {
+            column["name"]: column
+            for column in inspector.get_columns("shifu_course_slugs")
+        }
         engine.dispose()
 
         assert current_head == expected_head
@@ -182,8 +190,17 @@ def test_fresh_mysql_upgrade_reaches_head():
             "shifu_course_slugs",
         }.issubset(tables)
         assert slug_unique_constraints == {
-            "uk_shifu_course_slugs_shifu_bid",
             "uk_shifu_course_slugs_slug",
+            "uk_shifu_course_slugs_version",
+            "uk_shifu_course_slugs_current",
         }
+        assert slug_check_constraints == {
+            "ck_shifu_course_slugs_positive_version",
+            "ck_shifu_course_slugs_current_marker",
+            "ck_shifu_course_slugs_retirement_state",
+        }
+        assert not slug_columns["version"]["nullable"]
+        assert slug_columns["is_current"]["nullable"]
+        assert slug_columns["retired_at"]["nullable"]
     finally:
         _drop_temp_database(base_uri, database_name)
