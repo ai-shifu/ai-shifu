@@ -2935,17 +2935,43 @@ function useChatLogicHook({
   );
 
   /**
+   * If the frontend still thinks a run is streaming but the backend no longer
+   * reports an active run, clear the stale local guard so retry / resend can proceed.
+   */
+  const hasActiveRunInProgress = useCallback(
+    async (options?: { swallowRequestError?: boolean }) => {
+      const runningRes = await checkIsRunning(shifuBid, outlineBid).catch(
+        error => {
+          if (options?.swallowRequestError) {
+            return undefined;
+          }
+          throw error;
+        },
+      );
+
+      if (runningRes === undefined) {
+        return true;
+      }
+
+      if (runningRes?.is_running) {
+        return true;
+      }
+
+      if (isStreamingRef.current) {
+        stopActiveRunStream();
+      }
+
+      return false;
+    },
+    [outlineBid, shifuBid, stopActiveRunStream],
+  );
+
+  /**
    * onRefresh replays a block from the server using the original inputs.
    */
   const onRefresh = useCallback(
     async (elementBid: string) => {
-      if (isStreamingRef.current) {
-        showOutputInProgressToast();
-        return;
-      }
-
-      const runningRes = await checkIsRunning(shifuBid, outlineBid);
-      if (runningRes.is_running) {
+      if (await hasActiveRunInProgress({ swallowRequestError: true })) {
         showOutputInProgressToast();
         return;
       }
@@ -2974,11 +3000,9 @@ function useChatLogicHook({
       });
     },
     [
+      hasActiveRunInProgress,
       isTypeFinishedRef,
-      outlineBid,
       resolveSourceGeneratedBlockBid,
-      shifuBid,
-      isStreamingRef,
       setTrackedContentList,
       showOutputInProgressToast,
     ],
@@ -3005,11 +3029,6 @@ function useChatLogicHook({
         isReGenerate =
           Boolean(lastActionableElementBid) &&
           blockBid !== lastActionableElementBid;
-      }
-
-      if (!isReGenerate && isStreamingRef.current) {
-        showOutputInProgressToast();
-        return;
       }
 
       const { variableName, buttonText, inputText } = content;
@@ -3158,12 +3177,10 @@ function useChatLogicHook({
         return;
       }
 
-      const runningRes = await checkIsRunning(shifuBid, outlineBid).catch(
-        () => {
-          return null;
-        },
-      );
-      if (!isReGenerate && runningRes?.is_running) {
+      if (
+        !isReGenerate &&
+        (await hasActiveRunInProgress({ swallowRequestError: true }))
+      ) {
         showOutputInProgressToast();
         return;
       }
@@ -3209,6 +3226,7 @@ function useChatLogicHook({
       getLessonFeedbackDefaults,
       getNextLessonId,
       isTypeFinishedRef,
+      hasActiveRunInProgress,
       isLessonFeedbackContent,
       isListenMode,
       lessonId,
