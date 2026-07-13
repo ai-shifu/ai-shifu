@@ -2943,11 +2943,15 @@ function useChatLogicHook({
       const runningRes = await checkIsRunning(shifuBid, outlineBid).catch(
         error => {
           if (options?.swallowRequestError) {
-            return null;
+            return undefined;
           }
           throw error;
         },
       );
+
+      if (runningRes === undefined) {
+        return true;
+      }
 
       if (runningRes?.is_running) {
         return true;
@@ -2967,7 +2971,7 @@ function useChatLogicHook({
    */
   const onRefresh = useCallback(
     async (elementBid: string) => {
-      if (await hasActiveRunInProgress()) {
+      if (await hasActiveRunInProgress({ swallowRequestError: true })) {
         showOutputInProgressToast();
         return;
       }
