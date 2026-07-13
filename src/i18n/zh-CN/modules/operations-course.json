@@ -363,6 +363,20 @@
     "startTime": "开始日期",
     "status": "状态"
   },
+  "messages": {
+    "copyCourseFailed": "复制课程失败，请稍后重试",
+    "loadChapterDetailFailed": "章节详情加载失败，请稍后重试",
+    "loadCourseDetailFailed": "课程详情加载失败，请稍后重试",
+    "loadCourseUsersFailed": "课程用户数据加载失败，请稍后重试",
+    "loadCoursesFailed": "课程列表加载失败，请刷新后重试",
+    "loadCreditUsageDetailsFailed": "积分消耗明细加载失败，请稍后重试",
+    "loadCreditUsageFailed": "积分消耗数据加载失败，请稍后重试",
+    "loadFollowUpDetailFailed": "追问详情加载失败，请稍后重试",
+    "loadFollowUpsFailed": "追问数据加载失败，请刷新后重试",
+    "loadPromptDetailFailed": "课程提示词加载失败，请稍后重试",
+    "loadRatingsFailed": "评分数据加载失败，请刷新后重试",
+    "transferCreatorFailed": "转移课程负责人失败，请稍后重试"
+  },
   "overview": {
     "activeFilter": "快捷筛选",
     "metrics": {

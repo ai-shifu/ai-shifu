@@ -111,6 +111,10 @@
     "userKeywordPlaceholderEmail": "输入用户 ID / 邮箱",
     "userKeywordPlaceholderPhone": "输入用户 ID / 手机号"
   },
+  "messages": {
+    "loadCreditOrderDetailFailed": "积分订单详情加载失败，请稍后重试",
+    "loadDetailFailed": "订单详情加载失败，请稍后重试"
+  },
   "overview": {
     "activeFilter": "当前筛选",
     "metrics": {

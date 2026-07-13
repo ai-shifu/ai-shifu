@@ -119,7 +119,9 @@ const OperatorOrderDetailSheet = ({
       } else if (err instanceof Error) {
         setError({ message: err.message });
       } else {
-        setError({ message: t('common.core.unknownError') });
+        setError({
+          message: t('module.operationsOrder.messages.loadDetailFailed'),
+        });
       }
     } finally {
       if (requestId === fetchRequestIdRef.current) {

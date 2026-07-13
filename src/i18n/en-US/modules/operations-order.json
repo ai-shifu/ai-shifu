@@ -111,6 +111,10 @@
     "userKeywordPlaceholderEmail": "User ID / email",
     "userKeywordPlaceholderPhone": "User ID / phone"
   },
+  "messages": {
+    "loadCreditOrderDetailFailed": "Failed to load credit order detail. Please try again later.",
+    "loadDetailFailed": "Failed to load order detail. Please try again later."
+  },
   "overview": {
     "activeFilter": "Current filter",
     "metrics": {
