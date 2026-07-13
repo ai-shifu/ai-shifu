@@ -177,10 +177,6 @@ export const NewChatComponents = ({
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [listenFullscreenPortalTarget, setListenFullscreenPortalTarget] =
     useState<HTMLElement | null>(null);
-  // const { scrollToBottom } = useAutoScroll(chatRef as any, {
-  //   threshold: 120,
-  // });
-
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [isReadFeedbackReady, setIsReadFeedbackReady] = useState(false);
   const [isReadFeedbackAnchorVisible, setIsReadFeedbackAnchorVisible] =
@@ -522,7 +518,6 @@ export const NewChatComponents = ({
       }),
     [askButtonMarkup, items, mobileStyle, scopedAskListByAnchorElementBid],
   );
-  // console.log('readModeItems', readModeItems);
   const visibleReadModeItems = useMemo(
     () => buildVisibleReadModeItems(readModeItems, readModeTypewriterCache),
     [readModeItems, readModeTypewriterCache],
@@ -1260,6 +1255,8 @@ export const NewChatComponents = ({
               onSend={memoizedOnSend}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
               onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
+              pausePlaybackWhen={reGenerateConfirm.open}
+              disableInteractionEdits={isOutputInProgress}
             />
           </>
         ) : (
