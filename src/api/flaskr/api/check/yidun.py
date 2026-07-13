@@ -26,6 +26,7 @@ URL = "http://as.dun.163.com/v5/text/check"
 YIDUN_SECRET_ID = get_config("NETEASE_YIDUN_SECRET_ID")
 YIDUN_SECRET_KEY = get_config("NETEASE_YIDUN_SECRET_KEY")
 YIDUN_BUSINESS_ID = get_config("NETEASE_YIDUN_BUSINESS_ID")
+DEFAULT_TIMEOUT_SECONDS = 5
 VERSION = "v5.3"
 
 
@@ -99,9 +100,18 @@ def yidun_check(
         params["account"] = user_id
     params["signature"] = gen_signature(params)
 
+    timeout_seconds = app.config.get(
+        "NETEASE_YIDUN_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS
+    )
+
     try:
         params = urlencode(params).encode("utf8")
-        response = requests.post(URL, data=params, headers=headers)
+        response = requests.post(
+            URL,
+            data=params,
+            headers=headers,
+            timeout=timeout_seconds,
+        )
         response_json = response.json()
         if response_json.get("code", 200) == 200:
             return CheckResultDTO(

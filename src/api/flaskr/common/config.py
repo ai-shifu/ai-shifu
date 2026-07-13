@@ -1228,6 +1228,13 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         secret=True,
         group="content_detection",
     ),
+    "ILIVEDATA_TIMEOUT_SECONDS": EnvVar(
+        name="ILIVEDATA_TIMEOUT_SECONDS",
+        default=5,
+        type=int,
+        description="Timeout in seconds for ILIVEDATA text moderation requests",
+        group="content_detection",
+    ),
     "NETEASE_YIDUN_SECRET_ID": EnvVar(
         name="NETEASE_YIDUN_SECRET_ID",
         default="",
@@ -1246,6 +1253,13 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="NETEASE_YIDUN_BUSINESS_ID",
         default="",
         description="Netease Yidun business ID",
+        group="content_detection",
+    ),
+    "NETEASE_YIDUN_TIMEOUT_SECONDS": EnvVar(
+        name="NETEASE_YIDUN_TIMEOUT_SECONDS",
+        default=5,
+        type=int,
+        description="Timeout in seconds for Netease Yidun text moderation requests",
         group="content_detection",
     ),
     # Lark/Feishu Integration
