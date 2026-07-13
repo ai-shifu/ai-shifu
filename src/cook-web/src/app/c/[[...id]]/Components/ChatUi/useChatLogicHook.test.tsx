@@ -2953,6 +2953,87 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(result.current.hasRunFailed).toBe(false);
   });
 
+  it('clears a stale local streaming guard before retrying the original run', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    const staleRun = activeRun;
+    const initialRunCount = mockGetRunMessage.mock.calls.length;
+
+    await act(async () => {
+      await staleRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-1',
+          generated_block_bid: 'content-1',
+          element_type: 'content',
+          content: 'partial content',
+          like_status: 'none',
+        },
+      });
+    });
+
+    mockCheckIsRunning.mockResolvedValueOnce({
+      is_running: false,
+      running_time: 0,
+    });
+
+    await act(async () => {
+      await result.current.onRefresh('content-1');
+    });
+
+    await waitFor(() =>
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount + 1),
+    );
+    expect(staleRun?.source.close).toHaveBeenCalled();
+    expect(activeRun).not.toBe(staleRun);
+    expect(toast).not.toHaveBeenCalledWith({
+      title: 'module.chat.outputInProgress',
+    });
+    expect(result.current.hasRunFailed).toBe(false);
+    expect(result.current.isOutputInProgress).toBe(true);
+  });
+
+  it('keeps the current stream guard when run status cannot be confirmed', async () => {
+    const params = buildBaseParams();
+    const { result } = renderHook(() => useChatLogicHook(params), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    const staleRun = activeRun;
+    const initialRunCount = mockGetRunMessage.mock.calls.length;
+
+    await act(async () => {
+      await staleRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-1',
+          generated_block_bid: 'content-1',
+          element_type: 'content',
+          content: 'partial content',
+          like_status: 'none',
+        },
+      });
+    });
+
+    mockCheckIsRunning.mockRejectedValueOnce(new Error('network down'));
+
+    await act(async () => {
+      await result.current.onRefresh('content-1');
+    });
+
+    expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
+    expect(staleRun?.source.close).not.toHaveBeenCalled();
+    expect(activeRun).toBe(staleRun);
+    expect(params.showOutputInProgressToast).toHaveBeenCalledTimes(1);
+    expect(result.current.isOutputInProgress).toBe(true);
+  });
+
   it('does not treat the latest interaction as regenerate when helper rows are trailing', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',
