@@ -11,6 +11,11 @@ import {
 } from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
 
+export const ADMIN_FILTER_SELECT_TRIGGER_CLASS = 'h-9 rounded-md';
+export const ADMIN_FILTER_SELECT_ITEM_CLASS = 'rounded-md';
+export const ADMIN_FILTER_SELECT_CHECKED_STATE_CLASS =
+  'data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
+
 export type AdminFilterSelectOption = {
   value: string;
   label: ReactNode;
@@ -124,7 +129,7 @@ export const createSelectFilterItem = ({
       <SelectTrigger
         id={triggerId}
         aria-labelledby={triggerAriaLabelledBy}
-        className={cn('h-9', triggerClassName)}
+        className={cn(ADMIN_FILTER_SELECT_TRIGGER_CLASS, triggerClassName)}
       >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
@@ -133,7 +138,11 @@ export const createSelectFilterItem = ({
           <SelectItem
             key={option.value}
             value={option.value}
-            className={selectItemClassName}
+            className={cn(
+              ADMIN_FILTER_SELECT_ITEM_CLASS,
+              ADMIN_FILTER_SELECT_CHECKED_STATE_CLASS,
+              selectItemClassName,
+            )}
             indicatorClassName={indicatorClassName}
           >
             {option.label}
