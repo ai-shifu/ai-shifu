@@ -28,7 +28,8 @@ type AdminRowActionsProps = {
 const ADMIN_ROW_ACTION_TRIGGER_CLASS =
   'inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
 const ADMIN_ROW_ACTION_MENU_CLASS = 'min-w-[9rem]';
-const ADMIN_ROW_ACTION_ITEM_CLASS = 'cursor-pointer';
+const ADMIN_ROW_ACTION_ITEM_CLASS =
+  'cursor-pointer data-[disabled]:cursor-default';
 
 export default function AdminRowActions({
   label,
