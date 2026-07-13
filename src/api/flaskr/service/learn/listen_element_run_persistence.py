@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from flaskr.dao import db
+from sqlalchemy import bindparam, text
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -36,6 +37,23 @@ from flaskr.service.learn.type_state_machine import TypeInput
 
 
 class ListenElementRunPersistenceMixin:
+    _ACTIVE_ELEMENT_ROW_ID_SQL = text(
+        """
+        SELECT id
+        FROM learn_generated_elements
+        WHERE run_session_bid = :run_session_bid
+          AND generated_block_bid = :generated_block_bid
+          AND event_type = 'element'
+          AND deleted = 0
+          AND status = 1
+          AND (
+            element_bid IN :element_bids
+            OR target_element_bid IN :element_bids
+          )
+        ORDER BY id ASC
+        """
+    ).bindparams(bindparam("element_bids", expanding=True))
+
     def _next_seq(self) -> int:
         self._run_event_seq += 1
         return self._run_event_seq
@@ -106,36 +124,26 @@ class ListenElementRunPersistenceMixin:
         if not normalized_bids:
             return []
 
-        base_filters = [
-            LearnGeneratedElement.run_session_bid == self.run_session_bid,
-            LearnGeneratedElement.generated_block_bid == (generated_block_bid or ""),
-            LearnGeneratedElement.event_type == "element",
-            LearnGeneratedElement.deleted == 0,
-            LearnGeneratedElement.status == 1,
-        ]
-        row_ids: set[int] = set()
-        lookup_columns = (
-            LearnGeneratedElement.element_bid,
-            LearnGeneratedElement.target_element_bid,
+        # Keep the historical row retirement order deterministic to preserve
+        # the deadlock mitigation added in #1483, but fetch ids through a single
+        # explicit Core SELECT on the current transaction connection. This
+        # avoids the ORM query/result path that triggered the listen-mode
+        # ResourceClosedError / Command Out of Sync failure while still seeing
+        # rows flushed earlier in the same transaction.
+        result = db.session.connection().execute(
+            self._ACTIVE_ELEMENT_ROW_ID_SQL,
+            {
+                "run_session_bid": self.run_session_bid,
+                "generated_block_bid": generated_block_bid or "",
+                "element_bids": normalized_bids,
+            },
         )
-
-        for lookup_column in lookup_columns:
-            lookup_filter = (
-                lookup_column == normalized_bids[0]
-                if len(normalized_bids) == 1
-                else lookup_column.in_(normalized_bids)
-            )
-            matched_rows = (
-                LearnGeneratedElement.query.with_entities(LearnGeneratedElement.id)
-                .filter(*base_filters, lookup_filter)
-                .order_by(LearnGeneratedElement.id.asc())
-                .all()
-            )
-            row_ids.update(
-                int(row_id) for (row_id,) in matched_rows if row_id is not None
-            )
-
-        return sorted(row_ids)
+        try:
+            return [
+                int(row_id) for (row_id,) in result.fetchall() if row_id is not None
+            ]
+        finally:
+            result.close()
 
     def _deactivate_active_element_rows(
         self,

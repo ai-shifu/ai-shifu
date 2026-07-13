@@ -6,6 +6,7 @@
     "generatedBlockNotFound": "Bloc généré introuvable",
     "invalidAction": "Action non valide",
     "lessonFeedbackCommentPlaceholder": "Facultatif : laissez votre commentaire",
+    "llmStreamInterrupted": "La connexion de génération a été interrompue. Veuillez actualiser puis réessayer.",
     "nextChapterButton": "Suivant",
     "outputInProgress": "Le contenu est encore en cours de génération. Veuillez patienter avant de réessayer.",
     "ttsRateLimited": "Le service vocal est actuellement occupé. Veuillez réessayer dans un instant."
