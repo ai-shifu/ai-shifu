@@ -262,7 +262,9 @@ export default function AdminOperationCourseRatingsPage() {
     return rawValue?.trim() || '';
   }, [params]);
   const { isReady } = useOperatorGuard();
-  const unknownErrorMessage = t('common.core.unknownError');
+  const ratingsLoadErrorMessage = t(
+    'module.operationsCourse.messages.loadRatingsFailed',
+  );
   const emptyValue = tOperations('detail.ratings.emptyValue');
   const clearLabel = t('common.core.close');
   const defaultUserName = t('module.user.defaultUserName');
@@ -310,7 +312,7 @@ export default function AdminOperationCourseRatingsPage() {
         setRatings(EMPTY_RATINGS_RESPONSE);
         setFullSummary(EMPTY_RATINGS_RESPONSE.summary);
         fullSummaryLoadedRef.current = false;
-        setError({ message: unknownErrorMessage });
+        setError({ message: ratingsLoadErrorMessage });
         setLoading(false);
         return;
       }
@@ -368,7 +370,7 @@ export default function AdminOperationCourseRatingsPage() {
         } else if (err instanceof Error) {
           setError({ message: err.message });
         } else {
-          setError({ message: unknownErrorMessage });
+          setError({ message: ratingsLoadErrorMessage });
         }
       } finally {
         if (requestId === requestIdRef.current) {
@@ -376,7 +378,7 @@ export default function AdminOperationCourseRatingsPage() {
         }
       }
     },
-    [shifuBid, unknownErrorMessage],
+    [shifuBid, ratingsLoadErrorMessage],
   );
 
   useEffect(() => {
@@ -722,7 +724,7 @@ export default function AdminOperationCourseRatingsPage() {
       <div className='p-6'>
         <ErrorDisplay
           errorCode={0}
-          errorMessage={unknownErrorMessage}
+          errorMessage={ratingsLoadErrorMessage}
           onRetry={() => router.push('/admin/operations')}
         />
       </div>

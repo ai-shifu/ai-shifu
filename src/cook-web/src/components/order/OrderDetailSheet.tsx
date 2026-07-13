@@ -149,7 +149,7 @@ const OrderDetailSheet = ({
       } else if (err instanceof Error) {
         setError({ message: err.message });
       } else {
-        setError({ message: t('common.core.unknownError') });
+        setError({ message: t('module.order.messages.loadOrderDetailFailed') });
       }
     } finally {
       setLoading(false);

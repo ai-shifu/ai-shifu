@@ -104,7 +104,9 @@ export default function AdminDashboardEntryPage() {
         } else if (err instanceof Error) {
           setError({ message: err.message });
         } else {
-          setError({ message: t('common.core.unknownError') });
+          setError({
+            message: t('module.dashboard.messages.loadCoursesFailed'),
+          });
         }
       } finally {
         setLoading(false);

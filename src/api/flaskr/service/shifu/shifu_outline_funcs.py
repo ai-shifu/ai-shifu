@@ -424,6 +424,54 @@ def create_outline(
         return dto
 
 
+def create_default_outlines_for_new_shifu(
+    app,
+    user_id: str,
+    shifu_id: str,
+    chapter_name: str,
+    lesson_name: str,
+    now_time,
+) -> tuple[SimpleOutlineDto, SimpleOutlineDto]:
+    """Create the default chapter/lesson pair for a brand-new shifu draft.
+
+    This helper intentionally skips both external risk checks and the per-shifu
+    write lock. The names are system-generated, and a brand-new shifu has no
+    concurrent outline writes yet, so we can build the initial structure inside
+    the caller's existing transaction without opening a nested outline flow.
+    """
+
+    normalized_chapter_name = __normalize_outline_name(chapter_name)
+    normalized_lesson_name = __normalize_outline_name(lesson_name)
+    chapter_bid = generate_id(app)
+    lesson_bid = generate_id(app)
+
+    chapter = __insert_outline_locked(
+        app,
+        user_id,
+        shifu_id,
+        "",
+        normalized_chapter_name,
+        UNIT_TYPE_GUEST,
+        None,
+        False,
+        now_time,
+        chapter_bid,
+    )
+    lesson = __insert_outline_locked(
+        app,
+        user_id,
+        shifu_id,
+        chapter_bid,
+        normalized_lesson_name,
+        UNIT_TYPE_GUEST,
+        None,
+        False,
+        now_time,
+        lesson_bid,
+    )
+    return chapter, lesson
+
+
 def create_outlines_batch(
     app,
     user_id: str,

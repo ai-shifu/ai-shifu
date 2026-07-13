@@ -24,6 +24,7 @@ from .dto import (
 endpoint_host = "tsafe.ilivedata.com"
 endpoint_path = "/api/v1/text/check"
 endpoint_url = "https://tsafe.ilivedata.com/api/v1/text/check"
+DEFAULT_TIMEOUT_SECONDS = 5
 
 ILIVEDATA_RESULT_PASS = 0
 ILIVEDATA_RESULT_REVIEW = 1
@@ -62,6 +63,9 @@ def ilivedata_check(
 ) -> CheckResultDTO:
     pid = app.config.get("ILIVEDATA_PID")
     secret_key = app.config.get("ILIVEDATA_SECRET_KEY").encode("utf-8")
+    timeout_seconds = app.config.get(
+        "ILIVEDATA_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS
+    )
     if not pid or not secret_key:
         app.logger.warning("ilivedata pid or secret_key is not set")
         return CheckResultDTO(
@@ -85,7 +89,7 @@ def ilivedata_check(
         hmac.new(secret_key, parameter.encode("utf-8"), digestmod=sha256).digest()
     )
     try:
-        ret = send(query_body, signature, now_date, pid)
+        ret = send(query_body, signature, now_date, pid, timeout=timeout_seconds)
     except URLError as err:
         app.logger.error("ilivedata request failed: %s", err)
         return CheckResultDTO(
@@ -123,7 +127,7 @@ def ilivedata_check(
         )
 
 
-def send(querystring, signature, time_stamp, pid):
+def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECONDS):
     headers = {
         "X-AppId": pid,
         "X-TimeStamp": time_stamp,
@@ -136,4 +140,9 @@ def send(querystring, signature, time_stamp, pid):
     req = Request(
         endpoint_url, querystring.encode("utf-8"), headers=headers, method="POST"
     )
-    return json.loads(urlopen(req).read().decode(), strict=False)
+    try:
+        return json.loads(urlopen(req, timeout=timeout).read().decode(), strict=False)
+    except URLError:
+        raise
+    except OSError as err:
+        raise URLError(err)

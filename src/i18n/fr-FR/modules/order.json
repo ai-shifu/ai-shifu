@@ -98,6 +98,10 @@
     "successSummary": "{count} numéros mobiles importés avec succès",
     "title": "Importer une activation"
   },
+  "messages": {
+    "loadOrderDetailFailed": "Échec du chargement du détail de la commande. Veuillez réessayer plus tard.",
+    "loadOrdersFailed": "Échec du chargement de la liste des commandes. Veuillez actualiser puis réessayer."
+  },
   "paginationJumpInputAriaLabel": "Aller à la page",
   "paginationNext": "Suivant",
   "paginationNextAriaLabel": "Aller à la page suivante",
