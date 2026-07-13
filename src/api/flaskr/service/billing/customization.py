@@ -336,7 +336,10 @@ def disable_creator_integration(
 
 
 def resolve_creator_branding(creator_bid: str) -> dict[str, str]:
-    value = _saas_funcs().get_sass_config(
+    funcs = _saas_funcs(required=False)
+    if funcs is None:
+        return {"logo_wide_url": "", "logo_square_url": ""}
+    value = funcs.get_sass_config(
         normalize_bid(creator_bid), BRANDING_KEY, default="{}"
     )
     payload = _load_json(value)
@@ -489,8 +492,11 @@ def _load_active_record(creator_bid: str, provider: str) -> dict[str, Any] | Non
 
 
 def _active_version_bid(app: Flask, creator_bid: str, provider: str) -> str:
+    funcs = _saas_funcs(required=False)
+    if funcs is None:
+        return ""
     return str(
-        _saas_funcs().get_sass_config(
+        funcs.get_sass_config(
             creator_bid,
             INTEGRATION_ACTIVE_KEY.format(provider=provider),
             default="",
@@ -695,8 +701,17 @@ def _detect_logo_content_type(content: bytes) -> str:
     return ""
 
 
-def _saas_funcs():
-    return import_module("flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs")
+def _saas_funcs(*, required: bool = True):
+    try:
+        return import_module(
+            "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs"
+        )
+    except ModuleNotFoundError as exc:
+        if not str(exc.name or "").startswith("flaskr.plugins.ai_shifu_saas_plugin"):
+            raise
+        if required:
+            raise RuntimeError("SaaS config plugin is not installed") from exc
+        return None
 
 
 def _saas_model():

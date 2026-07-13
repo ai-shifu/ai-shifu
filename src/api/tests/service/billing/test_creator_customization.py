@@ -1,7 +1,9 @@
 from io import BytesIO
+from importlib import import_module
 from types import SimpleNamespace
 
 from cryptography.fernet import Fernet
+import pytest
 from werkzeug.datastructures import FileStorage
 
 from flaskr.service.billing import customization
@@ -14,9 +16,19 @@ from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
 from flaskr.service.user import user as user_service
 
 
+def _require_saas_config_plugin() -> None:
+    try:
+        import_module("flaskr.plugins.ai_shifu_saas_plugin")
+    except ModuleNotFoundError as exc:
+        if str(exc.name or "").startswith("flaskr.plugins.ai_shifu_saas_plugin"):
+            pytest.skip("SaaS config plugin dependency is not installed")
+        raise
+
+
 def test_creator_integration_uses_encrypted_unified_config_and_versions(
     app, monkeypatch
 ):
+    _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
 
@@ -89,6 +101,7 @@ def test_creator_integration_uses_encrypted_unified_config_and_versions(
 
 
 def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
+    _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
     with app.app_context():
@@ -129,6 +142,7 @@ def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
 
 
 def test_creator_branding_reuses_unified_config(app, monkeypatch):
+    _require_saas_config_plugin()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
     with app.app_context():
         grant_creator_manual_entitlement(
@@ -148,6 +162,7 @@ def test_creator_branding_reuses_unified_config(app, monkeypatch):
 
 
 def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(app, monkeypatch):
+    _require_saas_config_plugin()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
 
     def fake_get_config(key, default=None):
@@ -195,6 +210,31 @@ def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(app, monkey
         assert uploaded["object_key"].startswith("creator-branding/creator-logo-1/")
         assert uploaded["object_key"].endswith(".png")
         assert saved["logo_wide_url"] == url
+
+
+def test_unavailable_saas_plugin_keeps_optional_customization_reads_empty(
+    app, monkeypatch
+):
+    def missing_plugin(name):
+        if name.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
+            raise ModuleNotFoundError(name=name)
+        return import_module(name)
+
+    monkeypatch.setattr(customization, "import_module", missing_plugin)
+
+    with app.app_context():
+        assert customization.resolve_creator_branding("creator-without-plugin") == {
+            "logo_wide_url": "",
+            "logo_square_url": "",
+        }
+        assert (
+            customization._active_version_bid(
+                app,
+                "creator-without-plugin",
+                "stripe",
+            )
+            == ""
+        )
 
 
 def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(app, monkeypatch):
