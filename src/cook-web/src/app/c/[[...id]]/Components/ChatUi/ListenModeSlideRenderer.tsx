@@ -178,6 +178,8 @@ interface ListenModeSlideRendererProps {
   }) => void;
   onLessonFeedbackPromptStateChange?: (ready: boolean) => void;
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
+  pausePlaybackWhen?: boolean;
+  disableInteractionEdits?: boolean;
 }
 
 interface ListenSlidePresentationProfile {
@@ -600,6 +602,7 @@ const buildSlideElementList = ({
     // Prefer in-memory interaction state, then fall back to persisted user_input.
     const currentUserInput =
       interactionInputMap[item.element_bid] ?? item.user_input ?? '';
+    const hasResolvedUserInput = Boolean(currentUserInput.trim());
     const isSystemInteraction = isSystemInteractionContent(item.content);
     const isLatestEditable =
       lastItemIsInteraction && item.element_bid === lastInteractionBid;
@@ -624,9 +627,8 @@ const buildSlideElementList = ({
       ask_list: askList,
       readonly:
         !isSystemInteraction &&
-        (Boolean(item.readonly) ||
-          Boolean(currentUserInput) ||
-          !isLatestEditable),
+        !hasResolvedUserInput &&
+        (Boolean(item.readonly) || !isLatestEditable),
     });
   });
 
@@ -663,6 +665,8 @@ const ListenModeSlideRenderer = ({
   onPlaybackStateChange,
   onLessonFeedbackPromptStateChange,
   onMobileViewModeChange,
+  pausePlaybackWhen = false,
+  disableInteractionEdits = false,
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
   const markdownFlowLocale = resolveMarkdownFlowLocale(
@@ -695,6 +699,9 @@ const ListenModeSlideRenderer = ({
   );
   const [playbackSpeed, setPlaybackSpeed] = useState<ListenPlaybackSpeed>(() =>
     readListenPlaybackSpeedFromStorage(shifuBid),
+  );
+  const initialChatContainerRef = useRef<HTMLDivElement | null>(
+    chatRef.current,
   );
   const playbackSpeedRef = useRef<ListenPlaybackSpeed>(playbackSpeed);
   const [interactionInputMap, setInteractionInputMap] = useState<
@@ -904,9 +911,31 @@ const ListenModeSlideRenderer = ({
     () => elementList.filter(element => Boolean(element.is_marker)).length,
     [elementList],
   );
+  const renderedElementList = useMemo(
+    () =>
+      !disableInteractionEdits
+        ? elementList
+        : elementList.map(element => {
+            if (element.type !== 'interaction') {
+              return element;
+            }
+
+            const interactionContent =
+              typeof element.content === 'string' ? element.content : '';
+            if (isSystemInteractionContent(interactionContent)) {
+              return element;
+            }
+
+            return {
+              ...element,
+              readonly: true,
+            };
+          }),
+    [disableInteractionEdits, elementList],
+  );
   const markerStepList = useMemo(
-    () => elementList.filter(element => Boolean(element.is_marker)),
-    [elementList],
+    () => renderedElementList.filter(element => Boolean(element.is_marker)),
+    [renderedElementList],
   );
   const markerSequenceKey = useMemo(
     () => buildListenMarkerSequenceKey(markerStepList),
@@ -1019,6 +1048,10 @@ const ListenModeSlideRenderer = ({
         return;
       }
 
+      if (disableInteractionEdits) {
+        return;
+      }
+
       const submittedValue = resolveInteractionSubmission(content).userInput;
       if (submittedValue) {
         setInteractionInputMap(prev => ({
@@ -1029,7 +1062,7 @@ const ListenModeSlideRenderer = ({
 
       onSend?.(content, blockBid);
     },
-    [onSend],
+    [disableInteractionEdits, onSend],
   );
 
   const closeInteractionOverlayIfOpen = useCallback(() => {
@@ -1414,6 +1447,33 @@ const ListenModeSlideRenderer = ({
       syncPlaybackSpeedToAudio(audioElement);
     });
   }, [chatRef, playbackSpeed]);
+
+  useEffect(() => {
+    if (!pausePlaybackWhen) {
+      return;
+    }
+
+    const audioContainers = [
+      initialChatContainerRef.current,
+      chatRef.current,
+      slideShellRef.current,
+    ].filter((container): container is HTMLDivElement => Boolean(container));
+
+    const uniqueAudioElements = new Set<HTMLAudioElement>();
+    audioContainers.forEach(container => {
+      Array.from(container.querySelectorAll<HTMLAudioElement>('audio')).forEach(
+        audioElement => {
+          uniqueAudioElements.add(audioElement);
+        },
+      );
+    });
+
+    uniqueAudioElements.forEach(audioElement => {
+      if (!audioElement.paused) {
+        audioElement.pause();
+      }
+    });
+  }, [chatRef, pausePlaybackWhen]);
 
   const handleStepChange = useCallback(
     (element: SlideElement | undefined, index: number) => {
@@ -1831,8 +1891,6 @@ const ListenModeSlideRenderer = ({
     </button>
   ) : null;
 
-  // console.log('elementlist', elementList);
-
   const shouldRenderDesktopAskOverlay =
     showAskOverlays &&
     isDesktopAskPanelMounted &&
@@ -1951,7 +2009,7 @@ const ListenModeSlideRenderer = ({
             isMobileFullscreen && 'listen-slide-root--landscape',
           )}
           locale={markdownFlowLocale}
-          elementList={elementList}
+          elementList={renderedElementList}
           interactionTexts={{
             title: t('module.chat.listenInteractionHint'),
           }}
