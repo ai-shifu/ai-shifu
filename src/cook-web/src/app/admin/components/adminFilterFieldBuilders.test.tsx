@@ -1,9 +1,6 @@
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import {
-  ADMIN_FILTER_SELECT_CHECKED_STATE_CLASS,
-  ADMIN_FILTER_SELECT_ITEM_CLASS,
-  ADMIN_FILTER_SELECT_TRIGGER_CLASS,
   createDateRangeFilterItem,
   createSelectFilterItem,
   createTextFilterItem,
@@ -110,9 +107,7 @@ describe('adminFilterFieldBuilders', () => {
       'aria-labelledby',
       'status-label',
     );
-    expect(screen.getByTestId('select-trigger')).toHaveClass(
-      ADMIN_FILTER_SELECT_TRIGGER_CLASS,
-    );
+    expect(screen.getByTestId('select-trigger')).toHaveClass('h-9');
   });
 
   test('applies admin select item classes before custom item classes', () => {
@@ -129,8 +124,8 @@ describe('adminFilterFieldBuilders', () => {
     render(item.component);
 
     const optionElement = screen.getByText('All');
-    expect(optionElement).toHaveClass(ADMIN_FILTER_SELECT_ITEM_CLASS);
-    expect(optionElement).toHaveClass(ADMIN_FILTER_SELECT_CHECKED_STATE_CLASS);
+    expect(optionElement).toHaveClass('data-[state=checked]:bg-muted');
+    expect(optionElement).toHaveClass('data-[state=checked]:text-foreground');
     expect(optionElement).toHaveClass('min-w-[140px]');
   });
 
