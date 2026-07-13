@@ -1,4 +1,5 @@
 import asyncio
+import os
 import time
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
@@ -6,7 +7,14 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 import logging
 import requests
-import litellm
+
+# litellm fetches its model cost map from GitHub at import time by default,
+# which stalls every worker boot (and times out entirely on hosts without
+# outbound internet). Default to the bundled local map; deployments can still
+# override by exporting LITELLM_LOCAL_MODEL_COST_MAP=False before startup.
+os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+
+import litellm  # noqa: E402
 from flask import Flask, current_app
 from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
