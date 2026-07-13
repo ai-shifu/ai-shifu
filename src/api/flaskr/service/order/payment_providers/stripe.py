@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Any, Dict
+from functools import wraps
+import threading
 
 from flask import Flask
 
@@ -17,19 +19,24 @@ from .base import (
 )
 from . import register_payment_provider
 
+_STRIPE_CONFIG_LOCK = threading.RLock()
+
+
+def _serialized_stripe_config(func):
+    @wraps(func)
+    def wrapped(*args, **kwargs):
+        with _STRIPE_CONFIG_LOCK:
+            return func(*args, **kwargs)
+
+    return wrapped
+
 
 class StripeProvider(PaymentProvider):
     """Stripe payment provider implementation."""
 
     channel = "stripe"
 
-    def __init__(self) -> None:
-        self._client_initialized = False
-        self._stripe = None
-
     def _ensure_client(self, app: Flask):
-        if self._client_initialized and self._stripe is not None:
-            return self._stripe
         try:
             import stripe  # type: ignore
         except ImportError as exc:  # pragma: no cover - surfaced during runtime
@@ -46,11 +53,9 @@ class StripeProvider(PaymentProvider):
         if api_version:
             stripe.api_version = api_version
 
-        self._stripe = stripe
-        self._client_initialized = True
-        app.logger.info("Stripe client initialized")
         return stripe
 
+    @_serialized_stripe_config
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
@@ -205,6 +210,7 @@ class StripeProvider(PaymentProvider):
         )
         return self.create_payment(request=subscription_request, app=app)
 
+    @_serialized_stripe_config
     def cancel_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
@@ -224,6 +230,7 @@ class StripeProvider(PaymentProvider):
             },
         )
 
+    @_serialized_stripe_config
     def resume_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
@@ -243,22 +250,26 @@ class StripeProvider(PaymentProvider):
             },
         )
 
+    @_serialized_stripe_config
     def retrieve_checkout_session(
         self, *, session_id: str, app: Flask
     ) -> Dict[str, Any]:
         stripe = self._ensure_client(app)
         return stripe.checkout.Session.retrieve(session_id)
 
+    @_serialized_stripe_config
     def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> Dict[str, Any]:
         stripe = self._ensure_client(app)
         return stripe.PaymentIntent.retrieve(intent_id)
 
+    @_serialized_stripe_config
     def retrieve_subscription(
         self, *, subscription_id: str, app: Flask
     ) -> Dict[str, Any]:
         stripe = self._ensure_client(app)
         return stripe.Subscription.retrieve(subscription_id)
 
+    @_serialized_stripe_config
     def verify_webhook(
         self, *, headers: Dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
@@ -356,6 +367,7 @@ class StripeProvider(PaymentProvider):
             )
         raise RuntimeError(f"Unsupported Stripe reference type: {reference_type}")
 
+    @_serialized_stripe_config
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:

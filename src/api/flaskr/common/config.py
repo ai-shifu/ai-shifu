@@ -229,6 +229,26 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Custom favicon URL override returned by /api/config",
         group="frontend",
     ),
+    "CREATOR_CUSTOMIZATION_ENABLED": EnvVar(
+        name="CREATOR_CUSTOMIZATION_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable entitled course-owner brand, domain, OAuth, and learner-payment configuration.",
+        group="billing",
+    ),
+    "CREATOR_INTEGRATION_ENCRYPTION_KEY": EnvVar(
+        name="CREATOR_INTEGRATION_ENCRYPTION_KEY",
+        default="",
+        description="Fernet key used only for course-owner integration secrets.",
+        secret=True,
+        group="billing",
+    ),
+    "CUSTOM_DOMAIN_CNAME_TARGET": EnvVar(
+        name="CUSTOM_DOMAIN_CNAME_TARGET",
+        default="",
+        description="Required CNAME target for course-owner custom domains",
+        group="billing",
+    ),
     "ANALYTICS_UMAMI_SCRIPT": EnvVar(
         name="ANALYTICS_UMAMI_SCRIPT",
         default="",
@@ -915,6 +935,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Filesystem path to the Ping++ RSA private key",
         group="payment",
     ),
+    "PINGXX_PRIVATE_KEY": EnvVar(
+        name="PINGXX_PRIVATE_KEY",
+        default="",
+        description="Inline Ping++ RSA private key for per-owner SaaS configuration",
+        secret=True,
+        group="payment",
+    ),
+    "PINGXX_WEBHOOK_PUBLIC_KEY": EnvVar(
+        name="PINGXX_WEBHOOK_PUBLIC_KEY",
+        default="",
+        description="Ping++ webhook RSA public key for signature verification",
+        secret=True,
+        group="payment",
+    ),
     "PINGXX_APP_ID": EnvVar(
         name="PINGXX_APP_ID",
         default="",
@@ -934,16 +968,36 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         secret=True,
         group="payment",
     ),
+    "ALIPAY_APP_PRIVATE_KEY": EnvVar(
+        name="ALIPAY_APP_PRIVATE_KEY",
+        default="",
+        description="Inline Alipay application private key for per-owner SaaS configuration",
+        secret=True,
+        group="payment",
+    ),
     "ALIPAY_PUBLIC_KEY_PATH": EnvVar(
         name="ALIPAY_PUBLIC_KEY_PATH",
         default="",
         description="Filesystem path to the Alipay platform public key",
         group="payment",
     ),
+    "ALIPAY_PUBLIC_KEY": EnvVar(
+        name="ALIPAY_PUBLIC_KEY",
+        default="",
+        description="Inline Alipay public key for per-owner SaaS configuration",
+        secret=True,
+        group="payment",
+    ),
     "ALIPAY_GATEWAY_URL": EnvVar(
         name="ALIPAY_GATEWAY_URL",
         default="https://openapi.alipay.com/gateway.do",
         description="Alipay OpenAPI gateway URL",
+        group="payment",
+    ),
+    "ALIPAY_WEBHOOK_URL": EnvVar(
+        name="ALIPAY_WEBHOOK_URL",
+        default="",
+        description="Per-owner Alipay notification URL override",
         group="payment",
     ),
     "WECHATPAY_APP_ID": EnvVar(
@@ -962,6 +1016,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="WECHATPAY_BASE_URL",
         default="https://api.mch.weixin.qq.com",
         description="WeChat Pay API base URL",
+        group="payment",
+    ),
+    "WECHATPAY_WEBHOOK_URL": EnvVar(
+        name="WECHATPAY_WEBHOOK_URL",
+        default="",
+        description="Per-owner WeChat Pay notification URL override",
         group="payment",
     ),
     "WECHATPAY_API_V3_KEY": EnvVar(
@@ -984,10 +1044,24 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         secret=True,
         group="payment",
     ),
+    "WECHATPAY_PRIVATE_KEY": EnvVar(
+        name="WECHATPAY_PRIVATE_KEY",
+        default="",
+        description="Inline WeChat Pay merchant private key for per-owner SaaS configuration",
+        secret=True,
+        group="payment",
+    ),
     "WECHATPAY_PLATFORM_CERT_PATH": EnvVar(
         name="WECHATPAY_PLATFORM_CERT_PATH",
         default="",
         description="Filesystem path to the WeChat Pay platform certificate for notification verification",
+        group="payment",
+    ),
+    "WECHATPAY_PLATFORM_CERT": EnvVar(
+        name="WECHATPAY_PLATFORM_CERT",
+        default="",
+        description="Inline WeChat Pay platform certificate for per-owner SaaS configuration",
+        secret=True,
         group="payment",
     ),
     "STRIPE_SECRET_KEY": EnvVar(

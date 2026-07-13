@@ -190,6 +190,8 @@ class BillingOverviewDTO(BillingBaseDTO):
 class BillingEntitlementsDTO(BillingBaseDTO):
     branding_enabled: bool
     custom_domain_enabled: bool
+    custom_wechat_enabled: bool = False
+    custom_payment_enabled: bool = False
     priority_class: str
     analytics_tier: str
     support_tier: str
@@ -769,3 +771,5 @@ class RuntimeConfigDTO(BillingBaseDTO):
     entitlements: RuntimeBillingEntitlementsDTO
     branding: RuntimeBillingBrandingDTO
     domain: RuntimeBillingDomainDTO
+    customizationCapabilities: dict[str, bool] = Field(default_factory=dict)
+    paymentConfigurationReady: bool = False

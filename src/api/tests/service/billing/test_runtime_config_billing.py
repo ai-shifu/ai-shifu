@@ -10,6 +10,7 @@ import flaskr.common.public_urls as public_urls
 from flaskr.route import config as config_route
 from flaskr.service.billing.consts import (
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+    BILLING_DOMAIN_SSL_STATUS_ACTIVE,
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     CREDIT_SOURCE_TYPE_MANUAL,
 )
@@ -142,6 +143,7 @@ def runtime_config_client(monkeypatch):
                     verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
                     verification_token="token-runtime-1",
                     last_verified_at=now - timedelta(hours=1),
+                    ssl_status=BILLING_DOMAIN_SSL_STATUS_ACTIVE,
                 ),
                 BillingDomainBinding(
                     domain_binding_bid="runtime-binding-2",
@@ -186,6 +188,8 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     assert payload["entitlements"] == {
         "branding_enabled": True,
         "custom_domain_enabled": True,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "priority",
         "analytics_tier": "advanced",
         "support_tier": "business_hours",
@@ -282,6 +286,8 @@ def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective
     assert payload["entitlements"] == {
         "branding_enabled": False,
         "custom_domain_enabled": False,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "standard",
         "analytics_tier": "basic",
         "support_tier": "self_serve",
@@ -411,6 +417,8 @@ def test_default_runtime_billing_context_is_database_free(monkeypatch) -> None:
         "entitlements": {
             "branding_enabled": False,
             "custom_domain_enabled": False,
+            "custom_wechat_enabled": False,
+            "custom_payment_enabled": False,
             "priority_class": "standard",
             "analytics_tier": "basic",
             "support_tier": "self_serve",
@@ -461,6 +469,8 @@ def test_runtime_config_reports_disabled_billing_flag(
     assert payload["entitlements"] == {
         "branding_enabled": False,
         "custom_domain_enabled": False,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "standard",
         "analytics_tier": "basic",
         "support_tier": "self_serve",
@@ -501,6 +511,8 @@ def test_runtime_config_falls_back_when_billing_context_build_fails(
     assert payload["entitlements"] == {
         "branding_enabled": False,
         "custom_domain_enabled": False,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "standard",
         "analytics_tier": "basic",
         "support_tier": "self_serve",

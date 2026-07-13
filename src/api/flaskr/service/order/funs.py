@@ -2,7 +2,7 @@ import datetime
 import decimal
 import json
 import re
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from flask import Flask
@@ -80,6 +80,12 @@ import pytz
 from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
 from flaskr.common.shifu_context import set_shifu_context
 from flaskr.service.shifu.utils import get_shifu_creator_bid
+from flaskr.service.billing.api import (
+    build_provider_config_overrides,
+    resolve_payment_integration_for_new_order,
+    resolve_provider_credential_context,
+)
+from flaskr.service.config import config_overrides
 
 
 @register_schema_to_swagger
@@ -364,7 +370,8 @@ def _sync_order_campaign_pricing(
 
 
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
-    set_shifu_context(course_id, get_shifu_creator_bid(app, course_id))
+    creator_bid = get_shifu_creator_bid(app, course_id)
+    set_shifu_context(course_id, creator_bid)
     shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, False)
     app.logger.info(f"shifu_info: {shifu_info}")
     if not shifu_info:
@@ -409,6 +416,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             buy_record = Order()
             buy_record.user_bid = user_id
             buy_record.shifu_bid = course_id
+            buy_record.creator_bid = creator_bid or ""
             buy_record.payable_price = decimal.Decimal(shifu_info.price)
             buy_record.status = ORDER_STATUS_INIT
             buy_record.order_bid = order_id
@@ -518,10 +526,9 @@ def generate_charge(
         ).first()
         if not buy_record:
             raise_error("server.order.orderNotFound")
-        set_shifu_context(
-            buy_record.shifu_bid,
-            get_shifu_creator_bid(app, buy_record.shifu_bid),
-        )
+        creator_bid = get_shifu_creator_bid(app, buy_record.shifu_bid) or ""
+        set_shifu_context(buy_record.shifu_bid, creator_bid)
+        buy_record.creator_bid = creator_bid
         shifu_info: LearnShifuInfoDTO = get_shifu_info(app, buy_record.shifu_bid, False)
         if not shifu_info:
             raise_error("server.shifu.shifuNotFound")
@@ -557,6 +564,12 @@ def generate_charge(
             stored_channel=stored_payment_channel or None,
         )
         buy_record.payment_channel = payment_channel
+        integration = resolve_payment_integration_for_new_order(
+            app, creator_bid, payment_channel
+        )
+        buy_record.payment_integration_bid = (
+            integration.integration_bid if integration else ""
+        )
         db.session.flush()
 
         if amount == 0:
@@ -574,59 +587,80 @@ def generate_charge(
             )
 
         if payment_channel == "pingxx":
-            return _generate_pingxx_charge(
-                app=app,
-                buy_record=buy_record,
-                course=shifu_info,
-                channel=provider_channel,
-                client_ip=client_ip,
-                amount=amount,
-                subject=subject,
-                body=body,
-                order_no=order_no,
-            )
+            with _order_credential_scope(app, buy_record, integration):
+                return _generate_pingxx_charge(
+                    app=app,
+                    buy_record=buy_record,
+                    course=shifu_info,
+                    channel=provider_channel,
+                    client_ip=client_ip,
+                    amount=amount,
+                    subject=subject,
+                    body=body,
+                    order_no=order_no,
+                )
 
         if payment_channel == "stripe":
-            return _generate_stripe_charge(
-                app=app,
-                buy_record=buy_record,
-                course=shifu_info,
-                channel=provider_channel,
-                client_ip=client_ip,
-                amount=amount,
-                subject=subject,
-                body=body,
-                order_no=order_no,
-            )
+            with _order_credential_scope(app, buy_record, integration):
+                return _generate_stripe_charge(
+                    app=app,
+                    buy_record=buy_record,
+                    course=shifu_info,
+                    channel=provider_channel,
+                    client_ip=client_ip,
+                    amount=amount,
+                    subject=subject,
+                    body=body,
+                    order_no=order_no,
+                )
 
         if payment_channel == "alipay":
-            return _generate_alipay_charge(
-                app=app,
-                buy_record=buy_record,
-                course=shifu_info,
-                channel=provider_channel,
-                client_ip=client_ip,
-                amount=amount,
-                subject=subject,
-                body=body,
-                order_no=order_no,
-            )
+            with _order_credential_scope(app, buy_record, integration):
+                return _generate_alipay_charge(
+                    app=app,
+                    buy_record=buy_record,
+                    course=shifu_info,
+                    channel=provider_channel,
+                    client_ip=client_ip,
+                    amount=amount,
+                    subject=subject,
+                    body=body,
+                    order_no=order_no,
+                )
 
         if payment_channel == "wechatpay":
-            return _generate_wechatpay_charge(
-                app=app,
-                buy_record=buy_record,
-                course=shifu_info,
-                channel=provider_channel,
-                client_ip=client_ip,
-                amount=amount,
-                subject=subject,
-                body=body,
-                order_no=order_no,
-            )
+            with _order_credential_scope(app, buy_record, integration):
+                return _generate_wechatpay_charge(
+                    app=app,
+                    buy_record=buy_record,
+                    course=shifu_info,
+                    channel=provider_channel,
+                    client_ip=client_ip,
+                    amount=amount,
+                    subject=subject,
+                    body=body,
+                    order_no=order_no,
+                )
 
         app.logger.error("payment channel not support: %s", payment_channel)
         raise_error("server.pay.payChannelNotSupport")
+
+
+def _order_credential_scope(app: Flask, order: Order, context=None):
+    """Use the immutable credential version snapshotted on the order."""
+
+    integration_bid = str(order.payment_integration_bid or "")
+    if not integration_bid:
+        return nullcontext()
+    context = context or resolve_provider_credential_context(
+        app,
+        creator_bid=str(order.creator_bid or ""),
+        provider=str(order.payment_channel or ""),
+        integration_bid=integration_bid,
+    )
+    if context is None or context.integration_bid != integration_bid:
+        raise_error("server.pay.payChannelNotSupport")
+    return config_overrides(build_provider_config_overrides(context))
 
 
 def _resolve_payment_channel(
@@ -1127,11 +1161,12 @@ def sync_stripe_checkout_session(
             raise_error("server.order.orderNotFound")
 
         provider = get_payment_provider("stripe")
-        sync_result = provider.sync_reference(
-            provider_reference=resolved_session_id,
-            reference_type="checkout_session",
-            app=app,
-        )
+        with _order_credential_scope(app, order):
+            sync_result = provider.sync_reference(
+                provider_reference=resolved_session_id,
+                reference_type="checkout_session",
+                app=app,
+            )
         session = sync_result.provider_payload.get("checkout_session", {}) or {}
         intent = sync_result.provider_payload.get("payment_intent") or None
 
@@ -1193,11 +1228,12 @@ def sync_native_payment_order(
             raise_error("server.order.orderNotFound")
 
         provider = get_payment_provider(provider_name)
-        sync_result = provider.sync_reference(
-            provider_reference=snapshot.provider_attempt_id,
-            reference_type="payment",
-            app=app,
-        )
+        with _order_credential_scope(app, order):
+            sync_result = provider.sync_reference(
+                provider_reference=snapshot.provider_attempt_id,
+                reference_type="payment",
+                app=app,
+            )
         _apply_native_snapshot_update(
             snapshot=snapshot,
             provider=provider_name,
@@ -1405,7 +1441,11 @@ def _parse_json_payload(value: Any) -> Any:
 
 
 def handle_stripe_webhook(
-    app: Flask, raw_body: bytes, sig_header: str
+    app: Flask,
+    raw_body: bytes,
+    sig_header: str,
+    *,
+    expected_integration_bid: str = "",
 ) -> Tuple[Dict[str, Any], int]:
     provider = get_payment_provider("stripe")
     try:
@@ -1436,6 +1476,17 @@ def handle_stripe_webhook(
         billing_result = apply_billing_stripe_notification(app, notification)
         return billing_result.to_response_dict(), billing_result.status_code
     order_bid = notification.order_bid or metadata.get("order_bid", "")
+
+    if expected_integration_bid and order_bid:
+        scoped_order = Order.query.filter(
+            Order.order_bid == order_bid,
+            Order.deleted == 0,
+        ).first()
+        if (
+            scoped_order is None
+            or scoped_order.payment_integration_bid != expected_integration_bid
+        ):
+            return {"status": "error", "message": "integration mismatch"}, 400
 
     if not order_bid:
         app.logger.warning("Stripe webhook missing order metadata. type=%s", event_type)
@@ -1575,7 +1626,8 @@ def refund_order_payment(
             metadata=metadata,
         )
 
-        result = provider.refund_payment(request=refund_request, app=app)
+        with _order_credential_scope(app, order):
+            result = provider.refund_payment(request=refund_request, app=app)
 
         metadata_dict = {}
         if stripe_order.metadata_json:

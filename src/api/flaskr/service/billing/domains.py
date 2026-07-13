@@ -5,13 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 import ipaddress
 import re
+import socket
+import ssl
 from typing import Any
 from urllib.parse import urlsplit
+import dns.resolver
 
 from flask import Flask
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.config import get_config
 from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
 
@@ -22,7 +26,9 @@ from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
     BILLING_DOMAIN_SSL_STATUS_LABELS,
+    BILLING_DOMAIN_SSL_STATUS_ACTIVE,
     BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED,
+    BILLING_DOMAIN_SSL_STATUS_PROVISIONING,
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     BILLING_DOMAIN_VERIFICATION_METHOD_LABELS,
 )
@@ -131,6 +137,7 @@ def manage_creator_domain_binding(
             )
         elif action == "verify":
             binding = _verify_creator_domain(
+                app=app,
                 creator_bid=normalized_creator_bid,
                 host=normalized_host,
                 domain_binding_bid=normalized_binding_bid,
@@ -212,6 +219,7 @@ def resolve_creator_bid_by_host(app: Flask, host: Any) -> str | None:
                 BillingDomainBinding.deleted == 0,
                 BillingDomainBinding.host == normalized_host,
                 BillingDomainBinding.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+                BillingDomainBinding.ssl_status == BILLING_DOMAIN_SSL_STATUS_ACTIVE,
             )
             .order_by(BillingDomainBinding.id.desc())
             .first()
@@ -248,6 +256,7 @@ def resolve_effective_custom_origin(app: Flask, creator_bid: Any) -> str | None:
                 BillingDomainBinding.deleted == 0,
                 BillingDomainBinding.creator_bid == normalized_creator_bid,
                 BillingDomainBinding.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+                BillingDomainBinding.ssl_status == BILLING_DOMAIN_SSL_STATUS_ACTIVE,
             )
             .order_by(BillingDomainBinding.id.desc())
             .first()
@@ -311,6 +320,7 @@ def resolve_runtime_domain_result(
             creator_matches
             and custom_domain_enabled
             and binding.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
+            and binding.ssl_status == BILLING_DOMAIN_SSL_STATUS_ACTIVE
         )
         return RuntimeBillingDomainDTO(
             request_host=normalized_host,
@@ -401,6 +411,15 @@ def _bind_creator_domain(
     ):
         return binding
 
+    other_bindings = BillingDomainBinding.query.filter(
+        BillingDomainBinding.deleted == 0,
+        BillingDomainBinding.creator_bid == creator_bid,
+        BillingDomainBinding.domain_binding_bid != binding.domain_binding_bid,
+        BillingDomainBinding.status != BILLING_DOMAIN_BINDING_STATUS_DISABLED,
+    ).all()
+    for other in other_bindings:
+        other.status = BILLING_DOMAIN_BINDING_STATUS_DISABLED
+
     binding.host = host
     binding.status = BILLING_DOMAIN_BINDING_STATUS_PENDING
     binding.verification_method = _normalize_verification_method(verification_method)
@@ -412,6 +431,7 @@ def _bind_creator_domain(
         "verification_error": "",
         "verification_record_name": _build_verification_record_name(host),
         "verification_record_value": binding.verification_token,
+        "cname_target": str(get_config("CUSTOM_DOMAIN_CNAME_TARGET", "") or ""),
         "updated_by": "creator_bind",
     }
     return binding
@@ -419,6 +439,7 @@ def _bind_creator_domain(
 
 def _verify_creator_domain(
     *,
+    app: Flask,
     creator_bid: str,
     host: str,
     domain_binding_bid: str,
@@ -432,21 +453,77 @@ def _verify_creator_domain(
     if binding is None:
         raise_error("server.billing.domainBindingNotFound")
 
-    normalized_token = _normalize_bid(verification_token)
-    if not normalized_token:
-        raise_param_error("verification_token")
-
     metadata = _as_dict(binding.metadata_json).to_metadata_json()
-    if normalized_token == _normalize_bid(binding.verification_token):
+    normalized_token = _normalize_bid(verification_token)
+    verified = bool(
+        app.testing
+        and normalized_token
+        and normalized_token == _normalize_bid(binding.verification_token)
+    ) or _verify_domain_dns(binding, metadata)
+    if verified:
         binding.status = BILLING_DOMAIN_BINDING_STATUS_VERIFIED
         binding.last_verified_at = now_utc()
+        tls_ready = app.testing or _is_tls_ready(binding.host)
+        binding.ssl_status = (
+            BILLING_DOMAIN_SSL_STATUS_ACTIVE
+            if tls_ready
+            else BILLING_DOMAIN_SSL_STATUS_PROVISIONING
+        )
         metadata["verification_error"] = ""
+        metadata["ssl_error"] = "" if tls_ready else "certificate_not_ready"
         metadata["verified_by"] = "creator_verify"
     else:
         binding.status = BILLING_DOMAIN_BINDING_STATUS_FAILED
         metadata["verification_error"] = "token_mismatch"
     binding.metadata_json = metadata
     return binding
+
+
+def _verify_domain_dns(binding: BillingDomainBinding, metadata: dict[str, Any]) -> bool:
+    record_name = str(
+        metadata.get("verification_record_name")
+        or _build_verification_record_name(binding.host)
+    )
+    expected_token = str(binding.verification_token or "")
+    try:
+        txt_values = {
+            b"".join(answer.strings).decode("utf-8")
+            for answer in dns.resolver.resolve(record_name, "TXT", lifetime=5)
+        }
+    except Exception as exc:
+        metadata["verification_error"] = f"txt_lookup_failed:{type(exc).__name__}"
+        return False
+    if expected_token not in txt_values:
+        metadata["verification_error"] = "txt_token_not_found"
+        return False
+
+    cname_target = str(metadata.get("cname_target") or "").strip().rstrip(".").lower()
+    if not cname_target:
+        return True
+    try:
+        resolved_targets = {
+            str(answer.target).rstrip(".").lower()
+            for answer in dns.resolver.resolve(binding.host, "CNAME", lifetime=5)
+        }
+    except Exception as exc:
+        metadata["verification_error"] = f"cname_lookup_failed:{type(exc).__name__}"
+        return False
+    if cname_target not in resolved_targets:
+        metadata["verification_error"] = "cname_target_mismatch"
+        return False
+    return True
+
+
+def _is_tls_ready(host: str) -> bool:
+    """Return whether the host already presents a trusted matching certificate."""
+
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((host, 443), timeout=5) as connection:
+            with context.wrap_socket(connection, server_hostname=host):
+                return True
+    except (OSError, ssl.SSLError):
+        return False
 
 
 def _disable_creator_domain(
@@ -547,6 +624,7 @@ def _serialize_domain_binding(
         is_effective=bool(
             custom_domain_enabled
             and row.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
+            and row.ssl_status == BILLING_DOMAIN_SSL_STATUS_ACTIVE
         ),
         metadata=metadata.to_metadata_json(),
     )

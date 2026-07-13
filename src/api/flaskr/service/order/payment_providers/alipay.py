@@ -27,9 +27,6 @@ class AlipayProvider(PaymentProvider):
 
     channel = "alipay"
 
-    def __init__(self) -> None:
-        self._client: Any | None = None
-
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
@@ -48,7 +45,9 @@ class AlipayProvider(PaymentProvider):
         )
 
         precreate_request = sdk["AlipayTradePrecreateRequest"](biz_model=biz_model)
-        notify_url = build_alipay_notify_url()
+        notify_url = (
+            str(get_config("ALIPAY_WEBHOOK_URL", "") or "") or build_alipay_notify_url()
+        )
         precreate_request.notify_url = notify_url
 
         raw_response = client.execute(precreate_request)
@@ -148,14 +147,16 @@ class AlipayProvider(PaymentProvider):
         raise RuntimeError("Alipay refunds are not supported")
 
     def _ensure_client(self, app: Flask) -> Any:
-        if self._client is not None:
-            return self._client
         sdk = self._load_sdk(app)
         app_id = str(get_config("ALIPAY_APP_ID", "") or "").strip()
         if not app_id:
             raise RuntimeError("ALIPAY_APP_ID must be configured for Alipay")
-        private_key = _read_required_key("ALIPAY_APP_PRIVATE_KEY_PATH")
-        alipay_public_key = _read_required_key("ALIPAY_PUBLIC_KEY_PATH")
+        private_key = _read_required_key(
+            "ALIPAY_APP_PRIVATE_KEY_PATH", "ALIPAY_APP_PRIVATE_KEY"
+        )
+        alipay_public_key = _read_required_key(
+            "ALIPAY_PUBLIC_KEY_PATH", "ALIPAY_PUBLIC_KEY"
+        )
 
         client_config = sdk["AlipayClientConfig"]()
         client_config.server_url = str(
@@ -165,11 +166,10 @@ class AlipayProvider(PaymentProvider):
         client_config.app_id = app_id
         client_config.app_private_key = private_key
         client_config.alipay_public_key = alipay_public_key
-        self._client = sdk["DefaultAlipayClient"](
+        return sdk["DefaultAlipayClient"](
             alipay_client_config=client_config,
             logger=app.logger,
         )
-        return self._client
 
     def _load_sdk(self, app: Flask) -> dict[str, Any]:
         try:
@@ -213,7 +213,7 @@ class AlipayProvider(PaymentProvider):
             app.logger.error("Alipay signature utility is not available: %s", exc)
             raise RuntimeError("Alipay signature utility is required") from exc
 
-        public_key = _read_required_key("ALIPAY_PUBLIC_KEY_PATH")
+        public_key = _read_required_key("ALIPAY_PUBLIC_KEY_PATH", "ALIPAY_PUBLIC_KEY")
         sign = str(payload.get("sign") or "")
         charset = str(payload.get("charset") or "utf-8")
         if not sign:
@@ -238,7 +238,10 @@ class AlipayProvider(PaymentProvider):
         )
 
 
-def _read_required_key(config_name: str) -> str:
+def _read_required_key(config_name: str, inline_config_name: str = "") -> str:
+    inline_value = str(get_config(inline_config_name, "") or "").strip()
+    if inline_value:
+        return inline_value
     key_path = str(get_config(config_name, "") or "").strip()
     if not key_path:
         raise RuntimeError(f"{config_name} must be configured")

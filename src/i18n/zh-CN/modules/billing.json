@@ -345,6 +345,36 @@
   "common": {
     "empty": "暂无"
   },
+  "customization": {
+    "branding": {
+      "invalidFile": "仅支持 2MB 以内的 PNG、JPEG 或 WebP 图片",
+      "squareLogo": "方形 Logo",
+      "title": "品牌 Logo",
+      "uploadSquare": "上传方形 Logo",
+      "uploadWide": "上传横版 Logo",
+      "wideLogo": "横版 Logo"
+    },
+    "disable": "停用",
+    "domain": {
+      "bind": "绑定域名",
+      "record": "{name} = {value}",
+      "status": "{status} · SSL {sslStatus}",
+      "title": "独立域名",
+      "verify": "验证 DNS"
+    },
+    "integrations": {
+      "title": "微信与支付配置"
+    },
+    "locked": "当前套餐未包含此功能，请升级套餐或联系运营开通。",
+    "providers": {
+      "alipay": "支付宝",
+      "pingxx": "Ping++",
+      "stripe": "Stripe",
+      "wechat_oauth": "微信公众号",
+      "wechatpay": "微信支付"
+    },
+    "verify": "验证并启用"
+  },
   "details": {
     "actions": {
       "upgradeNow": "立即升级"
@@ -668,6 +698,7 @@
   "page": {
     "adminLink": "打开后台账务视图",
     "tabs": {
+      "customization": "品牌与收款",
       "ledger": "积分详情",
       "plans": "积分购买"
     },

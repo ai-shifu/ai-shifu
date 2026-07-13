@@ -22,6 +22,19 @@ from flaskr.service.billing.checkout import (
     refund_billing_order,
     sync_billing_order,
 )
+from flaskr.service.billing.customization import (
+    build_creator_customization,
+    disable_creator_integration,
+    is_creator_customization_enabled,
+    save_creator_branding,
+    save_creator_integration,
+    verify_creator_integration,
+)
+from flaskr.service.billing.domains import manage_creator_domain_binding
+from flaskr.service.billing.entitlements import (
+    grant_creator_manual_entitlement,
+    serialize_creator_entitlements,
+)
 from flaskr.service.billing.read_models import (
     adjust_admin_billing_ledger,
     build_admin_bill_daily_ledger_summary_page,
@@ -66,6 +79,12 @@ def _require_billing_access(app: Flask) -> None:
     _require_creator()
 
 
+def _require_customization_access(app: Flask) -> None:
+    _require_billing_access(app)
+    if not is_creator_customization_enabled():
+        raise_error("server.billing.disabled")
+
+
 def _require_billing_operator_access(app: Flask) -> None:
     _require_billing_access(app)
     _require_operator()
@@ -87,6 +106,17 @@ def _get_optional_query_arg(name: str, *, max_length: int = 100) -> str:
     if len(value) > max_length:
         raise_param_error(name)
     return value
+
+
+def _to_optional_bool(value, field_name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value or "").strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise_param_error(field_name)
 
 
 @inject
@@ -229,6 +259,94 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
+    @app.route(path_prefix + "/customization", methods=["GET"])
+    def billing_customization_api():
+        _require_billing_access(app)
+        return make_common_response(
+            build_creator_customization(app, _get_creator_bid())
+        )
+
+    @app.route(path_prefix + "/customization/branding", methods=["PUT"])
+    def billing_customization_branding_api():
+        _require_customization_access(app)
+        return make_common_response(
+            save_creator_branding(
+                app, _get_creator_bid(), request.get_json(silent=True) or {}
+            )
+        )
+
+    @app.route(path_prefix + "/customization/domains", methods=["POST"])
+    def billing_customization_domain_create_api():
+        _require_customization_access(app)
+        payload = dict(request.get_json(silent=True) or {})
+        payload["action"] = "bind"
+        return make_common_response(
+            manage_creator_domain_binding(app, _get_creator_bid(), payload)
+        )
+
+    @app.route(
+        path_prefix + "/customization/domains/<domain_binding_bid>/verify",
+        methods=["POST"],
+    )
+    def billing_customization_domain_verify_api(domain_binding_bid: str):
+        _require_customization_access(app)
+        payload = dict(request.get_json(silent=True) or {})
+        payload.update(action="verify", domain_binding_bid=domain_binding_bid)
+        return make_common_response(
+            manage_creator_domain_binding(app, _get_creator_bid(), payload)
+        )
+
+    @app.route(
+        path_prefix + "/customization/domains/<domain_binding_bid>",
+        methods=["DELETE"],
+    )
+    def billing_customization_domain_disable_api(domain_binding_bid: str):
+        _require_customization_access(app)
+        return make_common_response(
+            manage_creator_domain_binding(
+                app,
+                _get_creator_bid(),
+                {"action": "disable", "domain_binding_bid": domain_binding_bid},
+            )
+        )
+
+    @app.route(path_prefix + "/customization/integrations/<provider>", methods=["PUT"])
+    def billing_customization_integration_save_api(provider: str):
+        _require_customization_access(app)
+        return make_common_response(
+            save_creator_integration(
+                app,
+                _get_creator_bid(),
+                provider,
+                request.get_json(silent=True) or {},
+            )
+        )
+
+    @app.route(
+        path_prefix + "/customization/integrations/<provider>/verify",
+        methods=["POST"],
+    )
+    def billing_customization_integration_verify_api(provider: str):
+        _require_customization_access(app)
+        payload = request.get_json(silent=True) or {}
+        return make_common_response(
+            verify_creator_integration(
+                app,
+                _get_creator_bid(),
+                provider,
+                str(payload.get("integration_bid") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/customization/integrations/<provider>", methods=["DELETE"]
+    )
+    def billing_customization_integration_disable_api(provider: str):
+        _require_customization_access(app)
+        return make_common_response(
+            disable_creator_integration(app, _get_creator_bid(), provider)
+        )
+
     @app.route(admin_path_prefix + "/subscriptions", methods=["GET"])
     def admin_bill_subscriptions_api():
         _require_billing_access(app)
@@ -269,6 +387,29 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 creator_bid=_get_optional_query_arg("creator_bid"),
             )
         )
+
+    @app.route(admin_path_prefix + "/entitlements/<creator_bid>", methods=["POST"])
+    def admin_bill_entitlement_grant_api(creator_bid: str):
+        _require_billing_operator_access(app)
+        payload = request.get_json(silent=True) or {}
+        allowed_fields = {
+            "branding_enabled",
+            "custom_domain_enabled",
+            "custom_wechat_enabled",
+            "custom_payment_enabled",
+        }
+        if set(payload) - allowed_fields:
+            raise_param_error("payload")
+        state = grant_creator_manual_entitlement(
+            app,
+            creator_bid,
+            **{
+                key: _to_optional_bool(payload.get(key), key)
+                for key in allowed_fields
+                if key in payload
+            },
+        )
+        return make_common_response(serialize_creator_entitlements(state))
 
     @app.route(admin_path_prefix + "/orders", methods=["GET"])
     def admin_bill_orders_api():

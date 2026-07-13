@@ -288,6 +288,18 @@ const api = {
   cancelBillingSubscription: 'POST /billing/subscriptions/cancel',
   resumeBillingSubscription: 'POST /billing/subscriptions/resume',
   checkoutBillingTopup: 'POST /billing/topups/checkout',
+  getBillingCustomization: 'GET /billing/customization',
+  updateBillingBranding: 'PUT /billing/customization/branding',
+  createBillingDomain: 'POST /billing/customization/domains',
+  verifyBillingDomain:
+    'POST /billing/customization/domains/{domain_binding_bid}/verify',
+  disableBillingDomain:
+    'DELETE /billing/customization/domains/{domain_binding_bid}',
+  saveBillingIntegration: 'PUT /billing/customization/integrations/{provider}',
+  verifyBillingIntegration:
+    'POST /billing/customization/integrations/{provider}/verify',
+  disableBillingIntegration:
+    'DELETE /billing/customization/integrations/{provider}',
 
   // billing admin api
   getAdminBillingSubscriptions: 'GET /admin/billing/subscriptions',

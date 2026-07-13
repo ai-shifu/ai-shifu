@@ -6,6 +6,7 @@ import type {
   BillingBootstrap,
   BillingWalletBucketList,
   CreatorBillingOverview,
+  BillingCustomization,
 } from '@/types/billing';
 
 const BILLING_SWR_OPTIONS = {
@@ -47,6 +48,15 @@ export function useBillingWalletBuckets() {
     billingEnabled ? buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY) : null,
     async () =>
       (await api.getBillingWalletBuckets({})) as BillingWalletBucketList,
+    BILLING_SWR_OPTIONS,
+  );
+}
+
+export function useBillingCustomization() {
+  const billingEnabled = useBillingEnabled();
+  return useSWR<BillingCustomization>(
+    billingEnabled ? buildBillingSwrKey('billing-customization') : null,
+    async () => (await api.getBillingCustomization({})) as BillingCustomization,
     BILLING_SWR_OPTIONS,
   );
 }

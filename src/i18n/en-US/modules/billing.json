@@ -345,6 +345,36 @@
   "common": {
     "empty": "Not available"
   },
+  "customization": {
+    "branding": {
+      "invalidFile": "Use a PNG, JPEG, or WebP file no larger than 2 MB",
+      "squareLogo": "Square logo",
+      "title": "Brand logos",
+      "uploadSquare": "Upload square logo",
+      "uploadWide": "Upload wide logo",
+      "wideLogo": "Wide logo"
+    },
+    "disable": "Disable",
+    "domain": {
+      "bind": "Bind domain",
+      "record": "{name} = {value}",
+      "status": "{status} · SSL {sslStatus}",
+      "title": "Custom domain",
+      "verify": "Verify DNS"
+    },
+    "integrations": {
+      "title": "WeChat and payment settings"
+    },
+    "locked": "Your current plan does not include this feature. Upgrade or contact support.",
+    "providers": {
+      "alipay": "Alipay",
+      "pingxx": "Ping++",
+      "stripe": "Stripe",
+      "wechat_oauth": "WeChat Official Account",
+      "wechatpay": "WeChat Pay"
+    },
+    "verify": "Verify and enable"
+  },
   "details": {
     "actions": {
       "upgradeNow": "Upgrade now"
@@ -668,6 +698,7 @@
   "page": {
     "adminLink": "Open billing ops",
     "tabs": {
+      "customization": "Brand & Payments",
       "ledger": "Credit Details",
       "plans": "Buy Credits"
     },

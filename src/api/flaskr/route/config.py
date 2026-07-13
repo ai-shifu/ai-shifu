@@ -15,6 +15,11 @@ from flaskr.service.billing.runtime_config import (
     build_default_runtime_billing_context,
     build_runtime_billing_context,
 )
+from flaskr.service.billing.customization import (
+    build_customization_capabilities,
+    is_creator_customization_enabled,
+    resolve_creator_public_integrations,
+)
 from flaskr.service.config.funcs import get_config
 
 from .common import bypass_token_validation, make_common_response
@@ -150,19 +155,58 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         contact_us_url = branding.contact_us_url or get_config("CONTACT_US_URL", "")
         official_site_url = get_config("OFFICIAL_SITE_URL", "")
 
+        resolved_creator_bid = domain_owner_bid or creator_bid
+        customization_capabilities = build_customization_capabilities(
+            runtime_billing.entitlements
+        )
+        public_integrations = {}
+        if resolved_creator_bid and is_creator_customization_enabled():
+            try:
+                public_integrations = resolve_creator_public_integrations(
+                    resolved_creator_bid
+                )
+            except Exception:
+                app.logger.exception(
+                    "Failed to resolve creator public integrations; creator_bid=%s",
+                    resolved_creator_bid,
+                )
+
+        custom_wechat = public_integrations.get("wechat_oauth", {})
+        custom_payment_enabled = customization_capabilities.get("custom_payment", False)
+        custom_payment_channels = [
+            provider
+            for provider in ("pingxx", "stripe", "alipay", "wechatpay")
+            if provider in public_integrations
+        ]
+        wechat_app_id = str(custom_wechat.get("app_id") or "") or get_config(
+            "WECHAT_APP_ID", ""
+        )
+        payment_channels = (
+            custom_payment_channels
+            if custom_payment_enabled
+            else _to_list(
+                get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe"),
+                ["pingxx", "stripe"],
+            )
+        )
+        stripe_publishable_key = str(
+            public_integrations.get("stripe", {}).get("publishable_key") or ""
+        ) or get_config("STRIPE_PUBLISHABLE_KEY", "")
+
         config = RuntimeConfigDTO(
             courseId=get_config("DEFAULT_COURSE_ID", ""),
             defaultLlmModel=get_config("DEFAULT_LLM_MODEL", ""),
-            wechatAppId=get_config("WECHAT_APP_ID", ""),
-            enableWechatCode=bool(get_config("WECHAT_APP_ID", "")),
+            wechatAppId=wechat_app_id,
+            enableWechatCode=bool(wechat_app_id),
             billingEnabled=billing_enabled,
             billingCreditPrecision=get_billing_credit_precision(),
-            stripePublishableKey=get_config("STRIPE_PUBLISHABLE_KEY", ""),
-            stripeEnabled=_to_bool(get_config("STRIPE_ENABLED", False), False),
-            paymentChannels=_to_list(
-                get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe"),
-                ["pingxx", "stripe"],
+            stripePublishableKey=stripe_publishable_key,
+            stripeEnabled=(
+                "stripe" in custom_payment_channels
+                if custom_payment_enabled
+                else _to_bool(get_config("STRIPE_ENABLED", False), False)
             ),
+            paymentChannels=payment_channels,
             payOrderExpireSeconds=_to_int(
                 get_config("PAY_ORDER_EXPIRE_TIME", 600),
                 600,
@@ -201,6 +245,8 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             entitlements=runtime_billing.entitlements,
             branding=runtime_billing.branding,
             domain=runtime_billing.domain,
+            customizationCapabilities=customization_capabilities,
+            paymentConfigurationReady=bool(custom_payment_channels),
         )
         return make_common_response(config)
 

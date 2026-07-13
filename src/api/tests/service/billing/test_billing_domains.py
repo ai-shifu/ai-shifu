@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from flask import Flask, jsonify, request
 import pytest
+import flaskr.service.billing.domains as billing_domains
 
 import flaskr.dao as dao
 from flaskr.common.shifu_context import get_shifu_creator_bid, with_shifu_context
@@ -12,6 +13,7 @@ from flaskr.service.billing.consts import (
     BILLING_DOMAIN_BINDING_STATUS_DISABLED,
     BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+    BILLING_DOMAIN_SSL_STATUS_ACTIVE,
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     CREDIT_SOURCE_TYPE_MANUAL,
 )
@@ -125,6 +127,7 @@ def billing_domain_client(monkeypatch):
                     verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
                     verification_token="token-academy",
                     last_verified_at=now - timedelta(hours=2),
+                    ssl_status=BILLING_DOMAIN_SSL_STATUS_ACTIVE,
                 ),
                 BillingDomainBinding(
                     domain_binding_bid="binding-disabled-1",
@@ -146,6 +149,31 @@ def billing_domain_client(monkeypatch):
 
 
 class TestBillingDomains:
+    def test_domain_dns_verification_requires_txt_and_configured_cname(
+        self, monkeypatch
+    ) -> None:
+        binding = BillingDomainBinding(
+            host="learn.example.com",
+            verification_token="verify-token",
+        )
+
+        def fake_resolve(name, record_type, lifetime):
+            assert lifetime == 5
+            if record_type == "TXT":
+                assert name == "_ai-shifu-verification.learn.example.com"
+                return [SimpleNamespace(strings=[b"verify-token"])]
+            assert record_type == "CNAME"
+            return [SimpleNamespace(target="courses.example.net.")]
+
+        monkeypatch.setattr(billing_domains.dns.resolver, "resolve", fake_resolve)
+        assert billing_domains._verify_domain_dns(
+            binding,
+            {
+                "verification_record_name": "_ai-shifu-verification.learn.example.com",
+                "cname_target": "courses.example.net",
+            },
+        )
+
     def test_admin_billing_domain_audits_lists_existing_bindings(
         self, billing_domain_client
     ) -> None:

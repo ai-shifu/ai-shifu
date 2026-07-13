@@ -1,5 +1,5 @@
-export type BillingTab = 'packages' | 'details';
+export type BillingTab = 'packages' | 'details' | 'customization';
 
 export function resolveBillingTab(tab?: string | null): BillingTab {
-  return tab === 'details' ? 'details' : 'packages';
+  return tab === 'details' || tab === 'customization' ? tab : 'packages';
 }

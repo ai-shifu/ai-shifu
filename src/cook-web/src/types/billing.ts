@@ -21,6 +21,55 @@ export type BillingProvider =
   | 'wechatpay'
   | 'manual';
 
+export type BillingCustomizationProvider =
+  | 'wechat_oauth'
+  | 'pingxx'
+  | 'stripe'
+  | 'alipay'
+  | 'wechatpay';
+
+export type BillingCustomizationCapabilities = {
+  branding: boolean;
+  custom_domain: boolean;
+  custom_wechat: boolean;
+  custom_payment: boolean;
+};
+
+export type BillingCustomizationIntegration = {
+  integration_bid?: string;
+  provider: BillingCustomizationProvider;
+  status: 'unconfigured' | 'draft' | 'verified' | 'failed' | 'disabled';
+  public_config: Record<string, string | boolean | string[]>;
+  secret_configured: boolean;
+  callback_url: string;
+  verified_at?: string | null;
+  last_error_code?: string;
+  last_error_message?: string;
+};
+
+export type BillingCustomization = {
+  enabled: boolean;
+  creator_bid: string;
+  capabilities: BillingCustomizationCapabilities;
+  branding: {
+    logo_wide_url: string;
+    logo_square_url: string;
+  };
+  domains: {
+    custom_domain_enabled: boolean;
+    items: Array<{
+      domain_binding_bid: string;
+      host: string;
+      status: string;
+      ssl_status: string;
+      verification_record_name: string;
+      verification_record_value: string;
+      is_effective: boolean;
+    }>;
+  };
+  integrations: BillingCustomizationIntegration[];
+};
+
 export type BillingPingxxChannel = 'wx_pub_qr' | 'alipay_qr';
 
 export type BillingCapabilityStatus =

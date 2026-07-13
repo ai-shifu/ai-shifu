@@ -133,9 +133,21 @@ def _build_branding_payload(
                 return normalized_value
         return None
 
+    editable_branding: dict[str, str] = {}
+    try:
+        from .customization import resolve_creator_branding
+
+        editable_branding = resolve_creator_branding(entitlement_state.creator_bid)
+    except Exception:
+        # Branding is bootstrap data; an unavailable optional SaaS store must
+        # not make the shared runtime-config endpoint fail.
+        editable_branding = {}
+
     return RuntimeBillingBrandingDTO(
-        logo_wide_url=pick("logo_wide_url", "logoWideUrl"),
-        logo_square_url=pick("logo_square_url", "logoSquareUrl"),
+        logo_wide_url=editable_branding.get("logo_wide_url")
+        or pick("logo_wide_url", "logoWideUrl"),
+        logo_square_url=editable_branding.get("logo_square_url")
+        or pick("logo_square_url", "logoSquareUrl"),
         favicon_url=pick("favicon_url", "faviconUrl"),
         home_url=pick("home_url", "homeUrl"),
         contact_us_url=pick("contact_us_url", "contactUsUrl"),

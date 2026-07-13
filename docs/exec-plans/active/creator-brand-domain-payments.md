@@ -1,0 +1,102 @@
+# Creator Brand Domain And Payments
+
+## Purpose / Big Picture
+
+Let entitled course owners apply account-level branding, a verified custom
+domain, an independent WeChat OAuth app, and independent learner payment
+merchant credentials while preserving existing global behavior.
+
+## Progress
+
+- [x] 2026-07-12 16:06 CST: Captured the approved architecture and acceptance
+      decisions in the canonical design document.
+- [x] 2026-07-12 16:20 CST: Extended the SaaS unified configuration table service
+      with encryption/version helpers, entitlements, and customization APIs.
+- [x] 2026-07-12 16:45 CST: Connected runtime auth, TLS-gated domains, order
+      snapshots, provider credentials, and version-addressed callbacks.
+- [x] 2026-07-12 16:32 CST: Added the course-owner brand and payments UI.
+- [x] 2026-07-12 16:52 CST: Completed focused backend and frontend validation;
+      recorded unrelated dirty-worktree failures from the repository-wide gates.
+
+## Surprises & Discoveries
+
+- The repository already has `BillingEntitlement`, `BillingDomainBinding`,
+  runtime logo overrides, domain verification helpers, and shared payment
+  provider adapters. The implementation should extend these paths rather than
+  add a tenant subsystem.
+- Existing WeChat credentials are globally keyed by OpenID, so custom apps must
+  scope identifiers by App ID while preserving the platform-app legacy shape.
+- The installed SaaS plugin already owns `saas_user_configs(user_bid, key,
+  value, is_encrypted)`. Dedicated brand/integration tables would duplicate
+  that storage, so the implementation uses namespaced unified config rows.
+
+## Decision Log
+
+- Decision: configuration is account-level by `creator_bid`, not course-level.
+- Decision: learner purchase funds go directly to the owner's merchant account.
+- Decision: paid product entitlements and manual grants can both unlock access.
+- Decision: expiry blocks new custom payments but not historic callbacks.
+- Decision: custom domains strictly isolate courses by owner.
+- Decision: the two logo roles are wide and square.
+
+## Outcomes & Retrospective
+
+The feature reuses `saas_user_configs` instead of adding customization tables.
+Branding is a mutable JSON row; each integration is an encrypted immutable
+version plus an active pointer. Orders snapshot that version and payment create,
+webhook, sync, and refund paths reopen the same credentials. The focused backend
+suite passed 100 tests with one skip, and the customization UI Jest/ESLint checks
+passed. Repository-wide TypeScript and architecture checks remain red only for
+pre-existing markdown-flow type drift and unrelated untracked service refactors.
+
+## Context and Orientation
+
+Backend ownership is split between `service/billing` for entitlements and
+configuration, `service/order` for learner orders and payment providers,
+`service/user` for WeChat identity, and `route/config.py` for runtime config.
+The creator UI lives under `src/cook-web/src/app/admin/billing` and uses shared
+billing request/types modules.
+
+## Plan of Work
+
+1. Add namespaced brand and versioned integration helpers on the unified SaaS
+   user configuration table plus encryption support.
+2. Expose entitlement-gated customization APIs and runtime summaries.
+3. Snapshot learner orders and pass credential contexts through providers and
+   webhook verification.
+4. Scope WeChat OAuth exchange and credentials to the resolved owner app.
+5. Add the admin UI, translations, and focused regression coverage.
+
+## Concrete Steps
+
+1. Extend unified configuration helpers and add one Alembic migration without
+   editing applied revisions.
+2. Add a customization service and creator routes that never serialize secrets.
+3. Extend runtime config with capability and readiness fields.
+4. Add optional provider credential context with global fallback.
+5. Wire course-owner resolution into learner checkout and OAuth.
+6. Add focused pytest/Jest coverage, then run type, lint, harness, and boundary checks.
+
+## Validation and Acceptance
+
+- Entitlements gate every write and every new custom checkout.
+- Runtime branding and public payment settings resolve by server-owned course data.
+- Custom host/course ownership mismatches are rejected.
+- Secrets never appear in responses or logs.
+- New orders snapshot the integration version; historic callbacks survive rotation.
+- All four providers accept scoped credentials and retain global fallback.
+- Existing orders and non-entitled owners behave as before.
+
+## Idempotence and Recovery
+
+Migrations add nullable/defaulted compatibility columns. Integration updates
+append versions, so a failed verification cannot replace the last active row.
+Disabling an integration changes only new-payment selection. The global kill
+switch leaves public callback routes active.
+
+## Interfaces and Dependencies
+
+The implementation reuses SQLAlchemy, Alembic, cryptography/Fernet, existing
+storage, billing entitlement/domain helpers, and payment provider adapters. It
+adds `CREATOR_CUSTOMIZATION_ENABLED` and
+`CREATOR_INTEGRATION_ENCRYPTION_KEY` to backend configuration.
