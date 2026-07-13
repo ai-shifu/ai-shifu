@@ -222,6 +222,21 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   `pytest` 2092 passed / 6 skipped (golden fixtures included), compileall,
   ruff, architecture-boundary and repo-harness checks, plus an independent
   three-way audit of all 10 conflict resolutions — no lost changes.
+- [x] 2026-07-13: worker memory fix after dev01 OOM crashloop. Root cause of
+  "learning broken" on dev01: each gunicorn worker paid the full ~358MB
+  import cost (litellm's cost map alone is ~189MB), so 4 workers overran
+  the 1.2G container limit; SIGKILLed workers leaked the /run Redis lock
+  (5-min TTL) and learners got `outputInProgress` on every retry. Fix in
+  `src/api/gunicorn.conf.py` (commit 1670c9909): `preload_app` with gevent
+  monkey-patching in the master and a `post_fork` SQLAlchemy
+  `dispose(close=False)`; litellm now defaults to
+  `LITELLM_LOCAL_MODEL_COST_MAP=True` before import so worker boots stop
+  fetching the remote cost map. The CI image build lives in the separate
+  `deploy-cn-dockerfile` repo with a COPY whitelist — added an optional
+  `COPY gunicorn.conf.p[y] ./` there (ddf2b7f). Measured on dev01 with 4
+  workers: 434MiB / 1.2GiB (35%) vs 1.16GiB (97%) before, zero SIGKILLs,
+  SSE learning flow verified in the browser. pandas/numpy/pymilvus are in
+  requirements but unused at runtime — candidates for a later cleanup.
 
 ## Surprises & Discoveries
 
