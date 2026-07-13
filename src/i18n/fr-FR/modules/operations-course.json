@@ -363,6 +363,20 @@
     "startTime": "Date de début",
     "status": "Statut"
   },
+  "messages": {
+    "copyCourseFailed": "Échec de la copie du cours. Veuillez réessayer plus tard.",
+    "loadChapterDetailFailed": "Échec du chargement du détail du chapitre. Veuillez réessayer plus tard.",
+    "loadCourseDetailFailed": "Échec du chargement du détail du cours. Veuillez réessayer plus tard.",
+    "loadCourseUsersFailed": "Échec du chargement des données utilisateurs du cours. Veuillez réessayer plus tard.",
+    "loadCoursesFailed": "Échec du chargement de la liste des cours. Veuillez actualiser puis réessayer.",
+    "loadCreditUsageDetailsFailed": "Échec du chargement des détails de consommation de crédits. Veuillez réessayer plus tard.",
+    "loadCreditUsageFailed": "Échec du chargement des données de consommation de crédits. Veuillez réessayer plus tard.",
+    "loadFollowUpDetailFailed": "Échec du chargement du détail du suivi. Veuillez réessayer plus tard.",
+    "loadFollowUpsFailed": "Échec du chargement des données de suivi. Veuillez actualiser puis réessayer.",
+    "loadPromptDetailFailed": "Échec du chargement du prompt du cours. Veuillez réessayer plus tard.",
+    "loadRatingsFailed": "Échec du chargement des données de notation. Veuillez actualiser puis réessayer.",
+    "transferCreatorFailed": "Échec du transfert du responsable du cours. Veuillez réessayer plus tard."
+  },
   "overview": {
     "activeFilter": "Filtre rapide",
     "metrics": {

@@ -194,6 +194,14 @@
     "dateRangePlaceholder": "Sélectionner une plage de dates",
     "reset": "Réinitialiser"
   },
+  "messages": {
+    "loadCourseDetailFailed": "Échec du chargement du détail du cours. Veuillez réessayer plus tard.",
+    "loadCoursesFailed": "Échec du chargement de la liste des cours. Veuillez actualiser puis réessayer.",
+    "loadFollowUpDetailFailed": "Échec du chargement du détail du suivi. Veuillez réessayer plus tard.",
+    "loadFollowUpsFailed": "Échec du chargement des données de suivi. Veuillez actualiser puis réessayer.",
+    "loadLearnersFailed": "Échec du chargement de la liste des apprenants. Veuillez réessayer plus tard.",
+    "loadRatingsFailed": "Échec du chargement des données de notation. Veuillez actualiser puis réessayer."
+  },
   "pagination": {
     "next": "Suivant",
     "prev": "Précédent"
