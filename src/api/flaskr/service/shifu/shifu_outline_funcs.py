@@ -477,10 +477,10 @@ def create_default_outlines_for_new_shifu(
     outline_items = __get_existing_outline_items(shifu_id)
     history_tree = _build_outline_history_tree(outline_items)
     save_outline_tree_history(
-        app,
-        user_id,
-        shifu_id,
-        history_tree,
+        app=app,
+        user_id=user_id,
+        shifu_bid=shifu_id,
+        outline_tree=history_tree,
         shifu_id=shifu_db_id,
     )
     return chapter, lesson
@@ -494,12 +494,12 @@ def _build_outline_history_tree(
         parent_bid = str(outline.parent_bid or "").strip()
         outline_children_map.setdefault(parent_bid, []).append(outline)
 
+    output_lang = get_markdownflow_output_language()
+
     def _count_blocks(content: str) -> int:
         if not content:
             return 0
-        mdflow = MarkdownFlow(content).set_output_language(
-            get_markdownflow_output_language()
-        )
+        mdflow = MarkdownFlow(content).set_output_language(output_lang)
         return len(mdflow.get_all_blocks())
 
     def _build(parent_bid: str) -> list[HistoryItem]:
