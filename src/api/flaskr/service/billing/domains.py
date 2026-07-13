@@ -519,6 +519,7 @@ def _is_tls_ready(host: str) -> bool:
 
     try:
         context = ssl.create_default_context()
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         with socket.create_connection((host, 443), timeout=5) as connection:
             with context.wrap_socket(connection, server_hostname=host):
                 return True

@@ -149,6 +149,23 @@ def billing_domain_client(monkeypatch):
 
 
 class TestBillingDomains:
+    def test_tls_probe_requires_tls_1_2_or_newer(self, monkeypatch) -> None:
+        context = SimpleNamespace(minimum_version=None)
+
+        monkeypatch.setattr(
+            billing_domains.ssl,
+            "create_default_context",
+            lambda: context,
+        )
+        monkeypatch.setattr(
+            billing_domains.socket,
+            "create_connection",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError()),
+        )
+
+        assert billing_domains._is_tls_ready("learn.example.com") is False
+        assert context.minimum_version == billing_domains.ssl.TLSVersion.TLSv1_2
+
     def test_domain_dns_verification_requires_txt_and_configured_cname(
         self, monkeypatch
     ) -> None:
