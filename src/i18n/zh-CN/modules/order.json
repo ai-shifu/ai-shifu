@@ -98,6 +98,10 @@
     "successSummary": "成功导入 {count} 个手机号",
     "title": "导入开通"
   },
+  "messages": {
+    "loadOrderDetailFailed": "订单详情加载失败，请稍后重试",
+    "loadOrdersFailed": "订单列表加载失败，请刷新后重试"
+  },
   "paginationJumpInputAriaLabel": "跳转到指定页",
   "paginationNext": "下一页",
   "paginationNextAriaLabel": "前往下一页",

@@ -219,7 +219,9 @@ export default function AdminDashboardCourseRatingsPage() {
     : params?.shifu_bid || '';
   const emptyValue = t('module.dashboard.detail.ratings.emptyValue');
   const clearLabel = t('common.core.close');
-  const unknownErrorMessage = t('common.core.unknownError');
+  const ratingsLoadErrorMessage = t(
+    'module.dashboard.messages.loadRatingsFailed',
+  );
   const guestUserLabel = t('module.dashboard.detail.ratings.table.guestUser');
   const contactMode = useMemo<ContactMode>(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
@@ -252,7 +254,7 @@ export default function AdminDashboardCourseRatingsPage() {
     async (nextPage: number, nextFilters: RatingFilters) => {
       if (!shifuBid.trim()) {
         setRatings(EMPTY_RATINGS_RESPONSE);
-        setError({ message: unknownErrorMessage });
+        setError({ message: ratingsLoadErrorMessage });
         return;
       }
 
@@ -290,7 +292,7 @@ export default function AdminDashboardCourseRatingsPage() {
         } else if (err instanceof Error) {
           setError({ message: err.message });
         } else {
-          setError({ message: unknownErrorMessage });
+          setError({ message: ratingsLoadErrorMessage });
         }
       } finally {
         if (requestId === requestIdRef.current) {
@@ -298,7 +300,7 @@ export default function AdminDashboardCourseRatingsPage() {
         }
       }
     },
-    [shifuBid, unknownErrorMessage],
+    [shifuBid, ratingsLoadErrorMessage],
   );
 
   useEffect(() => {

@@ -98,6 +98,10 @@
     "successSummary": "{count} mobile numbers imported successfully",
     "title": "Import Activation"
   },
+  "messages": {
+    "loadOrderDetailFailed": "Failed to load order detail. Please try again later.",
+    "loadOrdersFailed": "Failed to load order list. Please refresh and try again."
+  },
   "paginationJumpInputAriaLabel": "Jump to page",
   "paginationNext": "Next",
   "paginationNextAriaLabel": "Go to next page",
