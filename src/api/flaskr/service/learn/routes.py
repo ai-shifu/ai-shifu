@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from flaskr.dao import db
 from flaskr.framework.plugin.inject import inject
+from flaskr.i18n import get_current_language
 from flaskr.route.common import make_common_response, bypass_token_validation
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.common.models import AppException, raise_param_error
@@ -366,6 +367,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
         )
         shifu_context_snapshot = get_shifu_context_snapshot()
+        # Capture the request language now: the streaming generator below runs
+        # after request teardown on Flask >= 3.1, when the request-scoped
+        # language has already been cleared (same reason the shifu context is
+        # snapshotted above).
+        request_language = get_current_language()
         return _stream_passthrough_response(
             app,
             message_iter_factory=lambda: run_script(
@@ -380,6 +386,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 listen=listen,
                 preview_mode=preview_mode,
                 shifu_context_snapshot=shifu_context_snapshot,
+                language=request_language,
             ),
             close_log="client closed learn runtime stream early",
             error_log="run outline item failed",
