@@ -1,4 +1,8 @@
+from io import BytesIO
+from types import SimpleNamespace
+
 from cryptography.fernet import Fernet
+from werkzeug.datastructures import FileStorage
 
 from flaskr.service.billing import customization
 from flaskr.service.billing.entitlements import grant_creator_manual_entitlement
@@ -141,6 +145,86 @@ def test_creator_branding_reuses_unified_config(app, monkeypatch):
             },
         )
         assert saved == customization.resolve_creator_branding("creator-brand-1")
+
+
+def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(app, monkeypatch):
+    monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+
+    def fake_get_config(key, default=None):
+        if key == "ALIBABA_CLOUD_OSS_COURSES_URL":
+            return "https://courses-oss.example.com"
+        if key == "ALIBABA_CLOUD_OSS_BASE_URL":
+            return "https://default-oss.example.com"
+        return default
+
+    uploaded = {}
+
+    def fake_upload_to_storage(_app, **kwargs):
+        uploaded.update(kwargs)
+        return SimpleNamespace(
+            url=f"https://courses-oss.example.com/{kwargs['object_key']}",
+        )
+
+    monkeypatch.setattr(customization, "get_config", fake_get_config)
+    monkeypatch.setattr(customization, "upload_to_storage", fake_upload_to_storage)
+
+    with app.app_context():
+        grant_creator_manual_entitlement(
+            app,
+            "creator-logo-1",
+            branding_enabled=True,
+        )
+        logo = FileStorage(
+            stream=BytesIO(b"\x89PNG\r\n\x1a\nlogo"),
+            filename="wide.png",
+            content_type="image/png",
+        )
+        url = customization.upload_creator_brand_logo(
+            app,
+            "creator-logo-1",
+            logo,
+        )
+        saved = customization.save_creator_branding(
+            app,
+            "creator-logo-1",
+            {"logo_wide_url": url, "logo_square_url": ""},
+        )
+
+        assert uploaded["profile"] == customization.OSS_PROFILE_COURSES
+        assert uploaded["content_type"] == "image/png"
+        assert uploaded["object_key"].startswith("creator-branding/creator-logo-1/")
+        assert uploaded["object_key"].endswith(".png")
+        assert saved["logo_wide_url"] == url
+
+
+def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(app, monkeypatch):
+    monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+    with app.app_context():
+        grant_creator_manual_entitlement(
+            app,
+            "creator-logo-invalid",
+            branding_enabled=True,
+        )
+        invalid_contents = (
+            b"not-a-png",
+            b"\x89PNG\r\n\x1a\n" + b"x" * (customization._LOGO_MAX_BYTES + 1),
+        )
+        for content in invalid_contents:
+            logo = FileStorage(
+                stream=BytesIO(content),
+                filename="wide.png",
+                content_type="image/png",
+            )
+            try:
+                customization.upload_creator_brand_logo(
+                    app,
+                    "creator-logo-invalid",
+                    logo,
+                )
+            except AppException:
+                pass
+            else:
+                raise AssertionError("invalid logo content must be rejected")
 
 
 def test_custom_wechat_identifiers_are_scoped_by_app_id(app, monkeypatch):

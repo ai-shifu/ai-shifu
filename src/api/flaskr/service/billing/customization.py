@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from io import BytesIO
 from dataclasses import dataclass
 import hashlib
 import hmac
@@ -11,8 +12,11 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from flask import Flask
+from werkzeug.datastructures import FileStorage
 
+from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config.funcs import get_config
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
@@ -103,7 +107,13 @@ _OPTIONAL_PUBLIC_FIELDS = {
     "alipay": {"gateway_url"},
     "wechatpay": {"base_url"},
 }
-_LOGO_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+_LOGO_CONTENT_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+}
+_LOGO_MAX_BYTES = 2 * 1024 * 1024
 
 
 @dataclass(slots=True, frozen=True)
@@ -146,6 +156,41 @@ def build_customization_capabilities(entitlement) -> dict[str, bool]:
         "custom_wechat": enabled and bool(entitlement.custom_wechat_enabled),
         "custom_payment": enabled and bool(entitlement.custom_payment_enabled),
     }
+
+
+def upload_creator_brand_logo(
+    app: Flask,
+    creator_bid: str,
+    file: FileStorage,
+) -> str:
+    """Validate and upload a course-owner logo through managed storage."""
+
+    creator_bid = normalize_bid(creator_bid)
+    with app.app_context():
+        entitlement = resolve_creator_entitlement_state(creator_bid)
+        _require_capability(entitlement.branding_enabled)
+
+        filename = str(file.filename or "").strip()
+        suffix = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        expected_content_type = _LOGO_CONTENT_TYPES.get(suffix)
+        content = file.stream.read(_LOGO_MAX_BYTES + 1)
+        if (
+            expected_content_type is None
+            or not content
+            or len(content) > _LOGO_MAX_BYTES
+            or _detect_logo_content_type(content) != expected_content_type
+        ):
+            raise_param_error("file")
+
+        result = upload_to_storage(
+            app,
+            file_content=BytesIO(content),
+            object_key=(f"creator-branding/{creator_bid}/{generate_id(app)}{suffix}"),
+            content_type=expected_content_type,
+            profile=OSS_PROFILE_COURSES,
+            warm_up=False,
+        )
+        return result.url
 
 
 def save_creator_branding(
@@ -623,18 +668,31 @@ def _normalize_logo_url(value: Any, field: str) -> str:
     parsed = urlsplit(raw)
     path = parsed.path
     suffix = "." + path.rsplit(".", 1)[-1].lower() if "." in path else ""
-    storage_origin = urlsplit(str(get_config("ALIBABA_CLOUD_OSS_BASE_URL", "") or ""))
-    is_managed_host = bool(
-        parsed.hostname
-        and storage_origin.hostname
-        and parsed.hostname.lower() == storage_origin.hostname.lower()
-    )
+    storage_hosts = {
+        parsed_config.hostname.lower()
+        for config_key in (
+            "ALIBABA_CLOUD_OSS_BASE_URL",
+            "ALIBABA_CLOUD_OSS_COURSES_URL",
+        )
+        if (parsed_config := urlsplit(str(get_config(config_key, "") or ""))).hostname
+    }
+    is_managed_host = bool(parsed.hostname and parsed.hostname.lower() in storage_hosts)
     is_local_storage = not parsed.netloc and path.startswith(
         ("/storage/", "/api/storage/")
     )
-    if suffix not in _LOGO_EXTENSIONS or not (is_managed_host or is_local_storage):
+    if suffix not in _LOGO_CONTENT_TYPES or not (is_managed_host or is_local_storage):
         raise_param_error(field)
     return raw
+
+
+def _detect_logo_content_type(content: bytes) -> str:
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image/webp"
+    return ""
 
 
 def _saas_funcs():

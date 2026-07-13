@@ -17,6 +17,9 @@ merchant credentials while preserving existing global behavior.
 - [x] 2026-07-12 16:32 CST: Added the course-owner brand and payments UI.
 - [x] 2026-07-12 16:52 CST: Completed focused backend and frontend validation;
       recorded unrelated dirty-worktree failures from the repository-wide gates.
+- [x] 2026-07-13 20:15 CST: Added operator-facing manual entitlement editing
+      for all four customization capabilities and a validated managed-OSS logo
+      upload endpoint; focused backend and frontend tests passed.
 
 ## Surprises & Discoveries
 
@@ -29,6 +32,10 @@ merchant credentials while preserving existing global behavior.
 - The installed SaaS plugin already owns `saas_user_configs(user_bid, key,
   value, is_encrypted)`. Dedicated brand/integration tables would duplicate
   that storage, so the implementation uses namespaced unified config rows.
+- The pre-existing generic course upload used the courses OSS profile while
+  branding URL validation accepted only the default OSS host and required a
+  filename extension. A dedicated logo upload now preserves the extension and
+  accepts both configured managed-storage hosts.
 
 ## Decision Log
 
@@ -48,6 +55,9 @@ webhook, sync, and refund paths reopen the same credentials. The focused backend
 suite passed 100 tests with one skip, and the customization UI Jest/ESLint checks
 passed. Repository-wide TypeScript and architecture checks remain red only for
 pre-existing markdown-flow type drift and unrelated untracked service refactors.
+The follow-up operator and logo-upload slice passed 25 backend tests and 15
+frontend tests; the full TypeScript check remains blocked by the same unrelated
+markdown-flow locale type drift.
 
 ## Context and Orientation
 

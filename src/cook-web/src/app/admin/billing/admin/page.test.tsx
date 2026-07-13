@@ -49,6 +49,7 @@ jest.mock('@/api', () => ({
     getAdminBillingDailyUsageMetrics: jest.fn(),
     getAdminBillingDomainAudits: jest.fn(),
     getAdminBillingEntitlements: jest.fn(),
+    grantAdminBillingEntitlement: jest.fn(),
     getAdminBillingSubscriptions: jest.fn(),
     getAdminBillingOrders: jest.fn(),
   },
@@ -64,6 +65,8 @@ const mockGetAdminBillingDomainAudits =
   api.getAdminBillingDomainAudits as jest.Mock;
 const mockGetAdminBillingEntitlements =
   api.getAdminBillingEntitlements as jest.Mock;
+const mockGrantAdminBillingEntitlement =
+  api.grantAdminBillingEntitlement as jest.Mock;
 const mockGetAdminBillingSubscriptions =
   api.getAdminBillingSubscriptions as jest.Mock;
 const mockGetAdminBillingOrders = api.getAdminBillingOrders as jest.Mock;
@@ -80,6 +83,7 @@ describe('AdminBillingConsolePage', () => {
     mockGetAdminBillingDailyUsageMetrics.mockReset();
     mockGetAdminBillingDomainAudits.mockReset();
     mockGetAdminBillingEntitlements.mockReset();
+    mockGrantAdminBillingEntitlement.mockReset();
     mockGetAdminBillingSubscriptions.mockReset();
     mockGetAdminBillingOrders.mockReset();
 
@@ -203,6 +207,8 @@ describe('AdminBillingConsolePage', () => {
           product_bid: '',
           branding_enabled: true,
           custom_domain_enabled: false,
+          custom_wechat_enabled: false,
+          custom_payment_enabled: false,
           priority_class: 'priority',
           analytics_tier: 'advanced',
           support_tier: 'business_hours',
@@ -239,6 +245,13 @@ describe('AdminBillingConsolePage', () => {
       page_count: 1,
       page_size: 10,
       total: 1,
+    });
+    mockGrantAdminBillingEntitlement.mockResolvedValue({
+      creator_bid: 'creator-2',
+      branding_enabled: true,
+      custom_domain_enabled: true,
+      custom_wechat_enabled: true,
+      custom_payment_enabled: true,
     });
     mockGetAdminBillingDailyUsageMetrics.mockResolvedValue({
       items: [
@@ -447,6 +460,68 @@ describe('AdminBillingConsolePage', () => {
     expect(
       screen.getAllByText('2026-04-05 17:00:00 → 2026-04-06 17:00:00').length,
     ).toBeGreaterThan(0);
+  });
+
+  test('grants creator customization entitlements from the admin console', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingConsolePage />
+      </SWRConfig>,
+    );
+
+    await user.click(
+      screen.getByRole('tab', {
+        name: 'module.billing.admin.tabs.entitlements',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'module.billing.admin.entitlements.grant.edit',
+      }),
+    );
+
+    expect(
+      screen.getByLabelText(
+        'module.billing.admin.entitlements.grant.fields.creatorBid',
+      ),
+    ).toHaveValue('creator-2');
+
+    await user.click(
+      screen.getByRole('switch', {
+        name: 'module.billing.admin.entitlements.grant.fields.custom_domain_enabled',
+      }),
+    );
+    await user.click(
+      screen.getByRole('switch', {
+        name: 'module.billing.admin.entitlements.grant.fields.custom_wechat_enabled',
+      }),
+    );
+    await user.click(
+      screen.getByRole('switch', {
+        name: 'module.billing.admin.entitlements.grant.fields.custom_payment_enabled',
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.admin.entitlements.grant.submit',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockGrantAdminBillingEntitlement).toHaveBeenCalledWith({
+        creator_bid: 'creator-2',
+        branding_enabled: true,
+        custom_domain_enabled: true,
+        custom_wechat_enabled: true,
+        custom_payment_enabled: true,
+      }),
+    );
   });
 
   test('submits a manual ledger adjustment and revalidates admin billing data', async () => {

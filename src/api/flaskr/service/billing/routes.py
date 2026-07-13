@@ -28,6 +28,7 @@ from flaskr.service.billing.customization import (
     is_creator_customization_enabled,
     save_creator_branding,
     save_creator_integration,
+    upload_creator_brand_logo,
     verify_creator_integration,
 )
 from flaskr.service.billing.domains import manage_creator_domain_binding
@@ -273,6 +274,16 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             save_creator_branding(
                 app, _get_creator_bid(), request.get_json(silent=True) or {}
             )
+        )
+
+    @app.route(path_prefix + "/customization/branding/logo", methods=["POST"])
+    def billing_customization_branding_logo_api():
+        _require_customization_access(app)
+        file = request.files.get("file")
+        if file is None:
+            raise_param_error("file")
+        return make_common_response(
+            upload_creator_brand_logo(app, _get_creator_bid(), file)
         )
 
     @app.route(path_prefix + "/customization/domains", methods=["POST"])

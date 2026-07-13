@@ -456,6 +456,8 @@ export type BillingSyncResult = {
 export type BillingEntitlements = {
   branding_enabled: boolean;
   custom_domain_enabled: boolean;
+  custom_wechat_enabled: boolean;
+  custom_payment_enabled: boolean;
   priority_class: BillingPriorityClass;
   analytics_tier: BillingAnalyticsTier;
   support_tier: BillingSupportTier;
@@ -545,6 +547,14 @@ export type AdminBillingEntitlementItem = BillingEntitlements & {
   effective_from: string | null;
   effective_to: string | null;
   feature_payload?: Record<string, unknown>;
+};
+
+export type AdminBillingEntitlementGrantPayload = {
+  creator_bid: string;
+  branding_enabled: boolean;
+  custom_domain_enabled: boolean;
+  custom_wechat_enabled: boolean;
+  custom_payment_enabled: boolean;
 };
 
 export type AdminBillingDomainBindingItem = BillingDomainBinding & {

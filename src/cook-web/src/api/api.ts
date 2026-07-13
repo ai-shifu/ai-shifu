@@ -312,6 +312,8 @@ const api = {
     'POST /admin/billing/campaigns/{campaign_bid}/status',
   getAdminBillingOrders: 'GET /admin/billing/orders',
   getAdminBillingEntitlements: 'GET /admin/billing/entitlements',
+  grantAdminBillingEntitlement:
+    'POST /admin/billing/entitlements/{creator_bid}',
   getAdminBillingDomainAudits: 'GET /admin/billing/domain-audits',
   getAdminBillingDailyUsageMetrics: 'GET /admin/billing/reports/usage-daily',
   getAdminBillingDailyLedgerSummary: 'GET /admin/billing/reports/ledger-daily',

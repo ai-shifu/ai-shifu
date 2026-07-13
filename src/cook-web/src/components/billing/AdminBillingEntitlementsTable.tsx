@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import {
   Card,
   CardContent,
@@ -33,6 +34,7 @@ import {
   resolveBillingEmptyLabel,
 } from '@/lib/billing';
 import { AdminBillingPager } from './AdminBillingPager';
+import { AdminBillingEntitlementDialog } from './AdminBillingEntitlementDialog';
 
 const ADMIN_BILLING_ENTITLEMENTS_PAGE_SIZE = 10;
 
@@ -92,8 +94,35 @@ function resolveEntitlementSourceLabel(
   }
 }
 
+function EntitlementFlagBadge({
+  enabled,
+  label,
+  t,
+}: {
+  enabled: boolean;
+  label: string;
+  t: (key: string) => string;
+}) {
+  const status = t(
+    enabled
+      ? 'module.billing.entitlements.flags.enabled'
+      : 'module.billing.entitlements.flags.disabled',
+  );
+  return (
+    <Badge
+      variant='outline'
+      className='border-slate-200 bg-white text-slate-700'
+    >
+      {[label, status].join(' · ')}
+    </Badge>
+  );
+}
+
 export function AdminBillingEntitlementsTable() {
   const { t, i18n } = useTranslation();
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [selectedItem, setSelectedItem] =
+    React.useState<AdminBillingEntitlementItem | null>(null);
   registerBillingTranslationUsage(t);
   const {
     error,
@@ -117,13 +146,25 @@ export function AdminBillingEntitlementsTable() {
 
   return (
     <Card className='border-slate-200 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.06)]'>
-      <CardHeader className='space-y-2'>
-        <CardTitle className='text-lg text-slate-900'>
-          {t('module.billing.admin.entitlements.title')}
-        </CardTitle>
-        <CardDescription className='leading-6 text-slate-600'>
-          {t('module.billing.admin.entitlements.description')}
-        </CardDescription>
+      <CardHeader className='flex-row items-start justify-between gap-4 space-y-0'>
+        <div className='space-y-2'>
+          <CardTitle className='text-lg text-slate-900'>
+            {t('module.billing.admin.entitlements.title')}
+          </CardTitle>
+          <CardDescription className='leading-6 text-slate-600'>
+            {t('module.billing.admin.entitlements.description')}
+          </CardDescription>
+        </div>
+        <Button
+          type='button'
+          className='shrink-0'
+          onClick={() => {
+            setSelectedItem(null);
+            setDialogOpen(true);
+          }}
+        >
+          {t('module.billing.admin.entitlements.grant.open')}
+        </Button>
       </CardHeader>
 
       <CardContent className='space-y-4'>
@@ -165,11 +206,14 @@ export function AdminBillingEntitlementsTable() {
                   <TableHead>
                     {t('module.billing.admin.entitlements.table.window')}
                   </TableHead>
+                  <TableHead>
+                    {t('module.billing.admin.entitlements.table.actions')}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {!items.length ? (
-                  <TableEmpty colSpan={7}>
+                  <TableEmpty colSpan={8}>
                     {t('module.billing.admin.entitlements.empty')}
                   </TableEmpty>
                 ) : (
@@ -201,27 +245,34 @@ export function AdminBillingEntitlementsTable() {
                       </TableCell>
                       <TableCell className='min-w-[220px]'>
                         <div className='flex flex-wrap gap-2'>
-                          <Badge
-                            variant='outline'
-                            className='border-slate-200 bg-white text-slate-700'
-                          >
-                            {t('module.billing.entitlements.flags.branding')} ·{' '}
-                            {item.branding_enabled
-                              ? t('module.billing.entitlements.flags.enabled')
-                              : t('module.billing.entitlements.flags.disabled')}
-                          </Badge>
-                          <Badge
-                            variant='outline'
-                            className='border-slate-200 bg-white text-slate-700'
-                          >
-                            {t(
+                          <EntitlementFlagBadge
+                            enabled={item.branding_enabled}
+                            label={t(
+                              'module.billing.entitlements.flags.branding',
+                            )}
+                            t={t}
+                          />
+                          <EntitlementFlagBadge
+                            enabled={item.custom_domain_enabled}
+                            label={t(
                               'module.billing.entitlements.flags.customDomain',
-                            )}{' '}
-                            ·{' '}
-                            {item.custom_domain_enabled
-                              ? t('module.billing.entitlements.flags.enabled')
-                              : t('module.billing.entitlements.flags.disabled')}
-                          </Badge>
+                            )}
+                            t={t}
+                          />
+                          <EntitlementFlagBadge
+                            enabled={item.custom_wechat_enabled}
+                            label={t(
+                              'module.billing.entitlements.flags.customWechat',
+                            )}
+                            t={t}
+                          />
+                          <EntitlementFlagBadge
+                            enabled={item.custom_payment_enabled}
+                            label={t(
+                              'module.billing.entitlements.flags.customPayment',
+                            )}
+                            t={t}
+                          />
                         </div>
                       </TableCell>
                       <TableCell className='min-w-[220px] text-xs text-slate-500'>
@@ -231,6 +282,19 @@ export function AdminBillingEntitlementsTable() {
                             i18n.language,
                           ) || t('module.billing.ledger.neverExpires')
                         }`}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          className='h-auto px-0 text-sm text-slate-900 hover:bg-transparent'
+                          onClick={() => {
+                            setSelectedItem(item);
+                            setDialogOpen(true);
+                          }}
+                        >
+                          {t('module.billing.admin.entitlements.grant.edit')}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -250,6 +314,11 @@ export function AdminBillingEntitlementsTable() {
           total={total}
         />
       </CardContent>
+      <AdminBillingEntitlementDialog
+        open={dialogOpen}
+        initialItem={selectedItem}
+        onOpenChange={setDialogOpen}
+      />
     </Card>
   );
 }

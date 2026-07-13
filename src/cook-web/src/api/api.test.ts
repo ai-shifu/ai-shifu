@@ -144,6 +144,9 @@ describe('billing api definitions', () => {
     expect(api.getAdminBillingEntitlements).toBe(
       'GET /admin/billing/entitlements',
     );
+    expect(api.grantAdminBillingEntitlement).toBe(
+      'POST /admin/billing/entitlements/{creator_bid}',
+    );
     expect(api.getAdminBillingDomainAudits).toBe(
       'GET /admin/billing/domain-audits',
     );

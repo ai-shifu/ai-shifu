@@ -87,7 +87,10 @@ export function BillingCustomizationPanel() {
     }
     await run(`logo-${target}`, async () => {
       const { uploadFile } = await import('@/lib/file');
-      const response = await uploadFile(file, '/api/shifu/upfile');
+      const response = await uploadFile(
+        file,
+        '/api/billing/customization/branding/logo',
+      );
       const payload = await response.json();
       if (!response.ok || payload.code !== 0)
         throw new Error(payload.message || 'upload failed');

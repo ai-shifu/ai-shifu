@@ -52,6 +52,28 @@
     "entitlements": {
       "description": "查看每位老师当前解析到的有效权益快照。",
       "empty": "暂无权益快照。",
+      "grant": {
+        "cancel": "取消",
+        "creatorBidPlaceholder": "输入课程负责人 BID",
+        "description": "保存后将创建或更新人工权益，优先于套餐权益生效。",
+        "edit": "编辑",
+        "editTitle": "编辑负责人定制权益",
+        "errors": {
+          "creatorBidRequired": "请输入课程负责人 BID"
+        },
+        "fields": {
+          "branding_enabled": "品牌 Logo",
+          "creatorBid": "课程负责人 BID",
+          "custom_domain_enabled": "独立域名",
+          "custom_payment_enabled": "独立支付配置",
+          "custom_wechat_enabled": "独立微信公众号"
+        },
+        "open": "授权负责人",
+        "submit": "保存授权",
+        "submitting": "保存中...",
+        "success": "已更新 {creatorBid} 的定制权益",
+        "title": "授权负责人定制权益"
+      },
       "loadError": "无法加载后台权益数据。",
       "source": {
         "default": "默认回退",
@@ -59,6 +81,7 @@
         "snapshot": "存储快照"
       },
       "table": {
+        "actions": "操作",
         "analytics": "分析等级",
         "creator": "老师",
         "features": "功能开关",
@@ -421,6 +444,8 @@
     "flags": {
       "branding": "品牌覆写",
       "customDomain": "自定义域名",
+      "customPayment": "独立支付",
+      "customWechat": "独立微信公众号",
       "disabled": "未开启",
       "enabled": "已开启"
     },

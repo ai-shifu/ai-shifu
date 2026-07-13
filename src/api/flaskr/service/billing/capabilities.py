@@ -109,8 +109,11 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         audience="admin",
         user_visible=True,
         default_enabled=True,
-        route_entries=(("GET", "/api/admin/billing/entitlements"),),
-        notes=("Admin entitlement review remains enabled.",),
+        route_entries=(
+            ("GET", "/api/admin/billing/entitlements"),
+            ("POST", "/api/admin/billing/entitlements/{creator_bid}"),
+        ),
+        notes=("Admin entitlement review and manual grants remain enabled.",),
     ),
     BillingCapabilityDefinition(
         key="admin_domains",

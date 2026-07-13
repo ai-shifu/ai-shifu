@@ -52,6 +52,28 @@
     "entitlements": {
       "description": "Examiner l’instantané effectif des droits résolu pour chaque espace enseignant.",
       "empty": "Aucun instantané de droits pour le moment.",
+      "grant": {
+        "cancel": "Annuler",
+        "creatorBidPlaceholder": "Saisissez le BID du responsable du cours",
+        "description": "L’enregistrement crée ou met à jour un droit manuel prioritaire sur les droits du forfait.",
+        "edit": "Modifier",
+        "editTitle": "Modifier les droits de personnalisation du responsable",
+        "errors": {
+          "creatorBidRequired": "Saisissez le BID du responsable du cours"
+        },
+        "fields": {
+          "branding_enabled": "Logos de marque",
+          "creatorBid": "BID du responsable du cours",
+          "custom_domain_enabled": "Domaine personnalisé",
+          "custom_payment_enabled": "Configuration de paiement personnalisée",
+          "custom_wechat_enabled": "Compte officiel WeChat personnalisé"
+        },
+        "open": "Accorder au responsable",
+        "submit": "Enregistrer les droits",
+        "submitting": "Enregistrement...",
+        "success": "Droits de personnalisation mis à jour pour {creatorBid}",
+        "title": "Accorder des droits de personnalisation au responsable"
+      },
       "loadError": "Impossible de charger les données de droits admin.",
       "source": {
         "default": "Valeur de secours par défaut",
@@ -59,6 +81,7 @@
         "snapshot": "Instantané enregistré"
       },
       "table": {
+        "actions": "Actions",
         "analytics": "Niveau d’analyse",
         "creator": "Enseignant",
         "features": "Fonctionnalités",
@@ -421,6 +444,8 @@
     "flags": {
       "branding": "Personnalisation de marque",
       "customDomain": "Domaine personnalisé",
+      "customPayment": "Paiements personnalisés",
+      "customWechat": "Compte WeChat personnalisé",
       "disabled": "Désactivé",
       "enabled": "Activé"
     },

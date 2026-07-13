@@ -52,6 +52,28 @@
     "entitlements": {
       "description": "Review the effective entitlement snapshot resolved for each teacher workspace.",
       "empty": "No entitlement snapshots yet.",
+      "grant": {
+        "cancel": "Cancel",
+        "creatorBidPlaceholder": "Enter the course owner BID",
+        "description": "Saving creates or updates a manual entitlement that takes precedence over plan entitlements.",
+        "edit": "Edit",
+        "editTitle": "Edit owner customization entitlements",
+        "errors": {
+          "creatorBidRequired": "Enter the course owner BID"
+        },
+        "fields": {
+          "branding_enabled": "Brand logos",
+          "creatorBid": "Course owner BID",
+          "custom_domain_enabled": "Custom domain",
+          "custom_payment_enabled": "Custom payment configuration",
+          "custom_wechat_enabled": "Custom WeChat official account"
+        },
+        "open": "Grant owner",
+        "submit": "Save grant",
+        "submitting": "Saving...",
+        "success": "Customization entitlements updated for {creatorBid}",
+        "title": "Grant owner customization entitlements"
+      },
       "loadError": "Admin entitlement data could not be loaded.",
       "source": {
         "default": "Default fallback",
@@ -59,6 +81,7 @@
         "snapshot": "Stored snapshot"
       },
       "table": {
+        "actions": "Actions",
         "analytics": "Analytics tier",
         "creator": "Teacher",
         "features": "Features",
@@ -421,6 +444,8 @@
     "flags": {
       "branding": "Branding override",
       "customDomain": "Custom domain",
+      "customPayment": "Custom payments",
+      "customWechat": "Custom WeChat account",
       "disabled": "Disabled",
       "enabled": "Enabled"
     },

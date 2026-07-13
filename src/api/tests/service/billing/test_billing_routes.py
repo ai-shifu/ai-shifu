@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from io import BytesIO
 from types import SimpleNamespace
 
 from flask import Flask, jsonify, request
@@ -154,6 +155,7 @@ def billing_test_client(monkeypatch):
             user_id=request.headers.get("X-User-Id", "creator-1"),
             language="en-US",
             is_creator=request.headers.get("X-Creator", "1") == "1",
+            is_operator=request.headers.get("X-Operator", "0") == "1",
         )
 
     monkeypatch.setattr(
@@ -656,6 +658,10 @@ class TestBillingRoutes:
             "path": "/api/admin/billing/entitlements",
         } in payload["data"]["admin_routes"]
         assert {
+            "method": "POST",
+            "path": "/api/admin/billing/entitlements/{creator_bid}",
+        } in payload["data"]["admin_routes"]
+        assert {
             "method": "GET",
             "path": "/api/admin/billing/domain-audits",
         } in payload["data"]["admin_routes"]
@@ -679,6 +685,52 @@ class TestBillingRoutes:
             "method": "POST",
             "path": "/api/admin/billing/campaigns",
         } in payload["data"]["admin_routes"]
+
+    def test_admin_can_grant_creator_customization_entitlements(
+        self, billing_test_client
+    ) -> None:
+        response = billing_test_client.post(
+            "/api/admin/billing/entitlements/creator-manual-grant",
+            headers={"X-Operator": "1"},
+            json={
+                "branding_enabled": True,
+                "custom_domain_enabled": True,
+                "custom_wechat_enabled": True,
+                "custom_payment_enabled": True,
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["branding_enabled"] is True
+        assert payload["data"]["custom_domain_enabled"] is True
+        assert payload["data"]["custom_wechat_enabled"] is True
+        assert payload["data"]["custom_payment_enabled"] is True
+
+    def test_creator_logo_upload_route_uses_branding_uploader(
+        self, billing_test_client, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            billing_routes_module,
+            "is_creator_customization_enabled",
+            lambda: True,
+        )
+        monkeypatch.setattr(
+            billing_routes_module,
+            "upload_creator_brand_logo",
+            lambda _app, creator_bid, file: (
+                f"https://courses-oss.example.com/{creator_bid}/{file.filename}"
+            ),
+        )
+        response = billing_test_client.post(
+            "/api/billing/customization/branding/logo",
+            data={"file": (BytesIO(b"png"), "wide.png")},
+            content_type="multipart/form-data",
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"] == ("https://courses-oss.example.com/creator-1/wide.png")
 
     def test_catalog_overview_and_wallet_buckets_follow_design_projection(
         self, billing_test_client
@@ -1091,6 +1143,8 @@ class TestBillingRoutes:
             "product_bid": "",
             "branding_enabled": True,
             "custom_domain_enabled": True,
+            "custom_wechat_enabled": False,
+            "custom_payment_enabled": False,
             "priority_class": "priority",
             "analytics_tier": "advanced",
             "support_tier": "business_hours",
@@ -1106,6 +1160,8 @@ class TestBillingRoutes:
             "product_bid": "bill-product-plan-yearly",
             "branding_enabled": True,
             "custom_domain_enabled": True,
+            "custom_wechat_enabled": False,
+            "custom_payment_enabled": False,
             "priority_class": "vip",
             "analytics_tier": "enterprise",
             "support_tier": "priority",

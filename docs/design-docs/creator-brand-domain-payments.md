@@ -52,9 +52,12 @@ settings use one mutable JSON key. Each integration version uses an encrypted
 version key plus a small active-pointer key. The last verified version is used
 for new requests, while old version rows remain addressable by existing orders.
 
-Logo URLs must point to managed storage and end in PNG, JPEG, or WebP. A custom
-domain becomes effective only after TXT ownership, the configured CNAME target,
-and a trusted matching TLS certificate are all present.
+Logo uploads use the managed courses OSS profile, accept only validated PNG,
+JPEG, or WebP content up to 2 MB, and preserve the extension in the object key.
+Saved logo URLs may point only to configured managed-storage hosts or local
+managed storage. A custom domain becomes effective only after TXT ownership,
+the configured CNAME target, and a trusted matching TLS certificate are all
+present.
 
 ## Runtime Resolution
 
@@ -87,6 +90,7 @@ with the snapshotted integration version.
 
 - `GET /api/billing/customization`
 - `PUT /api/billing/customization/branding`
+- `POST /api/billing/customization/branding/logo`
 - `POST /api/billing/customization/domains`
 - `POST /api/billing/customization/domains/<domain_binding_bid>/verify`
 - `DELETE /api/billing/customization/domains/<domain_binding_bid>`
