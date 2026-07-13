@@ -233,12 +233,14 @@ def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None)
         get_shifu_summary(app, shifu_id)
     except Exception as e:
         message = str(e)
-        if "cannot schedule new futures after shutdown" in message:
+        if "cannot schedule new futures after" in message:
             # Summary generation runs in a fire-and-forget daemon thread. When
             # the worker/process is recycled mid-LLM-call (e.g. a deploy),
             # litellm's fallback tries to schedule on an executor that is already
-            # shutting down. This is an expected shutdown race, not a real
-            # failure, so log at warning level to avoid paging ops on deploys.
+            # shutting down. Python may report this as either "after shutdown"
+            # or "after interpreter shutdown" depending on where teardown is
+            # observed. This is an expected shutdown race, not a real failure,
+            # so log at warning level to avoid paging ops on deploys.
             app.logger.warning(
                 "Skipped shifu summary for %s due to worker shutdown race: %s",
                 shifu_id,
