@@ -10,6 +10,8 @@ from celery import Celery, Task
 from celery.schedules import crontab
 from flask import Flask
 
+from flaskr.common.config import get_explicit_env_override
+
 _DEFAULT_BROKER_URL = "redis://localhost:6379/0"
 _DEFAULT_BILLING_RENEWAL_CRON = "* * * * *"
 _DEFAULT_BILLING_PENDING_ORDER_EXPIRE_CRON = "* * * * *"
@@ -57,21 +59,26 @@ def get_celery_app(flask_app: Flask | None = None) -> Celery:
 def _build_celery_config(flask_app: Flask) -> dict[str, Any]:
     default_broker_url = "memory://" if flask_app.testing else _DEFAULT_BROKER_URL
     default_result_backend = "cache+memory://" if flask_app.testing else None
+    # The CELERY_* keys are declared in flaskr/common/config.py, but this
+    # factory also serves Flask apps that are not backed by the registry
+    # Config (e.g. bare Flask apps in unit tests). Use the raw env override
+    # instead of get_config so the registry defaults do not preempt the
+    # testing-specific defaults above.
     broker_url = (
         flask_app.config.get("CELERY_BROKER_URL")
-        or os.getenv("CELERY_BROKER_URL")
+        or get_explicit_env_override("CELERY_BROKER_URL")
         or default_broker_url
     )
     result_backend = (
         flask_app.config.get("CELERY_RESULT_BACKEND")
-        or os.getenv("CELERY_RESULT_BACKEND")
+        or get_explicit_env_override("CELERY_RESULT_BACKEND")
         or default_result_backend
         or broker_url
     )
     task_always_eager = _to_bool(
         flask_app.config.get(
             "CELERY_TASK_ALWAYS_EAGER",
-            os.getenv("CELERY_TASK_ALWAYS_EAGER", False),
+            get_explicit_env_override("CELERY_TASK_ALWAYS_EAGER"),
         )
     )
     return {
@@ -144,8 +151,12 @@ def _resolve_billing_crontab(
     config_key: str,
     default_expression: str,
 ):
+    # Raw env fallback for Flask apps not backed by the registry Config; the
+    # BILLING_*_CRON keys are declared in flaskr/common/config.py.
     raw_expression = str(
-        flask_app.config.get(config_key) or os.getenv(config_key) or default_expression
+        flask_app.config.get(config_key)
+        or get_explicit_env_override(config_key)
+        or default_expression
     ).strip()
     schedule = _parse_crontab_expression(raw_expression)
     if schedule is not None:
