@@ -325,15 +325,30 @@ def __save_new_item_history(
 
     q = queue.Queue()
     q.put(history)
+    parent_found = False
     while not q.empty():
         item = q.get()
         if item.bid == parent_bid:
             item.children.append(
                 HistoryItem(bid=item_bid, id=id, type=type, children=[])
             )
+            parent_found = True
             break
         for child in item.children:
             q.put(child)
+
+    if not parent_found:
+        app.logger.error(
+            "Failed to append %s history node because parent is missing | shifu_bid=%s item_bid=%s item_id=%s parent_bid=%s",
+            type,
+            shifu_bid,
+            item_bid,
+            id,
+            parent_bid,
+        )
+        raise RuntimeError(
+            f"Parent history node not found for {type} {item_bid} under {parent_bid}"
+        )
 
     __save_shifu_history(app, user_id, shifu_bid, history)
 

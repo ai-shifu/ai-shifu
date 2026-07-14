@@ -308,6 +308,7 @@ def create_shifu_draft(
             chapter_name=chapter_name,
             lesson_name=lesson_name,
             now_time=now_time,
+            shifu_db_id=shifu_draft.id,
         )
 
         draft_persist_elapsed_ms = round((perf_counter() - stage_started_at) * 1000, 2)
