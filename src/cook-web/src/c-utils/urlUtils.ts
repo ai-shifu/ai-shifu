@@ -31,9 +31,16 @@ const toRelativeUrl = (urlObj: URL) => {
   return `${urlObj.pathname}${urlObj.search}${urlObj.hash}`;
 };
 
-export const buildCoursePageUrl = (currentUrl: string) => {
+export const buildCoursePageUrl = (
+  currentUrl: string,
+  canonicalCourseUrl?: string | null,
+) => {
   try {
-    const url = new URL(currentUrl);
+    const current = new URL(currentUrl);
+    const canonicalTarget = canonicalCourseUrl?.trim();
+    const url = canonicalTarget
+      ? new URL(canonicalTarget, current.origin)
+      : current;
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       return '';
     }
@@ -46,6 +53,49 @@ export const buildCoursePageUrl = (currentUrl: string) => {
   } catch {
     return '';
   }
+};
+
+export const buildCanonicalCourseRouteUrl = (
+  currentUrl: string,
+  canonicalCourseUrl: string | null | undefined,
+) => {
+  try {
+    const current = new URL(currentUrl);
+    const canonicalTarget = canonicalCourseUrl?.trim();
+    if (!canonicalTarget) {
+      return toRelativeUrl(current);
+    }
+
+    const canonical = new URL(canonicalTarget, current.origin);
+    if (!/^\/c\/[^/]+\/?$/.test(canonical.pathname)) {
+      return toRelativeUrl(current);
+    }
+
+    current.pathname = canonical.pathname;
+    return toRelativeUrl(current);
+  } catch {
+    return '';
+  }
+};
+
+export const replaceCurrentUrlWithCanonicalCourseRoute = (
+  canonicalCourseUrl: string | null | undefined,
+) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const nextUrl = buildCanonicalCourseRouteUrl(
+    window.location.href,
+    canonicalCourseUrl,
+  );
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+  if (!nextUrl || currentUrl === nextUrl) {
+    return;
+  }
+
+  window.history.replaceState(window.history.state, '', nextUrl);
 };
 
 export const buildUrlWithQueryParam = (
@@ -92,7 +142,7 @@ export const replaceCurrentUrlWithLessonId = (
 
 export function getQueryParams(url) {
   const params = {};
-  const queryString = url.split('?')[1];
+  const queryString = url.split('?')[1]?.split('#')[0];
   if (queryString) {
     queryString.split('&').forEach(param => {
       const [key, value] = param.split('=');

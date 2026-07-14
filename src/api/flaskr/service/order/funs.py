@@ -80,6 +80,7 @@ import pytz
 from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
 from flaskr.common.shifu_context import set_shifu_context
 from flaskr.service.shifu.utils import get_shifu_creator_bid
+from flaskr.service.shifu.api import build_course_public_path
 
 
 @register_schema_to_swagger
@@ -1613,6 +1614,7 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
         if not order:
             raise_error("server.order.orderNotFound")
 
+        course_url = build_course_public_path(order.shifu_bid)
         payment_channel = order.payment_channel or "pingxx"
         if payment_channel == "stripe":
             stripe_order = (
@@ -1626,6 +1628,7 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
             return {
                 "payment_channel": "stripe",
                 "course_id": order.shifu_bid,
+                "course_url": course_url,
                 "order_bid": order_bid,
                 "payment_intent_id": stripe_order.payment_intent_id,
                 "checkout_session_id": stripe_order.checkout_session_id,
@@ -1657,6 +1660,7 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
             return {
                 "payment_channel": payment_channel,
                 "course_id": order.shifu_bid,
+                "course_url": course_url,
                 "order_bid": order_bid,
                 "provider_attempt_id": native_order.provider_attempt_id,
                 "transaction_id": native_order.transaction_id,
@@ -1682,6 +1686,7 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
         return {
             "payment_channel": "pingxx",
             "course_id": order.shifu_bid,
+            "course_url": course_url,
             "order_bid": order_bid,
             "charge_id": pingxx_order.charge_id,
             "transaction_no": pingxx_order.transaction_no,

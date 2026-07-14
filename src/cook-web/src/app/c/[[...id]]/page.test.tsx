@@ -6,7 +6,6 @@ const mockGetProfileOnboarding = jest.fn();
 const mockCompleteProfileOnboarding = jest.fn();
 const mockUpdateWxcode = jest.fn();
 const mockRefreshUserInfo = jest.fn();
-const mockUpdateCourseId = jest.fn();
 const mockLoadTree = jest.fn();
 const mockReloadTree = jest.fn();
 const mockUpdateLessonId = jest.fn();
@@ -96,7 +95,6 @@ jest.mock('next/dynamic', () => ({
 }));
 
 jest.mock('next/navigation', () => ({
-  useParams: () => ({ id: ['course-1'] }),
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -123,15 +121,11 @@ jest.mock('@/c-constants/uiConstants', () => ({
 
 jest.mock('@/c-store', () => ({
   useEnvStore: Object.assign(
-    (
-      selector?: (state: {
-        updateCourseId: typeof mockUpdateCourseId;
-      }) => unknown,
-    ) =>
-      selector ? selector({ updateCourseId: mockUpdateCourseId }) : undefined,
+    (selector?: (state: { courseId: string }) => unknown) =>
+      selector ? selector({ courseId: 'course-1' }) : undefined,
     {
       getState: () => ({
-        updateCourseId: mockUpdateCourseId,
+        courseId: 'course-1',
       }),
     },
   ),

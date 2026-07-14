@@ -1,9 +1,14 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import AuthPage from './page';
 
 const replaceMock = jest.fn();
 const logoutMock = jest.fn(() => Promise.resolve());
+const mockPhoneLoginProps = jest.fn();
+let mockSearchParamsValue = '';
+const mockSearchParams = {
+  get: (key: string) => new URLSearchParams(mockSearchParamsValue).get(key),
+};
 
 const mockUserState = {
   userInfo: null as { language?: string } | null,
@@ -16,9 +21,7 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: replaceMock,
   }),
-  useSearchParams: () => ({
-    get: jest.fn(() => null),
-  }),
+  useSearchParams: () => mockSearchParams,
 }));
 
 jest.mock('next/image', () => ({
@@ -77,7 +80,21 @@ jest.mock('react-i18next', () => ({
 }));
 
 jest.mock('@/components/auth/PhoneLogin', () => ({
-  PhoneLogin: () => <div data-testid='phone-login' />,
+  PhoneLogin: (props: {
+    courseId?: string;
+    loginContext?: string;
+    onLoginSuccess: (userInfo: unknown) => void;
+  }) => {
+    mockPhoneLoginProps(props);
+    return (
+      <button
+        type='button'
+        data-testid='phone-login'
+        aria-label='phone-login'
+        onClick={() => props.onLoginSuccess({})}
+      />
+    );
+  },
 }));
 
 jest.mock('@/components/auth/EmailLogin', () => ({
@@ -153,6 +170,7 @@ describe('AuthPage', () => {
     mockUserState.userInfo = null;
     mockUserState.isLoggedIn = false;
     mockUserState.isInitialized = true;
+    mockSearchParamsValue = '';
   });
 
   it('switches an authenticated browser session to a guest session on the login page', async () => {
@@ -186,5 +204,25 @@ describe('AuthPage', () => {
     await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(logoutMock).not.toHaveBeenCalled();
+  });
+
+  it('hands a course slug from the redirect to phone login and preserves the full return path', async () => {
+    const redirectPath =
+      '/c/practical-ai-teaching-methods?lessonid=lesson-1&mode=listen#follow-up';
+    mockSearchParamsValue = `redirect=${encodeURIComponent(redirectPath)}`;
+
+    render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(mockPhoneLoginProps).toHaveBeenCalledWith(
+        expect.objectContaining({
+          courseId: 'practical-ai-teaching-methods',
+          loginContext: 'default',
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByTestId('phone-login'));
+    expect(replaceMock).toHaveBeenCalledWith(redirectPath);
   });
 });

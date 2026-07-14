@@ -22,6 +22,10 @@ from flaskr.service.shifu.shifu_history_manager import (
     save_shifu_history,
     save_outline_tree_history,
 )
+from flaskr.service.shifu.slug import (
+    assert_shifu_bid_available,
+    ensure_shifu_slug,
+)
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from markdown_flow import MarkdownFlow
 
@@ -230,6 +234,7 @@ def import_shifu(
                 ).update({"deleted": 1})
             else:
                 # Create new shifu with provided bid
+                assert_shifu_bid_available(shifu_bid)
                 new_shifu = DraftShifu(
                     shifu_bid=shifu_bid,
                     title=shifu_data["title"],
@@ -259,6 +264,14 @@ def import_shifu(
                     f"{new_shifu.title} {new_shifu.keywords} {new_shifu.description}"
                 )
                 check_text_with_risk_control(app, shifu_bid, user_id, check_content)
+
+                ensure_shifu_slug(
+                    app,
+                    shifu_bid=shifu_bid,
+                    title=new_shifu.title,
+                    user_id=user_id,
+                    claim_new_bid=True,
+                )
 
                 db.session.add(new_shifu)
                 db.session.flush()
@@ -295,6 +308,14 @@ def import_shifu(
                 f"{new_shifu.title} {new_shifu.keywords} {new_shifu.description}"
             )
             check_text_with_risk_control(app, shifu_bid, user_id, check_content)
+
+            ensure_shifu_slug(
+                app,
+                shifu_bid=shifu_bid,
+                title=new_shifu.title,
+                user_id=user_id,
+                claim_new_bid=True,
+            )
 
             db.session.add(new_shifu)
             db.session.flush()

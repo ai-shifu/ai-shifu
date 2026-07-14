@@ -17,6 +17,16 @@ describe('publish learning mode urls', () => {
     expect(buildCourseLearningUrl('course 1')).toBe('/c/course%201');
   });
 
+  test('uses the backend slug before the BID when the URL is unavailable', () => {
+    expect(
+      buildCourseLearningUrl(
+        'legacy-bid',
+        null,
+        'practical-ai-teaching-methods',
+      ),
+    ).toBe('/c/practical-ai-teaching-methods');
+  });
+
   test('sets mode and removes legacy listen query while preserving other url parts', () => {
     expect(
       buildLearningModeUrl(

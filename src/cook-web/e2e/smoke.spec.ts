@@ -1,4 +1,12 @@
-import { expect, Page, TestInfo, test } from '@playwright/test';
+import {
+  expect,
+  Page,
+  Request as PlaywrightRequest,
+  Response,
+  Route,
+  TestInfo,
+  test,
+} from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 
 type ConsoleEntry = {
@@ -18,8 +26,6 @@ type NetworkEntry = {
 const DEFAULT_PHONE = process.env.AI_SHIFU_TEST_PHONE || '13800138000';
 const DEFAULT_OTP = process.env.AI_SHIFU_TEST_OTP || '1024';
 const DEFAULT_CAPTCHA = process.env.AI_SHIFU_TEST_CAPTCHA || '0000';
-const DEFAULT_DEMO_SHIFU_BID =
-  process.env.AI_SHIFU_DEMO_SHIFU_BID || 'b5d7844387e940ed9480a6f945a6db6a';
 const DEFAULT_GRAFANA_URL =
   process.env.AI_SHIFU_GRAFANA_URL || 'http://127.0.0.1:3001';
 const DEFAULT_LOKI_URL =
@@ -111,25 +117,127 @@ const loginWithPhone = async (page: Page, redirectPath: string) => {
   await otpInput.press('Enter');
 };
 
-const waitForCourseData = async (page: Page, entries: NetworkEntry[]) => {
-  if (
-    entries.some(
-      entry =>
-        entry.url.includes('/api/') &&
-        (entry.url.includes('/shifu/') || entry.url.includes('/learn/')) &&
-        entry.status !== null,
-    )
-  ) {
-    return;
+type CourseListItem = {
+  bid?: unknown;
+  slug?: unknown;
+  is_guide_course?: unknown;
+};
+
+type CourseIdentity = {
+  bid?: unknown;
+  slug?: unknown;
+  canonical_path?: unknown;
+};
+
+type BusinessEnvelope<T> = {
+  code?: unknown;
+  message?: unknown;
+  data?: T;
+};
+
+const discoverDemoCourse = async (page: Page) => {
+  const listResult = await page.evaluate(async () => {
+    const rawToken = window.localStorage.getItem('token') || '';
+    let token = rawToken;
+    try {
+      const parsedToken = JSON.parse(rawToken);
+      if (typeof parsedToken === 'string') {
+        token = parsedToken;
+      }
+    } catch {
+      // The storage adapter can also persist an unquoted string.
+    }
+
+    const response = await fetch(
+      '/api/shifu/shifus?page_index=1&page_size=100&archived=false',
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Token: token,
+        },
+      },
+    );
+
+    return {
+      status: response.status,
+      payload: await response.json(),
+    };
+  });
+
+  expect(listResult.status).toBe(200);
+  const payload = listResult.payload as BusinessEnvelope<{
+    items?: CourseListItem[];
+  }>;
+  expect(payload.code, String(payload.message || '')).toBe(0);
+  const courses = Array.isArray(payload.data?.items) ? payload.data.items : [];
+  const guideCourses = courses.filter(item => item.is_guide_course && item.bid);
+  if (guideCourses.length === 0) {
+    throw new Error('Runtime harness did not expose a built-in guide course');
   }
 
-  await page.waitForResponse(
-    response =>
-      response.url().includes('/api/') &&
-      (response.url().includes('/shifu/') ||
-        response.url().includes('/learn/')),
-    { timeout: 20_000 },
+  const probeFailures: string[] = [];
+  for (const guideCourse of guideCourses) {
+    const candidateBid = String(guideCourse.bid || '').trim();
+    const probeResult = await page.evaluate(async bid => {
+      const rawToken = window.localStorage.getItem('token') || '';
+      let token = rawToken;
+      try {
+        const parsedToken = JSON.parse(rawToken);
+        if (typeof parsedToken === 'string') {
+          token = parsedToken;
+        }
+      } catch {
+        // The storage adapter can also persist an unquoted string.
+      }
+
+      const response = await fetch(
+        `/api/learn/shifu/${encodeURIComponent(bid)}?preview_mode=false`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Token: token,
+          },
+        },
+      );
+
+      return {
+        status: response.status,
+        payload: await response.json(),
+      };
+    }, candidateBid);
+    const probePayload =
+      probeResult.payload as BusinessEnvelope<CourseIdentity>;
+    if (probeResult.status !== 200 || probePayload.code !== 0) {
+      probeFailures.push(
+        `${candidateBid}: HTTP ${probeResult.status}, code ${String(probePayload.code)}, ${String(probePayload.message || '')}`,
+      );
+      continue;
+    }
+
+    const bid = String(probePayload.data?.bid || '').trim();
+    const slug = String(probePayload.data?.slug || '').trim();
+    if (!bid || !slug) {
+      probeFailures.push(`${candidateBid}: canonical identity is incomplete`);
+      continue;
+    }
+
+    expect(slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)+$/);
+    return { bid, slug };
+  }
+
+  throw new Error(
+    `Runtime harness did not expose a published guide course with a slug: ${probeFailures.join('; ')}`,
   );
+};
+
+const expectBusinessSuccess = async <T>(response: Response): Promise<T> => {
+  expect(response.status(), response.url()).toBe(200);
+  const payload = (await response.json()) as BusinessEnvelope<T>;
+  expect(
+    payload.code,
+    `${response.url()}: ${String(payload.message || '')}`,
+  ).toBe(0);
+  return payload.data as T;
 };
 
 test.describe('agent-first smoke harness', () => {
@@ -250,13 +358,120 @@ test.describe('agent-first smoke harness', () => {
     await expect(page.getByTestId('admin-operations-filters')).toBeVisible();
   });
 
-  test('learner chat shell renders and completes the first key request', async ({
+  test('legacy BID converges to the slug route before canonical learner requests start', async ({
     page,
   }) => {
-    const coursePath = `/c/${DEFAULT_DEMO_SHIFU_BID}`;
-    await loginWithPhone(page, coursePath);
-    await page.waitForURL(`**${coursePath}`);
+    await loginWithPhone(page, '/admin/operations');
+    await page.waitForURL('**/admin/operations');
+    const { bid, slug } = await discoverDemoCourse(page);
+    const encodedBid = encodeURIComponent(bid);
+    const encodedSlug = encodeURIComponent(slug);
+    const courseInfoResponse = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === `/api/learn/shifu/${encodedBid}`;
+    });
+    const outlineResponse = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return (
+        url.pathname === `/api/learn/shifu/${encodedBid}/outline-item-tree`
+      );
+    });
+    const legacyCoursePath = `/c/${encodedBid}?preview=false&mode=read&smoke=slug-e2e#canonical-link`;
+
+    await page.goto(legacyCoursePath);
+    const courseInfo = await expectBusinessSuccess<{
+      bid?: string;
+      slug?: string;
+      canonical_path?: string;
+    }>(await courseInfoResponse);
+    expect(courseInfo).toMatchObject({
+      bid,
+      slug,
+      canonical_path: `/c/${slug}`,
+    });
+
+    await expect
+      .poll(() => new URL(page.url()).pathname)
+      .toBe(`/c/${encodedSlug}`);
+    const canonicalUrl = new URL(page.url());
+    expect(canonicalUrl.searchParams.get('preview')).toBe('false');
+    expect(canonicalUrl.searchParams.get('mode')).toBe('read');
+    expect(canonicalUrl.searchParams.get('smoke')).toBe('slug-e2e');
+    expect(canonicalUrl.hash).toBe('#canonical-link');
     await expect(page.getByTestId('course-chat-page')).toBeVisible();
-    await waitForCourseData(page, networkEntries);
+    await expectBusinessSuccess(await outlineResponse);
+
+    const slugCourseInfoResponse = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === `/api/learn/shifu/${encodedSlug}`;
+    });
+    const canonicalOutlineAfterReload = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return (
+        url.pathname === `/api/learn/shifu/${encodedBid}/outline-item-tree`
+      );
+    });
+
+    let releaseSlugCourseInfo = () => {};
+    const slugCourseInfoRelease = new Promise<void>(resolve => {
+      releaseSlugCourseInfo = resolve;
+    });
+    let markSlugCourseInfoBlocked = () => {};
+    const slugCourseInfoBlocked = new Promise<void>(resolve => {
+      markSlugCourseInfoBlocked = resolve;
+    });
+    let bootstrapIsBlocked = false;
+    const downstreamRequestsWhileBlocked: string[] = [];
+    const recordBlockedLearnerRequest = (request: PlaywrightRequest) => {
+      if (!bootstrapIsBlocked) {
+        return;
+      }
+      const url = new URL(request.url());
+      if (
+        url.pathname.startsWith('/api/learn/') &&
+        url.pathname !== `/api/learn/shifu/${encodedSlug}`
+      ) {
+        downstreamRequestsWhileBlocked.push(url.pathname);
+      }
+    };
+    const holdSlugCourseInfo = async (route: Route) => {
+      const url = new URL(route.request().url());
+      if (
+        url.pathname === `/api/learn/shifu/${encodedSlug}` &&
+        url.searchParams.get('preview_mode') === 'false'
+      ) {
+        bootstrapIsBlocked = true;
+        markSlugCourseInfoBlocked();
+        await slugCourseInfoRelease;
+      }
+      await route.continue();
+    };
+
+    page.on('request', recordBlockedLearnerRequest);
+    await page.route('**/api/learn/shifu/**', holdSlugCourseInfo);
+    const reloadPromise = page.reload();
+    await slugCourseInfoBlocked;
+    await reloadPromise;
+    await page.evaluate(
+      () =>
+        new Promise<void>(resolve => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }),
+    );
+    const blockedRequestSnapshot = [...downstreamRequestsWhileBlocked];
+    bootstrapIsBlocked = false;
+    releaseSlugCourseInfo();
+
+    const directSlugCourseInfo = await expectBusinessSuccess<{
+      bid?: string;
+      slug?: string;
+    }>(await slugCourseInfoResponse);
+    await page.unroute('**/api/learn/shifu/**', holdSlugCourseInfo);
+    page.off('request', recordBlockedLearnerRequest);
+    expect(blockedRequestSnapshot).toEqual([]);
+    expect(directSlugCourseInfo).toMatchObject({ bid, slug });
+    await expect(page.getByTestId('course-chat-page')).toBeVisible();
+    await expectBusinessSuccess(await canonicalOutlineAfterReload);
+    expect(new URL(page.url()).pathname).toBe(`/c/${encodedSlug}`);
   });
 });

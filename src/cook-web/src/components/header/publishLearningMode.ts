@@ -17,13 +17,14 @@ export const isPublishLearningModeAvailable = ({
 export const buildCourseLearningUrl = (
   courseId: string,
   publishedUrl?: string | null,
+  slug?: string | null,
 ) => {
   const normalizedUrl = publishedUrl?.trim();
   if (normalizedUrl) {
     return normalizedUrl;
   }
 
-  return `/c/${encodeURIComponent(courseId)}`;
+  return `/c/${encodeURIComponent(slug?.trim() || courseId)}`;
 };
 
 export const buildLearningModeUrl = (

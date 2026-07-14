@@ -368,7 +368,7 @@ export const PayModalM = ({
     setPreviewInitLoading(true);
     try {
       const resp = await getCourseInfo(courseId, previewMode);
-      setPreviewPrice(resp?.course_price);
+      setPreviewPrice(String(resp?.course_price ?? 0));
     } catch {
       setPreviewPrice('0');
     } finally {

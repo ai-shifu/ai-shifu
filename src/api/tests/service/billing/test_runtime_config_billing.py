@@ -19,6 +19,7 @@ from flaskr.service.billing.runtime_config import (
     build_default_runtime_billing_context,
     build_runtime_billing_context,
 )
+from flaskr.service.shifu.models import ShifuCourseSlug
 
 
 @pytest.fixture
@@ -151,6 +152,13 @@ def runtime_config_client(monkeypatch):
                     verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
                     verification_token="token-runtime-2",
                     last_verified_at=now - timedelta(hours=1),
+                ),
+                ShifuCourseSlug(
+                    shifu_bid="shifu-1",
+                    slug="practical-course-branding-link",
+                    version=1,
+                    is_current=1,
+                    generation_source="llm",
                 ),
             ]
         )
@@ -327,6 +335,20 @@ def test_runtime_config_uses_shifu_context_for_creator_branding(
         "host": None,
         "binding_status": None,
     }
+
+
+def test_runtime_config_resolves_course_slug_for_creator_branding(
+    runtime_config_client,
+) -> None:
+    response = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=practical-course-branding-link",
+        headers={"Host": "localhost"},
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
+    assert payload["homeUrl"] == "https://creator.example.com/home"
+    assert payload["entitlements"]["branding_enabled"] is True
 
 
 def test_runtime_config_uses_explicit_creator_bid_param(

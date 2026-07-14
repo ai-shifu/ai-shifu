@@ -42,6 +42,12 @@ from ...service.config import get_config
 from .funcs import shifu_permission_verification
 from .shifu_outline_funcs import create_default_outlines_for_new_shifu
 from .demo_courses import is_builtin_demo_course
+from .slug import (
+    build_course_public_path,
+    ensure_shifu_slug,
+    get_shifu_slug,
+    get_shifu_slug_map,
+)
 from flaskr.i18n import _
 from ..tts.validation import validate_tts_settings_strict
 
@@ -153,10 +159,12 @@ def return_shifu_draft_dto(
         ShifuDetailDto: Shifu detail dto
     """
     normalized_base = base_url.rstrip("/") if base_url else ""
-    shifu_path = f"/c/{shifu_draft.shifu_bid}"
+    slug = get_shifu_slug(shifu_draft.shifu_bid)
+    shifu_path = build_course_public_path(shifu_draft.shifu_bid)
     shifu_url = f"{normalized_base}{shifu_path}" if normalized_base else shifu_path
+    preview_path = build_course_public_path(shifu_draft.shifu_bid, preview=True)
     shifu_preview_url = (
-        f"{shifu_url}?preview=true" if normalized_base else f"{shifu_path}?preview=true"
+        f"{normalized_base}{preview_path}" if normalized_base else preview_path
     )
 
     stored_provider = getattr(shifu_draft, "tts_provider", "") or ""
@@ -166,6 +174,7 @@ def return_shifu_draft_dto(
 
     return ShifuDetailDto(
         shifu_id=shifu_draft.shifu_bid,
+        slug=slug,
         shifu_name=shifu_draft.title,
         shifu_description=shifu_draft.description,
         shifu_avatar=get_shifu_res_url(shifu_draft.avatar_res_bid),
@@ -289,6 +298,14 @@ def create_shifu_draft(
             risk_check_elapsed_ms,
         )
 
+        slug_binding = ensure_shifu_slug(
+            app,
+            shifu_bid=shifu_id,
+            title=shifu_name,
+            user_id=user_id,
+            claim_new_bid=True,
+        )
+
         # save to database
         stage_started_at = perf_counter()
         db.session.add(shifu_draft)
@@ -336,6 +353,7 @@ def create_shifu_draft(
             can_manage_archive=True,
             can_manage_permissions=True,
             created_user_bid=user_id,
+            slug=slug_binding.slug,
         )
 
 
@@ -566,6 +584,13 @@ def save_shifu_draft_info(
         if not shifu_draft:
             # First-time draft: there is no current value to preserve, so fill
             # sensible defaults for any field the caller omitted (None).
+            ensure_shifu_slug(
+                app,
+                shifu_bid=shifu_id,
+                title=shifu_name or "",
+                user_id=user_id,
+                claim_new_bid=True,
+            )
             shifu_draft: DraftShifu = DraftShifu(
                 shifu_bid=shifu_id,
                 title=shifu_name or "",
@@ -804,6 +829,9 @@ def get_shifu_draft_list(
         )
         res_bids = [shifu_draft.avatar_res_bid for shifu_draft in shifu_drafts]
         res_url_map = get_shifu_res_url_dict(res_bids)
+        slug_map = get_shifu_slug_map(
+            shifu_draft.shifu_bid for shifu_draft in shifu_drafts
+        )
         shifu_dtos = [
             ShifuDto(
                 shifu_draft.shifu_bid,
@@ -821,6 +849,7 @@ def get_shifu_draft_list(
                     title=shifu_draft.title,
                     created_user_bid=shifu_draft.created_user_bid,
                 ),
+                slug=slug_map.get(shifu_draft.shifu_bid),
             )
             for shifu_draft in shifu_drafts
         ]
@@ -902,6 +931,7 @@ def get_shifu_published_list(
 
         res_bids = [shifu.avatar_res_bid for shifu in shifus]
         res_url_map = get_shifu_res_url_dict(res_bids)
+        slug_map = get_shifu_slug_map(shifu.shifu_bid for shifu in shifus)
         shifu_dtos = [
             ShifuDto(
                 shifu.shifu_bid,
@@ -919,6 +949,7 @@ def get_shifu_published_list(
                     title=shifu.title,
                     created_user_bid=shifu.created_user_bid,
                 ),
+                slug=slug_map.get(shifu.shifu_bid),
             )
             for shifu in shifus
         ]

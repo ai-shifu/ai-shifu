@@ -108,7 +108,7 @@ const loadRuntimeConfig = async () => {
 
   const runtimeUrl = buildRuntimeConfigUrl(resolvedBase);
 
-  const pathShifuBid =
+  const pathCourseIdentifier =
     typeof window !== 'undefined'
       ? (() => {
           try {
@@ -121,8 +121,8 @@ const loadRuntimeConfig = async () => {
         })()
       : '';
 
-  const runtimeUrlWithShifu = pathShifuBid
-    ? `${runtimeUrl}?shifu_bid=${encodeURIComponent(pathShifuBid)}`
+  const runtimeUrlWithShifu = pathCourseIdentifier
+    ? `${runtimeUrl}?shifu_bid=${encodeURIComponent(pathCourseIdentifier)}`
     : runtimeUrl;
 
   const fetchRuntimeConfig = async () => {
@@ -162,15 +162,16 @@ const loadRuntimeConfig = async () => {
   );
 
   /**
-   * Course id resolution priority
+   * Course identity bootstrap priority
    *
-   * 1. If URL path is /c/<shifu_bid>, keep using the path parameter.
-   *    Runtime default course id from backend MUST NOT override it.
+   * 1. If URL path is /c/<identifier>, leave course identity unresolved.
+   *    The learner layout resolves the slug or legacy BID before writing the
+   *    canonical BID to the store, so runtime defaults must not override it.
    * 2. Otherwise, fall back to backend-provided default course id.
    */
-  const hasPathCourseId = !!pathShifuBid;
+  const hasPathCourseIdentifier = !!pathCourseIdentifier;
 
-  if (!hasPathCourseId) {
+  if (!hasPathCourseIdentifier) {
     // Only apply backend default when there is no explicit course id in the URL path
     await updateCourseId(runtimeConfig?.courseId || '');
   }

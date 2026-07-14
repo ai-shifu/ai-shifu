@@ -109,6 +109,7 @@ from flaskr.service.shifu.shifu_history_manager import (
     save_outline_tree_history,
     save_shifu_history,
 )
+from flaskr.service.shifu.slug import ensure_shifu_slug
 from flaskr.service.shifu.models import (
     AiCourseAuth,
     DraftOutlineItem,
@@ -2517,6 +2518,14 @@ def copy_operator_course(
                 target_outline_bid=outline_bid_map[old_outline_bid],
                 operator_user_bid=action_user_bid,
             )
+
+        ensure_shifu_slug(
+            app,
+            shifu_bid=new_shifu_bid,
+            title=resolved_new_course_name,
+            user_id=action_user_bid,
+            claim_new_bid=True,
+        )
 
         target_creator_result = _prepare_operator_target_creator(
             app,

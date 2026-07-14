@@ -11,6 +11,7 @@ from flaskr.service.shifu.models import (
     LogPublishedStruct,
     PublishedOutlineItem,
     PublishedShifu,
+    ShifuCourseSlug,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
@@ -24,11 +25,20 @@ def test_get_shifu_info_returns_dto(app):
             price=Decimal("9.99"),
             keywords="a,b",
         )
-        db.session.add(shifu)
+        slug = ShifuCourseSlug(
+            shifu_bid="shifu-learn-1",
+            slug="practical-ai-learning-course",
+            version=1,
+            is_current=1,
+            generation_source="llm",
+        )
+        db.session.add_all([shifu, slug])
         db.session.commit()
 
     dto = get_shifu_info(app, "shifu-learn-1", preview_mode=False)
     assert dto.bid == "shifu-learn-1"
+    assert dto.slug == "practical-ai-learning-course"
+    assert dto.canonical_path == "/c/practical-ai-learning-course"
     assert dto.title == "Test Shifu"
     assert dto.price == "9.99"
     assert dto.keywords == ["a", "b"]
@@ -59,6 +69,8 @@ def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
     live_dto = get_shifu_info(app, "shifu-learn-tts", preview_mode=False)
 
     assert preview_dto.title == "Draft Shifu"
+    assert preview_dto.slug is None
+    assert preview_dto.canonical_path == "/c/shifu-learn-tts?preview=true"
     assert preview_dto.tts_enabled is True
     assert live_dto.title == "Published Shifu"
     assert live_dto.tts_enabled is False

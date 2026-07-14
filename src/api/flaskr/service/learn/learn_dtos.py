@@ -159,6 +159,10 @@ class OutlineItemUpdateDTO(BaseModel):
 @register_schema_to_swagger
 class LearnShifuInfoDTO(BaseModel):
     bid: str = Field(..., description="shifu id", required=False)
+    slug: Optional[str] = Field(None, description="public course slug", required=False)
+    canonical_path: str = Field(
+        ..., description="canonical public course path", required=False
+    )
     title: str = Field(..., description="shifu title", required=False)
     description: str = Field(..., description="shifu description", required=False)
     keywords: list[str] = Field(..., description="shifu keywords", required=False)
@@ -169,6 +173,8 @@ class LearnShifuInfoDTO(BaseModel):
     def __init__(
         self,
         bid: str,
+        slug: Optional[str],
+        canonical_path: str,
         title: str,
         description: str,
         keywords: list[str],
@@ -178,6 +184,8 @@ class LearnShifuInfoDTO(BaseModel):
     ):
         super().__init__(
             bid=bid,
+            slug=slug,
+            canonical_path=canonical_path,
             title=title,
             description=description,
             keywords=keywords,
@@ -189,6 +197,8 @@ class LearnShifuInfoDTO(BaseModel):
     def __json__(self):
         return {
             "bid": self.bid,
+            "slug": self.slug,
+            "canonical_path": self.canonical_path,
             "title": self.title,
             "description": self.description,
             "keywords": self.keywords,

@@ -93,11 +93,39 @@ jobs:
           docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml logs ai-shifu-api-dev
           exit 1
 
+      - name: Verify MySQL slug migrations and identifier concurrency
+        run: |
+          docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml exec -T \
+            -e RUN_MYSQL_MIGRATION_SMOKE=1 \
+            -e 'TEST_SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4' \
+            ai-shifu-api-dev \
+            python -m pytest tests/migrations/test_fresh_mysql_upgrade.py -q
+
       - name: Install frontend dependencies
         working-directory: src/cook-web
+        run: npm ci
+
+      - name: Verify frontend slug contracts
+        working-directory: src/cook-web
         run: |
-          npm ci
-          npx playwright install --with-deps chromium
+          npm test -- --runInBand --runTestsByPath \
+            'src/c-api/course.test.ts' \
+            'src/__tests__/c-preview-layout.test.tsx' \
+            'src/app/c/[[...id]]/layout.test.tsx' \
+            'src/app/login/page.test.tsx' \
+            'src/c-utils/urlUtils.test.ts' \
+            'src/components/header/publishLearningMode.test.ts' \
+            'src/app/payment/stripe/result/courseReturnUrl.test.ts' \
+            'src/app/payment/stripe/result/page.test.tsx' \
+            'src/app/c/[[...id]]/Components/ChatUi/NewChatComp.lessonUpdateNotice.test.tsx' \
+            'src/app/shifu/[id]/page.test.tsx' \
+            'src/app/admin/dashboard/page.test.tsx'
+          npm run type-check
+          npm run lint
+
+      - name: Install Playwright browser
+        working-directory: src/cook-web
+        run: npx playwright install --with-deps chromium
 
       - name: Run smoke harness
         working-directory: src/cook-web

@@ -2,6 +2,7 @@ import request from '@/lib/request';
 import { inWechat } from '@/c-constants/uiConstants';
 import { tracking } from '@/c-common/tools/tracking';
 import i18n from '@/i18n';
+import type { CourseInfo } from '@/c-types';
 
 type GetCourseInfoOptions = {
   skipErrorToast?: boolean;
@@ -9,6 +10,7 @@ type GetCourseInfoOptions = {
 };
 
 const COURSE_NOT_FOUND_MESSAGE_FALLBACKS = ['course not found'];
+const COURSE_NOT_FOUND_CODES = new Set([4001, 4008, 404]);
 let cachedNotFoundMessages: { language: string; messages: string[] } | null =
   null;
 
@@ -45,7 +47,7 @@ const getCourseNotFoundMessages = (): string[] => {
 const isCourseNotFoundError = (error: any): boolean => {
   const code = Number(error?.code);
   const status = Number(error?.status);
-  if (code === 4001 || code === 404 || status === 404) {
+  if (COURSE_NOT_FOUND_CODES.has(code) || status === 404) {
     return true;
   }
   const message = String(error?.message || '').toLowerCase();
@@ -69,9 +71,9 @@ export class CourseInfoFetchError extends Error {
         ? Number(error?.code)
         : undefined;
     this.isCourseNotFound = isCourseNotFoundError({
-      ...error,
       code: this.code,
       status: this.status,
+      message: this.message,
     });
   }
 }
@@ -80,7 +82,7 @@ export const getCourseInfo = async (
   courseId: string,
   previewMode: boolean,
   options: GetCourseInfoOptions = {},
-) => {
+): Promise<CourseInfo> => {
   try {
     const encodedCourseId = encodeURIComponent(courseId);
     const res = await request.get(
@@ -91,12 +93,26 @@ export const getCourseInfo = async (
 
     // Do processing at the model layer to adapt the new interface to the old interface format
     // Reduce the impact on the view layer
+    const canonicalBid = String(res.bid || '');
+    const slug = String(res.slug || '');
+    const canonicalUrl = String(
+      res.canonical_url ||
+        res.canonical_path ||
+        (slug ? `/c/${encodeURIComponent(slug)}` : ''),
+    );
+    const price = Number(res.price);
+    const keywords = Array.isArray(res.keywords)
+      ? res.keywords.join(',')
+      : String(res.keywords || '');
+
     return {
       course_desc: res.description,
-      course_id: res.bid,
-      course_keywords: res.keywords,
+      course_id: canonicalBid,
+      course_slug: slug,
+      course_canonical_url: canonicalUrl,
+      course_keywords: keywords,
       course_name: res.title,
-      course_price: res.price,
+      course_price: Number.isFinite(price) ? price : 0,
       course_teacher_avatar: res.avatar,
       course_avatar: res.avatar,
       course_tts_enabled: !!res?.tts_enabled,

@@ -6,12 +6,14 @@ import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 import { getPaymentDetail, syncStripeCheckout } from '@/c-api/order';
 import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
+import { buildStripeCourseReturnUrl } from './courseReturnUrl';
 
 interface StripeResultState {
   status: 'loading' | 'success' | 'pending' | 'error';
   message: string;
   orderId?: string;
   courseId?: string;
+  courseUrl?: string;
 }
 
 export default function StripeResultPage() {
@@ -67,6 +69,7 @@ export default function StripeResultPage() {
             message: t('module.pay.paySuccess'),
             orderId,
             courseId: detail.course_id,
+            courseUrl: detail.course_url,
           });
           return;
         }
@@ -75,6 +78,7 @@ export default function StripeResultPage() {
           message: t('module.pay.stripeResultPending'),
           orderId,
           courseId: detail.course_id,
+          courseUrl: detail.course_url,
         });
       } catch (error: any) {
         setState({
@@ -104,8 +108,13 @@ export default function StripeResultPage() {
     return t('module.pay.processing');
   }, [state.status, t]);
 
+  const courseReturnUrl = buildStripeCourseReturnUrl(
+    state.courseUrl,
+    state.courseId,
+  );
+
   useEffect(() => {
-    if (state.status !== 'success' || !state.courseId) {
+    if (state.status !== 'success' || courseReturnUrl === '/c') {
       if (redirectTimerRef.current) {
         clearInterval(redirectTimerRef.current);
         redirectTimerRef.current = null;
@@ -120,7 +129,7 @@ export default function StripeResultPage() {
             clearInterval(redirectTimerRef.current);
             redirectTimerRef.current = null;
           }
-          router.push(`/c/${state.courseId}`);
+          router.push(courseReturnUrl);
           return 0;
         }
         return prev - 1;
@@ -132,7 +141,7 @@ export default function StripeResultPage() {
         redirectTimerRef.current = null;
       }
     };
-  }, [router, state.courseId, state.status]);
+  }, [courseReturnUrl, router, state.status]);
 
   return (
     <div className='mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-6 px-6 text-center'>
@@ -141,7 +150,7 @@ export default function StripeResultPage() {
         {state.message && (
           <p className='text-muted-foreground text-base'>{state.message}</p>
         )}
-        {state.status === 'success' && state.courseId ? (
+        {state.status === 'success' && courseReturnUrl !== '/c' ? (
           <p className='text-sm text-muted-foreground'>
             {t('module.pay.stripeResultRedirectCountDown', {
               seconds: redirectCountdown,
@@ -152,9 +161,7 @@ export default function StripeResultPage() {
       <div className='flex flex-col gap-3 w-full'>
         <Button
           className='w-full'
-          onClick={() =>
-            router.push(state.courseId ? `/c/${state.courseId}` : '/c')
-          }
+          onClick={() => router.push(courseReturnUrl)}
         >
           {t('module.pay.stripeResultBackToChat')}
         </Button>

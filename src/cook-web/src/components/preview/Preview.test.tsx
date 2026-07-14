@@ -113,6 +113,10 @@ describe('PreviewSettingsModal', () => {
       expect(mockSaveMdflow).toHaveBeenCalled();
       expect(api.previewShifu).toHaveBeenCalled();
     });
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://example.com/preview',
+      '_blank',
+    );
 
     openSpy.mockRestore();
   });

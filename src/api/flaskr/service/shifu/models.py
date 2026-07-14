@@ -17,6 +17,7 @@ from sqlalchemy import (
     SmallInteger,
     DateTime,
     UniqueConstraint,
+    CheckConstraint,
     Index,
 )
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
@@ -163,6 +164,125 @@ class ShifuUserArchive(db.Model):
         default=now_utc,
         comment="Last update timestamp",
         onupdate=now_utc,
+    )
+
+
+class ShifuPublicIdentifier(db.Model):
+    """Atomically reserved public BID or slug in the shared route namespace."""
+
+    __tablename__ = "shifu_public_identifiers"
+    __table_args__ = (
+        UniqueConstraint(
+            "identifier",
+            name="uk_shifu_public_identifiers_identifier",
+        ),
+        CheckConstraint(
+            "identifier_type IN ('bid', 'slug')",
+            name="ck_shifu_public_identifiers_type",
+        ),
+        CheckConstraint(
+            "identifier_type <> 'bid' OR identifier = shifu_bid",
+            name="ck_shifu_public_identifiers_bid_owner",
+        ),
+        {"comment": "Atomic BID and slug reservations for public course routes"},
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    identifier = Column(
+        String(48),
+        nullable=False,
+        comment="Globally unique public BID or slug",
+    )
+    shifu_bid = Column(
+        String(32),
+        nullable=False,
+        index=True,
+        comment="Canonical shifu business identifier",
+    )
+    identifier_type = Column(
+        String(8),
+        nullable=False,
+        comment="Identifier kind: bid or slug",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="UTC reservation timestamp",
+    )
+
+
+class ShifuCourseSlug(db.Model):
+    """Versioned public slug record for a shifu."""
+
+    __tablename__ = "shifu_course_slugs"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uk_shifu_course_slugs_slug"),
+        UniqueConstraint(
+            "shifu_bid",
+            "version",
+            name="uk_shifu_course_slugs_version",
+        ),
+        UniqueConstraint(
+            "shifu_bid",
+            "is_current",
+            name="uk_shifu_course_slugs_current",
+        ),
+        CheckConstraint(
+            "version >= 1",
+            name="ck_shifu_course_slugs_positive_version",
+        ),
+        CheckConstraint(
+            "is_current IS NULL OR is_current = 1",
+            name="ck_shifu_course_slugs_current_marker",
+        ),
+        CheckConstraint(
+            "((is_current IS NOT NULL AND retired_at IS NULL) OR "
+            "(is_current IS NULL AND retired_at IS NOT NULL))",
+            name="ck_shifu_course_slugs_retirement_state",
+        ),
+        {"comment": "Current and historical public slug records for shifus"},
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    shifu_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+    )
+    slug = Column(
+        String(48),
+        nullable=False,
+        default="",
+        comment="Globally unique and permanently reserved public course slug",
+    )
+    version = Column(
+        Integer,
+        nullable=False,
+        comment="Monotonic slug version within the shifu",
+    )
+    is_current = Column(
+        SmallInteger,
+        nullable=True,
+        comment="Current marker: 1=current, NULL=historical alias",
+    )
+    generation_source = Column(
+        String(16),
+        nullable=False,
+        default="llm",
+        comment="Slug generation source: llm, fallback, or manual",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Creation timestamp",
+    )
+    retired_at = Column(
+        DateTime,
+        nullable=True,
+        comment="UTC timestamp when this slug became a historical alias",
     )
 
 

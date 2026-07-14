@@ -49,6 +49,11 @@ from flaskr.common.shifu_context import (
     get_shifu_context_snapshot,
     apply_shifu_context_snapshot,
 )
+from flaskr.service.shifu.slug import (
+    build_course_public_path,
+    ensure_shifu_slug,
+    get_shifu_slug,
+)
 
 
 def _build_frontend_url(base_url: str, path: str) -> str:
@@ -77,7 +82,27 @@ def preview_shifu_draft(
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
 
-        return _build_frontend_url(base_url, f"/c/{shifu_id}?preview=true")
+        binding_missing = get_shifu_slug(shifu_id) is None
+        try:
+            ensure_shifu_slug(
+                app,
+                shifu_bid=shifu_id,
+                title=shifu_draft.title,
+                user_id=user_id,
+            )
+            if binding_missing:
+                db.session.commit()
+        except RuntimeError as exc:
+            if "not registered with this 'SQLAlchemy' instance" not in str(exc):
+                raise
+            app.logger.warning(
+                "Slug store is unavailable while building preview URL for %s",
+                shifu_id,
+            )
+
+        return _build_frontend_url(
+            base_url, build_course_public_path(shifu_id, preview=True)
+        )
 
 
 def publish_shifu_draft(
@@ -109,6 +134,12 @@ def publish_shifu_draft(
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
+        ensure_shifu_slug(
+            app,
+            shifu_bid=shifu_id,
+            title=shifu_draft.title,
+            user_id=user_id,
+        )
         PublishedShifu.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
         PublishedOutlineItem.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
         shifu_published = PublishedShifu()
@@ -218,7 +249,7 @@ def publish_shifu_draft(
             )
             thread.daemon = True  # Ensure thread doesn't prevent app shutdown
             thread.start()
-        return _build_frontend_url(base_url, f"/c/{shifu_id}")
+        return _build_frontend_url(base_url, build_course_public_path(shifu_id))
 
 
 def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None):
