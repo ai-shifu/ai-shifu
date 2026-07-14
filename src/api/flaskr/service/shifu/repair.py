@@ -12,7 +12,10 @@ from flaskr.util.datetime import now_utc
 
 from .models import DraftOutlineItem, DraftShifu
 from .shifu_history_manager import save_outline_tree_history
-from .shifu_outline_funcs import build_outline_history_tree_from_outlines
+from .shifu_outline_funcs import (
+    __lock_shifu_for_outline_write,
+    build_outline_history_tree_from_outlines,
+)
 
 
 @dataclass
@@ -86,24 +89,31 @@ class OutlineStructureRepairResult:
         }
 
 
-def _latest_active_outline_items_query():
-    latest_ids = (
-        db.session.query(db.func.max(DraftOutlineItem.id).label("id"))
-        .group_by(DraftOutlineItem.shifu_bid, DraftOutlineItem.outline_item_bid)
-        .subquery()
-    )
-    return DraftOutlineItem.query.filter(
-        DraftOutlineItem.id.in_(db.session.query(latest_ids.c.id)),
-        DraftOutlineItem.deleted == 0,
-    )
+def _apply_shifu_scope(query, shifu_bids: list[str] | str | None):
+    if shifu_bids is None:
+        return query
+    if isinstance(shifu_bids, str):
+        return query.filter(DraftOutlineItem.shifu_bid == shifu_bids)
+    return query.filter(DraftOutlineItem.shifu_bid.in_(shifu_bids))
 
 
 def _load_latest_active_outline_items(
-    shifu_bid: str | None = None,
+    shifu_bids: list[str] | str | None = None,
 ) -> list[DraftOutlineItem]:
-    query = _latest_active_outline_items_query()
-    if shifu_bid:
-        query = query.filter(DraftOutlineItem.shifu_bid == shifu_bid)
+    if shifu_bids is not None and not shifu_bids:
+        return []
+
+    latest_ids_query = db.session.query(db.func.max(DraftOutlineItem.id).label("id"))
+    latest_ids_query = _apply_shifu_scope(latest_ids_query, shifu_bids)
+    latest_ids = latest_ids_query.group_by(
+        DraftOutlineItem.shifu_bid,
+        DraftOutlineItem.outline_item_bid,
+    ).subquery()
+    query = DraftOutlineItem.query.filter(
+        DraftOutlineItem.id.in_(db.session.query(latest_ids.c.id)),
+        DraftOutlineItem.deleted == 0,
+    )
+    query = _apply_shifu_scope(query, shifu_bids)
     return query.order_by(
         DraftOutlineItem.shifu_bid.asc(),
         DraftOutlineItem.position.asc(),
@@ -117,6 +127,9 @@ def _detect_issue_types(items: list[DraftOutlineItem]) -> list[str]:
     issue_types: set[str] = set()
     for item in items:
         positions[item.position] += 1
+        position_len = len(item.position or "")
+        if position_len == 0 or position_len % 2 != 0:
+            issue_types.add("invalid_position_format")
         if len(item.position or "") > 2 and not (
             item.parent_bid and item.parent_bid in current_bids
         ):
@@ -179,11 +192,13 @@ def _plan_outline_structure_repair(
     assigned_positions: dict[str, str] = {}
     visited: set[str] = set()
 
-    def _preferred_suffix(item: DraftOutlineItem, prefix: str) -> int:
+    def _preferred_suffix(item: DraftOutlineItem, prefix: str | None) -> int:
         position = item.position or ""
         if prefix and position.startswith(prefix) and len(position) == len(prefix) + 2:
-            return max(int(position[-2:]), 1)
-        if not prefix and len(position) == 2:
+            suffix_part = position[-2:]
+            if suffix_part.isdigit():
+                return max(int(suffix_part), 1)
+        if not prefix and len(position) == 2 and position.isdigit():
             return max(int(position), 1)
         if len(position) >= 2 and position[-2:].isdigit():
             return max(int(position[-2:]), 1)
@@ -253,13 +268,18 @@ def repair_shifu_outline_structure(
     shifu_bids: list[str] | None = None,
     dry_run: bool = False,
 ) -> OutlineStructureRepairResult:
+    if not dry_run and not user_bid:
+        raise ValueError("user_bid is required when dry_run is False")
+
     with app.app_context():
-        items = _load_latest_active_outline_items()
+        items = _load_latest_active_outline_items(shifu_bids)
         items_by_shifu: dict[str, list[DraftOutlineItem]] = defaultdict(list)
         for item in items:
             items_by_shifu[item.shifu_bid].append(item)
 
-        target_shifu_bids = shifu_bids or sorted(items_by_shifu.keys())
+        target_shifu_bids = (
+            sorted(items_by_shifu.keys()) if shifu_bids is None else list(shifu_bids)
+        )
         shifu_titles = {
             row.shifu_bid: row.title
             for row in DraftShifu.query.filter(
@@ -307,12 +327,29 @@ def repair_shifu_outline_structure(
             if dry_run:
                 continue
 
-            if not user_bid:
-                raise ValueError("user_bid is required when dry_run is False")
+            __lock_shifu_for_outline_write(shifu_bid)
+            locked_items = _load_latest_active_outline_items(shifu_bid)
+            changes, skip_reason = _plan_outline_structure_repair(locked_items)
+            if skip_reason:
+                repaired_records.pop()
+                changed_outline_count -= len(record.changed_outlines)
+                skipped_records.append(
+                    OutlineStructureSkippedRecord(
+                        shifu_bid=shifu_bid,
+                        reason=skip_reason,
+                    )
+                )
+                continue
+            if not changes:
+                repaired_records.pop()
+                changed_outline_count -= len(record.changed_outlines)
+                continue
+            changed_outline_count += len(changes) - len(record.changed_outlines)
+            record.changed_outlines = changes
 
             current_time = now_utc()
             change_by_bid = {item.outline_item_bid: item for item in changes}
-            for item in shifu_items:
+            for item in locked_items:
                 change = change_by_bid.get(item.outline_item_bid)
                 if not change:
                     continue
