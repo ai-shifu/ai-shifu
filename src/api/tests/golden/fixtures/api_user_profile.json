@@ -1,0 +1,66 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "profiles": [
+      {
+        "key": "sys_user_nickname",
+        "label": "Nickname",
+        "type": "text",
+        "value": "Golden Learner",
+        "items": null
+      },
+      {
+        "key": "sex",
+        "label": "Sex",
+        "type": "select",
+        "value": "Male",
+        "items": [
+          "Male",
+          "Female",
+          "Secret"
+        ]
+      },
+      {
+        "key": "birth",
+        "label": "Birth",
+        "type": "date",
+        "value": null,
+        "items": null
+      },
+      {
+        "key": "avatar",
+        "label": "Avatar",
+        "type": "image",
+        "value": "",
+        "items": null
+      },
+      {
+        "key": "language",
+        "label": "Language",
+        "type": "select",
+        "value": "English",
+        "items": [
+          "中文",
+          "English",
+          "Français"
+        ]
+      },
+      {
+        "key": "sys_user_background",
+        "label": "Background",
+        "type": "text",
+        "value": "",
+        "items": null
+      },
+      {
+        "key": "sys_user_style",
+        "label": "Style",
+        "type": "text",
+        "value": "",
+        "items": null
+      }
+    ],
+    "language": "en-US"
+  }
+}

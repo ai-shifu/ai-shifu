@@ -50,8 +50,9 @@ def _ensure_order(status, order_bid):
 
 
 def test_refund_order_payment_updates_status(app, monkeypatch):
+    order_bid = "order-refund-1"
     with app.app_context():
-        order = _ensure_order(ORDER_STATUS_SUCCESS, "order-refund-1")
+        order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)
 
         stripe_order = StripeOrder(
             order_bid=order.order_bid,
@@ -111,15 +112,15 @@ def test_refund_order_payment_updates_status(app, monkeypatch):
             lambda channel: provider,
         )
 
-        payload = refund_order_payment(
-            app, order.order_bid, reason="requested_by_customer"
-        )
+        # refund_order_payment now joins the caller's session and commits its
+        # unit of work there, which expires `order`; use the captured bid.
+        payload = refund_order_payment(app, order_bid, reason="requested_by_customer")
 
     assert payload["status"] == "succeeded"
     with app.app_context():
-        refreshed_order = Order.query.filter(Order.order_bid == order.order_bid).first()
+        refreshed_order = Order.query.filter(Order.order_bid == order_bid).first()
         refreshed_stripe_order = (
-            StripeOrder.query.filter(StripeOrder.order_bid == order.order_bid)
+            StripeOrder.query.filter(StripeOrder.order_bid == order_bid)
             .filter(StripeOrder.biz_domain == "order")
             .first()
         )

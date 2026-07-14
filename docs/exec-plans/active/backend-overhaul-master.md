@@ -1,0 +1,427 @@
+# Backend Overhaul Master Plan: Inventory and Optimization
+
+## Purpose / Big Picture
+
+The Python backend (`src/api`, Flask 3 + SQLAlchemy 2 + MySQL/Redis) has
+accumulated two years of AI-assisted iteration: ~107K LOC across 250 files in
+`flaskr/service/`, redundant and dead code, unclear layering, and scattered
+transaction boundaries (213 `db.session.commit()` calls across 70+ files, some
+hidden deep inside helpers). The core `/run` SSE lesson-execution chain is the
+most tangled surface (`flaskr/service/learn/context_v2.py`, 3,728 lines, 20
+mid-flow flushes).
+
+This umbrella plan drives two strictly ordered goals:
+
+1. **Inventory** — produce an evidence-backed dead-code and debt inventory.
+2. **Optimization** — batched, aggressive refactoring of the Python backend
+   (layering, unit-of-work transaction boundaries, `/run` chain rewrite) while
+   keeping the frontend-facing API contract byte-compatible.
+
+The backend rewrite in another language proceeds as a separate, independent
+project outside this repository and is intentionally not tracked here.
+
+Child ExecPlans and batch PRs reference this document. Detailed findings live
+in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
+
+## Progress
+
+- [x] 2026-07-03 11:31 CST: Master plan created; exploration and design
+  completed (read-only exploration passes over `src/api` and the debt
+  surface; phased design reviewed and approved).
+- [x] 2026-07-03 12:30 CST: Phase 0 golden harness landed
+  (`src/api/tests/golden/`): 4 SSE transcripts + 7 JSON endpoint fixtures,
+  deterministic across fresh processes, verified under markdown-flow 0.2.84.
+  TODO scenarios: mid-stream error, resume after interruption (need
+  fault-injection seams).
+- [x] 2026-07-03 12:45 CST: Phase 1 static inventory landed
+  (`backend-inventory-2026-07.md` + re-runnable scripts under
+  `src/api/scripts/inventory/`). Runtime-coverage step still pending.
+- [x] 2026-07-03 13:10 CST: Phase 1 step 3 runtime coverage done (1,862
+  tests, 76% total): 12 functions promoted to Category A, 6 candidates
+  cleared as alive. Remaining open evidence: production access logs for the
+  7 NO-KNOWN-CONSUMER endpoints (needs user authorization).
+- [x] 2026-07-03 13:35 CST: Phase 2 B1 dead code deletion executed: ark
+  signer, dead test file, 7 empty service dirs, 12 zero-caller functions
+  (283 lines) + 17 dangling imports, cook-web markFavoriteShifu catalog
+  entry. A5 re-adjudicated as unused parameters and deferred to B7. Full
+  pytest 1,873 passed; golden fixtures byte-identical; cook-web type-check
+  clean.
+- [x] 2026-07-03 14:00 CST: Phase 2 B2 config consolidation: in-package env
+  reads now resolve through `flaskr/common/config.py` (3 new declared keys;
+  new `get_explicit_env_override()` as the sanctioned raw-env accessor for
+  bootstrap/precedence-constrained sites, each documented in place); Docker
+  env examples regenerated. 33-case before/after behavior probe identical;
+  pytest 1,873 passed; golden fixtures unchanged.
+- [x] 2026-07-03 14:11 CST: Phase 2 B3 shared helpers: (1) one
+  `normalize_pagination()` in `flaskr/service/common/pagination.py` replaces
+  the three byte-identical copies (referral/admin, referral/campaign_admin,
+  billing/queries); both referral `_serialize_dt` folded into `to_utc_iso()`
+  (campaign_admin keeps a thin wrapper preserving its legacy `""`-for-None
+  contract). (2) Ask-provider constants moved to their canonical home
+  `flaskr/service/learn/ask_provider_adapters/consts.py` (constants module
+  beside the registry to avoid the adapter import cycle);
+  `shifu_draft_funcs.py` re-exports them as the deprecation-window shim;
+  registries NOT merged (complementary halves per inventory §3g). (3) DTO
+  serialization base `AutoJsonMixin` in
+  `flaskr/service/common/dto_base.py` auto-generates `__json__` from pydantic
+  field declarations (declaration-order identity keys, int/bool coercion,
+  `__json_key_overrides__`/`__json_exclude__` knobs); pilot conversion:
+  `dashboard/dtos.py` (18 `__json__` deleted, -183 lines), proven
+  byte-identical via a probe script diffed against a HEAD worktree.
+  Full pytest 1,894 passed (1,873 baseline + 21 new helper tests under
+  `tests/service/common/`); golden 11 passed, fixtures byte-identical; ruff
+  clean.
+- [x] 2026-07-03 15:05 CST: Phase 2 B4 foundation + sub-batch (a):
+  `flaskr/dao/uow.py` unit-of-work (outermost commits, nested joins,
+  contextvars isolation, `on_commit()` post-commit callbacks for external
+  side effects) and full `order/funs.py` migration — 13 scattered commits
+  removed with a per-commit audit table in the commit message trail; the
+  hidden timeout flip in `is_order_has_timeout` lifted into
+  `init_buy_record`'s transaction (now a pure predicate);
+  `_app_context_scope()` guard added because nested `app.app_context()`
+  switches the Flask-SQLAlchemy 3.1 session. Adversarial money-path review
+  found one regression (Feishu notify before outer commit when nested) —
+  fixed via `uow.on_commit()`. Cross-module commit leaks documented in
+  place (promo helpers, billing webhooks → sub-batches b/c). pytest 1,910
+  passed (16 new tests); golden fixtures unchanged.
+- [x] 2026-07-03: Phase 2 B4 sub-batch (b) `billing/renewal.py` — all 25
+  scattered commits removed (worst offender). Entry points own
+  `unit_of_work()`; handlers join. Two deliberate must-persist steps kept as
+  independent transactions, each documented in place: (1) the claim
+  (PENDING -> PROCESSING + attempt_count) commits before execution so a crash
+  cannot cause duplicate execution and the stale-claim recovery in
+  `billing/tasks.py` stays the reset path; (2) in
+  `_execute_subscription_renewal` the renewal order + event payload
+  `bill_order_bid` link commit before the provider sync (double-charge guard;
+  `checkout.sync_billing_order` runs in its own session and only sees
+  committed rows). Provider sync stays outside any uow/retry scope;
+  `retry_on_deadlock` only on `claim_billing_renewal_event` (pure-DB CAS).
+  Preorder credit-release dispatch moved to `uow.on_commit()`. Cross-module
+  self-commit leaks NOTEd at call sites (`checkout.sync_billing_order`,
+  `credit_notifications.enqueue_credit_notification` -> sub-batch c). 4 new
+  failure-path tests (per-event isolation, claim persistence, pre-sync order
+  persistence, on_commit drop/fire) under
+  `tests/service/billing/test_renewal_uow_failure_paths.py`; pytest 1,914
+  passed; golden fixtures unchanged.
+- [x] 2026-07-03 16:20 CST: Phase 2 B4 sub-batch (c)
+  `billing/credit_notifications.py` — all 20 scattered commits removed.
+  Batch scans stage each candidate in its own per-item transaction
+  (`_stage_scan_notification_isolated`: one bad item reports
+  `stage_failed`, rolls back alone, and never aborts neighbors); delivery
+  is one unit of work whose terminal SENT/FAILED_PROVIDER flip is the
+  send marker (crash after the flip cannot double-send); stage-then-
+  enqueue dispatches through `uow.on_commit`. Test-infra discovery: the
+  pre-existing `db.session.begin_nested()` savepoint auto-commits under
+  pysqlite's lazy-BEGIN mode, silently defeating rollback assertions on
+  SQLite — the failure-path tests neutralize the savepoint (documented;
+  the property under test belongs to `unit_of_work()`); MySQL semantics
+  are unaffected. pytest 1,918 passed (4 new failure-path tests); golden
+  fixtures unchanged.
+- [x] 2026-07-03 16:35 CST: Phase 2 B4 finale — commit-site ratchet:
+  `scripts/check_uow_commit_sites.py` compares `db.session.commit()` call
+  sites outside `flaskr/dao/` against the committed baseline
+  (`docs/generated/uow-commit-baseline.json`, 155 grandfathered sites, down
+  from 213 at inventory); any increase fails, any decrease asks for a
+  baseline ratchet-down. Wired into lefthook pre-commit. Remaining sites
+  migrate opportunistically per the B4 plan.
+- [x] 2026-07-03: Phase 2 B5 giant-file splits — mechanical decomposition
+  (pure moves, AST-identical symbol check against HEAD) of the three giants:
+  `shifu/admin_operations/courses.py` (5,757 lines) into 8 sibling
+  `courses_*` modules (shared / credit_usage / listing / transfer_copy /
+  detail / follow_ups / users / ratings); `shifu/admin.py` (4,495 lines)
+  into 5 sibling `admin_*` modules (shared / user_credits / user_profiles /
+  course_summaries / user_courses; the legacy course-helper duplicates moved
+  verbatim — dedupe is out of scope); `shifu/admin_dtos.py` into
+  `admin_dtos_courses.py` + `admin_dtos_users.py`. Two intra-file cycles
+  were broken by assigning nine cross-domain helpers (outline-context
+  loaders, `_merge_courses`, `_format_average_score`, etc.) to
+  `courses_shared` — allowed leaf-module exception, still pure moves. All
+  three old paths are explicit named re-export shims (retained for one
+  release cycle); external callers were deliberately left on the shim
+  paths. Because tests monkeypatch through `shifu.admin` (e.g. `datetime`,
+  `db`, `_load_user_map`), the admin and courses shims install a module
+  `__setattr__` that forwards attribute sets to every submodule defining
+  the name — a generalization of the pre-existing
+  `_AdminCompatibilityModule` forwarding, verified by a forwarding-chain
+  probe including monkeypatch restore. Commit-site baseline regenerated
+  (courses.py's 2 sites now in `courses_transfer_copy.py`; total unchanged
+  at 155); architecture-boundary baseline regenerated (the moved files
+  carry their grandfathered cross-service imports at new paths, 114 -> 130
+  entries, plus 7 pre-existing stale learn entries dropped by
+  regeneration). pytest 1,918 passed / 6 skipped; golden 11 passed,
+  fixtures untouched; ruff clean.
+- [x] 2026-07-03 23:55 CST: Phase 2 B6 complete (three PRs; child plan
+  `learn-run-decomposition.md`): the /run runtime is now four
+  collaborators — `learn/run/emitter.py` (sole SSE constructor),
+  `learn/run/recorder.py` (step-scoped unit-of-work persistence; the
+  flush-then-fail dirty-row class is gone), `learn/run/state.py` (pure
+  read resolver), and a `run_inner` decomposed into 14 named phase
+  generators on the context facade. Golden fixtures byte-identical
+  throughout; every PR adversarially reviewed. Note: B6 executed as
+  incremental extractions,
+  not the config-flag parallel path sketched below in Plan of Work — see
+  the child plan's decision log. Also landed: the reviewed leaf-bid
+  placeholder fix (production-data findings in the child plan).
+- [x] 2026-07-03: Phase 2 B7 tail cleanups: (1) the disconnect e2e test
+  deferred from B6-PR3 landed
+  (`tests/service/learn/run/test_run_disconnect_e2e.py`, 2 tests): real
+  generator `.close()` on `run_script_inner` against the golden-seeded
+  shifu proves a mid-stream disconnect discards the staged block row while
+  committed steps survive and a re-run resumes from the last finalized
+  block; mutation-verified (rollback->commit flip fails the test). (2) A5
+  unused parameters removed with all call sites updated: `profile_array_str`
+  (`learn/utils_v2.get_fmt_prompt`), `outline_description`/`outline_index`
+  (`shifu_outline_funcs.create_outline`), `unit_index`
+  (`shifu_outline_funcs.modify_unit`), `is_learned`
+  (`shifu_publish_funcs._build_summary_text`); none was a route-facing
+  kwargs contract (routes pass positionally; JSON body fields are
+  unchanged and now simply unread). (3) `db.session.query(` call-style
+  sites converted to 2.0 `select()` in the Phase-2-touched modules:
+  learn/routes.py (2), billing/read_models.py (3, incl. the EXISTS
+  subquery), billing/daily_aggregates.py (2); order/funs.py and
+  learn/context_v2.py had zero remaining call-style sites (the inventory
+  §3d "5" row was order/admin.py, untouched by Phase 2), and the 551-line
+  `Model.query` attribute style was deliberately left alone. (4)
+  `docs/QUALITY_SCORE.md` api rationale updated for Phase 2 outcomes. (5)
+  `learn-run-decomposition.md` completed (Outcomes & Retrospective filled)
+  and moved to `docs/exec-plans/completed/`. Full suite 1,942 passed / 6
+  skipped; golden 11 passed, fixtures byte-identical; uow ratchet 155
+  unchanged; boundary + harness checks green; ruff clean.
+- [x] 2026-07-04 00:20 CST: Phase 2 final verification — full-stack local
+  smoke on the task-workspace stack (fresh DB reset, all migrations, demo
+  import): register/login via universal code; course list/info/outline
+  tree; /run SSE fresh start (127 events: 77 streamed elements, heartbeats,
+  audio_backfill, terminal done, zero errors) through the B6-decomposed
+  runtime against a real LLM; interaction input -> variable_update
+  persisted -> 204-event personalized continuation; GET run-status; learn
+  records replay; outline progress flips durable (chapter + lesson
+  in_progress); creator flow (create course, create outline, save MDF
+  revision); order init through the B4a unit-of-work path (order created,
+  status to-be-paid). Environment-only fixes during smoke (not repo
+  changes): demo course model repointed to an available provider — the
+  .env default deepseek key is dead and the qwen account is overdue;
+  silicon works. Phase 2 is COMPLETE — this plan's scope is fully
+  delivered; move it to completed/ after the tail follow-ups below close.
+- [x] 2026-07-11: main merged into the branch (merge commit 3fbf71e2d; main
+  was 81 commits ahead, mostly the UTC timestamp sweep, TTS billing, and
+  referral features). 11 files conflicted; every main-side semantic change
+  landing on branch-refactored code was ported to its new home: UTC
+  `now_utc()` calls into `admin_user_credits.py`, `courses_listing.py`,
+  `courses_transfer_copy.py`; the `_get_next_outline_item` null guards and
+  `_find_outline_path_or_raise` into `learn/run/state.py`; the paid-referral
+  renewal early-return into the first `unit_of_work()` block of
+  `_execute_subscription_renewal`. main's new code referencing helpers B3
+  had replaced was pointed at the shared ones (`normalize_pagination`,
+  `to_utc_iso`); campaign_admin's legacy `""`-for-None `_serialize_dt`
+  contract was superseded by main's null contract (frontend now expects
+  null). The uow commit-site ratchet caught 2 new direct commits from main
+  (`voice_clones.py`, `shifu_outline_funcs.py`) — grandfathered into the
+  baseline (157 sites) as future migration targets. One branch test fixed:
+  renewal uow failure-path tests seeded with local `datetime.now()` while
+  the runtime now compares against `now_utc()`. Verification: full
+  `pytest` 2092 passed / 6 skipped (golden fixtures included), compileall,
+  ruff, architecture-boundary and repo-harness checks, plus an independent
+  three-way audit of all 10 conflict resolutions — no lost changes.
+- [x] 2026-07-13: worker memory fix after dev01 OOM crashloop. Root cause of
+  "learning broken" on dev01: each gunicorn worker paid the full ~358MB
+  import cost (litellm's cost map alone is ~189MB), so 4 workers overran
+  the 1.2G container limit; SIGKILLed workers leaked the /run Redis lock
+  (5-min TTL) and learners got `outputInProgress` on every retry. Fix in
+  `src/api/gunicorn.conf.py` (commit 1670c9909): `preload_app` with gevent
+  monkey-patching in the master and a `post_fork` SQLAlchemy
+  `dispose(close=False)`; litellm now defaults to
+  `LITELLM_LOCAL_MODEL_COST_MAP=True` before import so worker boots stop
+  fetching the remote cost map. The CI image build lives in the separate
+  `deploy-cn-dockerfile` repo with a COPY whitelist — added an optional
+  `COPY gunicorn.conf.p[y] ./` there (ddf2b7f). Measured on dev01 with 4
+  workers: 434MiB / 1.2GiB (35%) vs 1.16GiB (97%) before, zero SIGKILLs,
+  SSE learning flow verified in the browser. pandas/numpy/pymilvus are in
+  requirements but unused at runtime — candidates for a later cleanup.
+
+## Surprises & Discoveries
+
+- `listen_element_legacy.py` and `legacy_record_builder.py` are NOT dead: they
+  are actively imported by `learn_funcs.py`, `listen_elements.py`, and
+  `listen_element_history.py`. They are compatibility paths that Phase 1 must
+  adjudicate explicitly; do not delete on sight.
+- The plugin loader (`flaskr/framework/plugin/load_plugin.py`) recursively
+  imports every `*.py` under `flaskr/service/`, so import-graph reachability
+  is a weak dead-code signal inside services; symbol-level and consumer-level
+  evidence must carry the weight (see the inventory doc).
+- The endpoint audit found a frontend/backend drift bug: cook-web's catalog
+  defines `markFavoriteShifu: 'POST /shifu/mark-favorite-shifu'` with no
+  matching backend route; the real favorite route has no frontend caller.
+- Celery is much bigger than TTS: `billing/tasks.py` has ~18 `shared_task`s
+  plus a beat schedule (`flaskr/common/celery_app.py:85`) covering renewals,
+  wallet expiry, order expiry, reconciliation, notifications, aggregation.
+- The response envelope is `{"code": ..., "message": ..., "data": ...}`
+  (`flaskr/route/common.py:123`, always HTTP 200) — a frozen frontend
+  contract.
+
+## Decision Log
+
+- Optimization risk level: aggressive; rewriting the `/run` chain structure is
+  in scope. API behavior toward the frontend stays compatible; SSE event
+  names/payloads are frozen (see `flaskr/service/learn/AGENTS.md`).
+- No schema migrations in any Phase 2 batch, so every batch reverts cleanly.
+
+## Outcomes & Retrospective
+
+(To be filled as phases complete.)
+
+## Context and Orientation
+
+Key call chain for `/run`
+(`PUT /api/learn/shifu/<shifu_bid>/run/<outline_bid>`):
+
+    flaskr/service/learn/routes.py:294  run_outline_item_api
+      -> flaskr/service/learn/runscript_v2.py:507  run_script
+         (Redis mutex / ask counting semaphore via Lua; producer thread owns
+          app context + DB session; SimpleQueue -> consumer yields SSE)
+      -> flaskr/service/learn/runscript_v2.py:224  run_script_inner
+      -> flaskr/service/learn/context_v2.py        RunScriptContextV2
+      -> flaskr/service/learn/listen_element_run_stream.py
+
+SSE contract: `RunElementSSEMessageDTO`; event renames require coordinated
+frontend changes and are out of scope.
+
+Worst transaction offenders: `billing/renewal.py` (25 commits),
+`billing/credit_notifications.py` (20), `order/funs.py` (13, including a
+hidden commit inside `is_order_has_timeout` at line 261).
+
+Confirmed-empty service dirs (no `.py`, no routes): `service/study`,
+`lesson`, `question`, `rag`, `scenario`, `tag`, `active`.
+
+Duplication: pagination helpers in `referral/admin.py`,
+`referral/campaign_admin.py`, `billing/queries.py`; 40+ hand-written
+`__json__()` DTOs; 25 direct `os.environ` reads bypassing
+`flaskr/common/config.py`; dual ask-provider registries
+(`shifu/ask_provider_registry.py` vs
+`learn/ask_provider_adapters/registry.py`).
+
+Giant files: `shifu/admin_operations/courses.py` (5,757 lines),
+`shifu/admin.py` (4,495), `learn/context_v2.py` (3,728).
+
+Verification environment: the local task workspace provides
+`start-dev.sh` / `reset-db.sh` / `stop.sh` for a full stack; backend tests run
+with `cd src/api && pytest` (189 files / 1,818 tests).
+
+## Plan of Work
+
+### Phase 0 — Regression safety net (1 PR, prerequisite for all changes)
+
+Golden recording harness under `src/api/tests/golden/` plus a recording
+script under `src/api/scripts/`:
+
+- Inject a deterministic fake LLM at the `flaskr/api/llm/` wrapper boundary
+  (replays canned completions).
+- Reset the dev DB, seed a fixed shifu, call `/run`, and capture the raw SSE
+  byte stream. Normalize volatile fields (record ids, timestamps, request
+  ids) with a documented normalizer; store transcripts as fixtures.
+- Scenarios: fresh lesson start, continue, interaction input, ask flow
+  (semaphore path), mid-stream error, resume after interruption.
+- Also record golden JSON for the top ~30 non-SSE endpoints (auth, shifu
+  detail, order create/query, profile) — reused as the Phase 3 contract-test
+  corpus.
+
+### Phase 1 — Inventory (doc-only PRs)
+
+Method (read-only; tools run outside the repo):
+
+1. Static pass: `vulture flaskr/ --min-confidence 80` + `deadcode`, after
+   whitelisting four false-positive classes: `@inject` plugin-loaded routes,
+   `__json__()` reflection serializers, celery string-invoked tasks,
+   `migrations/`.
+2. Import-graph pass rooted at `app.py`, `celery_app.py`,
+   `route/__init__.py`, plugin scan targets, and `scripts/`; unreachable
+   modules = Category A (provably dead). Explicitly adjudicate the two legacy
+   learn files and the empty service dirs.
+3. Runtime coverage: pytest coverage plus a second run with the dev server
+   while exercising cook-web smoke flows; zero coverage under both =
+   Category B (suspected dead, needs human sign-off).
+4. Scripted grep audits: commit sites ranked per file, `os.environ` reads,
+   pagination duplicates, dual registries, hand-written `__json__` DTOs, and
+   a route inventory cross-referenced against cook-web API calls to find
+   frontend-orphaned endpoints.
+5. Hotspot ranking (git churn x file size) to order Phase 2 batches.
+
+Deliverable: `docs/exec-plans/active/backend-inventory-2026-07.md` — one table
+row per finding: file/symbol, category, evidence command, confidence,
+disposition, consuming Phase 2 batch. Summary rows go to
+`tech-debt-tracker.md`; regenerate `index.md` via
+`python scripts/build_repo_knowledge_index.py`.
+
+### Phase 2 — Python optimization (7 batches, each an independent PR)
+
+- **B1 Dead code deletion**: Category A findings only (empty dirs,
+  frontend-orphaned endpoints, provably unreachable symbols). Expect
+  -5–10K LOC.
+- **B2 Config consolidation**: migrate the 25 scattered `os.environ` reads to
+  declared keys in `flaskr/common/config.py`; verify by diffing effective
+  config dumps before/after.
+- **B3 Shared helpers**: one pagination helper; a serialization base that
+  generates `__json__` (incremental adoption, byte-identical JSON asserted by
+  golden fixtures); unify ask-provider registries (learn side canonical,
+  shifu path re-exports during a deprecation window).
+- **B4 Unit-of-work abstraction**: new `flaskr/dao/uow.py` context manager
+  (nested calls join the outer transaction; helpers must not commit).
+  Sub-batches: (a) `order/funs.py` — lift the hidden commit in
+  `is_order_has_timeout` to callers explicitly; (b) `billing/renewal.py`;
+  (c) `billing/credit_notifications.py`. Each PR carries a per-function map
+  of old commit points to new boundaries, mid-flow-failure tests, and a
+  concurrent order-creation check in the dev env. Afterwards add a CI lint
+  banning new `db.session.commit()` outside `dao/`; remaining call sites
+  migrate opportunistically.
+- **B5 Giant file splits**: mechanical decomposition of
+  `shifu/admin_operations/courses.py`, `shifu/admin.py`, and
+  `shifu/admin_dtos.py` into cohesive submodules with re-export shims at the
+  old paths for one release cycle.
+- **B6 /run chain rewrite** (2–3 PRs): decompose `context_v2.py` into
+  `learn/run/state.py` (pure state machine, no DB/Flask/MDF),
+  `learn/run/recorder.py` (one `unit_of_work()` per step; eliminates the
+  flush-then-fail dirty-row class), `learn/run/emitter.py` (sole constructor
+  of SSE DTOs; events frozen), and `learn/run/orchestrator.py`. The
+  thread/queue/Redis-lock mechanics in `runscript_v2.py` stay untouched in
+  this phase. Strategy: new path behind a
+  config flag, golden transcripts diffed across both paths, flip default,
+  delete `RunScriptContextV2` in a follow-up PR.
+- **B7 Tail cleanups**: `.query()` modernization in touched modules, update
+  `docs/QUALITY_SCORE.md`, archive completed child plans.
+
+## Concrete Steps
+
+1. Land this master plan (doc-only PR; run
+   `python scripts/check_repo_harness.py` and
+   `python scripts/build_repo_knowledge_index.py`).
+2. Build the Phase 0 harness (test-only PR); prove determinism by running the
+   recorder twice with identical output.
+3. Execute Phase 1; land the inventory doc.
+4. Execute Phase 2 batches B1–B7 in order, one PR each (B4 and B6 split into
+   sub-PRs as described).
+
+## Validation and Acceptance
+
+- Every code batch: full `cd src/api && pytest` plus the touched module's
+  suite; local full-stack smoke (learner flow, authoring flow, order flow)
+  via the task workspace scripts; golden SSE/JSON diff must be clean.
+- B4/B6 extras: mid-flow-failure path tests, concurrent order creation,
+  manual abort/resume of a running lesson.
+- Doc-only batches: `python scripts/check_repo_harness.py`.
+- Before any commit: `python scripts/check_dev_tools.py`; lefthook must be
+  active.
+
+## Idempotence and Recovery
+
+- Phases 0–2 make no schema changes; every batch is a single PR whose revert
+  restores the previous state completely.
+- B6 ships behind a config flag; rollback is a flag flip before it is a
+  revert.
+- The recorder and inventory scripts are re-runnable and produce
+  deterministic output; re-running them after an interruption is safe.
+
+## Interfaces and Dependencies
+
+- Frontend contract: response envelope `{code, message, data}` (always HTTP
+  200) and the `RunElementSSEMessageDTO` SSE event set — both frozen.
+- Auth: HS256 JWT + `user_token` table + Redis `ai-shifu:user:<token>`
+  sliding TTL.

@@ -8,6 +8,8 @@ from typing import Dict, Iterable, List
 
 from flask import Flask
 
+from flaskr.common.config import get_config
+
 TRANSLATIONS_DEFAULT_NAME = "i18n"
 
 _thread_local = threading.local()
@@ -15,7 +17,7 @@ _translations: Dict[str, Dict[str, str]] = defaultdict(dict)
 
 
 def _shared_json_root() -> Path:
-    env_override = os.getenv("SHARED_I18N_ROOT")
+    env_override = get_config("SHARED_I18N_ROOT")
     if env_override:
         env_path = Path(env_override).resolve()
         if env_path.exists():

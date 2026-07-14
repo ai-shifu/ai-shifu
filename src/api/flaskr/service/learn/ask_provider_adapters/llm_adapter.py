@@ -4,7 +4,7 @@ from typing import Any, Generator
 
 from flask import Flask
 
-from flaskr.service.shifu.shifu_draft_funcs import ASK_PROVIDER_LLM
+from .consts import ASK_PROVIDER_LLM
 
 from .base import (
     AskProviderChunk,
