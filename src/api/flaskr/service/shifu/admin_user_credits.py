@@ -13,7 +13,7 @@ from decimal import Decimal
 from json import JSONDecodeError
 from typing import Any, Dict, Optional, Sequence
 from flask import current_app
-from sqlalchemy import not_, or_
+from sqlalchemy import case, not_, or_
 from flaskr.dao import db
 from flaskr.service.billing.bucket_categories import (
     resolve_wallet_bucket_runtime_category,
@@ -39,6 +39,7 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingProduct,
+    BillingSubscription,
     CreditLedgerEntry,
     CreditWalletBucket,
 )
@@ -47,7 +48,10 @@ from flaskr.service.billing.primitives import (
     quantize_credit_amount as _quantize_credit_amount,
     safe_int as _safe_int,
 )
-from flaskr.service.billing.queries import load_primary_active_subscription
+from flaskr.service.billing.queries import (
+    _ACTIVE_SUBSCRIPTION_STATUSES,
+    load_primary_active_subscription,
+)
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -848,13 +852,55 @@ def _load_active_subscription_end_map(
     ]
     if not normalized_creator_bids:
         return {}
-    subscription_end_map: Dict[str, datetime] = {}
-    for creator_bid in normalized_creator_bids:
-        subscription = load_primary_active_subscription(creator_bid, as_of=as_of)
-        if subscription is None or subscription.current_period_end_at is None:
-            continue
-        subscription_end_map[creator_bid] = subscription.current_period_end_at
-    return subscription_end_map
+    # One IN(...) query for the whole page instead of one round trip per
+    # creator; the per-creator "primary" pick below mirrors the ordering of
+    # load_primary_active_subscription (product sort order, then latest
+    # period end, then latest created/id).
+    product_sort_order = case(
+        (BillingProduct.sort_order.is_(None), -1),
+        else_=BillingProduct.sort_order,
+    )
+    rows = (
+        db.session.query(
+            BillingSubscription.creator_bid,
+            BillingSubscription.current_period_end_at,
+            product_sort_order.label("product_sort_order"),
+            BillingSubscription.created_at,
+            BillingSubscription.id,
+        )
+        .outerjoin(
+            BillingProduct,
+            (BillingProduct.product_bid == BillingSubscription.product_bid)
+            & (BillingProduct.deleted == 0),
+        )
+        .filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.creator_bid.in_(normalized_creator_bids),
+            BillingSubscription.status.in_(_ACTIVE_SUBSCRIPTION_STATUSES),
+            (
+                BillingSubscription.current_period_start_at.is_(None)
+                | (BillingSubscription.current_period_start_at <= as_of)
+            ),
+            BillingSubscription.current_period_end_at.isnot(None),
+            BillingSubscription.current_period_end_at > as_of,
+        )
+        .all()
+    )
+    best_by_creator: Dict[str, tuple] = {}
+    for row in rows:
+        sort_key = (
+            row.product_sort_order if row.product_sort_order is not None else -1,
+            row.current_period_end_at,
+            row.created_at or datetime.min,
+            row.id,
+        )
+        current = best_by_creator.get(row.creator_bid)
+        if current is None or sort_key > current[0]:
+            best_by_creator[row.creator_bid] = (sort_key, row.current_period_end_at)
+    return {
+        creator_bid: period_end
+        for creator_bid, (_, period_end) in best_by_creator.items()
+    }
 
 
 def _load_active_subscription_product_display_name_i18n_key(
@@ -1578,7 +1624,7 @@ def _load_listen_segment_content_map(
             try:
                 audio_segments = json.loads(raw_audio_segments)
             except JSONDecodeError:
-                current_app.logger.info(
+                current_app.logger.warning(
                     "Invalid listen audio_segments JSON for generated element %s",
                     getattr(row, "element_bid", ""),
                     exc_info=True,
