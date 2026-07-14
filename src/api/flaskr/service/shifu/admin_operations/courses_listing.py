@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from flaskr.util.datetime import now_utc
+from flaskr.service.common.pagination import MAX_PAGE_SIZE
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 from flask import Flask, current_app
 from sqlalchemy import and_, case, literal, not_, or_
@@ -729,7 +730,7 @@ def _resolve_course_quick_filter(value: str) -> str:
 def _resolve_created_last_7d_window(
     now: Optional[datetime] = None,
 ) -> tuple[datetime, datetime]:
-    current = now or datetime.now()
+    current = now or now_utc()
     start = (current - timedelta(days=6)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
@@ -1038,7 +1039,7 @@ def _list_operator_courses_legacy(
     filters: Optional[dict] = None,
 ) -> AdminOperationCourseListDTO:
     safe_page_index = max(int(page_index or 1), 1)
-    safe_page_size = max(int(page_size or 20), 1)
+    safe_page_size = min(max(int(page_size or 20), 1), MAX_PAGE_SIZE)
     filters = filters or {}
 
     shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
@@ -1214,7 +1215,7 @@ def list_operator_courses(
             return _list_operator_courses_legacy(app, page_index, page_size, filters)
 
         safe_page_index = max(int(page_index or 1), 1)
-        safe_page_size = max(int(page_size or 20), 1)
+        safe_page_size = min(max(int(page_size or 20), 1), MAX_PAGE_SIZE)
         filters = filters or {}
 
         shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
