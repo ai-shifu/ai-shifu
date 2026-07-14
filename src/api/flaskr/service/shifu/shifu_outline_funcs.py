@@ -279,6 +279,7 @@ def __insert_outline_locked(
     is_hidden: bool,
     now_time,
     outline_bid: str,
+    persist_history: bool = True,
 ) -> SimpleOutlineDto:
     """Insert one outline row, allocating its position from current siblings.
 
@@ -356,9 +357,10 @@ def __insert_outline_locked(
     # save to database (flush only; the caller owns the commit)
     db.session.add(new_outline)
     db.session.flush()
-    save_new_outline_history(
-        app, user_id, shifu_id, outline_bid, new_outline.id, parent_id, max_index
-    )
+    if persist_history:
+        save_new_outline_history(
+            app, user_id, shifu_id, outline_bid, new_outline.id, parent_id, max_index
+        )
 
     return SimpleOutlineDto(
         bid=outline_bid,
@@ -418,6 +420,99 @@ def create_outline(
         )
         db.session.commit()
         return dto
+
+
+def create_default_outlines_for_new_shifu(
+    app,
+    user_id: str,
+    shifu_id: str,
+    chapter_name: str,
+    lesson_name: str,
+    now_time,
+    shifu_db_id: int | None = None,
+) -> tuple[SimpleOutlineDto, SimpleOutlineDto]:
+    """Create the default chapter/lesson pair for a brand-new shifu draft.
+
+    This helper intentionally skips both external risk checks and the per-shifu
+    write lock. The names are system-generated, and a brand-new shifu has no
+    concurrent outline writes yet, so we can build the initial structure inside
+    the caller's existing transaction without opening a nested outline flow.
+    """
+
+    normalized_chapter_name = __normalize_outline_name(chapter_name)
+    normalized_lesson_name = __normalize_outline_name(lesson_name)
+    chapter_bid = generate_id(app)
+    lesson_bid = generate_id(app)
+
+    chapter = __insert_outline_locked(
+        app,
+        user_id,
+        shifu_id,
+        "",
+        normalized_chapter_name,
+        UNIT_TYPE_GUEST,
+        None,
+        False,
+        now_time,
+        chapter_bid,
+        persist_history=False,
+    )
+    lesson = __insert_outline_locked(
+        app,
+        user_id,
+        shifu_id,
+        chapter_bid,
+        normalized_lesson_name,
+        UNIT_TYPE_GUEST,
+        None,
+        False,
+        now_time,
+        lesson_bid,
+        persist_history=False,
+    )
+    outline_items = __get_existing_outline_items(shifu_id)
+    history_tree = _build_outline_history_tree(outline_items)
+    save_outline_tree_history(
+        app=app,
+        user_id=user_id,
+        shifu_bid=shifu_id,
+        outline_tree=history_tree,
+        shifu_id=shifu_db_id,
+    )
+    return chapter, lesson
+
+
+def _build_outline_history_tree(
+    outlines: list[DraftOutlineItem],
+) -> list[HistoryItem]:
+    outline_children_map: dict[str, list[DraftOutlineItem]] = {}
+    for outline in outlines:
+        parent_bid = str(outline.parent_bid or "").strip()
+        outline_children_map.setdefault(parent_bid, []).append(outline)
+
+    output_lang = get_markdownflow_output_language()
+
+    def _count_blocks(content: str) -> int:
+        if not content:
+            return 0
+        mdflow = MarkdownFlow(content).set_output_language(output_lang)
+        return len(mdflow.get_all_blocks())
+
+    def _build(parent_bid: str) -> list[HistoryItem]:
+        children = outline_children_map.get(parent_bid, [])
+        children.sort(key=lambda item: (item.position or "", item.id))
+        return [
+            HistoryItem(
+                bid=str(child.outline_item_bid or "").strip(),
+                id=int(child.id),
+                type="outline",
+                children=_build(str(child.outline_item_bid or "").strip()),
+                child_count=_count_blocks(child.content or ""),
+            )
+            for child in children
+        ]
+
+    return _build("")
 
 
 def create_outlines_batch(

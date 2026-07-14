@@ -142,7 +142,9 @@ export default function AdminDashboardCourseDetailPage() {
   const fetchDetail = useCallback(async () => {
     if (!shifuBid.trim()) {
       setDetail(EMPTY_DETAIL);
-      setDetailError({ message: t('common.core.unknownError') });
+      setDetailError({
+        message: t('module.dashboard.messages.loadCourseDetailFailed'),
+      });
       return;
     }
 
@@ -168,7 +170,9 @@ export default function AdminDashboardCourseDetailPage() {
       } else if (err instanceof Error) {
         setDetailError({ message: err.message });
       } else {
-        setDetailError({ message: t('common.core.unknownError') });
+        setDetailError({
+          message: t('module.dashboard.messages.loadCourseDetailFailed'),
+        });
       }
     } finally {
       if (requestId === detailRequestIdRef.current) {
@@ -189,7 +193,9 @@ export default function AdminDashboardCourseDetailPage() {
     ) => {
       if (!shifuBid.trim()) {
         setLearners(EMPTY_LEARNERS);
-        setLearnersError({ message: t('common.core.unknownError') });
+        setLearnersError({
+          message: t('module.dashboard.messages.loadLearnersFailed'),
+        });
         return;
       }
 
@@ -224,7 +230,9 @@ export default function AdminDashboardCourseDetailPage() {
         } else if (err instanceof Error) {
           setLearnersError({ message: err.message });
         } else {
-          setLearnersError({ message: t('common.core.unknownError') });
+          setLearnersError({
+            message: t('module.dashboard.messages.loadLearnersFailed'),
+          });
         }
       } finally {
         if (requestId === learnersRequestIdRef.current) {

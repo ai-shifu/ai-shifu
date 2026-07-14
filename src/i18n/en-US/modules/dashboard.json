@@ -194,6 +194,14 @@
     "dateRangePlaceholder": "Select date range",
     "reset": "Reset"
   },
+  "messages": {
+    "loadCourseDetailFailed": "Failed to load course detail. Please try again later.",
+    "loadCoursesFailed": "Failed to load course list. Please refresh and try again.",
+    "loadFollowUpDetailFailed": "Failed to load follow-up detail. Please try again later.",
+    "loadFollowUpsFailed": "Failed to load follow-up data. Please refresh and try again.",
+    "loadLearnersFailed": "Failed to load learner list. Please try again later.",
+    "loadRatingsFailed": "Failed to load rating data. Please refresh and try again."
+  },
   "pagination": {
     "next": "Next",
     "prev": "Previous"

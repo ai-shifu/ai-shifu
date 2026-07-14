@@ -138,7 +138,11 @@ export default function CreditOrderDetailDialog({
       } else if (requestError instanceof Error) {
         setError({ message: requestError.message });
       } else {
-        setError({ message: t('common.core.unknownError') });
+        setError({
+          message: t(
+            'module.operationsOrder.messages.loadCreditOrderDetailFailed',
+          ),
+        });
       }
     } finally {
       if (requestId === fetchRequestIdRef.current) {

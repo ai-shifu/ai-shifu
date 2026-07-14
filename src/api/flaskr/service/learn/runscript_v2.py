@@ -472,6 +472,43 @@ def _log_run_script_stream_error(app: Flask, stream_error: Exception) -> None:
     app.logger.error(error_info)
 
 
+def _iter_exception_chain(error: BaseException) -> Generator[BaseException, None, None]:
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        yield current
+        current = current.__cause__ or current.__context__
+
+
+def _is_retryable_llm_stream_connection_error(stream_error: Exception) -> bool:
+    for exc in _iter_exception_chain(stream_error):
+        if isinstance(exc, (ConnectionError, TimeoutError)):
+            return True
+
+        exc_module = (exc.__class__.__module__ or "").lower()
+        exc_name = (exc.__class__.__name__ or "").lower()
+        message = str(exc).lower()
+
+        if "litellm" in exc_module and "apiconnectionerror" in exc_name:
+            return True
+
+        if any(
+            marker in message
+            for marker in (
+                "apiconnectionerror",
+                "httpx.readerror",
+                "httpcore.readerror",
+                "incompleteread",
+                "record layer failure",
+                "[ssl]",
+            )
+        ):
+            return True
+
+    return False
+
+
 def _make_terminal_event(
     *,
     outline_bid: str,
@@ -809,6 +846,8 @@ def run_script(
                     _log_run_script_stream_error(app, stream_error)
                     if isinstance(stream_error, AppException):
                         error_content = str(stream_error)
+                    elif _is_retryable_llm_stream_connection_error(stream_error):
+                        error_content = str(_("server.learn.llmStreamInterrupted"))
                     else:
                         error_content = str(_("server.common.unknownError"))
                     yield _to_sse_chunk(
