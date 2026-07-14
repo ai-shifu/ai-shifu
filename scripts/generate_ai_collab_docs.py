@@ -356,32 +356,6 @@ COOK_WEB_SPEC = DocSpec(
 
 
 BACKEND_META = {
-    "active": BackendModuleMeta(
-        summary=(
-            "a reserved service namespace for activation-related behavior. The "
-            "directory currently has no checked-in source files beyond caches."
-        ),
-        key_files=(),
-        invariants=(
-            "introduce real source files before wiring imports or route "
-            "registration into the application factory",
-            "make ownership explicit in new files so future agents know whether "
-            "activation, entitlement, or status logic belongs here",
-            "add the first focused pytest suite at the same time the namespace "
-            "starts owning runtime behavior",
-        ),
-        avoid_points=(
-            "do not rely on `__pycache__` artifacts as a source of truth for "
-            "business behavior",
-            "do not register placeholder modules or imports that point to files "
-            "which are not committed",
-            "do not spread activation logic across unrelated services once this "
-            "namespace becomes active",
-        ),
-        tests_path="src/api/tests/service/active/",
-        tests_exist=False,
-        owns_models=False,
-    ),
     "check_risk": BackendModuleMeta(
         summary=(
             "risk-control persistence and text moderation checks used to screen "
