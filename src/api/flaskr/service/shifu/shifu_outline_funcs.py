@@ -625,6 +625,7 @@ def reorder_outline_tree(
             f"reorder outline tree, user_id: {user_id}, shifu_id: {shifu_id}"
         )
         now_time = now_utc()
+        __lock_shifu_for_outline_write(shifu_id)
 
         # get existing outlines
         existing_items = __get_existing_outline_items(shifu_id)
@@ -637,16 +638,22 @@ def reorder_outline_tree(
         def rebuild_positions(
             outline_dtos: list[ReorderOutlineItemDto],
             parent_position="",
+            parent_bid="",
             history_infos: list[HistoryItem] = None,
         ):
             for i, outline_dto in enumerate(outline_dtos):
                 if outline_dto.bid in existing_items_map:
                     item = existing_items_map[outline_dto.bid]
                     new_position = f"{parent_position}{i + 1:02d}"
-                    if item.position != new_position:
+                    new_parent_bid = parent_bid or ""
+                    if (
+                        item.position != new_position
+                        or (item.parent_bid or "") != new_parent_bid
+                    ):
                         # create new version
                         new_item: DraftOutlineItem = item.clone()
                         new_item.position = new_position
+                        new_item.parent_bid = new_parent_bid
                         new_item.updated_user_bid = user_id
                         new_item.updated_at = now_time
                         db.session.add(new_item)
@@ -675,7 +682,10 @@ def reorder_outline_tree(
                     # recursively process children
                     if outline_dto.children:
                         rebuild_positions(
-                            outline_dto.children, new_position, history_info.children
+                            outline_dto.children,
+                            new_position,
+                            outline_dto.bid,
+                            history_info.children,
                         )
 
         outline_dtos = convert_outline_to_reorder_outline_item_dto(outlines)
