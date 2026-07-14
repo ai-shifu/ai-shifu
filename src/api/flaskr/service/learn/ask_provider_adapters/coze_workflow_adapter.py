@@ -6,7 +6,7 @@ from typing import Any, Generator
 import requests
 from flask import Flask
 
-from flaskr.service.shifu.shifu_draft_funcs import ASK_PROVIDER_COZE_WORKFLOW
+from .consts import ASK_PROVIDER_COZE_WORKFLOW
 
 from .base import (
     AskProviderChunk,

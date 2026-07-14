@@ -11,7 +11,7 @@ from urllib.parse import quote
 import requests
 from flask import Flask
 
-from flaskr.service.shifu.shifu_draft_funcs import ASK_PROVIDER_VOLC_KNOWLEDGE
+from .consts import ASK_PROVIDER_VOLC_KNOWLEDGE
 
 from .base import (
     AskProviderChunk,

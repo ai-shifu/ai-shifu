@@ -7,6 +7,7 @@ import { useShifu } from '@/store';
 import Loading from '../loading';
 import { useAlert } from '@/components/ui/UseAlert';
 import api from '@/api';
+import { ErrorWithCode } from '@/lib/request';
 import {
   BookOpen,
   ChevronDown,
@@ -340,12 +341,17 @@ const Header = ({
       }
 
       showPublishSuccessAlert(result);
-    } catch {
+    } catch (error) {
       pendingWindow?.close();
-      toast({
-        title: t('common.core.actionFailed'),
-        variant: 'destructive',
-      });
+      // API errors already surface their specific message through the unified
+      // request-layer toast; re-toasting a generic title here would replace it
+      // (TOAST_LIMIT is 1). Only unexpected non-API errors need a fallback.
+      if (!(error instanceof ErrorWithCode)) {
+        toast({
+          title: t('common.core.actionFailed'),
+          variant: 'destructive',
+        });
+      }
     } finally {
       setPublishing(false);
     }

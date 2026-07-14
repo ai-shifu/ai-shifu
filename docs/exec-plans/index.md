@@ -8,6 +8,8 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 - [Admin Home Onboarding](./active/admin-home-onboarding.md)
 - [Agent-First Harness Phase 2](./active/agent-first-harness-phase-2.md)
+- [Backend Inventory 2026-07 (Phase 1)](./active/backend-inventory-2026-07.md)
+- [Backend Overhaul Master Plan: Inventory and Optimization](./active/backend-overhaul-master.md)
 - [ExecPlan: Billing Credit Notifications](./active/billing-credit-notifications.md)
 - [Creator Dashboard Course Ownership Optimization](./active/creator-dashboard-course-ownership-optimization.md)
 - [Creator Dashboard Course Ratings](./active/creator-dashboard-course-ratings.md)
@@ -27,6 +29,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Agent-First Harness Migration](./completed/agent-first-harness-migration.md)
 - [Billing 时区死管道清理 — 执行计划](./completed/billing-timezone-cleanup.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
+- [ExecPlan: Learn /run Chain Decomposition (B6)](./completed/learn-run-decomposition.md)
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
 - [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
