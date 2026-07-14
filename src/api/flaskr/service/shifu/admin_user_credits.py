@@ -20,6 +20,7 @@ from flaskr.service.billing.bucket_categories import (
     wallet_bucket_requires_active_subscription,
 )
 from flaskr.service.billing.consts import (
+    ACTIVE_SUBSCRIPTION_STATUSES,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
@@ -48,10 +49,7 @@ from flaskr.service.billing.primitives import (
     quantize_credit_amount as _quantize_credit_amount,
     safe_int as _safe_int,
 )
-from flaskr.service.billing.queries import (
-    _ACTIVE_SUBSCRIPTION_STATUSES,
-    load_primary_active_subscription,
-)
+from flaskr.service.billing.queries import load_primary_active_subscription
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -876,10 +874,10 @@ def _load_active_subscription_end_map(
         .filter(
             BillingSubscription.deleted == 0,
             BillingSubscription.creator_bid.in_(normalized_creator_bids),
-            BillingSubscription.status.in_(_ACTIVE_SUBSCRIPTION_STATUSES),
-            (
-                BillingSubscription.current_period_start_at.is_(None)
-                | (BillingSubscription.current_period_start_at <= as_of)
+            BillingSubscription.status.in_(ACTIVE_SUBSCRIPTION_STATUSES),
+            or_(
+                BillingSubscription.current_period_start_at.is_(None),
+                BillingSubscription.current_period_start_at <= as_of,
             ),
             BillingSubscription.current_period_end_at.isnot(None),
             BillingSubscription.current_period_end_at > as_of,
