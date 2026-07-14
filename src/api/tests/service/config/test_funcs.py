@@ -225,13 +225,29 @@ class TestGetConfig:
     def test_config_overrides_restore_previous_values(self, app):
         """Nested overrides restore the outer and original values correctly."""
         with app.app_context():
-            with config_overrides({"test_key": "outer-value"}):
+            with config_overrides(
+                {"test_key": "outer-value", "outer_only": "kept-value"}
+            ):
                 assert get_config("test_key") == "outer-value"
+                assert get_config("outer_only") == "kept-value"
                 with config_overrides({"test_key": "inner-value"}):
                     assert get_config("test_key") == "inner-value"
+                    assert get_config("outer_only") == "kept-value"
                 assert get_config("test_key") == "outer-value"
+                assert get_config("outer_only") == "kept-value"
 
             assert has_config_override("test_key") is False
+            assert has_config_override("outer_only") is False
+
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    def test_config_overrides_work_without_app_context(
+        self, mock_get_config_from_common
+    ):
+        """Thread-local overrides should work even without a Flask app context."""
+        with config_overrides({"test_key": "override-value"}):
+            assert get_config("test_key", "default-value") == "override-value"
+
+        mock_get_config_from_common.assert_not_called()
 
     @patch("flaskr.service.config.funcs.has_explicit_env_override", return_value=True)
     @patch("flaskr.service.config.funcs.get_config_from_common")
