@@ -54,7 +54,7 @@ from .primitives import (
     quantize_credit_amount,
     to_decimal,
 )
-from .queries import normalize_pagination
+from flaskr.service.common.pagination import normalize_pagination
 from .serializers import (
     serialize_admin_campaign,
     serialize_admin_campaign_detail,

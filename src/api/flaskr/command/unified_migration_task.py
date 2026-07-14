@@ -81,6 +81,23 @@ class ConsistencyCheckResult:
         return self.count_match and self.sample_integrity_passed
 
 
+_DEFAULT_DATABASE_URL = "mysql+pymysql://root:@localhost/ai_shifu"
+
+
+def _resolve_default_database_url() -> str:
+    """Resolve the database URL from the central config registry.
+
+    Falls back to a direct env read only for the standalone
+    ``python unified_migration_task.py`` invocation, where the ``flaskr``
+    package may not be importable.
+    """
+    try:
+        from flaskr.common.config import get_config
+    except ImportError:  # pragma: no cover - standalone CLI invocation
+        return os.getenv("SQLALCHEMY_DATABASE_URI", _DEFAULT_DATABASE_URL)
+    return get_config("SQLALCHEMY_DATABASE_URI", _DEFAULT_DATABASE_URL)
+
+
 class UnifiedMigrationTask:
     """Unified migration task for study, order, and coupon tables"""
 
@@ -90,9 +107,7 @@ class UnifiedMigrationTask:
         config: Optional[MigrationConfig] = None,
     ):
         if database_url is None:
-            database_url = os.getenv(
-                "SQLALCHEMY_DATABASE_URI", "mysql+pymysql://root:@localhost/ai_shifu"
-            )
+            database_url = _resolve_default_database_url()
 
         # Ensure PyMySQL driver
         if database_url.startswith("mysql://"):

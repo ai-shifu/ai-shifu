@@ -138,31 +138,11 @@ def coerce_bool(value: Any, *, default: bool = False) -> bool:
     return normalized in {"1", "true", "yes", "on"}
 
 
-def safe_to_decimal(value: Any, *, default: Any) -> Decimal:
-    try:
-        return to_decimal(value)
-    except Exception:
-        return to_decimal(default)
-
-
 def safe_to_positive_int(value: Any, *, default: int) -> int:
     candidate = safe_int(value)
     if candidate is None or candidate <= 0:
         return default
     return candidate
-
-
-def parse_config_datetime(value: Any) -> datetime | None:
-    normalized = str(value or "").strip()
-    if not normalized:
-        return None
-    try:
-        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
-    return parsed
 
 
 def coerce_datetime(value: Any) -> datetime | None:
