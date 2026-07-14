@@ -1538,14 +1538,13 @@ def _stage_scan_notification_isolated(
                 metadata=metadata,
                 policy=policy,
             )
-    except Exception as exc:  # noqa: BLE001 - per-item scan isolation
+    except Exception:  # noqa: BLE001 - per-item scan isolation
+        # exc_info carries the exception; keep provider error strings (which
+        # may echo recipient details) out of the formatted message itself.
         app.logger.error(
-            "credit notification staging failed for notification_type=%s "
-            "creator_bid=%s dedupe_key=%s: %s",
+            "credit notification staging failed for notification_type=%s dedupe_key=%s",
             notification_type,
-            creator_bid,
             dedupe_key,
-            exc,
             exc_info=True,
         )
         return {
