@@ -14,7 +14,9 @@ from flaskr.service.config.funcs import (
     _decrypt_config,
     _get_config_cache_key,
     _get_config_lock_key,
+    config_overrides,
     get_config,
+    has_config_override,
     add_config,
     update_config,
     ConfigCache,
@@ -50,6 +52,24 @@ def disable_explicit_env_override(monkeypatch):
         "flaskr.service.config.funcs.has_explicit_env_override",
         lambda key: False,
     )
+
+
+def test_service_config_package_exports_override_helpers(app):
+    """The package-level config API should expose override helpers for plugins."""
+    from flaskr.service.config import (
+        config_overrides as package_config_overrides,
+        get_config as package_get_config,
+        has_config_override as package_has_config_override,
+    )
+
+    with app.app_context():
+        assert package_has_config_override("runtime_key") is False
+        with package_config_overrides({"runtime_key": "override-from-package"}):
+            assert package_has_config_override("runtime_key") is True
+            assert package_get_config("runtime_key", "default-value") == (
+                "override-from-package"
+            )
+        assert package_has_config_override("runtime_key") is False
 
 
 class TestFernetKeyGeneration:
@@ -188,6 +208,30 @@ class TestCacheKeyGeneration:
 
 class TestGetConfig:
     """Test get_config function."""
+
+    def test_config_overrides_override_get_config(self, app):
+        """Config overrides should win over env and DB-backed lookups."""
+        with app.app_context():
+            with patch(
+                "flaskr.service.config.funcs.get_config_from_common"
+            ) as mock_get_config_from_common:
+                with config_overrides({"test_key": "override-value"}):
+                    assert has_config_override("test_key") is True
+                    assert get_config("test_key", "default-value") == "override-value"
+
+                assert has_config_override("test_key") is False
+                mock_get_config_from_common.assert_not_called()
+
+    def test_config_overrides_restore_previous_values(self, app):
+        """Nested overrides restore the outer and original values correctly."""
+        with app.app_context():
+            with config_overrides({"test_key": "outer-value"}):
+                assert get_config("test_key") == "outer-value"
+                with config_overrides({"test_key": "inner-value"}):
+                    assert get_config("test_key") == "inner-value"
+                assert get_config("test_key") == "outer-value"
+
+            assert has_config_override("test_key") is False
 
     @patch("flaskr.service.config.funcs.has_explicit_env_override", return_value=True)
     @patch("flaskr.service.config.funcs.get_config_from_common")

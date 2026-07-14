@@ -14,9 +14,30 @@ from pydantic import BaseModel, Field
 from flaskr.framework import extensible
 from sqlalchemy.exc import SQLAlchemyError
 from redis.exceptions import LockNotOwnedError
+from contextlib import contextmanager
 import random
+import threading
 
 MAX_UPDATED_BY_LEN = 36
+_config_override_local = threading.local()
+
+
+@contextmanager
+def config_overrides(values: dict[str, object]):
+    previous = getattr(_config_override_local, "values", None)
+    _config_override_local.values = dict(values or {})
+    try:
+        yield
+    finally:
+        if previous is None:
+            if hasattr(_config_override_local, "values"):
+                delattr(_config_override_local, "values")
+        else:
+            _config_override_local.values = previous
+
+
+def has_config_override(key: str) -> bool:
+    return key in getattr(_config_override_local, "values", {})
 
 
 class ConfigCache(BaseModel):
@@ -125,6 +146,9 @@ def get_config(key: str, default: str = None) -> str:
 
     if not has_app_context():
         return get_config_from_common(key, default)
+    overrides = getattr(_config_override_local, "values", {})
+    if key in overrides:
+        return overrides[key]
     app = current_app
     with nullcontext():
         # Only explicit env vars should bypass DB-backed config lookups.
