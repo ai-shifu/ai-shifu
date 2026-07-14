@@ -7,7 +7,14 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 import logging
 import requests
-import litellm
+
+# litellm fetches its model cost map from GitHub at import time by default,
+# which stalls every worker boot (and times out entirely on hosts without
+# outbound internet). Default to the bundled local map; deployments can still
+# override by exporting LITELLM_LOCAL_MODEL_COST_MAP=False before startup.
+os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+
+import litellm  # noqa: E402
 from flask import Flask, current_app
 from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
@@ -17,6 +24,7 @@ from flaskr.api.langfuse import (
     get_request_id,
     resolve_langfuse_trace_id,
 )
+from flaskr.common.config import get_explicit_env_override
 from flaskr.service.config import get_config
 from flaskr.util.datetime import now_utc
 from flaskr.service.common.models import raise_error_with_args
@@ -184,7 +192,7 @@ def _normalize_model_config(value: Any) -> list[str]:
 
 
 def _env_has_value(key: str) -> bool:
-    value = os.environ.get(key)
+    value = get_explicit_env_override(key)
     if value is None:
         return False
     return bool(value.strip())
@@ -193,7 +201,9 @@ def _env_has_value(key: str) -> bool:
 def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
     allowed_source = "default"
     if _env_has_value("LLM_ALLOWED_MODELS"):
-        allowed = _normalize_model_config(os.environ.get("LLM_ALLOWED_MODELS", ""))
+        allowed = _normalize_model_config(
+            get_explicit_env_override("LLM_ALLOWED_MODELS") or ""
+        )
         allowed_source = "env"
     else:
         legacy_allowed = _normalize_model_config(get_config("llm-allowed-models", None))
@@ -205,7 +215,7 @@ def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
 
     if _env_has_value("LLM_ALLOWED_MODEL_DISPLAY_NAMES"):
         display_names = _normalize_model_config(
-            os.environ.get("LLM_ALLOWED_MODEL_DISPLAY_NAMES", "")
+            get_explicit_env_override("LLM_ALLOWED_MODEL_DISPLAY_NAMES") or ""
         )
     elif allowed_source == "legacy":
         display_names = _normalize_model_config(
