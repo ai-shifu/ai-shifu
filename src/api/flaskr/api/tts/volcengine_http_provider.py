@@ -9,14 +9,13 @@ from __future__ import annotations
 
 import base64
 import logging
-import os
 import uuid
 from typing import Optional, List
 
 import requests
 from requests import Response
 
-from flaskr.common.config import get_config
+from flaskr.common.config import get_config, get_explicit_env_override
 from flaskr.api.tts.base import (
     BaseTTSProvider,
     TTSResult,
@@ -115,11 +114,12 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
     def _get_credentials(self) -> tuple[str, str, str]:
         app_id = (get_config("VOLCENGINE_TTS_APP_KEY") or "").strip()
         token = (get_config("VOLCENGINE_TTS_ACCESS_KEY") or "").strip()
-        # Prefer explicit env vars over config defaults.
-        cluster = (os.environ.get("VOLCENGINE_TTS_CLUSTER_ID") or "").strip()
+        # Prefer an explicit env value over the registry default so the legacy
+        # alias below is not masked by the VOLCENGINE_TTS_CLUSTER_ID default.
+        cluster = (get_explicit_env_override("VOLCENGINE_TTS_CLUSTER_ID") or "").strip()
         if not cluster:
             # Backward compatibility: previously named as VOLCENGINE_TTS_RESOURCE_ID.
-            cluster = (os.environ.get("VOLCENGINE_TTS_RESOURCE_ID") or "").strip()
+            cluster = (get_config("VOLCENGINE_TTS_RESOURCE_ID") or "").strip()
         if not cluster:
             cluster = (get_config("VOLCENGINE_TTS_CLUSTER_ID") or "").strip()
         return app_id, token, cluster

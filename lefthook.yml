@@ -91,6 +91,9 @@ pre-commit:
       run: bash -c 'python3 scripts/generate_languages.py && git diff --exit-code -- src/i18n/locales.json'
     no-hardcoded-cjk-in-backend:
       run: python3 scripts/check_backend_hardcoded_cn.py
+    check-uow-commit-sites:
+      glob: "src/api/flaskr/**/*.py"
+      run: python3 scripts/check_uow_commit_sites.py
 
 commit-msg:
   commands:

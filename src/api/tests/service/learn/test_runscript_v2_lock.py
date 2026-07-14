@@ -1055,6 +1055,78 @@ def test_run_script_listen_lock_busy_returns_element_protocol(monkeypatch):
         assert events[1]["is_terminal"] is True
 
 
+def test_run_script_maps_llm_stream_connection_error_to_retryable_message(
+    monkeypatch,
+):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
+
+        def fake_run_script_inner(**_kwargs):
+            raise RuntimeError(
+                "litellm.APIConnectionError: APIConnectionError: OpenAIException - [SSL] record layer failure (_ssl.c:2590)"
+            )
+            yield  # pragma: no cover
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        chunks = list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input={"input": ["x"]},
+                input_type="normal",
+                listen=True,
+            )
+        )
+        events = _parse_sse_events(chunks)
+
+        assert [event["type"] for event in events] == ["error", "break", "done"]
+        assert events[0]["content"] == "translated:server.learn.llmStreamInterrupted"
+        assert events[2]["is_terminal"] is True
+
+
+def test_run_script_maps_standard_timeout_error_to_retryable_message(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
+
+        def fake_run_script_inner(**_kwargs):
+            raise RuntimeError("stream failed") from TimeoutError(
+                "The read operation timed out"
+            )
+            yield  # pragma: no cover
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        chunks = list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input={"input": ["x"]},
+                input_type="normal",
+                listen=True,
+            )
+        )
+        events = _parse_sse_events(chunks)
+
+        assert [event["type"] for event in events] == ["error", "break", "done"]
+        assert events[0]["content"] == "translated:server.learn.llmStreamInterrupted"
+        assert events[2]["is_terminal"] is True
+
+
 def test_run_script_listen_done_uses_element_protocol(monkeypatch):
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
@@ -1196,3 +1268,53 @@ def test_run_script_close_during_data_yield_does_not_raise_runtime_error(monkeyp
 
         assert first_chunk.startswith("data: ")
         assert lock.release_calls == 1
+
+
+def test_run_script_propagates_explicit_language_to_producer(monkeypatch):
+    """The route handler must hand the request language in explicitly.
+
+    On Flask >= 3.1 the request teardown (which clears the request-scoped
+    language) runs before the streaming generator body executes, so
+    run_script can no longer read the language from the request thread.
+    This pins the handoff: an explicit ``language=`` reaches the producer
+    thread even when the caller's language context is already cleared.
+    """
+    from flaskr.i18n import clear_language, get_current_language
+
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+
+        seen_languages: list[str] = []
+
+        def fake_run_script_inner(**_kwargs):
+            with app.app_context():
+                seen_languages.append(get_current_language())
+                yield RunMarkdownFlowDTO(
+                    outline_bid="outline-1",
+                    generated_block_bid="generated-1",
+                    type=GeneratedType.CONTENT,
+                    content="hello",
+                )
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        # Simulate the post-teardown state the generator actually runs in.
+        clear_language()
+
+        list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input={"input": ["x"]},
+                input_type="normal",
+                language="zh-CN",
+            )
+        )
+
+        assert seen_languages == ["zh-CN"]

@@ -37,7 +37,7 @@ from flaskr.service.learn.langfuse_naming import (
 )
 from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
 from flaskr.service.shifu.ask_provider_registry import get_effective_ask_provider_config
-from flaskr.service.shifu.shifu_draft_funcs import (
+from flaskr.service.learn.ask_provider_adapters.consts import (
     ASK_PROVIDER_LLM,
     ASK_PROVIDER_MODE_PROVIDER_ONLY,
     ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,

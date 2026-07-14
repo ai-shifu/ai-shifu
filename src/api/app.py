@@ -18,6 +18,9 @@ else:
     from flaskr.common.config import get_config
 
     timezone = get_config("TZ")
+    # This must stay a direct env write: time.tzset() reads the process TZ
+    # environment variable, and it has to run at import time, before the
+    # Flask app (and the registry-backed config instance) exists.
     os.environ["TZ"] = timezone
     time.tzset()
 app = None

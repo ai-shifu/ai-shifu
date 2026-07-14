@@ -1,0 +1,16 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "bid": "golden-shifu-0001",
+    "title": "Golden Shifu",
+    "description": "Deterministic course for golden regression fixtures",
+    "keywords": [
+      "golden",
+      "regression"
+    ],
+    "avatar": "",
+    "price": "0.00",
+    "tts_enabled": false
+  }
+}
