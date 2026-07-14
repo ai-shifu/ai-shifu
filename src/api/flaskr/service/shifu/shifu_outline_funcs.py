@@ -639,8 +639,10 @@ def reorder_outline_tree(
             outline_dtos: list[ReorderOutlineItemDto],
             parent_position="",
             parent_bid="",
-            history_infos: list[HistoryItem] = None,
+            history_infos: list[HistoryItem] | None = None,
         ):
+            if history_infos is None:
+                history_infos = []
             for i, outline_dto in enumerate(outline_dtos):
                 if outline_dto.bid in existing_items_map:
                     item = existing_items_map[outline_dto.bid]
