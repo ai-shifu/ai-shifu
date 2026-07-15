@@ -6,6 +6,8 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+
+from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from typing import Any, Dict, Optional, Sequence, Set
 from sqlalchemy import case, or_
@@ -307,7 +309,7 @@ def _resolve_recent_days_window(
     now: Optional[datetime] = None,
 ) -> tuple[datetime, datetime]:
     safe_days = max(int(days or 0), 1)
-    current = now or datetime.now()
+    current = now or now_utc()
     start = (current - timedelta(days=safe_days - 1)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )

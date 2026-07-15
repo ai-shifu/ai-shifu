@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+
+from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 from sqlalchemy import and_, case, literal, not_
@@ -746,7 +748,7 @@ def _resolve_course_quick_filter(value: str) -> str:
 def _resolve_created_last_7d_window(
     now: Optional[datetime] = None,
 ) -> tuple[datetime, datetime]:
-    current = now or datetime.now()
+    current = now or now_utc()
     start = (current - timedelta(days=6)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
