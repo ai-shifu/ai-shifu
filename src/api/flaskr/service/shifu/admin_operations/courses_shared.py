@@ -169,11 +169,15 @@ OPERATOR_USER_PRELOADED_AUTH_CREDENTIAL_PROVIDERS = (
     OPERATOR_USER_SUPPORTED_REGISTRATION_SOURCE_PROVIDERS | {"password"}
 )
 
-COURSE_FOLLOW_UP_LIST_MAX_PAGE_SIZE = 100
+# Single source of truth lives in admin_shared; re-exported here so the
+# courses_* operator modules keep their existing import surface.
+from flaskr.service.shifu.admin_shared import (  # noqa: E402, F401
+    COURSE_FOLLOW_UP_LIST_MAX_PAGE_SIZE,
+    COURSE_RATING_LIST_MAX_PAGE_SIZE,
+    COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE,
+    _normalize_identifier,
+)
 
-COURSE_RATING_LIST_MAX_PAGE_SIZE = 100
-
-COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE = 100
 
 COURSE_CREDIT_USAGE_VIEW_GROUPED = "grouped"
 
@@ -359,13 +363,6 @@ def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
     if isinstance(value, dict):
         return value
     return {}
-
-
-def _normalize_identifier(value: str) -> str:
-    normalized = str(value or "").strip()
-    if "@" in normalized:
-        return normalized.lower()
-    return normalized
 
 
 def _load_course_user_contact_map(
