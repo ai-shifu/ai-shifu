@@ -124,6 +124,7 @@ def _load_latest_active_outline_items(
 def _detect_issue_types(items: list[DraftOutlineItem]) -> list[str]:
     positions: dict[str, int] = defaultdict(int)
     current_bids = {item.outline_item_bid for item in items}
+    positions_by_bid = {item.outline_item_bid: item.position or "" for item in items}
     issue_types: set[str] = set()
     for item in items:
         positions[item.position] += 1
@@ -134,6 +135,13 @@ def _detect_issue_types(items: list[DraftOutlineItem]) -> list[str]:
             item.parent_bid and item.parent_bid in current_bids
         ):
             issue_types.add("parent_mismatch")
+        if (
+            position_len > 2
+            and item.parent_bid
+            and item.parent_bid in current_bids
+            and positions_by_bid.get(item.parent_bid, "") != (item.position or "")[:-2]
+        ):
+            issue_types.add("parent_position_mismatch")
         if len(item.position or "") == 2 and item.parent_bid:
             issue_types.add("root_parent_mismatch")
     if any(count > 1 for count in positions.values()):

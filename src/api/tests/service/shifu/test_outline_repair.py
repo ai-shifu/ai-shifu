@@ -202,3 +202,34 @@ def test_repair_shifu_outline_structure_handles_non_numeric_suffixes(app):
     assert result.status == "dry_run"
     assert result.repaired_shifu_count == 1
     assert result.changed_outline_count == 2
+
+
+def test_repair_shifu_outline_structure_detects_parent_position_mismatch(app):
+    with app.app_context():
+        _mk_shifu("shifu-parent-position-mismatch")
+        _mk_outline("shifu-parent-position-mismatch", "root-a", "01")
+        _mk_outline("shifu-parent-position-mismatch", "root-b", "02")
+        _mk_outline(
+            "shifu-parent-position-mismatch",
+            "child-a",
+            "0101",
+            parent_bid="root-b",
+        )
+        db.session.commit()
+
+        result = repair_shifu_outline_structure(
+            app,
+            user_bid=None,
+            shifu_bids=["shifu-parent-position-mismatch"],
+            dry_run=True,
+        )
+
+    assert result.status == "dry_run"
+    assert result.repaired_shifu_count == 1
+    assert result.changed_outline_count == 1
+    assert result.repaired_records[0].issue_types == ["parent_position_mismatch"]
+    assert result.repaired_records[0].changed_outlines[0].outline_item_bid == "child-a"
+    assert result.repaired_records[0].changed_outlines[0].old_parent_bid == "root-b"
+    assert result.repaired_records[0].changed_outlines[0].new_parent_bid == "root-b"
+    assert result.repaired_records[0].changed_outlines[0].old_position == "0101"
+    assert result.repaired_records[0].changed_outlines[0].new_position == "0201"
