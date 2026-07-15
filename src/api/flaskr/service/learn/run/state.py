@@ -421,6 +421,11 @@ class RunStateResolver:
             LearnProgressRecord.outline_item_bid == outline_item_info.bid,
             LearnProgressRecord.status != LEARN_STATUS_RESET,
         ).first()
+        if attend is None:
+            # Callers dereference run_script_info.attend unconditionally; a
+            # missing progress record (e.g. reset between requests) must fail
+            # with the domain error instead of an AttributeError downstream.
+            raise_error("server.shifu.lessonNotFoundInCourse")
         return runtime.RunScriptInfo(
             attend=attend,
             outline_bid=outline_item_info.outline_bid,
