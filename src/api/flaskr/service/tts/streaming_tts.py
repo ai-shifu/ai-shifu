@@ -106,7 +106,7 @@ def _tts_error_text_preview(
     text: str,
     max_chars: int = _TTS_ERROR_TEXT_PREVIEW_CHARS,
 ) -> str:
-    normalized = str(text or "").replace("\r", "\\r").replace("\n", "\\n")
+    normalized = str(text or "")
     if len(normalized) <= max_chars:
         return normalized
     return f"{normalized[:max_chars]}...(truncated, total_len={len(normalized)})"
