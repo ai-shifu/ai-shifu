@@ -825,6 +825,9 @@ def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
             return cls(2026, 5, 6, 12, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+    # The recent-window helper now defaults to now_utc(); pin it to the same
+    # fixed clock (the facade setattr forwards into the split submodules).
+    monkeypatch.setattr(admin_module, "now_utc", FixedDateTime.now)
 
     with app.app_context():
         _seed_user(
@@ -936,6 +939,8 @@ def test_list_operator_users_recent_windows_exclude_future_records_and_keep_micr
             return cls(2026, 5, 6, 23, 59, 59, 250000, tzinfo=tz)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+    # Keep the now_utc()-based window helper on the same fixed clock.
+    monkeypatch.setattr(admin_module, "now_utc", FixedDateTime.now)
 
     with app.app_context():
         _seed_user(
