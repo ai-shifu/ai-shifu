@@ -101,7 +101,12 @@ def test_runtime_config_smoke_keeps_plugin_config_exports_compatible(
         tmp_path / "flaskr" / "__init__.py",
         tmp_path / "flaskr" / "plugins" / "__init__.py",
         tmp_path / "flaskr" / "plugins" / "ai_shifu_saas_plugin" / "__init__.py",
-        tmp_path / "flaskr" / "plugins" / "ai_shifu_saas_plugin" / "src" / "__init__.py",
+        tmp_path
+        / "flaskr"
+        / "plugins"
+        / "ai_shifu_saas_plugin"
+        / "src"
+        / "__init__.py",
         tmp_path
         / "flaskr"
         / "plugins"
@@ -166,8 +171,7 @@ def build_runtime_branding():
 
     assert plugin_branding["override_seen"] is True
     assert (
-        plugin_branding["logo_wide_url"]
-        == "https://plugin.example.com/logo-wide.png"
+        plugin_branding["logo_wide_url"] == "https://plugin.example.com/logo-wide.png"
     )
 
     monkeypatch.setattr(
@@ -219,8 +223,7 @@ def build_runtime_branding():
     assert payload["code"] == 0
     assert payload["data"]["logoWideUrl"] == plugin_branding["logo_wide_url"]
     assert (
-        payload["data"]["branding"]["logo_wide_url"]
-        == plugin_branding["logo_wide_url"]
+        payload["data"]["branding"]["logo_wide_url"] == plugin_branding["logo_wide_url"]
     )
     assert payload["data"]["homeUrl"] == plugin_branding["home_url"]
     assert payload["data"]["contactUsUrl"] == plugin_branding["contact_us_url"]
