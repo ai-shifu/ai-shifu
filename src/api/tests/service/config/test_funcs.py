@@ -83,7 +83,7 @@ def test_service_config_package_exports_override_helpers(app):
 
 
 def test_runtime_config_smoke_keeps_plugin_config_exports_compatible(
-    app, monkeypatch, tmp_path
+    app, monkeypatch, tmp_path, request
 ):
     """Smoke-test plugin import compatibility through the runtime-config route."""
     plugin_root = (
@@ -152,9 +152,14 @@ def build_runtime_branding():
     importlib.invalidate_caches()
 
     module_name = "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs"
-    for cached_module in list(sys.modules):
-        if cached_module.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
-            sys.modules.pop(cached_module, None)
+
+    def cleanup_plugin_modules() -> None:
+        for cached_module in list(sys.modules):
+            if cached_module.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
+                sys.modules.pop(cached_module, None)
+
+    request.addfinalizer(cleanup_plugin_modules)
+    cleanup_plugin_modules()
 
     plugin_module = importlib.import_module(module_name)
     plugin_branding = plugin_module.build_runtime_branding()
