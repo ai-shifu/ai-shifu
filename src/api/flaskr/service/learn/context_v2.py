@@ -2540,7 +2540,10 @@ class RunScriptContextV2:
                         self._run_type = RunType.OUTPUT
                         return True
                 if button.get("value") == "_sys_login":
-                    if bool(self._user_info.mobile):
+                    # Same logged-in definition as the emitter's
+                    # is_access_gate_blocking_interaction: email-only
+                    # accounts are logged in too.
+                    if bool(self._user_info.mobile or self._user_info.email):
                         self._can_continue = True
                         self._recorder.update_progress_pointer(
                             self._current_attend,
@@ -3077,8 +3080,9 @@ class RunScriptContextV2:
                         self._run_type = RunType.OUTPUT
                         return
                 if button.get("value") == "_sys_login":
-                    self.app.logger.warning(f"_sys_login :{self._user_info.mobile}")
-                    if bool(self._user_info.mobile):
+                    # Same logged-in definition as the emitter's
+                    # is_access_gate_blocking_interaction.
+                    if bool(self._user_info.mobile or self._user_info.email):
                         self._can_continue = True
                         self._recorder.update_progress_pointer(
                             self._current_attend,

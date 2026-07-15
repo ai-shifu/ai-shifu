@@ -694,6 +694,11 @@ def _execute_retry_or_reconcile(
         if result_status in {"paid", "applied", "already_applied"}:
             _complete_renewal_event(event, now=now)
             return _result_from_event("applied", event)
+        if result_status == "pending":
+            # Mirror _execute_subscription_renewal: a pingxx order that still
+            # lacks a provider reference is awaiting payment, not failed.
+            _complete_renewal_event(event, now=now)
+            return _result_from_event("queued_for_reconcile", event)
 
         _fail_renewal_event(
             event,
