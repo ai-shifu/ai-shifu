@@ -74,8 +74,9 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 _tts_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="tts_")
 
 _EMPTY_AUDIO_ERROR_MESSAGE = "No audio data received"
-_EMPTY_AUDIO_RETRY_PROVIDERS = {"", "volcengine"}
+_EMPTY_AUDIO_RETRY_PROVIDERS = {"", "tencent", "volcengine"}
 _EMPTY_AUDIO_RETRY_DELAY_SECONDS = 0.2
+_TTS_ERROR_TEXT_PREVIEW_CHARS = 300
 _VOLCENGINE_TIMESTAMP_PROVIDERS = {"volcengine"}
 
 _VISUAL_SLIDE_KINDS = frozenset(
@@ -99,6 +100,16 @@ def _is_retryable_empty_audio_error(error: Exception, provider_name: str) -> boo
         normalized_provider in _EMPTY_AUDIO_RETRY_PROVIDERS
         and _EMPTY_AUDIO_ERROR_MESSAGE in str(error)
     )
+
+
+def _tts_error_text_preview(
+    text: str,
+    max_chars: int = _TTS_ERROR_TEXT_PREVIEW_CHARS,
+) -> str:
+    normalized = str(text or "")
+    if len(normalized) <= max_chars:
+        return normalized
+    return f"{normalized[:max_chars]}...(truncated, total_len={len(normalized)})"
 
 
 def _should_use_volcengine_timestamp_stream(tts_provider: str) -> bool:
@@ -451,11 +462,13 @@ class StreamingTTSProcessor:
                     e, tts_provider
                 ):
                     logger.warning(
-                        "TTS segment %s returned no audio; retrying once: provider=%s model=%s text_len=%s",
+                        "TTS segment %s returned no audio; retrying once: "
+                        "provider=%s model=%s text_len=%s text_preview=%r",
                         segment_index if segment_index is not None else "request",
                         tts_provider or "(auto)",
                         tts_model or "(unset)",
                         len(text or ""),
+                        _tts_error_text_preview(text or ""),
                     )
                     time.sleep(_EMPTY_AUDIO_RETRY_DELAY_SECONDS)
                     continue
@@ -538,7 +551,16 @@ class StreamingTTSProcessor:
                 segment.error = str(e)
                 segment.is_ready = True
             except Exception as e:
-                logger.error(f"TTS segment {segment.index} failed: {e}")
+                logger.error(
+                    "TTS segment %s failed: %s provider=%s model=%s "
+                    "text_len=%s text_preview=%r",
+                    segment.index,
+                    e,
+                    tts_provider or "(auto)",
+                    tts_model or "(unset)",
+                    len(segment.text or ""),
+                    _tts_error_text_preview(segment.text or ""),
+                )
                 segment.error = str(e)
                 segment.is_ready = True
 
