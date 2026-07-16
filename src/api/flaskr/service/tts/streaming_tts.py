@@ -119,8 +119,7 @@ def _is_tencent_provider(tts_provider: str) -> bool:
 
 def _has_speakable_text(text: str) -> bool:
     return any(
-        unicodedata.category(char).startswith(("L", "N"))
-        for char in str(text or "")
+        unicodedata.category(char).startswith(("L", "N")) for char in str(text or "")
     )
 
 
