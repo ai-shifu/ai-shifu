@@ -482,7 +482,7 @@ def create_default_outlines_for_new_shifu(
     return chapter, lesson
 
 
-def _build_outline_history_tree(
+def build_outline_history_tree_from_outlines(
     outlines: list[DraftOutlineItem],
 ) -> list[HistoryItem]:
     outline_children_map: dict[str, list[DraftOutlineItem]] = {}
@@ -513,6 +513,12 @@ def _build_outline_history_tree(
         ]
 
     return _build("")
+
+
+def _build_outline_history_tree(
+    outlines: list[DraftOutlineItem],
+) -> list[HistoryItem]:
+    return build_outline_history_tree_from_outlines(outlines)
 
 
 def create_outlines_batch(
