@@ -79,6 +79,7 @@ _EMPTY_AUDIO_RETRY_PROVIDERS = {"", "tencent", "volcengine"}
 _EMPTY_AUDIO_RETRY_DELAY_SECONDS = 0.2
 _TTS_ERROR_TEXT_PREVIEW_CHARS = 300
 _VOLCENGINE_TIMESTAMP_PROVIDERS = {"volcengine"}
+_NON_SPEAKABLE_TTS_SKIP_PROVIDERS = {"minimax", "tencent", "volcengine"}
 
 _VISUAL_SLIDE_KINDS = frozenset(
     {
@@ -113,8 +114,8 @@ def _tts_error_text_preview(
     return f"{normalized[:max_chars]}...(truncated, total_len={len(normalized)})"
 
 
-def _is_tencent_provider(tts_provider: str) -> bool:
-    return (tts_provider or "").strip().lower() == "tencent"
+def _normalize_tts_provider(tts_provider: str) -> str:
+    return (tts_provider or "").strip().lower()
 
 
 def _has_speakable_text(text: str) -> bool:
@@ -123,8 +124,28 @@ def _has_speakable_text(text: str) -> bool:
     )
 
 
-def _should_skip_tencent_tts_text(text: str, tts_provider: str) -> bool:
-    return _is_tencent_provider(tts_provider) and not _has_speakable_text(text)
+def _should_skip_non_speakable_tts_text(text: str, tts_provider: str) -> bool:
+    return _normalize_tts_provider(
+        tts_provider
+    ) in _NON_SPEAKABLE_TTS_SKIP_PROVIDERS and not _has_speakable_text(text)
+
+
+def _log_skipped_non_speakable_tts_text(
+    *,
+    segment_index: int | str,
+    text: str,
+    tts_provider: str,
+    tts_model: str,
+) -> None:
+    logger.info(
+        "TTS segment %s skipped before provider synthesis: "
+        "non_speakable_text provider=%s model=%s text_len=%s text_preview=%r",
+        segment_index,
+        tts_provider or "(auto)",
+        tts_model or "(unset)",
+        len(text or ""),
+        _tts_error_text_preview(text or ""),
+    )
 
 
 def _should_use_volcengine_timestamp_stream(tts_provider: str) -> bool:
@@ -502,16 +523,12 @@ class StreamingTTSProcessor:
     ) -> TTSSegment:
         """Synthesize a segment in a background thread."""
         with self.app.app_context():
-            if _should_skip_tencent_tts_text(segment.text or "", tts_provider):
-                logger.info(
-                    "TTS segment %s skipped before Tencent synthesis: "
-                    "non_speakable_text provider=%s model=%s text_len=%s "
-                    "text_preview=%r",
-                    segment.index,
-                    tts_provider or "(auto)",
-                    tts_model or "(unset)",
-                    len(segment.text or ""),
-                    _tts_error_text_preview(segment.text or ""),
+            if _should_skip_non_speakable_tts_text(segment.text or "", tts_provider):
+                _log_skipped_non_speakable_tts_text(
+                    segment_index=segment.index,
+                    text=segment.text or "",
+                    tts_provider=tts_provider,
+                    tts_model=tts_model,
                 )
                 segment.is_ready = True
                 with self._lock:
@@ -1433,6 +1450,15 @@ class StreamingTTSProcessor:
         from flaskr.service.tts.tts_usage_recorder import record_tts_segment_usage
 
         for request_index, request_text in enumerate(request_texts):
+            if _should_skip_non_speakable_tts_text(request_text, self.tts_provider):
+                _log_skipped_non_speakable_tts_text(
+                    segment_index=request_index,
+                    text=request_text,
+                    tts_provider=self.tts_provider,
+                    tts_model=self.tts_model,
+                )
+                continue
+
             request_started_at = time.monotonic()
             audio_chunks: list[bytes] = []
             source_emitted_ms = 0
@@ -1764,6 +1790,14 @@ class StreamingTTSProcessor:
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         request_text = (cleaned_text or "").strip()
         if not self._enabled or not request_text:
+            return
+        if _should_skip_non_speakable_tts_text(request_text, self.tts_provider):
+            _log_skipped_non_speakable_tts_text(
+                segment_index=0,
+                text=request_text,
+                tts_provider=self.tts_provider,
+                tts_model=self.tts_model,
+            )
             return
 
         request_started_at = time.monotonic()

@@ -336,13 +336,15 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage")
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
-    def test_tencent_non_speakable_segment_skips_provider_call(
+    @pytest.mark.parametrize("tts_provider", ["tencent", "volcengine", "minimax"])
+    def test_non_speakable_segment_skips_configured_provider_call(
         self,
         mock_is_configured,
         mock_synthesize_text,
         mock_record_usage,
         mock_logger,
         mock_app,
+        tts_provider,
     ):
         mock_is_configured.return_value = True
         app_context = MagicMock()
@@ -350,7 +352,7 @@ class TestStreamingSynthesisRetries:
         app_context.__exit__.return_value = False
         mock_app.app_context.return_value = app_context
 
-        processor = create_test_processor(mock_app, tts_provider="tencent")
+        processor = create_test_processor(mock_app, tts_provider=tts_provider)
         segment = TTSSegment(index=10, text="---")
 
         result = processor._synthesize_in_thread(
@@ -369,7 +371,68 @@ class TestStreamingSynthesisRetries:
         assert result.is_ready is True
         assert processor._completed_segments[10] is result
         info_args = mock_logger.info.call_args.args
-        assert "skipped before Tencent synthesis" in info_args[0]
+        assert "skipped before provider synthesis" in info_args[0]
+        assert tts_provider in info_args
+        assert "---" in info_args
+
+    @patch("flaskr.service.tts.streaming_tts.logger")
+    @patch("flaskr.service.tts.streaming_tts.MinimaxTTSProvider")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_minimax_http_stream_skips_non_speakable_request(
+        self,
+        mock_is_configured,
+        mock_minimax_provider,
+        mock_logger,
+        mock_app,
+    ):
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="minimax")
+
+        events = list(
+            processor._finalize_minimax_http_stream(
+                raw_text="---",
+                cleaned_text="---",
+                cleaned_text_length=3,
+                commit=True,
+            )
+        )
+
+        assert events == []
+        mock_minimax_provider.return_value.stream_synthesize.assert_not_called()
+        mock_logger.error.assert_not_called()
+        info_args = mock_logger.info.call_args.args
+        assert "skipped before provider synthesis" in info_args[0]
+        assert "minimax" in info_args
+        assert "---" in info_args
+
+    @patch("flaskr.service.tts.streaming_tts.logger")
+    @patch("flaskr.service.tts.streaming_tts.synthesize_text")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_volcengine_timestamp_stream_skips_non_speakable_request(
+        self,
+        mock_is_configured,
+        mock_synthesize_text,
+        mock_logger,
+        mock_app,
+    ):
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="volcengine")
+
+        events = list(
+            processor._finalize_volcengine_timestamp_stream(
+                raw_text="---",
+                cleaned_text="---",
+                cleaned_text_length=3,
+                commit=True,
+            )
+        )
+
+        assert events == []
+        mock_synthesize_text.assert_not_called()
+        mock_logger.error.assert_not_called()
+        info_args = mock_logger.info.call_args.args
+        assert "skipped before provider synthesis" in info_args[0]
+        assert "volcengine" in info_args
         assert "---" in info_args
 
     @patch("flaskr.service.tts.streaming_tts.time.sleep")
