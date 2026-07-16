@@ -263,6 +263,26 @@ def test_runtime_config_returns_empty_official_site_url_when_unconfigured(
     assert payload["officialSiteUrl"] == ""
 
 
+def test_runtime_config_defaults_home_url_to_admin_when_unconfigured(
+    runtime_config_client,
+    monkeypatch,
+) -> None:
+    original_route_get_config = config_route.get_config
+
+    def get_config_override(key, default=""):
+        if key == "HOME_URL":
+            return default
+        return original_route_get_config(key, default)
+
+    monkeypatch.setattr(config_route, "get_config", get_config_override)
+
+    response = runtime_config_client.get("/api/runtime-config")
+    payload = response.get_json(force=True)["data"]
+
+    assert response.status_code == 200
+    assert payload["homeUrl"] == "/admin"
+
+
 def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective(
     runtime_config_client,
 ) -> None:
