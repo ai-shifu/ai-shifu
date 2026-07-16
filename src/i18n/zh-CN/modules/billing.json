@@ -289,7 +289,7 @@
         "rapid_growth": "消耗增长较快",
         "sustained_activity": "近 7 天持续活跃"
       },
-      "description": "汇总近期需要运营关注的老师规模、消耗和活跃趋势，帮助判断跟进优先级。",
+      "description": "汇总近期消耗、活跃度和使用结构异常的老师，帮助运营判断跟进优先级。",
       "empty": "当前没有需要重点关注的老师。",
       "emptyHint": "命中高消耗、高频调用、正式使用活跃、调试占比偏高、持续活跃或消耗增长较快任一条件后才会展示。",
       "filters": {
@@ -318,7 +318,7 @@
         "debugHeavyCount": "调试占比偏高",
         "debugHeavyCountHint": "近 30 天调试/预览消耗占比较高的老师",
         "focusCount": "需关注老师数",
-        "focusCountHint": "满足一项及以上关注条件",
+        "focusCountHint": "满足一项及以上用量关注条件",
         "totalCredits": "关注对象 30 天消耗",
         "totalCreditsHint": "当前关注老师近 30 天累计消耗"
       },
@@ -338,7 +338,7 @@
         "productionRatio": "生产消耗占比",
         "recordCount7d": "7 天调用次数"
       },
-      "title": "经营关注概况"
+      "title": "用量关注概况"
     },
     "subscriptions": {
       "description": "查看需要跟进的老师订阅、积分余额和后续处理状态。",
@@ -379,7 +379,7 @@
       "entitlements": "品牌与收款配置",
       "exceptions": "异常告警",
       "orders": "异常订单",
-      "reports": "经营关注",
+      "reports": "用量关注",
       "subscriptions": "订阅跟进"
     },
     "title": "商业化运营"

@@ -289,7 +289,7 @@
         "rapid_growth": "Croissance rapide",
         "sustained_activity": "Actif sur 3+ jours recents"
       },
-      "description": "Resume les enseignants a suivre selon la consommation recente, l activite et les signaux de croissance.",
+      "description": "Resume les enseignants avec une consommation recente, une activite ou une structure d usage inhabituelle afin de prioriser le suivi operationnel.",
       "empty": "Aucun enseignant ne necessite un suivi prioritaire pour le moment.",
       "emptyHint": "Les enseignants apparaissent apres une consommation elevee, des appels frequents, une activite production, une part debug elevee, une activite soutenue ou une croissance rapide.",
       "filters": {
@@ -318,7 +318,7 @@
         "debugHeavyCount": "Debug dominant",
         "debugHeavyCountHint": "Enseignants dont le debug/preview est eleve sur 30 j",
         "focusCount": "Enseignants a examiner",
-        "focusCountHint": "Declenche une ou plusieurs regles de suivi",
+        "focusCountHint": "Declenche une ou plusieurs regles de suivi d usage",
         "totalCredits": "Credits 30 j des suivis",
         "totalCreditsHint": "Total 30 j des enseignants actuellement affiches"
       },
@@ -338,7 +338,7 @@
         "productionRatio": "Part de credits production",
         "recordCount7d": "Appels sur 7 j"
       },
-      "title": "Synthese du suivi business"
+      "title": "Synthese du suivi d usage"
     },
     "subscriptions": {
       "description": "Consultez les abonnements a suivre, avec le solde de credits et les actions a venir.",
@@ -379,7 +379,7 @@
       "entitlements": "Configuration marque et paiement",
       "exceptions": "Alertes",
       "orders": "Commandes en anomalie",
-      "reports": "Suivi business",
+      "reports": "Suivi d usage",
       "subscriptions": "Suivi abonnements"
     },
     "title": "Opérations commerciales"

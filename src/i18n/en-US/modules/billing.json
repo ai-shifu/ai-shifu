@@ -289,7 +289,7 @@
         "rapid_growth": "Usage growing fast",
         "sustained_activity": "Active on 3+ recent days"
       },
-      "description": "Summarizes teachers that need operator attention by recent usage, activity, and growth signals.",
+      "description": "Summarizes teachers with unusual recent consumption, activity, or usage mix so operators can prioritize follow-up.",
       "empty": "No teachers need priority attention right now.",
       "emptyHint": "Teachers appear after matching high consumption, high call volume, production activity, debug-heavy usage, sustained activity, or rapid growth rules.",
       "filters": {
@@ -318,7 +318,7 @@
         "debugHeavyCount": "Debug-heavy teachers",
         "debugHeavyCountHint": "Teachers whose debug/preview usage is high in the last 30 days",
         "focusCount": "Teachers to review",
-        "focusCountHint": "Matches one or more attention rules",
+        "focusCountHint": "Matches one or more usage attention rules",
         "totalCredits": "30d credits from reviewed teachers",
         "totalCreditsHint": "30-day total for teachers currently shown"
       },
@@ -338,7 +338,7 @@
         "productionRatio": "Production credit ratio",
         "recordCount7d": "7-day calls"
       },
-      "title": "Business Attention Summary"
+      "title": "Usage Attention Summary"
     },
     "subscriptions": {
       "description": "Review subscriptions that need follow-up, including credit balances and next actions.",
@@ -379,7 +379,7 @@
       "entitlements": "Brand & payment setup",
       "exceptions": "Alerts",
       "orders": "Exception Orders",
-      "reports": "Business Attention",
+      "reports": "Usage Attention",
       "subscriptions": "Subscription Follow-up"
     },
     "title": "Commercial Operations"
