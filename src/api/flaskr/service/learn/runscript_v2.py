@@ -262,17 +262,11 @@ def run_script_inner(
                 if not resolved_shifu_bid:
                     raise_error("server.shifu.courseNotFound")
                 shifu_info = get_shifu_dto(app, resolved_shifu_bid, preview_mode)
-                if not shifu_info:
-                    raise_error("server.outline.hasNotLesson")
                 resolved_shifu_bid = shifu_info.bid
             else:
                 outline_item_info = get_outline_item_dto(app, outline_bid, preview_mode)
-                if not outline_item_info:
-                    raise_error("server.shifu.lessonNotFoundInCourse")
                 resolved_shifu_bid = outline_item_info.shifu_bid
                 shifu_info = get_shifu_dto(app, resolved_shifu_bid, preview_mode)
-                if not shifu_info:
-                    raise_error("server.shifu.courseNotFound")
 
             struct_info = get_shifu_struct(app, shifu_info.bid, preview_mode)
             if not struct_info:
