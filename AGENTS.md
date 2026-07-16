@@ -96,7 +96,11 @@ rules, but must not duplicate or redefine them.
   check. It does not enforce the `Changed:` / `Benefit:` body or the
   classification rules below.
 - Subject: use English Conventional Commits without scope parentheses, such as
-  `type: summary`; do not use `type(scope): summary`.
+  `type: summary`; do not use `type(scope): summary`. Write the summary in
+  plain language that product users can understand. When a change affects
+  users, describe the user-visible outcome or benefit instead of only naming
+  the internal implementation detail (e.g., 'fix: prevent audio overlapping'
+  instead of 'fix: update useExclusiveAudio state').
 - Body: include exactly two sections, `Changed:` and `Benefit:`.
 - Classification: use `chore` for repository-maintenance-only instruction or
   generated guidance updates like this file.
