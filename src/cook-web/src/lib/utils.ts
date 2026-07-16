@@ -26,7 +26,7 @@ export const redirectToHomeUrlIfRootPath = (homeUrl?: string): boolean => {
 
     if (
       currentUrl.origin === targetUrl.origin &&
-      (targetPath === '/' || targetPath === '/c' || currentPath === targetPath)
+      (targetPath === '/c' || currentPath === targetPath)
     ) {
       return false;
     }

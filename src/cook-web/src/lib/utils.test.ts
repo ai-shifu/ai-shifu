@@ -40,6 +40,36 @@ describe('redirectToHomeUrlIfRootPath', () => {
     expect(replace).toHaveBeenCalledWith('/c/course-1');
   });
 
+  it('redirects the course entry path to a configured root HOME_URL', () => {
+    const replace = jest.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        href: 'https://app.example.com/c',
+        pathname: '/c',
+        replace,
+      },
+    });
+
+    expect(redirectToHomeUrlIfRootPath('/')).toBe(true);
+    expect(replace).toHaveBeenCalledWith('/');
+  });
+
+  it('does not redirect the root path to itself', () => {
+    const replace = jest.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        href: 'https://app.example.com/',
+        pathname: '/',
+        replace,
+      },
+    });
+
+    expect(redirectToHomeUrlIfRootPath('/')).toBe(false);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('does not override an explicit course path', () => {
     const replace = jest.fn();
     Object.defineProperty(window, 'location', {

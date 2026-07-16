@@ -109,4 +109,34 @@ describe('course route entry redirect', () => {
       expect(replace).toHaveBeenCalledWith('/c/runtime-course');
     });
   });
+
+  it('redirects a direct /c entry to a configured root HOME_URL', async () => {
+    const replace = jest.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        href: 'https://app.example.com/c',
+        pathname: '/c',
+        replace,
+      },
+    });
+    mockPathname = '/c';
+    act(() => {
+      useEnvStore.setState({
+        homeUrl: '/',
+        runtimeConfigLoaded: true,
+      });
+    });
+
+    render(
+      <ChatLayout>
+        <div>{childLabel}</div>
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith('/');
+    });
+    expect(screen.queryByText(childLabel)).not.toBeInTheDocument();
+  });
 });
