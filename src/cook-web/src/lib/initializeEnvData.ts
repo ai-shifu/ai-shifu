@@ -2,7 +2,6 @@
 
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
-import { redirectToHomeUrlIfRootPath } from '@/lib/utils';
 import { getBoolEnv } from '@/c-utils/envUtils';
 import {
   environment,
@@ -148,11 +147,6 @@ const loadRuntimeConfig = async () => {
 
   const payload = await fetchRuntimeConfig();
   const runtimeConfig = payload?.data ?? payload;
-  if (
-    redirectToHomeUrlIfRootPath(runtimeConfig?.homeUrl || environment.homeUrl)
-  ) {
-    return;
-  }
 
   const paymentChannels = normalizeStringArray(
     runtimeConfig?.paymentChannels,
