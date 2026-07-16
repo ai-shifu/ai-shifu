@@ -3,7 +3,7 @@ import { redirectToHomeUrlIfRootPath } from './utils';
 const originalLocation = window.location;
 
 describe('redirectToHomeUrlIfRootPath', () => {
-  afterAll(() => {
+  afterEach(() => {
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: originalLocation,
