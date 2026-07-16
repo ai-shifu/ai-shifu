@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { redirectToHomeUrlIfRootPath } from '@/lib/utils';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
+import { environment } from '@/config/environment';
 
 export default function Home() {
   const homeUrl = useEnvStore((state: EnvStoreState) => state.homeUrl);
@@ -15,7 +16,7 @@ export default function Home() {
     if (!runtimeConfigLoaded) {
       return;
     }
-    redirectToHomeUrlIfRootPath(homeUrl || '/admin');
+    redirectToHomeUrlIfRootPath(homeUrl || environment.homeUrl);
   }, [homeUrl, runtimeConfigLoaded]);
 
   return (
