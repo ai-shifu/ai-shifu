@@ -12,6 +12,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from flask import Flask
+from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.datastructures import FileStorage
 
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
@@ -23,12 +24,14 @@ from flaskr.util.uuid import generate_id
 
 from .domains import build_creator_domain_bindings
 from .entitlements import (
+    grant_creator_manual_entitlement,
     resolve_creator_entitlement_state,
     serialize_creator_entitlements,
 )
 from .primitives import normalize_bid
 
 BRANDING_KEY = "CUSTOMIZATION.BRANDING"
+ADMIN_DRAFT_KEY = "CUSTOMIZATION.ADMIN_DRAFT"
 INTEGRATION_ACTIVE_KEY = "CUSTOMIZATION.INTEGRATION.{provider}.ACTIVE"
 INTEGRATION_VERSION_KEY = "CUSTOMIZATION.INTEGRATION.{provider}.VERSION"
 INTEGRATION_PROVIDERS = (
@@ -114,6 +117,19 @@ _LOGO_CONTENT_TYPES = {
     ".webp": "image/webp",
 }
 _LOGO_MAX_BYTES = 2 * 1024 * 1024
+_LOGO_MAX_PIXELS = 12_000_000
+_LOGO_VARIANTS = {"wide", "square"}
+_LOGO_WIDE_CSS_SIZE = (220, 32)
+_LOGO_SQUARE_CSS_SIZE = (32, 32)
+_LOGO_MAX_DEVICE_SCALE = 3
+_LOGO_WIDE_MAX_SIZE = (
+    _LOGO_WIDE_CSS_SIZE[0] * _LOGO_MAX_DEVICE_SCALE,
+    _LOGO_WIDE_CSS_SIZE[1] * _LOGO_MAX_DEVICE_SCALE,
+)
+_LOGO_SQUARE_MAX_SIZE = (
+    _LOGO_SQUARE_CSS_SIZE[0] * _LOGO_MAX_DEVICE_SCALE,
+    _LOGO_SQUARE_CSS_SIZE[1] * _LOGO_MAX_DEVICE_SCALE,
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -130,14 +146,22 @@ def is_creator_customization_enabled() -> bool:
     return _to_bool(get_config("CREATOR_CUSTOMIZATION_ENABLED", False))
 
 
-def build_creator_customization(app: Flask, creator_bid: str) -> dict[str, Any]:
+def build_creator_customization(
+    app: Flask,
+    creator_bid: str,
+    *,
+    force_enabled: bool = False,
+) -> dict[str, Any]:
     creator_bid = normalize_bid(creator_bid)
     with app.app_context():
         entitlement = resolve_creator_entitlement_state(creator_bid)
         return {
-            "enabled": is_creator_customization_enabled(),
+            "enabled": force_enabled or is_creator_customization_enabled(),
             "creator_bid": creator_bid,
-            "capabilities": build_customization_capabilities(entitlement),
+            "capabilities": build_customization_capabilities(
+                entitlement,
+                force_enabled=force_enabled,
+            ),
             "entitlements": serialize_creator_entitlements(entitlement).__json__(),
             "branding": resolve_creator_branding(creator_bid),
             "domains": build_creator_domain_bindings(app, creator_bid).__json__(),
@@ -148,8 +172,133 @@ def build_creator_customization(app: Flask, creator_bid: str) -> dict[str, Any]:
         }
 
 
-def build_customization_capabilities(entitlement) -> dict[str, bool]:
-    enabled = is_creator_customization_enabled()
+def build_admin_creator_customization_draft(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    creator_mobile: str = "",
+) -> dict[str, Any]:
+    owner_bid = _admin_draft_owner_bid(
+        creator_bid=creator_bid,
+        creator_mobile=creator_mobile,
+    )
+    with app.app_context():
+        value = _saas_funcs(required=False)
+        if value is None:
+            return _empty_admin_creator_customization_draft(
+                creator_mobile=creator_mobile
+            )
+        payload = _load_json(
+            value.get_sass_config(owner_bid, ADMIN_DRAFT_KEY, default="{}")
+        )
+        return _normalize_admin_creator_customization_draft(
+            payload,
+            creator_mobile=creator_mobile,
+        )
+
+
+def save_admin_creator_customization_draft(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    creator_mobile: str = "",
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    owner_bid = _admin_draft_owner_bid(
+        creator_bid=creator_bid,
+        creator_mobile=creator_mobile,
+    )
+    normalized = _normalize_admin_creator_customization_draft(
+        payload,
+        creator_mobile=creator_mobile,
+    )
+    with app.app_context():
+        funcs = _saas_funcs(required=False)
+        if funcs is None:
+            return normalized
+        funcs.create_or_update_saas_user_config(
+            app,
+            funcs.SaasUserConfigCreateDTO(
+                user_bid=owner_bid,
+                key=ADMIN_DRAFT_KEY,
+                value=_dump_json(normalized),
+                is_encrypted=1,
+                remark="Admin billing customization draft",
+            ),
+        )
+    return normalized
+
+
+def clear_admin_creator_customization_draft(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    creator_mobile: str = "",
+) -> None:
+    if not normalize_bid(creator_bid) and not str(creator_mobile or "").strip():
+        return
+    owner_bid = _admin_draft_owner_bid(
+        creator_bid=creator_bid,
+        creator_mobile=creator_mobile,
+    )
+    funcs = _saas_funcs(required=False)
+    if funcs is None:
+        return
+    with app.app_context():
+        funcs.soft_delete_saas_user_config(
+            app,
+            user_bid=owner_bid,
+            key=ADMIN_DRAFT_KEY,
+        )
+
+
+def upload_admin_creator_draft_logo(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    creator_mobile: str = "",
+    file: FileStorage,
+    target: str = "wide",
+) -> str:
+    owner_bid = _admin_draft_owner_bid(
+        creator_bid=creator_bid,
+        creator_mobile=creator_mobile,
+    )
+    normalized_target = _normalize_logo_target(target)
+    filename = str(file.filename or "").strip()
+    suffix = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    expected_content_type = _LOGO_CONTENT_TYPES.get(suffix)
+    content = file.stream.read(_LOGO_MAX_BYTES + 1)
+    if (
+        expected_content_type is None
+        or not content
+        or len(content) > _LOGO_MAX_BYTES
+        or _detect_logo_content_type(content) != expected_content_type
+    ):
+        raise_param_error("file")
+
+    normalized_content = _normalize_logo_image(
+        content,
+        suffix=suffix,
+        target=normalized_target,
+    )
+    result = upload_to_storage(
+        app,
+        file_content=BytesIO(normalized_content),
+        object_key=f"creator-branding-drafts/{owner_bid}/{generate_id(app)}{suffix}",
+        content_type=expected_content_type,
+        profile=OSS_PROFILE_COURSES,
+        warm_up=False,
+    )
+    return result.url
+
+
+def build_customization_capabilities(
+    entitlement,
+    *,
+    force_enabled: bool = False,
+) -> dict[str, bool]:
+    enabled = force_enabled or is_creator_customization_enabled()
     return {
         "branding": enabled and bool(entitlement.branding_enabled),
         "custom_domain": enabled and bool(entitlement.custom_domain_enabled),
@@ -162,13 +311,20 @@ def upload_creator_brand_logo(
     app: Flask,
     creator_bid: str,
     file: FileStorage,
+    target: str = "wide",
+    *,
+    allow_when_customization_disabled: bool = False,
 ) -> str:
     """Validate and upload a course-owner logo through managed storage."""
 
     creator_bid = normalize_bid(creator_bid)
+    normalized_target = _normalize_logo_target(target)
     with app.app_context():
         entitlement = resolve_creator_entitlement_state(creator_bid)
-        _require_capability(entitlement.branding_enabled)
+        _require_capability(
+            entitlement.branding_enabled,
+            allow_when_customization_disabled=allow_when_customization_disabled,
+        )
 
         filename = str(file.filename or "").strip()
         suffix = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
@@ -182,9 +338,15 @@ def upload_creator_brand_logo(
         ):
             raise_param_error("file")
 
+        normalized_content = _normalize_logo_image(
+            content,
+            suffix=suffix,
+            target=normalized_target,
+        )
+
         result = upload_to_storage(
             app,
-            file_content=BytesIO(content),
+            file_content=BytesIO(normalized_content),
             object_key=(f"creator-branding/{creator_bid}/{generate_id(app)}{suffix}"),
             content_type=expected_content_type,
             profile=OSS_PROFILE_COURSES,
@@ -194,12 +356,19 @@ def upload_creator_brand_logo(
 
 
 def save_creator_branding(
-    app: Flask, creator_bid: str, payload: dict[str, Any]
+    app: Flask,
+    creator_bid: str,
+    payload: dict[str, Any],
+    *,
+    allow_when_customization_disabled: bool = False,
 ) -> dict[str, str]:
     creator_bid = normalize_bid(creator_bid)
     with app.app_context():
         entitlement = resolve_creator_entitlement_state(creator_bid)
-        _require_capability(entitlement.branding_enabled)
+        _require_capability(
+            entitlement.branding_enabled,
+            allow_when_customization_disabled=allow_when_customization_disabled,
+        )
         value = {
             "logo_wide_url": _normalize_logo_url(
                 payload.get("logo_wide_url"), "logo_wide_url"
@@ -208,7 +377,19 @@ def save_creator_branding(
                 payload.get("logo_square_url"), "logo_square_url"
             ),
         }
-        funcs = _saas_funcs()
+        funcs = _saas_funcs(required=False)
+        if funcs is None:
+            grant_creator_manual_entitlement(
+                app,
+                creator_bid,
+                branding_enabled=entitlement.branding_enabled,
+                custom_domain_enabled=entitlement.custom_domain_enabled,
+                custom_wechat_enabled=entitlement.custom_wechat_enabled,
+                custom_payment_enabled=entitlement.custom_payment_enabled,
+                branding=value,
+            )
+            return value
+
         funcs.create_or_update_saas_user_config(
             app,
             funcs.SaasUserConfigCreateDTO(
@@ -223,7 +404,12 @@ def save_creator_branding(
 
 
 def save_creator_integration(
-    app: Flask, creator_bid: str, provider: str, payload: dict[str, Any]
+    app: Flask,
+    creator_bid: str,
+    provider: str,
+    payload: dict[str, Any],
+    *,
+    allow_when_customization_disabled: bool = False,
 ) -> dict[str, Any]:
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
@@ -232,10 +418,16 @@ def save_creator_integration(
         _require_capability(
             entitlement.custom_wechat_enabled
             if provider == "wechat_oauth"
-            else entitlement.custom_payment_enabled
+            else entitlement.custom_payment_enabled,
+            allow_when_customization_disabled=allow_when_customization_disabled,
         )
         public_config = _normalize_config(provider, payload.get("public_config"), False)
         secret_config = _normalize_config(provider, payload.get("secret_config"), True)
+        previous_record = _load_active_record(creator_bid, provider)
+        if previous_record:
+            previous_secret_config = dict(previous_record.get("secret_config") or {})
+            if previous_secret_config:
+                secret_config = {**previous_secret_config, **secret_config}
         integration_bid = generate_id(app)
         record = {
             "integration_bid": integration_bid,
@@ -338,14 +530,28 @@ def disable_creator_integration(
 def resolve_creator_branding(creator_bid: str) -> dict[str, str]:
     funcs = _saas_funcs(required=False)
     if funcs is None:
-        return {"logo_wide_url": "", "logo_square_url": ""}
+        return _resolve_entitlement_branding(creator_bid)
     value = funcs.get_sass_config(
         normalize_bid(creator_bid), BRANDING_KEY, default="{}"
     )
     payload = _load_json(value)
-    return {
+    resolved = {
         "logo_wide_url": str(payload.get("logo_wide_url") or ""),
         "logo_square_url": str(payload.get("logo_square_url") or ""),
+    }
+    if resolved["logo_wide_url"] or resolved["logo_square_url"]:
+        return resolved
+    return _resolve_entitlement_branding(creator_bid)
+
+
+def _resolve_entitlement_branding(creator_bid: str) -> dict[str, str]:
+    entitlement = resolve_creator_entitlement_state(creator_bid)
+    feature_payload = entitlement.feature_payload.to_metadata_json()
+    branding_payload = feature_payload.get("branding")
+    branding = branding_payload if isinstance(branding_payload, dict) else {}
+    return {
+        "logo_wide_url": str(branding.get("logo_wide_url") or ""),
+        "logo_square_url": str(branding.get("logo_square_url") or ""),
     }
 
 
@@ -662,8 +868,14 @@ def _validate_required_config(
         raise ValueError("Missing required configuration: " + ", ".join(missing))
 
 
-def _require_capability(granted: bool) -> None:
-    if not is_creator_customization_enabled() or not granted:
+def _require_capability(
+    granted: bool,
+    *,
+    allow_when_customization_disabled: bool = False,
+) -> None:
+    if (
+        not allow_when_customization_disabled and not is_creator_customization_enabled()
+    ) or not granted:
         raise_error("server.shifu.noPermission")
 
 
@@ -701,6 +913,101 @@ def _detect_logo_content_type(content: bytes) -> str:
     return ""
 
 
+def _normalize_logo_target(value: Any) -> str:
+    normalized = str(value or "wide").strip().lower()
+    if normalized not in _LOGO_VARIANTS:
+        raise_param_error("target")
+    return normalized
+
+
+def _normalize_logo_image(content: bytes, *, suffix: str, target: str) -> bytes:
+    try:
+        with Image.open(BytesIO(content)) as image:
+            if image.width * image.height > _LOGO_MAX_PIXELS:
+                raise_param_error("file")
+            normalized_image = ImageOps.exif_transpose(image)
+            if target == "square":
+                rendered = _contain_logo_without_upscale(
+                    normalized_image,
+                    _LOGO_SQUARE_MAX_SIZE,
+                )
+                canvas_size = (
+                    min(_LOGO_SQUARE_MAX_SIZE[0], max(rendered.width, rendered.height)),
+                    min(_LOGO_SQUARE_MAX_SIZE[1], max(rendered.width, rendered.height)),
+                )
+                canvas = _create_logo_canvas(
+                    size=canvas_size,
+                    suffix=suffix,
+                    source_mode=rendered.mode,
+                )
+                offset = (
+                    (canvas_size[0] - rendered.width) // 2,
+                    (canvas_size[1] - rendered.height) // 2,
+                )
+                _paste_logo(canvas, rendered, offset)
+                return _save_logo_image(canvas, suffix=suffix)
+
+            rendered = _contain_logo_without_upscale(
+                normalized_image,
+                _LOGO_WIDE_MAX_SIZE,
+            )
+            return _save_logo_image(rendered, suffix=suffix)
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError):
+        raise_param_error("file")
+
+
+def _contain_logo_without_upscale(
+    image: Image.Image,
+    size: tuple[int, int],
+) -> Image.Image:
+    rendered = image.copy()
+    if rendered.width > size[0] or rendered.height > size[1]:
+        rendered.thumbnail(size, Image.Resampling.LANCZOS)
+    return rendered
+
+
+def _create_logo_canvas(
+    *,
+    size: tuple[int, int],
+    suffix: str,
+    source_mode: str,
+) -> Image.Image:
+    if suffix in {".jpg", ".jpeg"}:
+        return Image.new("RGB", size, (255, 255, 255))
+    if "A" in source_mode:
+        return Image.new("RGBA", size, (255, 255, 255, 0))
+    return Image.new("RGB", size, (255, 255, 255))
+
+
+def _paste_logo(
+    canvas: Image.Image,
+    rendered: Image.Image,
+    offset: tuple[int, int],
+) -> None:
+    if "A" in rendered.getbands():
+        canvas.paste(rendered, offset, rendered)
+        return
+    canvas.paste(rendered, offset)
+
+
+def _save_logo_image(image: Image.Image, *, suffix: str) -> bytes:
+    output = BytesIO()
+    save_kwargs: dict[str, Any] = {}
+    if suffix == ".webp":
+        save_format = "WEBP"
+    elif suffix in {".jpg", ".jpeg"}:
+        save_format = "JPEG"
+        if image.mode not in {"RGB", "L"}:
+            image = image.convert("RGB")
+        save_kwargs["quality"] = 95
+    else:
+        save_format = "PNG"
+        if image.mode not in {"RGB", "RGBA", "L"}:
+            image = image.convert("RGBA")
+    image.save(output, format=save_format, **save_kwargs)
+    return output.getvalue()
+
+
 def _saas_funcs(*, required: bool = True):
     try:
         return import_module(
@@ -736,3 +1043,109 @@ def _to_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _admin_draft_owner_bid(*, creator_bid: str = "", creator_mobile: str = "") -> str:
+    normalized_creator_bid = normalize_bid(creator_bid)
+    if normalized_creator_bid:
+        return f"billing-admin-draft:creator:{normalized_creator_bid}"
+
+    normalized_creator_mobile = str(creator_mobile or "").strip()
+    if not normalized_creator_mobile:
+        raise_param_error("creator_mobile")
+    mobile_digest = hashlib.sha256(
+        normalized_creator_mobile.encode("utf-8")
+    ).hexdigest()
+    return f"billing-admin-draft:mobile:{mobile_digest}"
+
+
+def _empty_admin_creator_customization_draft(
+    *, creator_mobile: str = ""
+) -> dict[str, Any]:
+    return {
+        "creator_mobile": str(creator_mobile or "").strip(),
+        "branding_enabled": False,
+        "custom_domain_enabled": False,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
+        "config_status": "pending",
+        "note": "",
+        "branding": {
+            "logo_wide_url": "",
+            "logo_square_url": "",
+        },
+        "domain": {
+            "host": "",
+        },
+        "integrations": {
+            provider: {"public_config": {}, "secret_config": {}}
+            for provider in INTEGRATION_PROVIDERS
+        },
+    }
+
+
+def _normalize_admin_creator_customization_draft(
+    payload: dict[str, Any],
+    *,
+    creator_mobile: str = "",
+) -> dict[str, Any]:
+    base = _empty_admin_creator_customization_draft(creator_mobile=creator_mobile)
+    result = dict(base)
+    result["creator_mobile"] = str(
+        payload.get("creator_mobile") or creator_mobile or ""
+    ).strip()
+    for key in (
+        "branding_enabled",
+        "custom_domain_enabled",
+        "custom_wechat_enabled",
+        "custom_payment_enabled",
+    ):
+        result[key] = _to_bool(payload.get(key))
+
+    config_status = str(payload.get("config_status") or "pending").strip().lower()
+    result["config_status"] = (
+        config_status
+        if config_status in {"pending", "in_progress", "completed", "exception"}
+        else "pending"
+    )
+    result["note"] = str(payload.get("note") or "")[:500]
+
+    branding_payload = payload.get("branding")
+    if isinstance(branding_payload, dict):
+        result["branding"] = {
+            "logo_wide_url": _normalize_logo_url(
+                branding_payload.get("logo_wide_url"), "logo_wide_url"
+            )
+            if branding_payload.get("logo_wide_url")
+            else "",
+            "logo_square_url": _normalize_logo_url(
+                branding_payload.get("logo_square_url"), "logo_square_url"
+            )
+            if branding_payload.get("logo_square_url")
+            else "",
+        }
+
+    domain_payload = payload.get("domain")
+    if isinstance(domain_payload, dict):
+        result["domain"] = {"host": str(domain_payload.get("host") or "").strip()}
+
+    integrations_payload = payload.get("integrations")
+    if isinstance(integrations_payload, dict):
+        normalized_integrations = {}
+        for provider in INTEGRATION_PROVIDERS:
+            provider_payload = integrations_payload.get(provider)
+            if isinstance(provider_payload, dict):
+                normalized_integrations[provider] = {
+                    "public_config": _normalize_config(
+                        provider, provider_payload.get("public_config"), False
+                    ),
+                    "secret_config": {},
+                }
+            else:
+                normalized_integrations[provider] = {
+                    "public_config": {},
+                    "secret_config": {},
+                }
+        result["integrations"] = normalized_integrations
+
+    return result

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -15,10 +15,15 @@ from flask.cli import with_appcontext
 from flaskr.dao import db
 from flaskr.service.config.models import Config
 from flaskr.service.shifu.models import AiCourseAuth
+from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import (
+    create_user_entity,
+    get_user_entity_by_bid,
     load_user_aggregate,
     load_user_aggregate_by_identifier,
     mark_user_roles,
+    update_user_entity_fields,
+    upsert_credential,
 )
 from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
@@ -28,6 +33,8 @@ from .consts import (
     ALLOCATION_INTERVAL_MANUAL,
     ALLOCATION_INTERVAL_ONE_TIME,
     ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_INTERVAL_DAY,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_NONE,
@@ -35,9 +42,14 @@ from .consts import (
     BILLING_MODE_MANUAL,
     BILLING_MODE_ONE_TIME,
     BILLING_MODE_RECURRING,
+    BILLING_ORDER_STATUS_FAILED,
+    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_TIMEOUT,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+    BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_PRODUCT_STATUS_INACTIVE,
     BILLING_PRODUCT_TYPE_CUSTOM,
@@ -49,9 +61,17 @@ from .consts import (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+    BILLING_RENEWAL_EVENT_TYPE_RETRY,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILL_SYS_CONFIG_SEEDS,
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
     CREDIT_USAGE_RATE_SEEDS,
 )
 from .daily_aggregates import (
@@ -65,6 +85,7 @@ from .manual_credit_grants import (
     grant_manual_credits_to_user,
 )
 from .models import (
+    BillingDailyUsageMetric,
     BillingOrder,
     BillingProduct,
     BillingRenewalEvent,
@@ -330,6 +351,20 @@ def register_billing_commands(console) -> None:
         """Upsert billing bootstrap rates and config rows."""
 
         _echo_payload(seed_billing_bootstrap_data())
+
+    @billing_group.command(name="seed-sample-exception-orders")
+    @with_appcontext
+    def seed_sample_exception_orders_command() -> None:
+        """Upsert sample abnormal orders for local admin billing debugging."""
+
+        _echo_payload(seed_sample_exception_orders())
+
+    @billing_group.command(name="seed-sample-focus-teachers")
+    @with_appcontext
+    def seed_sample_focus_teachers_command() -> None:
+        """Upsert sample focus-teacher usage metrics for local admin billing."""
+
+        _echo_payload(seed_sample_focus_teachers())
 
     @billing_group.command(name="upsert-product")
     @click.option("--product-bid", required=True, help="Bill product bid.")
@@ -994,6 +1029,524 @@ def seed_billing_bootstrap_data() -> dict[str, Any]:
     }
 
 
+def seed_sample_exception_orders() -> dict[str, Any]:
+    current_time = now_utc().replace(microsecond=0)
+    plan_product_bid = _load_first_active_product_bid(BILLING_PRODUCT_TYPE_PLAN)
+    topup_product_bid = _load_first_active_product_bid(BILLING_PRODUCT_TYPE_TOPUP)
+
+    if not plan_product_bid or not topup_product_bid:
+        raise click.ClickException(
+            "Active billing plan/topup products are required before seeding "
+            "sample exception orders."
+        )
+
+    creator_specs = [
+        {
+            "user_bid": "billing-debug-creator-failed",
+            "identify": "13900001001",
+            "mobile": "13900001001",
+            "nickname": "Teacher Failed",
+        },
+        {
+            "user_bid": "billing-debug-creator-pending",
+            "identify": "13900001002",
+            "mobile": "13900001002",
+            "nickname": "Teacher Pending",
+        },
+        {
+            "user_bid": "billing-debug-creator-timeout",
+            "identify": "13900001003",
+            "mobile": "13900001003",
+            "nickname": "",
+        },
+    ]
+
+    creator_inserted = 0
+    creator_updated = 0
+    for creator_spec in creator_specs:
+        if _upsert_sample_exception_creator(
+            user_bid=creator_spec["user_bid"],
+            identify=creator_spec["identify"],
+            mobile=creator_spec["mobile"],
+            nickname=creator_spec["nickname"],
+        ):
+            creator_inserted += 1
+        else:
+            creator_updated += 1
+
+    subscription_result = _upsert_bootstrap_rows(
+        model=BillingSubscription,
+        key_field="subscription_bid",
+        rows=[
+            {
+                "subscription_bid": "billing-debug-subscription-failed",
+                "creator_bid": "billing-debug-creator-failed",
+                "product_bid": plan_product_bid,
+                "status": BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+                "billing_provider": "stripe",
+                "provider_subscription_id": "billing-debug-subscription-failed-ref",
+                "provider_customer_id": "billing-debug-customer-failed",
+                "billing_anchor_at": current_time,
+                "current_period_start_at": current_time,
+                "current_period_end_at": current_time,
+                "grace_period_end_at": current_time,
+                "cancel_at_period_end": 0,
+                "next_product_bid": "",
+                "last_renewed_at": current_time,
+                "last_failed_at": current_time,
+                "metadata_json": {"seed_source": "sample_exception_orders"},
+                "deleted": 0,
+                "created_at": current_time,
+                "updated_at": current_time,
+            },
+            {
+                "subscription_bid": "billing-debug-subscription-pending",
+                "creator_bid": "billing-debug-creator-pending",
+                "product_bid": plan_product_bid,
+                "status": BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+                "billing_provider": "pingxx",
+                "provider_subscription_id": "billing-debug-subscription-pending-ref",
+                "provider_customer_id": "billing-debug-customer-pending",
+                "billing_anchor_at": current_time,
+                "current_period_start_at": current_time,
+                "current_period_end_at": current_time,
+                "grace_period_end_at": None,
+                "cancel_at_period_end": 1,
+                "next_product_bid": "",
+                "last_renewed_at": current_time,
+                "last_failed_at": None,
+                "metadata_json": {"seed_source": "sample_exception_orders"},
+                "deleted": 0,
+                "created_at": current_time,
+                "updated_at": current_time,
+            },
+            {
+                "subscription_bid": "billing-debug-subscription-paused",
+                "creator_bid": "billing-debug-creator-timeout",
+                "product_bid": plan_product_bid,
+                "status": BILLING_SUBSCRIPTION_STATUS_PAUSED,
+                "billing_provider": "manual",
+                "provider_subscription_id": "billing-debug-subscription-paused-ref",
+                "provider_customer_id": "billing-debug-customer-timeout",
+                "billing_anchor_at": current_time,
+                "current_period_start_at": current_time,
+                "current_period_end_at": current_time,
+                "grace_period_end_at": None,
+                "cancel_at_period_end": 0,
+                "next_product_bid": "",
+                "last_renewed_at": current_time,
+                "last_failed_at": None,
+                "metadata_json": {"seed_source": "sample_exception_orders"},
+                "deleted": 0,
+                "created_at": current_time,
+                "updated_at": current_time,
+            },
+        ],
+    )
+    renewal_result = _upsert_bootstrap_rows(
+        model=BillingRenewalEvent,
+        key_field="renewal_event_bid",
+        rows=[
+            {
+                "renewal_event_bid": "billing-debug-renewal-failed",
+                "subscription_bid": "billing-debug-subscription-failed",
+                "creator_bid": "billing-debug-creator-failed",
+                "event_type": BILLING_RENEWAL_EVENT_TYPE_RETRY,
+                "scheduled_at": current_time,
+                "status": BILLING_RENEWAL_EVENT_STATUS_FAILED,
+                "attempt_count": 2,
+                "last_error": "card_declined",
+                "payload_json": {"bill_order_bid": "billing-debug-order-failed"},
+                "processed_at": current_time,
+                "deleted": 0,
+                "created_at": current_time,
+                "updated_at": current_time,
+            },
+            {
+                "renewal_event_bid": "billing-debug-renewal-pending",
+                "subscription_bid": "billing-debug-subscription-pending",
+                "creator_bid": "billing-debug-creator-pending",
+                "event_type": BILLING_RENEWAL_EVENT_TYPE_RETRY,
+                "scheduled_at": current_time,
+                "status": BILLING_RENEWAL_EVENT_STATUS_PENDING,
+                "attempt_count": 1,
+                "last_error": "",
+                "payload_json": {"bill_order_bid": "billing-debug-order-pending"},
+                "processed_at": None,
+                "deleted": 0,
+                "created_at": current_time,
+                "updated_at": current_time,
+            },
+        ],
+    )
+
+    order_result = _upsert_bootstrap_rows(
+        model=BillingOrder,
+        key_field="bill_order_bid",
+        rows=[
+            {
+                "bill_order_bid": "billing-debug-order-failed",
+                "creator_bid": "billing-debug-creator-failed",
+                "order_type": BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                "product_bid": plan_product_bid,
+                "subscription_bid": "billing-debug-subscription-failed",
+                "currency": "CNY",
+                "payable_amount": 29900,
+                "paid_amount": 0,
+                "payment_provider": "stripe",
+                "channel": "checkout_session",
+                "provider_reference_id": "billing-debug-order-failed-ref",
+                "status": BILLING_ORDER_STATUS_FAILED,
+                "paid_at": None,
+                "failed_at": current_time,
+                "refunded_at": None,
+                "expires_at": None,
+                "failure_code": "card_declined",
+                "failure_message": "Card was declined",
+                "metadata_json": {"seed_source": "sample_exception_orders"},
+                "campaign_bid": "",
+                "campaign_benefit_type": 0,
+                "campaign_discount_amount": 0,
+                "campaign_bonus_credit_amount": Decimal("0"),
+                "deleted": 0,
+                "created_at": current_time,
+                "updated_at": current_time,
+            },
+            {
+                "bill_order_bid": "billing-debug-order-pending",
+                "creator_bid": "billing-debug-creator-pending",
+                "order_type": BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                "product_bid": plan_product_bid,
+                "subscription_bid": "",
+                "currency": "CNY",
+                "payable_amount": 9900,
+                "paid_amount": 0,
+                "payment_provider": "pingxx",
+                "channel": "alipay_qr",
+                "provider_reference_id": "billing-debug-order-pending-ref",
+                "status": BILLING_ORDER_STATUS_PENDING,
+                "paid_at": None,
+                "failed_at": None,
+                "refunded_at": None,
+                "expires_at": current_time,
+                "failure_code": "",
+                "failure_message": "",
+                "metadata_json": {"seed_source": "sample_exception_orders"},
+                "campaign_bid": "",
+                "campaign_benefit_type": 0,
+                "campaign_discount_amount": 0,
+                "campaign_bonus_credit_amount": Decimal("0"),
+                "deleted": 0,
+                "created_at": current_time,
+                "updated_at": current_time,
+            },
+            {
+                "bill_order_bid": "billing-debug-order-timeout",
+                "creator_bid": "billing-debug-creator-timeout",
+                "order_type": BILLING_ORDER_TYPE_TOPUP,
+                "product_bid": topup_product_bid,
+                "subscription_bid": "",
+                "currency": "CNY",
+                "payable_amount": 19900,
+                "paid_amount": 0,
+                "payment_provider": "pingxx",
+                "channel": "wx_pub",
+                "provider_reference_id": "billing-debug-order-timeout-ref",
+                "status": BILLING_ORDER_STATUS_TIMEOUT,
+                "paid_at": None,
+                "failed_at": None,
+                "refunded_at": None,
+                "expires_at": current_time,
+                "failure_code": "checkout_timeout",
+                "failure_message": "Checkout expired",
+                "metadata_json": {"seed_source": "sample_exception_orders"},
+                "campaign_bid": "",
+                "campaign_benefit_type": 0,
+                "campaign_discount_amount": 0,
+                "campaign_bonus_credit_amount": Decimal("0"),
+                "deleted": 0,
+                "created_at": current_time,
+                "updated_at": current_time,
+            },
+        ],
+    )
+    db.session.commit()
+    return {
+        "status": "seeded",
+        "creators": {
+            "count": len(creator_specs),
+            "inserted": creator_inserted,
+            "updated": creator_updated,
+        },
+        "subscriptions": subscription_result,
+        "renewal_events": renewal_result,
+        "orders": order_result,
+        "order_bids": [
+            "billing-debug-order-failed",
+            "billing-debug-order-pending",
+            "billing-debug-order-timeout",
+        ],
+    }
+
+
+def seed_sample_focus_teachers() -> dict[str, Any]:
+    current_time = now_utc().replace(microsecond=0)
+    today = current_time.date()
+
+    creator_specs = [
+        {
+            "user_bid": "billing-focus-creator-growth",
+            "identify": "13900002001",
+            "mobile": "13900002001",
+            "nickname": "增长很快老师",
+        },
+        {
+            "user_bid": "billing-focus-creator-debug",
+            "identify": "13900002002",
+            "mobile": "13900002002",
+            "nickname": "调试偏高老师",
+        },
+        {
+            "user_bid": "billing-focus-creator-steady",
+            "identify": "13900002003",
+            "mobile": "13900002003",
+            "nickname": "稳定使用老师",
+        },
+        {
+            "user_bid": "billing-focus-creator-recent",
+            "identify": "13900002004",
+            "mobile": "13900002004",
+            "nickname": "近期活跃老师",
+        },
+    ]
+
+    creator_inserted = 0
+    creator_updated = 0
+    for creator_spec in creator_specs:
+        if _upsert_debug_creator(
+            user_bid=creator_spec["user_bid"],
+            identify=creator_spec["identify"],
+            mobile=creator_spec["mobile"],
+            nickname=creator_spec["nickname"],
+            seed_source="sample_focus_teachers",
+        ):
+            creator_inserted += 1
+        else:
+            creator_updated += 1
+
+    rows: list[dict[str, Any]] = []
+
+    def add_metric(
+        *,
+        bid: str,
+        stat_days_ago: int,
+        creator_bid: str,
+        shifu_bid: str,
+        usage_scene: int,
+        metric: int,
+        credits: str,
+        record_count: int,
+        raw_amount: int,
+    ) -> None:
+        stat_day = today - timedelta(days=stat_days_ago)
+        window_started_at = datetime.combine(stat_day, datetime.min.time())
+        window_ended_at = window_started_at + timedelta(days=1)
+        rows.append(
+            {
+                "daily_usage_metric_bid": bid,
+                "stat_date": stat_day.isoformat(),
+                "creator_bid": creator_bid,
+                "shifu_bid": shifu_bid,
+                "usage_scene": usage_scene,
+                "usage_type": BILL_USAGE_TYPE_LLM,
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "billing_metric": metric,
+                "raw_amount": raw_amount,
+                "record_count": record_count,
+                "consumed_credits": Decimal(credits),
+                "window_started_at": window_started_at,
+                "window_ended_at": window_ended_at,
+                "created_at": current_time,
+                "updated_at": current_time,
+                "deleted": 0,
+            }
+        )
+
+    add_metric(
+        bid="billing-focus-growth-current-1",
+        stat_days_ago=1,
+        creator_bid="billing-focus-creator-growth",
+        shifu_bid="billing-focus-shifu-growth",
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        credits="4.2",
+        record_count=3,
+        raw_amount=3200,
+    )
+    add_metric(
+        bid="billing-focus-growth-current-2",
+        stat_days_ago=3,
+        creator_bid="billing-focus-creator-growth",
+        shifu_bid="billing-focus-shifu-growth",
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+        credits="5.4",
+        record_count=2,
+        raw_amount=4100,
+    )
+    add_metric(
+        bid="billing-focus-growth-current-3",
+        stat_days_ago=5,
+        creator_bid="billing-focus-creator-growth",
+        shifu_bid="billing-focus-shifu-growth",
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        credits="3.8",
+        record_count=2,
+        raw_amount=2800,
+    )
+    add_metric(
+        bid="billing-focus-growth-prev-1",
+        stat_days_ago=10,
+        creator_bid="billing-focus-creator-growth",
+        shifu_bid="billing-focus-shifu-growth",
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        credits="1.4",
+        record_count=1,
+        raw_amount=1000,
+    )
+
+    add_metric(
+        bid="billing-focus-debug-current-1",
+        stat_days_ago=0,
+        creator_bid="billing-focus-creator-debug",
+        shifu_bid="billing-focus-shifu-debug",
+        usage_scene=BILL_USAGE_SCENE_DEBUG,
+        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        credits="3.6",
+        record_count=2,
+        raw_amount=2600,
+    )
+    add_metric(
+        bid="billing-focus-debug-current-2",
+        stat_days_ago=2,
+        creator_bid="billing-focus-creator-debug",
+        shifu_bid="billing-focus-shifu-debug",
+        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+        credits="3.1",
+        record_count=2,
+        raw_amount=2200,
+    )
+    add_metric(
+        bid="billing-focus-debug-current-3",
+        stat_days_ago=6,
+        creator_bid="billing-focus-creator-debug",
+        shifu_bid="billing-focus-shifu-debug",
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        credits="1.6",
+        record_count=2,
+        raw_amount=1400,
+    )
+    add_metric(
+        bid="billing-focus-debug-30d-1",
+        stat_days_ago=12,
+        creator_bid="billing-focus-creator-debug",
+        shifu_bid="billing-focus-shifu-debug",
+        usage_scene=BILL_USAGE_SCENE_DEBUG,
+        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        credits="2.4",
+        record_count=1,
+        raw_amount=1800,
+    )
+
+    add_metric(
+        bid="billing-focus-steady-current-1",
+        stat_days_ago=1,
+        creator_bid="billing-focus-creator-steady",
+        shifu_bid="billing-focus-shifu-steady",
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        credits="2.8",
+        record_count=1,
+        raw_amount=1900,
+    )
+    add_metric(
+        bid="billing-focus-steady-current-2",
+        stat_days_ago=3,
+        creator_bid="billing-focus-creator-steady",
+        shifu_bid="billing-focus-shifu-steady",
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+        credits="2.7",
+        record_count=2,
+        raw_amount=2000,
+    )
+    add_metric(
+        bid="billing-focus-steady-current-3",
+        stat_days_ago=6,
+        creator_bid="billing-focus-creator-steady",
+        shifu_bid="billing-focus-shifu-steady",
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        credits="3.4",
+        record_count=2,
+        raw_amount=2500,
+    )
+
+    add_metric(
+        bid="billing-focus-recent-current-1",
+        stat_days_ago=0,
+        creator_bid="billing-focus-creator-recent",
+        shifu_bid="billing-focus-shifu-recent",
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        credits="4.6",
+        record_count=2,
+        raw_amount=3300,
+    )
+    add_metric(
+        bid="billing-focus-recent-current-2",
+        stat_days_ago=4,
+        creator_bid="billing-focus-creator-recent",
+        shifu_bid="billing-focus-shifu-recent",
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+        credits="3.7",
+        record_count=2,
+        raw_amount=2600,
+    )
+    add_metric(
+        bid="billing-focus-recent-prev-1",
+        stat_days_ago=9,
+        creator_bid="billing-focus-creator-recent",
+        shifu_bid="billing-focus-shifu-recent",
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        credits="0.8",
+        record_count=1,
+        raw_amount=700,
+    )
+
+    usage_metric_result = _upsert_bootstrap_rows(
+        model=BillingDailyUsageMetric, key_field="daily_usage_metric_bid", rows=rows
+    )
+
+    db.session.commit()
+    return {
+        "status": "seeded",
+        "creators": {
+            "count": len(creator_specs),
+            "inserted": creator_inserted,
+            "updated": creator_updated,
+        },
+        "usage_metrics": usage_metric_result,
+    }
+
+
 def upsert_billing_product(
     *,
     product_bid: str,
@@ -1455,6 +2008,78 @@ def _parse_optional_json_object(
     if not isinstance(parsed, dict):
         raise click.ClickException(f"--{option_name} must decode to a JSON object.")
     return parsed
+
+
+def _load_first_active_product_bid(product_type: int) -> str:
+    row = (
+        BillingProduct.query.filter(
+            BillingProduct.product_type == product_type,
+            BillingProduct.status == BILLING_PRODUCT_STATUS_ACTIVE,
+            BillingProduct.deleted == 0,
+        )
+        .order_by(BillingProduct.sort_order.asc(), BillingProduct.id.asc())
+        .first()
+    )
+    return str(row.product_bid or "").strip() if row is not None else ""
+
+
+def _upsert_debug_creator(
+    *,
+    user_bid: str,
+    identify: str,
+    mobile: str,
+    nickname: str,
+    seed_source: str,
+) -> bool:
+    entity = get_user_entity_by_bid(user_bid, include_deleted=True)
+    created = entity is None
+
+    if entity is None:
+        create_user_entity(
+            user_bid=user_bid,
+            identify=identify,
+            nickname=nickname,
+            language="zh-CN",
+            state=USER_STATE_REGISTERED,
+        )
+    else:
+        update_user_entity_fields(
+            entity,
+            identify=identify,
+            nickname=nickname,
+            language="zh-CN",
+            state=USER_STATE_REGISTERED,
+            deleted=False,
+        )
+
+    mark_user_roles(user_bid, is_creator=True)
+    upsert_credential(
+        current_app,
+        user_bid=user_bid,
+        provider_name="phone",
+        subject_id=mobile,
+        subject_format="phone",
+        identifier=mobile,
+        metadata={"seed_source": seed_source},
+        verified=True,
+    )
+    return created
+
+
+def _upsert_sample_exception_creator(
+    *,
+    user_bid: str,
+    identify: str,
+    mobile: str,
+    nickname: str,
+) -> bool:
+    return _upsert_debug_creator(
+        user_bid=user_bid,
+        identify=identify,
+        mobile=mobile,
+        nickname=nickname,
+        seed_source="sample_exception_orders",
+    )
 
 
 def _load_active_plan_product(

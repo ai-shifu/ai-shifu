@@ -739,6 +739,14 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Cron expression for scanning expiring credit notifications.",
         group="celery",
     ),
+    "BILLING_DAILY_USAGE_METRICS_CRON": EnvVar(
+        name="BILLING_DAILY_USAGE_METRICS_CRON",
+        default="15 1 * * *",
+        description=(
+            "Cron expression for finalizing the previous day's billing usage metrics."
+        ),
+        group="celery",
+    ),
     "BILLING_DAILY_LEDGER_SUMMARY_CRON": EnvVar(
         name="BILLING_DAILY_LEDGER_SUMMARY_CRON",
         default="30 1 * * *",

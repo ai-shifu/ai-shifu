@@ -14,6 +14,7 @@ import {
   formatBillingDateTime,
   parseBillingDateValue,
   resolveBillingLedgerUsageType,
+  resolveAdminBillingOrderFailureLabel,
   resolveBillingLedgerReasonLabel,
   resolveBillingPlanCreditsLabel,
   resolveBillingPlanValidityLabel,
@@ -229,6 +230,35 @@ describe('billing campaign helpers', () => {
         },
       }),
     ).toBe(false);
+  });
+});
+
+describe('resolveAdminBillingOrderFailureLabel', () => {
+  test('maps known failure codes to localized copy', () => {
+    const t = jest.fn((key: string) => {
+      if (key === 'module.billing.admin.orders.failureReasons.card_declined') {
+        return '银行卡被拒付';
+      }
+      return key;
+    });
+
+    expect(
+      resolveAdminBillingOrderFailureLabel(t, {
+        failure_code: 'card_declined',
+        failure_message: 'Card was declined',
+      }),
+    ).toBe('银行卡被拒付');
+  });
+
+  test('falls back to raw failure message when no mapping exists', () => {
+    const t = jest.fn((key: string) => key);
+
+    expect(
+      resolveAdminBillingOrderFailureLabel(t, {
+        failure_code: 'unknown_failure',
+        failure_message: 'Gateway unavailable',
+      }),
+    ).toBe('Gateway unavailable');
   });
 });
 

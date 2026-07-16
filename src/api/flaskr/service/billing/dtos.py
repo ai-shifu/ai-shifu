@@ -422,7 +422,12 @@ class BillingRefundResultDTO(BillingBaseDTO):
 @register_schema_to_swagger
 class AdminBillingSubscriptionDTO(BillingSubscriptionDTO):
     creator_bid: str
+    creator_identify: str = ""
+    creator_mobile: str = ""
+    creator_nickname: str = ""
+    product_name_key: str = ""
     next_product_code: str = ""
+    next_product_name_key: str = ""
     wallet: BillingWalletSnapshotDTO
     latest_renewal_event: BillingRenewalEventDTO | None = None
     has_attention: bool
@@ -440,10 +445,14 @@ class BillingSubscriptionsPageDTO(BillingBaseDTO):
 @register_schema_to_swagger
 class AdminBillingEntitlementDTO(BillingEntitlementsDTO):
     creator_bid: str
+    creator_identify: str = ""
+    creator_mobile: str = ""
+    creator_nickname: str = ""
     source_kind: str
     source_type: str = ""
     source_bid: str | None = None
     product_bid: str | None = None
+    product_name_key: str = ""
     effective_from: datetime | None = None
     effective_to: datetime | None = None
     feature_payload: dict[str, Any] = Field(default_factory=dict)
@@ -489,6 +498,9 @@ class BillingDomainBindResultDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class AdminBillingDomainBindingDTO(BillingDomainBindingDTO):
+    creator_identify: str = ""
+    creator_mobile: str = ""
+    creator_nickname: str = ""
     custom_domain_enabled: bool
     has_attention: bool
 
@@ -504,6 +516,11 @@ class BillingDomainAuditsPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class AdminBillingOrderDTO(BillingOrderSummaryDTO):
+    creator_identify: str = ""
+    creator_mobile: str = ""
+    creator_nickname: str = ""
+    product_name_key: str = ""
+    product_credit_amount: int | float = 0
     failure_code: str = ""
     failed_at: datetime | None = None
     refunded_at: datetime | None = None
@@ -659,11 +676,39 @@ class OperatorCreditOrderDetailDTO(BillingBaseDTO):
 @register_schema_to_swagger
 class AdminBillingDailyUsageMetricDTO(BillingDailyUsageMetricDTO):
     creator_bid: str
+    creator_mobile: str = ""
+    creator_nickname: str = ""
 
 
 @register_schema_to_swagger
 class AdminBillingDailyUsageMetricsPageDTO(BillingBaseDTO):
     items: list[AdminBillingDailyUsageMetricDTO]
+    page: int
+    page_count: int
+    page_size: int
+    total: int
+
+
+@register_schema_to_swagger
+class AdminBillingFocusTeacherDTO(BillingBaseDTO):
+    creator_bid: str
+    creator_mobile: str = ""
+    creator_nickname: str = ""
+    credits_7d: int | float = 0
+    credits_30d: int | float = 0
+    record_count_7d: int = 0
+    active_days_7d: int = 0
+    production_credits_30d: int | float = 0
+    debug_preview_credits_30d: int | float = 0
+    total_credits_30d: int | float = 0
+    production_ratio_30d: int | float = 0
+    latest_usage_at: datetime | None = None
+    attention_reasons: list[str] = Field(default_factory=list)
+
+
+@register_schema_to_swagger
+class AdminBillingFocusTeachersPageDTO(BillingBaseDTO):
+    items: list[AdminBillingFocusTeacherDTO]
     page: int
     page_count: int
     page_size: int

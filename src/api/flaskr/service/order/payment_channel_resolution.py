@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Iterable, Optional, Tuple
 
 from flaskr.service.common.models import raise_error
 from flaskr.service.config import get_config
@@ -12,6 +12,7 @@ def resolve_payment_channel(
     channel_hint: Optional[str],
     stored_channel: Optional[str],
     default_pingxx_channel: Optional[str] = None,
+    additional_enabled_providers: Optional[Iterable[str]] = None,
 ) -> Tuple[str, str]:
     """Resolve the payment provider and provider-specific channel from config."""
 
@@ -26,6 +27,11 @@ def resolve_payment_channel(
     } or {"pingxx", "stripe"}
     supported_providers = {"pingxx", "stripe", "alipay", "wechatpay"}
     enabled_providers = enabled_providers.intersection(supported_providers)
+    scoped_providers = {
+        item.strip().lower()
+        for item in (additional_enabled_providers or [])
+        if str(item or "").strip()
+    }.intersection(supported_providers)
 
     if enabled_raw.strip().lower() == "pingxx,stripe":
         if "pingxx" in enabled_providers:
@@ -40,6 +46,8 @@ def resolve_payment_channel(
                 enabled_providers.discard("stripe")
         if not enabled_providers:
             enabled_providers = {"pingxx", "stripe"}
+
+    enabled_providers.update(scoped_providers)
 
     provider_from_channel = ""
     if ":" in requested_channel_lower:

@@ -7,7 +7,6 @@ import { useEnvStore } from '@/c-store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
-import { BillingCustomizationPanel } from '@/components/billing/BillingCustomizationPanel';
 import { BillingRecentActivitySection } from './components/BillingRecentActivitySection';
 import AdminTitle, {
   ADMIN_TITLE_HEADLINE_TABS_LIST_CLASSNAME,
@@ -39,9 +38,7 @@ export function AdminBillingPageClient({
   const activeTabTitle =
     activeTab === 'details'
       ? t('module.billing.page.tabs.ledger')
-      : activeTab === 'customization'
-        ? t('module.billing.page.tabs.customization')
-        : t('module.billing.page.tabs.plans');
+      : t('module.billing.page.tabs.plans');
   const pageHeading = `${t('module.billing.page.title')} · ${activeTabTitle}`;
 
   React.useEffect(() => {
@@ -133,13 +130,6 @@ export function AdminBillingPageClient({
                   {t('module.billing.page.tabs.plans')}
                 </TabsTrigger>
                 <TabsTrigger
-                  value='customization'
-                  className={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME}
-                  style={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE}
-                >
-                  {t('module.billing.page.tabs.customization')}
-                </TabsTrigger>
-                <TabsTrigger
                   value='details'
                   className={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME}
                   style={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE}
@@ -158,13 +148,6 @@ export function AdminBillingPageClient({
             <div className='pb-6'>
               <BillingOverviewTab onOpenOrdersTab={handleOpenOrdersSection} />
             </div>
-          </TabsContent>
-
-          <TabsContent
-            className='mt-0'
-            value='customization'
-          >
-            <BillingCustomizationPanel />
           </TabsContent>
 
           <TabsContent

@@ -82,6 +82,7 @@ from flaskr.common.shifu_context import set_shifu_context
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.billing.api import (
     build_provider_config_overrides,
+    resolve_creator_public_integrations,
     resolve_payment_integration_for_new_order,
     resolve_provider_credential_context,
 )
@@ -562,6 +563,9 @@ def generate_charge(
             payment_channel_hint=payment_channel,
             channel_hint=channel,
             stored_channel=stored_payment_channel or None,
+            additional_enabled_providers=_resolve_custom_payment_provider_hints(
+                creator_bid
+            ),
         )
         buy_record.payment_channel = payment_channel
         integration = resolve_payment_integration_for_new_order(
@@ -668,6 +672,7 @@ def _resolve_payment_channel(
     payment_channel_hint: Optional[str],
     channel_hint: Optional[str],
     stored_channel: Optional[str],
+    additional_enabled_providers: Optional[set[str]] = None,
 ) -> Tuple[str, str]:
     """Resolve the provider and provider-specific channel based on hints."""
 
@@ -675,7 +680,29 @@ def _resolve_payment_channel(
         payment_channel_hint=payment_channel_hint,
         channel_hint=channel_hint,
         stored_channel=stored_channel,
+        additional_enabled_providers=additional_enabled_providers,
     )
+
+
+def _resolve_custom_payment_provider_hints(creator_bid: str) -> set[str]:
+    if not creator_bid:
+        return set()
+    try:
+        public_integrations = resolve_creator_public_integrations(creator_bid)
+    except Exception:
+        from flask import current_app
+
+        current_app.logger.warning(
+            "failed to resolve custom payment providers; creator_bid=%s",
+            creator_bid,
+            exc_info=True,
+        )
+        return set()
+    return {
+        provider
+        for provider in ("alipay", "wechatpay")
+        if provider in public_integrations
+    }
 
 
 def _format_response_channel(payment_channel: str, provider_channel: str) -> str:

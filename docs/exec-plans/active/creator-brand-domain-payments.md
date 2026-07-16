@@ -20,6 +20,10 @@ merchant credentials while preserving existing global behavior.
 - [x] 2026-07-13 20:15 CST: Added operator-facing manual entitlement editing
       for all four customization capabilities and a validated managed-OSS logo
       upload endpoint; focused backend and frontend tests passed.
+- [x] 2026-07-16 17:35 CST: Recorded the reporting boundary between
+      platform-domain independent-payment orders and custom-domain orders, and
+      scoped the next implementation pass to platform-domain orders that use
+      teacher-owned payment credentials.
 
 ## Surprises & Discoveries
 
@@ -45,6 +49,13 @@ merchant credentials while preserving existing global behavior.
 - Decision: expiry blocks new custom payments but not historic callbacks.
 - Decision: custom domains strictly isolate courses by owner.
 - Decision: the two logo roles are wide and square.
+- Decision: platform-domain orders paid through teacher-owned credentials remain
+  AI-Shifu platform orders for teacher and operator order management, but their
+  settlement owner is the teacher rather than the platform.
+- Decision: custom-domain order dashboards should filter by the matched
+  `domain_binding_bid` plus owner `creator_bid`; they are not simply "all orders
+  for this teacher". The custom-domain attribution implementation is a separate
+  follow-up from independent-payment reporting.
 
 ## Outcomes & Retrospective
 
@@ -76,6 +87,8 @@ billing request/types modules.
    webhook verification.
 4. Scope WeChat OAuth exchange and credentials to the resolved owner app.
 5. Add the admin UI, translations, and focused regression coverage.
+6. Extend order management reporting for platform-domain orders that use
+   teacher-owned payment integrations.
 
 ## Concrete Steps
 
@@ -86,6 +99,10 @@ billing request/types modules.
 4. Add optional provider credential context with global fallback.
 5. Wire course-owner resolution into learner checkout and OAuth.
 6. Add focused pytest/Jest coverage, then run type, lint, harness, and boundary checks.
+7. For the next order-management pass, add settlement-owner DTO fields and
+   filters to learner order list/detail APIs and operator order overview, using
+   `payment_integration_bid` as the first reliable indicator of teacher-owned
+   payment credentials.
 
 ## Validation and Acceptance
 
@@ -96,6 +113,9 @@ billing request/types modules.
 - New orders snapshot the integration version; historic callbacks survive rotation.
 - All four providers accept scoped credentials and retain global fallback.
 - Existing orders and non-entitled owners behave as before.
+- Platform-domain orders paid through teacher-owned credentials appear in both
+  teacher order menus and operator order management, while platform collection
+  metrics exclude their paid amount.
 
 ## Idempotence and Recovery
 

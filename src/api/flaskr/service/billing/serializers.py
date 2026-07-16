@@ -370,6 +370,9 @@ def serialize_admin_subscription(
     app: Flask,
     row: BillingSubscription,
     *,
+    creator: dict[str, str],
+    product: BillingProduct | None,
+    next_product: BillingProduct | None,
     product_codes: dict[str, str],
     wallet: CreditWallet | None,
     renewal_event: BillingRenewalEvent | None,
@@ -378,8 +381,14 @@ def serialize_admin_subscription(
     return AdminBillingSubscriptionDTO(
         subscription_bid=row.subscription_bid,
         creator_bid=row.creator_bid,
+        creator_identify=str(creator.get("identify") or ""),
+        creator_mobile=str(creator.get("mobile") or ""),
+        creator_nickname=str(creator.get("nickname") or ""),
         product_bid=row.product_bid,
         product_code=product_codes.get(row.product_bid, ""),
+        product_name_key=str(product.display_name_i18n_key or "")
+        if product is not None
+        else "",
         status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(row.status, "draft"),
         billing_provider=str(row.billing_provider or ""),
         current_period_start_at=row.current_period_start_at,
@@ -389,6 +398,9 @@ def serialize_admin_subscription(
         next_product_bid=next_product_bid or None,
         next_product_code=product_codes.get(next_product_bid, "")
         if next_product_bid
+        else "",
+        next_product_name_key=str(next_product.display_name_i18n_key or "")
+        if next_product is not None
         else "",
         last_renewed_at=row.last_renewed_at,
         last_failed_at=row.last_failed_at,
@@ -578,15 +590,26 @@ def serialize_daily_ledger_summary(
 def serialize_admin_entitlement_state(
     app: Flask,
     state,
+    *,
+    creator: dict[str, str],
+    product: BillingProduct | None,
 ) -> AdminBillingEntitlementDTO:
     return AdminBillingEntitlementDTO(
         creator_bid=normalize_bid(state.creator_bid),
+        creator_identify=str(creator.get("identify") or ""),
+        creator_mobile=str(creator.get("mobile") or ""),
+        creator_nickname=str(creator.get("nickname") or ""),
         source_kind=str(state.source_kind or "default"),
         source_type=str(state.source_type or ""),
         source_bid=normalize_bid(state.source_bid) or None,
         product_bid=normalize_bid(state.product_bid),
+        product_name_key=str(product.display_name_i18n_key or "")
+        if product is not None
+        else "",
         branding_enabled=bool(state.branding_enabled),
         custom_domain_enabled=bool(state.custom_domain_enabled),
+        custom_wechat_enabled=bool(state.custom_wechat_enabled),
+        custom_payment_enabled=bool(state.custom_payment_enabled),
         priority_class=str(state.priority_class or "standard"),
         analytics_tier=str(state.analytics_tier or "basic"),
         support_tier=str(state.support_tier or "self_serve"),
@@ -600,6 +623,7 @@ def serialize_admin_domain_binding(
     app: Flask,
     row: BillingDomainBinding,
     *,
+    creator: dict[str, str],
     custom_domain_enabled: bool = False,
 ) -> AdminBillingDomainBindingDTO:
     metadata = normalize_json_object(row.metadata_json)
@@ -615,6 +639,9 @@ def serialize_admin_domain_binding(
     return AdminBillingDomainBindingDTO(
         domain_binding_bid=row.domain_binding_bid,
         creator_bid=row.creator_bid,
+        creator_identify=str(creator.get("identify") or ""),
+        creator_mobile=str(creator.get("mobile") or ""),
+        creator_nickname=str(creator.get("nickname") or ""),
         host=row.host,
         status=BILLING_DOMAIN_BINDING_STATUS_LABELS.get(row.status, "pending"),
         verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_LABELS.get(
@@ -649,13 +676,18 @@ def serialize_admin_domain_binding(
 def serialize_admin_daily_usage_metric(
     app: Flask,
     row: BillingDailyUsageMetric,
+    *,
+    creator: dict[str, str] | None = None,
 ) -> AdminBillingDailyUsageMetricDTO:
     payload = serialize_daily_usage_metric(
         app,
         row,
     )
     return AdminBillingDailyUsageMetricDTO(
-        **payload.__json__(), creator_bid=row.creator_bid
+        **payload.__json__(),
+        creator_bid=row.creator_bid,
+        creator_mobile=str((creator or {}).get("mobile") or ""),
+        creator_nickname=str((creator or {}).get("nickname") or ""),
     )
 
 
@@ -702,10 +734,22 @@ def serialize_order_summary(
 def serialize_admin_order_summary(
     app: Flask,
     row: BillingOrder,
+    *,
+    creator: dict[str, str] | None = None,
+    product: BillingProduct | None = None,
 ) -> AdminBillingOrderDTO:
     payload = serialize_order_summary(app, row)
     return AdminBillingOrderDTO(
         **payload.__json__(),
+        creator_identify=str((creator or {}).get("identify") or ""),
+        creator_mobile=str((creator or {}).get("mobile") or ""),
+        creator_nickname=str((creator or {}).get("nickname") or ""),
+        product_name_key=str(product.display_name_i18n_key or "")
+        if product is not None
+        else "",
+        product_credit_amount=credit_decimal_to_number(product.credit_amount)
+        if product is not None
+        else 0,
         failure_code=str(row.failure_code or ""),
         failed_at=row.failed_at,
         refunded_at=row.refunded_at,

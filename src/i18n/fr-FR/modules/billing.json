@@ -3,35 +3,41 @@
   "admin": {
     "adjust": {
       "cancel": "Annuler",
-      "description": "Utilisez un nombre décimal positif pour attribuer des crédits ou un nombre négatif pour les consommer selon l’ordre standard des réserves.",
+      "description": "Ajouter ou déduire des crédits enseignant et consigner la raison de cette correction manuelle.",
       "errors": {
-        "amountInvalid": "Saisir un montant décimal non nul avec jusqu’à 10 décimales.",
-        "creatorBidRequired": "Le BID du créateur est requis."
+        "amountInvalid": "Saisissez un montant decimal non nul avec 2 decimales maximum.",
+        "creatorBidRequired": "Le BID enseignant est requis.",
+        "creatorMobileRequired": "Le numéro de téléphone de l’enseignant est requis."
       },
       "fields": {
-        "amount": "Montant de l’ajustement",
-        "creatorBid": "BID du créateur",
+        "amount": "Montant de correction",
+        "creatorBid": "BID enseignant",
+        "creatorMobile": "Numéro de téléphone de l’enseignant",
         "note": "Note"
       },
       "help": {
-        "amount": "Exemples : 12.5000000 pour attribuer des crédits, -8.0000000 pour débiter des crédits."
+        "amount": "Saisissez une valeur positive pour ajouter des credits ou negative pour en deduire, avec 2 decimales maximum.",
+        "creatorMobile": "",
+        "note": "Ajoutez assez de contexte pour permettre aux opérateurs d’auditer ce mouvement manuel plus tard."
       },
-      "open": "Ajuster les crédits",
+      "open": "Corriger le grand livre",
       "placeholders": {
-        "amount": "12.5000000 ou -8.0000000",
-        "creatorBid": "creator_bid",
+        "amount": "Saisissez une valeur positive ou negative avec 2 decimales maximum",
+        "creatorBid": "Saisir le BID enseignant",
+        "creatorMobile": "Numéro de téléphone d’un enseignant existant",
         "note": "Raison de l’ajustement manuel"
       },
-      "quickAction": "Ajuster cet enseignant",
-      "submit": "Appliquer l’ajustement",
-      "submitting": "Application…",
-      "success": "Grand livre mis à jour pour {creatorBid}. Crédits disponibles : {availableCredits}.",
-      "title": "Ajustement manuel des crédits"
+      "quickAction": "Corriger le grand livre",
+      "submit": "Appliquer la correction",
+      "submitting": "Correction en cours...",
+      "success": "Grand livre mis à jour pour {creator}. Crédits disponibles : {availableCredits}.",
+      "targetSummary": "Cible en cours",
+      "title": "Corriger le grand livre"
     },
     "attention": "À traiter",
     "backToCreatorBilling": "Retour au centre de facturation",
     "domains": {
-      "description": "Auditer les domaines personnalisés des enseignants, vérifier les droits et repérer les hôtes nécessitant un suivi.",
+      "description": "Suivez l’avancement de configuration des domaines, les résultats de vérification et leur statut effectif.",
       "empty": "Aucune liaison de domaine personnalisé pour le moment.",
       "loadError": "Impossible de charger les données d’audit des domaines admin.",
       "table": {
@@ -50,50 +56,159 @@
       }
     },
     "entitlements": {
-      "description": "Examiner l’instantané effectif des droits résolu pour chaque espace enseignant.",
-      "empty": "Aucun instantané de droits pour le moment.",
+      "actions": {
+        "viewDetail": "Modifier la configuration"
+      },
+      "configProgress": {
+        "complete": "Configuré",
+        "exception": "Anomalie",
+        "loading": "Chargement",
+        "partial": "Partiellement configuré",
+        "unconfigured": "Non configuré"
+      },
+      "configStatus": {
+        "completed": "Terminé",
+        "exception": "Configuration en anomalie",
+        "in_progress": "En cours",
+        "pending": "À configurer"
+      },
+      "configStatusHelp": {
+        "completed": "L’équipe opérations a terminé ce cycle de suivi de configuration.",
+        "exception": "La configuration est bloquée ou en anomalie et demande un suivi.",
+        "in_progress": "Les éléments ou la configuration sont en cours de traitement.",
+        "pending": "Les capacités sont ouvertes, mais la configuration n’a pas encore commencé."
+      },
+      "customization": {
+        "integrationStatus": {
+          "disabled": "Désactivé",
+          "draft": "Brouillon",
+          "failed": "Anomalie",
+          "unconfigured": "Non configuré",
+          "verified": "Vérifié"
+        },
+        "loading": "Chargement de la configuration…",
+        "logoReady": "Téléversé",
+        "providers": {
+          "alipay": "Alipay",
+          "pingxx": "Ping++",
+          "stripe": "Stripe",
+          "wechat_oauth": "Compte WeChat",
+          "wechatpay": "WeChat Pay"
+        }
+      },
+      "description": "Consultez les enseignants disposant de capacités de marque ou de paiement distinctes, puis laissez l’équipe opérations suivre l’avancement de la configuration au même endroit.",
+      "empty": "Aucun enseignant n’a encore de capacité de marque ou de paiement activée séparément.",
+      "followDefault": "Configuration par défaut",
       "grant": {
+        "brandingInlineDescription": "Téléversez les logos de marque et gardez les liens d’image synchronisés.",
         "cancel": "Annuler",
+        "configStatusHint": "Le statut se change directement dans le tableau. Cette fenêtre affiche seulement l’état actuel.",
+        "configurationSection": "Détails de configuration",
+        "configurationSectionDescription": "Renseignez ici la configuration réelle du logo, du domaine, de WeChat et du paiement. Les valeurs enregistrées remonteront aussi dans le tableau.",
+        "createdContinue": "La configuration marque et paiement a été créée pour {creator}. Vous pouvez compléter la configuration ci-dessous.",
         "creatorBidPlaceholder": "Saisissez le BID du responsable du cours",
-        "description": "L’enregistrement crée ou met à jour un droit manuel prioritaire sur les droits du forfait.",
+        "creatorMobilePlaceholder": "Saisir le téléphone du responsable",
+        "description": "L’équipe opérations gère ici la marque, le domaine, WeChat et le paiement. L’enregistrement met à jour en même temps les éléments ouverts.",
+        "disabled": "Non activé",
+        "domainInlineDescription": "Ajoutez le domaine dédié, lancez la vérification et synchronisez l’avancement de mise en place.",
         "edit": "Modifier",
-        "editTitle": "Modifier les droits de personnalisation du responsable",
+        "editTitle": "Modifier la configuration marque et paiement",
+        "enabled": "Activé",
         "errors": {
-          "creatorBidRequired": "Saisissez le BID du responsable du cours"
+          "creatorBidRequired": "Saisissez le BID du responsable du cours",
+          "creatorMobileRequired": "Saisissez le téléphone du responsable"
         },
         "fields": {
           "branding_enabled": "Logos de marque",
+          "configStatus": "Statut de configuration",
           "creatorBid": "BID du responsable du cours",
+          "creatorMobile": "Téléphone du responsable",
           "custom_domain_enabled": "Domaine personnalisé",
           "custom_payment_enabled": "Configuration de paiement personnalisée",
-          "custom_wechat_enabled": "Compte officiel WeChat personnalisé"
+          "custom_wechat_enabled": "Compte officiel WeChat personnalisé",
+          "note": "Note opérations"
         },
-        "open": "Accorder au responsable",
-        "submit": "Enregistrer les droits",
+        "mobileHint": "Utilisez un numéro de téléphone. S’il n’est pas encore inscrit, le système crée le compte et active d’abord l’accès enseignant.",
+        "notePlaceholder": "Ajoutez l’avancement, les pièces manquantes ou la cause de l’exception",
+        "open": "Ajouter une configuration",
+        "paymentInlineDescription": "Renseignez les paramètres du canal de paiement et vérifiez l’état de la configuration.",
+        "pendingConfiguration": {
+          "branding_enabled": "Enregistrez d’abord les éléments activés, puis téléversez ici les logos de marque.",
+          "custom_domain_enabled": "Enregistrez d’abord les éléments activés, puis saisissez et vérifiez ici le domaine dédié.",
+          "custom_payment_enabled": "Enregistrez d’abord les éléments activés, puis renseignez ici les paramètres du canal de paiement.",
+          "custom_wechat_enabled": "Enregistrez d’abord les éléments activés, puis renseignez ici les paramètres du compte officiel WeChat.",
+          "title": "Enregistrez puis poursuivez"
+        },
+        "skippedIncompletePayment": "La configuration de paiement personnalisé ne contient pas les paramètres requis ; elle n’a donc pas été activée pour cet enseignant. Les autres modifications ont été enregistrées.",
+        "submit": "Enregistrer la configuration",
         "submitting": "Enregistrement...",
-        "success": "Droits de personnalisation mis à jour pour {creatorBid}",
-        "title": "Accorder des droits de personnalisation au responsable"
+        "success": "Droits personnalisés mis à jour pour {creator}",
+        "title": "Ajouter une configuration marque et paiement",
+        "wechatInlineDescription": "Renseignez les paramètres du compte officiel et confirmez l’autorisation et le callback."
       },
       "loadError": "Impossible de charger les données de droits admin.",
+      "logoPreview": {
+        "next": "Logo suivant",
+        "open": "Prévisualiser {label}",
+        "previous": "Logo précédent",
+        "title": "Aperçu du logo"
+      },
+      "notEnabled": "Non activé",
+      "realEffect": {
+        "branding": "Logo",
+        "domain": "Domaine",
+        "payment": "Paiement",
+        "status": {
+          "active": "Actif",
+          "exception": "Anomalie",
+          "inactive": "Non actif",
+          "pending": "En cours",
+          "unconfigured": "Non configuré"
+        },
+        "wechat": "WeChat"
+      },
       "source": {
-        "default": "Valeur de secours par défaut",
-        "productPayload": "Données du produit",
-        "snapshot": "Instantané enregistré"
+        "default": "Droits par défaut",
+        "productPayload": "Selon le forfait",
+        "snapshot": "Enregistrement actif"
+      },
+      "sourceReference": "Enregistrement : {value}",
+      "statusReason": {
+        "exceptionDefault": "Une anomalie de configuration a été détectée. Réautorisez pour relancer la demande.",
+        "inProgress": "La configuration est toujours en cours et attend encore des éléments ou une vérification.",
+        "inactive": "La configuration n’a pas encore commencé et attend le suivi opérations."
       },
       "table": {
         "actions": "Actions",
-        "analytics": "Niveau d’analyse",
+        "analytics": "Capacités de paiement",
+        "configProgress": "Avancement",
         "creator": "Enseignant",
-        "features": "Fonctionnalités",
-        "priority": "Classe de priorité",
-        "source": "Source",
+        "domain": "Domaine",
+        "features": "Éléments de configuration",
+        "logo": "Logo",
+        "payment": "Modes de paiement",
+        "priority": "Capacités de marque",
+        "realEffect": "Statut réel",
+        "source": "Droits actuels",
+        "status": "Statut de suivi",
         "support": "Niveau de support",
-        "window": "Fenêtre effective"
+        "wechat": "Configuration WeChat",
+        "window": "Mise à jour / validité"
       },
-      "title": "Droits"
+      "title": "Droits",
+      "window": {
+        "activeNow": "Actif actuellement",
+        "endsAt": "Valide jusqu’au {date}",
+        "startedAt": "Actif depuis {date}"
+      }
     },
     "exceptions": {
-      "description": "Se concentrer sur les abonnements et commandes nécessitant encore un suivi manuel.",
+      "actions": {
+        "markHandled": "Marquer comme traitee",
+        "reopen": "Rouvrir",
+        "viewOrder": "Voir la commande"
+      },
+      "description": "Regroupez les anomalies de relation d’abonnement et les anomalies de transaction qui demandent encore un traitement manuel.",
       "empty": "Aucune exception de facturation pour le moment.",
       "fields": {
         "amount": "Montant",
@@ -103,75 +218,171 @@
         "renewalEvent": "Événement de renouvellement"
       },
       "loadError": "Impossible de charger les données d’exception de facturation.",
+      "processingStatus": {
+        "done": "Traitee",
+        "pending": "A traiter"
+      },
       "sections": {
         "orders": "Commandes à traiter",
         "subscriptions": "Abonnements à traiter"
       },
-      "title": "Exceptions"
+      "table": {
+        "detail": "Description anomalie",
+        "object": "Objet anomalie",
+        "processingStatus": "Avancement",
+        "relatedOrder": "Commande associee",
+        "type": "Type d anomalie",
+        "updatedAt": "Mis a jour le"
+      },
+      "targets": {
+        "order": "Commande de paiement",
+        "subscription": "Relation d'abonnement"
+      },
+      "title": "Exceptions",
+      "types": {
+        "order": "Anomalie de commande",
+        "subscription": "Anomalie d'abonnement"
+      }
+    },
+    "navigation": {
+      "description": "Basculez entre forfaits, commandes, droits, domaines et rapports tout en gardant l’état des capacités visible au-dessus.",
+      "title": "Par thème"
     },
     "orders": {
-      "description": "Examiner les commandes de facturation de tous les enseignants et repérer les actions fournisseur en échec.",
-      "empty": "Aucune commande de facturation pour le moment.",
+      "actions": {
+        "viewOrder": "Voir la commande"
+      },
+      "description": "Consultez les commandes en echec, expirees ou en cours de traitement qui necessitent encore une verification.",
+      "empty": "Aucune commande en anomalie pour le moment.",
+      "failureReasons": {
+        "card_declined": "La carte a été refusée",
+        "checkout_expired": "Le paiement a expiré avant la finalisation",
+        "checkout_timeout": "Le paiement a expiré avant la finalisation"
+      },
       "loadError": "Impossible de charger les données de commandes admin.",
       "table": {
+        "actions": "Actions",
         "amount": "Montant",
         "createdAt": "Créé le",
         "creator": "Enseignant",
-        "failure": "Échec",
+        "failure": "Motif d echec",
         "order": "Commande",
-        "provider": "Fournisseur",
-        "status": "Statut"
+        "provider": "Moyen de paiement",
+        "status": "Statut anomalie"
       },
-      "title": "Commandes"
+      "title": "Commandes en anomalie"
     },
     "pagination": {
-      "page": "Page {page} / {pageCount} · {total} enregistrements"
+      "page": "Page {page} / {pageCount} · {total} enregistrements",
+      "total": "{total} enregistrements"
     },
     "reports": {
-      "description": "Consulter les agrégats d’utilisation et de grand livre multi-enseignants sans quitter la console d’opérations.",
+      "actions": {
+        "viewExceptions": "Voir les anomalies",
+        "viewOrders": "Voir les commandes"
+      },
+      "attentionReasons": {
+        "active_production": "Usage en production actif",
+        "debug_preview_heavy": "Debug et preview dominants",
+        "high_consumption": "Consommation elevee",
+        "high_frequency": "Appels frequents",
+        "rapid_growth": "Croissance rapide",
+        "sustained_activity": "Actif sur 3+ jours recents"
+      },
+      "description": "Resume les enseignants a suivre selon la consommation recente, l activite et les signaux de croissance.",
+      "empty": "Aucun enseignant ne necessite un suivi prioritaire pour le moment.",
+      "emptyHint": "Les enseignants apparaissent apres une consommation elevee, des appels frequents, une activite production, une part debug elevee, une activite soutenue ou une croissance rapide.",
+      "filters": {
+        "active_production": "Production active",
+        "all": "Tous les prioritaires",
+        "debug_preview_heavy": "Debug dominant",
+        "rapid_growth": "Croissance rapide"
+      },
       "sections": {
-        "ledger": {
-          "description": "Mouvements du grand livre multi-enseignants par jour, source et type d’écriture.",
-          "title": "Agrégats du grand livre"
-        },
         "usage": {
-          "description": "Agrégats des coûts d’utilisation par enseignant, shifu, scène et métrique.",
-          "title": "Agrégats d’utilisation"
+          "description": "Seuls les enseignants qui declenchent des regles de suivi sont affiches. Tri possible par croissance, part de debug ou consommation sur 30 j.",
+          "title": "Enseignants a suivre"
         }
       },
-      "table": {
-        "creator": "Enseignant"
+      "sort": {
+        "label": "Trier par",
+        "options": {
+          "credits_30d": "Credits sur 30 j",
+          "debug_ratio": "Part de debug",
+          "growth": "Priorite a la croissance"
+        }
       },
-      "title": "Rapports"
+      "summary": {
+        "activeTeachers7d": "Encore actifs sur 7 j",
+        "activeTeachers7dHint": "Enseignants suivis avec des usages sur les 7 derniers jours",
+        "debugHeavyCount": "Debug dominant",
+        "debugHeavyCountHint": "Enseignants dont le debug/preview est eleve sur 30 j",
+        "focusCount": "Enseignants a examiner",
+        "focusCountHint": "Declenche une ou plusieurs regles de suivi",
+        "totalCredits": "Credits 30 j des suivis",
+        "totalCreditsHint": "Total 30 j des enseignants actuellement affiches"
+      },
+      "table": {
+        "actions": "Actions",
+        "activeDays7d": "Jours actifs sur 7 j",
+        "attentionReasons": "Regles de suivi",
+        "attentionReasonsMore": "{count} elements",
+        "creator": "Enseignant",
+        "credits30d": "Credits sur 30 j",
+        "credits30dBreakdown": "Production {production} · Debug/preview {debugPreview}",
+        "credits30dDebugPreview": "Debug/preview {debugPreview}",
+        "credits30dProduction": "Production {production}",
+        "credits7d": "Credits sur 7 j",
+        "latestActivity": "Derniere activite",
+        "latestActivityHint": "Actif {days} jours sur les 7 derniers jours",
+        "productionRatio": "Part de credits production",
+        "recordCount7d": "Appels sur 7 j"
+      },
+      "title": "Synthese du suivi business"
     },
     "subscriptions": {
-      "description": "Inspecter les abonnements enseignant, soldes de compte et contexte de renouvellement.",
-      "empty": "Aucun abonnement pour le moment.",
+      "description": "Consultez les abonnements a suivre, avec le solde de credits et les actions a venir.",
+      "empty": "Aucun abonnement ne necessite de suivi pour le moment.",
       "loadError": "Impossible de charger les données d’abonnement admin.",
       "preorderTarget": "Précommande : {product}",
+      "results": {
+        "cancelAtPeriodEnd": "Expire à l’échéance",
+        "cancelAtPeriodEndWithDate": "Expire le {date}",
+        "expire": "Expire à l’échéance",
+        "expireWithDate": "Expire le {date}",
+        "preorder": "Bascule vers {product} à l’échéance",
+        "preorderWithDate": "Bascule vers {product} le {date}",
+        "renewalFailed": "Le renouvellement a échoué et doit être traité",
+        "renewalFailedWithError": "Le renouvellement a échoué et doit être traité",
+        "renewalScheduled": "Renouvellement automatique planifié",
+        "renewalScheduledWithDate": "Renouvellement automatique prévu le {date}"
+      },
       "table": {
         "availableCredits": "Crédits disponibles",
         "creator": "Enseignant",
-        "currentPeriodEnd": "Fin de période actuelle",
-        "product": "Produit",
-        "provider": "Fournisseur",
-        "renewal": "Contexte de renouvellement",
+        "currentPeriodEnd": "Valable jusqu au",
+        "product": "Forfait actuel",
+        "provider": "Moyen de paiement",
+        "renewal": "Renouvellement / expiration",
         "renewalStatus": "Événement de renouvellement",
         "scheduled": "Planifié",
-        "status": "Statut"
+        "status": "Statut d abonnement"
       },
-      "title": "Abonnements"
+      "title": "Suivi abonnements"
     },
-    "subtitle": "Vue opérations pour les abonnements, paiements échoués et exceptions de facturation.",
+    "subtitle": "Espace opérations pour suivre les forfaits, commandes, droits et réglages de paiement indépendants des enseignants.",
+    "table": {
+      "attentionStatus": "Attention"
+    },
     "tabs": {
       "domains": "Domaines",
-      "entitlements": "Droits",
-      "exceptions": "Exceptions",
-      "orders": "Commandes",
-      "reports": "Rapports",
-      "subscriptions": "Abonnements"
+      "entitlements": "Configuration marque et paiement",
+      "exceptions": "Alertes",
+      "orders": "Commandes en anomalie",
+      "reports": "Suivi business",
+      "subscriptions": "Suivi abonnements"
     },
-    "title": "Opérations de facturation"
+    "title": "Opérations commerciales"
   },
   "alerts": {
     "actions": {
@@ -186,7 +397,7 @@
     "subscriptionPastDue": "Le renouvellement de l’abonnement est bloqué. Consultez les enregistrements de paiement et synchronisez le dernier statut fournisseur."
   },
   "capabilities": {
-    "description": "Ce résumé indique quelles surfaces de facturation sont actives dans l’interface et lesquelles restent limitées à des flux internes ou protégés par configuration.",
+    "description": "Cette zone résume les modules directement utilisables dans le back-office marque et paiements. À configurer signifie que le code existe mais reste désactivé par défaut. Flux interne signifie que la capacité ne vit que dans des tâches, compensations ou outils ops et ne s’affiche pas comme fonction de page.",
     "fallbackDescription": "Le statut des capacités est suivi depuis le grand livre de facturation.",
     "fallbackTitle": "Capacité de facturation",
     "items": {
@@ -199,8 +410,8 @@
         "title": "Droits admin"
       },
       "adminLedgerAdjust": {
-        "description": "L’ajustement admin du grand livre reste disponible.",
-        "title": "Ajustement admin du grand livre"
+        "description": "La correction manuelle du grand livre admin reste disponible.",
+        "title": "Correction du grand livre admin"
       },
       "adminOrders": {
         "description": "La revue admin des commandes de facturation reste activée.",
@@ -272,16 +483,16 @@
       }
     },
     "status": {
-      "active": "Actif",
-      "defaultDisabled": "Désactivé par défaut",
-      "internalOnly": "Interne uniquement"
+      "active": "Prêt à utiliser",
+      "defaultDisabled": "À configurer",
+      "internalOnly": "Flux interne"
     },
     "summary": {
-      "active": "{count} actifs",
-      "defaultDisabled": "{count} désactivés par défaut",
-      "internalOnly": "{count} internes uniquement"
+      "active": "{count} prêts à utiliser",
+      "defaultDisabled": "{count} à configurer",
+      "internalOnly": "{count} flux internes"
     },
-    "title": "Statut des capacités"
+    "title": "Modules disponibles"
   },
   "catalog": {
     "actions": {
@@ -369,26 +580,57 @@
     "empty": "Non disponible"
   },
   "customization": {
+    "actions": {
+      "clear": "Effacer"
+    },
     "branding": {
       "invalidFile": "Utilisez un fichier PNG, JPEG ou WebP de 2 Mo maximum",
+      "resizeNotice": "L’image ne correspond pas totalement au format recommandé. Elle sera tout de même téléversée puis redimensionnée de façon standard.",
+      "squareHint": "Recommandé : un logo carré de 32x32 px. Les variantes en plus haute définition sont aussi prises en charge.",
       "squareLogo": "Logo carré",
       "title": "Logos de marque",
+      "uploadFailed": "L’import de l’image a échoué. Réessayez plus tard.",
       "uploadSquare": "Importer le logo carré",
       "uploadWide": "Importer le logo horizontal",
+      "urlPlaceholder": "Ou saisissez directement l’URL de l’image",
+      "wideHint": "Recommandé : un logo horizontal de 32 px de haut et de 220 px de large maximum. Les variantes en plus haute définition sont aussi prises en charge.",
       "wideLogo": "Logo horizontal"
     },
     "disable": "Désactiver",
     "domain": {
       "bind": "Associer le domaine",
+      "disableSuccess": "Le domaine a été désactivé.",
+      "dnsTitle": "Ajoutez l’enregistrement TXT suivant dans votre console DNS",
+      "lastError": "Dernier résultat de vérification : {reason}",
+      "placeholder": "p. ex. learn.example.com",
       "record": "{name} = {value}",
+      "recordName": "Nom d’hôte",
+      "recordType": "Type d’enregistrement",
+      "recordValue": "Valeur",
       "status": "{status} · SSL {sslStatus}",
       "title": "Domaine personnalisé",
-      "verify": "Vérifier le DNS"
+      "verify": "Vérifier le DNS",
+      "verifyFailed": "La vérification DNS n’a pas encore réussi. Vérifiez l’enregistrement TXT puis réessayez.",
+      "verifyInstruction": "Une fois le DNS propagé, lancez la vérification ici. Le certificat HTTPS sera traité après validation.",
+      "verifySuccess": "La vérification DNS a réussi. Le statut du domaine a été actualisé."
+    },
+    "integrationStatus": {
+      "disabled": "Désactivé",
+      "draft": "Activation en attente",
+      "failed": "Échec de l’activation",
+      "unconfigured": "Non configuré",
+      "verified": "Activé"
     },
     "integrations": {
       "title": "Configuration WeChat et paiements"
     },
+    "loading": "Chargement des détails de configuration…",
     "locked": "Votre forfait actuel n’inclut pas cette fonction. Passez au forfait supérieur ou contactez le support.",
+    "paymentProvider": {
+      "description": "Choisissez un ou plusieurs modes de paiement côté apprenant. Après l’enregistrement, le paiement générera les QR codes des modes configurés.",
+      "title": "Modes de paiement"
+    },
+    "pendingActivation": "Enregistrez d’abord la capacité activée. Une fois effective, vous pourrez enregistrer et vérifier cette configuration.",
     "providers": {
       "alipay": "Alipay",
       "pingxx": "Ping++",
@@ -424,9 +666,12 @@
       "neverVerified": "Pas encore vérifié"
     },
     "ssl": {
+      "active": "SSL actif",
+      "failed": "SSL en erreur",
       "issued": "SSL émis",
       "not_requested": "SSL non demandé",
-      "pending": "SSL en attente"
+      "pending": "SSL en attente",
+      "provisioning": "SSL en cours"
     },
     "status": {
       "disabled": "Désactivé",
@@ -442,9 +687,9 @@
       "enterprise": "Entreprise"
     },
     "flags": {
-      "branding": "Personnalisation de marque",
+      "branding": "Logo de marque",
       "customDomain": "Domaine personnalisé",
-      "customPayment": "Paiements personnalisés",
+      "customPayment": "Modes de paiement",
       "customWechat": "Compte WeChat personnalisé",
       "disabled": "Désactivé",
       "enabled": "Activé"
@@ -772,8 +1017,8 @@
       "window": "Fenêtre"
     },
     "usageType": {
-      "llm": "LLM",
-      "tts": "TTS"
+      "llm": "Usage modele",
+      "tts": "Synthese vocale"
     }
   },
   "result": {

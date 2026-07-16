@@ -3,6 +3,7 @@ from importlib import import_module
 from types import SimpleNamespace
 
 from cryptography.fernet import Fernet
+from PIL import Image
 import pytest
 from werkzeug.datastructures import FileStorage
 
@@ -98,6 +99,30 @@ def test_creator_integration_uses_encrypted_unified_config_and_versions(
         assert historic is not None
         assert historic.integration_bid == draft["integration_bid"]
         assert historic.secret_config["secret_key"] == "sk_test_owner"
+
+        public_only_edit = customization.save_creator_integration(
+            app,
+            "creator-custom-1",
+            "stripe",
+            {
+                "public_config": {"publishable_key": "pk_test_owner_3"},
+                "secret_config": {},
+            },
+        )
+        customization.verify_creator_integration(
+            app,
+            "creator-custom-1",
+            "stripe",
+            public_only_edit["integration_bid"],
+        )
+        edited_context = customization.resolve_provider_credential_context(
+            app,
+            creator_bid="creator-custom-1",
+            provider="stripe",
+        )
+        assert edited_context is not None
+        assert edited_context.public_config["publishable_key"] == "pk_test_owner_3"
+        assert edited_context.secret_config["secret_key"] == "sk_test_owner_2"
 
 
 def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
@@ -265,6 +290,80 @@ def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(app, monke
                 pass
             else:
                 raise AssertionError("invalid logo content must be rejected")
+
+
+def test_creator_brand_logo_upload_normalizes_square_variant(app, monkeypatch):
+    uploaded = {}
+
+    def fake_upload_to_storage(_app, **kwargs):
+        content = kwargs["file_content"].read()
+        uploaded["content"] = content
+        return type("UploadResult", (), {"url": "https://cdn.example.com/logo.png"})()
+
+    monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+    monkeypatch.setattr(customization, "upload_to_storage", fake_upload_to_storage)
+
+    with app.app_context():
+        grant_creator_manual_entitlement(
+            app,
+            "creator-logo-square",
+            branding_enabled=True,
+        )
+        image = Image.new("RGBA", (96, 48), (255, 0, 0, 255))
+        buffer = BytesIO()
+        image.save(buffer, format="PNG")
+        buffer.seek(0)
+        logo = FileStorage(
+            stream=buffer,
+            filename="square.png",
+            content_type="image/png",
+        )
+        customization.upload_creator_brand_logo(
+            app,
+            "creator-logo-square",
+            logo,
+            target="square",
+        )
+
+    with Image.open(BytesIO(uploaded["content"])) as normalized:
+        assert normalized.size == (96, 96)
+
+
+def test_creator_brand_logo_upload_preserves_wide_retina_variant(app, monkeypatch):
+    uploaded = {}
+
+    def fake_upload_to_storage(_app, **kwargs):
+        content = kwargs["file_content"].read()
+        uploaded["content"] = content
+        return type("UploadResult", (), {"url": "https://cdn.example.com/logo.png"})()
+
+    monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+    monkeypatch.setattr(customization, "upload_to_storage", fake_upload_to_storage)
+
+    with app.app_context():
+        grant_creator_manual_entitlement(
+            app,
+            "creator-logo-wide-retina",
+            branding_enabled=True,
+        )
+        image = Image.new("RGBA", (440, 64), (0, 128, 255, 255))
+        buffer = BytesIO()
+        image.save(buffer, format="PNG")
+        buffer.seek(0)
+        logo = FileStorage(
+            stream=buffer,
+            filename="wide.png",
+            content_type="image/png",
+        )
+        customization.upload_creator_brand_logo(
+            app,
+            "creator-logo-wide-retina",
+            logo,
+            target="wide",
+        )
+
+    with Image.open(BytesIO(uploaded["content"])) as normalized:
+        assert normalized.size == (440, 64)
 
 
 def test_custom_wechat_identifiers_are_scoped_by_app_id(app, monkeypatch):

@@ -131,6 +131,7 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         user_visible=True,
         default_enabled=True,
         route_entries=(
+            ("GET", "/api/admin/billing/reports/focus-teachers"),
             ("GET", "/api/admin/billing/reports/usage-daily"),
             ("GET", "/api/admin/billing/reports/ledger-daily"),
         ),

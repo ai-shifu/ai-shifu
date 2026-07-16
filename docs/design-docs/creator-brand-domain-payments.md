@@ -86,6 +86,37 @@ When entitlement or configuration becomes unavailable, new custom payments
 stop. Existing webhook, sync, refund, and reconciliation operations continue
 with the snapshotted integration version.
 
+## Order Ownership And Reporting Boundaries
+
+Independent payment and independent domain are separate reporting dimensions.
+They must not be inferred from each other.
+
+For platform-domain orders that use a course owner's independent payment
+channel, the order remains an AI-Shifu platform order. The order belongs in the
+teacher-facing order menu and in operator order management, but reporting must
+mark it as `creator` settlement so it contributes to GMV/order counts without
+being counted as platform-collected revenue.
+
+For custom-domain orders, the order may still be written to the shared learner
+order tables for authorization, callbacks, refunds, reconciliation, and support.
+The custom-domain dashboard scope is narrower than "all orders for this
+teacher": it is the current `domain_binding_bid` plus the owning `creator_bid`.
+If that product surface is limited to owner-collected payments, it should also
+filter to creator settlement. Operator tooling may keep an audit/search view,
+but platform-domain order lists should not silently mix in custom-domain orders.
+
+Custom-domain order reporting needs an order-time snapshot instead of deriving
+history from current configuration. The required snapshot fields are:
+
+- request host at checkout time
+- matched `domain_binding_bid`
+- whether the order was created from a custom domain
+- settlement owner (`platform` or `creator`)
+- payment integration snapshot already used for independent payment
+
+This follow-up is intentionally separate from the first platform-domain
+independent-payment reporting pass.
+
 ## Public Interfaces
 
 - `GET /api/billing/customization`

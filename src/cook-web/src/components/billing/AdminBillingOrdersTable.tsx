@@ -1,20 +1,18 @@
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { Badge } from '@/components/ui/Badge';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/Card';
-import { Skeleton } from '@/components/ui/Skeleton';
+  getAdminStickyRightCellClass,
+  getAdminStickyRightHeaderClass,
+} from '@/components/admin/adminTableStyles';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import {
   Table,
   TableBody,
   TableCell,
-  TableEmpty,
   TableHead,
   TableHeader,
   TableRow,
@@ -28,165 +26,201 @@ import {
   formatBillingDateTime,
   formatBillingPrice,
   registerBillingTranslationUsage,
-  resolveBillingEmptyLabel,
   resolveBillingOrderStatusLabel,
   resolveBillingOrderTypeLabel,
   resolveBillingProviderLabel,
 } from '@/lib/billing';
-import { AdminBillingPager } from './AdminBillingPager';
+import {
+  AdminBillingIdentityCell,
+  resolveAdminBillingOrderFailure,
+  resolveAdminBillingOrderProductName,
+  resolveAdminBillingPaginationFootnote,
+  AdminBillingSectionCard,
+  resolveAdminBillingCreatorPrimary,
+  resolveAdminBillingCreatorSecondary,
+} from './AdminBillingShared';
 
 const ADMIN_BILLING_ORDERS_PAGE_SIZE = 10;
+const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 
 export function AdminBillingOrdersTable() {
   const { t, i18n } = useTranslation();
+  const router = useRouter();
   registerBillingTranslationUsage(t);
-  const {
-    error,
-    isLoading,
-    items,
-    page,
-    pageCount,
-    total,
-    canGoNext,
-    canGoPrev,
-    goNext,
-    goPrev,
-  } = useBillingAdminPagedQuery<AdminBillingOrderItem>({
-    queryKey: 'admin-billing-orders',
-    pageSize: ADMIN_BILLING_ORDERS_PAGE_SIZE,
-    fetchPage: async params =>
-      (await api.getAdminBillingOrders(
-        params,
-      )) as BillingPagedResponse<AdminBillingOrderItem>,
-  });
+  const { error, isLoading, items, page, pageCount, total, setPage } =
+    useBillingAdminPagedQuery<AdminBillingOrderItem>({
+      queryKey: 'admin-billing-orders',
+      pageSize: ADMIN_BILLING_ORDERS_PAGE_SIZE,
+      fetchPage: async params =>
+        (await api.getAdminBillingOrders(
+          params,
+          BILLING_PASSIVE_REQUEST_CONFIG,
+        )) as BillingPagedResponse<AdminBillingOrderItem>,
+    });
+  const attentionItems = items.filter(item => item.has_attention);
+  const hasRows = attentionItems.length > 0;
+  const handleViewOrder = React.useCallback(
+    (item: AdminBillingOrderItem) => {
+      const params = new URLSearchParams();
+      params.set('tab', 'credits');
+      if (item.creator_mobile) {
+        params.set('creator_keyword', item.creator_mobile);
+      }
+      if (item.bill_order_bid) {
+        params.set('bill_order_bid', item.bill_order_bid);
+      }
+      if (item.status) {
+        params.set('status', item.status);
+      }
+      if (item.order_type === 'topup') {
+        params.set('credit_order_kind', 'topup');
+      }
+      if (
+        item.order_type === 'subscription_renewal' ||
+        item.order_type === 'subscription_start' ||
+        item.order_type === 'subscription_upgrade'
+      ) {
+        params.set('credit_order_kind', 'plan');
+      }
+      router.push(`/admin/operations/orders?${params.toString()}`);
+    },
+    [router],
+  );
 
   return (
-    <Card className='border-slate-200 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.06)]'>
-      <CardHeader className='space-y-2'>
-        <CardTitle className='text-lg text-slate-900'>
-          {t('module.billing.admin.orders.title')}
-        </CardTitle>
-        <CardDescription className='leading-6 text-slate-600'>
-          {t('module.billing.admin.orders.description')}
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className='space-y-4'>
-        {error ? (
-          <div className='rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
-            {t('module.billing.admin.orders.loadError')}
-          </div>
-        ) : null}
-
-        <div className='rounded-[24px] border border-slate-200 bg-slate-50/60 px-1 py-1'>
-          {isLoading ? (
-            <div className='space-y-3 px-4 py-4'>
-              <Skeleton className='h-12 rounded-2xl' />
-              <Skeleton className='h-12 rounded-2xl' />
-              <Skeleton className='h-12 rounded-2xl' />
-            </div>
-          ) : (
-            <Table className='min-w-[980px]'>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    {t('module.billing.admin.orders.table.creator')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.billing.admin.orders.table.order')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.billing.admin.orders.table.status')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.billing.admin.orders.table.provider')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.billing.admin.orders.table.amount')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.billing.admin.orders.table.createdAt')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.billing.admin.orders.table.failure')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {!items.length ? (
-                  <TableEmpty colSpan={7}>
-                    {t('module.billing.admin.orders.empty')}
-                  </TableEmpty>
-                ) : (
-                  items.map(item => (
-                    <TableRow key={item.bill_order_bid}>
-                      <TableCell className='min-w-[180px]'>
-                        <div className='space-y-1'>
-                          <div className='flex items-center gap-2'>
-                            <span className='font-medium text-slate-900'>
-                              {item.creator_bid}
-                            </span>
-                            {item.has_attention ? (
-                              <Badge
-                                variant='outline'
-                                className='border-amber-200 bg-amber-50 text-amber-700'
-                              >
-                                {t('module.billing.admin.attention')}
-                              </Badge>
-                            ) : null}
-                          </div>
-                          <div className='text-xs text-slate-500'>
-                            {item.bill_order_bid}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className='min-w-[180px] text-slate-700'>
+    <AdminBillingSectionCard
+      title={t('module.billing.admin.orders.title')}
+      description={t('module.billing.admin.orders.description')}
+      error={error ? t('module.billing.admin.orders.loadError') : null}
+      disableContentShell
+    >
+      <AdminTableShell
+        loading={isLoading}
+        isEmpty={!attentionItems.length}
+        emptyContent={t('module.billing.admin.orders.empty')}
+        emptyColSpan={8}
+        stickyActionEmpty={{
+          contentColSpan: 7,
+          actionClassName: getAdminStickyRightCellClass(
+            'w-[96px] min-w-[96px]',
+          ),
+        }}
+        pagination={
+          hasRows
+            ? {
+                pageIndex: page,
+                pageCount,
+                onPageChange: setPage,
+                prevLabel: t('module.dashboard.pagination.prev'),
+                nextLabel: t('module.dashboard.pagination.next'),
+                prevAriaLabel: t('module.dashboard.pagination.prev'),
+                nextAriaLabel: t('module.dashboard.pagination.next'),
+              }
+            : undefined
+        }
+        footnote={
+          hasRows
+            ? resolveAdminBillingPaginationFootnote(t, page, pageCount, total)
+            : null
+        }
+        table={emptyRow => (
+          <Table className='min-w-[1100px]'>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  {t('module.billing.admin.orders.table.creator')}
+                </TableHead>
+                <TableHead>
+                  {t('module.billing.admin.orders.table.order')}
+                </TableHead>
+                <TableHead>
+                  {t('module.billing.admin.orders.table.status')}
+                </TableHead>
+                <TableHead>
+                  {t('module.billing.admin.orders.table.provider')}
+                </TableHead>
+                <TableHead>
+                  {t('module.billing.admin.orders.table.amount')}
+                </TableHead>
+                <TableHead>
+                  {t('module.billing.admin.orders.table.createdAt')}
+                </TableHead>
+                <TableHead>
+                  {t('module.billing.admin.orders.table.failure')}
+                </TableHead>
+                <TableHead
+                  className={getAdminStickyRightHeaderClass(
+                    'w-[96px] min-w-[96px] text-center',
+                  )}
+                >
+                  {t('module.billing.admin.orders.table.actions')}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {emptyRow}
+              {attentionItems.map(item => (
+                <TableRow key={item.bill_order_bid}>
+                  <TableCell className='min-w-[180px]'>
+                    <AdminBillingIdentityCell
+                      primary={resolveAdminBillingCreatorPrimary(item)}
+                      secondary={resolveAdminBillingCreatorSecondary(t, item)}
+                    />
+                  </TableCell>
+                  <TableCell className='min-w-[180px] text-slate-700'>
+                    <div className='space-y-1.5'>
+                      <div className='font-medium text-slate-900'>
+                        {resolveAdminBillingOrderProductName(t, item)}
+                      </div>
+                      <div className='text-xs text-slate-500'>
                         {resolveBillingOrderTypeLabel(t, item.order_type)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant='outline'
-                          className='border-slate-200 bg-slate-100 text-slate-700'
-                        >
-                          {resolveBillingOrderStatusLabel(t, item.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className='text-slate-700'>
-                        {resolveBillingProviderLabel(t, item.payment_provider)}
-                      </TableCell>
-                      <TableCell className='font-medium text-slate-900'>
-                        {formatBillingPrice(
-                          item.paid_amount || item.payable_amount,
-                          item.currency,
-                          i18n.language,
-                        )}
-                      </TableCell>
-                      <TableCell className='min-w-[180px] text-slate-600'>
-                        {formatBillingDateTime(item.created_at, i18n.language)}
-                      </TableCell>
-                      <TableCell className='min-w-[220px] text-sm text-slate-600'>
-                        {item.failure_message ||
-                          item.failure_code ||
-                          resolveBillingEmptyLabel(t)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-
-        <AdminBillingPager
-          canGoNext={canGoNext}
-          canGoPrev={canGoPrev}
-          onNext={goNext}
-          onPrev={goPrev}
-          page={page}
-          pageCount={pageCount}
-          total={total}
-        />
-      </CardContent>
-    </Card>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant='outline'
+                      className='border-slate-200 bg-slate-100 text-slate-700'
+                    >
+                      {resolveBillingOrderStatusLabel(t, item.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className='text-slate-700'>
+                    {resolveBillingProviderLabel(t, item.payment_provider)}
+                  </TableCell>
+                  <TableCell className='font-medium text-slate-900'>
+                    {formatBillingPrice(
+                      item.paid_amount || item.payable_amount,
+                      item.currency,
+                      i18n.language,
+                    )}
+                  </TableCell>
+                  <TableCell className='min-w-[180px] text-slate-600'>
+                    {formatBillingDateTime(item.created_at, i18n.language)}
+                  </TableCell>
+                  <TableCell className='min-w-[220px] text-sm text-slate-600'>
+                    {resolveAdminBillingOrderFailure(t, item)}
+                  </TableCell>
+                  <TableCell
+                    className={getAdminStickyRightCellClass(
+                      'w-[96px] min-w-[96px] text-center',
+                    )}
+                  >
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      className='h-auto px-0 py-0 text-sm font-semibold text-[#2563EB] hover:bg-transparent hover:text-[#1D4ED8]'
+                      onClick={() => handleViewOrder(item)}
+                    >
+                      {t('module.billing.admin.orders.actions.viewOrder')}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      />
+    </AdminBillingSectionCard>
   );
 }

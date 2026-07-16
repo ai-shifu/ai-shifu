@@ -60,6 +60,7 @@ from flaskr.service.billing.capabilities import build_billing_route_bootstrap
 import flaskr.service.billing.campaigns as billing_campaigns_module
 import flaskr.service.billing.entitlements as billing_entitlements_module
 import flaskr.service.billing.queries as billing_queries_module
+import flaskr.service.billing.read_models as billing_read_models_module
 import flaskr.service.billing.serializers as billing_serializers_module
 from flaskr.service.billing.read_models import (
     build_billing_catalog,
@@ -102,6 +103,7 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(billing_entitlements_module, "now_utc", lambda: _frozen_now)
     monkeypatch.setattr(billing_queries_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_queries_module, "now_utc", lambda: _frozen_now)
+    monkeypatch.setattr(billing_read_models_module, "now_utc", lambda: _frozen_now)
     monkeypatch.setattr(billing_campaigns_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_campaigns_module, "now_utc", lambda: _frozen_now)
     monkeypatch.setattr(billing_serializers_module, "now_utc", lambda: _frozen_now)
@@ -667,6 +669,10 @@ class TestBillingRoutes:
         } in payload["data"]["admin_routes"]
         assert {
             "method": "GET",
+            "path": "/api/admin/billing/reports/focus-teachers",
+        } in payload["data"]["admin_routes"]
+        assert {
+            "method": "GET",
             "path": "/api/admin/billing/reports/usage-daily",
         } in payload["data"]["admin_routes"]
         assert {
@@ -718,19 +724,21 @@ class TestBillingRoutes:
         monkeypatch.setattr(
             billing_routes_module,
             "upload_creator_brand_logo",
-            lambda _app, creator_bid, file: (
-                f"https://courses-oss.example.com/{creator_bid}/{file.filename}"
+            lambda _app, creator_bid, file, target="wide": (
+                f"https://courses-oss.example.com/{creator_bid}/{target}-{file.filename}"
             ),
         )
         response = billing_test_client.post(
             "/api/billing/customization/branding/logo",
-            data={"file": (BytesIO(b"png"), "wide.png")},
+            data={"file": (BytesIO(b"png"), "wide.png"), "target": "square"},
             content_type="multipart/form-data",
         )
         payload = response.get_json(force=True)
 
         assert payload["code"] == 0
-        assert payload["data"] == ("https://courses-oss.example.com/creator-1/wide.png")
+        assert payload["data"] == (
+            "https://courses-oss.example.com/creator-1/square-wide.png"
+        )
 
     def test_catalog_overview_and_wallet_buckets_follow_design_projection(
         self, billing_test_client
@@ -1120,27 +1128,48 @@ class TestBillingRoutes:
         self, billing_test_client
     ) -> None:
         entitlements_response = billing_test_client.get(
-            "/api/admin/billing/entitlements?page_index=1&page_size=10"
+            "/api/admin/billing/entitlements?page_index=1&page_size=10",
+            headers={"X-Operator": "1"},
+        )
+        focus_response = billing_test_client.get(
+            "/api/admin/billing/reports/focus-teachers?page_index=1&page_size=10",
+            headers={"X-Operator": "1"},
         )
         usage_response = billing_test_client.get(
-            "/api/admin/billing/reports/usage-daily?page_index=1&page_size=10&creator_bid=creator-1&date_from=2026-04-06"
+            "/api/admin/billing/reports/usage-daily?page_index=1&page_size=10&creator_bid=creator-1&date_from=2026-04-06",
+            headers={"X-Operator": "1"},
         )
         ledger_response = billing_test_client.get(
-            "/api/admin/billing/reports/ledger-daily?page_index=1&page_size=10&creator_bid=creator-1&date_from=2026-04-06"
+            "/api/admin/billing/reports/ledger-daily?page_index=1&page_size=10&creator_bid=creator-1&date_from=2026-04-06",
+            headers={"X-Operator": "1"},
         )
 
         entitlements_payload = entitlements_response.get_json(force=True)
+        focus_payload = focus_response.get_json(force=True)
         usage_payload = usage_response.get_json(force=True)
         ledger_payload = ledger_response.get_json(force=True)
 
         assert entitlements_payload["code"] == 0
+        assert focus_payload["code"] == 0
+        assert focus_payload["data"]["total"] == 2
+        assert focus_payload["data"]["items"][0]["attention_reasons"] == [
+            "rapid_growth",
+            "high_consumption",
+            "active_production",
+        ]
+        assert focus_payload["data"]["items"][0]["credits_30d"] == 9
+        assert focus_payload["data"]["items"][0]["record_count_7d"] == 1
         assert entitlements_payload["data"]["total"] == 3
         assert entitlements_payload["data"]["items"][0] == {
             "creator_bid": "creator-1",
+            "creator_mobile": "",
+            "creator_nickname": "",
+            "creator_identify": "",
             "source_kind": "snapshot",
             "source_type": "subscription",
             "source_bid": "sub-1",
             "product_bid": "",
+            "product_name_key": "",
             "branding_enabled": True,
             "custom_domain_enabled": True,
             "custom_wechat_enabled": False,
@@ -1154,10 +1183,14 @@ class TestBillingRoutes:
         }
         assert entitlements_payload["data"]["items"][2] == {
             "creator_bid": "creator-3",
+            "creator_mobile": "",
+            "creator_nickname": "",
+            "creator_identify": "",
             "source_kind": "product_payload",
             "source_type": "subscription",
             "source_bid": "sub-creator-3",
             "product_bid": "bill-product-plan-yearly",
+            "product_name_key": "module.billing.catalog.plans.creatorYearly.title",
             "branding_enabled": True,
             "custom_domain_enabled": True,
             "custom_wechat_enabled": False,
@@ -1174,6 +1207,8 @@ class TestBillingRoutes:
         assert usage_payload["data"]["items"] == [
             {
                 "creator_bid": "creator-1",
+                "creator_mobile": "",
+                "creator_nickname": "",
                 "daily_usage_metric_bid": "daily-usage-1",
                 "stat_date": "2026-04-06",
                 "shifu_bid": "shifu-1",

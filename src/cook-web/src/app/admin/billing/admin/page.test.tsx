@@ -1,12 +1,13 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
 
-import AdminBillingConsolePage from './page';
+import { AdminBillingOperationsConsole } from '@/app/admin/operations/billing/AdminBillingOperationsConsole';
 
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 const mockEnvState = {
   billingEnabled: 'true',
   runtimeConfigLoaded: true,
@@ -14,8 +15,10 @@ const mockEnvState = {
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
+    push: mockPush,
     replace: mockReplace,
   }),
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -45,11 +48,14 @@ jest.mock('@/api', () => ({
   default: {
     adjustAdminBillingLedger: jest.fn(),
     getBillingBootstrap: jest.fn(),
+    getAdminBillingFocusTeachers: jest.fn(),
     getAdminBillingDailyLedgerSummary: jest.fn(),
-    getAdminBillingDailyUsageMetrics: jest.fn(),
     getAdminBillingDomainAudits: jest.fn(),
     getAdminBillingEntitlements: jest.fn(),
     grantAdminBillingEntitlement: jest.fn(),
+    getAdminBillingCustomizationDraft: jest.fn(),
+    saveAdminBillingCustomizationDraft: jest.fn(),
+    deleteAdminBillingCustomizationDraft: jest.fn(),
     getAdminBillingSubscriptions: jest.fn(),
     getAdminBillingOrders: jest.fn(),
   },
@@ -57,35 +63,68 @@ jest.mock('@/api', () => ({
 
 const mockAdjustAdminBillingLedger = api.adjustAdminBillingLedger as jest.Mock;
 const mockGetBillingBootstrap = api.getBillingBootstrap as jest.Mock;
+const mockGetAdminBillingFocusTeachers =
+  api.getAdminBillingFocusTeachers as jest.Mock;
 const mockGetAdminBillingDailyLedgerSummary =
   api.getAdminBillingDailyLedgerSummary as jest.Mock;
-const mockGetAdminBillingDailyUsageMetrics =
-  api.getAdminBillingDailyUsageMetrics as jest.Mock;
 const mockGetAdminBillingDomainAudits =
   api.getAdminBillingDomainAudits as jest.Mock;
 const mockGetAdminBillingEntitlements =
   api.getAdminBillingEntitlements as jest.Mock;
 const mockGrantAdminBillingEntitlement =
   api.grantAdminBillingEntitlement as jest.Mock;
+const mockGetAdminBillingCustomizationDraft =
+  api.getAdminBillingCustomizationDraft as jest.Mock;
+const mockSaveAdminBillingCustomizationDraft =
+  api.saveAdminBillingCustomizationDraft as jest.Mock;
+const mockDeleteAdminBillingCustomizationDraft =
+  api.deleteAdminBillingCustomizationDraft as jest.Mock;
 const mockGetAdminBillingSubscriptions =
   api.getAdminBillingSubscriptions as jest.Mock;
 const mockGetAdminBillingOrders = api.getAdminBillingOrders as jest.Mock;
 
-describe('AdminBillingConsolePage', () => {
+describe('AdminBillingOperationsConsole', () => {
   beforeEach(() => {
     mockReplace.mockReset();
+    mockPush.mockReset();
+    window.localStorage.clear();
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockEnvState.billingEnabled = 'true';
     mockEnvState.runtimeConfigLoaded = true;
     mockAdjustAdminBillingLedger.mockReset();
     mockGetBillingBootstrap.mockReset();
+    mockGetAdminBillingFocusTeachers.mockReset();
     mockGetAdminBillingDailyLedgerSummary.mockReset();
-    mockGetAdminBillingDailyUsageMetrics.mockReset();
     mockGetAdminBillingDomainAudits.mockReset();
     mockGetAdminBillingEntitlements.mockReset();
     mockGrantAdminBillingEntitlement.mockReset();
+    mockGetAdminBillingCustomizationDraft.mockReset();
+    mockSaveAdminBillingCustomizationDraft.mockReset();
+    mockDeleteAdminBillingCustomizationDraft.mockReset();
     mockGetAdminBillingSubscriptions.mockReset();
     mockGetAdminBillingOrders.mockReset();
+    mockGetAdminBillingCustomizationDraft.mockResolvedValue({
+      creator_mobile: '',
+      branding_enabled: false,
+      custom_domain_enabled: false,
+      custom_wechat_enabled: false,
+      custom_payment_enabled: false,
+      config_status: 'pending',
+      note: '',
+      branding: { logo_wide_url: '', logo_square_url: '' },
+      domain: { host: '' },
+      integrations: {
+        wechat_oauth: { public_config: {}, secret_config: {} },
+        pingxx: { public_config: {}, secret_config: {} },
+        stripe: { public_config: {}, secret_config: {} },
+        alipay: { public_config: {}, secret_config: {} },
+        wechatpay: { public_config: {}, secret_config: {} },
+      },
+    });
+    mockSaveAdminBillingCustomizationDraft.mockResolvedValue({});
+    mockDeleteAdminBillingCustomizationDraft.mockResolvedValue({
+      status: 'deleted',
+    });
 
     mockGetBillingBootstrap.mockResolvedValue({
       service: 'billing',
@@ -130,6 +169,8 @@ describe('AdminBillingConsolePage', () => {
         {
           subscription_bid: 'sub-past-due',
           creator_bid: 'creator-2',
+          creator_mobile: '13800138002',
+          creator_nickname: 'Teacher Two',
           product_bid: 'bill-product-plan-yearly',
           product_code: 'creator-plan-yearly',
           status: 'past_due',
@@ -173,6 +214,8 @@ describe('AdminBillingConsolePage', () => {
         {
           bill_order_bid: 'order-1',
           creator_bid: 'creator-2',
+          creator_mobile: '13800138002',
+          creator_nickname: 'Teacher Two',
           product_bid: 'bill-product-plan-yearly',
           subscription_bid: 'sub-past-due',
           order_type: 'subscription_renewal',
@@ -253,28 +296,27 @@ describe('AdminBillingConsolePage', () => {
       custom_wechat_enabled: true,
       custom_payment_enabled: true,
     });
-    mockGetAdminBillingDailyUsageMetrics.mockResolvedValue({
+    mockGetAdminBillingFocusTeachers.mockResolvedValue({
       items: [
         {
           creator_bid: 'creator-2',
-          daily_usage_metric_bid: 'daily-usage-1',
-          stat_date: '2026-04-06',
-          shifu_bid: 'shifu-2',
-          usage_scene: 'production',
-          usage_type: 'llm',
-          provider: 'openai',
-          model: 'gpt-4o-mini',
-          billing_metric: 'llm_output_tokens',
-          raw_amount: 4096,
-          record_count: 4,
-          consumed_credits: 6.5,
-          window_started_at: '2026-04-06T00:00:00Z',
-          window_ended_at: '2026-04-07T00:00:00Z',
+          creator_mobile: '13800138002',
+          creator_nickname: 'Teacher Two',
+          credits_7d: 12.5,
+          credits_30d: 18.5,
+          record_count_7d: 6,
+          active_days_7d: 4,
+          production_credits_30d: 8.5,
+          debug_preview_credits_30d: 10,
+          total_credits_30d: 18.5,
+          production_ratio_30d: 0.4595,
+          latest_usage_at: '2026-04-07T00:00:00Z',
+          attention_reasons: ['rapid_growth', 'high_consumption'],
         },
       ],
       page: 1,
       page_count: 1,
-      page_size: 6,
+      page_size: 10,
       total: 1,
     });
     mockGetAdminBillingDailyLedgerSummary.mockResolvedValue({
@@ -319,7 +361,7 @@ describe('AdminBillingConsolePage', () => {
           provider: () => new Map(),
         }}
       >
-        <AdminBillingConsolePage />
+        <AdminBillingOperationsConsole />
       </SWRConfig>,
     );
 
@@ -340,7 +382,7 @@ describe('AdminBillingConsolePage', () => {
           provider: () => new Map(),
         }}
       >
-        <AdminBillingConsolePage />
+        <AdminBillingOperationsConsole />
       </SWRConfig>,
     );
 
@@ -354,29 +396,53 @@ describe('AdminBillingConsolePage', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('link', {
-        name: 'module.billing.admin.backToCreatorBilling',
-      }),
-    ).toHaveAttribute('href', '/admin/billing');
-    expect(
       screen.getByRole('tab', {
         name: 'module.billing.admin.tabs.subscriptions',
       }),
     ).toHaveAttribute('data-state', 'active');
-    expect(mockGetAdminBillingSubscriptions).toHaveBeenCalledWith({
-      page_index: 1,
-      page_size: 10,
+    expect(mockGetAdminBillingSubscriptions).toHaveBeenCalledWith(
+      {
+        page_index: 1,
+        page_size: 10,
+        attention_only: true,
+      },
+      { skipErrorToast: true },
+    );
+    expect(mockGetAdminBillingSubscriptions).toHaveBeenCalledWith(
+      {
+        page_index: 1,
+        page_size: 1,
+        attention_only: true,
+      },
+      { skipErrorToast: true },
+    );
+    expect(mockGetAdminBillingOrders).toHaveBeenCalledWith(
+      {
+        page_index: 1,
+        page_size: 1,
+      },
+      { skipErrorToast: true },
+    );
+    await waitFor(() => {
+      expect(
+        within(
+          screen.getByRole('tab', {
+            name: 'module.billing.admin.tabs.exceptions',
+          }),
+        ).getByText('2'),
+      ).toBeInTheDocument();
     });
-    expect(await screen.findByText('sub-past-due')).toBeInTheDocument();
+    expect(await screen.findByText('Teacher Two')).toBeInTheDocument();
+    expect(screen.queryByText('-')).not.toBeInTheDocument();
+    expect(screen.queryByText('sub-past-due')).not.toBeInTheDocument();
     expect(screen.getAllByText('2026-03-31 17:00:00').length).toBeGreaterThan(
       0,
     );
     expect(screen.queryByText('2026-04-01T00:00:00Z')).not.toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.renewal.eventType.retry'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.renewal.status.failed'),
+      screen.getByText(
+        'module.billing.admin.subscriptions.results.renewalFailedWithError',
+      ),
     ).toBeInTheDocument();
 
     await act(async () => {
@@ -387,7 +453,7 @@ describe('AdminBillingConsolePage', () => {
       );
     });
 
-    expect(await screen.findByText('order-1')).toBeInTheDocument();
+    expect(await screen.findByText('Card was declined')).toBeInTheDocument();
     expect(screen.getByText('2026-04-03 00:55:00')).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.admin.orders.title'),
@@ -404,11 +470,15 @@ describe('AdminBillingConsolePage', () => {
     expect(
       await screen.findByText('module.billing.admin.exceptions.title'),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('creator-2').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Teacher Two').length).toBeGreaterThan(0);
     expect(screen.getByText('Card was declined')).toBeInTheDocument();
-    expect(screen.getAllByText('2026-03-31 17:00:00').length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen.getAllByText('module.billing.admin.exceptions.types.subscription')
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('module.billing.admin.exceptions.types.order').length,
+    ).toBeGreaterThan(0);
 
     await act(async () => {
       await user.click(
@@ -421,20 +491,11 @@ describe('AdminBillingConsolePage', () => {
     expect(
       await screen.findByText('module.billing.admin.entitlements.title'),
     ).toBeInTheDocument();
-    expect(screen.getByText('manual-2')).toBeInTheDocument();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('tab', {
-          name: 'module.billing.admin.tabs.domains',
-        }),
-      );
-    });
-
     expect(
-      await screen.findByText('module.billing.admin.domains.title'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('academy.creator-two.com')).toBeInTheDocument();
+      screen.getAllByRole('button', {
+        name: 'module.billing.admin.entitlements.actions.viewDetail',
+      }).length,
+    ).toBeGreaterThan(0);
 
     await act(async () => {
       await user.click(
@@ -447,19 +508,67 @@ describe('AdminBillingConsolePage', () => {
     expect(
       await screen.findByText('module.billing.admin.reports.title'),
     ).toBeInTheDocument();
-    expect(mockGetAdminBillingDailyUsageMetrics).toHaveBeenCalledWith({
-      page_index: 1,
-      page_size: 6,
-    });
+    expect(mockGetAdminBillingFocusTeachers).toHaveBeenNthCalledWith(
+      1,
+      {
+        page_index: 1,
+        page_size: 1,
+      },
+      { skipErrorToast: true },
+    );
+    expect(mockGetAdminBillingFocusTeachers).toHaveBeenNthCalledWith(
+      2,
+      {
+        page_index: 1,
+        page_size: 1,
+      },
+      { skipErrorToast: true },
+    );
     expect(
       screen.getByText('module.billing.admin.reports.sections.usage.title'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.reports.metric.llmOutputTokens'),
+      screen.getByText('module.billing.admin.reports.summary.totalCredits'),
     ).toBeInTheDocument();
+    expect(screen.getAllByText('13800138002').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Teacher Two').length).toBeGreaterThan(0);
     expect(
-      screen.getAllByText('2026-04-05 17:00:00 → 2026-04-06 17:00:00').length,
-    ).toBeGreaterThan(0);
+      screen.getByText(
+        'module.billing.admin.reports.attentionReasons.rapid_growth',
+      ),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'common.core.more',
+        }),
+      );
+    });
+
+    await act(async () => {
+      await user.click(
+        screen.getByText('module.billing.admin.reports.actions.viewOrders'),
+      );
+    });
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/admin/operations/orders?tab=credits&creator_keyword=13800138002',
+    );
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.admin.reports.filters.rapid_growth',
+        }),
+      );
+    });
+
+    expect(
+      screen.getByText(
+        'module.billing.admin.reports.attentionReasons.rapid_growth',
+      ),
+    ).toBeInTheDocument();
   });
 
   test('grants creator customization entitlements from the admin console', async () => {
@@ -471,7 +580,7 @@ describe('AdminBillingConsolePage', () => {
           provider: () => new Map(),
         }}
       >
-        <AdminBillingConsolePage />
+        <AdminBillingOperationsConsole />
       </SWRConfig>,
     );
 
@@ -482,24 +591,19 @@ describe('AdminBillingConsolePage', () => {
     );
     await user.click(
       await screen.findByRole('button', {
-        name: 'module.billing.admin.entitlements.grant.edit',
+        name: 'module.billing.admin.entitlements.actions.viewDetail',
       }),
     );
 
     expect(
       screen.getByLabelText(
-        'module.billing.admin.entitlements.grant.fields.creatorBid',
+        'module.billing.admin.entitlements.grant.fields.creatorMobile',
       ),
     ).toHaveValue('creator-2');
 
     await user.click(
       screen.getByRole('switch', {
         name: 'module.billing.admin.entitlements.grant.fields.custom_domain_enabled',
-      }),
-    );
-    await user.click(
-      screen.getByRole('switch', {
-        name: 'module.billing.admin.entitlements.grant.fields.custom_wechat_enabled',
       }),
     );
     await user.click(
@@ -518,8 +622,8 @@ describe('AdminBillingConsolePage', () => {
         creator_bid: 'creator-2',
         branding_enabled: true,
         custom_domain_enabled: true,
-        custom_wechat_enabled: true,
-        custom_payment_enabled: true,
+        custom_wechat_enabled: false,
+        custom_payment_enabled: false,
       }),
     );
   });
@@ -533,7 +637,7 @@ describe('AdminBillingConsolePage', () => {
           provider: () => new Map(),
         }}
       >
-        <AdminBillingConsolePage />
+        <AdminBillingOperationsConsole />
       </SWRConfig>,
     );
 
@@ -564,13 +668,13 @@ describe('AdminBillingConsolePage', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByLabelText('module.billing.admin.adjust.fields.creatorBid'),
-    ).toHaveValue('creator-2');
+      screen.getByLabelText('module.billing.admin.adjust.fields.creatorMobile'),
+    ).toHaveValue('13800138002');
 
     await act(async () => {
       await user.type(
         screen.getByLabelText('module.billing.admin.adjust.fields.amount'),
-        '12.5000000000',
+        '12.50',
       );
       await user.type(
         screen.getByLabelText('module.billing.admin.adjust.fields.note'),
@@ -585,8 +689,16 @@ describe('AdminBillingConsolePage', () => {
 
     expect(mockAdjustAdminBillingLedger).toHaveBeenCalledWith({
       creator_bid: 'creator-2',
-      amount: '12.5000000000',
+      amount: '12.50',
       note: 'manual recovery',
+    });
+    expect(
+      JSON.parse(
+        window.localStorage.getItem('adminBillingExceptionHandledState') ||
+          '{}',
+      ),
+    ).toMatchObject({
+      'subscription:sub-past-due': true,
     });
 
     await screen.findByText('module.billing.admin.exceptions.title');
@@ -596,5 +708,104 @@ describe('AdminBillingConsolePage', () => {
     expect(mockGetAdminBillingOrders.mock.calls.length).toBeGreaterThan(
       initialOrderCalls,
     );
+    expect(
+      screen.getByRole('button', {
+        name: 'module.billing.admin.exceptions.processingStatus.done',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('toggles exception processing status with a lightweight clickable control', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingOperationsConsole />
+      </SWRConfig>,
+    );
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.admin.tabs.exceptions',
+        }),
+      );
+    });
+
+    const pendingButton = (
+      await screen.findAllByRole('button', {
+        name: 'module.billing.admin.exceptions.processingStatus.pending',
+      })
+    )[0];
+    expect(pendingButton).toHaveAttribute('aria-pressed', 'false');
+
+    await act(async () => {
+      await user.click(pendingButton);
+    });
+
+    expect(
+      screen.getByRole('button', {
+        name: 'module.billing.admin.exceptions.processingStatus.done',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      JSON.parse(
+        window.localStorage.getItem('adminBillingExceptionHandledState') ||
+          '{}',
+      ),
+    ).toMatchObject({
+      'subscription:sub-past-due': true,
+    });
+  });
+
+  test('renders a clean empty state when there are no abnormal orders', async () => {
+    const user = userEvent.setup();
+
+    mockGetAdminBillingOrders.mockResolvedValue({
+      items: [],
+      page: 1,
+      page_count: 0,
+      page_size: 10,
+      total: 0,
+    });
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingOperationsConsole />
+      </SWRConfig>,
+    );
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.admin.tabs.orders',
+        }),
+      );
+    });
+
+    expect(
+      await screen.findByText('module.billing.admin.orders.empty'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.billing.admin.pagination.page'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.dashboard.pagination.prev',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.dashboard.pagination.next',
+      }),
+    ).not.toBeInTheDocument();
   });
 });
