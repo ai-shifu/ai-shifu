@@ -3,7 +3,7 @@ import { EnvStoreState } from '@/c-types/store';
 import { environment } from '@/config/environment';
 
 export const useEnvStore = create<EnvStoreState>(set => ({
-  courseId: environment.courseId,
+  courseId: '',
   updateCourseId: async (courseId: string) => set({ courseId }),
   defaultLlmModel: environment.defaultLlmModel,
   updateDefaultLlmModel: async (defaultLlmModel: string) =>

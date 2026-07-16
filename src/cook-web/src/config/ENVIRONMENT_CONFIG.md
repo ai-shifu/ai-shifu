@@ -12,11 +12,13 @@
 | -------------------------- | ---------- | ----------------------- |
 | `NEXT_PUBLIC_API_BASE_URL` | API基础URL | `http://localhost:8080` |
 
-### 2. 课程配置 (Course Configuration)
+### 2. 入口跳转配置 (Entry Redirect Configuration)
 
-| 变量名                          | 用途       | 默认值   |
-| ------------------------------- | ---------- | -------- |
-| `NEXT_PUBLIC_DEFAULT_COURSE_ID` | 默认课程ID | 空字符串 |
+| 变量名     | 用途                                       | 默认值   |
+| ---------- | ------------------------------------------ | -------- |
+| `HOME_URL` | `/`、`/c` 入口跳转地址及 Logo 点击目标 URL | `/admin` |
+
+如需将某门课程作为默认入口，配置 `HOME_URL=/c/<shifu_bid>`。`HOME_URL` 支持站内相对地址和绝对地址；老师品牌配置中的 `home_url` 会覆盖全局值。显式访问 `/c/<shifu_bid>` 时不会被该配置覆盖。
 
 ### 3. 微信集成 (WeChat Integration)
 
@@ -94,8 +96,8 @@ import { environment } from '@/config/environment';
 // Get API base URL
 const apiUrl = environment.apiBaseUrl;
 
-// Get course ID
-const courseId = environment.courseId;
+// Get the configured entry URL
+const homeUrl = environment.homeUrl;
 
 // Get WeChat configuration
 const wechatAppId = environment.wechatAppId;
@@ -133,12 +135,10 @@ export async function GET() {
 
 ## API配置响应
 
-`/api/config` 返回干净的JSON数据：
+Cook Web 内置的 `/api/config` 只返回 `apiBaseUrl`。后端 `/api/runtime-config` 返回浏览器运行时配置，例如：
 
 ```json
 {
-  "apiBaseUrl": "http://127.0.0.1:5800",
-  "courseId": "ca3265b045e84774b8d845a4c3c5b0a3",
   "wechatAppId": "wx973eb6079c64d030",
   "enableWechatCode": true,
   "billingEnabled": true,
@@ -151,6 +151,7 @@ export async function GET() {
   "enableEruda": "false",
   "loginMethodsEnabled": ["phone"],
   "defaultLoginMethod": "phone",
+  "homeUrl": "/admin",
   "stripePublishableKey": "pk_test_xxx",
   "stripeEnabled": false
 }
@@ -160,9 +161,10 @@ export async function GET() {
 
 ### `/c/[[...id]]` 路由
 
-- **配置获取方式**：通过 `/api/config` API
+- **配置获取方式**：通过后端 `/api/runtime-config` API
 - **用途**：课程学习页面，需要完整的配置信息
-- **包含配置**：课程ID、微信配置、UI配置、统计配置等
+- **课程标识来源**：显式 URL 路径 `/c/<shifu_bid>`；运行时配置不再提供默认课程 ID
+- **入口行为**：访问 `/c` 时跳转到 `HOME_URL`，配置 `HOME_URL=/c/<shifu_bid>` 即可指定默认课程入口
 
 ### `/main` 路由
 
@@ -185,7 +187,7 @@ Docker 部署不受影响：
 ```bash
 # 使用新的环境变量名
 docker run -e NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com \
-           -e NEXT_PUBLIC_DEFAULT_COURSE_ID=your-course-id \
+           -e HOME_URL=/c/your-course-id \
            -e NEXT_PUBLIC_WECHAT_APP_ID=your-wechat-app-id \
            your-image:tag
 ```
@@ -242,7 +244,7 @@ docker run -e NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com \
 ✅ **修复了配置数据字段映射**：
 
 - 更新了 `/c/[[...id]]/layout.tsx` 中的字段映射
-- 使用新的字段名（如 `courseId` 而不是 `NEXT_PUBLIC_COURSE_ID`）
+- 统一使用后端 `/api/runtime-config` 返回的运行时字段
 - 确保所有组件都能正确获取配置
 
 #### 7. 路由配置优化
@@ -269,7 +271,6 @@ docker run -e NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com \
 | `SITE_HOST`                           | `NEXT_PUBLIC_API_BASE_URL`               | API基础URL         |
 | `NEXT_PUBLIC_BASEURL`                 | `NEXT_PUBLIC_API_BASE_URL`               | API基础URL         |
 | `NEXT_PUBLIC_SITE_URL`                | `NEXT_PUBLIC_API_BASE_URL`               | API基础URL         |
-| `NEXT_PUBLIC_COURSE_ID`               | `NEXT_PUBLIC_DEFAULT_COURSE_ID`          | 默认课程ID         |
 | `NEXT_PUBLIC_APP_ID`                  | `NEXT_PUBLIC_WECHAT_APP_ID`              | 微信App ID         |
 | `NEXT_PUBLIC_ENABLE_WXCODE`           | `NEXT_PUBLIC_WECHAT_CODE_ENABLED`        | 是否启用微信码     |
 | `NEXT_PUBLIC_ALWAYS_SHOW_LESSON_TREE` | `NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE` | 是否始终显示课程树 |
@@ -309,8 +310,8 @@ docker run -e NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com \
 # ===== Core API Configuration =====
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
 
-# ===== Content & Course Configuration =====
-NEXT_PUBLIC_DEFAULT_COURSE_ID=ca3265b045e84774b8d845a4c3c5b0a3
+# ===== Entry Redirect Configuration =====
+HOME_URL=/c/ca3265b045e84774b8d845a4c3c5b0a3
 
 # ===== WeChat Integration =====
 NEXT_PUBLIC_WECHAT_APP_ID=wx973eb6079c64d030
@@ -341,8 +342,8 @@ NEXT_PUBLIC_STRIPE_ENABLED=false
 # ===== Core API Configuration =====
 NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com
 
-# ===== Content & Course Configuration =====
-NEXT_PUBLIC_DEFAULT_COURSE_ID=your-default-course-id
+# ===== Entry Redirect Configuration =====
+HOME_URL=/c/your-course-id
 
 # ===== WeChat Integration =====
 NEXT_PUBLIC_WECHAT_APP_ID=your-wechat-app-id
