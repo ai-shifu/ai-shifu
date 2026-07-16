@@ -60,6 +60,7 @@ def billing_domain_client(monkeypatch):
             user_id=request.headers.get("X-User-Id", "creator-1"),
             language="en-US",
             is_creator=request.headers.get("X-Creator", "1") == "1",
+            is_operator=request.headers.get("X-Operator", "0") == "1",
         )
 
     @app.route("/_domain-context", methods=["GET"])
@@ -197,7 +198,8 @@ class TestBillingDomains:
         client = billing_domain_client["client"]
 
         audit_response = client.get(
-            "/api/admin/billing/domain-audits?page_index=1&page_size=10"
+            "/api/admin/billing/domain-audits?page_index=1&page_size=10",
+            headers={"X-Operator": "1"},
         )
         audit_payload = audit_response.get_json(force=True)
 
