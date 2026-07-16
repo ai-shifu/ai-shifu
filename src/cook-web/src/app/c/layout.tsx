@@ -23,9 +23,31 @@ export default function ChatLayout({
   const searchParams = useSearchParams();
   const homeUrl = useEnvStore(state => state.homeUrl);
   const runtimeConfigLoaded = useEnvStore(state => state.runtimeConfigLoaded);
+  const normalizedPath = pathname?.replace(/\/+$/, '');
+  const serializedSearchParams = searchParams?.toString() ?? '';
   const explicitCourseId = searchParams?.get('courseId')?.trim() ?? '';
-  const isBareCourseEntryPath =
-    pathname?.replace(/\/+$/, '') === '/c' && !explicitCourseId;
+  const isCourseEntryPath = normalizedPath === '/c';
+  const isCourseQueryEntryPath = isCourseEntryPath && !!explicitCourseId;
+  const isBareCourseEntryPath = isCourseEntryPath && !explicitCourseId;
+
+  useEffect(() => {
+    if (!isCourseQueryEntryPath) {
+      return;
+    }
+    const remainingSearchParams = new URLSearchParams(serializedSearchParams);
+    remainingSearchParams.delete('courseId');
+    const remainingQuery = remainingSearchParams.toString();
+    const hash = window.location.hash;
+    router.replace(
+      `/c/${encodeURIComponent(explicitCourseId)}` +
+        `${remainingQuery ? `?${remainingQuery}` : ''}${hash}`,
+    );
+  }, [
+    explicitCourseId,
+    isCourseQueryEntryPath,
+    router,
+    serializedSearchParams,
+  ]);
 
   useEffect(() => {
     if (!runtimeConfigLoaded || !isBareCourseEntryPath) {
@@ -39,7 +61,7 @@ export default function ChatLayout({
     }
   }, [homeUrl, isBareCourseEntryPath, router, runtimeConfigLoaded]);
 
-  if (isBareCourseEntryPath) {
+  if (isCourseEntryPath) {
     return null;
   }
 

@@ -146,33 +146,59 @@ describe('course route entry redirect', () => {
     expect(screen.queryByText(childLabel)).not.toBeInTheDocument();
   });
 
-  it('preserves an explicit courseId query entry instead of applying HOME_URL', async () => {
+  it('canonicalizes an explicit courseId query before mounting learner children', async () => {
     const replace = jest.fn();
+    const location = {
+      href: 'https://app.example.com/c?courseId=explicit%2Fcourse%20one&lessonid=lesson-1&preview=true&mode=listen&channel=share#chapter-2',
+      hash: '#chapter-2',
+      pathname: '/c',
+      replace,
+    };
     Object.defineProperty(window, 'location', {
       configurable: true,
-      value: {
-        href: 'https://app.example.com/c?courseId=explicit-course',
-        pathname: '/c',
-        replace,
-      },
+      value: location,
     });
     mockPathname = '/c';
-    mockSearchParams = new URLSearchParams('courseId=explicit-course');
+    mockSearchParams = new URLSearchParams(
+      'courseId=explicit%2Fcourse%20one&lessonid=lesson-1&preview=true&mode=listen&channel=share',
+    );
     act(() => {
       useEnvStore.setState({
         homeUrl: '/c/default-course',
-        runtimeConfigLoaded: true,
+        runtimeConfigLoaded: false,
       });
     });
 
-    render(
+    const { rerender } = render(
+      <ChatLayout>
+        <div>{childLabel}</div>
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith(
+        '/c/explicit%2Fcourse%20one?lessonid=lesson-1&preview=true&mode=listen&channel=share#chapter-2',
+      );
+    });
+    expect(replace).not.toHaveBeenCalled();
+    expect(screen.queryByText(childLabel)).not.toBeInTheDocument();
+
+    mockRouterReplace.mockClear();
+    mockPathname = '/c/explicit%2Fcourse%20one';
+    mockSearchParams = new URLSearchParams(
+      'lessonid=lesson-1&preview=true&mode=listen&channel=share',
+    );
+    location.href =
+      'https://app.example.com/c/explicit%2Fcourse%20one?lessonid=lesson-1&preview=true&mode=listen&channel=share#chapter-2';
+    location.pathname = '/c/explicit%2Fcourse%20one';
+    rerender(
       <ChatLayout>
         <div>{childLabel}</div>
       </ChatLayout>,
     );
 
     await act(async () => {});
-    expect(replace).not.toHaveBeenCalled();
+    expect(mockRouterReplace).not.toHaveBeenCalled();
     expect(screen.getByText(childLabel)).toBeInTheDocument();
   });
 
