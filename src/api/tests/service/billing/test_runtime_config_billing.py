@@ -7,6 +7,7 @@ import pytest
 
 import flaskr.dao as dao
 import flaskr.common.public_urls as public_urls
+from flaskr.common.config import ENV_VARS
 from flaskr.route import config as config_route
 from flaskr.service.billing.consts import (
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
@@ -271,7 +272,7 @@ def test_runtime_config_defaults_home_url_to_admin_when_unconfigured(
 
     def get_config_override(key, default=""):
         if key == "HOME_URL":
-            return default
+            return ENV_VARS["HOME_URL"].default
         return original_route_get_config(key, default)
 
     monkeypatch.setattr(config_route, "get_config", get_config_override)
