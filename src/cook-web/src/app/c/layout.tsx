@@ -30,7 +30,12 @@ export default function ChatLayout({
     if (!runtimeConfigLoaded || !isBareCourseEntryPath) {
       return;
     }
-    redirectToHomeUrlIfRootPath(homeUrl || environment.homeUrl);
+    const redirected = redirectToHomeUrlIfRootPath(
+      homeUrl || environment.homeUrl,
+    );
+    if (!redirected) {
+      window.location.replace('/404');
+    }
   }, [homeUrl, isBareCourseEntryPath, runtimeConfigLoaded]);
 
   if (isBareCourseEntryPath) {

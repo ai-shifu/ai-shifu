@@ -203,4 +203,37 @@ describe('course route entry redirect', () => {
     });
     expect(screen.queryByText(childLabel)).not.toBeInTheDocument();
   });
+
+  it.each(['/c', 'javascript:alert(1)'])(
+    'uses the not-found fallback when HOME_URL cannot redirect: %s',
+    async homeUrl => {
+      const replace = jest.fn();
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+          href: 'https://app.example.com/c',
+          pathname: '/c',
+          replace,
+        },
+      });
+      mockPathname = '/c';
+      act(() => {
+        useEnvStore.setState({
+          homeUrl,
+          runtimeConfigLoaded: true,
+        });
+      });
+
+      render(
+        <ChatLayout>
+          <div>{childLabel}</div>
+        </ChatLayout>,
+      );
+
+      await waitFor(() => {
+        expect(replace).toHaveBeenCalledWith('/404');
+      });
+      expect(screen.queryByText(childLabel)).not.toBeInTheDocument();
+    },
+  );
 });
