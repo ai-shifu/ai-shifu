@@ -38,7 +38,6 @@ def runtime_config_client(monkeypatch):
 
     dao.db.init_app(app)
     config_values = {
-        "DEFAULT_COURSE_ID": "global-course-1",
         "DEFAULT_LLM_MODEL": "gpt-5.4",
         "WECHAT_APP_ID": "wechat-app-1",
         "BILL_ENABLED": True,
@@ -173,6 +172,7 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     )
     payload = response.get_json(force=True)["data"]
 
+    assert "courseId" not in payload
     assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
     assert payload["logoSquareUrl"] == "https://cdn.example.com/creator-square.png"
     assert payload["faviconUrl"] == "https://cdn.example.com/creator-favicon.ico"

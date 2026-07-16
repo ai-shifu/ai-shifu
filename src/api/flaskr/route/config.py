@@ -154,7 +154,6 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         official_site_url = get_config("OFFICIAL_SITE_URL", "")
 
         config = RuntimeConfigDTO(
-            courseId=get_config("DEFAULT_COURSE_ID", ""),
             defaultLlmModel=get_config("DEFAULT_LLM_MODEL", ""),
             wechatAppId=get_config("WECHAT_APP_ID", ""),
             enableWechatCode=bool(get_config("WECHAT_APP_ID", "")),

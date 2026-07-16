@@ -98,7 +98,6 @@ const loadRuntimeConfig = async () => {
     updateLoginMethodsEnabled,
     updateDefaultLoginMethod,
     updateLegalUrls,
-    updateCourseId,
   } = useEnvStore.getState() as EnvStoreState;
 
   const resolvedBase = await resolveRuntimeBase();
@@ -163,20 +162,6 @@ const loadRuntimeConfig = async () => {
     runtimeConfig?.loginMethodsEnabled,
     (useEnvStore.getState() as EnvStoreState).loginMethodsEnabled,
   );
-
-  /**
-   * Course id resolution priority
-   *
-   * 1. If URL path is /c/<shifu_bid>, keep using the path parameter.
-   *    Runtime default course id from backend MUST NOT override it.
-   * 2. Otherwise, fall back to backend-provided default course id.
-   */
-  const hasPathCourseId = !!pathShifuBid;
-
-  if (!hasPathCourseId) {
-    // Only apply backend default when there is no explicit course id in the URL path
-    await updateCourseId(runtimeConfig?.courseId || '');
-  }
 
   await updateAppId(runtimeConfig?.wechatAppId || '');
   await updateAlwaysShowLessonTree(
