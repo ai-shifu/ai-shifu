@@ -70,6 +70,24 @@ describe('redirectToHomeUrlIfRootPath', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it.each(['javascript:alert(1)', 'data:text/html,unsafe'])(
+    'does not redirect to an unsafe protocol: %s',
+    homeUrl => {
+      const replace = jest.fn();
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+          href: 'https://app.example.com/',
+          pathname: '/',
+          replace,
+        },
+      });
+
+      expect(redirectToHomeUrlIfRootPath(homeUrl)).toBe(false);
+      expect(replace).not.toHaveBeenCalled();
+    },
+  );
+
   it('does not override an explicit course path', () => {
     const replace = jest.fn();
     Object.defineProperty(window, 'location', {

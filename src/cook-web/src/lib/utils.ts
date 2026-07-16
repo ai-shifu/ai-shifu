@@ -21,6 +21,10 @@ export const redirectToHomeUrlIfRootPath = (homeUrl?: string): boolean => {
     const currentUrl = new URL(window.location.href);
     const targetUrl = new URL(homeUrl, window.location.href);
 
+    if (targetUrl.protocol !== 'http:' && targetUrl.protocol !== 'https:') {
+      return false;
+    }
+
     const currentPath = currentUrl.pathname.replace(/\/+$/, '') || '/';
     const targetPath = targetUrl.pathname.replace(/\/+$/, '') || '/';
 
