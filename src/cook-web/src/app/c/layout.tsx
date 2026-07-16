@@ -4,7 +4,7 @@
 // import 'core-js/full';
 
 import { useEffect } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { useEnvStore } from '@/c-store/envStore';
 import { environment } from '@/config/environment';
@@ -18,6 +18,7 @@ export default function ChatLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const homeUrl = useEnvStore(state => state.homeUrl);
@@ -34,9 +35,9 @@ export default function ChatLayout({
       homeUrl || environment.homeUrl,
     );
     if (!redirected) {
-      window.location.replace('/404');
+      router.replace('/404');
     }
-  }, [homeUrl, isBareCourseEntryPath, runtimeConfigLoaded]);
+  }, [homeUrl, isBareCourseEntryPath, router, runtimeConfigLoaded]);
 
   if (isBareCourseEntryPath) {
     return null;

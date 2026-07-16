@@ -6,10 +6,12 @@ import ChatLayout from './layout';
 
 let mockPathname = '/c/course-1';
 let mockSearchParams = new URLSearchParams();
+const mockRouterReplace = jest.fn();
 const childLabel = 'content';
 
 jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
+  useRouter: () => ({ replace: mockRouterReplace }),
   useSearchParams: () => mockSearchParams,
 }));
 
@@ -19,6 +21,7 @@ describe('course route entry redirect', () => {
   beforeEach(() => {
     mockPathname = '/c/course-1';
     mockSearchParams = new URLSearchParams();
+    mockRouterReplace.mockClear();
   });
 
   afterEach(() => {
@@ -231,8 +234,9 @@ describe('course route entry redirect', () => {
       );
 
       await waitFor(() => {
-        expect(replace).toHaveBeenCalledWith('/404');
+        expect(mockRouterReplace).toHaveBeenCalledWith('/404');
       });
+      expect(replace).not.toHaveBeenCalled();
       expect(screen.queryByText(childLabel)).not.toBeInTheDocument();
     },
   );
