@@ -311,7 +311,7 @@ class TestStreamingSynthesisRetries:
         mock_app.app_context.return_value = app_context
 
         processor = create_test_processor(mock_app, tts_provider="tencent")
-        segment = TTSSegment(index=5, text="！？")
+        segment = TTSSegment(index=5, text="这句有文字但腾讯没返回。")
 
         result = processor._synthesize_in_thread(
             segment,
@@ -328,9 +328,49 @@ class TestStreamingSynthesisRetries:
         warning_args = mock_logger.warning.call_args.args
         error_args = mock_logger.error.call_args.args
         assert "text_preview=%r" in warning_args[0]
-        assert "！？" in warning_args
+        assert "这句有文字但腾讯没返回。" in warning_args
         assert "text_preview=%r" in error_args[0]
-        assert "！？" in error_args
+        assert "这句有文字但腾讯没返回。" in error_args
+
+    @patch("flaskr.service.tts.streaming_tts.logger")
+    @patch("flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage")
+    @patch("flaskr.service.tts.streaming_tts.synthesize_text")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_tencent_non_speakable_segment_skips_provider_call(
+        self,
+        mock_is_configured,
+        mock_synthesize_text,
+        mock_record_usage,
+        mock_logger,
+        mock_app,
+    ):
+        mock_is_configured.return_value = True
+        app_context = MagicMock()
+        app_context.__enter__.return_value = None
+        app_context.__exit__.return_value = False
+        mock_app.app_context.return_value = app_context
+
+        processor = create_test_processor(mock_app, tts_provider="tencent")
+        segment = TTSSegment(index=10, text="---")
+
+        result = processor._synthesize_in_thread(
+            segment,
+            processor.voice_settings,
+            processor.audio_settings,
+            processor.tts_provider,
+            processor.tts_model,
+        )
+
+        mock_synthesize_text.assert_not_called()
+        mock_record_usage.assert_not_called()
+        mock_logger.error.assert_not_called()
+        assert result.error is None
+        assert result.audio_data is None
+        assert result.is_ready is True
+        assert processor._completed_segments[10] is result
+        info_args = mock_logger.info.call_args.args
+        assert "skipped before Tencent synthesis" in info_args[0]
+        assert "---" in info_args
 
     @patch("flaskr.service.tts.streaming_tts.time.sleep")
     @patch("flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage")
