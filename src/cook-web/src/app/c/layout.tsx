@@ -4,7 +4,7 @@
 // import 'core-js/full';
 
 import { useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 import { useEnvStore } from '@/c-store/envStore';
 import { environment } from '@/config/environment';
@@ -19,18 +19,21 @@ export default function ChatLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const homeUrl = useEnvStore(state => state.homeUrl);
   const runtimeConfigLoaded = useEnvStore(state => state.runtimeConfigLoaded);
-  const isCourseEntryPath = pathname?.replace(/\/+$/, '') === '/c';
+  const explicitCourseId = searchParams?.get('courseId')?.trim() ?? '';
+  const isBareCourseEntryPath =
+    pathname?.replace(/\/+$/, '') === '/c' && !explicitCourseId;
 
   useEffect(() => {
-    if (!runtimeConfigLoaded || !isCourseEntryPath) {
+    if (!runtimeConfigLoaded || !isBareCourseEntryPath) {
       return;
     }
     redirectToHomeUrlIfRootPath(homeUrl || environment.homeUrl);
-  }, [homeUrl, isCourseEntryPath, runtimeConfigLoaded]);
+  }, [homeUrl, isBareCourseEntryPath, runtimeConfigLoaded]);
 
-  if (isCourseEntryPath) {
+  if (isBareCourseEntryPath) {
     return null;
   }
 

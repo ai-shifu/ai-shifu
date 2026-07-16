@@ -5,10 +5,12 @@ import { useEnvStore } from '@/c-store/envStore';
 import ChatLayout from './layout';
 
 let mockPathname = '/c/course-1';
+let mockSearchParams = new URLSearchParams();
 const childLabel = 'content';
 
 jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
+  useSearchParams: () => mockSearchParams,
 }));
 
 const originalLocation = window.location;
@@ -16,6 +18,7 @@ const originalLocation = window.location;
 describe('course route entry redirect', () => {
   beforeEach(() => {
     mockPathname = '/c/course-1';
+    mockSearchParams = new URLSearchParams();
   });
 
   afterEach(() => {
@@ -136,6 +139,67 @@ describe('course route entry redirect', () => {
 
     await waitFor(() => {
       expect(replace).toHaveBeenCalledWith('/');
+    });
+    expect(screen.queryByText(childLabel)).not.toBeInTheDocument();
+  });
+
+  it('preserves an explicit courseId query entry instead of applying HOME_URL', async () => {
+    const replace = jest.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        href: 'https://app.example.com/c?courseId=explicit-course',
+        pathname: '/c',
+        replace,
+      },
+    });
+    mockPathname = '/c';
+    mockSearchParams = new URLSearchParams('courseId=explicit-course');
+    act(() => {
+      useEnvStore.setState({
+        homeUrl: '/c/default-course',
+        runtimeConfigLoaded: true,
+      });
+    });
+
+    render(
+      <ChatLayout>
+        <div>{childLabel}</div>
+      </ChatLayout>,
+    );
+
+    await act(async () => {});
+    expect(replace).not.toHaveBeenCalled();
+    expect(screen.getByText(childLabel)).toBeInTheDocument();
+  });
+
+  it('treats a blank courseId query as a bare course entry', async () => {
+    const replace = jest.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        href: 'https://app.example.com/c?courseId=%20',
+        pathname: '/c',
+        replace,
+      },
+    });
+    mockPathname = '/c';
+    mockSearchParams = new URLSearchParams('courseId=%20');
+    act(() => {
+      useEnvStore.setState({
+        homeUrl: '/c/default-course',
+        runtimeConfigLoaded: true,
+      });
+    });
+
+    render(
+      <ChatLayout>
+        <div>{childLabel}</div>
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith('/c/default-course');
     });
     expect(screen.queryByText(childLabel)).not.toBeInTheDocument();
   });
