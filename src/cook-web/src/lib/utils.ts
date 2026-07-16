@@ -27,10 +27,16 @@ export const redirectToHomeUrlIfRootPath = (homeUrl?: string): boolean => {
 
     const currentPath = currentUrl.pathname.replace(/\/+$/, '') || '/';
     const targetPath = targetUrl.pathname.replace(/\/+$/, '') || '/';
+    const targetCourseId = targetUrl.searchParams.get('courseId')?.trim() ?? '';
+    const isTargetBareCourse = targetPath === '/c' && !targetCourseId;
+    const isSameTarget =
+      currentPath === targetPath &&
+      currentUrl.search === targetUrl.search &&
+      currentUrl.hash === targetUrl.hash;
 
     if (
       currentUrl.origin === targetUrl.origin &&
-      (targetPath === '/c' || currentPath === targetPath)
+      (isTargetBareCourse || isSameTarget)
     ) {
       return false;
     }

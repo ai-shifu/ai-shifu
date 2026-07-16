@@ -40,6 +40,43 @@ describe('redirectToHomeUrlIfRootPath', () => {
     expect(replace).toHaveBeenCalledWith('/c/course-1');
   });
 
+  it.each([
+    ['https://app.example.com/', '/'],
+    ['https://app.example.com/c', '/c'],
+  ])(
+    'redirects %s to a course configured through a legacy HOME_URL query',
+    (href, pathname) => {
+      const replace = jest.fn();
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+          href,
+          pathname,
+          replace,
+        },
+      });
+
+      const homeUrl = '/c?courseId=course-1&lessonid=lesson-1';
+      expect(redirectToHomeUrlIfRootPath(homeUrl)).toBe(true);
+      expect(replace).toHaveBeenCalledWith(homeUrl);
+    },
+  );
+
+  it('does not redirect a legacy course query target to itself', () => {
+    const replace = jest.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        href: 'https://app.example.com/c?courseId=course-1',
+        pathname: '/c',
+        replace,
+      },
+    });
+
+    expect(redirectToHomeUrlIfRootPath('/c?courseId=course-1')).toBe(false);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('redirects the course entry path to a configured root HOME_URL', () => {
     const replace = jest.fn();
     Object.defineProperty(window, 'location', {
