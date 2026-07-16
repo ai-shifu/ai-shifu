@@ -189,7 +189,7 @@ const loadRuntimeConfig = async () => {
     runtimeConfig?.enableWechatCode?.toString() || 'true',
   );
   await updateDefaultLlmModel(runtimeConfig?.defaultLlmModel || '');
-  await updateHomeUrl(runtimeConfig?.homeUrl || '/');
+  await updateHomeUrl(runtimeConfig?.homeUrl || '/admin');
   await updateContactUsUrl(runtimeConfig?.contactUsUrl || '');
   await updateOfficialSiteUrl(
     resolveOfficialSiteUrl(runtimeConfig?.officialSiteUrl),
@@ -297,7 +297,7 @@ export const applyCreatorBranding = async (
       updateLogoSquareUrl,
       updateFaviconUrl,
     } = useEnvStore.getState() as EnvStoreState;
-    await updateHomeUrl(runtimeConfig.homeUrl || '/');
+    await updateHomeUrl(runtimeConfig.homeUrl || '/admin');
     await updateLogoWideUrl(runtimeConfig.logoWideUrl || '');
     await updateLogoSquareUrl(runtimeConfig.logoSquareUrl || '');
     await updateFaviconUrl(runtimeConfig.faviconUrl || '');
