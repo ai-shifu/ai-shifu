@@ -148,7 +148,9 @@ const loadRuntimeConfig = async () => {
 
   const payload = await fetchRuntimeConfig();
   const runtimeConfig = payload?.data ?? payload;
-  if (redirectToHomeUrlIfRootPath(runtimeConfig?.homeUrl || '/admin')) {
+  const defaultHomeUrl =
+    window.location.pathname === '/' ? '/admin' : undefined;
+  if (redirectToHomeUrlIfRootPath(runtimeConfig?.homeUrl || defaultHomeUrl)) {
     return;
   }
 
