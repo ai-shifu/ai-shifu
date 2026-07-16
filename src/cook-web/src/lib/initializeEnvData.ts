@@ -5,6 +5,7 @@ import { EnvStoreState } from '@/c-types/store';
 import { redirectToHomeUrlIfRootPath } from '@/lib/utils';
 import { getBoolEnv } from '@/c-utils/envUtils';
 import {
+  environment,
   getDynamicApiBaseUrl,
   resolveOfficialSiteUrl,
 } from '@/config/environment';
@@ -148,7 +149,9 @@ const loadRuntimeConfig = async () => {
 
   const payload = await fetchRuntimeConfig();
   const runtimeConfig = payload?.data ?? payload;
-  if (redirectToHomeUrlIfRootPath(runtimeConfig?.homeUrl)) {
+  if (
+    redirectToHomeUrlIfRootPath(runtimeConfig?.homeUrl || environment.homeUrl)
+  ) {
     return;
   }
 
@@ -189,7 +192,7 @@ const loadRuntimeConfig = async () => {
     runtimeConfig?.enableWechatCode?.toString() || 'true',
   );
   await updateDefaultLlmModel(runtimeConfig?.defaultLlmModel || '');
-  await updateHomeUrl(runtimeConfig?.homeUrl || '/');
+  await updateHomeUrl(runtimeConfig?.homeUrl || environment.homeUrl);
   await updateContactUsUrl(runtimeConfig?.contactUsUrl || '');
   await updateOfficialSiteUrl(
     resolveOfficialSiteUrl(runtimeConfig?.officialSiteUrl),
@@ -297,7 +300,7 @@ export const applyCreatorBranding = async (
       updateLogoSquareUrl,
       updateFaviconUrl,
     } = useEnvStore.getState() as EnvStoreState;
-    await updateHomeUrl(runtimeConfig.homeUrl || '/');
+    await updateHomeUrl(runtimeConfig.homeUrl || environment.homeUrl);
     await updateLogoWideUrl(runtimeConfig.logoWideUrl || '');
     await updateLogoSquareUrl(runtimeConfig.logoSquareUrl || '');
     await updateFaviconUrl(runtimeConfig.faviconUrl || '');
