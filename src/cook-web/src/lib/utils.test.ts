@@ -24,4 +24,19 @@ describe('redirectToHomeUrlIfRootPath', () => {
     expect(redirectToHomeUrlIfRootPath('/admin')).toBe(true);
     expect(replace).toHaveBeenCalledWith('/admin');
   });
+
+  it('does not redirect a non-entry path', () => {
+    const replace = jest.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        href: 'https://app.example.com/admin',
+        pathname: '/admin',
+        replace,
+      },
+    });
+
+    expect(redirectToHomeUrlIfRootPath('/admin')).toBe(false);
+    expect(replace).not.toHaveBeenCalled();
+  });
 });
