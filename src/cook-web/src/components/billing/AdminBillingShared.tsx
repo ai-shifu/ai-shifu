@@ -58,53 +58,44 @@ export const ADMIN_BILLING_CONFIG_STATUS_EVENT =
 export const ADMIN_BILLING_EXCEPTION_HANDLED_EVENT =
   'admin-billing-exception-handled-change';
 
-const ADMIN_BILLING_CONFIG_STATUS_STORAGE_KEY = 'adminBillingConfigStatusState';
-const ADMIN_BILLING_EXCEPTION_HANDLED_STORAGE_KEY =
-  'adminBillingExceptionHandledState';
-
 export type AdminBillingOpsState = {
   config_status?: AdminBillingConfigStatusMap;
   exception_handled?: AdminBillingExceptionHandledMap;
 };
 
-function readJsonStorage<T extends Record<string, unknown>>(key: string): T {
-  if (typeof window === 'undefined') {
-    return {} as T;
-  }
+let configStatusCache: AdminBillingConfigStatusMap = {};
+let exceptionHandledCache: AdminBillingExceptionHandledMap = {};
 
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) {
-      return {} as T;
-    }
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') {
-      return parsed as T;
-    }
-  } catch {
-    // Ignore malformed local-only cache values.
-  }
-
-  return {} as T;
+function cloneConfigStatusMap(
+  value: AdminBillingConfigStatusMap,
+): AdminBillingConfigStatusMap {
+  return Object.fromEntries(
+    Object.entries(value).map(([key, record]) => [
+      key,
+      { status: record.status, note: record.note || '' },
+    ]),
+  );
 }
 
-function writeJsonStorage(
-  key: string,
-  value: Record<string, unknown>,
+function cloneExceptionHandledMap(
+  value: AdminBillingExceptionHandledMap,
+): AdminBillingExceptionHandledMap {
+  return { ...value };
+}
+
+function dispatchAdminBillingStateChange(
   eventName: string,
+  value: Record<string, unknown>,
 ): void {
   if (typeof window === 'undefined') {
     return;
   }
 
-  window.localStorage.setItem(key, JSON.stringify(value));
   window.dispatchEvent(new CustomEvent(eventName, { detail: value }));
 }
 
 export function readAdminBillingConfigStatusMap(): AdminBillingConfigStatusMap {
-  return readJsonStorage<AdminBillingConfigStatusMap>(
-    ADMIN_BILLING_CONFIG_STATUS_STORAGE_KEY,
-  );
+  return cloneConfigStatusMap(configStatusCache);
 }
 
 export function applyAdminBillingOpsState(
@@ -114,17 +105,17 @@ export function applyAdminBillingOpsState(
     return;
   }
   if (state.config_status) {
-    writeJsonStorage(
-      ADMIN_BILLING_CONFIG_STATUS_STORAGE_KEY,
-      state.config_status,
+    configStatusCache = cloneConfigStatusMap(state.config_status);
+    dispatchAdminBillingStateChange(
       ADMIN_BILLING_CONFIG_STATUS_EVENT,
+      configStatusCache,
     );
   }
   if (state.exception_handled) {
-    writeJsonStorage(
-      ADMIN_BILLING_EXCEPTION_HANDLED_STORAGE_KEY,
-      state.exception_handled,
+    exceptionHandledCache = cloneExceptionHandledMap(state.exception_handled);
+    dispatchAdminBillingStateChange(
       ADMIN_BILLING_EXCEPTION_HANDLED_EVENT,
+      exceptionHandledCache,
     );
   }
 }
@@ -144,10 +135,10 @@ export async function setAdminBillingConfigStatusState(
     status: record.status,
     note: String(record.note || '').trim(),
   };
-  writeJsonStorage(
-    ADMIN_BILLING_CONFIG_STATUS_STORAGE_KEY,
-    next,
+  configStatusCache = cloneConfigStatusMap(next);
+  dispatchAdminBillingStateChange(
     ADMIN_BILLING_CONFIG_STATUS_EVENT,
+    configStatusCache,
   );
   try {
     await api.updateAdminBillingConfigStatus({
@@ -162,9 +153,7 @@ export async function setAdminBillingConfigStatusState(
 }
 
 export function readAdminBillingExceptionHandledMap(): AdminBillingExceptionHandledMap {
-  return readJsonStorage<AdminBillingExceptionHandledMap>(
-    ADMIN_BILLING_EXCEPTION_HANDLED_STORAGE_KEY,
-  );
+  return cloneExceptionHandledMap(exceptionHandledCache);
 }
 
 export async function setAdminBillingExceptionHandledState(
@@ -184,10 +173,10 @@ export async function setAdminBillingExceptionHandledState(
     delete next[normalizedRowKey];
   }
 
-  writeJsonStorage(
-    ADMIN_BILLING_EXCEPTION_HANDLED_STORAGE_KEY,
-    next,
+  exceptionHandledCache = cloneExceptionHandledMap(next);
+  dispatchAdminBillingStateChange(
     ADMIN_BILLING_EXCEPTION_HANDLED_EVENT,
+    exceptionHandledCache,
   );
   try {
     await api.updateAdminBillingExceptionHandled({

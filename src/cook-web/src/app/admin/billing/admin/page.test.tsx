@@ -5,6 +5,10 @@ import { SWRConfig } from 'swr';
 import api from '@/api';
 
 import { AdminBillingOperationsConsole } from '@/app/admin/operations/billing/AdminBillingOperationsConsole';
+import {
+  applyAdminBillingOpsState,
+  readAdminBillingExceptionHandledMap,
+} from '@/components/billing/AdminBillingShared';
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
@@ -88,6 +92,7 @@ describe('AdminBillingOperationsConsole', () => {
     mockReplace.mockReset();
     mockPush.mockReset();
     window.localStorage.clear();
+    applyAdminBillingOpsState({ config_status: {}, exception_handled: {} });
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockEnvState.billingEnabled = 'true';
     mockEnvState.runtimeConfigLoaded = true;
@@ -692,12 +697,7 @@ describe('AdminBillingOperationsConsole', () => {
       amount: '12.50',
       note: 'manual recovery',
     });
-    expect(
-      JSON.parse(
-        window.localStorage.getItem('adminBillingExceptionHandledState') ||
-          '{}',
-      ),
-    ).toMatchObject({
+    expect(readAdminBillingExceptionHandledMap()).toMatchObject({
       'subscription:sub-past-due': true,
     });
 
@@ -752,12 +752,7 @@ describe('AdminBillingOperationsConsole', () => {
         name: 'module.billing.admin.exceptions.processingStatus.done',
       }),
     ).toHaveAttribute('aria-pressed', 'true');
-    expect(
-      JSON.parse(
-        window.localStorage.getItem('adminBillingExceptionHandledState') ||
-          '{}',
-      ),
-    ).toMatchObject({
+    expect(readAdminBillingExceptionHandledMap()).toMatchObject({
       'subscription:sub-past-due': true,
     });
   });
