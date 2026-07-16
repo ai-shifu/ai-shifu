@@ -146,7 +146,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         logo_wide_url = branding.logo_wide_url or get_config("LOGO_WIDE_URL", "")
         logo_square_url = branding.logo_square_url or get_config("LOGO_SQUARE_URL", "")
         favicon_url = branding.favicon_url or get_config("FAVICON_URL", "")
-        home_url = branding.home_url or get_config("HOME_URL", "/admin")
+        home_url = branding.home_url or get_config("HOME_URL")
         contact_us_url = branding.contact_us_url or get_config("CONTACT_US_URL", "")
         official_site_url = get_config("OFFICIAL_SITE_URL", "")
 
