@@ -203,8 +203,11 @@ ENV_VARS: Dict[str, EnvVar] = {
     ),
     "HOME_URL": EnvVar(
         name="HOME_URL",
-        default="/",
-        description="Cook Web logo/home redirect URL (default: /)",
+        default="/admin",
+        description=(
+            "Cook Web logo and entry redirect URL. Set /c/<shifu_bid> to use "
+            "a course as the landing page (default: /admin)"
+        ),
         group="frontend",
     ),
     "CONTACT_US_URL": EnvVar(
@@ -329,12 +332,6 @@ ENV_VARS: Dict[str, EnvVar] = {
         type=int,
         description="Upper bound for the DSL `limit` field accepted by creator-analytics",
         group="analytics",
-    ),
-    "DEFAULT_COURSE_ID": EnvVar(
-        name="DEFAULT_COURSE_ID",
-        default="",
-        description="Default course id for Cook Web",
-        group="frontend",
     ),
     "DEFAULT_LOGIN_METHOD": EnvVar(
         name="DEFAULT_LOGIN_METHOD",
