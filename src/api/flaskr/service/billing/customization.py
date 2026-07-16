@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from io import BytesIO
 from dataclasses import dataclass
+import base64
+import binascii
 import hashlib
 import hmac
 from importlib import import_module
@@ -11,6 +13,9 @@ import json
 from typing import Any
 from urllib.parse import urlsplit
 
+from cryptography import x509
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import serialization
 from flask import Flask
 from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.datastructures import FileStorage
@@ -466,12 +471,11 @@ def verify_creator_integration(
             expected_creator_bid=creator_bid,
             expected_provider=provider,
         )
+        public_config = dict(record.get("public_config") or {})
+        secret_config = dict(record.get("secret_config") or {})
         try:
-            _validate_required_config(
-                provider,
-                dict(record.get("public_config") or {}),
-                dict(record.get("secret_config") or {}),
-            )
+            _validate_required_config(provider, public_config, secret_config)
+            _probe_provider_credentials(app, provider, public_config, secret_config)
         except ValueError as exc:
             record.update(
                 status="failed",
@@ -803,6 +807,103 @@ def _activate_provider_config(
             )
 
 
+def _probe_provider_credentials(
+    app: Flask,
+    provider: str,
+    public_config: dict[str, Any],
+    secret_config: dict[str, Any],
+) -> None:
+    """Validate credentials before promoting an integration to active use."""
+    if provider == "stripe":
+        _probe_stripe_credentials(app, public_config, secret_config)
+        return
+    if provider == "pingxx":
+        _parse_pem_private_key(secret_config.get("private_key"))
+        _parse_pem_public_key(secret_config.get("webhook_public_key"))
+        return
+    if provider == "alipay":
+        _parse_pem_private_key(secret_config.get("app_private_key"))
+        _parse_pem_public_key(secret_config.get("alipay_public_key"))
+        return
+    if provider == "wechatpay":
+        api_v3_key = str(secret_config.get("api_v3_key") or "").strip()
+        if len(api_v3_key.encode("utf-8")) != 32:
+            raise ValueError("WeChat Pay API v3 key must be 32 bytes")
+        _parse_pem_private_key(secret_config.get("private_key"))
+        _parse_x509_certificate(secret_config.get("platform_cert"))
+        return
+    if provider == "wechat_oauth":
+        return
+    raise ValueError(f"Unsupported integration provider: {provider}")
+
+
+def _probe_stripe_credentials(
+    app: Flask,
+    public_config: dict[str, Any],
+    secret_config: dict[str, Any],
+) -> None:
+    publishable_key = str(public_config.get("publishable_key") or "").strip()
+    secret_key = str(secret_config.get("secret_key") or "").strip()
+    webhook_secret = str(secret_config.get("webhook_secret") or "").strip()
+    if not publishable_key.startswith(("pk_live_", "pk_test_")):
+        raise ValueError("Stripe publishable key must start with pk_live_ or pk_test_")
+    if not secret_key.startswith(("sk_live_", "sk_test_")):
+        raise ValueError("Stripe secret key must start with sk_live_ or sk_test_")
+    if not webhook_secret.startswith("whsec_"):
+        raise ValueError("Stripe webhook secret must start with whsec_")
+    if app.config.get("TESTING"):
+        return
+    try:
+        import stripe  # type: ignore
+
+        request_options: dict[str, Any] = {"api_key": secret_key}
+        api_version = str(public_config.get("api_version") or "").strip()
+        if api_version:
+            request_options["stripe_version"] = api_version
+        stripe.Account.retrieve(**request_options)
+    except Exception as exc:  # noqa: BLE001 - surface provider probe failure
+        raise ValueError("Stripe credentials could not be verified") from exc
+
+
+def _parse_pem_private_key(value: Any) -> None:
+    pem = _normalize_pem(value, "PRIVATE KEY")
+    try:
+        serialization.load_pem_private_key(pem, password=None)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Private key is not a valid PEM key") from exc
+
+
+def _parse_pem_public_key(value: Any) -> None:
+    pem = _normalize_pem(value, "PUBLIC KEY")
+    try:
+        serialization.load_pem_public_key(pem)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Public key is not a valid PEM key") from exc
+
+
+def _parse_x509_certificate(value: Any) -> None:
+    pem = _normalize_pem(value, "CERTIFICATE")
+    try:
+        x509.load_pem_x509_certificate(pem)
+    except ValueError as exc:
+        raise ValueError("Certificate is not a valid PEM certificate") from exc
+
+
+def _normalize_pem(value: Any, label: str) -> bytes:
+    text = str(value or "").strip()
+    if not text:
+        raise ValueError(f"{label.title()} is required")
+    if "-----BEGIN" in text:
+        return text.encode("utf-8")
+    compact = "".join(text.split())
+    try:
+        base64.b64decode(compact, validate=True)
+    except binascii.Error as exc:
+        raise ValueError(f"{label.title()} is not valid PEM or base64") from exc
+    lines = "\n".join(compact[i : i + 64] for i in range(0, len(compact), 64))
+    return f"-----BEGIN {label}-----\n{lines}\n-----END {label}-----\n".encode("ascii")
+
+
 def _config_owner_bid(integration_bid: str) -> str:
     model = _saas_model()
     row = model.query.filter(
@@ -813,11 +914,22 @@ def _config_owner_bid(integration_bid: str) -> str:
 
 
 def _build_callback_token(app: Flask, integration_bid: str) -> str:
-    key = str(app.config.get("CREATOR_INTEGRATION_ENCRYPTION_KEY") or "")
+    key = _require_creator_integration_secret_key(app)
     digest = hmac.new(
         key.encode(), integration_bid.encode(), hashlib.sha256
     ).hexdigest()
     return f"{integration_bid}.{digest}"
+
+
+def _require_creator_integration_secret_key(app: Flask) -> str:
+    key = str(app.config.get("CREATOR_INTEGRATION_ENCRYPTION_KEY") or "").strip()
+    if not key:
+        raise RuntimeError("CREATOR_INTEGRATION_ENCRYPTION_KEY must be configured")
+    try:
+        Fernet(key.encode("ascii"))
+    except (ValueError, TypeError) as exc:
+        raise RuntimeError("CREATOR_INTEGRATION_ENCRYPTION_KEY is invalid") from exc
+    return key
 
 
 def _verify_callback_token(app: Flask, token: str) -> str:

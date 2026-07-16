@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
 
+from cryptography.fernet import Fernet
 from flask import Flask
 import pytest
 
@@ -251,6 +252,12 @@ def test_creator_payment_config_smoke_supports_alipay_and_wechatpay_checkout(
         lambda integration_bid: fake_saas._by_bid[integration_bid]["user_bid"],
     )
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+    monkeypatch.setattr(
+        customization, "_probe_provider_credentials", lambda *_args, **_kwargs: None
+    )
+    legacy_order_app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = (
+        Fernet.generate_key().decode()
+    )
     monkeypatch.setenv("HOST_URL", "https://learn.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     _reset_config_cache("HOST_URL", "PATH_PREFIX")

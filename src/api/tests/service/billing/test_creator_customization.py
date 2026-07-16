@@ -32,6 +32,9 @@ def test_creator_integration_uses_encrypted_unified_config_and_versions(
     _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+    monkeypatch.setattr(
+        customization, "_probe_provider_credentials", lambda *_args, **_kwargs: None
+    )
 
     with app.app_context():
         grant_creator_manual_entitlement(
@@ -129,6 +132,9 @@ def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
     _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+    monkeypatch.setattr(
+        customization, "_probe_provider_credentials", lambda *_args, **_kwargs: None
+    )
     with app.app_context():
         grant_creator_manual_entitlement(
             app,
@@ -164,6 +170,116 @@ def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
             pass
         else:
             raise AssertionError("expired custom payment must block new checkout")
+
+
+def test_callback_token_requires_valid_integration_secret_key(app):
+    app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = ""
+    with pytest.raises(RuntimeError, match="CREATOR_INTEGRATION_ENCRYPTION_KEY"):
+        customization._build_callback_token(app, "integration-1")
+
+    app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = "not-a-fernet-key"
+    with pytest.raises(RuntimeError, match="CREATOR_INTEGRATION_ENCRYPTION_KEY"):
+        customization._build_callback_token(app, "integration-1")
+
+    app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+    token = customization._build_callback_token(app, "integration-1")
+    assert token.startswith("integration-1.")
+
+
+def test_stripe_credential_probe_rejects_fake_keys(app):
+    app.config["TESTING"] = True
+
+    with pytest.raises(ValueError, match="Stripe publishable key"):
+        customization._probe_provider_credentials(
+            app,
+            "stripe",
+            {"publishable_key": "fake-pk"},
+            {"secret_key": "sk_test_valid", "webhook_secret": "whsec_valid"},
+        )
+
+    with pytest.raises(ValueError, match="Stripe secret key"):
+        customization._probe_provider_credentials(
+            app,
+            "stripe",
+            {"publishable_key": "pk_test_valid"},
+            {"secret_key": "fake-sk", "webhook_secret": "whsec_valid"},
+        )
+
+    with pytest.raises(ValueError, match="Stripe webhook secret"):
+        customization._probe_provider_credentials(
+            app,
+            "stripe",
+            {"publishable_key": "pk_test_valid"},
+            {"secret_key": "sk_test_valid", "webhook_secret": "fake-whsec"},
+        )
+
+
+def test_creator_integration_requires_encryption_key(app, monkeypatch):
+    _require_saas_config_plugin()
+    app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = ""
+    monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+
+    with app.app_context():
+        grant_creator_manual_entitlement(
+            app,
+            "creator-missing-key",
+            custom_payment_enabled=True,
+        )
+
+        with pytest.raises(RuntimeError, match="CREATOR_INTEGRATION_ENCRYPTION_KEY"):
+            customization.save_creator_integration(
+                app,
+                "creator-missing-key",
+                "stripe",
+                {
+                    "public_config": {"publishable_key": "pk_test_owner"},
+                    "secret_config": {
+                        "secret_key": "sk_test_owner",
+                        "webhook_secret": "whsec_owner",
+                    },
+                },
+            )
+
+
+def test_creator_integration_probe_failure_does_not_activate(app, monkeypatch):
+    _require_saas_config_plugin()
+    app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+    monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+
+    with app.app_context():
+        grant_creator_manual_entitlement(
+            app,
+            "creator-invalid-config",
+            custom_payment_enabled=True,
+        )
+        draft = customization.save_creator_integration(
+            app,
+            "creator-invalid-config",
+            "stripe",
+            {
+                "public_config": {"publishable_key": "not-a-publishable-key"},
+                "secret_config": {
+                    "secret_key": "not-a-secret-key",
+                    "webhook_secret": "not-a-webhook-secret",
+                },
+            },
+        )
+
+        verified = customization.verify_creator_integration(
+            app,
+            "creator-invalid-config",
+            "stripe",
+            draft["integration_bid"],
+        )
+
+        assert verified["status"] == "failed"
+        assert verified["last_error_code"] == "invalid_config"
+        assert (
+            customization.resolve_provider_credential_context(
+                app, creator_bid="creator-invalid-config", provider="stripe"
+            )
+            is None
+        )
 
 
 def test_creator_branding_reuses_unified_config(app, monkeypatch):

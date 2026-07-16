@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 from importlib import import_module
-from typing import Any
+from typing import Any, Iterator
 
 from flask import Flask
 
@@ -41,7 +42,7 @@ def update_admin_billing_config_status(
         "status": status,
         "note": str(payload.get("note") or "").strip()[:500],
     }
-    with app.app_context():
+    with app.app_context(), _admin_ops_lock(_CONFIG_STATUS_KEY):
         records = _read_map(_CONFIG_STATUS_KEY)
         records[normalized_creator_bid] = record
         _write_map(app, _CONFIG_STATUS_KEY, records)
@@ -58,7 +59,7 @@ def update_admin_billing_exception_handled(
     if not normalized_row_key or len(normalized_row_key) > 200:
         raise_param_error("row_key")
 
-    with app.app_context():
+    with app.app_context(), _admin_ops_lock(_EXCEPTION_HANDLED_KEY):
         records = _read_map(_EXCEPTION_HANDLED_KEY)
         if handled:
             records[normalized_row_key] = True
@@ -66,6 +67,40 @@ def update_admin_billing_exception_handled(
             records.pop(normalized_row_key, None)
         _write_map(app, _EXCEPTION_HANDLED_KEY, records)
     return {"row_key": normalized_row_key, "handled": handled}
+
+
+@contextmanager
+def _admin_ops_lock(key: str) -> Iterator[None]:
+    try:
+        from flaskr import dao
+
+        redis = getattr(dao, "redis_client", None)
+        lock = (
+            redis.lock(
+                f"billing:admin_ops_state:{key}",
+                timeout=10,
+                blocking_timeout=5,
+            )
+            if redis is not None
+            else None
+        )
+    except Exception:
+        lock = None
+
+    if lock is None:
+        yield
+        return
+
+    acquired = lock.acquire(blocking=True, blocking_timeout=5)
+    if not acquired:
+        raise RuntimeError("Admin billing operations state is busy")
+    try:
+        yield
+    finally:
+        try:
+            lock.release()
+        except Exception:
+            pass
 
 
 def _read_map(key: str) -> dict[str, Any]:

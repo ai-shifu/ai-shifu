@@ -260,7 +260,7 @@ ENV_VARS: Dict[str, EnvVar] = {
     "CREATOR_INTEGRATION_ENCRYPTION_KEY": EnvVar(
         name="CREATOR_INTEGRATION_ENCRYPTION_KEY",
         default="",
-        description="Fernet key used only for course-owner integration secrets.",
+        description="Required when CREATOR_CUSTOMIZATION_ENABLED is true; Fernet key used for course-owner integration secrets and callback tokens.",
         secret=True,
         group="billing",
     ),
