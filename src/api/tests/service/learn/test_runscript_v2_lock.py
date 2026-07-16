@@ -612,6 +612,49 @@ def test_log_run_script_stream_error_keeps_error_for_unexpected_exception():
     assert error_calls[1][0]["description"] == "boom"
 
 
+def test_run_script_inner_rejects_missing_course_without_default(monkeypatch):
+    app = Flask(__name__)
+    rollback_calls = []
+    remove_calls = []
+
+    monkeypatch.setattr(
+        runscript_v2,
+        "db",
+        SimpleNamespace(
+            session=SimpleNamespace(
+                rollback=lambda: rollback_calls.append("rollback"),
+                remove=lambda: remove_calls.append("remove"),
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "load_user_aggregate",
+        lambda _user_bid: SimpleNamespace(user_id="user-1"),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_dto",
+        lambda *_args, **_kwargs: pytest.fail(
+            "missing course ids must not select a course"
+        ),
+    )
+
+    with pytest.raises(AppException) as exc_info:
+        list(
+            runscript_v2.run_script_inner(
+                app=app,
+                user_bid="user-1",
+                shifu_bid="",
+                outline_bid="",
+            )
+        )
+
+    assert exc_info.value.code == 4001
+    assert rollback_calls == ["rollback"]
+    assert remove_calls == ["remove"]
+
+
 def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
     app = Flask(__name__)
     session_spy = SimpleNamespace(
@@ -1268,3 +1311,53 @@ def test_run_script_close_during_data_yield_does_not_raise_runtime_error(monkeyp
 
         assert first_chunk.startswith("data: ")
         assert lock.release_calls == 1
+
+
+def test_run_script_propagates_explicit_language_to_producer(monkeypatch):
+    """The route handler must hand the request language in explicitly.
+
+    On Flask >= 3.1 the request teardown (which clears the request-scoped
+    language) runs before the streaming generator body executes, so
+    run_script can no longer read the language from the request thread.
+    This pins the handoff: an explicit ``language=`` reaches the producer
+    thread even when the caller's language context is already cleared.
+    """
+    from flaskr.i18n import clear_language, get_current_language
+
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+
+        seen_languages: list[str] = []
+
+        def fake_run_script_inner(**_kwargs):
+            with app.app_context():
+                seen_languages.append(get_current_language())
+                yield RunMarkdownFlowDTO(
+                    outline_bid="outline-1",
+                    generated_block_bid="generated-1",
+                    type=GeneratedType.CONTENT,
+                    content="hello",
+                )
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        # Simulate the post-teardown state the generator actually runs in.
+        clear_language()
+
+        list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input={"input": ["x"]},
+                input_type="normal",
+                language="zh-CN",
+            )
+        )
+
+        assert seen_languages == ["zh-CN"]

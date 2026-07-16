@@ -7,6 +7,7 @@ import pytest
 
 import flaskr.dao as dao
 import flaskr.common.public_urls as public_urls
+from flaskr.common.config import ENV_VARS
 from flaskr.route import config as config_route
 from flaskr.service.billing.consts import (
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
@@ -38,7 +39,6 @@ def runtime_config_client(monkeypatch):
 
     dao.db.init_app(app)
     config_values = {
-        "DEFAULT_COURSE_ID": "global-course-1",
         "DEFAULT_LLM_MODEL": "gpt-5.4",
         "WECHAT_APP_ID": "wechat-app-1",
         "BILL_ENABLED": True,
@@ -174,6 +174,7 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     )
     payload = response.get_json(force=True)["data"]
 
+    assert "courseId" not in payload
     assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
     assert payload["logoSquareUrl"] == "https://cdn.example.com/creator-square.png"
     assert payload["faviconUrl"] == "https://cdn.example.com/creator-favicon.ico"
@@ -265,6 +266,27 @@ def test_runtime_config_returns_empty_official_site_url_when_unconfigured(
 
     assert response.status_code == 200
     assert payload["officialSiteUrl"] == ""
+
+
+def test_runtime_config_uses_registered_home_url_default_on_config_lock_miss(
+    runtime_config_client,
+    monkeypatch,
+) -> None:
+    original_route_get_config = config_route.get_config
+
+    def get_config_override(key, default=None):
+        if key == "HOME_URL":
+            return default
+        return original_route_get_config(key, default)
+
+    monkeypatch.setattr(config_route, "get_config", get_config_override)
+
+    response = runtime_config_client.get("/api/runtime-config")
+    payload = response.get_json(force=True)["data"]
+
+    assert response.status_code == 200
+    assert ENV_VARS["HOME_URL"].default == "/admin"
+    assert payload["homeUrl"] == ENV_VARS["HOME_URL"].default
 
 
 def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective(

@@ -787,7 +787,6 @@ class RuntimeBillingContextDTO(BillingBaseDTO):
 
 
 class RuntimeConfigDTO(BillingBaseDTO):
-    courseId: str
     defaultLlmModel: str
     wechatAppId: str
     enableWechatCode: bool

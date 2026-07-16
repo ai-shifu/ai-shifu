@@ -279,6 +279,7 @@ def __insert_outline_locked(
     is_hidden: bool,
     now_time,
     outline_bid: str,
+    persist_history: bool = True,
 ) -> SimpleOutlineDto:
     """Insert one outline row, allocating its position from current siblings.
 
@@ -356,9 +357,10 @@ def __insert_outline_locked(
     # save to database (flush only; the caller owns the commit)
     db.session.add(new_outline)
     db.session.flush()
-    save_new_outline_history(
-        app, user_id, shifu_id, outline_bid, new_outline.id, parent_id, max_index
-    )
+    if persist_history:
+        save_new_outline_history(
+            app, user_id, shifu_id, outline_bid, new_outline.id, parent_id, max_index
+        )
 
     return SimpleOutlineDto(
         bid=outline_bid,
@@ -376,8 +378,6 @@ def create_outline(
     shifu_id: str,
     parent_id: str,
     outline_name: str,
-    outline_description: str,
-    outline_index: int = 0,
     outline_type: str = UNIT_TYPE_GUEST,
     system_prompt: str = None,
     is_hidden: bool = False,
@@ -390,8 +390,6 @@ def create_outline(
         shifu_id: Shifu ID
         parent_id: Parent ID
         outline_name: Outline name
-        outline_description: Outline description
-        outline_index: Outline index
         outline_type: Outline type
         system_prompt: System prompt
         is_hidden: Is hidden
@@ -431,6 +429,7 @@ def create_default_outlines_for_new_shifu(
     chapter_name: str,
     lesson_name: str,
     now_time,
+    shifu_db_id: int | None = None,
 ) -> tuple[SimpleOutlineDto, SimpleOutlineDto]:
     """Create the default chapter/lesson pair for a brand-new shifu draft.
 
@@ -456,6 +455,7 @@ def create_default_outlines_for_new_shifu(
         False,
         now_time,
         chapter_bid,
+        persist_history=False,
     )
     lesson = __insert_outline_locked(
         app,
@@ -468,8 +468,57 @@ def create_default_outlines_for_new_shifu(
         False,
         now_time,
         lesson_bid,
+        persist_history=False,
+    )
+    outline_items = __get_existing_outline_items(shifu_id)
+    history_tree = _build_outline_history_tree(outline_items)
+    save_outline_tree_history(
+        app=app,
+        user_id=user_id,
+        shifu_bid=shifu_id,
+        outline_tree=history_tree,
+        shifu_id=shifu_db_id,
     )
     return chapter, lesson
+
+
+def build_outline_history_tree_from_outlines(
+    outlines: list[DraftOutlineItem],
+) -> list[HistoryItem]:
+    outline_children_map: dict[str, list[DraftOutlineItem]] = {}
+    for outline in outlines:
+        parent_bid = str(outline.parent_bid or "").strip()
+        outline_children_map.setdefault(parent_bid, []).append(outline)
+
+    output_lang = get_markdownflow_output_language()
+
+    def _count_blocks(content: str) -> int:
+        if not content:
+            return 0
+        mdflow = MarkdownFlow(content).set_output_language(output_lang)
+        return len(mdflow.get_all_blocks())
+
+    def _build(parent_bid: str) -> list[HistoryItem]:
+        children = outline_children_map.get(parent_bid, [])
+        children.sort(key=lambda item: (item.position or "", item.id))
+        return [
+            HistoryItem(
+                bid=str(child.outline_item_bid or "").strip(),
+                id=int(child.id),
+                type="outline",
+                children=_build(str(child.outline_item_bid or "").strip()),
+                child_count=_count_blocks(child.content or ""),
+            )
+            for child in children
+        ]
+
+    return _build("")
+
+
+def _build_outline_history_tree(
+    outlines: list[DraftOutlineItem],
+) -> list[HistoryItem]:
+    return build_outline_history_tree_from_outlines(outlines)
 
 
 def create_outlines_batch(
@@ -578,6 +627,7 @@ def reorder_outline_tree(
             f"reorder outline tree, user_id: {user_id}, shifu_id: {shifu_id}"
         )
         now_time = now_utc()
+        __lock_shifu_for_outline_write(shifu_id)
 
         # get existing outlines
         existing_items = __get_existing_outline_items(shifu_id)
@@ -590,16 +640,24 @@ def reorder_outline_tree(
         def rebuild_positions(
             outline_dtos: list[ReorderOutlineItemDto],
             parent_position="",
-            history_infos: list[HistoryItem] = None,
+            parent_bid="",
+            history_infos: list[HistoryItem] | None = None,
         ):
+            if history_infos is None:
+                history_infos = []
             for i, outline_dto in enumerate(outline_dtos):
                 if outline_dto.bid in existing_items_map:
                     item = existing_items_map[outline_dto.bid]
                     new_position = f"{parent_position}{i + 1:02d}"
-                    if item.position != new_position:
+                    new_parent_bid = parent_bid or ""
+                    if (
+                        item.position != new_position
+                        or (item.parent_bid or "") != new_parent_bid
+                    ):
                         # create new version
                         new_item: DraftOutlineItem = item.clone()
                         new_item.position = new_position
+                        new_item.parent_bid = new_parent_bid
                         new_item.updated_user_bid = user_id
                         new_item.updated_at = now_time
                         db.session.add(new_item)
@@ -628,7 +686,10 @@ def reorder_outline_tree(
                     # recursively process children
                     if outline_dto.children:
                         rebuild_positions(
-                            outline_dto.children, new_position, history_info.children
+                            outline_dto.children,
+                            new_position,
+                            outline_dto.bid,
+                            history_info.children,
                         )
 
         outline_dtos = convert_outline_to_reorder_outline_item_dto(outlines)
@@ -686,7 +747,6 @@ def modify_unit(
     unit_id: str,
     unit_name: str = None,
     unit_description: str = None,
-    unit_index: int = 0,
     unit_system_prompt: str = None,
     unit_is_hidden: bool | None = None,
     unit_type: str | None = None,
@@ -699,7 +759,6 @@ def modify_unit(
         unit_id: Unit ID
         unit_name: Unit name
         unit_description: Unit description
-        unit_index: Unit index
         unit_system_prompt: Unit system prompt
         unit_is_hidden: Unit is hidden
         unit_type: Unit type

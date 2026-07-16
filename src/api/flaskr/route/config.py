@@ -1,5 +1,6 @@
 from flask import Flask, request
 
+from flaskr.common.config import ENV_VARS
 from flaskr.common.public_urls import build_google_oauth_callback_url
 from flaskr.common.shifu_context import get_shifu_creator_bid, with_shifu_context
 from flaskr.service.billing.dtos import (
@@ -151,7 +152,9 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         logo_wide_url = branding.logo_wide_url or get_config("LOGO_WIDE_URL", "")
         logo_square_url = branding.logo_square_url or get_config("LOGO_SQUARE_URL", "")
         favicon_url = branding.favicon_url or get_config("FAVICON_URL", "")
-        home_url = branding.home_url or get_config("HOME_URL", "/")
+        home_url = branding.home_url or get_config(
+            "HOME_URL", ENV_VARS["HOME_URL"].default
+        )
         contact_us_url = branding.contact_us_url or get_config("CONTACT_US_URL", "")
         official_site_url = get_config("OFFICIAL_SITE_URL", "")
 
@@ -194,7 +197,6 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         ) or get_config("STRIPE_PUBLISHABLE_KEY", "")
 
         config = RuntimeConfigDTO(
-            courseId=get_config("DEFAULT_COURSE_ID", ""),
             defaultLlmModel=get_config("DEFAULT_LLM_MODEL", ""),
             wechatAppId=wechat_app_id,
             enableWechatCode=bool(wechat_app_id),

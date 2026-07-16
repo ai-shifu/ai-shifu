@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -11,9 +10,10 @@ from sqlalchemy import or_
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.pagination import normalize_pagination
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 from .consts import (
     REFERRAL_ABNORMAL_STATUS_CONFIRMED_ABNORMAL,
@@ -39,10 +39,6 @@ from .models import (
 from .campaign_admin import _load_campaign_or_404
 from .reward_queue import build_referral_reward_queue
 
-DEFAULT_PAGE_INDEX = 1
-DEFAULT_PAGE_SIZE = 20
-MAX_PAGE_SIZE = 100
-
 ABNORMAL_STATUS_BY_LABEL = {
     "normal": REFERRAL_ABNORMAL_STATUS_NORMAL,
     "reviewing": REFERRAL_ABNORMAL_STATUS_REVIEWING,
@@ -62,29 +58,6 @@ REWARD_STATUS_BY_LABEL = {
 
 def _normalize_text(value: object) -> str:
     return str(value or "").strip()
-
-
-def _normalize_page(page_index: int, page_size: int) -> tuple[int, int]:
-    try:
-        safe_page_index = max(int(page_index or DEFAULT_PAGE_INDEX), 1)
-    except (TypeError, ValueError):
-        safe_page_index = DEFAULT_PAGE_INDEX
-    try:
-        safe_page_size = max(int(page_size or DEFAULT_PAGE_SIZE), 1)
-    except (TypeError, ValueError):
-        safe_page_size = DEFAULT_PAGE_SIZE
-    return safe_page_index, min(safe_page_size, MAX_PAGE_SIZE)
-
-
-def _serialize_dt(value: datetime | None) -> str | None:
-    # Match the API fmt sink (flaskr/route/common.py): stored values are UTC;
-    # treat naive as UTC and emit ISO 8601 with a 'Z' suffix so the frontend
-    # can convert to the viewer's timezone via formatAdminUtcDateTime().
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _serialize_decimal(value: Decimal | None) -> str | None:
@@ -171,15 +144,15 @@ def _serialize_relation(
         "invitee_user_bid": relation.invitee_user_bid,
         "invitee": users.get(relation.invitee_user_bid, {}),
         "invitee_mobile_snapshot": relation.invitee_mobile_snapshot,
-        "bound_at": _serialize_dt(relation.bound_at),
+        "bound_at": to_utc_iso(relation.bound_at),
         "registration_source": relation.registration_source,
         "reward_eligible": bool(relation.reward_eligible),
         "relation_status": relation.relation_status,
         "abnormal_status": relation.abnormal_status,
         "metadata": relation.metadata_json or {},
         "reward": _serialize_reward(reward),
-        "created_at": _serialize_dt(relation.created_at),
-        "updated_at": _serialize_dt(relation.updated_at),
+        "created_at": to_utc_iso(relation.created_at),
+        "updated_at": to_utc_iso(relation.updated_at),
     }
 
 
@@ -201,10 +174,10 @@ def _serialize_reward(reward: ReferralInviteReward | None) -> dict[str, Any] | N
         "rule_snapshot": reward.rule_snapshot or {},
         "billing_artifacts": reward.billing_artifacts or {},
         "operator_note": reward.operator_note,
-        "effective_at": _serialize_dt(reward.effective_at),
-        "expires_at": _serialize_dt(reward.expires_at),
-        "created_at": _serialize_dt(reward.created_at),
-        "updated_at": _serialize_dt(reward.updated_at),
+        "effective_at": to_utc_iso(reward.effective_at),
+        "expires_at": to_utc_iso(reward.expires_at),
+        "created_at": to_utc_iso(reward.created_at),
+        "updated_at": to_utc_iso(reward.updated_at),
     }
 
 
@@ -216,7 +189,7 @@ def list_operator_referrals(
     filters: dict[str, Any],
 ) -> dict[str, Any]:
     with app.app_context():
-        safe_page_index, safe_page_size = _normalize_page(page_index, page_size)
+        safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
         query = ReferralInviteRelation.query.filter(ReferralInviteRelation.deleted == 0)
         for field in ("campaign_bid", "invite_code"):
             value = _normalize_text(filters.get(field))
@@ -297,7 +270,7 @@ def list_operator_referral_campaign_invitations(
     with app.app_context():
         normalized_campaign_bid = _normalize_text(campaign_bid)
         _load_campaign_or_404(normalized_campaign_bid)
-        safe_page_index, safe_page_size = _normalize_page(page_index, page_size)
+        safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
         query = ReferralInviteCode.query.filter(
             ReferralInviteCode.deleted == 0,
             ReferralInviteCode.campaign_bid == normalized_campaign_bid,
@@ -465,7 +438,7 @@ def update_operator_referral_status(
             )
             metadata["operator_note"] = note
             metadata["operator_user_bid"] = _normalize_text(operator_user_bid)
-            metadata["operator_updated_at"] = _serialize_dt(now_utc())
+            metadata["operator_updated_at"] = to_utc_iso(now_utc())
             relation.metadata_json = metadata
             if reward is not None:
                 reward.operator_note = note
@@ -577,7 +550,7 @@ def _serialize_invitation(
         "inviter_user_bid": invitation.inviter_user_bid,
         "inviter": users.get(invitation.inviter_user_bid, {}),
         "status": int(invitation.status or 0),
-        "generated_at": _serialize_dt(invitation.generated_at),
+        "generated_at": to_utc_iso(invitation.generated_at),
         "event_counts": event_counts,
         "link_clicked_count": event_counts[REFERRAL_INVITE_EVENT_LINK_CLICKED],
         "registration_page_viewed_count": event_counts[
@@ -589,5 +562,5 @@ def _serialize_invitation(
         ],
         "total_event_count": int(event_stats.get("total_event_count") or 0),
         "successful_relation_count": relation_count,
-        "latest_event_at": _serialize_dt(event_stats.get("latest_event_at")),
+        "latest_event_at": to_utc_iso(event_stats.get("latest_event_at")),
     }

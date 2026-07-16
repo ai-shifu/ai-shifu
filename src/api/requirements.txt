@@ -66,7 +66,6 @@ mistune==3.2.1
 mpmath==1.3.0
 mypy-extensions==1.0.0
 nodeenv==1.9.1
-numpy==1.26.4
 litellm==1.84.0
 openpyxl==3.1.5
 opentelemetry-api==1.36.0
@@ -75,7 +74,6 @@ opentelemetry-sdk==1.36.0
 orjson==3.11.6
 oss2==2.18.6
 packaging==23.2
-pandas==2.2.3
 pillow==12.2.0
 pingpp==2.7.2
 prometheus-client==0.22.1

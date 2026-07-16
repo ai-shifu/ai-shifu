@@ -1,0 +1,30 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "banner_info": null,
+    "outline_items": [
+      {
+        "bid": "golden-chapter-0001",
+        "position": "1",
+        "title": "Golden Chapter",
+        "status": "not_started",
+        "is_paid": false,
+        "has_content_update_for_current_user": false,
+        "children": [
+          {
+            "bid": "golden-lesson-0001",
+            "position": "1.1",
+            "title": "Golden Lesson",
+            "status": "not_started",
+            "is_paid": false,
+            "has_content_update_for_current_user": false,
+            "children": [],
+            "type": "normal"
+          }
+        ],
+        "type": "normal"
+      }
+    ]
+  }
+}

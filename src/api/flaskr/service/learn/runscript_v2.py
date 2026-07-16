@@ -28,7 +28,6 @@ from flaskr.service.shifu.shifu_struct_manager import (
     get_outline_item_dto,
     ShifuInfoDto,
     ShifuOutlineItemDto,
-    get_default_shifu_dto,
     get_shifu_struct,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
@@ -250,6 +249,7 @@ def run_script_inner(
 
     def _run() -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
         run_script_context: RunScriptContextV2 | None = None
+        resolved_shifu_bid = shifu_bid
         try:
             user_info = load_user_aggregate(user_bid)
             if not user_info:
@@ -259,21 +259,14 @@ def run_script_inner(
             struct_info: HistoryItem = None
             if not outline_bid:
                 app.logger.info("lesson_id is None")
-                if not shifu_bid:
-                    shifu_info = get_default_shifu_dto(app, preview_mode)
-                else:
-                    shifu_info = get_shifu_dto(app, shifu_bid, preview_mode)
-                if not shifu_info:
-                    raise_error("server.outline.hasNotLesson")
-                shifu_bid = shifu_info.bid
+                if not resolved_shifu_bid:
+                    raise_error("server.shifu.courseNotFound")
+                shifu_info = get_shifu_dto(app, resolved_shifu_bid, preview_mode)
+                resolved_shifu_bid = shifu_info.bid
             else:
                 outline_item_info = get_outline_item_dto(app, outline_bid, preview_mode)
-                if not outline_item_info:
-                    raise_error("server.shifu.lessonNotFoundInCourse")
-                shifu_bid = outline_item_info.shifu_bid
-                shifu_info = get_shifu_dto(app, shifu_bid, preview_mode)
-                if not shifu_info:
-                    raise_error("server.shifu.courseNotFound")
+                resolved_shifu_bid = outline_item_info.shifu_bid
+                shifu_info = get_shifu_dto(app, resolved_shifu_bid, preview_mode)
 
             struct_info = get_shifu_struct(app, shifu_info.bid, preview_mode)
             if not struct_info:
@@ -288,7 +281,7 @@ def run_script_inner(
                 success_buy_record = (
                     Order.query.filter(
                         Order.user_bid == user_bid,
-                        Order.shifu_bid == shifu_bid,
+                        Order.shifu_bid == resolved_shifu_bid,
                         Order.status == ORDER_STATUS_SUCCESS,
                         Order.deleted == 0,
                     )
@@ -585,6 +578,7 @@ def run_script(
     listen: bool = False,
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
+    language: Optional[str] = None,
 ) -> Generator[str, None, None]:
     timeout = RUN_SCRIPT_TIMEOUT_SECONDS
     blocking_timeout = 1
@@ -644,8 +638,12 @@ def run_script(
         parent_request_id = getattr(log_thread_local, "request_id", None)
         parent_url = getattr(log_thread_local, "url", None)
         parent_client_ip = getattr(log_thread_local, "client_ip", None)
-        # Capture language context from the request thread so i18n works in the producer thread
-        parent_language = get_current_language()
+        # Language must be handed in by the route handler: this generator body
+        # first runs during WSGI response iteration, and on Flask >= 3.1 the
+        # request teardown (which clears the request-scoped language) has
+        # already executed by then, so get_current_language() here would only
+        # ever see the default. The fallback keeps direct callers working.
+        parent_language = language or get_current_language()
         # Capture shifu context so background thread can reuse it (may be provided by caller)
         parent_shifu_context = shifu_context_snapshot or get_shifu_context_snapshot()
         producer_thread: threading.Thread | None = None

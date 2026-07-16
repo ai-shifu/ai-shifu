@@ -4,7 +4,7 @@ from typing import Any, Generator
 
 from flask import Flask
 
-from flaskr.service.shifu.shifu_draft_funcs import (
+from .consts import (
     ASK_PROVIDER_COZE,
     ASK_PROVIDER_COZE_WORKFLOW,
     ASK_PROVIDER_DIFY,

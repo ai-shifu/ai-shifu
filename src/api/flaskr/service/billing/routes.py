@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from flask import Flask, request
 
-from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.billing.capabilities import build_billing_route_bootstrap
@@ -456,36 +456,36 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
         }
         if set(payload) - allowed_fields:
             raise_param_error("payload")
-        target_creator_bid, creator_granted_now, created_new_user = (
-            _resolve_admin_entitlement_grant_target(
+        with unit_of_work():
+            target_creator_bid, creator_granted_now, created_new_user = (
+                _resolve_admin_entitlement_grant_target(
+                    app,
+                    creator_bid=str(payload.get("creator_bid") or ""),
+                    creator_mobile=str(payload.get("creator_mobile") or ""),
+                )
+            )
+            state = grant_creator_manual_entitlement(
                 app,
-                creator_bid=str(payload.get("creator_bid") or ""),
+                target_creator_bid,
+                **{
+                    key: _to_optional_bool(payload.get(key), key)
+                    for key in allowed_fields
+                    if key
+                    in {
+                        "branding_enabled",
+                        "custom_domain_enabled",
+                        "custom_wechat_enabled",
+                        "custom_payment_enabled",
+                    }
+                    and key in payload
+                },
+                commit=False,
+            )
+            clear_admin_creator_customization_draft(
+                app,
+                creator_bid=target_creator_bid,
                 creator_mobile=str(payload.get("creator_mobile") or ""),
             )
-        )
-        state = grant_creator_manual_entitlement(
-            app,
-            target_creator_bid,
-            **{
-                key: _to_optional_bool(payload.get(key), key)
-                for key in allowed_fields
-                if key
-                in {
-                    "branding_enabled",
-                    "custom_domain_enabled",
-                    "custom_wechat_enabled",
-                    "custom_payment_enabled",
-                }
-                and key in payload
-            },
-            commit=False,
-        )
-        db.session.commit()
-        clear_admin_creator_customization_draft(
-            app,
-            creator_bid=target_creator_bid,
-            creator_mobile=str(payload.get("creator_mobile") or ""),
-        )
         if creator_granted_now:
             run_admin_creator_granted_post_auth(
                 app,

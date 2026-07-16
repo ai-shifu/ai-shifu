@@ -56,8 +56,6 @@ const api = {
   previewOutlineBlock: 'POST /learn/shifu/{shifu_bid}/preview/{outline_bid}',
   // shifu api end
 
-  markFavoriteShifu: 'POST /shifu/mark-favorite-shifu',
-
   // outline api start
   getShifuOutlineTree: 'GET /shifu/shifus/{shifu_bid}/outlines',
   createOutline: 'PUT /shifu/shifus/{shifu_bid}/outlines',

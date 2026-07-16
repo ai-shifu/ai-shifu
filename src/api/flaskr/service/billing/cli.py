@@ -13,6 +13,7 @@ import click
 from flask import current_app
 from flask.cli import with_appcontext
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.config.models import Config
 from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.user.consts import USER_STATE_REGISTERED
@@ -1270,7 +1271,8 @@ def seed_sample_exception_orders() -> dict[str, Any]:
             },
         ],
     )
-    db.session.commit()
+    with unit_of_work():
+        pass
     return {
         "status": "seeded",
         "creators": {
@@ -1535,7 +1537,8 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         model=BillingDailyUsageMetric, key_field="daily_usage_metric_bid", rows=rows
     )
 
-    db.session.commit()
+    with unit_of_work():
+        pass
     return {
         "status": "seeded",
         "creators": {

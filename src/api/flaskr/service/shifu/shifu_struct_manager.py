@@ -213,41 +213,6 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
     )
 
 
-def get_default_shifu_dto(app: Flask, is_preview: bool = False) -> ShifuInfoDto:
-    """
-    Get default shifu dto
-    Args:
-        app: Flask application instance
-        is_preview: Is preview
-    Returns:
-        ShifuInfoDto: Shifu dto
-    """
-    if is_preview:
-        shifu_model = DraftShifu
-    else:
-        shifu_model = PublishedShifu
-    shifu: Union[DraftShifu, PublishedShifu] = (
-        shifu_model.query.filter(
-            shifu_model.deleted == 0,
-        )
-        .order_by(
-            shifu_model.id.asc(),
-        )
-        .first()
-    )
-    if not shifu:
-        raise_error("server.shifu.shifuNotFound")
-    return ShifuInfoDto(
-        bid=shifu.shifu_bid,
-        title=shifu.title,
-        description=shifu.description,
-        avatar=get_shifu_res_url(shifu.avatar_res_bid),
-        price=shifu.price,
-        outline_items=[],
-        use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
-    )
-
-
 def get_outline_item_dto(
     app: Flask, outline_item_bid: str, is_preview: bool = False
 ) -> ShifuOutlineItemDto:

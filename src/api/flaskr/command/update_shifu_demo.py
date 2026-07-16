@@ -7,6 +7,7 @@ from flaskr.service.user.models import UserInfo
 from flaskr.dao import db
 from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.util import generate_id
+from flaskr.common.config import get_config as get_env_config
 from flaskr.service.config.funcs import add_config, get_config, update_config
 from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
 from flaskr.service.shifu.shifu_publish_funcs import publish_shifu_draft
@@ -129,7 +130,7 @@ def _ensure_creator_permissions(app: Flask, shifu_bid: str):
 
 def update_demo_shifu(app: Flask):
     """Update demo shifu for both Chinese and English versions"""
-    if os.getenv("SKIP_DEMO_SHIFU_IMPORT"):
+    if get_env_config("SKIP_DEMO_SHIFU_IMPORT"):
         app.logger.info("Skip demo shifu import due to SKIP_DEMO_SHIFU_IMPORT")
         return
 
