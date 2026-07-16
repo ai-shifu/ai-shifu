@@ -10,6 +10,7 @@ This module provides real-time TTS synthesis during content streaming.
 import base64
 import logging
 import traceback
+import unicodedata
 import uuid
 import threading
 import time
@@ -110,6 +111,20 @@ def _tts_error_text_preview(
     if len(normalized) <= max_chars:
         return normalized
     return f"{normalized[:max_chars]}...(truncated, total_len={len(normalized)})"
+
+
+def _is_tencent_provider(tts_provider: str) -> bool:
+    return (tts_provider or "").strip().lower() == "tencent"
+
+
+def _has_speakable_text(text: str) -> bool:
+    return any(
+        unicodedata.category(char).startswith(("L", "N")) for char in str(text or "")
+    )
+
+
+def _should_skip_tencent_tts_text(text: str, tts_provider: str) -> bool:
+    return _is_tencent_provider(tts_provider) and not _has_speakable_text(text)
 
 
 def _should_use_volcengine_timestamp_stream(tts_provider: str) -> bool:
@@ -487,6 +502,22 @@ class StreamingTTSProcessor:
     ) -> TTSSegment:
         """Synthesize a segment in a background thread."""
         with self.app.app_context():
+            if _should_skip_tencent_tts_text(segment.text or "", tts_provider):
+                logger.info(
+                    "TTS segment %s skipped before Tencent synthesis: "
+                    "non_speakable_text provider=%s model=%s text_len=%s "
+                    "text_preview=%r",
+                    segment.index,
+                    tts_provider or "(auto)",
+                    tts_model or "(unset)",
+                    len(segment.text or ""),
+                    _tts_error_text_preview(segment.text or ""),
+                )
+                segment.is_ready = True
+                with self._lock:
+                    self._completed_segments[segment.index] = segment
+                return segment
+
             try:
                 segment_start = time.monotonic()
                 result = self._synthesize_text_with_retry(
