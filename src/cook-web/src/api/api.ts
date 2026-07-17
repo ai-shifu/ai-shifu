@@ -286,6 +286,18 @@ const api = {
   cancelBillingSubscription: 'POST /billing/subscriptions/cancel',
   resumeBillingSubscription: 'POST /billing/subscriptions/resume',
   checkoutBillingTopup: 'POST /billing/topups/checkout',
+  getBillingCustomization: 'GET /billing/customization',
+  updateBillingBranding: 'PUT /billing/customization/branding',
+  createBillingDomain: 'POST /billing/customization/domains',
+  verifyBillingDomain:
+    'POST /billing/customization/domains/{domain_binding_bid}/verify',
+  disableBillingDomain:
+    'DELETE /billing/customization/domains/{domain_binding_bid}',
+  saveBillingIntegration: 'PUT /billing/customization/integrations/{provider}',
+  verifyBillingIntegration:
+    'POST /billing/customization/integrations/{provider}/verify',
+  disableBillingIntegration:
+    'DELETE /billing/customization/integrations/{provider}',
 
   // billing admin api
   getAdminBillingSubscriptions: 'GET /admin/billing/subscriptions',
@@ -298,7 +310,35 @@ const api = {
     'POST /admin/billing/campaigns/{campaign_bid}/status',
   getAdminBillingOrders: 'GET /admin/billing/orders',
   getAdminBillingEntitlements: 'GET /admin/billing/entitlements',
+  grantAdminBillingEntitlement: 'POST /admin/billing/entitlements/grants',
+  getAdminBillingOpsState: 'GET /admin/billing/ops-state',
+  updateAdminBillingConfigStatus: 'POST /admin/billing/ops-state/config-status',
+  updateAdminBillingExceptionHandled:
+    'POST /admin/billing/ops-state/exception-handled',
+  getAdminBillingCustomization:
+    'GET /admin/billing/customization/{creator_bid}',
+  getAdminBillingCustomizationDraft: 'GET /admin/billing/customization-draft',
+  saveAdminBillingCustomizationDraft: 'PUT /admin/billing/customization-draft',
+  deleteAdminBillingCustomizationDraft:
+    'DELETE /admin/billing/customization-draft',
+  updateAdminBillingCustomizationBranding:
+    'PUT /admin/billing/customization/{creator_bid}/branding',
+  uploadAdminBillingCustomizationDraftLogo:
+    'POST /admin/billing/customization-draft/branding/logo',
+  createAdminBillingCustomizationDomain:
+    'POST /admin/billing/customization/{creator_bid}/domains',
+  verifyAdminBillingCustomizationDomain:
+    'POST /admin/billing/customization/{creator_bid}/domains/{domain_binding_bid}/verify',
+  disableAdminBillingCustomizationDomain:
+    'DELETE /admin/billing/customization/{creator_bid}/domains/{domain_binding_bid}',
+  saveAdminBillingCustomizationIntegration:
+    'PUT /admin/billing/customization/{creator_bid}/integrations/{provider}',
+  verifyAdminBillingCustomizationIntegration:
+    'POST /admin/billing/customization/{creator_bid}/integrations/{provider}/verify',
+  disableAdminBillingCustomizationIntegration:
+    'DELETE /admin/billing/customization/{creator_bid}/integrations/{provider}',
   getAdminBillingDomainAudits: 'GET /admin/billing/domain-audits',
+  getAdminBillingFocusTeachers: 'GET /admin/billing/reports/focus-teachers',
   getAdminBillingDailyUsageMetrics: 'GET /admin/billing/reports/usage-daily',
   getAdminBillingDailyLedgerSummary: 'GET /admin/billing/reports/ledger-daily',
   adjustAdminBillingLedger: 'POST /admin/billing/ledger/adjust',

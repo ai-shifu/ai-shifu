@@ -11,6 +11,7 @@ from flaskr.service.user.password_utils import (
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.util.uuid import generate_id
+from flaskr.common.shifu_context import with_shifu_context
 from flaskr.service.user.repository import (
     find_credential,
     get_password_hash,
@@ -378,6 +379,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/require_tmp", methods=["POST"])
     @bypass_token_validation
+    @with_shifu_context()
     def require_tmp():
         """
         Temp login user
@@ -799,6 +801,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/update_openid", methods=["POST"])
+    @with_shifu_context()
     def update_wechat_openid():
         """
         Update Wechat OpenID

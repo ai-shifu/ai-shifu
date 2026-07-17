@@ -15,6 +15,7 @@
 | `docs/design-docs/ai-doc-hard-rules-restoration.md` | AI Doc Hard Rules Restoration | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
 | `docs/design-docs/ai-tool-compat.md` | AI Tool Compatibility Layer Design | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
 | `docs/design-docs/billing-subscription-preorder.md` | Billing Subscription Preorder | `design-doc` | `proposed` | `backend` | `2026-05-25` | `true` |
+| `docs/design-docs/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `design-doc` | `implemented` | `shared` | `2026-07-12` | `true` |
 | `docs/design-docs/langfuse-trace-association.md` | Langfuse Trace Association | `design-doc` | `implemented` | `backend` | `2026-04-17` | `true` |
 | `docs/design-docs/minimax-voice-cloning.md` | MiniMax Voice Cloning | `design-doc` | `proposed` | `shared` | `2026-06-18` | `true` |
 | `docs/design-docs/primary-surface-rules.md` | Primary Surface Rules Completion | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
@@ -25,6 +26,7 @@
 | `docs/exec-plans/active/backend-inventory-2026-07.md` | Backend Inventory 2026-07 (Phase 1) | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/backend-overhaul-master.md` | Backend Overhaul Master Plan: Inventory and Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/billing-credit-notifications.md` | ExecPlan: Billing Credit Notifications | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-dashboard-course-ownership-optimization.md` | Creator Dashboard Course Ownership Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-dashboard-course-ratings.md` | Creator Dashboard Course Ratings | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-dashboard-learners-sql-optimization.md` | Creator Dashboard Learners SQL Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |

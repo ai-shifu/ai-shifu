@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from io import BytesIO
 from types import SimpleNamespace
 
 from flask import Flask, jsonify, request
@@ -10,6 +11,7 @@ import pytest
 import flaskr.dao as dao
 from flaskr.i18n import _translations, load_translations, set_language
 import flaskr.service.billing.campaigns as billing_campaigns_module
+import flaskr.service.billing.customization as billing_customization_module
 from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.billing.consts import (
     BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
@@ -40,6 +42,7 @@ from flaskr.service.billing.dtos import (
     AdminBillingCampaignDetailDTO,
     AdminBillingCampaignProductOptionsDTO,
     AdminBillingCampaignsPageDTO,
+    AdminBillingFocusTeachersPageDTO,
     BillingDomainAuditsPageDTO,
     BillingEntitlementsPageDTO,
     BillingLedgerAdjustResultDTO,
@@ -52,6 +55,7 @@ from flaskr.service.billing.read_models import (
     adjust_admin_billing_ledger,
     build_admin_bill_daily_ledger_summary_page,
     build_admin_bill_daily_usage_metrics_page,
+    build_admin_billing_focus_teachers_page,
     build_admin_billing_domain_audits_page,
     build_admin_bill_entitlements_page,
     build_admin_bill_orders_page,
@@ -63,6 +67,7 @@ import flaskr.service.billing.wallets as billing_wallets_module
 from flaskr.service.billing.models import (
     BillingCampaign,
     BillingCampaignProduct,
+    BillingEntitlement,
     BillingOrder,
     BillingRenewalEvent,
     BillingSubscription,
@@ -71,6 +76,8 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.common.models import AppException
+from flaskr.service.user.models import UserInfo
+from flaskr.service.user.repository import create_user_entity, upsert_credential
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
@@ -166,6 +173,42 @@ def admin_billing_client(monkeypatch):
                     lifetime_consumed_credits=Decimal("0"),
                 ),
             ]
+        )
+        dao.db.session.add_all(
+            [
+                create_user_entity(
+                    user_bid="creator-1",
+                    identify="13800138001",
+                    nickname="Teacher One",
+                    state=1102,
+                ),
+                create_user_entity(
+                    user_bid="creator-2",
+                    identify="13800138002",
+                    nickname="Teacher Two",
+                    state=1102,
+                ),
+            ]
+        )
+        upsert_credential(
+            app,
+            user_bid="creator-1",
+            provider_name="phone",
+            subject_id="13800138001",
+            subject_format="phone",
+            identifier="13800138001",
+            metadata={},
+            verified=True,
+        )
+        upsert_credential(
+            app,
+            user_bid="creator-2",
+            provider_name="phone",
+            subject_id="13800138002",
+            subject_format="phone",
+            identifier="13800138002",
+            metadata={},
+            verified=True,
         )
         dao.db.session.add_all(
             [
@@ -321,6 +364,23 @@ class TestAdminBillingRoutes:
         assert first_item["latest_renewal_event"]["status"] == "failed"
         assert first_item["latest_renewal_event"]["last_error"] == "card_declined"
 
+    def test_admin_bill_subscriptions_support_attention_only_filter(
+        self, admin_billing_client
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        response = client.get(
+            "/api/admin/billing/subscriptions?page_index=1&page_size=1&attention_only=true"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["total"] == 1
+        assert payload["data"]["page_count"] == 1
+        assert len(payload["data"]["items"]) == 1
+        assert payload["data"]["items"][0]["subscription_bid"] == "sub-past-due"
+        assert payload["data"]["items"][0]["has_attention"] is True
+
     def test_admin_bill_orders_support_creator_and_status_filters(
         self, admin_billing_client
     ) -> None:
@@ -341,6 +401,21 @@ class TestAdminBillingRoutes:
         assert item["failed_at"] == "2026-04-03T08:00:00Z"
         assert item["has_attention"] is True
 
+    def test_admin_bill_orders_default_to_exception_statuses(
+        self, admin_billing_client
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        response = client.get("/api/admin/billing/orders?page_index=1&page_size=10")
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["total"] == 1
+        assert [item["bill_order_bid"] for item in payload["data"]["items"]] == [
+            "order-failed"
+        ]
+        assert payload["data"]["items"][0]["status"] == "failed"
+
     def test_admin_billing_ledger_adjust_positive_creates_manual_subscription_bucket(
         self, admin_billing_client
     ) -> None:
@@ -351,7 +426,7 @@ class TestAdminBillingRoutes:
             "/api/admin/billing/ledger/adjust",
             json={
                 "creator_bid": "creator-1",
-                "amount": "12.5000000000",
+                "amount": "12.50",
                 "note": "manual bonus",
             },
         )
@@ -383,9 +458,9 @@ class TestAdminBillingRoutes:
 
             assert wallet.available_credits == Decimal("122.5000000000")
             assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
-            assert bucket.available_credits == Decimal("12.5000000000")
+            assert bucket.available_credits == Decimal("12.50")
             assert ledger_entry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT
-            assert ledger_entry.amount == Decimal("12.5000000000")
+            assert ledger_entry.amount == Decimal("12.50")
             assert ledger_entry.metadata_json["note"] == "manual bonus"
 
     def test_admin_billing_ledger_adjust_negative_uses_bucket_consumption_order(
@@ -398,7 +473,7 @@ class TestAdminBillingRoutes:
             "/api/admin/billing/ledger/adjust",
             json={
                 "creator_bid": "creator-1",
-                "amount": "-12.5000000000",
+                "amount": "-12.50",
                 "note": "manual debit",
             },
         )
@@ -434,8 +509,51 @@ class TestAdminBillingRoutes:
                 "bucket-subscription",
             ]
             assert [entry.amount for entry in entries] == [
-                Decimal("-12.5000000000"),
+                Decimal("-12.50"),
             ]
+
+    def test_admin_billing_ledger_adjust_supports_creator_mobile(
+        self, admin_billing_client
+    ) -> None:
+        client = admin_billing_client["client"]
+        app = admin_billing_client["app"]
+
+        response = client.post(
+            "/api/admin/billing/ledger/adjust",
+            json={
+                "creator_mobile": "13800138001",
+                "amount": "6.00",
+                "note": "mobile adjustment",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["status"] == "adjusted"
+        assert payload["data"]["creator_bid"] == "creator-1"
+        assert payload["data"]["wallet"]["available_credits"] == 116
+
+        with app.app_context():
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            assert wallet.available_credits == Decimal("116.00")
+
+    def test_admin_billing_ledger_adjust_rejects_more_than_two_decimals(
+        self, admin_billing_client
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        response = client.post(
+            "/api/admin/billing/ledger/adjust",
+            json={
+                "creator_bid": "creator-1",
+                "amount": "12.345",
+                "note": "invalid precision",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 2001
+        assert payload["message"]
 
     def test_admin_billing_campaign_routes_support_options_crud_and_status(
         self,
@@ -772,17 +890,407 @@ class TestAdminBillingRoutes:
             == _translations["en-US"]["server.billing.campaignLockedAfterHit"]
         )
 
-    def test_admin_billing_routes_require_creator(self, admin_billing_client) -> None:
+    def test_admin_billing_routes_require_operator(self, admin_billing_client) -> None:
         client = admin_billing_client["client"]
 
         response = client.get(
             "/api/admin/billing/subscriptions",
-            headers={"X-Creator": "0"},
+            headers={"X-Operator": "0"},
         )
         payload = response.get_json(force=True)
 
         assert payload["code"] == 401
         assert payload["message"] == _translations["en-US"]["server.shifu.noPermission"]
+
+    def test_admin_billing_entitlement_grant_accepts_creator_mobile(
+        self,
+        admin_billing_client,
+    ) -> None:
+        app = admin_billing_client["app"]
+        client = admin_billing_client["client"]
+
+        response = client.post(
+            "/api/admin/billing/entitlements/grants",
+            json={
+                "creator_mobile": "13800138000",
+                "branding_enabled": True,
+                "custom_domain_enabled": True,
+                "custom_wechat_enabled": False,
+                "custom_payment_enabled": True,
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["branding_enabled"] is True
+        assert payload["data"]["custom_domain_enabled"] is True
+        assert payload["data"]["custom_payment_enabled"] is True
+
+        with app.app_context():
+            entity = (
+                UserInfo.query.filter(UserInfo.user_identify == "13800138000")
+                .order_by(UserInfo.id.asc())
+                .first()
+            )
+            assert entity is not None
+            assert entity.is_creator == 1
+            assert entity.state == 1102
+
+    def test_admin_billing_customization_draft_routes_round_trip(
+        self,
+        admin_billing_client,
+        monkeypatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+        monkeypatch.setattr(
+            billing_routes_module,
+            "is_creator_customization_enabled",
+            lambda: True,
+        )
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "build_admin_creator_customization_draft",
+            lambda _app, creator_bid="", creator_mobile="": {
+                "creator_mobile": creator_mobile,
+                "branding_enabled": False,
+                "custom_domain_enabled": False,
+                "custom_wechat_enabled": False,
+                "custom_payment_enabled": False,
+                "config_status": "pending",
+                "note": "",
+                "branding": {"logo_wide_url": "", "logo_square_url": ""},
+                "domain": {"host": ""},
+                "integrations": {
+                    provider: {"public_config": {}, "secret_config": {}}
+                    for provider in (
+                        "wechat_oauth",
+                        "pingxx",
+                        "stripe",
+                        "alipay",
+                        "wechatpay",
+                    )
+                },
+            },
+        )
+        monkeypatch.setattr(
+            billing_routes_module,
+            "save_admin_creator_customization_draft",
+            lambda _app, creator_bid="", creator_mobile="", payload=None: {
+                **(payload or {}),
+                "creator_bid": creator_bid,
+                "creator_mobile": creator_mobile,
+            },
+        )
+
+        get_response = client.get(
+            "/api/admin/billing/customization-draft",
+            query_string={"creator_mobile": "13800138000"},
+        )
+        get_payload = get_response.get_json(force=True)
+        assert get_payload["code"] == 0
+        assert get_payload["data"]["creator_mobile"] == "13800138000"
+
+        put_response = client.put(
+            "/api/admin/billing/customization-draft",
+            json={
+                "creator_mobile": "13800138000",
+                "branding_enabled": True,
+                "custom_domain_enabled": False,
+                "custom_wechat_enabled": False,
+                "custom_payment_enabled": False,
+                "config_status": "in_progress",
+                "note": "ops draft",
+                "branding": {"logo_wide_url": "https://cdn.test/logo.png"},
+                "domain": {"host": "brand.example.com"},
+                "integrations": {},
+            },
+        )
+        put_payload = put_response.get_json(force=True)
+        assert put_payload["code"] == 0
+        assert put_payload["data"]["creator_mobile"] == "13800138000"
+        assert put_payload["data"]["config_status"] == "in_progress"
+
+    def test_admin_billing_customization_draft_delete_without_target_is_idempotent(
+        self,
+        admin_billing_client,
+        monkeypatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+        monkeypatch.setattr(
+            billing_routes_module,
+            "is_creator_customization_enabled",
+            lambda: True,
+        )
+
+        response = client.delete("/api/admin/billing/customization-draft")
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"] == {"status": "deleted"}
+
+    def test_admin_billing_customization_api_works_when_creator_customization_disabled(
+        self,
+        admin_billing_client,
+        monkeypatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "is_creator_customization_enabled",
+            lambda: False,
+        )
+        monkeypatch.setattr(
+            billing_routes_module,
+            "_resolve_existing_admin_billing_target_user_bid",
+            lambda creator_bid="", creator_mobile="": creator_bid or "creator-1",
+        )
+        monkeypatch.setattr(
+            billing_routes_module,
+            "build_creator_customization",
+            lambda _app, creator_bid, force_enabled=False: {
+                "creator_bid": creator_bid,
+                "enabled": force_enabled,
+                "capabilities": {"branding": force_enabled},
+            },
+        )
+
+        response = client.get("/api/admin/billing/customization/creator-1")
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["creator_bid"] == "creator-1"
+        assert payload["data"]["enabled"] is True
+        assert payload["data"]["capabilities"]["branding"] is True
+
+    def test_admin_billing_customization_branding_save_works_when_disabled(
+        self,
+        admin_billing_client,
+        monkeypatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+        captured: dict[str, object] = {}
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "is_creator_customization_enabled",
+            lambda: False,
+        )
+        monkeypatch.setattr(
+            billing_routes_module,
+            "_resolve_existing_admin_billing_target_user_bid",
+            lambda creator_bid="", creator_mobile="": creator_bid or "creator-1",
+        )
+
+        def _save_branding(_app, creator_bid, payload, **kwargs):
+            captured["creator_bid"] = creator_bid
+            captured["payload"] = payload
+            captured["kwargs"] = kwargs
+            return {"logo_wide_url": payload.get("logo_wide_url", "")}
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "save_creator_branding",
+            _save_branding,
+        )
+
+        response = client.put(
+            "/api/admin/billing/customization/creator-1/branding",
+            json={"logo_wide_url": "https://cdn.example.com/logo.png"},
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert captured["creator_bid"] == "creator-1"
+        assert captured["payload"] == {
+            "logo_wide_url": "https://cdn.example.com/logo.png"
+        }
+        assert captured["kwargs"] == {"allow_when_customization_disabled": True}
+
+    def test_admin_billing_customization_branding_save_falls_back_without_saas(
+        self,
+        admin_billing_client,
+        monkeypatch,
+    ) -> None:
+        app = admin_billing_client["app"]
+        client = admin_billing_client["client"]
+
+        monkeypatch.setattr(
+            billing_customization_module,
+            "_saas_funcs",
+            lambda required=True: None,
+        )
+        monkeypatch.setattr(
+            billing_routes_module,
+            "is_creator_customization_enabled",
+            lambda: False,
+        )
+        monkeypatch.setattr(
+            billing_routes_module,
+            "_resolve_existing_admin_billing_target_user_bid",
+            lambda creator_bid="", creator_mobile="": creator_bid or "creator-1",
+        )
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingEntitlement(
+                    entitlement_bid="ent-branding-fallback",
+                    creator_bid="creator-1",
+                    source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                    source_bid="",
+                    effective_from=datetime(2026, 4, 1, 0, 0, 0),
+                    effective_to=None,
+                    branding_enabled=1,
+                    custom_domain_enabled=0,
+                    feature_payload={},
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.put(
+            "/api/admin/billing/customization/creator-1/branding",
+            json={
+                "logo_wide_url": "/api/storage/courses/creator-branding/creator-1/wide.png",
+                "logo_square_url": "/api/storage/courses/creator-branding/creator-1/square.png",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"] == {
+            "logo_wide_url": "/api/storage/courses/creator-branding/creator-1/wide.png",
+            "logo_square_url": "/api/storage/courses/creator-branding/creator-1/square.png",
+        }
+
+        get_response = client.get("/api/admin/billing/customization/creator-1")
+        get_payload = get_response.get_json(force=True)
+
+        assert get_payload["code"] == 0
+        assert get_payload["data"]["branding"] == payload["data"]
+        assert get_payload["data"]["capabilities"]["branding"] is True
+
+    def test_admin_billing_customization_draft_save_gracefully_skips_when_saas_missing(
+        self,
+        admin_billing_client,
+        monkeypatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "is_creator_customization_enabled",
+            lambda: True,
+        )
+        monkeypatch.setattr(
+            billing_routes_module,
+            "save_admin_creator_customization_draft",
+            lambda _app, creator_bid="", creator_mobile="", payload=None: {
+                "creator_bid": creator_bid,
+                "creator_mobile": creator_mobile,
+                **(payload or {}),
+            },
+        )
+
+        response = client.put(
+            "/api/admin/billing/customization-draft",
+            json={
+                "creator_bid": "creator-1",
+                "branding_enabled": True,
+                "config_status": "pending",
+                "branding": {"logo_wide_url": "", "logo_square_url": ""},
+                "domain": {"host": ""},
+                "integrations": {},
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["creator_bid"] == "creator-1"
+        assert payload["data"]["branding_enabled"] is True
+
+    def test_admin_billing_customization_draft_logo_upload_route(
+        self,
+        admin_billing_client,
+        monkeypatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+        monkeypatch.setattr(
+            billing_routes_module,
+            "is_creator_customization_enabled",
+            lambda: True,
+        )
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "upload_admin_creator_draft_logo",
+            lambda _app, creator_bid="", creator_mobile="", file=None, target="wide": (
+                f"https://courses-oss.example.com/drafts/{creator_mobile or creator_bid}/{target}-{file.filename}"
+            ),
+        )
+
+        response = client.post(
+            "/api/admin/billing/customization-draft/branding/logo",
+            data={
+                "creator_mobile": "13800138000",
+                "file": (BytesIO(b"png"), "wide.png"),
+                "target": "square",
+            },
+            content_type="multipart/form-data",
+        )
+        payload = response.get_json(force=True)
+        assert payload["code"] == 0
+        assert payload["data"] == (
+            "https://courses-oss.example.com/drafts/13800138000/square-wide.png"
+        )
+
+    def test_admin_billing_entitlement_grant_upgrades_existing_phone_user(
+        self,
+        admin_billing_client,
+    ) -> None:
+        app = admin_billing_client["app"]
+        client = admin_billing_client["client"]
+
+        with app.app_context():
+            create_user_entity(
+                user_bid="user-phone-existing",
+                identify="13800139000",
+                nickname="Phone Existing",
+                state=1101,
+            )
+            upsert_credential(
+                app,
+                user_bid="user-phone-existing",
+                provider_name="phone",
+                subject_id="13800139000",
+                subject_format="phone",
+                identifier="13800139000",
+                metadata={},
+                verified=True,
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/admin/billing/entitlements/grants",
+            json={
+                "creator_mobile": "13800139000",
+                "branding_enabled": True,
+                "custom_domain_enabled": False,
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+
+        with app.app_context():
+            entity = (
+                UserInfo.query.filter(UserInfo.user_bid == "user-phone-existing")
+                .order_by(UserInfo.id.asc())
+                .first()
+            )
+            assert entity is not None
+            assert entity.is_creator == 1
+            assert entity.state == 1102
 
     def test_admin_billing_public_builders_return_dto_instances(
         self,
@@ -799,6 +1307,7 @@ class TestAdminBillingRoutes:
                 app
             ),
             "campaigns": build_admin_billing_campaigns_page(app),
+            "focus_teachers": build_admin_billing_focus_teachers_page(app),
             "usage_daily": build_admin_bill_daily_usage_metrics_page(app),
             "ledger_daily": build_admin_bill_daily_ledger_summary_page(app),
             "adjust": adjust_admin_billing_ledger(
@@ -806,7 +1315,7 @@ class TestAdminBillingRoutes:
                 operator_user_bid="admin-creator",
                 payload={
                     "creator_bid": "creator-1",
-                    "amount": "1.5000000000",
+                    "amount": "1.50",
                     "note": "contract-check",
                 },
             ),
@@ -821,6 +1330,10 @@ class TestAdminBillingRoutes:
             AdminBillingCampaignProductOptionsDTO,
         )
         assert isinstance(results["campaigns"], AdminBillingCampaignsPageDTO)
+        assert isinstance(
+            results["focus_teachers"],
+            AdminBillingFocusTeachersPageDTO,
+        )
         assert isinstance(
             results["usage_daily"],
             AdminBillingDailyUsageMetricsPageDTO,

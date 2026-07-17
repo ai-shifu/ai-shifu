@@ -3,7 +3,6 @@ export type BillingCenterTab =
   | 'ledger'
   | 'orders'
   | 'entitlements'
-  | 'domains'
   | 'reports';
 
 export type AdminBillingConsoleTab =
@@ -11,7 +10,6 @@ export type AdminBillingConsoleTab =
   | 'orders'
   | 'exceptions'
   | 'entitlements'
-  | 'domains'
   | 'reports';
 
 export type BillingProvider =
@@ -20,6 +18,57 @@ export type BillingProvider =
   | 'alipay'
   | 'wechatpay'
   | 'manual';
+
+export type BillingCustomizationProvider =
+  | 'wechat_oauth'
+  | 'pingxx'
+  | 'stripe'
+  | 'alipay'
+  | 'wechatpay';
+
+export type BillingCustomizationCapabilities = {
+  branding: boolean;
+  custom_domain: boolean;
+  custom_wechat: boolean;
+  custom_payment: boolean;
+};
+
+export type BillingCustomizationIntegration = {
+  integration_bid?: string;
+  provider: BillingCustomizationProvider;
+  status: 'unconfigured' | 'draft' | 'verified' | 'failed' | 'disabled';
+  public_config: Record<string, string | boolean | string[]>;
+  secret_configured: boolean;
+  secret_configured_fields?: string[];
+  callback_url: string;
+  verified_at?: string | null;
+  last_error_code?: string;
+  last_error_message?: string;
+};
+
+export type BillingCustomization = {
+  enabled: boolean;
+  creator_bid: string;
+  capabilities: BillingCustomizationCapabilities;
+  branding: {
+    logo_wide_url: string;
+    logo_square_url: string;
+  };
+  domains: {
+    custom_domain_enabled: boolean;
+    items: Array<{
+      domain_binding_bid: string;
+      host: string;
+      status: string;
+      ssl_status: string;
+      verification_record_name: string;
+      verification_record_value: string;
+      is_effective: boolean;
+      metadata?: Record<string, unknown>;
+    }>;
+  };
+  integrations: BillingCustomizationIntegration[];
+};
 
 export type BillingPingxxChannel = 'wx_pub_qr' | 'alipay_qr';
 
@@ -87,7 +136,13 @@ export type BillingDomainBindingStatus =
 
 export type BillingDomainVerificationMethod = 'dns_txt';
 
-export type BillingDomainSslStatus = 'not_requested' | 'pending' | 'issued';
+export type BillingDomainSslStatus =
+  | 'not_requested'
+  | 'pending'
+  | 'issued'
+  | 'provisioning'
+  | 'active'
+  | 'failed';
 
 export type BillingPriorityClass = 'standard' | 'priority' | 'vip';
 
@@ -407,6 +462,8 @@ export type BillingSyncResult = {
 export type BillingEntitlements = {
   branding_enabled: boolean;
   custom_domain_enabled: boolean;
+  custom_wechat_enabled: boolean;
+  custom_payment_enabled: boolean;
   priority_class: BillingPriorityClass;
   analytics_tier: BillingAnalyticsTier;
   support_tier: BillingSupportTier;
@@ -474,13 +531,23 @@ export type AdminBillingEntitlementSourceKind =
 
 export type AdminBillingSubscriptionItem = BillingSubscription & {
   creator_bid: string;
+  creator_identify?: string;
+  creator_mobile?: string;
+  creator_nickname?: string;
+  product_name_key?: string;
   next_product_code?: string;
+  next_product_name_key?: string;
   wallet: BillingWalletSnapshot;
   latest_renewal_event: BillingRenewalEventSummary | null;
   has_attention: boolean;
 };
 
 export type AdminBillingOrderItem = BillingOrderSummary & {
+  creator_identify?: string;
+  creator_mobile?: string;
+  creator_nickname?: string;
+  product_name_key?: string;
+  product_credit_amount?: number;
   failure_code?: string;
   failed_at?: string | null;
   refunded_at?: string | null;
@@ -489,22 +556,66 @@ export type AdminBillingOrderItem = BillingOrderSummary & {
 
 export type AdminBillingEntitlementItem = BillingEntitlements & {
   creator_bid: string;
+  creator_identify?: string;
+  creator_mobile?: string;
+  creator_nickname?: string;
   source_kind: AdminBillingEntitlementSourceKind;
   source_type: BillingBucketSourceType | '';
   source_bid: string;
   product_bid: string;
+  product_name_key?: string;
   effective_from: string | null;
   effective_to: string | null;
   feature_payload?: Record<string, unknown>;
 };
 
+export type AdminBillingEntitlementGrantPayload = {
+  creator_bid?: string;
+  creator_mobile?: string;
+  branding_enabled: boolean;
+  custom_domain_enabled: boolean;
+  custom_wechat_enabled: boolean;
+  custom_payment_enabled: boolean;
+};
+
+export type AdminBillingCustomizationDraft = {
+  creator_bid?: string;
+  creator_mobile?: string;
+  branding_enabled: boolean;
+  custom_domain_enabled: boolean;
+  custom_wechat_enabled: boolean;
+  custom_payment_enabled: boolean;
+  config_status: 'pending' | 'in_progress' | 'completed' | 'exception';
+  note: string;
+  branding: {
+    logo_wide_url: string;
+    logo_square_url: string;
+  };
+  domain: {
+    host: string;
+  };
+  integrations: Record<
+    BillingCustomizationProvider,
+    {
+      public_config: Record<string, string>;
+      secret_config: Record<string, string>;
+      secret_configured_fields?: string[];
+    }
+  >;
+};
+
 export type AdminBillingDomainBindingItem = BillingDomainBinding & {
+  creator_identify?: string;
+  creator_mobile?: string;
+  creator_nickname?: string;
   custom_domain_enabled: boolean;
   has_attention: boolean;
 };
 
 export type AdminBillingDailyUsageMetricItem = BillingDailyUsageMetricItem & {
   creator_bid: string;
+  creator_mobile?: string;
+  creator_nickname?: string;
 };
 
 export type AdminBillingDailyLedgerSummaryItem =
@@ -512,8 +623,33 @@ export type AdminBillingDailyLedgerSummaryItem =
     creator_bid: string;
   };
 
-export type AdminBillingLedgerAdjustPayload = {
+export type AdminBillingFocusAttentionReason =
+  | 'high_consumption'
+  | 'high_frequency'
+  | 'active_production'
+  | 'debug_preview_heavy'
+  | 'sustained_activity'
+  | 'rapid_growth';
+
+export type AdminBillingFocusTeacherItem = {
   creator_bid: string;
+  creator_mobile?: string;
+  creator_nickname?: string;
+  credits_7d: number;
+  credits_30d: number;
+  record_count_7d: number;
+  active_days_7d: number;
+  production_credits_30d: number;
+  debug_preview_credits_30d: number;
+  total_credits_30d: number;
+  production_ratio_30d: number;
+  latest_usage_at: string | null;
+  attention_reasons: AdminBillingFocusAttentionReason[];
+};
+
+export type AdminBillingLedgerAdjustPayload = {
+  creator_bid?: string;
+  creator_mobile?: string;
   amount: string;
   note?: string;
 };

@@ -247,6 +247,7 @@ def _seed_white_label(
 
     from flaskr.service.billing.consts import (
         BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+        BILLING_DOMAIN_SSL_STATUS_ACTIVE,
         BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
         CREDIT_SOURCE_TYPE_MANUAL,
     )
@@ -284,6 +285,7 @@ def _seed_white_label(
                 status=status,
                 verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
                 verification_token="token-test",
+                ssl_status=BILLING_DOMAIN_SSL_STATUS_ACTIVE,
             )
         )
         dao.db.session.commit()

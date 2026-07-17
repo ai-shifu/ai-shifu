@@ -104,6 +104,46 @@ def _is_valid_rpm_limits_json(value: Any) -> bool:
     return True
 
 
+def parse_llm_model_max_output_tokens(value: Any) -> Dict[str, int]:
+    """Parse a routed model id -> maximum output token JSON map."""
+
+    if value in (None, ""):
+        return {}
+    if isinstance(value, dict):
+        candidate = value
+    else:
+        try:
+            candidate = json.loads(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("must be a JSON object") from exc
+    if not isinstance(candidate, dict):
+        raise ValueError("must be a JSON object")
+
+    parsed: Dict[str, int] = {}
+    for model, max_output_tokens in candidate.items():
+        if not isinstance(model, str) or not model.strip():
+            raise ValueError("model ids must be non-empty strings")
+        normalized_model = model.strip()
+        if normalized_model in parsed:
+            raise ValueError("model ids must be unique after trimming whitespace")
+        if (
+            isinstance(max_output_tokens, bool)
+            or not isinstance(max_output_tokens, int)
+            or max_output_tokens <= 0
+        ):
+            raise ValueError("maximum output token values must be positive integers")
+        parsed[normalized_model] = max_output_tokens
+    return parsed
+
+
+def _is_valid_llm_model_max_output_tokens_json(value: Any) -> bool:
+    try:
+        parse_llm_model_max_output_tokens(value)
+    except ValueError:
+        return False
+    return True
+
+
 # Environment variable registry
 ENV_VARS: Dict[str, EnvVar] = {
     # Application Configuration
@@ -203,8 +243,11 @@ ENV_VARS: Dict[str, EnvVar] = {
     ),
     "HOME_URL": EnvVar(
         name="HOME_URL",
-        default="/",
-        description="Cook Web logo/home redirect URL (default: /)",
+        default="/admin",
+        description=(
+            "Cook Web logo and entry redirect URL. Set /c/<shifu_bid> to use "
+            "a course as the landing page (default: /admin)"
+        ),
         group="frontend",
     ),
     "CONTACT_US_URL": EnvVar(
@@ -246,6 +289,26 @@ ENV_VARS: Dict[str, EnvVar] = {
         default="",
         description="Custom favicon URL override returned by /api/config",
         group="frontend",
+    ),
+    "CREATOR_CUSTOMIZATION_ENABLED": EnvVar(
+        name="CREATOR_CUSTOMIZATION_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable entitled course-owner brand, domain, OAuth, and learner-payment configuration.",
+        group="billing",
+    ),
+    "CREATOR_INTEGRATION_ENCRYPTION_KEY": EnvVar(
+        name="CREATOR_INTEGRATION_ENCRYPTION_KEY",
+        default="",
+        description="Required when CREATOR_CUSTOMIZATION_ENABLED is true; Fernet key used for course-owner integration secrets and callback tokens.",
+        secret=True,
+        group="billing",
+    ),
+    "CUSTOM_DOMAIN_CNAME_TARGET": EnvVar(
+        name="CUSTOM_DOMAIN_CNAME_TARGET",
+        default="",
+        description="Required CNAME target for course-owner custom domains",
+        group="billing",
     ),
     "ANALYTICS_UMAMI_SCRIPT": EnvVar(
         name="ANALYTICS_UMAMI_SCRIPT",
@@ -329,12 +392,6 @@ ENV_VARS: Dict[str, EnvVar] = {
         type=int,
         description="Upper bound for the DSL `limit` field accepted by creator-analytics",
         group="analytics",
-    ),
-    "DEFAULT_COURSE_ID": EnvVar(
-        name="DEFAULT_COURSE_ID",
-        default="",
-        description="Default course id for Cook Web",
-        group="frontend",
     ),
     "DEFAULT_LOGIN_METHOD": EnvVar(
         name="DEFAULT_LOGIN_METHOD",
@@ -603,6 +660,19 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
         group="llm",
         required=False,
     ),
+    "LLM_MODEL_MAX_OUTPUT_TOKENS": EnvVar(
+        name="LLM_MODEL_MAX_OUTPUT_TOKENS",
+        default="",
+        type=str,
+        description=(
+            "Optional JSON object mapping full routed LLM model ids to positive "
+            "maximum output token limits. Values extend LiteLLM model metadata "
+            "and are sent as max_tokens for matching requests."
+        ),
+        group="llm",
+        required=False,
+        validator=_is_valid_llm_model_max_output_tokens_json,
+    ),
     "DEFAULT_LLM_TEMPERATURE": EnvVar(
         name="DEFAULT_LLM_TEMPERATURE",
         default=0.3,
@@ -735,6 +805,14 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         name="BILLING_CREDIT_EXPIRING_CRON",
         default="0 * * * *",
         description="Cron expression for scanning expiring credit notifications.",
+        group="celery",
+    ),
+    "BILLING_DAILY_USAGE_METRICS_CRON": EnvVar(
+        name="BILLING_DAILY_USAGE_METRICS_CRON",
+        default="15 1 * * *",
+        description=(
+            "Cron expression for finalizing the previous day's billing usage metrics."
+        ),
         group="celery",
     ),
     "BILLING_DAILY_LEDGER_SUMMARY_CRON": EnvVar(
@@ -933,6 +1011,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Filesystem path to the Ping++ RSA private key",
         group="payment",
     ),
+    "PINGXX_PRIVATE_KEY": EnvVar(
+        name="PINGXX_PRIVATE_KEY",
+        default="",
+        description="Inline Ping++ RSA private key for per-owner SaaS configuration",
+        secret=True,
+        group="payment",
+    ),
+    "PINGXX_WEBHOOK_PUBLIC_KEY": EnvVar(
+        name="PINGXX_WEBHOOK_PUBLIC_KEY",
+        default="",
+        description="Ping++ webhook RSA public key for signature verification",
+        secret=True,
+        group="payment",
+    ),
     "PINGXX_APP_ID": EnvVar(
         name="PINGXX_APP_ID",
         default="",
@@ -952,16 +1044,36 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         secret=True,
         group="payment",
     ),
+    "ALIPAY_APP_PRIVATE_KEY": EnvVar(
+        name="ALIPAY_APP_PRIVATE_KEY",
+        default="",
+        description="Inline Alipay application private key for per-owner SaaS configuration",
+        secret=True,
+        group="payment",
+    ),
     "ALIPAY_PUBLIC_KEY_PATH": EnvVar(
         name="ALIPAY_PUBLIC_KEY_PATH",
         default="",
         description="Filesystem path to the Alipay platform public key",
         group="payment",
     ),
+    "ALIPAY_PUBLIC_KEY": EnvVar(
+        name="ALIPAY_PUBLIC_KEY",
+        default="",
+        description="Inline Alipay public key for per-owner SaaS configuration",
+        secret=True,
+        group="payment",
+    ),
     "ALIPAY_GATEWAY_URL": EnvVar(
         name="ALIPAY_GATEWAY_URL",
         default="https://openapi.alipay.com/gateway.do",
         description="Alipay OpenAPI gateway URL",
+        group="payment",
+    ),
+    "ALIPAY_WEBHOOK_URL": EnvVar(
+        name="ALIPAY_WEBHOOK_URL",
+        default="",
+        description="Per-owner Alipay notification URL override",
         group="payment",
     ),
     "WECHATPAY_APP_ID": EnvVar(
@@ -980,6 +1092,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="WECHATPAY_BASE_URL",
         default="https://api.mch.weixin.qq.com",
         description="WeChat Pay API base URL",
+        group="payment",
+    ),
+    "WECHATPAY_WEBHOOK_URL": EnvVar(
+        name="WECHATPAY_WEBHOOK_URL",
+        default="",
+        description="Per-owner WeChat Pay notification URL override",
         group="payment",
     ),
     "WECHATPAY_API_V3_KEY": EnvVar(
@@ -1002,10 +1120,24 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         secret=True,
         group="payment",
     ),
+    "WECHATPAY_PRIVATE_KEY": EnvVar(
+        name="WECHATPAY_PRIVATE_KEY",
+        default="",
+        description="Inline WeChat Pay merchant private key for per-owner SaaS configuration",
+        secret=True,
+        group="payment",
+    ),
     "WECHATPAY_PLATFORM_CERT_PATH": EnvVar(
         name="WECHATPAY_PLATFORM_CERT_PATH",
         default="",
         description="Filesystem path to the WeChat Pay platform certificate for notification verification",
+        group="payment",
+    ),
+    "WECHATPAY_PLATFORM_CERT": EnvVar(
+        name="WECHATPAY_PLATFORM_CERT",
+        default="",
+        description="Inline WeChat Pay platform certificate for per-owner SaaS configuration",
+        secret=True,
         group="payment",
     ),
     "STRIPE_SECRET_KEY": EnvVar(
@@ -1649,6 +1781,14 @@ class EnhancedConfig:
         has_llm = any(self.get(var) not in (None, "") for var in llm_vars)
         if not has_llm:
             errors.append("At least one LLM API key must be configured")
+        if (
+            self.get("CREATOR_CUSTOMIZATION_ENABLED")
+            and not str(self.get("CREATOR_INTEGRATION_ENCRYPTION_KEY") or "").strip()
+        ):
+            validation_errors.append(
+                "- CREATOR_INTEGRATION_ENCRYPTION_KEY: required when "
+                "CREATOR_CUSTOMIZATION_ENABLED is true"
+            )
         for var_name, env_var in self.env_vars.items():
             # Check required variables (those with required=True)
             raw_value = os.environ.get(var_name)

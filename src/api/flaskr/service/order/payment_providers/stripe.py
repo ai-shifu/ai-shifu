@@ -23,38 +23,32 @@ class StripeProvider(PaymentProvider):
 
     channel = "stripe"
 
-    def __init__(self) -> None:
-        self._client_initialized = False
-        self._stripe = None
-
     def _ensure_client(self, app: Flask):
-        if self._client_initialized and self._stripe is not None:
-            return self._stripe
         try:
             import stripe  # type: ignore
         except ImportError as exc:  # pragma: no cover - surfaced during runtime
             app.logger.error("Stripe SDK is not installed")
             raise RuntimeError("Stripe SDK is required for Stripe payments") from exc
+        return stripe
 
+    def _client_options(self, app: Flask) -> tuple[Any, Dict[str, Any]]:
+        stripe = self._ensure_client(app)
         secret_key = get_config("STRIPE_SECRET_KEY")
         if not secret_key:
             app.logger.error("STRIPE_SECRET_KEY configuration is missing")
             raise RuntimeError("STRIPE_SECRET_KEY must be configured for Stripe")
 
-        stripe.api_key = secret_key
+        request_options: Dict[str, Any] = {"api_key": secret_key}
         api_version = get_config("STRIPE_API_VERSION")
         if api_version:
-            stripe.api_version = api_version
+            request_options["stripe_version"] = api_version
 
-        self._stripe = stripe
-        self._client_initialized = True
-        app.logger.info("Stripe client initialized")
-        return stripe
+        return stripe, request_options
 
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
-        stripe = self._ensure_client(app)
+        stripe, request_options = self._client_options(app)
         options: Dict[str, Any] = request.extra or {}
         mode = (options.get("mode") or request.channel or "payment_intent").lower()
         metadata = options.get("metadata", {}) or {}
@@ -100,6 +94,7 @@ class StripeProvider(PaymentProvider):
                     idempotency_key=(
                         f"{request.order_bid}:subscription-first-invoice-discount"
                     ),
+                    **request_options,
                 )
                 coupon_payload = (
                     coupon.to_dict() if hasattr(coupon, "to_dict") else coupon
@@ -127,11 +122,11 @@ class StripeProvider(PaymentProvider):
                 params["payment_method_options"] = {"wechat_pay": {"client": "web"}}
 
             try:
-                session = stripe.checkout.Session.create(**params)
+                session = stripe.checkout.Session.create(**params, **request_options)
             except Exception:
                 if coupon_id:
                     try:
-                        stripe.Coupon.delete(coupon_id)
+                        stripe.Coupon.delete(coupon_id, **request_options)
                     except Exception as cleanup_error:  # pragma: no cover
                         app.logger.warning(
                             "Failed to clean up Stripe coupon %s: %s",
@@ -144,7 +139,9 @@ class StripeProvider(PaymentProvider):
             latest_charge_id = ""
             payment_intent_object: Dict[str, Any] = {}
             if payment_intent_id:
-                payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+                payment_intent = stripe.PaymentIntent.retrieve(
+                    payment_intent_id, **request_options
+                )
                 payment_intent_object = payment_intent.to_dict()
                 latest_charge_id = payment_intent_object.get("latest_charge", "") or ""
 
@@ -169,6 +166,7 @@ class StripeProvider(PaymentProvider):
             currency=request.currency,
             metadata=metadata,
             **intent_params,
+            **request_options,
         )
         intent_dict = intent.to_dict()
 
@@ -208,11 +206,12 @@ class StripeProvider(PaymentProvider):
     def cancel_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
-        stripe = self._ensure_client(app)
+        stripe, request_options = self._client_options(app)
         subscription = stripe.Subscription.modify(
             provider_subscription_id,
             cancel_at_period_end=True,
             metadata={"subscription_bid": subscription_bid},
+            **request_options,
         )
         payload = subscription.to_dict()
         return SubscriptionUpdateResult(
@@ -227,11 +226,12 @@ class StripeProvider(PaymentProvider):
     def resume_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
-        stripe = self._ensure_client(app)
+        stripe, request_options = self._client_options(app)
         subscription = stripe.Subscription.modify(
             provider_subscription_id,
             cancel_at_period_end=False,
             metadata={"subscription_bid": subscription_bid},
+            **request_options,
         )
         payload = subscription.to_dict()
         return SubscriptionUpdateResult(
@@ -246,23 +246,23 @@ class StripeProvider(PaymentProvider):
     def retrieve_checkout_session(
         self, *, session_id: str, app: Flask
     ) -> Dict[str, Any]:
-        stripe = self._ensure_client(app)
-        return stripe.checkout.Session.retrieve(session_id)
+        stripe, request_options = self._client_options(app)
+        return stripe.checkout.Session.retrieve(session_id, **request_options)
 
     def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> Dict[str, Any]:
-        stripe = self._ensure_client(app)
-        return stripe.PaymentIntent.retrieve(intent_id)
+        stripe, request_options = self._client_options(app)
+        return stripe.PaymentIntent.retrieve(intent_id, **request_options)
 
     def retrieve_subscription(
         self, *, subscription_id: str, app: Flask
     ) -> Dict[str, Any]:
-        stripe = self._ensure_client(app)
-        return stripe.Subscription.retrieve(subscription_id)
+        stripe, request_options = self._client_options(app)
+        return stripe.Subscription.retrieve(subscription_id, **request_options)
 
     def verify_webhook(
         self, *, headers: Dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
-        stripe = self._ensure_client(app)
+        stripe, _request_options = self._client_options(app)
         webhook_secret = get_config("STRIPE_WEBHOOK_SECRET")
         if not webhook_secret:
             app.logger.error("STRIPE_WEBHOOK_SECRET configuration is missing")
@@ -359,7 +359,7 @@ class StripeProvider(PaymentProvider):
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
-        stripe = self._ensure_client(app)
+        stripe, request_options = self._client_options(app)
         params: Dict[str, Any] = {}
         if request.amount is not None:
             params["amount"] = request.amount
@@ -383,7 +383,7 @@ class StripeProvider(PaymentProvider):
                 "Stripe refund requires payment_intent_id or charge_id metadata"
             )
 
-        refund = stripe.Refund.create(**params)
+        refund = stripe.Refund.create(**params, **request_options)
         refund_dict = refund.to_dict()
 
         return PaymentRefundResult(

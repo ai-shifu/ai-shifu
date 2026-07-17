@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from flask import Flask, request
 
+from flaskr.dao.uow import unit_of_work
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.billing.capabilities import build_billing_route_bootstrap
+from flaskr.service.billing.admin_target_users import (
+    resolve_admin_entitlement_grant_target,
+    resolve_existing_admin_billing_target_user_bid,
+    run_admin_creator_granted_post_auth,
+)
 from flaskr.service.billing.campaigns import (
     build_admin_billing_campaign_detail,
     build_admin_billing_campaign_product_options,
@@ -22,10 +28,34 @@ from flaskr.service.billing.checkout import (
     refund_billing_order,
     sync_billing_order,
 )
+from flaskr.service.billing.customization import (
+    build_admin_creator_customization_draft,
+    build_creator_customization,
+    clear_admin_creator_customization_draft,
+    disable_creator_integration,
+    is_creator_customization_enabled,
+    save_admin_creator_customization_draft,
+    save_creator_branding,
+    save_creator_integration,
+    upload_admin_creator_draft_logo,
+    upload_creator_brand_logo,
+    verify_creator_integration,
+)
+from flaskr.service.billing.domains import manage_creator_domain_binding
+from flaskr.service.billing.admin_ops_state import (
+    build_admin_billing_ops_state,
+    update_admin_billing_config_status,
+    update_admin_billing_exception_handled,
+)
+from flaskr.service.billing.entitlements import (
+    grant_creator_manual_entitlement,
+    serialize_creator_entitlements,
+)
 from flaskr.service.billing.read_models import (
     adjust_admin_billing_ledger,
     build_admin_bill_daily_ledger_summary_page,
     build_admin_bill_daily_usage_metrics_page,
+    build_admin_billing_focus_teachers_page,
     build_admin_billing_domain_audits_page,
     build_admin_bill_entitlements_page,
     build_admin_bill_orders_page,
@@ -42,6 +72,13 @@ from flaskr.service.billing.subscriptions import (
 from flaskr.service.billing.trials import acknowledge_trial_welcome_dialog
 from flaskr.service.common.models import raise_error, raise_param_error
 from .primitives import is_billing_enabled
+
+# Compatibility aliases keep existing route tests patchable while the concrete
+# user-service access lives behind billing-owned adapter functions.
+_resolve_admin_entitlement_grant_target = resolve_admin_entitlement_grant_target
+_resolve_existing_admin_billing_target_user_bid = (
+    resolve_existing_admin_billing_target_user_bid
+)
 
 
 def _require_creator() -> None:
@@ -66,9 +103,19 @@ def _require_billing_access(app: Flask) -> None:
     _require_creator()
 
 
-def _require_billing_operator_access(app: Flask) -> None:
+def _require_customization_access(app: Flask) -> None:
     _require_billing_access(app)
+    if not is_creator_customization_enabled():
+        raise_error("server.billing.disabled")
+
+
+def _require_billing_operator_access(app: Flask) -> None:
+    _require_billing_enabled(app)
     _require_operator()
+
+
+def _require_billing_customization_operator_access(app: Flask) -> None:
+    _require_billing_operator_access(app)
 
 
 def _get_creator_bid() -> str:
@@ -87,6 +134,27 @@ def _get_optional_query_arg(name: str, *, max_length: int = 100) -> str:
     if len(value) > max_length:
         raise_param_error(name)
     return value
+
+
+def _get_optional_bool_query_arg(name: str) -> bool | None:
+    raw_value = request.args.get(name)
+    if raw_value is None:
+        return None
+    normalized = str(raw_value or "").strip()
+    if not normalized:
+        return None
+    return _to_optional_bool(normalized, name)
+
+
+def _to_optional_bool(value, field_name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value or "").strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise_param_error(field_name)
 
 
 @inject
@@ -229,9 +297,112 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
+    @app.route(path_prefix + "/customization", methods=["GET"])
+    def billing_customization_api():
+        _require_billing_access(app)
+        return make_common_response(
+            build_creator_customization(app, _get_creator_bid())
+        )
+
+    @app.route(path_prefix + "/customization/branding", methods=["PUT"])
+    def billing_customization_branding_api():
+        _require_customization_access(app)
+        return make_common_response(
+            save_creator_branding(
+                app, _get_creator_bid(), request.get_json(silent=True) or {}
+            )
+        )
+
+    @app.route(path_prefix + "/customization/branding/logo", methods=["POST"])
+    def billing_customization_branding_logo_api():
+        _require_customization_access(app)
+        file = request.files.get("file")
+        if file is None:
+            raise_param_error("file")
+        return make_common_response(
+            upload_creator_brand_logo(
+                app,
+                _get_creator_bid(),
+                file,
+                target=str(request.form.get("target") or "wide"),
+            )
+        )
+
+    @app.route(path_prefix + "/customization/domains", methods=["POST"])
+    def billing_customization_domain_create_api():
+        _require_customization_access(app)
+        payload = dict(request.get_json(silent=True) or {})
+        payload["action"] = "bind"
+        return make_common_response(
+            manage_creator_domain_binding(app, _get_creator_bid(), payload)
+        )
+
+    @app.route(
+        path_prefix + "/customization/domains/<domain_binding_bid>/verify",
+        methods=["POST"],
+    )
+    def billing_customization_domain_verify_api(domain_binding_bid: str):
+        _require_customization_access(app)
+        payload = dict(request.get_json(silent=True) or {})
+        payload.update(action="verify", domain_binding_bid=domain_binding_bid)
+        return make_common_response(
+            manage_creator_domain_binding(app, _get_creator_bid(), payload)
+        )
+
+    @app.route(
+        path_prefix + "/customization/domains/<domain_binding_bid>",
+        methods=["DELETE"],
+    )
+    def billing_customization_domain_disable_api(domain_binding_bid: str):
+        _require_customization_access(app)
+        return make_common_response(
+            manage_creator_domain_binding(
+                app,
+                _get_creator_bid(),
+                {"action": "disable", "domain_binding_bid": domain_binding_bid},
+            )
+        )
+
+    @app.route(path_prefix + "/customization/integrations/<provider>", methods=["PUT"])
+    def billing_customization_integration_save_api(provider: str):
+        _require_customization_access(app)
+        return make_common_response(
+            save_creator_integration(
+                app,
+                _get_creator_bid(),
+                provider,
+                request.get_json(silent=True) or {},
+            )
+        )
+
+    @app.route(
+        path_prefix + "/customization/integrations/<provider>/verify",
+        methods=["POST"],
+    )
+    def billing_customization_integration_verify_api(provider: str):
+        _require_customization_access(app)
+        payload = request.get_json(silent=True) or {}
+        return make_common_response(
+            verify_creator_integration(
+                app,
+                _get_creator_bid(),
+                provider,
+                str(payload.get("integration_bid") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/customization/integrations/<provider>", methods=["DELETE"]
+    )
+    def billing_customization_integration_disable_api(provider: str):
+        _require_customization_access(app)
+        return make_common_response(
+            disable_creator_integration(app, _get_creator_bid(), provider)
+        )
+
     @app.route(admin_path_prefix + "/subscriptions", methods=["GET"])
     def admin_bill_subscriptions_api():
-        _require_billing_access(app)
+        _require_billing_operator_access(app)
         page_index, page_size = _get_page_args()
         return make_common_response(
             build_admin_bill_subscriptions_page(
@@ -240,12 +411,13 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 status=_get_optional_query_arg("status"),
+                attention_only=bool(_get_optional_bool_query_arg("attention_only")),
             )
         )
 
     @app.route(admin_path_prefix + "/domain-audits", methods=["GET"])
     def admin_billing_domain_audits_api():
-        _require_billing_access(app)
+        _require_billing_operator_access(app)
         page_index, page_size = _get_page_args()
         return make_common_response(
             build_admin_billing_domain_audits_page(
@@ -259,7 +431,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
 
     @app.route(admin_path_prefix + "/entitlements", methods=["GET"])
     def admin_bill_entitlements_api():
-        _require_billing_access(app)
+        _require_billing_operator_access(app)
         page_index, page_size = _get_page_args()
         return make_common_response(
             build_admin_bill_entitlements_page(
@@ -270,9 +442,347 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
+    @app.route(admin_path_prefix + "/entitlements/grants", methods=["POST"])
+    def admin_bill_entitlement_grant_api():
+        _require_billing_operator_access(app)
+        payload = request.get_json(silent=True) or {}
+        allowed_fields = {
+            "creator_bid",
+            "creator_mobile",
+            "branding_enabled",
+            "custom_domain_enabled",
+            "custom_wechat_enabled",
+            "custom_payment_enabled",
+        }
+        if set(payload) - allowed_fields:
+            raise_param_error("payload")
+        with unit_of_work():
+            target_creator_bid, creator_granted_now, created_new_user = (
+                _resolve_admin_entitlement_grant_target(
+                    app,
+                    creator_bid=str(payload.get("creator_bid") or ""),
+                    creator_mobile=str(payload.get("creator_mobile") or ""),
+                )
+            )
+            state = grant_creator_manual_entitlement(
+                app,
+                target_creator_bid,
+                **{
+                    key: _to_optional_bool(payload.get(key), key)
+                    for key in allowed_fields
+                    if key
+                    in {
+                        "branding_enabled",
+                        "custom_domain_enabled",
+                        "custom_wechat_enabled",
+                        "custom_payment_enabled",
+                    }
+                    and key in payload
+                },
+                commit=False,
+            )
+            clear_admin_creator_customization_draft(
+                app,
+                creator_bid=target_creator_bid,
+                creator_mobile=str(payload.get("creator_mobile") or ""),
+            )
+        if creator_granted_now:
+            run_admin_creator_granted_post_auth(
+                app,
+                user_id=target_creator_bid,
+                source="billing_admin_entitlement_grant",
+                created_new_user=created_new_user,
+            )
+        return make_common_response(serialize_creator_entitlements(state))
+
+    @app.route(admin_path_prefix + "/entitlements/<creator_bid>", methods=["POST"])
+    def admin_bill_entitlement_grant_legacy_api(creator_bid: str):
+        _require_billing_operator_access(app)
+        payload = request.get_json(silent=True) or {}
+        allowed_fields = {
+            "branding_enabled",
+            "custom_domain_enabled",
+            "custom_wechat_enabled",
+            "custom_payment_enabled",
+        }
+        if set(payload) - allowed_fields:
+            raise_param_error("payload")
+        state = grant_creator_manual_entitlement(
+            app,
+            creator_bid,
+            **{
+                key: _to_optional_bool(payload.get(key), key)
+                for key in allowed_fields
+                if key in payload
+            },
+        )
+        return make_common_response(serialize_creator_entitlements(state))
+
+    @app.route(admin_path_prefix + "/ops-state", methods=["GET"])
+    def admin_billing_ops_state_api():
+        _require_billing_operator_access(app)
+        return make_common_response(build_admin_billing_ops_state(app))
+
+    @app.route(admin_path_prefix + "/ops-state/config-status", methods=["POST"])
+    def admin_billing_config_status_api():
+        _require_billing_operator_access(app)
+        payload = request.get_json(silent=True) or {}
+        return make_common_response(
+            update_admin_billing_config_status(
+                app,
+                creator_bid=str(payload.get("creator_bid") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(admin_path_prefix + "/ops-state/exception-handled", methods=["POST"])
+    def admin_billing_exception_handled_api():
+        _require_billing_operator_access(app)
+        payload = request.get_json(silent=True) or {}
+        return make_common_response(
+            update_admin_billing_exception_handled(
+                app,
+                row_key=str(payload.get("row_key") or ""),
+                handled=_to_optional_bool(payload.get("handled"), "handled") is True,
+            )
+        )
+
+    @app.route(admin_path_prefix + "/customization/<creator_bid>", methods=["GET"])
+    def admin_billing_customization_api(creator_bid: str):
+        _require_billing_customization_operator_access(app)
+        return make_common_response(
+            build_creator_customization(
+                app,
+                _resolve_existing_admin_billing_target_user_bid(
+                    creator_bid=creator_bid,
+                    creator_mobile="",
+                ),
+                force_enabled=True,
+            )
+        )
+
+    @app.route(admin_path_prefix + "/customization-draft", methods=["GET"])
+    def admin_billing_customization_draft_api():
+        _require_billing_customization_operator_access(app)
+        creator_bid = str(request.args.get("creator_bid") or "").strip()
+        creator_mobile = str(request.args.get("creator_mobile") or "").strip()
+        return make_common_response(
+            build_admin_creator_customization_draft(
+                app,
+                creator_bid=creator_bid,
+                creator_mobile=creator_mobile,
+            )
+        )
+
+    @app.route(admin_path_prefix + "/customization-draft", methods=["PUT"])
+    def admin_billing_customization_draft_save_api():
+        _require_billing_customization_operator_access(app)
+        payload = dict(request.get_json(silent=True) or {})
+        return make_common_response(
+            save_admin_creator_customization_draft(
+                app,
+                creator_bid=str(payload.get("creator_bid") or ""),
+                creator_mobile=str(payload.get("creator_mobile") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(admin_path_prefix + "/customization-draft", methods=["DELETE"])
+    def admin_billing_customization_draft_delete_api():
+        _require_billing_customization_operator_access(app)
+        creator_bid = str(request.args.get("creator_bid") or "").strip()
+        creator_mobile = str(request.args.get("creator_mobile") or "").strip()
+        clear_admin_creator_customization_draft(
+            app,
+            creator_bid=creator_bid,
+            creator_mobile=creator_mobile,
+        )
+        return make_common_response({"status": "deleted"})
+
+    @app.route(
+        admin_path_prefix + "/customization-draft/branding/logo",
+        methods=["POST"],
+    )
+    def admin_billing_customization_draft_logo_api():
+        _require_billing_customization_operator_access(app)
+        file = request.files.get("file")
+        if file is None:
+            raise_param_error("file")
+        return make_common_response(
+            upload_admin_creator_draft_logo(
+                app,
+                creator_bid=str(request.form.get("creator_bid") or ""),
+                creator_mobile=str(request.form.get("creator_mobile") or ""),
+                file=file,
+                target=str(request.form.get("target") or "wide"),
+            )
+        )
+
+    @app.route(
+        admin_path_prefix + "/customization/<creator_bid>/branding",
+        methods=["PUT"],
+    )
+    def admin_billing_customization_branding_api(creator_bid: str):
+        _require_billing_customization_operator_access(app)
+        return make_common_response(
+            save_creator_branding(
+                app,
+                _resolve_existing_admin_billing_target_user_bid(
+                    creator_bid=creator_bid,
+                    creator_mobile="",
+                ),
+                request.get_json(silent=True) or {},
+                allow_when_customization_disabled=True,
+            )
+        )
+
+    @app.route(
+        admin_path_prefix + "/customization/<creator_bid>/branding/logo",
+        methods=["POST"],
+    )
+    def admin_billing_customization_branding_logo_api(creator_bid: str):
+        _require_billing_customization_operator_access(app)
+        file = request.files.get("file")
+        if file is None:
+            raise_param_error("file")
+        return make_common_response(
+            upload_creator_brand_logo(
+                app,
+                _resolve_existing_admin_billing_target_user_bid(
+                    creator_bid=creator_bid,
+                    creator_mobile="",
+                ),
+                file,
+                target=str(request.form.get("target") or "wide"),
+                allow_when_customization_disabled=True,
+            )
+        )
+
+    @app.route(
+        admin_path_prefix + "/customization/<creator_bid>/domains",
+        methods=["POST"],
+    )
+    def admin_billing_customization_domain_create_api(creator_bid: str):
+        _require_billing_customization_operator_access(app)
+        payload = dict(request.get_json(silent=True) or {})
+        payload["action"] = "bind"
+        return make_common_response(
+            manage_creator_domain_binding(
+                app,
+                _resolve_existing_admin_billing_target_user_bid(
+                    creator_bid=creator_bid,
+                    creator_mobile="",
+                ),
+                payload,
+            )
+        )
+
+    @app.route(
+        admin_path_prefix
+        + "/customization/<creator_bid>/domains/<domain_binding_bid>/verify",
+        methods=["POST"],
+    )
+    def admin_billing_customization_domain_verify_api(
+        creator_bid: str, domain_binding_bid: str
+    ):
+        _require_billing_customization_operator_access(app)
+        payload = dict(request.get_json(silent=True) or {})
+        payload.update(action="verify", domain_binding_bid=domain_binding_bid)
+        return make_common_response(
+            manage_creator_domain_binding(
+                app,
+                _resolve_existing_admin_billing_target_user_bid(
+                    creator_bid=creator_bid,
+                    creator_mobile="",
+                ),
+                payload,
+            )
+        )
+
+    @app.route(
+        admin_path_prefix + "/customization/<creator_bid>/domains/<domain_binding_bid>",
+        methods=["DELETE"],
+    )
+    def admin_billing_customization_domain_disable_api(
+        creator_bid: str, domain_binding_bid: str
+    ):
+        _require_billing_customization_operator_access(app)
+        return make_common_response(
+            manage_creator_domain_binding(
+                app,
+                _resolve_existing_admin_billing_target_user_bid(
+                    creator_bid=creator_bid,
+                    creator_mobile="",
+                ),
+                {"action": "disable", "domain_binding_bid": domain_binding_bid},
+            )
+        )
+
+    @app.route(
+        admin_path_prefix + "/customization/<creator_bid>/integrations/<provider>",
+        methods=["PUT"],
+    )
+    def admin_billing_customization_integration_save_api(
+        creator_bid: str, provider: str
+    ):
+        _require_billing_customization_operator_access(app)
+        return make_common_response(
+            save_creator_integration(
+                app,
+                _resolve_existing_admin_billing_target_user_bid(
+                    creator_bid=creator_bid,
+                    creator_mobile="",
+                ),
+                provider,
+                request.get_json(silent=True) or {},
+                allow_when_customization_disabled=True,
+            )
+        )
+
+    @app.route(
+        admin_path_prefix
+        + "/customization/<creator_bid>/integrations/<provider>/verify",
+        methods=["POST"],
+    )
+    def admin_billing_customization_integration_verify_api(
+        creator_bid: str, provider: str
+    ):
+        _require_billing_customization_operator_access(app)
+        payload = request.get_json(silent=True) or {}
+        return make_common_response(
+            verify_creator_integration(
+                app,
+                _resolve_existing_admin_billing_target_user_bid(
+                    creator_bid=creator_bid,
+                    creator_mobile="",
+                ),
+                provider,
+                str(payload.get("integration_bid") or ""),
+            )
+        )
+
+    @app.route(
+        admin_path_prefix + "/customization/<creator_bid>/integrations/<provider>",
+        methods=["DELETE"],
+    )
+    def admin_billing_customization_integration_disable_api(
+        creator_bid: str, provider: str
+    ):
+        _require_billing_customization_operator_access(app)
+        return make_common_response(
+            disable_creator_integration(
+                app,
+                _resolve_existing_admin_billing_target_user_bid(
+                    creator_bid=creator_bid,
+                    creator_mobile="",
+                ),
+                provider,
+            )
+        )
+
     @app.route(admin_path_prefix + "/orders", methods=["GET"])
     def admin_bill_orders_api():
-        _require_billing_access(app)
+        _require_billing_operator_access(app)
         page_index, page_size = _get_page_args()
         return make_common_response(
             build_admin_bill_orders_page(
@@ -286,7 +796,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
 
     @app.route(admin_path_prefix + "/reports/usage-daily", methods=["GET"])
     def admin_billing_daily_usage_reports_api():
-        _require_billing_access(app)
+        _require_billing_operator_access(app)
         page_index, page_size = _get_page_args()
         return make_common_response(
             build_admin_bill_daily_usage_metrics_page(
@@ -299,9 +809,21 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
+    @app.route(admin_path_prefix + "/reports/focus-teachers", methods=["GET"])
+    def admin_billing_focus_teachers_reports_api():
+        _require_billing_operator_access(app)
+        page_index, page_size = _get_page_args()
+        return make_common_response(
+            build_admin_billing_focus_teachers_page(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+            )
+        )
+
     @app.route(admin_path_prefix + "/reports/ledger-daily", methods=["GET"])
     def admin_billing_daily_ledger_reports_api():
-        _require_billing_access(app)
+        _require_billing_operator_access(app)
         page_index, page_size = _get_page_args()
         return make_common_response(
             build_admin_bill_daily_ledger_summary_page(
@@ -316,12 +838,17 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
 
     @app.route(admin_path_prefix + "/ledger/adjust", methods=["POST"])
     def admin_billing_ledger_adjust_api():
-        _require_billing_access(app)
+        _require_billing_operator_access(app)
+        payload = request.get_json(silent=True) or {}
+        target_creator_bid = _resolve_existing_admin_billing_target_user_bid(
+            creator_bid=str(payload.get("creator_bid") or ""),
+            creator_mobile=str(payload.get("creator_mobile") or ""),
+        )
         return make_common_response(
             adjust_admin_billing_ledger(
                 app,
                 operator_user_bid=_get_creator_bid(),
-                payload=request.get_json(silent=True) or {},
+                payload={**payload, "creator_bid": target_creator_bid},
             )
         )
 

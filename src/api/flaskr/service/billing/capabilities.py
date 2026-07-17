@@ -109,8 +109,11 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         audience="admin",
         user_visible=True,
         default_enabled=True,
-        route_entries=(("GET", "/api/admin/billing/entitlements"),),
-        notes=("Admin entitlement review remains enabled.",),
+        route_entries=(
+            ("GET", "/api/admin/billing/entitlements"),
+            ("POST", "/api/admin/billing/entitlements/grants"),
+        ),
+        notes=("Admin entitlement review and manual grants remain enabled.",),
     ),
     BillingCapabilityDefinition(
         key="admin_domains",
@@ -128,6 +131,7 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         user_visible=True,
         default_enabled=True,
         route_entries=(
+            ("GET", "/api/admin/billing/reports/focus-teachers"),
             ("GET", "/api/admin/billing/reports/usage-daily"),
             ("GET", "/api/admin/billing/reports/ledger-daily"),
         ),

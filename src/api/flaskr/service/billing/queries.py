@@ -15,12 +15,16 @@ from flaskr.util.datetime import now_utc
 
 from .primitives import coerce_datetime, normalize_bid
 from .consts import (
+    ACTIVE_SUBSCRIPTION_STATUSES,
     BILLING_DOMAIN_BINDING_STATUS_LABELS,
     BILLING_INTERVAL_DAY,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_YEAR,
     BILLING_ORDER_STATUS_LABELS,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_RENEWAL_EVENT_STATUS_FAILED,
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
@@ -45,13 +49,7 @@ from .value_objects import PageWindow
 
 _SELF_MANAGED_CYCLE_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
-_ACTIVE_SUBSCRIPTION_STATUSES = (
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
-    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT,
-)
+_ACTIVE_SUBSCRIPTION_STATUSES = ACTIVE_SUBSCRIPTION_STATUSES
 
 _SUBSCRIPTION_STATUS_SORT = {
     BILLING_SUBSCRIPTION_STATUS_ACTIVE: 1,
@@ -459,6 +457,28 @@ def load_admin_creator_bids(*, creator_bid: str = "") -> list[str]:
             if normalized
         )
     return sorted(creator_bids)
+
+
+def subscription_has_attention(
+    row: BillingSubscription,
+    *,
+    renewal_event: BillingRenewalEvent | None,
+) -> bool:
+    if row.status in {
+        BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+        BILLING_SUBSCRIPTION_STATUS_PAUSED,
+        BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    }:
+        return True
+    if renewal_event is None:
+        return False
+    if renewal_event.status in {
+        BILLING_RENEWAL_EVENT_STATUS_PENDING,
+        BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+        BILLING_RENEWAL_EVENT_STATUS_FAILED,
+    }:
+        return True
+    return bool(str(renewal_event.last_error or "").strip())
 
 
 def resolve_subscription_status_filter(value: str) -> int | None:

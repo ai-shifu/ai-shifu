@@ -3,35 +3,41 @@
   "admin": {
     "adjust": {
       "cancel": "取消",
-      "description": "输入正数十进制表示补发积分，输入负数十进制表示按标准积分桶扣减顺序人工扣减积分。",
+      "description": "用于补发或扣减老师积分，并记录本次人工处理原因。",
       "errors": {
-        "amountInvalid": "请输入非 0 的十进制金额，最多保留 10 位小数。",
-        "creatorBidRequired": "必须填写 creator bid。"
+        "amountInvalid": "请输入非 0 的十进制金额，最多保留 2 位小数。",
+        "creatorBidRequired": "请输入老师 BID。",
+        "creatorMobileRequired": "请输入老师手机号。"
       },
       "fields": {
-        "amount": "调整额度",
-        "creatorBid": "Creator Bid",
+        "amount": "修正额度",
+        "creatorBid": "老师 BID",
+        "creatorMobile": "老师手机号",
         "note": "备注"
       },
       "help": {
-        "amount": "示例：12.5000000 表示补发积分，-8.0000000 表示扣减积分。"
+        "amount": "请输入正数表示补发积分，输入负数表示扣减积分，最多保留 2 位小数。",
+        "creatorMobile": "",
+        "note": "建议写清处理原因，方便后续排查账本记录。"
       },
-      "open": "调整积分",
+      "open": "修正账本",
       "placeholders": {
-        "amount": "12.5000000 或 -8.0000000",
-        "creatorBid": "creator_bid",
+        "amount": "输入正数或负数，最多保留 2 位小数",
+        "creatorBid": "输入老师 BID",
+        "creatorMobile": "输入已注册老师手机号",
         "note": "填写人工调整原因"
       },
-      "quickAction": "调整该老师的积分",
-      "submit": "确认调整",
-      "submitting": "调整中...",
-      "success": "已更新 {creatorBid} 的账本，当前可用积分 {availableCredits}。",
-      "title": "人工积分调整"
+      "quickAction": "修正账本",
+      "submit": "确认修正",
+      "submitting": "修正中...",
+      "success": "已更新 {creator} 的账本，当前可用积分 {availableCredits}。",
+      "targetSummary": "当前处理对象",
+      "title": "修正账本"
     },
     "attention": "需关注",
     "backToCreatorBilling": "返回会员中心",
     "domains": {
-      "description": "审核老师自定义域名状态、权益开关，以及仍需跟进的 host。",
+      "description": "查看独立域名的配置进展、校验结果和当前生效状态。",
       "empty": "暂无自定义域名绑定。",
       "loadError": "无法加载后台域名审核数据。",
       "table": {
@@ -50,27 +56,158 @@
       }
     },
     "entitlements": {
-      "description": "查看每位老师当前解析到的有效权益快照。",
-      "empty": "暂无权益快照。",
+      "actions": {
+        "viewDetail": "编辑配置"
+      },
+      "configProgress": {
+        "complete": "已配置",
+        "exception": "异常",
+        "loading": "加载中",
+        "partial": "部分配置",
+        "unconfigured": "未配置"
+      },
+      "configStatus": {
+        "completed": "已完成",
+        "exception": "配置异常",
+        "in_progress": "配置中",
+        "pending": "待配置"
+      },
+      "configStatusHelp": {
+        "completed": "运营已完成本轮配置跟进。",
+        "exception": "配置过程中存在阻塞或异常，需继续跟进处理。",
+        "in_progress": "资料或配置正在处理中，尚未完成收尾。",
+        "pending": "已开通能力，但还未开始补齐对应配置。"
+      },
+      "customization": {
+        "integrationStatus": {
+          "disabled": "已停用",
+          "draft": "草稿",
+          "failed": "异常",
+          "unconfigured": "未配置",
+          "verified": "已验证"
+        },
+        "loading": "配置加载中...",
+        "logoReady": "已上传",
+        "providers": {
+          "alipay": "支付宝",
+          "pingxx": "Ping++",
+          "stripe": "Stripe",
+          "wechat_oauth": "微信服务号",
+          "wechatpay": "微信支付"
+        }
+      },
+      "description": "查看已开通独立品牌或收款能力的老师，并由运营统一跟进配置进度。",
+      "empty": "当前还没有单独开通品牌或收款能力的老师。",
+      "followDefault": "默认配置",
+      "grant": {
+        "brandingInlineDescription": "上传品牌 Logo，支持直接填写图片地址或上传图片文件。",
+        "cancel": "取消",
+        "configStatusHint": "状态可在列表里直接切换；这里仅展示当前状态。",
+        "configurationSection": "配置内容",
+        "configurationSectionDescription": "补充品牌 Logo、独立域名、微信公众号与支付通道配置，保存后同步展示最新结果。",
+        "createdContinue": "已为 {creator} 新增品牌与收款配置，可继续补充下方详细内容。",
+        "creatorBidPlaceholder": "输入课程负责人 BID",
+        "creatorMobilePlaceholder": "输入课程负责人手机号",
+        "description": "为老师统一开通并维护品牌、域名、微信与支付配置，保存后同步更新对应能力。",
+        "disabled": "未开通",
+        "domainInlineDescription": "填写独立域名并完成校验，便于后续确认是否已正式可用。",
+        "edit": "编辑",
+        "editTitle": "编辑品牌与收款配置",
+        "enabled": "已开通",
+        "errors": {
+          "creatorBidRequired": "请输入课程负责人 BID",
+          "creatorMobileRequired": "请输入课程负责人手机号"
+        },
+        "fields": {
+          "branding_enabled": "品牌 Logo",
+          "configStatus": "配置状态",
+          "creatorBid": "课程负责人 BID",
+          "creatorMobile": "课程负责人手机号",
+          "custom_domain_enabled": "独立域名",
+          "custom_payment_enabled": "独立支付配置",
+          "custom_wechat_enabled": "独立微信公众号",
+          "note": "运营备注"
+        },
+        "mobileHint": "请输入手机号。若该手机号尚未注册，系统会先创建账号并默认开通老师身份。",
+        "notePlaceholder": "填写当前进展、待补资料或异常说明",
+        "open": "新增配置",
+        "paymentInlineDescription": "填写支付渠道参数并完成验证，用于确认支付能力是否可正常使用。",
+        "pendingConfiguration": {
+          "branding_enabled": "保存本次开通项后，可继续上传品牌 Logo。",
+          "custom_domain_enabled": "保存本次开通项后，可继续填写并校验独立域名。",
+          "custom_payment_enabled": "保存本次开通项后，可继续补充支付通道参数。",
+          "custom_wechat_enabled": "保存本次开通项后，可继续补充公众号配置参数。",
+          "title": "保存后继续补充配置"
+        },
+        "submit": "保存配置",
+        "submitting": "保存中...",
+        "success": "已更新 {creator} 的品牌与收款配置",
+        "title": "新增品牌与收款配置",
+        "wechatInlineDescription": "填写公众号参数，并确认授权信息与回调配置是否完整。"
+      },
       "loadError": "无法加载后台权益数据。",
+      "logoPreview": {
+        "next": "下一张 Logo",
+        "open": "预览 {label}",
+        "previous": "上一张 Logo",
+        "title": "Logo 预览"
+      },
+      "notEnabled": "未开通",
+      "realEffect": {
+        "branding": "Logo",
+        "domain": "域名",
+        "payment": "支付",
+        "status": {
+          "active": "已生效",
+          "exception": "异常",
+          "inactive": "未生效",
+          "pending": "处理中",
+          "unconfigured": "未配置"
+        },
+        "wechat": "微信"
+      },
       "source": {
-        "default": "默认回退",
-        "productPayload": "商品 payload",
-        "snapshot": "存储快照"
+        "default": "默认权益",
+        "productPayload": "跟随套餐",
+        "snapshot": "当前生效记录"
+      },
+      "sourceReference": "记录：{value}",
+      "statusReason": {
+        "exceptionDefault": "配置异常，需重新授权后再次发起。",
+        "inProgress": "配置仍在处理中，待资料补齐或校验完成。",
+        "inactive": "尚未开始配置，等待运营跟进处理。"
       },
       "table": {
-        "analytics": "分析等级",
+        "actions": "操作",
+        "analytics": "收款能力",
+        "configProgress": "配置进度",
         "creator": "老师",
-        "features": "功能开关",
-        "priority": "优先级",
-        "source": "来源",
+        "domain": "域名",
+        "features": "配置项",
+        "logo": "Logo",
+        "payment": "支付方式",
+        "priority": "品牌能力",
+        "realEffect": "真实生效情况",
+        "source": "当前权益",
+        "status": "跟进状态",
         "support": "支持等级",
-        "window": "生效窗口"
+        "wechat": "微信配置",
+        "window": "更新时间/有效期"
       },
-      "title": "权益查看"
+      "title": "权益查看",
+      "window": {
+        "activeNow": "当前生效中",
+        "endsAt": "有效至 {date}",
+        "startedAt": "生效于 {date}"
+      }
     },
     "exceptions": {
-      "description": "聚焦仍需要人工跟进的订阅和订单异常。",
+      "actions": {
+        "markHandled": "标记已处理",
+        "reopen": "重新打开",
+        "viewOrder": "查看订单"
+      },
+      "description": "汇总当前需要人工处理的订阅关系异常与交易异常。",
       "empty": "当前没有需要处理的账务异常。",
       "fields": {
         "amount": "金额",
@@ -80,75 +217,171 @@
         "renewalEvent": "续费事件"
       },
       "loadError": "账务异常数据读取失败，请刷新后重试。",
+      "processingStatus": {
+        "done": "已处理",
+        "pending": "待处理"
+      },
       "sections": {
         "orders": "需关注订单",
         "subscriptions": "需关注订阅"
       },
-      "title": "异常处理"
+      "table": {
+        "detail": "异常说明",
+        "object": "异常对象",
+        "processingStatus": "处理进度",
+        "relatedOrder": "关联订单",
+        "type": "异常类型",
+        "updatedAt": "更新时间"
+      },
+      "targets": {
+        "order": "支付订单",
+        "subscription": "订阅关系"
+      },
+      "title": "异常处理",
+      "types": {
+        "order": "订单异常",
+        "subscription": "订阅异常"
+      }
+    },
+    "navigation": {
+      "description": "按套餐、订单、权益、域名和报表切换查看，能力状态会始终保留在上方。",
+      "title": "查看维度"
     },
     "orders": {
-      "description": "查看所有老师的 billing 订单，并快速定位 provider 失败单。",
-      "empty": "当前还没有 billing 订单。",
+      "actions": {
+        "viewOrder": "查看订单"
+      },
+      "description": "查看支付失败、超时或处理中等需要排查的订单。",
+      "empty": "当前没有需要处理的异常订单。",
+      "failureReasons": {
+        "card_declined": "银行卡被拒付",
+        "checkout_expired": "支付超时未完成",
+        "checkout_timeout": "支付超时未完成"
+      },
       "loadError": "后台订单数据读取失败，请刷新后重试。",
       "table": {
+        "actions": "操作",
         "amount": "金额",
         "createdAt": "创建时间",
         "creator": "老师",
-        "failure": "失败信息",
+        "failure": "失败原因",
         "order": "订单",
-        "provider": "支付通道",
-        "status": "状态"
+        "provider": "支付方式",
+        "status": "异常状态"
       },
-      "title": "订单列表"
+      "title": "异常订单"
     },
     "pagination": {
-      "page": "第 {page} / {pageCount} 页，共 {total} 条记录"
+      "page": "第 {page} / {pageCount} 页，共 {total} 条记录",
+      "total": "共 {total} 条记录"
     },
     "reports": {
-      "description": "在运营后台直接查看跨老师的 usage 与账本日报表。",
+      "actions": {
+        "viewExceptions": "查看异常",
+        "viewOrders": "查看订单"
+      },
+      "attentionReasons": {
+        "active_production": "正式使用活跃",
+        "debug_preview_heavy": "调试消耗偏高",
+        "high_consumption": "高消耗",
+        "high_frequency": "高频调用",
+        "rapid_growth": "消耗增长较快",
+        "sustained_activity": "近 7 天持续活跃"
+      },
+      "description": "汇总近期消耗、活跃度和使用结构异常的老师，帮助运营判断跟进优先级。",
+      "empty": "当前没有需要重点关注的老师。",
+      "emptyHint": "命中高消耗、高频调用、正式使用活跃、调试占比偏高、持续活跃或消耗增长较快任一条件后才会展示。",
+      "filters": {
+        "active_production": "正式使用活跃",
+        "all": "全部重点对象",
+        "debug_preview_heavy": "调试消耗偏高",
+        "rapid_growth": "消耗增长较快"
+      },
       "sections": {
-        "ledger": {
-          "description": "按天查看跨老师的账本变动汇总。",
-          "title": "账本汇总"
-        },
         "usage": {
-          "description": "按老师、shifu、scene 与 metric 查看 usage 成本汇总。",
-          "title": "Usage 汇总"
+          "description": "仅展示命中关注条件的老师；可按增长、调试占比或近 30 天消耗排序。",
+          "title": "关注老师列表"
         }
       },
-      "table": {
-        "creator": "老师"
+      "sort": {
+        "label": "排序方式",
+        "options": {
+          "credits_30d": "按近 30 天消耗",
+          "debug_ratio": "按调试占比",
+          "growth": "按增长优先"
+        }
       },
-      "title": "报表"
+      "summary": {
+        "activeTeachers7d": "近 7 天仍活跃",
+        "activeTeachers7dHint": "关注对象中近 7 天有消耗记录的老师",
+        "debugHeavyCount": "调试占比偏高",
+        "debugHeavyCountHint": "近 30 天调试/预览消耗占比较高的老师",
+        "focusCount": "需关注老师数",
+        "focusCountHint": "满足一项及以上用量关注条件",
+        "totalCredits": "关注对象 30 天消耗",
+        "totalCreditsHint": "当前关注老师近 30 天累计消耗"
+      },
+      "table": {
+        "actions": "操作",
+        "activeDays7d": "7 天活跃天数",
+        "attentionReasons": "关注规则",
+        "attentionReasonsMore": "共 {count} 项",
+        "creator": "老师",
+        "credits30d": "30 天消耗",
+        "credits30dBreakdown": "正式使用 {production} · 调试/预览 {debugPreview}",
+        "credits30dDebugPreview": "调试/预览 {debugPreview}",
+        "credits30dProduction": "正式使用 {production}",
+        "credits7d": "7 天消耗",
+        "latestActivity": "最近活跃时间",
+        "latestActivityHint": "近 7 天活跃 {days} 天",
+        "productionRatio": "生产消耗占比",
+        "recordCount7d": "7 天调用次数"
+      },
+      "title": "用量关注概况"
     },
     "subscriptions": {
-      "description": "查看老师订阅状态、账户余额和最近一次续费上下文。",
-      "empty": "当前还没有订阅记录。",
+      "description": "查看需要跟进的老师订阅、积分余额和后续处理状态。",
+      "empty": "当前没有需要跟进的订阅。",
       "loadError": "后台订阅数据读取失败，请刷新后重试。",
       "preorderTarget": "预购：{product}",
+      "results": {
+        "cancelAtPeriodEnd": "到期不续费",
+        "cancelAtPeriodEndWithDate": "将于 {date} 到期",
+        "expire": "到期不续费",
+        "expireWithDate": "将于 {date} 到期",
+        "preorder": "到期后切换为 {product}",
+        "preorderWithDate": "将于 {date} 切换为 {product}",
+        "renewalFailed": "续费失败，待处理",
+        "renewalFailedWithError": "续费失败，待处理",
+        "renewalScheduled": "计划自动续费",
+        "renewalScheduledWithDate": "计划于 {date} 自动续费"
+      },
       "table": {
         "availableCredits": "可用积分",
         "creator": "老师",
-        "currentPeriodEnd": "当前周期结束",
-        "product": "套餐",
-        "provider": "支付通道",
-        "renewal": "续费上下文",
-        "renewalStatus": "续费事件",
+        "currentPeriodEnd": "有效至",
+        "product": "当前套餐",
+        "provider": "支付方式",
+        "renewal": "续费/到期情况",
+        "renewalStatus": "续费状态",
         "scheduled": "计划于",
-        "status": "状态"
+        "status": "订阅状态"
       },
-      "title": "订阅列表"
+      "title": "订阅跟进"
     },
-    "subtitle": "用于查看订阅状态、失败支付和需要人工跟进的账务异常。",
+    "subtitle": "统一跟进订阅、支付、权益和账务异常。",
+    "table": {
+      "attentionStatus": "关注状态"
+    },
     "tabs": {
       "domains": "域名",
-      "entitlements": "权益",
-      "exceptions": "异常处理",
-      "orders": "订单视图",
-      "reports": "报表",
-      "subscriptions": "订阅视图"
+      "entitlements": "品牌与收款配置",
+      "exceptions": "异常告警",
+      "orders": "异常订单",
+      "reports": "用量关注",
+      "subscriptions": "订阅跟进"
     },
-    "title": "后台账务视图"
+    "title": "商业化运营"
   },
   "alerts": {
     "actions": {
@@ -163,7 +396,7 @@
     "subscriptionPastDue": "订阅续费当前处于异常状态，请先检查付款记录并同步最新 provider 状态。"
   },
   "capabilities": {
-    "description": "这里统一标记哪些 billing 能力已经在 UI 中启用，哪些仍只存在于默认关闭配置或内部任务链路中。",
+    "description": "这里汇总品牌与收款后台当前可直接使用的模块。待配置表示代码已接入但默认不启用；仅后台流程表示只在任务、补偿或运维链路中使用，不会直接出现在页面上。",
     "fallbackDescription": "能力状态以 billing capability registry 为准。",
     "fallbackTitle": "Billing 能力",
     "items": {
@@ -176,8 +409,8 @@
         "title": "后台权益"
       },
       "adminLedgerAdjust": {
-        "description": "后台账本调整当前仍可使用。",
-        "title": "后台账本调整"
+        "description": "后台人工账本修正当前仍可使用。",
+        "title": "后台账本修正"
       },
       "adminOrders": {
         "description": "后台 billing 订单查看当前仍可使用。",
@@ -249,16 +482,16 @@
       }
     },
     "status": {
-      "active": "已启用",
-      "defaultDisabled": "默认关闭",
-      "internalOnly": "仅内部"
+      "active": "可直接使用",
+      "defaultDisabled": "待配置",
+      "internalOnly": "仅后台流程"
     },
     "summary": {
-      "active": "{count} 个已启用",
-      "defaultDisabled": "{count} 个默认关闭",
-      "internalOnly": "{count} 个仅内部"
+      "active": "{count} 个可直接使用",
+      "defaultDisabled": "{count} 个待配置",
+      "internalOnly": "{count} 个仅后台流程"
     },
-    "title": "能力状态"
+    "title": "当前可用模块"
   },
   "catalog": {
     "actions": {
@@ -345,6 +578,70 @@
   "common": {
     "empty": "暂无"
   },
+  "customization": {
+    "actions": {
+      "clear": "清空",
+      "saveConfiguration": "保存配置",
+      "saveIntegration": "保存支付配置",
+      "secretSaved": "已保存，可重新填写覆盖"
+    },
+    "branding": {
+      "invalidFile": "仅支持 2MB 以内的 PNG、JPEG 或 WebP 图片",
+      "resizeNotice": "图片尺寸与推荐规格不完全一致，保存后会按常规方式缩放处理。",
+      "squareHint": "建议上传 32x32px 方形 Logo，也支持更高清的倍图。",
+      "squareLogo": "方形 Logo",
+      "title": "品牌 Logo",
+      "uploadFailed": "图片上传失败，请稍后重试。",
+      "uploadSquare": "上传方形 Logo",
+      "uploadWide": "上传横版 Logo",
+      "urlPlaceholder": "也可直接填写图片地址",
+      "wideHint": "建议上传高度 32px、宽度不超过 220px 的横版 Logo，也支持倍图。",
+      "wideLogo": "横版 Logo"
+    },
+    "disable": "停用",
+    "domain": {
+      "bind": "绑定域名",
+      "disableSuccess": "域名已停用。",
+      "dnsTitle": "请在域名 DNS 后台添加以下 TXT 记录",
+      "lastError": "最近一次校验结果：{reason}",
+      "placeholder": "例如 learn.example.com",
+      "record": "{name} = {value}",
+      "recordName": "主机记录",
+      "recordType": "记录类型",
+      "recordValue": "记录值",
+      "status": "{status} · SSL {sslStatus}",
+      "title": "独立域名",
+      "verify": "验证 DNS",
+      "verifyFailed": "DNS 暂未验证通过，请确认 TXT 记录生效后重试。",
+      "verifyInstruction": "DNS 生效后点击验证，验证通过后会继续处理 HTTPS 证书。",
+      "verifySuccess": "DNS 验证通过，已刷新域名状态。"
+    },
+    "integrationStatus": {
+      "disabled": "已停用",
+      "draft": "待启用",
+      "failed": "启用失败",
+      "unconfigured": "未配置",
+      "verified": "已启用"
+    },
+    "integrations": {
+      "title": "微信与支付配置"
+    },
+    "loading": "正在加载配置内容...",
+    "locked": "当前套餐未包含此功能，请升级套餐或联系运营开通。",
+    "paymentProvider": {
+      "description": "可选择一个或多个学习端收款方式，保存后学习端将按已配置方式生成支付二维码。",
+      "title": "支付方式"
+    },
+    "pendingActivation": "请先保存本次开通项。权益生效后即可继续保存和校验该配置。",
+    "providers": {
+      "alipay": "支付宝",
+      "pingxx": "Ping++",
+      "stripe": "Stripe",
+      "wechat_oauth": "微信公众号",
+      "wechatpay": "微信支付"
+    },
+    "verify": "验证并启用"
+  },
   "details": {
     "actions": {
       "upgradeNow": "立即升级"
@@ -371,9 +668,12 @@
       "neverVerified": "尚未校验"
     },
     "ssl": {
+      "active": "SSL 已生效",
+      "failed": "SSL 异常",
       "issued": "SSL 已签发",
       "not_requested": "SSL 未申请",
-      "pending": "SSL 处理中"
+      "pending": "SSL 处理中",
+      "provisioning": "SSL 处理中"
     },
     "status": {
       "disabled": "已停用",
@@ -389,8 +689,10 @@
       "enterprise": "企业分析"
     },
     "flags": {
-      "branding": "品牌覆写",
-      "customDomain": "自定义域名",
+      "branding": "品牌 Logo",
+      "customDomain": "独立域名",
+      "customPayment": "支付方式",
+      "customWechat": "独立微信公众号",
       "disabled": "未开启",
       "enabled": "已开启"
     },
@@ -668,6 +970,7 @@
   "page": {
     "adminLink": "打开后台账务视图",
     "tabs": {
+      "customization": "品牌与收款",
       "ledger": "积分详情",
       "plans": "积分购买"
     },
@@ -716,8 +1019,8 @@
       "window": "统计窗口"
     },
     "usageType": {
-      "llm": "LLM",
-      "tts": "TTS"
+      "llm": "模型调用",
+      "tts": "语音合成"
     }
   },
   "result": {

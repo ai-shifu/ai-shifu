@@ -377,6 +377,23 @@ export function formatBillingCreditAmount(value: number): string {
   return formatBillingNumber(value, 'en-US');
 }
 
+function translateBillingKeyIfResolved(
+  t: BillingTranslator,
+  key: string,
+  options?: Record<string, unknown>,
+): string {
+  const normalizedKey = String(key || '').trim();
+  if (!normalizedKey) {
+    return '';
+  }
+
+  const translated = t(normalizedKey, options);
+  if (!translated || translated === normalizedKey) {
+    return '';
+  }
+  return translated;
+}
+
 export function formatBillingCreditDetail(
   value: number,
   locale: string,
@@ -775,6 +792,44 @@ export function resolveBillingProviderLabel(
   return t(BILLING_PROVIDER_KEYS[provider]);
 }
 
+export function resolveAdminBillingOrderFailureLabel(
+  t: BillingTranslator,
+  item: {
+    failure_code?: string | null;
+    failure_message?: string | null;
+  },
+): string {
+  const normalizedCode = String(item.failure_code || '')
+    .trim()
+    .toLowerCase();
+  const translatedCode = normalizedCode
+    ? translateBillingKeyIfResolved(
+        t,
+        `module.billing.admin.orders.failureReasons.${normalizedCode}`,
+      )
+    : '';
+  if (translatedCode) {
+    return translatedCode;
+  }
+
+  const normalizedMessage = String(item.failure_message || '').trim();
+  const normalizedMessageKey = normalizedMessage
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  const translatedMessage = normalizedMessageKey
+    ? translateBillingKeyIfResolved(
+        t,
+        `module.billing.admin.orders.failureReasons.${normalizedMessageKey}`,
+      )
+    : '';
+  if (translatedMessage) {
+    return translatedMessage;
+  }
+
+  return normalizedMessage || normalizedCode || resolveBillingEmptyLabel(t);
+}
+
 export function resolveBillingRenewalEventTypeLabel(
   t: BillingTranslator,
   eventType: BillingRenewalEventType,
@@ -802,17 +857,17 @@ export function buildBillingRenewalContextLabel(
     return resolveBillingEmptyLabel(t);
   }
 
-  const prefix = `${resolveBillingRenewalEventTypeLabel(t, event.event_type)} · ${resolveBillingRenewalEventStatusLabel(t, event.status)}`;
+  const statusLabel = resolveBillingRenewalEventStatusLabel(t, event.status);
   if (event.last_error) {
-    return `${prefix} · ${event.last_error}`;
+    return `${statusLabel} · ${event.last_error}`;
   }
   if (event.scheduled_at) {
-    return `${prefix} · ${t('module.billing.admin.subscriptions.table.scheduled')} ${formatBillingDateTime(event.scheduled_at, locale)}`;
+    return `${statusLabel} · ${t('module.billing.admin.subscriptions.table.scheduled')} ${formatBillingDateTime(event.scheduled_at, locale)}`;
   }
   if (event.processed_at) {
-    return `${prefix} · ${formatBillingDateTime(event.processed_at, locale)}`;
+    return `${statusLabel} · ${formatBillingDateTime(event.processed_at, locale)}`;
   }
-  return prefix;
+  return statusLabel;
 }
 
 export function openBillingCheckoutUrl(url: string): void {
@@ -1021,9 +1076,19 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.checkout.subject.plan.year'),
     t('module.billing.checkout.topupDescription'),
     t('module.billing.domains.records.neverVerified'),
+    t('module.billing.customization.domain.verifyFailed'),
+    t('module.billing.customization.domain.verifySuccess'),
+    t('module.billing.customization.integrationStatus.disabled'),
+    t('module.billing.customization.integrationStatus.draft'),
+    t('module.billing.customization.integrationStatus.failed'),
+    t('module.billing.customization.integrationStatus.unconfigured'),
+    t('module.billing.customization.integrationStatus.verified'),
+    t('module.billing.domains.ssl.active'),
+    t('module.billing.domains.ssl.failed'),
     t('module.billing.domains.ssl.issued'),
     t('module.billing.domains.ssl.not_requested'),
     t('module.billing.domains.ssl.pending'),
+    t('module.billing.domains.ssl.provisioning'),
     t('module.billing.domains.status.disabled'),
     t('module.billing.domains.status.failed'),
     t('module.billing.domains.status.pending'),
@@ -1033,6 +1098,8 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.entitlements.analytics.enterprise'),
     t('module.billing.entitlements.flags.branding'),
     t('module.billing.entitlements.flags.customDomain'),
+    t('module.billing.entitlements.flags.customPayment'),
+    t('module.billing.entitlements.flags.customWechat'),
     t('module.billing.entitlements.flags.disabled'),
     t('module.billing.entitlements.flags.enabled'),
     t('module.billing.entitlements.metrics.analyticsTier'),
@@ -1114,6 +1181,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.orders.status.refunded'),
     t('module.billing.orders.status.timeout'),
     t('module.billing.common.empty'),
+    t('common.core.save'),
     t('module.billing.page.adminLink'),
     t('module.billing.reports.empty'),
     t('module.billing.reports.loadError'),
@@ -1154,37 +1222,121 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.adjust.cancel'),
     t('module.billing.admin.adjust.description'),
     t('module.billing.admin.adjust.errors.amountInvalid'),
-    t('module.billing.admin.adjust.errors.creatorBidRequired'),
+    t('module.billing.admin.adjust.errors.creatorMobileRequired'),
     t('module.billing.admin.adjust.fields.amount'),
-    t('module.billing.admin.adjust.fields.creatorBid'),
+    t('module.billing.admin.adjust.fields.creatorMobile'),
     t('module.billing.admin.adjust.fields.note'),
     t('module.billing.admin.adjust.help.amount'),
+    t('module.billing.admin.adjust.help.creatorMobile'),
+    t('module.billing.admin.adjust.help.note'),
     t('module.billing.admin.adjust.open'),
     t('module.billing.admin.adjust.placeholders.amount'),
-    t('module.billing.admin.adjust.placeholders.creatorBid'),
+    t('module.billing.admin.adjust.placeholders.creatorMobile'),
     t('module.billing.admin.adjust.placeholders.note'),
     t('module.billing.admin.adjust.quickAction'),
     t('module.billing.admin.adjust.submit'),
     t('module.billing.admin.adjust.submitting'),
     t('module.billing.admin.adjust.success'),
+    t('module.billing.admin.adjust.targetSummary'),
     t('module.billing.admin.backToCreatorBilling'),
     t('module.billing.admin.entitlements.description'),
     t('module.billing.admin.entitlements.empty'),
+    t('module.billing.admin.entitlements.grant.cancel'),
+    t('module.billing.admin.entitlements.grant.creatorBidPlaceholder'),
+    t('module.billing.admin.entitlements.grant.description'),
+    t('module.billing.admin.entitlements.grant.edit'),
+    t('module.billing.admin.entitlements.grant.editTitle'),
+    t('module.billing.admin.entitlements.grant.errors.creatorBidRequired'),
+    t('module.billing.admin.entitlements.grant.fields.branding_enabled'),
+    t('module.billing.admin.entitlements.grant.fields.creatorBid'),
+    t('module.billing.admin.entitlements.configStatus.completed'),
+    t('module.billing.admin.entitlements.configStatus.exception'),
+    t('module.billing.admin.entitlements.configStatus.in_progress'),
+    t('module.billing.admin.entitlements.configStatus.pending'),
+    t('module.billing.admin.entitlements.configStatusHelp.completed'),
+    t('module.billing.admin.entitlements.configStatusHelp.exception'),
+    t('module.billing.admin.entitlements.configStatusHelp.in_progress'),
+    t('module.billing.admin.entitlements.configStatusHelp.pending'),
+    t(
+      'module.billing.admin.entitlements.customization.integrationStatus.disabled',
+    ),
+    t(
+      'module.billing.admin.entitlements.customization.integrationStatus.draft',
+    ),
+    t(
+      'module.billing.admin.entitlements.customization.integrationStatus.failed',
+    ),
+    t(
+      'module.billing.admin.entitlements.customization.integrationStatus.unconfigured',
+    ),
+    t(
+      'module.billing.admin.entitlements.customization.integrationStatus.verified',
+    ),
+    t('module.billing.admin.entitlements.customization.logoReady'),
+    t('module.billing.admin.entitlements.customization.providers.alipay'),
+    t('module.billing.admin.entitlements.customization.providers.pingxx'),
+    t('module.billing.admin.entitlements.customization.providers.stripe'),
+    t('module.billing.admin.entitlements.customization.providers.wechat_oauth'),
+    t('module.billing.admin.entitlements.customization.providers.wechatpay'),
+    t('module.billing.admin.entitlements.followDefault'),
+    t('module.billing.admin.entitlements.grant.brandingInlineDescription'),
+    t('module.billing.admin.entitlements.grant.configStatusHint'),
+    t('module.billing.admin.entitlements.grant.configurationSection'),
+    t(
+      'module.billing.admin.entitlements.grant.configurationSectionDescription',
+    ),
+    t('module.billing.admin.entitlements.grant.domainInlineDescription'),
+    t('module.billing.admin.entitlements.grant.fields.configStatus'),
+    t('module.billing.admin.entitlements.grant.fields.custom_domain_enabled'),
+    t('module.billing.admin.entitlements.grant.fields.custom_payment_enabled'),
+    t('module.billing.admin.entitlements.grant.fields.custom_wechat_enabled'),
+    t('module.billing.admin.entitlements.grant.paymentInlineDescription'),
+    t(
+      'module.billing.admin.entitlements.grant.pendingConfiguration.branding_enabled',
+    ),
+    t(
+      'module.billing.admin.entitlements.grant.pendingConfiguration.custom_domain_enabled',
+    ),
+    t(
+      'module.billing.admin.entitlements.grant.pendingConfiguration.custom_payment_enabled',
+    ),
+    t(
+      'module.billing.admin.entitlements.grant.pendingConfiguration.custom_wechat_enabled',
+    ),
+    t('module.billing.admin.entitlements.grant.pendingConfiguration.title'),
+    t('module.billing.admin.entitlements.grant.wechatInlineDescription'),
+    t('module.billing.admin.entitlements.grant.open'),
+    t('module.billing.admin.entitlements.grant.submit'),
+    t('module.billing.admin.entitlements.grant.submitting'),
+    t('module.billing.admin.entitlements.grant.success'),
+    t('module.billing.admin.entitlements.grant.title'),
     t('module.billing.admin.entitlements.loadError'),
+    t('module.billing.admin.entitlements.realEffect.branding'),
+    t('module.billing.admin.entitlements.realEffect.domain'),
+    t('module.billing.admin.entitlements.realEffect.payment'),
+    t('module.billing.admin.entitlements.realEffect.status.active'),
+    t('module.billing.admin.entitlements.realEffect.status.exception'),
+    t('module.billing.admin.entitlements.realEffect.status.inactive'),
+    t('module.billing.admin.entitlements.realEffect.status.pending'),
+    t('module.billing.admin.entitlements.realEffect.status.unconfigured'),
+    t('module.billing.admin.entitlements.realEffect.wechat'),
     t('module.billing.admin.entitlements.source.default'),
     t('module.billing.admin.entitlements.source.productPayload'),
     t('module.billing.admin.entitlements.source.snapshot'),
+    t('module.billing.admin.entitlements.table.actions'),
     t('module.billing.admin.entitlements.table.analytics'),
     t('module.billing.admin.entitlements.table.creator'),
     t('module.billing.admin.entitlements.table.features'),
+    t('module.billing.admin.entitlements.sourceReference'),
     t('module.billing.admin.entitlements.table.priority'),
     t('module.billing.admin.entitlements.table.source'),
+    t('module.billing.admin.entitlements.table.realEffect'),
+    t('module.billing.admin.entitlements.table.wechat'),
     t('module.billing.admin.entitlements.table.support'),
     t('module.billing.admin.entitlements.table.window'),
     t('module.billing.admin.entitlements.title'),
     t('module.billing.admin.subtitle'),
     t('module.billing.admin.tabs.exceptions'),
-    t('module.billing.admin.tabs.domains'),
     t('module.billing.admin.tabs.entitlements'),
     t('module.billing.admin.tabs.orders'),
     t('module.billing.admin.tabs.reports'),
@@ -1204,6 +1356,9 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.subscriptions.table.renewalStatus'),
     t('module.billing.admin.subscriptions.table.status'),
     t('module.billing.admin.subscriptions.title'),
+    t('module.billing.admin.orders.failureReasons.card_declined'),
+    t('module.billing.admin.orders.failureReasons.checkout_expired'),
+    t('module.billing.admin.orders.failureReasons.checkout_timeout'),
     t('module.billing.admin.orders.description'),
     t('module.billing.admin.orders.empty'),
     t('module.billing.admin.orders.loadError'),
@@ -1216,11 +1371,48 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.orders.table.status'),
     t('module.billing.admin.orders.title'),
     t('module.billing.admin.reports.description'),
-    t('module.billing.admin.reports.sections.ledger.description'),
-    t('module.billing.admin.reports.sections.ledger.title'),
+    t('module.billing.admin.reports.empty'),
+    t('module.billing.admin.reports.emptyHint'),
+    t('module.billing.admin.reports.attentionReasons.active_production'),
+    t('module.billing.admin.reports.attentionReasons.debug_preview_heavy'),
+    t('module.billing.admin.reports.attentionReasons.high_consumption'),
+    t('module.billing.admin.reports.attentionReasons.high_frequency'),
+    t('module.billing.admin.reports.attentionReasons.rapid_growth'),
+    t('module.billing.admin.reports.attentionReasons.sustained_activity'),
+    t('module.billing.admin.reports.actions.viewExceptions'),
+    t('module.billing.admin.reports.actions.viewOrders'),
+    t('module.billing.admin.reports.filters.active_production'),
+    t('module.billing.admin.reports.filters.all'),
+    t('module.billing.admin.reports.filters.debug_preview_heavy'),
+    t('module.billing.admin.reports.filters.rapid_growth'),
+    t('module.billing.admin.reports.sort.label'),
+    t('module.billing.admin.reports.sort.options.credits_30d'),
+    t('module.billing.admin.reports.sort.options.growth'),
+    t('module.billing.admin.reports.sort.options.debug_ratio'),
     t('module.billing.admin.reports.sections.usage.description'),
     t('module.billing.admin.reports.sections.usage.title'),
+    t('module.billing.admin.reports.summary.activeTeachers7d'),
+    t('module.billing.admin.reports.summary.activeTeachers7dHint'),
+    t('module.billing.admin.reports.summary.debugHeavyCount'),
+    t('module.billing.admin.reports.summary.debugHeavyCountHint'),
+    t('module.billing.admin.reports.summary.focusCount'),
+    t('module.billing.admin.reports.summary.focusCountHint'),
+    t('module.billing.admin.reports.summary.totalCredits'),
+    t('module.billing.admin.reports.summary.totalCreditsHint'),
+    t('module.billing.admin.reports.table.activeDays7d'),
+    t('module.billing.admin.reports.table.actions'),
+    t('module.billing.admin.reports.table.attentionReasons'),
+    t('module.billing.admin.reports.table.attentionReasonsMore'),
+    t('module.billing.admin.reports.table.credits30d'),
+    t('module.billing.admin.reports.table.credits30dBreakdown'),
+    t('module.billing.admin.reports.table.credits30dProduction'),
+    t('module.billing.admin.reports.table.credits30dDebugPreview'),
+    t('module.billing.admin.reports.table.credits7d'),
     t('module.billing.admin.reports.table.creator'),
+    t('module.billing.admin.reports.table.latestActivity'),
+    t('module.billing.admin.reports.table.latestActivityHint'),
+    t('module.billing.admin.reports.table.productionRatio'),
+    t('module.billing.admin.reports.table.recordCount7d'),
     t('module.billing.admin.reports.title'),
     t('module.billing.admin.exceptions.description'),
     t('module.billing.admin.exceptions.empty'),

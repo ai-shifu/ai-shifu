@@ -3,35 +3,41 @@
   "admin": {
     "adjust": {
       "cancel": "Cancel",
-      "description": "Use a positive decimal to grant credits or a negative decimal to consume them in the standard bucket order.",
+      "description": "Add or deduct teacher credits and record the reason for this manual adjustment.",
       "errors": {
-        "amountInvalid": "Enter a non-zero decimal amount with up to 10 fractional digits.",
-        "creatorBidRequired": "Creator bid is required."
+        "amountInvalid": "Enter a non-zero decimal amount with up to 2 decimal places.",
+        "creatorBidRequired": "Teacher BID is required.",
+        "creatorMobileRequired": "Teacher phone number is required."
       },
       "fields": {
         "amount": "Adjustment amount",
-        "creatorBid": "Creator bid",
+        "creatorBid": "Teacher BID",
+        "creatorMobile": "Teacher phone number",
         "note": "Note"
       },
       "help": {
-        "amount": "Examples: 12.5000000 to grant credits, -8.0000000 to debit credits."
+        "amount": "Enter a positive value to add credits or a negative value to deduct credits, with up to 2 decimals.",
+        "creatorMobile": "",
+        "note": "Add enough context so operators can audit the manual ledger change later."
       },
-      "open": "Adjust credits",
+      "open": "Correct ledger",
       "placeholders": {
-        "amount": "12.5000000 or -8.0000000",
-        "creatorBid": "creator_bid",
+        "amount": "Enter a positive or negative value with up to 2 decimals",
+        "creatorBid": "Enter teacher BID",
+        "creatorMobile": "Existing teacher phone number",
         "note": "Reason for the manual adjustment"
       },
-      "quickAction": "Adjust this teacher",
-      "submit": "Apply adjustment",
-      "submitting": "Applying...",
-      "success": "Ledger updated for {creatorBid}. Available credits: {availableCredits}.",
-      "title": "Manual credit adjustment"
+      "quickAction": "Correct ledger",
+      "submit": "Apply correction",
+      "submitting": "Applying correction...",
+      "success": "Ledger updated for {creator}. Available credits: {availableCredits}.",
+      "targetSummary": "Current target",
+      "title": "Correct ledger"
     },
     "attention": "Needs attention",
     "backToCreatorBilling": "Back to billing center",
     "domains": {
-      "description": "Audit teacher custom domains, inspect entitlement gates, and spot hosts that still need follow-up.",
+      "description": "Track custom-domain setup progress, verification results, and current live status.",
       "empty": "No custom domain bindings yet.",
       "loadError": "Admin domain audit data could not be loaded.",
       "table": {
@@ -50,27 +56,158 @@
       }
     },
     "entitlements": {
-      "description": "Review the effective entitlement snapshot resolved for each teacher workspace.",
-      "empty": "No entitlement snapshots yet.",
+      "actions": {
+        "viewDetail": "Edit setup"
+      },
+      "configProgress": {
+        "complete": "Configured",
+        "exception": "Exception",
+        "loading": "Loading",
+        "partial": "Partially configured",
+        "unconfigured": "Not configured"
+      },
+      "configStatus": {
+        "completed": "Completed",
+        "exception": "Setup issue",
+        "in_progress": "In progress",
+        "pending": "Pending setup"
+      },
+      "configStatusHelp": {
+        "completed": "Operations has finished this round of setup follow-up.",
+        "exception": "The rollout is blocked or has hit an issue and needs follow-up.",
+        "in_progress": "Materials or configuration are being processed and not finished yet.",
+        "pending": "Capabilities are granted, but setup work has not started yet."
+      },
+      "customization": {
+        "integrationStatus": {
+          "disabled": "Disabled",
+          "draft": "Draft",
+          "failed": "Issue",
+          "unconfigured": "Unconfigured",
+          "verified": "Verified"
+        },
+        "loading": "Loading setup...",
+        "logoReady": "Uploaded",
+        "providers": {
+          "alipay": "Alipay",
+          "pingxx": "Ping++",
+          "stripe": "Stripe",
+          "wechat_oauth": "WeChat OA",
+          "wechatpay": "WeChat Pay"
+        }
+      },
+      "description": "Review teachers with standalone brand or payment capabilities enabled, and let operations track the rollout progress in one place.",
+      "empty": "No teachers have standalone brand or payment capabilities yet.",
+      "followDefault": "Default setup",
+      "grant": {
+        "brandingInlineDescription": "Upload brand logos and keep the display-ready image links in sync.",
+        "cancel": "Cancel",
+        "configStatusHint": "Switch the status directly from the table. This dialog only shows the current state.",
+        "configurationSection": "Configuration details",
+        "configurationSectionDescription": "Fill in the actual logo, domain, WeChat, and payment setup here. Saved values will also surface in the table.",
+        "createdContinue": "Brand and payment setup has been created for {creator}. Continue with the configuration below.",
+        "creatorBidPlaceholder": "Enter the course owner BID",
+        "creatorMobilePlaceholder": "Enter the owner phone number",
+        "description": "Operations manages brand, domain, WeChat, and payment setup here. Saving updates the enabled items together.",
+        "disabled": "Not enabled",
+        "domainInlineDescription": "Add the custom domain, complete verification, and sync the latest rollout progress.",
+        "edit": "Edit",
+        "editTitle": "Edit brand & payment setup",
+        "enabled": "Enabled",
+        "errors": {
+          "creatorBidRequired": "Enter the course owner BID",
+          "creatorMobileRequired": "Enter the owner phone number"
+        },
+        "fields": {
+          "branding_enabled": "Brand logos",
+          "configStatus": "Configuration status",
+          "creatorBid": "Course owner BID",
+          "creatorMobile": "Owner phone number",
+          "custom_domain_enabled": "Custom domain",
+          "custom_payment_enabled": "Custom payment configuration",
+          "custom_wechat_enabled": "Custom WeChat official account",
+          "note": "Ops note"
+        },
+        "mobileHint": "Use a phone number. If the number has not registered yet, the system creates the account and enables teacher access first.",
+        "notePlaceholder": "Add rollout progress, missing materials, or exception notes",
+        "open": "Add setup",
+        "paymentInlineDescription": "Fill in payment channel parameters and verify the current payment setup.",
+        "pendingConfiguration": {
+          "branding_enabled": "Save the enabled items first, then upload brand logos here.",
+          "custom_domain_enabled": "Save the enabled items first, then enter and verify the custom domain here.",
+          "custom_payment_enabled": "Save the enabled items first, then fill in payment channel parameters here.",
+          "custom_wechat_enabled": "Save the enabled items first, then fill in the WeChat official account parameters here.",
+          "title": "Save first, then continue"
+        },
+        "submit": "Save setup",
+        "submitting": "Saving...",
+        "success": "Updated custom entitlements for {creator}",
+        "title": "Add brand & payment setup",
+        "wechatInlineDescription": "Fill in the official account parameters and confirm authorization and callback settings."
+      },
       "loadError": "Admin entitlement data could not be loaded.",
+      "logoPreview": {
+        "next": "Next logo",
+        "open": "Preview {label}",
+        "previous": "Previous logo",
+        "title": "Logo preview"
+      },
+      "notEnabled": "Not enabled",
+      "realEffect": {
+        "branding": "Logo",
+        "domain": "Domain",
+        "payment": "Payment",
+        "status": {
+          "active": "Live",
+          "exception": "Issue",
+          "inactive": "Not live",
+          "pending": "Processing",
+          "unconfigured": "Not configured"
+        },
+        "wechat": "WeChat"
+      },
       "source": {
-        "default": "Default fallback",
-        "productPayload": "Product payload",
-        "snapshot": "Stored snapshot"
+        "default": "Default entitlements",
+        "productPayload": "Plan-based",
+        "snapshot": "Current live record"
+      },
+      "sourceReference": "Record: {value}",
+      "statusReason": {
+        "exceptionDefault": "Setup issue found. Re-authorize to submit the request again.",
+        "inProgress": "Setup is still in progress and waiting on materials or verification.",
+        "inactive": "Setup has not started yet and is waiting for operations follow-up."
       },
       "table": {
-        "analytics": "Analytics tier",
+        "actions": "Actions",
+        "analytics": "Payment capabilities",
+        "configProgress": "Configuration progress",
         "creator": "Teacher",
-        "features": "Features",
-        "priority": "Priority class",
-        "source": "Source",
+        "domain": "Domain",
+        "features": "Configuration items",
+        "logo": "Logo",
+        "payment": "Payment methods",
+        "priority": "Brand capabilities",
+        "realEffect": "Actual live status",
+        "source": "Current entitlements",
+        "status": "Follow-up status",
         "support": "Support tier",
-        "window": "Effective window"
+        "wechat": "WeChat setup",
+        "window": "Updated / Validity"
       },
-      "title": "Entitlements"
+      "title": "Entitlements",
+      "window": {
+        "activeNow": "Currently active",
+        "endsAt": "Valid until {date}",
+        "startedAt": "Started at {date}"
+      }
     },
     "exceptions": {
-      "description": "Focus on the subscriptions and orders that still need manual follow-up.",
+      "actions": {
+        "markHandled": "Mark handled",
+        "reopen": "Reopen",
+        "viewOrder": "View order"
+      },
+      "description": "Summarize subscription relationship issues and transaction issues that still need manual handling.",
       "empty": "No billing exceptions right now.",
       "fields": {
         "amount": "Amount",
@@ -80,75 +217,171 @@
         "renewalEvent": "Renewal event"
       },
       "loadError": "Billing exception data could not be loaded.",
+      "processingStatus": {
+        "done": "Handled",
+        "pending": "Pending"
+      },
       "sections": {
         "orders": "Attention orders",
         "subscriptions": "Attention subscriptions"
       },
-      "title": "Exceptions"
+      "table": {
+        "detail": "Exception detail",
+        "object": "Exception object",
+        "processingStatus": "Resolution progress",
+        "relatedOrder": "Related Order",
+        "type": "Exception type",
+        "updatedAt": "Updated at"
+      },
+      "targets": {
+        "order": "Payment order",
+        "subscription": "Subscription relationship"
+      },
+      "title": "Exceptions",
+      "types": {
+        "order": "Order Issue",
+        "subscription": "Subscription Issue"
+      }
+    },
+    "navigation": {
+      "description": "Switch between plans, orders, entitlements, domains, and reports while keeping capability status visible above.",
+      "title": "Browse by topic"
     },
     "orders": {
-      "description": "Review billing orders across teachers and spot failed provider actions.",
-      "empty": "No billing orders yet.",
+      "actions": {
+        "viewOrder": "View order"
+      },
+      "description": "Review failed, timed-out, or processing orders that still need investigation.",
+      "empty": "No exception orders right now.",
+      "failureReasons": {
+        "card_declined": "Card was declined",
+        "checkout_expired": "Checkout timed out before completion",
+        "checkout_timeout": "Checkout timed out before completion"
+      },
       "loadError": "Admin order data could not be loaded.",
       "table": {
+        "actions": "Actions",
         "amount": "Amount",
         "createdAt": "Created at",
         "creator": "Teacher",
-        "failure": "Failure",
+        "failure": "Failure reason",
         "order": "Order",
-        "provider": "Provider",
-        "status": "Status"
+        "provider": "Payment method",
+        "status": "Exception status"
       },
-      "title": "Orders"
+      "title": "Exception Orders"
     },
     "pagination": {
-      "page": "Page {page} / {pageCount} · {total} records"
+      "page": "Page {page} / {pageCount} · {total} records",
+      "total": "{total} records"
     },
     "reports": {
-      "description": "Inspect cross-teacher usage and ledger rollups without leaving the operations console.",
+      "actions": {
+        "viewExceptions": "View exceptions",
+        "viewOrders": "View orders"
+      },
+      "attentionReasons": {
+        "active_production": "Production usage active",
+        "debug_preview_heavy": "Debug and preview heavy",
+        "high_consumption": "High consumption",
+        "high_frequency": "High call volume",
+        "rapid_growth": "Usage growing fast",
+        "sustained_activity": "Active on 3+ recent days"
+      },
+      "description": "Summarizes teachers with unusual recent consumption, activity, or usage mix so operators can prioritize follow-up.",
+      "empty": "No teachers need priority attention right now.",
+      "emptyHint": "Teachers appear after matching high consumption, high call volume, production activity, debug-heavy usage, sustained activity, or rapid growth rules.",
+      "filters": {
+        "active_production": "Production active",
+        "all": "All priority teachers",
+        "debug_preview_heavy": "Debug-heavy",
+        "rapid_growth": "Growing fast"
+      },
       "sections": {
-        "ledger": {
-          "description": "Cross-teacher ledger movement by day, source, and entry type.",
-          "title": "Ledger Rollups"
-        },
         "usage": {
-          "description": "Cross-teacher usage cost rollups by teacher, shifu, scene, and metric.",
-          "title": "Usage Rollups"
+          "description": "Only teachers matching attention rules are shown. Sort by growth, debug ratio, or 30-day consumption.",
+          "title": "Teachers To Follow Up"
         }
       },
-      "table": {
-        "creator": "Teacher"
+      "sort": {
+        "label": "Sort by",
+        "options": {
+          "credits_30d": "30d credits",
+          "debug_ratio": "Debug ratio",
+          "growth": "Growth priority"
+        }
       },
-      "title": "Reports"
+      "summary": {
+        "activeTeachers7d": "Still active in 7d",
+        "activeTeachers7dHint": "Reviewed teachers with usage records in the last 7 days",
+        "debugHeavyCount": "Debug-heavy teachers",
+        "debugHeavyCountHint": "Teachers whose debug/preview usage is high in the last 30 days",
+        "focusCount": "Teachers to review",
+        "focusCountHint": "Matches one or more usage attention rules",
+        "totalCredits": "30d credits from reviewed teachers",
+        "totalCreditsHint": "30-day total for teachers currently shown"
+      },
+      "table": {
+        "actions": "Actions",
+        "activeDays7d": "7-day active days",
+        "attentionReasons": "Focus rules",
+        "attentionReasonsMore": "{count} items",
+        "creator": "Teacher",
+        "credits30d": "30-day credits",
+        "credits30dBreakdown": "Production {production} · Debug/preview {debugPreview}",
+        "credits30dDebugPreview": "Debug/preview {debugPreview}",
+        "credits30dProduction": "Production {production}",
+        "credits7d": "7-day credits",
+        "latestActivity": "Latest activity",
+        "latestActivityHint": "Active on {days} days in the last 7d",
+        "productionRatio": "Production credit ratio",
+        "recordCount7d": "7-day calls"
+      },
+      "title": "Usage Attention Summary"
     },
     "subscriptions": {
-      "description": "Inspect teacher subscriptions, account balances, and renewal context.",
-      "empty": "No subscriptions yet.",
+      "description": "Review subscriptions that need follow-up, including credit balances and next actions.",
+      "empty": "There are no subscriptions that need follow-up right now.",
       "loadError": "Admin subscription data could not be loaded.",
       "preorderTarget": "Preorder: {product}",
+      "results": {
+        "cancelAtPeriodEnd": "Will expire",
+        "cancelAtPeriodEndWithDate": "Expires on {date}",
+        "expire": "Will expire",
+        "expireWithDate": "Expires on {date}",
+        "preorder": "Switches to {product} at expiry",
+        "preorderWithDate": "Switches to {product} on {date}",
+        "renewalFailed": "Renewal failed and needs follow-up",
+        "renewalFailedWithError": "Renewal failed and needs follow-up",
+        "renewalScheduled": "Auto-renewal scheduled",
+        "renewalScheduledWithDate": "Auto-renewal scheduled for {date}"
+      },
       "table": {
         "availableCredits": "Available credits",
         "creator": "Teacher",
-        "currentPeriodEnd": "Current period end",
-        "product": "Product",
-        "provider": "Provider",
-        "renewal": "Renewal context",
+        "currentPeriodEnd": "Valid until",
+        "product": "Current plan",
+        "provider": "Payment method",
+        "renewal": "Renewal / expiry",
         "renewalStatus": "Renewal event",
         "scheduled": "Scheduled",
-        "status": "Status"
+        "status": "Subscription status"
       },
-      "title": "Subscriptions"
+      "title": "Subscription Follow-up"
     },
-    "subtitle": "Operations view for subscriptions, failed payments, and billing exceptions.",
+    "subtitle": "Operations workspace for teacher plans, orders, entitlements, and independent payment setup.",
+    "table": {
+      "attentionStatus": "Attention"
+    },
     "tabs": {
       "domains": "Domains",
-      "entitlements": "Entitlements",
-      "exceptions": "Exceptions",
-      "orders": "Orders",
-      "reports": "Reports",
-      "subscriptions": "Subscriptions"
+      "entitlements": "Brand & payment setup",
+      "exceptions": "Alerts",
+      "orders": "Exception Orders",
+      "reports": "Usage Attention",
+      "subscriptions": "Subscription Follow-up"
     },
-    "title": "Billing Ops"
+    "title": "Commercial Operations"
   },
   "alerts": {
     "actions": {
@@ -163,7 +396,7 @@
     "subscriptionPastDue": "Subscription renewal is blocked. Review the payment records and sync the latest provider status."
   },
   "capabilities": {
-    "description": "This summary marks which billing surfaces are live in the UI and which ones still exist only as config-guarded or internal flows.",
+    "description": "This area summarizes the modules that operators can use on the brand and payments admin page. Needs setup means the code path exists but stays off by default. Internal workflow means it only runs in jobs, recovery flows, or ops tooling and does not appear as a direct page feature.",
     "fallbackDescription": "Capability status is tracked from the billing registry.",
     "fallbackTitle": "Billing capability",
     "items": {
@@ -176,8 +409,8 @@
         "title": "Admin entitlements"
       },
       "adminLedgerAdjust": {
-        "description": "Admin ledger adjustment stays available.",
-        "title": "Admin ledger adjustment"
+        "description": "Manual admin ledger correction is still available.",
+        "title": "Admin ledger correction"
       },
       "adminOrders": {
         "description": "Admin billing order review remains enabled.",
@@ -249,16 +482,16 @@
       }
     },
     "status": {
-      "active": "Active",
-      "defaultDisabled": "Default disabled",
-      "internalOnly": "Internal only"
+      "active": "Ready to use",
+      "defaultDisabled": "Needs setup",
+      "internalOnly": "Internal workflow"
     },
     "summary": {
-      "active": "{count} active",
-      "defaultDisabled": "{count} default disabled",
-      "internalOnly": "{count} internal only"
+      "active": "{count} ready to use",
+      "defaultDisabled": "{count} need setup",
+      "internalOnly": "{count} internal workflows"
     },
-    "title": "Capability Status"
+    "title": "Available modules"
   },
   "catalog": {
     "actions": {
@@ -345,6 +578,70 @@
   "common": {
     "empty": "Not available"
   },
+  "customization": {
+    "actions": {
+      "clear": "Clear",
+      "saveConfiguration": "Save configuration",
+      "saveIntegration": "Save payment settings",
+      "secretSaved": "Saved. Enter a new value to replace it."
+    },
+    "branding": {
+      "invalidFile": "Use a PNG, JPEG, or WebP file no larger than 2 MB",
+      "resizeNotice": "The image does not fully match the recommended size. It will still be uploaded and scaled normally after saving.",
+      "squareHint": "Recommended: a 32x32px square logo. Higher-resolution variants are also supported.",
+      "squareLogo": "Square logo",
+      "title": "Brand logos",
+      "uploadFailed": "Image upload failed. Try again later.",
+      "uploadSquare": "Upload square logo",
+      "uploadWide": "Upload wide logo",
+      "urlPlaceholder": "Or enter an image URL directly",
+      "wideHint": "Recommended: a wide logo with 32px height and up to 220px width. Higher-resolution variants are also supported.",
+      "wideLogo": "Wide logo"
+    },
+    "disable": "Disable",
+    "domain": {
+      "bind": "Bind domain",
+      "disableSuccess": "Domain has been disabled.",
+      "dnsTitle": "Add the following TXT record in your DNS console",
+      "lastError": "Latest verification result: {reason}",
+      "placeholder": "e.g. learn.example.com",
+      "record": "{name} = {value}",
+      "recordName": "Host record",
+      "recordType": "Record type",
+      "recordValue": "Record value",
+      "status": "{status} · SSL {sslStatus}",
+      "title": "Custom domain",
+      "verify": "Verify DNS",
+      "verifyFailed": "DNS verification has not passed yet. Check the TXT record and try again.",
+      "verifyInstruction": "After DNS propagates, verify it here. HTTPS certificate setup continues after verification.",
+      "verifySuccess": "DNS verification passed. Domain status has been refreshed."
+    },
+    "integrationStatus": {
+      "disabled": "Disabled",
+      "draft": "Pending enablement",
+      "failed": "Enablement failed",
+      "unconfigured": "Not configured",
+      "verified": "Enabled"
+    },
+    "integrations": {
+      "title": "WeChat and payment settings"
+    },
+    "loading": "Loading configuration details...",
+    "locked": "Your current plan does not include this feature. Upgrade or contact support.",
+    "paymentProvider": {
+      "description": "Choose one or more learner checkout payment methods. After saving, learner checkout will generate QR codes for the configured methods.",
+      "title": "Payment methods"
+    },
+    "pendingActivation": "Save the enabled capability first. After it takes effect, you can save and verify this configuration.",
+    "providers": {
+      "alipay": "Alipay",
+      "pingxx": "Ping++",
+      "stripe": "Stripe",
+      "wechat_oauth": "WeChat Official Account",
+      "wechatpay": "WeChat Pay"
+    },
+    "verify": "Verify and enable"
+  },
   "details": {
     "actions": {
       "upgradeNow": "Upgrade now"
@@ -371,9 +668,12 @@
       "neverVerified": "Not verified yet"
     },
     "ssl": {
+      "active": "SSL active",
+      "failed": "SSL failed",
       "issued": "SSL issued",
       "not_requested": "SSL not requested",
-      "pending": "SSL pending"
+      "pending": "SSL pending",
+      "provisioning": "SSL provisioning"
     },
     "status": {
       "disabled": "Disabled",
@@ -389,8 +689,10 @@
       "enterprise": "Enterprise"
     },
     "flags": {
-      "branding": "Branding override",
+      "branding": "Brand logo",
       "customDomain": "Custom domain",
+      "customPayment": "Payment methods",
+      "customWechat": "Custom WeChat account",
       "disabled": "Disabled",
       "enabled": "Enabled"
     },
@@ -668,6 +970,7 @@
   "page": {
     "adminLink": "Open billing ops",
     "tabs": {
+      "customization": "Brand & Payments",
       "ledger": "Credit Details",
       "plans": "Buy Credits"
     },
@@ -716,8 +1019,8 @@
       "window": "Window"
     },
     "usageType": {
-      "llm": "LLM",
-      "tts": "TTS"
+      "llm": "Model usage",
+      "tts": "Speech synthesis"
     }
   },
   "result": {

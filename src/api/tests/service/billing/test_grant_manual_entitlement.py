@@ -33,15 +33,21 @@ def test_grant_manual_entitlement_is_immediately_active(app):
                 creator_bid,
                 branding_enabled=True,
                 custom_domain_enabled=True,
+                custom_wechat_enabled=True,
+                custom_payment_enabled=True,
                 branding={"logo_wide_url": "https://cdn.example.com/wide.png"},
             )
             assert state.branding_enabled is True
             assert state.custom_domain_enabled is True
+            assert state.custom_wechat_enabled is True
+            assert state.custom_payment_enabled is True
 
             # Independent re-resolution must also see it as active.
             again = resolve_creator_entitlement_state(creator_bid)
             assert again.branding_enabled is True
             assert again.custom_domain_enabled is True
+            assert again.custom_wechat_enabled is True
+            assert again.custom_payment_enabled is True
             assert again.source_kind == "snapshot"
     finally:
         _cleanup(app, creator_bid)

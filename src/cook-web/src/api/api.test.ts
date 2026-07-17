@@ -144,8 +144,21 @@ describe('billing api definitions', () => {
     expect(api.getAdminBillingEntitlements).toBe(
       'GET /admin/billing/entitlements',
     );
+    expect(api.grantAdminBillingEntitlement).toBe(
+      'POST /admin/billing/entitlements/grants',
+    );
+    expect(api.getAdminBillingOpsState).toBe('GET /admin/billing/ops-state');
+    expect(api.updateAdminBillingConfigStatus).toBe(
+      'POST /admin/billing/ops-state/config-status',
+    );
+    expect(api.updateAdminBillingExceptionHandled).toBe(
+      'POST /admin/billing/ops-state/exception-handled',
+    );
     expect(api.getAdminBillingDomainAudits).toBe(
       'GET /admin/billing/domain-audits',
+    );
+    expect(api.getAdminBillingFocusTeachers).toBe(
+      'GET /admin/billing/reports/focus-teachers',
     );
     expect(api.getAdminBillingDailyUsageMetrics).toBe(
       'GET /admin/billing/reports/usage-daily',

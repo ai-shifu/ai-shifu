@@ -21,9 +21,16 @@ import {
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
+import {
+  AdminBillingIdentityCell,
+  setAdminBillingExceptionHandledState,
+  type AdminBillingCreatorTarget,
+  resolveAdminBillingCreatorPrimary,
+} from './AdminBillingShared';
 
-const DECIMAL_AMOUNT_PATTERN = /^[+-]?\d+(?:\.\d{1,10})?$/;
+const DECIMAL_AMOUNT_PATTERN = /^[+-]?\d+(?:\.\d{1,2})?$/;
 const ZERO_AMOUNT_PATTERN = /^[+-]?0+(?:\.0+)?$/;
+const DECIMAL_AMOUNT_INPUT_PATTERN = /^[+-]?\d*(?:\.\d{0,2})?$/;
 
 function isAdminBillingCacheKey(key: unknown): boolean {
   if (Array.isArray(key)) {
@@ -34,39 +41,57 @@ function isAdminBillingCacheKey(key: unknown): boolean {
 
 type AdminBillingAdjustDialogProps = {
   open: boolean;
-  initialCreatorBid?: string;
+  initialTarget?: AdminBillingCreatorTarget | null;
   onOpenChange: (open: boolean) => void;
 };
 
 export function AdminBillingAdjustDialog({
   open,
-  initialCreatorBid = '',
+  initialTarget,
   onOpenChange,
 }: AdminBillingAdjustDialogProps) {
   const { t } = useTranslation();
   const { mutate } = useSWRConfig();
-  const [creatorBid, setCreatorBid] = React.useState(initialCreatorBid);
+  const [creatorMobile, setCreatorMobile] = React.useState('');
   const [amount, setAmount] = React.useState('');
   const [note, setNote] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
+  const initialCreatorBid = String(initialTarget?.creator_bid || '').trim();
+  const initialCreatorMobile = String(
+    initialTarget?.creator_mobile || '',
+  ).trim();
+  const initialCreatorNickname = String(
+    initialTarget?.creator_nickname || '',
+  ).trim();
+  const resolvedCreatorLabel =
+    creatorMobile.trim() ||
+    initialCreatorMobile ||
+    resolveAdminBillingCreatorPrimary(initialTarget || {});
 
   React.useEffect(() => {
     if (!open) {
       return;
     }
-    setCreatorBid(initialCreatorBid);
+    setCreatorMobile(initialCreatorMobile);
     setAmount('');
     setNote('');
-  }, [initialCreatorBid, open]);
+  }, [initialCreatorMobile, open]);
+
+  const handleAmountChange = (nextValue: string) => {
+    if (!nextValue || DECIMAL_AMOUNT_INPUT_PATTERN.test(nextValue.trim())) {
+      setAmount(nextValue);
+    }
+  };
 
   const handleSubmit = async () => {
-    const normalizedCreatorBid = creatorBid.trim();
+    const normalizedCreatorBid = initialCreatorBid;
+    const normalizedCreatorMobile = creatorMobile.trim();
     const normalizedAmount = amount.trim();
     const normalizedNote = note.trim();
 
-    if (!normalizedCreatorBid) {
+    if (!normalizedCreatorBid && !normalizedCreatorMobile) {
       toast({
-        title: t('module.billing.admin.adjust.errors.creatorBidRequired'),
+        title: t('module.billing.admin.adjust.errors.creatorMobileRequired'),
         variant: 'destructive',
       });
       return;
@@ -86,24 +111,34 @@ export function AdminBillingAdjustDialog({
     setSubmitting(true);
     try {
       const payload: AdminBillingLedgerAdjustPayload = {
-        creator_bid: normalizedCreatorBid,
+        ...(normalizedCreatorBid
+          ? { creator_bid: normalizedCreatorBid }
+          : { creator_mobile: normalizedCreatorMobile }),
         amount: normalizedAmount,
         note: normalizedNote,
       };
       const result = (await api.adjustAdminBillingLedger(
         payload,
       )) as AdminBillingLedgerAdjustResult;
-
-      await mutate(isAdminBillingCacheKey, undefined, { revalidate: true });
       onOpenChange(false);
       toast({
         title: t('module.billing.admin.adjust.success', {
-          creatorBid: result.creator_bid,
+          creator: resolvedCreatorLabel || result.creator_bid,
           availableCredits: formatBillingCreditBalance(
             result.wallet?.available_credits || 0,
           ),
         }),
       });
+
+      const exceptionRowKey = String(
+        initialTarget?.exception_row_key || '',
+      ).trim();
+      void Promise.allSettled([
+        exceptionRowKey
+          ? setAdminBillingExceptionHandledState(exceptionRowKey, true)
+          : Promise.resolve(),
+        mutate(isAdminBillingCacheKey, undefined, { revalidate: true }),
+      ]);
     } catch {
       // The shared request layer already surfaces backend errors.
     } finally {
@@ -129,22 +164,44 @@ export function AdminBillingAdjustDialog({
         </DialogHeader>
 
         <div className='grid gap-4 py-2'>
+          {initialCreatorBid ? (
+            <div className='rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3'>
+              <div className='mb-2 text-xs font-medium uppercase tracking-[0.12em] text-slate-500'>
+                {t('module.billing.admin.adjust.targetSummary')}
+              </div>
+              <AdminBillingIdentityCell
+                primary={
+                  initialCreatorMobile ||
+                  resolveAdminBillingCreatorPrimary(initialTarget || {})
+                }
+                secondary={
+                  initialCreatorNickname || t('module.user.defaultUserName')
+                }
+              />
+            </div>
+          ) : null}
+
           <div className='grid gap-2'>
             <label
-              htmlFor='admin-billing-adjust-creator-bid'
+              htmlFor='admin-billing-adjust-creator-mobile'
               className='text-sm font-medium text-slate-900'
             >
-              {t('module.billing.admin.adjust.fields.creatorBid')}
+              {t('module.billing.admin.adjust.fields.creatorMobile')}
             </label>
             <Input
-              id='admin-billing-adjust-creator-bid'
-              value={creatorBid}
-              disabled={submitting}
+              id='admin-billing-adjust-creator-mobile'
+              value={creatorMobile}
+              disabled={Boolean(initialCreatorBid) || submitting}
               placeholder={t(
-                'module.billing.admin.adjust.placeholders.creatorBid',
+                'module.billing.admin.adjust.placeholders.creatorMobile',
               )}
-              onChange={event => setCreatorBid(event.target.value)}
+              onChange={event => setCreatorMobile(event.target.value)}
             />
+            {t('module.billing.admin.adjust.help.creatorMobile') ? (
+              <p className='text-xs leading-5 text-slate-500'>
+                {t('module.billing.admin.adjust.help.creatorMobile')}
+              </p>
+            ) : null}
           </div>
 
           <div className='grid gap-2'>
@@ -160,11 +217,13 @@ export function AdminBillingAdjustDialog({
               disabled={submitting}
               inputMode='decimal'
               placeholder={t('module.billing.admin.adjust.placeholders.amount')}
-              onChange={event => setAmount(event.target.value)}
+              onChange={event => handleAmountChange(event.target.value)}
             />
-            <p className='text-xs leading-5 text-slate-500'>
-              {t('module.billing.admin.adjust.help.amount')}
-            </p>
+            {t('module.billing.admin.adjust.help.amount') ? (
+              <p className='text-xs leading-5 text-slate-500'>
+                {t('module.billing.admin.adjust.help.amount')}
+              </p>
+            ) : null}
           </div>
 
           <div className='grid gap-2'>
@@ -181,6 +240,9 @@ export function AdminBillingAdjustDialog({
               placeholder={t('module.billing.admin.adjust.placeholders.note')}
               onChange={event => setNote(event.target.value)}
             />
+            <p className='text-xs leading-5 text-slate-500'>
+              {t('module.billing.admin.adjust.help.note')}
+            </p>
           </div>
         </div>
 
