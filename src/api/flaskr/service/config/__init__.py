@@ -5,7 +5,7 @@ from .funcs import (
 )
 
 __all__ = [
-    "get_config",
     "config_overrides",
+    "get_config",
     "has_config_override",
 ]

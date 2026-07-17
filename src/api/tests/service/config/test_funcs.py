@@ -2,11 +2,21 @@
 Unit tests for config service functions.
 """
 
+import flaskr
+import importlib
 import pytest
+import sys
 from unittest.mock import MagicMock, patch
 from datetime import datetime
 from flask import Flask
 from sqlalchemy.exc import SQLAlchemyError
+from flaskr.route import config as config_route
+from flaskr.service.billing.dtos import (
+    RuntimeBillingBrandingDTO,
+    RuntimeBillingContextDTO,
+    RuntimeBillingDomainDTO,
+    RuntimeBillingEntitlementsDTO,
+)
 from flaskr.service.config.funcs import (
     _get_fernet_key,
     _get_fernet,
@@ -14,7 +24,9 @@ from flaskr.service.config.funcs import (
     _decrypt_config,
     _get_config_cache_key,
     _get_config_lock_key,
+    config_overrides,
     get_config,
+    has_config_override,
     add_config,
     update_config,
     ConfigCache,
@@ -50,6 +62,171 @@ def disable_explicit_env_override(monkeypatch):
         "flaskr.service.config.funcs.has_explicit_env_override",
         lambda key: False,
     )
+
+
+def test_service_config_package_exports_override_helpers(app):
+    """The package-level config API should expose override helpers for plugins."""
+    from flaskr.service.config import (
+        config_overrides as package_config_overrides,
+        get_config as package_get_config,
+        has_config_override as package_has_config_override,
+    )
+
+    with app.app_context():
+        assert package_has_config_override("runtime_key") is False
+        with package_config_overrides({"runtime_key": "override-from-package"}):
+            assert package_has_config_override("runtime_key") is True
+            assert package_get_config("runtime_key", "default-value") == (
+                "override-from-package"
+            )
+        assert package_has_config_override("runtime_key") is False
+
+
+def test_runtime_config_smoke_keeps_plugin_config_exports_compatible(
+    app, monkeypatch, tmp_path, request
+):
+    """Smoke-test plugin import compatibility through the runtime-config route."""
+    plugin_root = (
+        tmp_path
+        / "flaskr"
+        / "plugins"
+        / "ai_shifu_saas_plugin"
+        / "src"
+        / "service"
+        / "config"
+    )
+    plugin_root.mkdir(parents=True)
+
+    package_files = [
+        tmp_path / "flaskr" / "__init__.py",
+        tmp_path / "flaskr" / "plugins" / "__init__.py",
+        tmp_path / "flaskr" / "plugins" / "ai_shifu_saas_plugin" / "__init__.py",
+        tmp_path
+        / "flaskr"
+        / "plugins"
+        / "ai_shifu_saas_plugin"
+        / "src"
+        / "__init__.py",
+        tmp_path
+        / "flaskr"
+        / "plugins"
+        / "ai_shifu_saas_plugin"
+        / "src"
+        / "service"
+        / "__init__.py",
+        plugin_root / "__init__.py",
+    ]
+    for package_file in package_files:
+        package_file.write_text("", encoding="utf-8")
+
+    (plugin_root / "funcs.py").write_text(
+        """
+from flaskr.service.config import config_overrides, get_config, has_config_override
+
+
+def build_runtime_branding():
+    assert has_config_override("LOGO_WIDE_URL") is False
+    with config_overrides(
+        {
+            "LOGO_WIDE_URL": "https://plugin.example.com/logo-wide.png",
+            "LOGO_SQUARE_URL": "https://plugin.example.com/logo-square.png",
+            "FAVICON_URL": "https://plugin.example.com/favicon.ico",
+            "HOME_URL": "https://plugin.example.com/home",
+            "CONTACT_US_URL": "https://plugin.example.com/contact",
+        }
+    ):
+        return {
+            "override_seen": has_config_override("LOGO_WIDE_URL"),
+            "logo_wide_url": get_config("LOGO_WIDE_URL", ""),
+            "logo_square_url": get_config("LOGO_SQUARE_URL", ""),
+            "favicon_url": get_config("FAVICON_URL", ""),
+            "home_url": get_config("HOME_URL", ""),
+            "contact_us_url": get_config("CONTACT_US_URL", ""),
+        }
+""".strip(),
+        encoding="utf-8",
+    )
+
+    plugin_package_root = tmp_path / "flaskr"
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(
+        flaskr,
+        "__path__",
+        [*flaskr.__path__, str(plugin_package_root)],
+    )
+    importlib.invalidate_caches()
+
+    module_name = "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs"
+
+    def cleanup_plugin_modules() -> None:
+        for cached_module in list(sys.modules):
+            if cached_module.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
+                sys.modules.pop(cached_module, None)
+
+    request.addfinalizer(cleanup_plugin_modules)
+    cleanup_plugin_modules()
+
+    plugin_module = importlib.import_module(module_name)
+    plugin_branding = plugin_module.build_runtime_branding()
+
+    assert plugin_branding["override_seen"] is True
+    assert (
+        plugin_branding["logo_wide_url"] == "https://plugin.example.com/logo-wide.png"
+    )
+
+    monkeypatch.setattr(
+        config_route,
+        "build_google_oauth_callback_url",
+        lambda: "https://app.example.com/login/google-callback",
+    )
+    monkeypatch.setattr(config_route, "get_config", lambda key, default="": default)
+    monkeypatch.setattr(config_route, "is_billing_enabled", lambda: True)
+
+    runtime_billing_context = RuntimeBillingContextDTO(
+        entitlements=RuntimeBillingEntitlementsDTO(
+            branding_enabled=True,
+            custom_domain_enabled=False,
+            priority_class="priority",
+            analytics_tier="advanced",
+            support_tier="business_hours",
+        ),
+        branding=RuntimeBillingBrandingDTO(
+            logo_wide_url=plugin_branding["logo_wide_url"],
+            logo_square_url=plugin_branding["logo_square_url"],
+            favicon_url=plugin_branding["favicon_url"],
+            home_url=plugin_branding["home_url"],
+            contact_us_url=plugin_branding["contact_us_url"],
+        ),
+        domain=RuntimeBillingDomainDTO(
+            request_host="app.example.com",
+            matched=False,
+            is_custom_domain=False,
+            creator_bid="creator-plugin",
+        ),
+    )
+    monkeypatch.setattr(
+        config_route,
+        "build_runtime_billing_context",
+        lambda flask_app, creator_bid, request_host: runtime_billing_context,
+    )
+    monkeypatch.setattr(
+        config_route,
+        "build_default_runtime_billing_context",
+        lambda creator_bid, request_host: runtime_billing_context,
+    )
+
+    config_route.register_config_handler(app, "/api")
+    response = app.test_client().get("/api/runtime-config?creator_bid=creator-plugin")
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["logoWideUrl"] == plugin_branding["logo_wide_url"]
+    assert (
+        payload["data"]["branding"]["logo_wide_url"] == plugin_branding["logo_wide_url"]
+    )
+    assert payload["data"]["homeUrl"] == plugin_branding["home_url"]
+    assert payload["data"]["contactUsUrl"] == plugin_branding["contact_us_url"]
 
 
 class TestFernetKeyGeneration:
@@ -188,6 +365,46 @@ class TestCacheKeyGeneration:
 
 class TestGetConfig:
     """Test get_config function."""
+
+    def test_config_overrides_override_get_config(self, app):
+        """Config overrides should win over env and DB-backed lookups."""
+        with app.app_context():
+            with patch(
+                "flaskr.service.config.funcs.get_config_from_common"
+            ) as mock_get_config_from_common:
+                with config_overrides({"test_key": "override-value"}):
+                    assert has_config_override("test_key") is True
+                    assert get_config("test_key", "default-value") == "override-value"
+
+                assert has_config_override("test_key") is False
+                mock_get_config_from_common.assert_not_called()
+
+    def test_config_overrides_restore_previous_values(self, app):
+        """Nested overrides restore the outer and original values correctly."""
+        with app.app_context():
+            with config_overrides(
+                {"test_key": "outer-value", "outer_only": "kept-value"}
+            ):
+                assert get_config("test_key") == "outer-value"
+                assert get_config("outer_only") == "kept-value"
+                with config_overrides({"test_key": "inner-value"}):
+                    assert get_config("test_key") == "inner-value"
+                    assert get_config("outer_only") == "kept-value"
+                assert get_config("test_key") == "outer-value"
+                assert get_config("outer_only") == "kept-value"
+
+            assert has_config_override("test_key") is False
+            assert has_config_override("outer_only") is False
+
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    def test_config_overrides_work_without_app_context(
+        self, mock_get_config_from_common
+    ):
+        """Thread-local overrides should work even without a Flask app context."""
+        with config_overrides({"test_key": "override-value"}):
+            assert get_config("test_key", "default-value") == "override-value"
+
+        mock_get_config_from_common.assert_not_called()
 
     @patch("flaskr.service.config.funcs.has_explicit_env_override", return_value=True)
     @patch("flaskr.service.config.funcs.get_config_from_common")

@@ -25,7 +25,9 @@ _config_override_local = threading.local()
 @contextmanager
 def config_overrides(values: dict[str, object]):
     previous = getattr(_config_override_local, "values", None)
-    _config_override_local.values = dict(values or {})
+    merged = dict(previous) if previous is not None else {}
+    merged.update(values or {})
+    _config_override_local.values = merged
     try:
         yield
     finally:
@@ -144,11 +146,12 @@ def get_config(key: str, default: str = None) -> str:
 
     from flask import current_app, has_app_context
 
-    if not has_app_context():
-        return get_config_from_common(key, default)
     overrides = getattr(_config_override_local, "values", {})
     if key in overrides:
         return overrides[key]
+
+    if not has_app_context():
+        return get_config_from_common(key, default)
     app = current_app
     with nullcontext():
         # Only explicit env vars should bypass DB-backed config lookups.
