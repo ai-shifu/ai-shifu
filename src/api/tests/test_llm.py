@@ -438,6 +438,7 @@ def test_load_and_register_model_max_output_tokens(monkeypatch):
         llm.litellm,
         "register_model",
         lambda model_map: captured.update(model_map),
+        raising=False,
     )
 
     limits = llm._load_and_register_model_max_output_tokens()
@@ -461,6 +462,7 @@ def test_load_model_max_output_tokens_ignores_invalid_config(monkeypatch):
         llm.litellm,
         "register_model",
         lambda _model_map: pytest.fail("invalid limits must not be registered"),
+        raising=False,
     )
 
     assert llm._load_and_register_model_max_output_tokens() == {}
