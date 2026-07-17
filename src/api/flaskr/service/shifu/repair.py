@@ -310,11 +310,30 @@ def _collect_retired_duplicate_root_bids(
     if non_root_keep_bids:
         return [], f"Keep outline is not a root: {', '.join(non_root_keep_bids)}"
 
+    keep_positions_by_bid = {
+        bid: str(item.position or "").strip()
+        for bid, item in zip(keep_root_bids, keep_roots)
+    }
+    keep_bids_by_position: dict[str, list[str]] = defaultdict(list)
+    for bid, position in keep_positions_by_bid.items():
+        keep_bids_by_position[position].append(bid)
+    duplicated_keep_positions = {
+        position: bids
+        for position, bids in keep_bids_by_position.items()
+        if len(bids) > 1
+    }
+    if duplicated_keep_positions:
+        details = ", ".join(
+            f"{position}: {', '.join(bids)}"
+            for position, bids in sorted(duplicated_keep_positions.items())
+        )
+        return [], f"Keep root outlines must have unique positions: {details}"
+
     children_by_parent: dict[str, list[DraftOutlineItem]] = defaultdict(list)
     for item in items:
         children_by_parent[str(item.parent_bid or "").strip()].append(item)
 
-    keep_positions = {str(item.position or "").strip() for item in keep_roots}
+    keep_positions = set(keep_positions_by_bid.values())
     keep_bid_set = set(keep_root_bids)
     duplicate_root_bids = [
         str(item.outline_item_bid or "").strip()

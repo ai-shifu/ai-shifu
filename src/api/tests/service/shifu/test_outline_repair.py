@@ -509,3 +509,63 @@ def test_repair_shifu_outline_structure_does_not_retire_blank_outline_bid(app):
         "": 0,
         "keep-root": 0,
     }
+
+
+def test_repair_shifu_outline_structure_rejects_duplicate_keep_root_positions(app):
+    with app.app_context():
+        _mk_shifu("shifu-duplicate-keep-position")
+        _mk_outline(
+            "shifu-duplicate-keep-position",
+            "keep-root-a",
+            "01",
+            title="Keep root A",
+        )
+        _mk_outline(
+            "shifu-duplicate-keep-position",
+            "keep-root-b",
+            "01",
+            title="Keep root B",
+        )
+        _mk_outline(
+            "shifu-duplicate-keep-position",
+            "old-root",
+            "01",
+            title="Old root",
+        )
+        db.session.commit()
+
+        result = repair_shifu_outline_structure(
+            app,
+            user_bid="repair-user-1",
+            shifu_bids=["shifu-duplicate-keep-position"],
+            keep_root_bids=["keep-root-a", "keep-root-b"],
+            dry_run=False,
+        )
+
+        latest_ids = (
+            db.session.query(db.func.max(DraftOutlineItem.id).label("id"))
+            .filter(DraftOutlineItem.shifu_bid == "shifu-duplicate-keep-position")
+            .group_by(DraftOutlineItem.outline_item_bid)
+            .subquery()
+        )
+        latest_rows = (
+            DraftOutlineItem.query.filter(
+                DraftOutlineItem.id.in_(db.session.query(latest_ids.c.id)),
+                DraftOutlineItem.shifu_bid == "shifu-duplicate-keep-position",
+            )
+            .order_by(DraftOutlineItem.outline_item_bid.asc())
+            .all()
+        )
+
+    assert result.status == "skipped"
+    assert result.repaired_shifu_count == 0
+    assert result.retired_outline_count == 0
+    assert result.changed_outline_count == 0
+    assert result.skipped_records[0].reason == (
+        "Keep root outlines must have unique positions: 01: keep-root-a, keep-root-b"
+    )
+    assert {row.outline_item_bid: row.deleted for row in latest_rows} == {
+        "keep-root-a": 0,
+        "keep-root-b": 0,
+        "old-root": 0,
+    }
