@@ -254,6 +254,7 @@
       "description": "Review failed, timed-out, or processing orders that still need investigation.",
       "empty": "No exception orders right now.",
       "failureReasons": {
+        "billing_order_expired_after_30_minutes": "Billing order expired after 30 minutes",
         "card_declined": "Card was declined",
         "checkout_expired": "Checkout timed out before completion",
         "checkout_timeout": "Checkout timed out before completion"

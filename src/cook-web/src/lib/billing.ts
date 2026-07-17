@@ -1356,6 +1356,9 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.subscriptions.table.renewalStatus'),
     t('module.billing.admin.subscriptions.table.status'),
     t('module.billing.admin.subscriptions.title'),
+    t(
+      'module.billing.admin.orders.failureReasons.billing_order_expired_after_30_minutes',
+    ),
     t('module.billing.admin.orders.failureReasons.card_declined'),
     t('module.billing.admin.orders.failureReasons.checkout_expired'),
     t('module.billing.admin.orders.failureReasons.checkout_timeout'),

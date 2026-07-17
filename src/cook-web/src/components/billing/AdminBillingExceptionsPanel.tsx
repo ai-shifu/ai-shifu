@@ -398,6 +398,11 @@ export function AdminBillingExceptionsPanel({
     (item: AdminBillingExceptionRow, orderBid?: string | null) => {
       const params = new URLSearchParams();
       params.set('tab', 'credits');
+      if (orderBid) {
+        params.set('bill_order_bid', orderBid);
+        router.push(`/admin/operations/orders?${params.toString()}`);
+        return;
+      }
       if (item.creator_mobile) {
         params.set('creator_keyword', item.creator_mobile);
       }
@@ -416,9 +421,6 @@ export function AdminBillingExceptionsPanel({
         item.rawOrderType === 'subscription_upgrade'
       ) {
         params.set('credit_order_kind', 'plan');
-      }
-      if (orderBid) {
-        params.set('bill_order_bid', orderBid);
       }
       router.push(`/admin/operations/orders?${params.toString()}`);
     },
