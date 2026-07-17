@@ -62,6 +62,9 @@ jest.mock('@/api', () => ({
     deleteAdminBillingCustomizationDraft: jest.fn(),
     getAdminBillingSubscriptions: jest.fn(),
     getAdminBillingOrders: jest.fn(),
+    getAdminBillingOpsState: jest.fn(),
+    updateAdminBillingConfigStatus: jest.fn(),
+    updateAdminBillingExceptionHandled: jest.fn(),
   },
 }));
 
@@ -86,6 +89,11 @@ const mockDeleteAdminBillingCustomizationDraft =
 const mockGetAdminBillingSubscriptions =
   api.getAdminBillingSubscriptions as jest.Mock;
 const mockGetAdminBillingOrders = api.getAdminBillingOrders as jest.Mock;
+const mockGetAdminBillingOpsState = api.getAdminBillingOpsState as jest.Mock;
+const mockUpdateAdminBillingConfigStatus =
+  api.updateAdminBillingConfigStatus as jest.Mock;
+const mockUpdateAdminBillingExceptionHandled =
+  api.updateAdminBillingExceptionHandled as jest.Mock;
 
 describe('AdminBillingOperationsConsole', () => {
   beforeEach(() => {
@@ -108,6 +116,15 @@ describe('AdminBillingOperationsConsole', () => {
     mockDeleteAdminBillingCustomizationDraft.mockReset();
     mockGetAdminBillingSubscriptions.mockReset();
     mockGetAdminBillingOrders.mockReset();
+    mockGetAdminBillingOpsState.mockReset();
+    mockUpdateAdminBillingConfigStatus.mockReset();
+    mockUpdateAdminBillingExceptionHandled.mockReset();
+    mockGetAdminBillingOpsState.mockResolvedValue({
+      config_status: {},
+      exception_handled: {},
+    });
+    mockUpdateAdminBillingConfigStatus.mockResolvedValue({});
+    mockUpdateAdminBillingExceptionHandled.mockResolvedValue({});
     mockGetAdminBillingCustomizationDraft.mockResolvedValue({
       creator_mobile: '',
       branding_enabled: false,
@@ -700,6 +717,10 @@ describe('AdminBillingOperationsConsole', () => {
     expect(readAdminBillingExceptionHandledMap()).toMatchObject({
       'subscription:sub-past-due': true,
     });
+    expect(mockUpdateAdminBillingExceptionHandled).toHaveBeenCalledWith({
+      row_key: 'subscription:sub-past-due',
+      handled: true,
+    });
 
     await screen.findByText('module.billing.admin.exceptions.title');
     expect(mockGetAdminBillingSubscriptions.mock.calls.length).toBeGreaterThan(
@@ -754,6 +775,10 @@ describe('AdminBillingOperationsConsole', () => {
     ).toHaveAttribute('aria-pressed', 'true');
     expect(readAdminBillingExceptionHandledMap()).toMatchObject({
       'subscription:sub-past-due': true,
+    });
+    expect(mockUpdateAdminBillingExceptionHandled).toHaveBeenCalledWith({
+      row_key: 'subscription:sub-past-due',
+      handled: true,
     });
   });
 

@@ -125,7 +125,8 @@ export async function setAdminBillingConfigStatusState(
   record: AdminBillingConfigStatusRecord,
 ): Promise<AdminBillingConfigStatusMap> {
   const normalizedCreatorBid = String(creatorBid || '').trim();
-  const next = readAdminBillingConfigStatusMap();
+  const previous = readAdminBillingConfigStatusMap();
+  const next = cloneConfigStatusMap(previous);
 
   if (!normalizedCreatorBid) {
     return next;
@@ -146,8 +147,13 @@ export async function setAdminBillingConfigStatusState(
       status: record.status,
       note: record.note || '',
     });
-  } catch {
-    // Keep the optimistic local cache; the next page load rehydrates from server state.
+  } catch (error) {
+    configStatusCache = cloneConfigStatusMap(previous);
+    dispatchAdminBillingStateChange(
+      ADMIN_BILLING_CONFIG_STATUS_EVENT,
+      configStatusCache,
+    );
+    throw error;
   }
   return next;
 }
@@ -161,7 +167,8 @@ export async function setAdminBillingExceptionHandledState(
   handled: boolean,
 ): Promise<AdminBillingExceptionHandledMap> {
   const normalizedRowKey = String(rowKey || '').trim();
-  const next = readAdminBillingExceptionHandledMap();
+  const previous = readAdminBillingExceptionHandledMap();
+  const next = cloneExceptionHandledMap(previous);
 
   if (!normalizedRowKey) {
     return next;
@@ -183,8 +190,13 @@ export async function setAdminBillingExceptionHandledState(
       row_key: normalizedRowKey,
       handled,
     });
-  } catch {
-    // Keep the optimistic local cache; the next page load rehydrates from server state.
+  } catch (error) {
+    exceptionHandledCache = cloneExceptionHandledMap(previous);
+    dispatchAdminBillingStateChange(
+      ADMIN_BILLING_EXCEPTION_HANDLED_EVENT,
+      exceptionHandledCache,
+    );
+    throw error;
   }
   return next;
 }

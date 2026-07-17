@@ -469,7 +469,11 @@ export function AdminBillingExceptionsPanel({
         next[rowKey] = true;
       }
       setHandledMap(next);
-      void setAdminBillingExceptionHandledState(rowKey, !isHandled);
+      void setAdminBillingExceptionHandledState(rowKey, !isHandled).catch(
+        () => {
+          // Request layer already shows the error; the shared state helper rolls back.
+        },
+      );
     },
     [handledMap],
   );

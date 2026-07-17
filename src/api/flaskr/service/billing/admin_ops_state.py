@@ -123,7 +123,7 @@ def _write_map(app: Flask, key: str, value: dict[str, Any]) -> None:
             value=json.dumps(
                 value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
             ),
-            is_encrypted=1,
+            is_encrypted=0,
             remark="Admin billing operations state",
         ),
     )
