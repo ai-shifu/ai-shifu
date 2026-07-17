@@ -79,6 +79,14 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
         order_funs, "apply_promo_campaigns", lambda *_args, **_kwargs: []
     )
     monkeypatch.setattr(
+        order_funs, "resolve_creator_public_integrations", lambda _creator_bid: {}
+    )
+    monkeypatch.setattr(
+        order_funs,
+        "resolve_payment_integration_for_new_order",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
         order_funs,
         "_generate_pingxx_charge",
         lambda **kwargs: _fake_pingxx_charge(**kwargs),
@@ -141,6 +149,7 @@ class _FakeSaasConfigFuncs:
     def __init__(self) -> None:
         self._by_bid: dict[str, dict[str, Any]] = {}
         self._by_user_key: dict[tuple[str, str], str] = {}
+        self._next_id = 1
 
     def create_versioned_saas_user_config(
         self,
@@ -156,20 +165,28 @@ class _FakeSaasConfigFuncs:
     ) -> None:
         del app, is_encrypted, remark, updated_by
         self._by_bid[config_bid] = {
+            "id": self._next_id,
+            "config_bid": config_bid,
             "user_bid": user_bid,
             "key": key,
             "value": value,
+            "deleted": 0,
         }
+        self._next_id += 1
 
     def create_or_update_saas_user_config(self, app, dto) -> None:
         del app
         self._by_user_key[(dto.user_bid, dto.key)] = dto.value
         if dto.config_bid:
             self._by_bid[dto.config_bid] = {
+                "id": self._next_id,
+                "config_bid": dto.config_bid,
                 "user_bid": dto.user_bid,
                 "key": dto.key,
                 "value": dto.value,
+                "deleted": 0,
             }
+            self._next_id += 1
 
     def get_sass_config(self, user_bid: str, key: str, default: str = "") -> str:
         return self._by_user_key.get((user_bid, key), default)
@@ -193,6 +210,56 @@ class _FakeSaasConfigFuncs:
     def soft_delete_saas_user_config(self, app, user_bid: str, key: str) -> None:
         del app
         self._by_user_key.pop((user_bid, key), None)
+
+
+class _FakeSaasColumn:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def __eq__(self, value: object) -> tuple[str, object]:  # type: ignore[override]
+        return self.name, value
+
+    def desc(self) -> "_FakeSaasColumn":
+        return self
+
+
+class _FakeSaasQuery:
+    def __init__(
+        self,
+        fake_saas: _FakeSaasConfigFuncs,
+        conditions: list[tuple[str, object]] | None = None,
+    ) -> None:
+        self._fake_saas = fake_saas
+        self._conditions = conditions or []
+
+    def filter(self, *conditions: tuple[str, object]) -> "_FakeSaasQuery":
+        return _FakeSaasQuery(self._fake_saas, [*self._conditions, *conditions])
+
+    def order_by(self, *_args) -> "_FakeSaasQuery":
+        return self
+
+    def first(self):
+        rows = sorted(
+            self._fake_saas._by_bid.values(),
+            key=lambda row: int(row["id"]),
+            reverse=True,
+        )
+        for row in rows:
+            if all(row.get(key) == value for key, value in self._conditions):
+                return SimpleNamespace(**row)
+        return None
+
+
+def _make_fake_saas_model(fake_saas: _FakeSaasConfigFuncs):
+    class FakeSaasUserConfig:
+        id = _FakeSaasColumn("id")
+        user_bid = _FakeSaasColumn("user_bid")
+        key = _FakeSaasColumn("key")
+        deleted = _FakeSaasColumn("deleted")
+        created_at = _FakeSaasColumn("id")
+        query = _FakeSaasQuery(fake_saas)
+
+    return FakeSaasUserConfig
 
 
 def test_creator_payment_config_smoke_supports_alipay_and_wechatpay_checkout(
@@ -246,6 +313,9 @@ def test_creator_payment_config_smoke_supports_alipay_and_wechatpay_checkout(
             )
 
     monkeypatch.setattr(customization, "_saas_funcs", lambda **_kwargs: fake_saas)
+    monkeypatch.setattr(
+        customization, "_saas_model", lambda: _make_fake_saas_model(fake_saas)
+    )
     monkeypatch.setattr(
         customization,
         "_config_owner_bid",
