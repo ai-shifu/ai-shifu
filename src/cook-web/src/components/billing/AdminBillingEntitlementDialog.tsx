@@ -95,6 +95,8 @@ const VISIBLE_DRAFT_PAYMENT_PROVIDERS: BillingCustomizationProvider[] = [
   'wechatpay',
 ];
 
+const MULTILINE_SECRET_FIELDS = new Set(['private_key', 'platform_cert']);
+
 const INLINE_SEPARATOR = '·';
 
 const COLLAPSED_FIELDS_STORAGE_KEY =
@@ -553,52 +555,16 @@ export function AdminBillingEntitlementDialog({
         return;
       }
 
-      const creatorBid = String(resolvedItem?.creator_bid || '').trim();
-      const normalizedCreatorMobile = creatorMobile.trim();
-      const canUploadDraft = Boolean(
-        creatorBid || /^\d{11}$/.test(normalizedCreatorMobile),
-      );
-      if (!canUploadDraft) {
-        const localPreview = URL.createObjectURL(file);
-        if (target === 'wide') {
-          setDraftWideLogoFile(file);
-          setDraftWideLogoPreview(localPreview);
-        } else {
-          setDraftSquareLogoFile(file);
-          setDraftSquareLogoPreview(localPreview);
-        }
-        return;
-      }
-
-      const { uploadFile } = await import('@/lib/file');
-      const response = await uploadFile(
-        file,
-        '/api/admin/billing/customization-draft/branding/logo',
-        {
-          target,
-          creator_bid: creatorBid,
-          creator_mobile: normalizedCreatorMobile,
-        },
-      );
-      const payload = await response.json();
-      if (!response.ok || payload.code !== 0) {
-        throw new Error(
-          payload.message ||
-            t('module.billing.customization.branding.uploadFailed'),
-        );
-      }
-      const uploadedUrl = String(payload.data || '');
+      const localPreview = URL.createObjectURL(file);
       if (target === 'wide') {
-        setDraftWideLogo(uploadedUrl);
-        setDraftWideLogoFile(null);
-        setDraftWideLogoPreview(uploadedUrl);
+        setDraftWideLogoFile(file);
+        setDraftWideLogoPreview(localPreview);
       } else {
-        setDraftSquareLogo(uploadedUrl);
-        setDraftSquareLogoFile(null);
-        setDraftSquareLogoPreview(uploadedUrl);
+        setDraftSquareLogoFile(file);
+        setDraftSquareLogoPreview(localPreview);
       }
     },
-    [creatorMobile, resolvedItem?.creator_bid, t],
+    [],
   );
 
   const handleSubmit = async () => {
@@ -653,6 +619,9 @@ export function AdminBillingEntitlementDialog({
               );
             }
             nextWideLogo = String(payload.data || '');
+            setDraftWideLogo(nextWideLogo);
+            setDraftWideLogoPreview(nextWideLogo);
+            setDraftWideLogoFile(null);
           }
           if (draftSquareLogoFile) {
             const response = await uploadFile(
@@ -668,6 +637,9 @@ export function AdminBillingEntitlementDialog({
               );
             }
             nextSquareLogo = String(payload.data || '');
+            setDraftSquareLogo(nextSquareLogo);
+            setDraftSquareLogoPreview(nextSquareLogo);
+            setDraftSquareLogoFile(null);
           }
         }
 
@@ -1490,9 +1462,10 @@ function CreateDraftIntegrationFields({
               className='grid gap-2 text-sm'
             >
               <span className='font-medium text-slate-900'>{field}</span>
-              {field.includes('key') || field.includes('cert') ? (
+              {MULTILINE_SECRET_FIELDS.has(field) ? (
                 <Textarea
-                  rows={4}
+                  rows={3}
+                  className='min-h-[88px] font-mono text-xs'
                   value={config.secret_config[field] || ''}
                   placeholder={
                     config.secret_configured_fields?.includes(field)
