@@ -36,25 +36,6 @@
     },
     "attention": "À traiter",
     "backToCreatorBilling": "Retour au centre de facturation",
-    "domains": {
-      "description": "Suivez l’avancement de configuration des domaines, les résultats de vérification et leur statut effectif.",
-      "empty": "Aucune liaison de domaine personnalisé pour le moment.",
-      "loadError": "Impossible de charger les données d’audit des domaines admin.",
-      "table": {
-        "creator": "Enseignant",
-        "effective": "Effectif",
-        "entitlement": "Domaine entitlement",
-        "host": "Hôte",
-        "lastVerified": "Dernière vérification",
-        "ssl": "SSL",
-        "status": "Statut"
-      },
-      "title": "Audits de domaine",
-      "values": {
-        "effective": "Effectif",
-        "inactive": "Inactif"
-      }
-    },
     "entitlements": {
       "actions": {
         "viewDetail": "Modifier la configuration"
@@ -201,76 +182,9 @@
         "startedAt": "Actif depuis {date}"
       }
     },
-    "exceptions": {
-      "actions": {
-        "markHandled": "Marquer comme traitee",
-        "reopen": "Rouvrir",
-        "viewOrder": "Voir la commande"
-      },
-      "description": "Regroupez les anomalies de relation d’abonnement et les anomalies de transaction qui demandent encore un traitement manuel.",
-      "empty": "Aucune exception de facturation pour le moment.",
-      "fields": {
-        "amount": "Montant",
-        "createdAt": "Créé le",
-        "detail": "Détail",
-        "periodEnd": "Fin de période",
-        "renewalEvent": "Événement de renouvellement"
-      },
-      "loadError": "Impossible de charger les données d’exception de facturation.",
-      "processingStatus": {
-        "done": "Traitee",
-        "pending": "A traiter"
-      },
-      "sections": {
-        "orders": "Commandes à traiter",
-        "subscriptions": "Abonnements à traiter"
-      },
-      "table": {
-        "detail": "Description anomalie",
-        "object": "Objet anomalie",
-        "processingStatus": "Avancement",
-        "relatedOrder": "Commande associee",
-        "type": "Type d anomalie",
-        "updatedAt": "Mis a jour le"
-      },
-      "targets": {
-        "order": "Commande de paiement",
-        "subscription": "Relation d'abonnement"
-      },
-      "title": "Exceptions",
-      "types": {
-        "order": "Anomalie de commande",
-        "subscription": "Anomalie d'abonnement"
-      }
-    },
     "navigation": {
       "description": "Basculez entre forfaits, commandes, droits, domaines et rapports tout en gardant l’état des capacités visible au-dessus.",
       "title": "Par thème"
-    },
-    "orders": {
-      "actions": {
-        "viewOrder": "Voir la commande"
-      },
-      "description": "Consultez les commandes en echec, expirees ou en cours de traitement qui necessitent encore une verification.",
-      "empty": "Aucune commande en anomalie pour le moment.",
-      "failureReasons": {
-        "billing_order_expired_after_30_minutes": "La commande de facturation a expiré après 30 minutes",
-        "card_declined": "La carte a été refusée",
-        "checkout_expired": "Le paiement a expiré avant la finalisation",
-        "checkout_timeout": "Le paiement a expiré avant la finalisation"
-      },
-      "loadError": "Impossible de charger les données de commandes admin.",
-      "table": {
-        "actions": "Actions",
-        "amount": "Montant",
-        "createdAt": "Créé le",
-        "creator": "Enseignant",
-        "failure": "Motif d echec",
-        "order": "Commande",
-        "provider": "Moyen de paiement",
-        "status": "Statut anomalie"
-      },
-      "title": "Commandes en anomalie"
     },
     "pagination": {
       "page": "Page {page} / {pageCount} · {total} enregistrements",
@@ -278,7 +192,6 @@
     },
     "reports": {
       "actions": {
-        "viewExceptions": "Voir les anomalies",
         "viewOrders": "Voir les commandes"
       },
       "attentionReasons": {
@@ -371,14 +284,10 @@
       "title": "Suivi abonnements"
     },
     "subtitle": "Espace opérations pour suivre les forfaits, commandes, droits et réglages de paiement indépendants des enseignants.",
-    "table": {
-      "attentionStatus": "Attention"
-    },
+    "table": {},
     "tabs": {
       "domains": "Domaines",
       "entitlements": "Configuration marque et paiement",
-      "exceptions": "Alertes",
-      "orders": "Commandes en anomalie",
       "reports": "Suivi d usage",
       "subscriptions": "Suivi abonnements"
     },
@@ -401,10 +310,6 @@
     "fallbackDescription": "Le statut des capacités est suivi depuis le grand livre de facturation.",
     "fallbackTitle": "Capacité de facturation",
     "items": {
-      "adminDomains": {
-        "description": "Les pages admin de liaison et d’audit de domaines restent accessibles.",
-        "title": "Domaines admin"
-      },
       "adminEntitlements": {
         "description": "La revue admin des droits reste activée.",
         "title": "Droits admin"
@@ -412,10 +317,6 @@
       "adminLedgerAdjust": {
         "description": "La correction manuelle du grand livre admin reste disponible.",
         "title": "Correction du grand livre admin"
-      },
-      "adminOrders": {
-        "description": "La revue admin des commandes de facturation reste activée.",
-        "title": "Commandes admin"
       },
       "adminReports": {
         "description": "Les rapports admin d’utilisation et de grand livre restent activés.",

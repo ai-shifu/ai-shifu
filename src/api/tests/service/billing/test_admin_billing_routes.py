@@ -43,22 +43,18 @@ from flaskr.service.billing.dtos import (
     AdminBillingCampaignProductOptionsDTO,
     AdminBillingCampaignsPageDTO,
     AdminBillingFocusTeachersPageDTO,
-    BillingDomainAuditsPageDTO,
     BillingEntitlementsPageDTO,
     BillingLedgerAdjustResultDTO,
     BillingSubscriptionsPageDTO,
     AdminBillingDailyLedgerSummaryPageDTO,
     AdminBillingDailyUsageMetricsPageDTO,
-    AdminBillingOrdersPageDTO,
 )
 from flaskr.service.billing.read_models import (
     adjust_admin_billing_ledger,
     build_admin_bill_daily_ledger_summary_page,
     build_admin_bill_daily_usage_metrics_page,
     build_admin_billing_focus_teachers_page,
-    build_admin_billing_domain_audits_page,
     build_admin_bill_entitlements_page,
-    build_admin_bill_orders_page,
     build_admin_bill_subscriptions_page,
 )
 import flaskr.service.billing.queries as billing_queries_module
@@ -147,6 +143,11 @@ def admin_billing_client(monkeypatch):
         billing_routes_module,
         "is_billing_enabled",
         lambda: True,
+    )
+    monkeypatch.setattr(
+        billing_routes_module,
+        "clear_admin_creator_customization_draft",
+        lambda *args, **kwargs: {"status": "noop"},
     )
 
     register_billing_routes(app=app)
@@ -380,41 +381,6 @@ class TestAdminBillingRoutes:
         assert len(payload["data"]["items"]) == 1
         assert payload["data"]["items"][0]["subscription_bid"] == "sub-past-due"
         assert payload["data"]["items"][0]["has_attention"] is True
-
-    def test_admin_bill_orders_support_creator_and_status_filters(
-        self, admin_billing_client
-    ) -> None:
-        client = admin_billing_client["client"]
-
-        response = client.get(
-            "/api/admin/billing/orders?page_index=1&page_size=10&creator_bid=creator-2&status=failed"
-        )
-        payload = response.get_json(force=True)
-
-        assert payload["code"] == 0
-        assert payload["data"]["total"] == 1
-        item = payload["data"]["items"][0]
-        assert item["bill_order_bid"] == "order-failed"
-        assert item["creator_bid"] == "creator-2"
-        assert item["status"] == "failed"
-        assert item["failure_code"] == "card_declined"
-        assert item["failed_at"] == "2026-04-03T08:00:00Z"
-        assert item["has_attention"] is True
-
-    def test_admin_bill_orders_default_to_exception_statuses(
-        self, admin_billing_client
-    ) -> None:
-        client = admin_billing_client["client"]
-
-        response = client.get("/api/admin/billing/orders?page_index=1&page_size=10")
-        payload = response.get_json(force=True)
-
-        assert payload["code"] == 0
-        assert payload["data"]["total"] == 1
-        assert [item["bill_order_bid"] for item in payload["data"]["items"]] == [
-            "order-failed"
-        ]
-        assert payload["data"]["items"][0]["status"] == "failed"
 
     def test_admin_billing_ledger_adjust_positive_creates_manual_subscription_bucket(
         self, admin_billing_client
@@ -936,6 +902,33 @@ class TestAdminBillingRoutes:
             assert entity.is_creator == 1
             assert entity.state == 1102
 
+    def test_admin_billing_entitlements_can_filter_independent_configs(
+        self,
+        admin_billing_client,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        client.post(
+            "/api/admin/billing/entitlements/grants",
+            json={
+                "creator_mobile": "13800138000",
+                "branding_enabled": True,
+                "custom_domain_enabled": False,
+                "custom_wechat_enabled": False,
+                "custom_payment_enabled": False,
+            },
+        )
+
+        response = client.get(
+            "/api/admin/billing/entitlements?page_index=1&page_size=10&independent_only=true"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["total"] == 1
+        assert payload["data"]["items"][0]["creator_mobile"] == "13800138000"
+        assert payload["data"]["items"][0]["branding_enabled"] is True
+
     def test_admin_billing_customization_draft_routes_round_trip(
         self,
         admin_billing_client,
@@ -1300,9 +1293,7 @@ class TestAdminBillingRoutes:
 
         results = {
             "subscriptions": build_admin_bill_subscriptions_page(app),
-            "domain_audits": build_admin_billing_domain_audits_page(app),
             "entitlements": build_admin_bill_entitlements_page(app),
-            "orders": build_admin_bill_orders_page(app),
             "campaign_product_options": build_admin_billing_campaign_product_options(
                 app
             ),
@@ -1322,9 +1313,7 @@ class TestAdminBillingRoutes:
         }
 
         assert isinstance(results["subscriptions"], BillingSubscriptionsPageDTO)
-        assert isinstance(results["domain_audits"], BillingDomainAuditsPageDTO)
         assert isinstance(results["entitlements"], BillingEntitlementsPageDTO)
-        assert isinstance(results["orders"], AdminBillingOrdersPageDTO)
         assert isinstance(
             results["campaign_product_options"],
             AdminBillingCampaignProductOptionsDTO,

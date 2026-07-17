@@ -66,35 +66,3 @@ def test_admin_billing_ops_state_updates_under_redis_lock(app, monkeypatch):
         ("acquire", "billing:admin_ops_state:ADMIN_BILLING.CONFIG_STATUS"),
         ("release", "billing:admin_ops_state:ADMIN_BILLING.CONFIG_STATUS"),
     ]
-
-
-def test_admin_billing_exception_handled_state_persists_in_core_config(
-    app, monkeypatch
-):
-    redis = _TrackingRedis()
-    store = _patch_config_store(monkeypatch)
-    monkeypatch.setattr(dao, "redis_client", redis, raising=False)
-
-    result = admin_ops_state.update_admin_billing_exception_handled(
-        app,
-        row_key="subscription:sub-past-due",
-        handled=True,
-    )
-
-    assert result == {"row_key": "subscription:sub-past-due", "handled": True}
-    assert admin_ops_state.build_admin_billing_ops_state(app)["exception_handled"] == {
-        "subscription:sub-past-due": True
-    }
-    assert store[("ADMIN_BILLING.EXCEPTION_HANDLED", "meta")] == {
-        "is_secret": False,
-        "remark": "Admin billing operations state",
-        "updated_by": "billing-admin-ops",
-    }
-
-    admin_ops_state.update_admin_billing_exception_handled(
-        app,
-        row_key="subscription:sub-past-due",
-        handled=False,
-    )
-
-    assert admin_ops_state.build_admin_billing_ops_state(app)["exception_handled"] == {}

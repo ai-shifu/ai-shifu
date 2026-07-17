@@ -308,13 +308,10 @@ const api = {
   updateAdminBillingCampaign: 'POST /admin/billing/campaigns/{campaign_bid}',
   updateAdminBillingCampaignStatus:
     'POST /admin/billing/campaigns/{campaign_bid}/status',
-  getAdminBillingOrders: 'GET /admin/billing/orders',
   getAdminBillingEntitlements: 'GET /admin/billing/entitlements',
   grantAdminBillingEntitlement: 'POST /admin/billing/entitlements/grants',
   getAdminBillingOpsState: 'GET /admin/billing/ops-state',
   updateAdminBillingConfigStatus: 'POST /admin/billing/ops-state/config-status',
-  updateAdminBillingExceptionHandled:
-    'POST /admin/billing/ops-state/exception-handled',
   getAdminBillingCustomization:
     'GET /admin/billing/customization/{creator_bid}',
   getAdminBillingCustomizationDraft: 'GET /admin/billing/customization-draft',
@@ -337,7 +334,6 @@ const api = {
     'POST /admin/billing/customization/{creator_bid}/integrations/{provider}/verify',
   disableAdminBillingCustomizationIntegration:
     'DELETE /admin/billing/customization/{creator_bid}/integrations/{provider}',
-  getAdminBillingDomainAudits: 'GET /admin/billing/domain-audits',
   getAdminBillingFocusTeachers: 'GET /admin/billing/reports/focus-teachers',
   getAdminBillingDailyUsageMetrics: 'GET /admin/billing/reports/usage-daily',
   getAdminBillingDailyLedgerSummary: 'GET /admin/billing/reports/ledger-daily',

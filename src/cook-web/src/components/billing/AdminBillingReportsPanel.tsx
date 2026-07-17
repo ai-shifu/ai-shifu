@@ -310,18 +310,6 @@ export function AdminBillingReportsPanel() {
     [router],
   );
 
-  const handleViewExceptions = React.useCallback(
-    (item: AdminBillingFocusTeacherItem) => {
-      const params = new URLSearchParams();
-      params.set('tab', 'exceptions');
-      if (item.creator_mobile) {
-        params.set('creator_mobile', item.creator_mobile);
-      }
-      router.push(`/admin/operations/billing?${params.toString()}`);
-    },
-    [router],
-  );
-
   return (
     <div className='space-y-4'>
       <Card className='border-slate-200 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_60%,#f8fafc_100%)] shadow-[0_18px_50px_rgba(15,23,42,0.08)]'>
@@ -680,13 +668,6 @@ export function AdminBillingReportsPanel() {
                             align='end'
                             className='min-w-[132px]'
                           >
-                            <DropdownMenuItem
-                              onClick={() => handleViewExceptions(item)}
-                            >
-                              {t(
-                                'module.billing.admin.reports.actions.viewExceptions',
-                              )}
-                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleViewOrders(item)}
                             >

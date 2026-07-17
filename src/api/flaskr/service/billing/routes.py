@@ -45,7 +45,6 @@ from flaskr.service.billing.domains import manage_creator_domain_binding
 from flaskr.service.billing.admin_ops_state import (
     build_admin_billing_ops_state,
     update_admin_billing_config_status,
-    update_admin_billing_exception_handled,
 )
 from flaskr.service.billing.entitlements import (
     grant_creator_manual_entitlement,
@@ -56,9 +55,7 @@ from flaskr.service.billing.read_models import (
     build_admin_bill_daily_ledger_summary_page,
     build_admin_bill_daily_usage_metrics_page,
     build_admin_billing_focus_teachers_page,
-    build_admin_billing_domain_audits_page,
     build_admin_bill_entitlements_page,
-    build_admin_bill_orders_page,
     build_admin_bill_subscriptions_page,
     build_billing_catalog,
     build_billing_ledger_page,
@@ -415,20 +412,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
-    @app.route(admin_path_prefix + "/domain-audits", methods=["GET"])
-    def admin_billing_domain_audits_api():
-        _require_billing_operator_access(app)
-        page_index, page_size = _get_page_args()
-        return make_common_response(
-            build_admin_billing_domain_audits_page(
-                app,
-                page_index=page_index,
-                page_size=page_size,
-                creator_bid=_get_optional_query_arg("creator_bid"),
-                status=_get_optional_query_arg("status"),
-            )
-        )
-
     @app.route(admin_path_prefix + "/entitlements", methods=["GET"])
     def admin_bill_entitlements_api():
         _require_billing_operator_access(app)
@@ -439,6 +422,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_index=page_index,
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
+                independent_only=bool(_get_optional_bool_query_arg("independent_only")),
             )
         )
 
@@ -532,18 +516,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 app,
                 creator_bid=str(payload.get("creator_bid") or ""),
                 payload=payload,
-            )
-        )
-
-    @app.route(admin_path_prefix + "/ops-state/exception-handled", methods=["POST"])
-    def admin_billing_exception_handled_api():
-        _require_billing_operator_access(app)
-        payload = request.get_json(silent=True) or {}
-        return make_common_response(
-            update_admin_billing_exception_handled(
-                app,
-                row_key=str(payload.get("row_key") or ""),
-                handled=_to_optional_bool(payload.get("handled"), "handled") is True,
             )
         )
 
@@ -777,20 +749,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                     creator_mobile="",
                 ),
                 provider,
-            )
-        )
-
-    @app.route(admin_path_prefix + "/orders", methods=["GET"])
-    def admin_bill_orders_api():
-        _require_billing_operator_access(app)
-        page_index, page_size = _get_page_args()
-        return make_common_response(
-            build_admin_bill_orders_page(
-                app,
-                page_index=page_index,
-                page_size=page_size,
-                creator_bid=_get_optional_query_arg("creator_bid"),
-                status=_get_optional_query_arg("status"),
             )
         )
 

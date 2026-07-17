@@ -12,7 +12,6 @@ from .primitives import normalize_bid
 
 _ADMIN_OPS_OWNER_BID = "billing-admin-ops"
 _CONFIG_STATUS_KEY = "ADMIN_BILLING.CONFIG_STATUS"
-_EXCEPTION_HANDLED_KEY = "ADMIN_BILLING.EXCEPTION_HANDLED"
 _CONFIG_STATUS_VALUES = {"pending", "in_progress", "completed", "exception"}
 
 
@@ -20,7 +19,6 @@ def build_admin_billing_ops_state(app: Flask) -> dict[str, Any]:
     with app.app_context():
         return {
             "config_status": _read_map(_CONFIG_STATUS_KEY),
-            "exception_handled": _read_map(_EXCEPTION_HANDLED_KEY),
         }
 
 
@@ -47,26 +45,6 @@ def update_admin_billing_config_status(
         records[normalized_creator_bid] = record
         _write_map(app, _CONFIG_STATUS_KEY, records)
     return record
-
-
-def update_admin_billing_exception_handled(
-    app: Flask,
-    *,
-    row_key: str,
-    handled: bool,
-) -> dict[str, Any]:
-    normalized_row_key = str(row_key or "").strip()
-    if not normalized_row_key or len(normalized_row_key) > 200:
-        raise_param_error("row_key")
-
-    with app.app_context(), _admin_ops_lock(_EXCEPTION_HANDLED_KEY):
-        records = _read_map(_EXCEPTION_HANDLED_KEY)
-        if handled:
-            records[normalized_row_key] = True
-        else:
-            records.pop(normalized_row_key, None)
-        _write_map(app, _EXCEPTION_HANDLED_KEY, records)
-    return {"row_key": normalized_row_key, "handled": handled}
 
 
 @contextmanager

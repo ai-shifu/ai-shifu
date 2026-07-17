@@ -36,25 +36,6 @@
     },
     "attention": "需关注",
     "backToCreatorBilling": "返回会员中心",
-    "domains": {
-      "description": "查看独立域名的配置进展、校验结果和当前生效状态。",
-      "empty": "暂无自定义域名绑定。",
-      "loadError": "无法加载后台域名审核数据。",
-      "table": {
-        "creator": "老师",
-        "effective": "是否生效",
-        "entitlement": "域名权益",
-        "host": "域名",
-        "lastVerified": "最近校验",
-        "ssl": "SSL",
-        "status": "状态"
-      },
-      "title": "域名审核",
-      "values": {
-        "effective": "已生效",
-        "inactive": "未生效"
-      }
-    },
     "entitlements": {
       "actions": {
         "viewDetail": "编辑配置"
@@ -201,76 +182,9 @@
         "startedAt": "生效于 {date}"
       }
     },
-    "exceptions": {
-      "actions": {
-        "markHandled": "标记已处理",
-        "reopen": "重新打开",
-        "viewOrder": "查看订单"
-      },
-      "description": "汇总当前需要人工处理的订阅关系异常与交易异常。",
-      "empty": "当前没有需要处理的账务异常。",
-      "fields": {
-        "amount": "金额",
-        "createdAt": "创建时间",
-        "detail": "异常详情",
-        "periodEnd": "周期结束",
-        "renewalEvent": "续费事件"
-      },
-      "loadError": "账务异常数据读取失败，请刷新后重试。",
-      "processingStatus": {
-        "done": "已处理",
-        "pending": "待处理"
-      },
-      "sections": {
-        "orders": "需关注订单",
-        "subscriptions": "需关注订阅"
-      },
-      "table": {
-        "detail": "异常说明",
-        "object": "异常对象",
-        "processingStatus": "处理进度",
-        "relatedOrder": "关联订单",
-        "type": "异常类型",
-        "updatedAt": "更新时间"
-      },
-      "targets": {
-        "order": "支付订单",
-        "subscription": "订阅关系"
-      },
-      "title": "异常处理",
-      "types": {
-        "order": "订单异常",
-        "subscription": "订阅异常"
-      }
-    },
     "navigation": {
       "description": "按套餐、订单、权益、域名和报表切换查看，能力状态会始终保留在上方。",
       "title": "查看维度"
-    },
-    "orders": {
-      "actions": {
-        "viewOrder": "查看订单"
-      },
-      "description": "查看支付失败、超时或处理中等需要排查的订单。",
-      "empty": "当前没有需要处理的异常订单。",
-      "failureReasons": {
-        "billing_order_expired_after_30_minutes": "支付订单超过 30 分钟未完成，已自动关闭",
-        "card_declined": "银行卡被拒付",
-        "checkout_expired": "支付超时未完成",
-        "checkout_timeout": "支付超时未完成"
-      },
-      "loadError": "后台订单数据读取失败，请刷新后重试。",
-      "table": {
-        "actions": "操作",
-        "amount": "金额",
-        "createdAt": "创建时间",
-        "creator": "老师",
-        "failure": "失败原因",
-        "order": "订单",
-        "provider": "支付方式",
-        "status": "异常状态"
-      },
-      "title": "异常订单"
     },
     "pagination": {
       "page": "第 {page} / {pageCount} 页，共 {total} 条记录",
@@ -278,7 +192,6 @@
     },
     "reports": {
       "actions": {
-        "viewExceptions": "查看异常",
         "viewOrders": "查看订单"
       },
       "attentionReasons": {
@@ -371,14 +284,10 @@
       "title": "订阅跟进"
     },
     "subtitle": "统一跟进订阅、支付、权益和账务异常。",
-    "table": {
-      "attentionStatus": "关注状态"
-    },
+    "table": {},
     "tabs": {
       "domains": "域名",
       "entitlements": "品牌与收款配置",
-      "exceptions": "异常告警",
-      "orders": "异常订单",
       "reports": "用量关注",
       "subscriptions": "订阅跟进"
     },
@@ -401,10 +310,6 @@
     "fallbackDescription": "能力状态以 billing capability registry 为准。",
     "fallbackTitle": "Billing 能力",
     "items": {
-      "adminDomains": {
-        "description": "后台域名绑定与审核页面当前仍可使用。",
-        "title": "后台域名"
-      },
       "adminEntitlements": {
         "description": "后台权益查看当前仍可使用。",
         "title": "后台权益"
@@ -412,10 +317,6 @@
       "adminLedgerAdjust": {
         "description": "后台人工账本修正当前仍可使用。",
         "title": "后台账本修正"
-      },
-      "adminOrders": {
-        "description": "后台 billing 订单查看当前仍可使用。",
-        "title": "后台订单"
       },
       "adminReports": {
         "description": "后台 usage 与 ledger 报表当前仍可使用。",

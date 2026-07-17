@@ -36,25 +36,6 @@
     },
     "attention": "Needs attention",
     "backToCreatorBilling": "Back to billing center",
-    "domains": {
-      "description": "Track custom-domain setup progress, verification results, and current live status.",
-      "empty": "No custom domain bindings yet.",
-      "loadError": "Admin domain audit data could not be loaded.",
-      "table": {
-        "creator": "Teacher",
-        "effective": "Effective",
-        "entitlement": "Domain entitlement",
-        "host": "Host",
-        "lastVerified": "Last verified",
-        "ssl": "SSL",
-        "status": "Status"
-      },
-      "title": "Domain Audits",
-      "values": {
-        "effective": "Effective",
-        "inactive": "Inactive"
-      }
-    },
     "entitlements": {
       "actions": {
         "viewDetail": "Edit setup"
@@ -201,76 +182,9 @@
         "startedAt": "Started at {date}"
       }
     },
-    "exceptions": {
-      "actions": {
-        "markHandled": "Mark handled",
-        "reopen": "Reopen",
-        "viewOrder": "View order"
-      },
-      "description": "Summarize subscription relationship issues and transaction issues that still need manual handling.",
-      "empty": "No billing exceptions right now.",
-      "fields": {
-        "amount": "Amount",
-        "createdAt": "Created at",
-        "detail": "Detail",
-        "periodEnd": "Period end",
-        "renewalEvent": "Renewal event"
-      },
-      "loadError": "Billing exception data could not be loaded.",
-      "processingStatus": {
-        "done": "Handled",
-        "pending": "Pending"
-      },
-      "sections": {
-        "orders": "Attention orders",
-        "subscriptions": "Attention subscriptions"
-      },
-      "table": {
-        "detail": "Exception detail",
-        "object": "Exception object",
-        "processingStatus": "Resolution progress",
-        "relatedOrder": "Related Order",
-        "type": "Exception type",
-        "updatedAt": "Updated at"
-      },
-      "targets": {
-        "order": "Payment order",
-        "subscription": "Subscription relationship"
-      },
-      "title": "Exceptions",
-      "types": {
-        "order": "Order Issue",
-        "subscription": "Subscription Issue"
-      }
-    },
     "navigation": {
       "description": "Switch between plans, orders, entitlements, domains, and reports while keeping capability status visible above.",
       "title": "Browse by topic"
-    },
-    "orders": {
-      "actions": {
-        "viewOrder": "View order"
-      },
-      "description": "Review failed, timed-out, or processing orders that still need investigation.",
-      "empty": "No exception orders right now.",
-      "failureReasons": {
-        "billing_order_expired_after_30_minutes": "Billing order expired after 30 minutes",
-        "card_declined": "Card was declined",
-        "checkout_expired": "Checkout timed out before completion",
-        "checkout_timeout": "Checkout timed out before completion"
-      },
-      "loadError": "Admin order data could not be loaded.",
-      "table": {
-        "actions": "Actions",
-        "amount": "Amount",
-        "createdAt": "Created at",
-        "creator": "Teacher",
-        "failure": "Failure reason",
-        "order": "Order",
-        "provider": "Payment method",
-        "status": "Exception status"
-      },
-      "title": "Exception Orders"
     },
     "pagination": {
       "page": "Page {page} / {pageCount} · {total} records",
@@ -278,7 +192,6 @@
     },
     "reports": {
       "actions": {
-        "viewExceptions": "View exceptions",
         "viewOrders": "View orders"
       },
       "attentionReasons": {
@@ -371,14 +284,10 @@
       "title": "Subscription Follow-up"
     },
     "subtitle": "Operations workspace for teacher plans, orders, entitlements, and independent payment setup.",
-    "table": {
-      "attentionStatus": "Attention"
-    },
+    "table": {},
     "tabs": {
       "domains": "Domains",
       "entitlements": "Brand & payment setup",
-      "exceptions": "Alerts",
-      "orders": "Exception Orders",
       "reports": "Usage Attention",
       "subscriptions": "Subscription Follow-up"
     },
@@ -401,10 +310,6 @@
     "fallbackDescription": "Capability status is tracked from the billing registry.",
     "fallbackTitle": "Billing capability",
     "items": {
-      "adminDomains": {
-        "description": "Admin domain bind and audit pages are still reachable.",
-        "title": "Admin domains"
-      },
       "adminEntitlements": {
         "description": "Admin entitlement review remains enabled.",
         "title": "Admin entitlements"
@@ -412,10 +317,6 @@
       "adminLedgerAdjust": {
         "description": "Manual admin ledger correction is still available.",
         "title": "Admin ledger correction"
-      },
-      "adminOrders": {
-        "description": "Admin billing order review remains enabled.",
-        "title": "Admin orders"
       },
       "adminReports": {
         "description": "Admin usage and ledger reports remain enabled.",

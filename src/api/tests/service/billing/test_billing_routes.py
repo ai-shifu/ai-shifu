@@ -165,6 +165,11 @@ def billing_test_client(monkeypatch):
         "is_billing_enabled",
         lambda: True,
     )
+    monkeypatch.setattr(
+        billing_routes_module,
+        "clear_admin_creator_customization_draft",
+        lambda *args, **kwargs: {"status": "noop"},
+    )
 
     register_billing_routes(app=app)
 
@@ -662,10 +667,6 @@ class TestBillingRoutes:
         assert {
             "method": "POST",
             "path": "/api/admin/billing/entitlements/grants",
-        } in payload["data"]["admin_routes"]
-        assert {
-            "method": "GET",
-            "path": "/api/admin/billing/domain-audits",
         } in payload["data"]["admin_routes"]
         assert {
             "method": "GET",
