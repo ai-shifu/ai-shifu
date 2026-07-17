@@ -42,7 +42,7 @@ const BILLING_PASSIVE_REQUEST_CONFIG = {
 } as const;
 
 const VISIBLE_PAYMENT_CUSTOMIZATION_PROVIDERS: BillingCustomizationProvider[] =
-  ['alipay', 'wechatpay'];
+  ['wechatpay'];
 const DNS_TXT_RECORD_TYPE = 'TXT';
 
 function LockedNotice() {

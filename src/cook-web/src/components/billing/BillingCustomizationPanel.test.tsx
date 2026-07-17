@@ -56,11 +56,11 @@ function buildCustomizationData(overrides: Record<string, unknown> = {}) {
     domains: { custom_domain_enabled: false, items: [] },
     integrations: [
       {
-        provider: 'alipay',
+        provider: 'wechatpay',
         status: 'verified',
-        public_config: { app_id: 'alipay_owner_app' },
+        public_config: { app_id: 'wechat_owner_app' },
         secret_configured: true,
-        callback_url: 'https://api.example.com/alipay-callback-token',
+        callback_url: 'https://api.example.com/wechatpay-callback-token',
       },
       {
         provider: 'stripe',
@@ -143,7 +143,7 @@ describe('BillingCustomizationPanel', () => {
     expect(
       screen.getByText('module.billing.customization.locked'),
     ).toBeInTheDocument();
-    expect(screen.getByDisplayValue('alipay_owner_app')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('wechat_owner_app')).toBeInTheDocument();
     expect(screen.queryByDisplayValue('pk_owner')).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue(/secret/i)).not.toBeInTheDocument();
   });

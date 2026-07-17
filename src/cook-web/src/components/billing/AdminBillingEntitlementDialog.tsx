@@ -54,6 +54,8 @@ type DraftIntegrationConfig = {
   secret_configured_fields?: string[];
 };
 
+type DraftDomainStatus = BillingCustomization['domains']['items'][number];
+
 const EMPTY_VALUES: Record<EntitlementField, boolean> = {
   branding_enabled: false,
   custom_domain_enabled: false,
@@ -85,9 +87,10 @@ const DRAFT_PROVIDER_FIELDS: Record<
 };
 
 const VISIBLE_DRAFT_PAYMENT_PROVIDERS: BillingCustomizationProvider[] = [
-  'alipay',
   'wechatpay',
 ];
+
+const INLINE_SEPARATOR = '·';
 
 const COLLAPSED_FIELDS_STORAGE_KEY =
   'admin-billing-entitlement-dialog-collapsed-fields';
@@ -221,6 +224,12 @@ function draftIntegrationsFromCustomization(
   return next;
 }
 
+function resolveDraftDomainStatus(
+  data: BillingCustomization | null,
+): DraftDomainStatus | null {
+  return data?.domains.items[0] || null;
+}
+
 function resolveSelectedDraftPaymentProviders(
   draftIntegrations: Record<
     BillingCustomizationProvider,
@@ -232,7 +241,7 @@ function resolveSelectedDraftPaymentProviders(
   );
 }
 
-function isEntitlementsCacheKey(key: unknown): boolean {
+function isAdminBillingEntitlementsCacheKey(key: unknown): boolean {
   if (Array.isArray(key)) {
     return (
       typeof key[0] === 'string' &&
@@ -241,6 +250,18 @@ function isEntitlementsCacheKey(key: unknown): boolean {
   }
   return (
     typeof key === 'string' && key.startsWith('admin-billing-entitlements')
+  );
+}
+
+function isAdminBillingCustomizationCacheKey(key: unknown): boolean {
+  if (Array.isArray(key)) {
+    return (
+      typeof key[0] === 'string' &&
+      key[0].startsWith('admin-billing-customization')
+    );
+  }
+  return (
+    typeof key === 'string' && key.startsWith('admin-billing-customization')
   );
 }
 
@@ -275,6 +296,8 @@ export function AdminBillingEntitlementDialog({
   const [draftSquareLogoPreview, setDraftSquareLogoPreview] =
     React.useState('');
   const [draftDomain, setDraftDomain] = React.useState('');
+  const [draftDomainStatus, setDraftDomainStatus] =
+    React.useState<DraftDomainStatus | null>(null);
   const [draftIntegrations, setDraftIntegrations] = React.useState<
     Record<BillingCustomizationProvider, DraftIntegrationConfig>
   >(createEmptyDraftIntegrations());
@@ -310,6 +333,7 @@ export function AdminBillingEntitlementDialog({
     setDraftWideLogoPreview('');
     setDraftSquareLogoPreview('');
     setDraftDomain('');
+    setDraftDomainStatus(null);
     setDraftIntegrations(createEmptyDraftIntegrations());
     setSelectedDraftPaymentProviders([]);
     draftHydratedRef.current = false;
@@ -360,6 +384,7 @@ export function AdminBillingEntitlementDialog({
     configStatus,
     creatorMobile,
     draftDomain,
+    draftDomainStatus,
     draftIntegrations,
     draftSquareLogo,
     draftSquareLogoFile,
@@ -439,6 +464,8 @@ export function AdminBillingEntitlementDialog({
             }
             const nextDraftIntegrations =
               draftIntegrationsFromCustomization(customization);
+            const nextDraftDomainStatus =
+              resolveDraftDomainStatus(customization);
             isApplyingDraftRef.current = true;
             setDraftWideLogo(customization.branding.logo_wide_url || '');
             setDraftSquareLogo(customization.branding.logo_square_url || '');
@@ -447,6 +474,7 @@ export function AdminBillingEntitlementDialog({
               customization.branding.logo_square_url || '',
             );
             setDraftDomain(customization.domains.items[0]?.host || '');
+            setDraftDomainStatus(nextDraftDomainStatus);
             setDraftIntegrations(nextDraftIntegrations);
             setSelectedDraftPaymentProviders(
               resolveSelectedDraftPaymentProviders(nextDraftIntegrations),
@@ -469,6 +497,19 @@ export function AdminBillingEntitlementDialog({
         setDraftWideLogoPreview(draft.branding.logo_wide_url || '');
         setDraftSquareLogoPreview(draft.branding.logo_square_url || '');
         setDraftDomain(draft.domain.host || '');
+        if (creatorBid) {
+          const customization = (await api.getAdminBillingCustomization(
+            { creator_bid: creatorBid },
+            { skipErrorToast: true },
+          )) as BillingCustomization;
+          if (
+            draftLoadTokenRef.current !== loadToken ||
+            lastDraftTargetRef.current !== targetKey
+          ) {
+            return;
+          }
+          setDraftDomainStatus(resolveDraftDomainStatus(customization));
+        }
         const nextDraftIntegrations = cloneDraftIntegrations(
           draft.integrations || createEmptyDraftIntegrations(),
         );
@@ -695,7 +736,8 @@ export function AdminBillingEntitlementDialog({
           ? { creator_bid: nextCreatorBid }
           : { creator_mobile: normalizedCreatorMobile },
       );
-      await mutate(isEntitlementsCacheKey);
+      await mutate(isAdminBillingEntitlementsCacheKey);
+      await mutate(isAdminBillingCustomizationCacheKey);
       if (!resolvedItem && nextCreatorBid) {
         toast({
           title: t('module.billing.admin.entitlements.grant.createdContinue', {
@@ -730,6 +772,7 @@ export function AdminBillingEntitlementDialog({
         <CreateDraftSection
           field={field}
           draftDomain={draftDomain}
+          draftDomainStatus={draftDomainStatus}
           draftIntegrations={draftIntegrations}
           draftSquareLogoFile={draftSquareLogoFile}
           draftSquareLogoPreview={draftSquareLogoPreview}
@@ -1017,6 +1060,7 @@ export function AdminBillingEntitlementDialog({
 function CreateDraftSection({
   field,
   draftDomain,
+  draftDomainStatus,
   draftIntegrations,
   draftSquareLogoFile,
   draftSquareLogoPreview,
@@ -1035,6 +1079,7 @@ function CreateDraftSection({
 }: {
   field: VisibleEntitlementField;
   draftDomain: string;
+  draftDomainStatus: DraftDomainStatus | null;
   draftIntegrations: Record<
     BillingCustomizationProvider,
     DraftIntegrationConfig
@@ -1094,12 +1139,35 @@ function CreateDraftSection({
 
   if (field === 'custom_domain_enabled') {
     return (
-      <CreateDraftInput
-        label={t('module.billing.customization.domain.title')}
-        value={draftDomain}
-        onChange={onDraftDomainChange}
-        placeholder={t('module.billing.customization.domain.placeholder')}
-      />
+      <div className='space-y-3'>
+        <CreateDraftInput
+          label={t('module.billing.customization.domain.title')}
+          value={draftDomain}
+          onChange={onDraftDomainChange}
+          placeholder={t('module.billing.customization.domain.placeholder')}
+        />
+        {draftDomainStatus ? (
+          <div className='rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm'>
+            <div className='font-medium text-slate-900'>
+              {draftDomainStatus.host}
+            </div>
+            <div className='mt-1 text-xs text-slate-500'>
+              {t(`module.billing.domains.status.${draftDomainStatus.status}`)}{' '}
+              {INLINE_SEPARATOR}{' '}
+              {t(`module.billing.domains.ssl.${draftDomainStatus.ssl_status}`)}
+            </div>
+            {draftDomainStatus.verification_record_name &&
+            draftDomainStatus.verification_record_value ? (
+              <div className='mt-2 break-all rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500'>
+                {t('module.billing.customization.domain.record', {
+                  name: draftDomainStatus.verification_record_name,
+                  value: draftDomainStatus.verification_record_value,
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     );
   }
 
