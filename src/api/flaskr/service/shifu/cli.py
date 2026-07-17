@@ -51,6 +51,10 @@ def register_shifu_commands(console, app) -> None:
             raise click.ClickException(
                 "Pass --user-bid for non-dry-run outline repair."
             )
+        if keep_root_bids and len(shifu_bids) != 1:
+            raise click.ClickException(
+                "Pass exactly one --shifu-bid when using --keep-root-bid."
+            )
 
         payload = repair_shifu_outline_structure(
             app,

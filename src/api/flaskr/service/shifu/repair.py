@@ -319,7 +319,8 @@ def _collect_retired_duplicate_root_bids(
     duplicate_root_bids = [
         str(item.outline_item_bid or "").strip()
         for item in children_by_parent.get("", [])
-        if str(item.position or "").strip() in keep_positions
+        if str(item.outline_item_bid or "").strip()
+        and str(item.position or "").strip() in keep_positions
         and str(item.outline_item_bid or "").strip() not in keep_bid_set
     ]
 
@@ -327,6 +328,8 @@ def _collect_retired_duplicate_root_bids(
     seen: set[str] = set()
 
     def _walk_retired_subtree(outline_bid: str) -> None:
+        if not outline_bid:
+            return
         if outline_bid in seen:
             return
         seen.add(outline_bid)
@@ -448,6 +451,7 @@ def repair_shifu_outline_structure(
 
                 __lock_shifu_for_outline_write(shifu_bid)
                 locked_items = _load_latest_active_outline_items(shifu_bid)
+                locked_issue_types = _detect_issue_types(locked_items)
                 locked_retired_outline_bids: list[str] = []
                 skip_reason = None
                 if normalized_keep_root_bids:
@@ -465,6 +469,10 @@ def repair_shifu_outline_structure(
                             if str(item.outline_item_bid or "").strip()
                             not in locked_retired_bid_set
                         ]
+                    if locked_retired_outline_bids:
+                        locked_issue_types = sorted(
+                            set(locked_issue_types) | {"root_generation_collision"}
+                        )
                 if skip_reason is None:
                     changes, skip_reason = _plan_outline_structure_repair(locked_items)
                 if skip_reason:
@@ -489,6 +497,7 @@ def repair_shifu_outline_structure(
                 )
                 record.changed_outlines = changes
                 record.retired_outline_bids = locked_retired_outline_bids
+                record.issue_types = locked_issue_types
 
                 current_time = now_utc()
                 change_by_bid = {

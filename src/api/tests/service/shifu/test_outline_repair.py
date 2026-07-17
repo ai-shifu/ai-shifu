@@ -313,6 +313,17 @@ def test_repair_shifu_outline_structure_retires_duplicate_root_generations(app):
             .all()
         )
         active_by_bid = {row.outline_item_bid: row for row in active_rows}
+        retired_versions_by_bid = {
+            outline_bid: (
+                DraftOutlineItem.query.filter_by(
+                    shifu_bid="shifu-root-generation",
+                    outline_item_bid=outline_bid,
+                )
+                .order_by(DraftOutlineItem.id.asc())
+                .all()
+            )
+            for outline_bid in result.repaired_records[0].retired_outline_bids
+        }
         latest_struct = (
             LogDraftStruct.query.filter_by(shifu_bid="shifu-root-generation", deleted=0)
             .order_by(LogDraftStruct.id.desc())
@@ -327,6 +338,23 @@ def test_repair_shifu_outline_structure_retires_duplicate_root_generations(app):
         "position_collision",
         "root_generation_collision",
     ]
+    assert result.repaired_records[0].retired_outline_bids == [
+        "old-stage-1-1",
+        "old-child",
+        "old-stage-1-2",
+        "old-stage-1-3",
+        "old-stage-2-1",
+        "old-stage-2-2",
+        "old-stage-2-3",
+        "old-stage-3-1",
+        "old-stage-3-2",
+        "old-stage-3-3",
+    ]
+    for outline_bid, versions in retired_versions_by_bid.items():
+        assert len(versions) == 2
+        assert versions[0].deleted == 0
+        assert versions[-1].deleted == 1
+        assert versions[-1].updated_user_bid == "repair-user-1", outline_bid
     assert set(active_by_bid) == {
         "keep-stage-1",
         "keep-stage-2",
@@ -431,3 +459,53 @@ def test_repair_shifu_outline_structure_applies_changes_for_space_padded_bid(app
     assert latest_child is not None
     assert latest_child.parent_bid == "root-1"
     assert latest_child.position == "0101"
+
+
+def test_repair_shifu_outline_structure_does_not_retire_blank_outline_bid(app):
+    with app.app_context():
+        _mk_shifu("shifu-blank-outline-bid")
+        _mk_outline(
+            "shifu-blank-outline-bid",
+            "",
+            "01",
+            title="Blank bid root",
+        )
+        _mk_outline(
+            "shifu-blank-outline-bid",
+            "keep-root",
+            "01",
+            title="Keep root",
+        )
+        db.session.commit()
+
+        result = repair_shifu_outline_structure(
+            app,
+            user_bid="repair-user-1",
+            shifu_bids=["shifu-blank-outline-bid"],
+            keep_root_bids=["keep-root"],
+            dry_run=False,
+        )
+
+        latest_ids = (
+            db.session.query(db.func.max(DraftOutlineItem.id).label("id"))
+            .filter(DraftOutlineItem.shifu_bid == "shifu-blank-outline-bid")
+            .group_by(DraftOutlineItem.outline_item_bid)
+            .subquery()
+        )
+        latest_rows = (
+            DraftOutlineItem.query.filter(
+                DraftOutlineItem.id.in_(db.session.query(latest_ids.c.id)),
+                DraftOutlineItem.shifu_bid == "shifu-blank-outline-bid",
+            )
+            .order_by(DraftOutlineItem.outline_item_bid.asc())
+            .all()
+        )
+
+    assert result.status == "skipped"
+    assert result.repaired_shifu_count == 0
+    assert result.retired_outline_count == 0
+    assert result.skipped_records[0].shifu_bid == "shifu-blank-outline-bid"
+    assert {row.outline_item_bid: row.deleted for row in latest_rows} == {
+        "": 0,
+        "keep-root": 0,
+    }
