@@ -634,7 +634,7 @@ export function AdminBillingEntitlementsTable() {
       );
     };
   }, []);
-  const { data: entitlementsCountPage } = useSWR<
+  const { data: entitlementsCountPage, error: entitlementsCountError } = useSWR<
     BillingPagedResponse<AdminBillingEntitlementItem>
   >(
     buildBillingSwrKey('admin-billing-entitlements-count'),
@@ -657,7 +657,7 @@ export function AdminBillingEntitlementsTable() {
     0,
   );
 
-  const { data: entitlementsPage, error } = useSWR<
+  const { data: entitlementsPage, error: entitlementsPageError } = useSWR<
     BillingPagedResponse<AdminBillingEntitlementItem>
   >(
     entitlementsCountPage
@@ -734,6 +734,8 @@ export function AdminBillingEntitlementsTable() {
     }
   }, [pageIndex, safePageIndex]);
 
+  const error = entitlementsCountError || entitlementsPageError;
+
   return (
     <AdminBillingSectionCard
       title={t('module.billing.admin.entitlements.title')}
@@ -754,7 +756,7 @@ export function AdminBillingEntitlementsTable() {
       disableContentShell
     >
       <AdminTableShell
-        loading={!entitlementsPage && !error}
+        loading={!error && (!entitlementsCountPage || !entitlementsPage)}
         isEmpty={!sortedItems.length}
         emptyContent={t('module.billing.admin.entitlements.empty')}
         emptyColSpan={9}

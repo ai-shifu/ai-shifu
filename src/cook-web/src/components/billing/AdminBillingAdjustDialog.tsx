@@ -120,15 +120,6 @@ export function AdminBillingAdjustDialog({
       const result = (await api.adjustAdminBillingLedger(
         payload,
       )) as AdminBillingLedgerAdjustResult;
-
-      const exceptionRowKey = String(
-        initialTarget?.exception_row_key || '',
-      ).trim();
-      if (exceptionRowKey) {
-        await setAdminBillingExceptionHandledState(exceptionRowKey, true);
-      }
-
-      await mutate(isAdminBillingCacheKey, undefined, { revalidate: true });
       onOpenChange(false);
       toast({
         title: t('module.billing.admin.adjust.success', {
@@ -138,6 +129,16 @@ export function AdminBillingAdjustDialog({
           ),
         }),
       });
+
+      const exceptionRowKey = String(
+        initialTarget?.exception_row_key || '',
+      ).trim();
+      void Promise.allSettled([
+        exceptionRowKey
+          ? setAdminBillingExceptionHandledState(exceptionRowKey, true)
+          : Promise.resolve(),
+        mutate(isAdminBillingCacheKey, undefined, { revalidate: true }),
+      ]);
     } catch {
       // The shared request layer already surfaces backend errors.
     } finally {

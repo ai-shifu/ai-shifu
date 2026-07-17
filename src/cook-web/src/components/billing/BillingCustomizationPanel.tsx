@@ -312,10 +312,10 @@ function useBillingCustomizationEditorState({
     [],
   );
 
+  const latestDomainHost = data?.domains.items[0]?.host || '';
   React.useEffect(() => {
-    const latestDomain = data?.domains.items[0]?.host || '';
-    setDomain(latestDomain);
-  }, [data?.domains.items]);
+    setDomain(latestDomainHost);
+  }, [latestDomainHost]);
 
   React.useEffect(() => {
     setWideLogo(data?.branding.logo_wide_url || '');
@@ -1095,6 +1095,7 @@ function IntegrationCard({
   const [secretConfig, setSecretConfig] = React.useState<
     Record<string, string>
   >({});
+  const integrationResetKey = `${integration.provider}:${integration.integration_bid || ''}:${integration.status}`;
 
   React.useEffect(() => {
     setPublicConfig(
@@ -1106,7 +1107,10 @@ function IntegrationCard({
       ),
     );
     setSecretConfig({});
-  }, [integration]);
+    // Reset form state only when switching integration identity/status; unrelated
+    // refetches must not wipe in-progress credential input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [integrationResetKey]);
 
   const saveIntegration = React.useCallback(async () => {
     const saved = (await (isAdminMode

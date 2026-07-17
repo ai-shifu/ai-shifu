@@ -75,21 +75,17 @@ def _admin_ops_lock(key: str) -> Iterator[None]:
         from flaskr import dao
 
         redis = getattr(dao, "redis_client", None)
-        lock = (
-            redis.lock(
-                f"billing:admin_ops_state:{key}",
-                timeout=10,
-                blocking_timeout=5,
-            )
-            if redis is not None
-            else None
+        if redis is None:
+            raise RuntimeError("Redis client is not configured")
+        lock = redis.lock(
+            f"billing:admin_ops_state:{key}",
+            timeout=10,
+            blocking_timeout=5,
         )
-    except Exception:
-        lock = None
-
-    if lock is None:
-        yield
-        return
+    except Exception as exc:
+        raise RuntimeError(
+            "Admin billing operations state lock is unavailable"
+        ) from exc
 
     acquired = lock.acquire(blocking=True, blocking_timeout=5)
     if not acquired:

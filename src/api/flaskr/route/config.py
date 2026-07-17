@@ -174,13 +174,20 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                     resolved_creator_bid,
                 )
 
-        custom_wechat = public_integrations.get("wechat_oauth", {})
+        custom_wechat_enabled = customization_capabilities.get("custom_wechat", False)
         custom_payment_enabled = customization_capabilities.get("custom_payment", False)
-        custom_payment_channels = [
-            provider
-            for provider in ("pingxx", "stripe", "alipay", "wechatpay")
-            if provider in public_integrations
-        ]
+        custom_wechat = (
+            public_integrations.get("wechat_oauth", {}) if custom_wechat_enabled else {}
+        )
+        custom_payment_channels = (
+            [
+                provider
+                for provider in ("pingxx", "stripe", "alipay", "wechatpay")
+                if provider in public_integrations
+            ]
+            if custom_payment_enabled
+            else []
+        )
         wechat_app_id = str(custom_wechat.get("app_id") or "") or get_config(
             "WECHAT_APP_ID", ""
         )
@@ -192,8 +199,10 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 ["pingxx", "stripe"],
             )
         )
-        stripe_publishable_key = str(
-            public_integrations.get("stripe", {}).get("publishable_key") or ""
+        stripe_publishable_key = (
+            str(public_integrations.get("stripe", {}).get("publishable_key") or "")
+            if custom_payment_enabled
+            else ""
         ) or get_config("STRIPE_PUBLISHABLE_KEY", "")
 
         config = RuntimeConfigDTO(
@@ -248,7 +257,9 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             branding=runtime_billing.branding,
             domain=runtime_billing.domain,
             customizationCapabilities=customization_capabilities,
-            paymentConfigurationReady=bool(custom_payment_channels),
+            paymentConfigurationReady=(
+                custom_payment_enabled and bool(custom_payment_channels)
+            ),
         )
         return make_common_response(config)
 

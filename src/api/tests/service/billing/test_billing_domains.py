@@ -19,6 +19,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.domains import (
     build_creator_domain_bindings,
+    manage_creator_domain_binding,
     verify_domain_binding,
 )
 from flaskr.service.billing.models import BillingDomainBinding, BillingEntitlement
@@ -227,6 +228,47 @@ class TestBillingDomains:
             item for item in bindings.items if item.host == "academy.example.com"
         )
         assert verified.last_verified_at == datetime(2026, 4, 8, 10, 0, 0)
+
+    def test_rebinding_verified_domain_disables_sibling_bindings(
+        self, billing_domain_client
+    ) -> None:
+        app = billing_domain_client["app"]
+        now = datetime(2026, 4, 8, 12, 0, 0)
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingDomainBinding(
+                    domain_binding_bid="binding-pending-sibling",
+                    creator_bid="creator-1",
+                    host="pending.example.com",
+                    status=BILLING_DOMAIN_BINDING_STATUS_PENDING,
+                    verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
+                    verification_token="token-pending",
+                    last_verified_at=now - timedelta(hours=1),
+                )
+            )
+            dao.db.session.commit()
+
+        manage_creator_domain_binding(
+            app,
+            "creator-1",
+            {
+                "action": "bind",
+                "domain_binding_bid": "binding-verified-1",
+                "host": "academy.example.com",
+            },
+        )
+
+        with app.app_context():
+            verified = BillingDomainBinding.query.filter_by(
+                domain_binding_bid="binding-verified-1"
+            ).one()
+            sibling = BillingDomainBinding.query.filter_by(
+                domain_binding_bid="binding-pending-sibling"
+            ).one()
+
+        assert verified.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
+        assert sibling.status == BILLING_DOMAIN_BINDING_STATUS_DISABLED
 
     def test_with_shifu_context_resolves_creator_from_custom_domain_host(
         self, billing_domain_client

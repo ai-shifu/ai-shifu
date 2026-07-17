@@ -282,6 +282,7 @@ export function AdminBillingEntitlementDialog({
   const [submitting, setSubmitting] = React.useState(false);
   const draftHydratedRef = React.useRef(false);
   const lastDraftTargetRef = React.useRef('');
+  const draftLoadTokenRef = React.useRef(0);
   const isApplyingDraftRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -312,10 +313,16 @@ export function AdminBillingEntitlementDialog({
     setSelectedDraftPaymentProviders(['alipay']);
     draftHydratedRef.current = false;
     lastDraftTargetRef.current = '';
+    draftLoadTokenRef.current += 1;
   }, [initialConfigRecord, initialItem, open]);
 
   React.useEffect(() => {
-    if (!open || submitting || isApplyingDraftRef.current) {
+    if (
+      !open ||
+      submitting ||
+      isApplyingDraftRef.current ||
+      !draftHydratedRef.current
+    ) {
       return;
     }
     const creatorBid = String(resolvedItem?.creator_bid || '').trim();
@@ -382,6 +389,9 @@ export function AdminBillingEntitlementDialog({
     }
 
     lastDraftTargetRef.current = targetKey;
+    draftHydratedRef.current = false;
+    const loadToken = draftLoadTokenRef.current + 1;
+    draftLoadTokenRef.current = loadToken;
     void (async () => {
       try {
         const draft = (await api.getAdminBillingCustomizationDraft(
@@ -390,6 +400,12 @@ export function AdminBillingEntitlementDialog({
             : { creator_mobile: normalizedCreatorMobile },
           { skipErrorToast: true },
         )) as AdminBillingCustomizationDraft;
+        if (
+          draftLoadTokenRef.current !== loadToken ||
+          lastDraftTargetRef.current !== targetKey
+        ) {
+          return;
+        }
         const hasSavedDraftContent =
           draft.branding_enabled ||
           draft.custom_domain_enabled ||
@@ -407,6 +423,7 @@ export function AdminBillingEntitlementDialog({
             ].some(value => String(value || '').trim() !== ''),
           );
         if (!hasSavedDraftContent) {
+          draftHydratedRef.current = true;
           return;
         }
         isApplyingDraftRef.current = true;
@@ -435,10 +452,15 @@ export function AdminBillingEntitlementDialog({
         );
         draftHydratedRef.current = true;
       } catch {
-        lastDraftTargetRef.current = '';
+        if (draftLoadTokenRef.current === loadToken) {
+          lastDraftTargetRef.current = '';
+          draftHydratedRef.current = true;
+        }
       } finally {
         window.setTimeout(() => {
-          isApplyingDraftRef.current = false;
+          if (draftLoadTokenRef.current === loadToken) {
+            isApplyingDraftRef.current = false;
+          }
         }, 0);
       }
     })();
@@ -521,8 +543,8 @@ export function AdminBillingEntitlementDialog({
     try {
       const effectiveValues = { ...values };
       const shouldSkipPaymentEnable =
+        !resolvedItem &&
         values.custom_payment_enabled &&
-        !resolvedItem?.custom_payment_enabled &&
         selectedDraftPaymentProviders.filter(provider =>
           hasCompleteDraftPaymentConfig(draftIntegrations, provider),
         ).length === 0;

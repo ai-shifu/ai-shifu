@@ -218,6 +218,34 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     }
 
 
+def test_runtime_config_hides_creator_keys_without_matching_capability(
+    runtime_config_client,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(config_route, "is_creator_customization_enabled", lambda: True)
+    monkeypatch.setattr(
+        config_route,
+        "resolve_creator_public_integrations",
+        lambda creator_bid: {
+            "wechat_oauth": {"app_id": "wx-custom"},
+            "stripe": {"publishable_key": "pk_creator"},
+        },
+    )
+
+    response = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=shifu-1",
+        headers={"Host": "creator.example.com"},
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["entitlements"]["custom_wechat_enabled"] is False
+    assert payload["entitlements"]["custom_payment_enabled"] is False
+    assert payload["wechatAppId"] == "wechat-app-1"
+    assert payload["stripePublishableKey"] == "pk_test_global"
+    assert payload["paymentChannels"] == ["pingxx", "stripe"]
+    assert payload["paymentConfigurationReady"] is False
+
+
 def test_runtime_config_uses_origin_header_for_google_redirect_when_host_url_missing(
     runtime_config_client,
     monkeypatch,

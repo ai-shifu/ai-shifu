@@ -1351,7 +1351,12 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         raw_amount: int,
     ) -> None:
         stat_day = today - timedelta(days=stat_days_ago)
-        window_started_at = datetime.combine(stat_day, datetime.min.time())
+        window_started_at = current_time.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        ) - timedelta(days=stat_days_ago)
         window_ended_at = window_started_at + timedelta(days=1)
         rows.append(
             {

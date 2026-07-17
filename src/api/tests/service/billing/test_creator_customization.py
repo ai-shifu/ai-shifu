@@ -598,3 +598,33 @@ def test_custom_wechat_identifiers_are_scoped_by_app_id(app, monkeypatch):
         )
     finally:
         clear_shifu_context()
+
+
+def test_custom_wechat_identifiers_fail_when_integration_resolution_fails(
+    app, monkeypatch
+):
+    set_shifu_context("shifu-1", "creator-wechat-broken")
+    monkeypatch.setattr(
+        user_service,
+        "resolve_creator_public_integrations",
+        lambda creator_bid: (_ for _ in ()).throw(RuntimeError("resolver failed")),
+    )
+    try:
+        with pytest.raises(RuntimeError, match="resolver failed"):
+            user_service._wechat_identifiers(app, "openid-1", "unionid-1")
+    finally:
+        clear_shifu_context()
+
+
+def test_custom_wechat_identifiers_require_custom_app_id(app, monkeypatch):
+    set_shifu_context("shifu-1", "creator-wechat-missing-app")
+    monkeypatch.setattr(
+        user_service,
+        "resolve_creator_public_integrations",
+        lambda creator_bid: {"wechat_oauth": {"app_id": ""}},
+    )
+    try:
+        with pytest.raises(RuntimeError, match="missing app_id"):
+            user_service._wechat_identifiers(app, "openid-1", "unionid-1")
+    finally:
+        clear_shifu_context()

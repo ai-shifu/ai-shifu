@@ -645,7 +645,7 @@ describe('AdminBillingOperationsConsole', () => {
         branding_enabled: true,
         custom_domain_enabled: true,
         custom_wechat_enabled: false,
-        custom_payment_enabled: false,
+        custom_payment_enabled: true,
       }),
     );
   });

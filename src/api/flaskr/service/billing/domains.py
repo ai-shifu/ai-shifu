@@ -406,10 +406,10 @@ def _bind_creator_domain(
             creator_bid=creator_bid,
             host=host,
         )
-    elif binding.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED and (
-        _normalize_bid(binding.host) == host
-    ):
-        return binding
+    reuse_verified_binding = (
+        binding.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
+        and _normalize_bid(binding.host) == host
+    )
 
     other_bindings = BillingDomainBinding.query.filter(
         BillingDomainBinding.deleted == 0,
@@ -419,6 +419,9 @@ def _bind_creator_domain(
     ).all()
     for other in other_bindings:
         other.status = BILLING_DOMAIN_BINDING_STATUS_DISABLED
+
+    if reuse_verified_binding:
+        return binding
 
     binding.host = host
     binding.status = BILLING_DOMAIN_BINDING_STATUS_PENDING

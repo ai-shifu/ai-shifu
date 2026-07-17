@@ -24,7 +24,7 @@ from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config.funcs import get_config
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 
 from .domains import build_creator_domain_bindings
@@ -486,7 +486,7 @@ def verify_creator_integration(
 
         record.update(
             status="verified",
-            verified_at=now_utc().isoformat(),
+            verified_at=to_utc_iso(now_utc()),
             last_error_code="",
             last_error_message="",
         )

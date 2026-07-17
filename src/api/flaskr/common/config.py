@@ -1781,6 +1781,14 @@ class EnhancedConfig:
         has_llm = any(self.get(var) not in (None, "") for var in llm_vars)
         if not has_llm:
             errors.append("At least one LLM API key must be configured")
+        if (
+            self.get("CREATOR_CUSTOMIZATION_ENABLED")
+            and not str(self.get("CREATOR_INTEGRATION_ENCRYPTION_KEY") or "").strip()
+        ):
+            validation_errors.append(
+                "- CREATOR_INTEGRATION_ENCRYPTION_KEY: required when "
+                "CREATOR_CUSTOMIZATION_ENABLED is true"
+            )
         for var_name, env_var in self.env_vars.items():
             # Check required variables (those with required=True)
             raw_value = os.environ.get(var_name)

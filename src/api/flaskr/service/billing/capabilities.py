@@ -111,7 +111,7 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         default_enabled=True,
         route_entries=(
             ("GET", "/api/admin/billing/entitlements"),
-            ("POST", "/api/admin/billing/entitlements/{creator_bid}"),
+            ("POST", "/api/admin/billing/entitlements/grants"),
         ),
         notes=("Admin entitlement review and manual grants remain enabled.",),
     ),

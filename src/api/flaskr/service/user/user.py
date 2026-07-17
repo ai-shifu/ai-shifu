@@ -16,7 +16,6 @@ from ...dao import db
 from ...api.wechat import get_wechat_access_token
 from flaskr.common.shifu_context import get_shifu_creator_bid as get_context_creator_bid
 from flaskr.service.billing.api import resolve_creator_public_integrations
-from flaskr.service.config import get_config
 from .repository import (
     build_user_info_from_aggregate,
     create_user_entity,
@@ -210,10 +209,16 @@ def _wechat_identifiers(app: Flask, open_id: str, union_id: str) -> tuple[str, s
             "wechat_oauth"
         )
     except Exception:
-        custom_wechat = None
+        app.logger.exception(
+            "Failed to resolve WeChat OAuth integration for creator %s",
+            creator_bid,
+        )
+        raise
     if not custom_wechat:
         return open_id, union_id
-    app_id = str(custom_wechat.get("app_id") or get_config("WECHAT_APP_ID", ""))
+    app_id = str(custom_wechat.get("app_id") or "").strip()
+    if not app_id:
+        raise RuntimeError("Custom WeChat OAuth integration is missing app_id")
     return (
         f"{app_id}:{open_id}" if open_id else "",
         f"{app_id}:{union_id}" if union_id else "",
