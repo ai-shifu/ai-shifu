@@ -3,7 +3,11 @@ Unit tests for EnvVar dataclass.
 """
 
 import pytest
-from flaskr.common.config import EnvVar
+from flaskr.common.config import (
+    ENV_VARS,
+    EnvVar,
+    parse_llm_model_max_output_tokens,
+)
 from tests.common.fixtures.mock_validators import (
     mock_port_validator,
     mock_email_validator,
@@ -231,6 +235,37 @@ class TestEnvVarValidation:
         assert env_var.validate_value(2.0) is True
         assert env_var.validate_value(-0.1) is False
         assert env_var.validate_value(2.1) is False
+
+
+class TestLLMModelMaxOutputTokensConfig:
+    def test_parse_valid_routed_model_limits(self):
+        assert parse_llm_model_max_output_tokens(
+            '{"qwen/deepseek-v4-flash":393216,"gemini-3.5-flash":65536}'
+        ) == {
+            "qwen/deepseek-v4-flash": 393216,
+            "gemini-3.5-flash": 65536,
+        }
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "not-json",
+            "[]",
+            '{"": 1}',
+            '{"qwen/model": 0}',
+            '{"qwen/model": -1}',
+            '{"qwen/model": true}',
+            '{"qwen/model": 1.5}',
+            '{"qwen/model": "8192"}',
+            '{"qwen/model": 8192, " qwen/model ": 4096}',
+        ],
+    )
+    def test_reject_invalid_routed_model_limits(self, value):
+        env_var = ENV_VARS["LLM_MODEL_MAX_OUTPUT_TOKENS"]
+
+        assert env_var.validate_value(value) is False
+        with pytest.raises(ValueError):
+            parse_llm_model_max_output_tokens(value)
 
 
 class TestEnvVarMultilineDescription:
