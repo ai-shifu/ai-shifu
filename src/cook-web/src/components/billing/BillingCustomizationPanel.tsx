@@ -1173,6 +1173,11 @@ function IntegrationCard({
                 key={field}
                 label={field}
                 value={secretConfig[field] || ''}
+                placeholder={
+                  integration.secret_configured_fields?.includes(field)
+                    ? t('module.billing.customization.actions.secretSaved')
+                    : undefined
+                }
                 onChange={value =>
                   setSecretConfig(current => ({ ...current, [field]: value }))
                 }
@@ -1254,11 +1259,13 @@ function ConfigInput({
   label,
   value,
   onChange,
+  placeholder,
   secret = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  placeholder?: string;
   secret?: boolean;
 }) {
   const multiline = secret && (label.includes('key') || label.includes('cert'));
@@ -1270,6 +1277,7 @@ function ConfigInput({
           rows={4}
           className='w-full rounded-lg border px-3 py-2 font-mono text-xs'
           value={value}
+          placeholder={placeholder}
           onChange={event => onChange(event.target.value)}
           autoComplete='new-password'
         />
@@ -1278,6 +1286,7 @@ function ConfigInput({
           type={secret ? 'password' : 'text'}
           className='w-full rounded-lg border px-3 py-2'
           value={value}
+          placeholder={placeholder}
           onChange={event => onChange(event.target.value)}
           autoComplete={secret ? 'new-password' : 'off'}
         />

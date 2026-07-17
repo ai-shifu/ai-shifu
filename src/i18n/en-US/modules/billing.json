@@ -139,7 +139,6 @@
           "custom_wechat_enabled": "Save the enabled items first, then fill in the WeChat official account parameters here.",
           "title": "Save first, then continue"
         },
-        "skippedIncompletePayment": "Custom payment setup is missing required channel parameters, so it was not enabled for this teacher. Other changes were saved.",
         "submit": "Save setup",
         "submitting": "Saving...",
         "success": "Updated custom entitlements for {creator}",
@@ -583,7 +582,8 @@
     "actions": {
       "clear": "Clear",
       "saveConfiguration": "Save configuration",
-      "saveIntegration": "Save payment settings"
+      "saveIntegration": "Save payment settings",
+      "secretSaved": "Saved. Enter a new value to replace it."
     },
     "branding": {
       "invalidFile": "Use a PNG, JPEG, or WebP file no larger than 2 MB",

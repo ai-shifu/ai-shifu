@@ -428,7 +428,7 @@ def save_creator_integration(
         )
         public_config = _normalize_config(provider, payload.get("public_config"), False)
         secret_config = _normalize_config(provider, payload.get("secret_config"), True)
-        previous_record = _load_active_record(creator_bid, provider)
+        previous_record = _load_latest_record_or_active(app, creator_bid, provider)
         if previous_record:
             previous_secret_config = dict(previous_record.get("secret_config") or {})
             if previous_secret_config:
@@ -658,6 +658,7 @@ def _serialize_active_integration(
             "status": "unconfigured",
             "public_config": {},
             "secret_configured": False,
+            "secret_configured_fields": [],
             "callback_url": "",
         }
     return _serialize_integration(app, creator_bid, record)
@@ -698,6 +699,11 @@ def _serialize_integration(
         "status": record.get("status", "draft"),
         "public_config": dict(record.get("public_config") or {}),
         "secret_configured": bool(record.get("secret_config")),
+        "secret_configured_fields": sorted(
+            key
+            for key, value in dict(record.get("secret_config") or {}).items()
+            if str(value or "").strip()
+        ),
         "callback_url": callback_url,
         "verified_at": record.get("verified_at"),
         "last_error_code": record.get("last_error_code", ""),
@@ -713,6 +719,23 @@ def _load_active_record(creator_bid: str, provider: str) -> dict[str, Any] | Non
         return None
     return _load_integration_record(
         current_app,
+        integration_bid,
+        expected_creator_bid=creator_bid,
+        expected_provider=provider,
+    )
+
+
+def _load_latest_record_or_active(
+    app: Flask, creator_bid: str, provider: str
+) -> dict[str, Any] | None:
+    if _saas_funcs(required=False) is None:
+        return None
+    try:
+        integration_bid = _latest_version_bid(app, creator_bid, provider)
+    except AppException:
+        return _load_active_record(creator_bid, provider)
+    return _load_integration_record(
+        app,
         integration_bid,
         expected_creator_bid=creator_bid,
         expected_provider=provider,
@@ -1269,7 +1292,9 @@ def _normalize_admin_creator_customization_draft(
                     "public_config": _normalize_config(
                         provider, provider_payload.get("public_config"), False
                     ),
-                    "secret_config": {},
+                    "secret_config": _normalize_config(
+                        provider, provider_payload.get("secret_config"), True
+                    ),
                 }
             else:
                 normalized_integrations[provider] = {

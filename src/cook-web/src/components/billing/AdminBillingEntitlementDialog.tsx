@@ -10,7 +10,7 @@ import type {
   AdminBillingCustomizationDraft,
   AdminBillingEntitlementGrantPayload,
   AdminBillingEntitlementItem,
-  BillingCustomizationIntegration,
+  BillingCustomization,
   BillingCustomizationProvider,
 } from '@/types/billing';
 import { Button } from '@/components/ui/Button';
@@ -25,7 +25,6 @@ import {
 import { Input } from '@/components/ui/Input';
 import { Switch } from '@/components/ui/Switch';
 import { Textarea } from '@/components/ui/Textarea';
-import { BillingCustomizationPanelContent } from './BillingCustomizationPanel';
 import {
   setAdminBillingConfigStatusState,
   type AdminBillingConfigStatus,
@@ -52,6 +51,7 @@ type EntitlementField = VisibleEntitlementField | 'custom_wechat_enabled';
 type DraftIntegrationConfig = {
   public_config: Record<string, string>;
   secret_config: Record<string, string>;
+  secret_configured_fields?: string[];
 };
 
 const EMPTY_VALUES: Record<EntitlementField, boolean> = {
@@ -59,15 +59,6 @@ const EMPTY_VALUES: Record<EntitlementField, boolean> = {
   custom_domain_enabled: false,
   custom_wechat_enabled: false,
   custom_payment_enabled: false,
-};
-
-const ENTITLEMENT_SECTION_FILTERS: Record<
-  VisibleEntitlementField,
-  Array<'branding' | 'custom_domain' | 'custom_wechat' | 'custom_payment'>
-> = {
-  branding_enabled: ['branding'],
-  custom_domain_enabled: ['custom_domain'],
-  custom_payment_enabled: ['custom_payment'],
 };
 
 const DRAFT_PROVIDER_FIELDS: Record<
@@ -140,6 +131,7 @@ function createEmptyDraftIntegrationConfig(): DraftIntegrationConfig {
   return {
     public_config: {},
     secret_config: {},
+    secret_configured_fields: [],
   };
 }
 
@@ -157,36 +149,12 @@ function createEmptyDraftIntegrations(): Record<
 }
 
 function hasDraftIntegrationValue(config: DraftIntegrationConfig): boolean {
-  return [
-    ...Object.values(config.public_config),
-    ...Object.values(config.secret_config),
-  ].some(value => String(value || '').trim() !== '');
-}
-
-function hasCompleteDraftIntegrationConfig(
-  provider: BillingCustomizationProvider,
-  config: DraftIntegrationConfig,
-): boolean {
-  const fields = DRAFT_PROVIDER_FIELDS[provider];
-  const requiredPublicFields = fields.public;
-  return [...requiredPublicFields, ...fields.secret].every(field => {
-    const source = requiredPublicFields.includes(field)
-      ? config.public_config
-      : config.secret_config;
-    return String(source[field] || '').trim() !== '';
-  });
-}
-
-function hasCompleteDraftPaymentConfig(
-  draftIntegrations: Record<
-    BillingCustomizationProvider,
-    DraftIntegrationConfig
-  >,
-  provider: BillingCustomizationProvider,
-): boolean {
-  return hasCompleteDraftIntegrationConfig(
-    provider,
-    draftIntegrations[provider],
+  return (
+    [
+      ...Object.values(config.public_config),
+      ...Object.values(config.secret_config),
+    ].some(value => String(value || '').trim() !== '') ||
+    Boolean(config.secret_configured_fields?.length)
   );
 }
 
@@ -197,36 +165,71 @@ function cloneDraftIntegrations(
     wechat_oauth: {
       public_config: { ...source.wechat_oauth.public_config },
       secret_config: { ...source.wechat_oauth.secret_config },
+      secret_configured_fields: [
+        ...(source.wechat_oauth.secret_configured_fields || []),
+      ],
     },
     pingxx: {
       public_config: { ...source.pingxx.public_config },
       secret_config: { ...source.pingxx.secret_config },
+      secret_configured_fields: [
+        ...(source.pingxx.secret_configured_fields || []),
+      ],
     },
     stripe: {
       public_config: { ...source.stripe.public_config },
       secret_config: { ...source.stripe.secret_config },
+      secret_configured_fields: [
+        ...(source.stripe.secret_configured_fields || []),
+      ],
     },
     alipay: {
       public_config: { ...source.alipay.public_config },
       secret_config: { ...source.alipay.secret_config },
+      secret_configured_fields: [
+        ...(source.alipay.secret_configured_fields || []),
+      ],
     },
     wechatpay: {
       public_config: { ...source.wechatpay.public_config },
       secret_config: { ...source.wechatpay.secret_config },
+      secret_configured_fields: [
+        ...(source.wechatpay.secret_configured_fields || []),
+      ],
     },
   };
 }
 
-function stripDraftIntegrationSecrets(
-  source: Record<BillingCustomizationProvider, DraftIntegrationConfig>,
+function draftIntegrationsFromCustomization(
+  data: BillingCustomization,
 ): Record<BillingCustomizationProvider, DraftIntegrationConfig> {
-  const cloned = cloneDraftIntegrations(source);
-  for (const provider of Object.keys(
-    cloned,
-  ) as BillingCustomizationProvider[]) {
-    cloned[provider].secret_config = {};
+  const next = createEmptyDraftIntegrations();
+  for (const integration of data.integrations) {
+    next[integration.provider] = {
+      public_config: Object.fromEntries(
+        Object.entries(integration.public_config || {}).map(([key, value]) => [
+          key,
+          String(value ?? ''),
+        ]),
+      ),
+      secret_config: {},
+      secret_configured_fields: [
+        ...(integration.secret_configured_fields || []),
+      ],
+    };
   }
-  return cloned;
+  return next;
+}
+
+function resolveSelectedDraftPaymentProviders(
+  draftIntegrations: Record<
+    BillingCustomizationProvider,
+    DraftIntegrationConfig
+  >,
+): BillingCustomizationProvider[] {
+  return VISIBLE_DRAFT_PAYMENT_PROVIDERS.filter(provider =>
+    hasDraftIntegrationValue(draftIntegrations[provider]),
+  );
 }
 
 function isEntitlementsCacheKey(key: unknown): boolean {
@@ -348,7 +351,7 @@ export function AdminBillingEntitlementDialog({
         domain: {
           host: draftDomain,
         },
-        integrations: stripDraftIntegrationSecrets(draftIntegrations),
+        integrations: cloneDraftIntegrations(draftIntegrations),
       });
     }, 500);
 
@@ -414,13 +417,41 @@ export function AdminBillingEntitlementDialog({
           Boolean(draft.branding?.logo_wide_url) ||
           Boolean(draft.branding?.logo_square_url) ||
           Boolean(draft.domain?.host) ||
-          Object.values(draft.integrations || {}).some(integration =>
-            [
-              ...Object.values(integration?.public_config || {}),
-              ...Object.values(integration?.secret_config || {}),
-            ].some(value => String(value || '').trim() !== ''),
+          Object.values(draft.integrations || {}).some(
+            integration =>
+              [
+                ...Object.values(integration?.public_config || {}),
+                ...Object.values(integration?.secret_config || {}),
+              ].some(value => String(value || '').trim() !== '') ||
+              Boolean(integration?.secret_configured_fields?.length),
           );
         if (!hasSavedDraftContent) {
+          if (creatorBid) {
+            const customization = (await api.getAdminBillingCustomization(
+              { creator_bid: creatorBid },
+              { skipErrorToast: true },
+            )) as BillingCustomization;
+            if (
+              draftLoadTokenRef.current !== loadToken ||
+              lastDraftTargetRef.current !== targetKey
+            ) {
+              return;
+            }
+            const nextDraftIntegrations =
+              draftIntegrationsFromCustomization(customization);
+            isApplyingDraftRef.current = true;
+            setDraftWideLogo(customization.branding.logo_wide_url || '');
+            setDraftSquareLogo(customization.branding.logo_square_url || '');
+            setDraftWideLogoPreview(customization.branding.logo_wide_url || '');
+            setDraftSquareLogoPreview(
+              customization.branding.logo_square_url || '',
+            );
+            setDraftDomain(customization.domains.items[0]?.host || '');
+            setDraftIntegrations(nextDraftIntegrations);
+            setSelectedDraftPaymentProviders(
+              resolveSelectedDraftPaymentProviders(nextDraftIntegrations),
+            );
+          }
           draftHydratedRef.current = true;
           return;
         }
@@ -442,10 +473,9 @@ export function AdminBillingEntitlementDialog({
           draft.integrations || createEmptyDraftIntegrations(),
         );
         setDraftIntegrations(nextDraftIntegrations);
-        const draftPaymentProviders = VISIBLE_DRAFT_PAYMENT_PROVIDERS.filter(
-          provider => hasDraftIntegrationValue(nextDraftIntegrations[provider]),
+        setSelectedDraftPaymentProviders(
+          resolveSelectedDraftPaymentProviders(nextDraftIntegrations),
         );
-        setSelectedDraftPaymentProviders(draftPaymentProviders);
         draftHydratedRef.current = true;
       } catch {
         if (draftLoadTokenRef.current === loadToken) {
@@ -538,15 +568,6 @@ export function AdminBillingEntitlementDialog({
     setSubmitting(true);
     try {
       const effectiveValues = { ...values };
-      const shouldSkipPaymentEnable =
-        !resolvedItem &&
-        values.custom_payment_enabled &&
-        selectedDraftPaymentProviders.filter(provider =>
-          hasCompleteDraftPaymentConfig(draftIntegrations, provider),
-        ).length === 0;
-      if (shouldSkipPaymentEnable) {
-        effectiveValues.custom_payment_enabled = false;
-      }
 
       const payload: AdminBillingEntitlementGrantPayload = {
         ...(resolvedItem?.creator_bid
@@ -561,7 +582,7 @@ export function AdminBillingEntitlementDialog({
           '',
       ).trim();
 
-      if (nextCreatorBid && !resolvedItem) {
+      if (nextCreatorBid) {
         let nextWideLogo = draftWideLogo;
         let nextSquareLogo = draftSquareLogo;
 
@@ -617,9 +638,9 @@ export function AdminBillingEntitlementDialog({
           });
         }
 
-        const providersToApply = effectiveValues.custom_payment_enabled
+        const providersToApply = values.custom_payment_enabled
           ? selectedDraftPaymentProviders.filter(provider =>
-              hasCompleteDraftPaymentConfig(draftIntegrations, provider),
+              hasDraftIntegrationValue(draftIntegrations[provider]),
             )
           : [];
 
@@ -629,23 +650,12 @@ export function AdminBillingEntitlementDialog({
             continue;
           }
 
-          const savedIntegration =
-            (await api.saveAdminBillingCustomizationIntegration({
-              creator_bid: nextCreatorBid,
-              provider,
-              public_config: integrationDraft.public_config,
-              secret_config: integrationDraft.secret_config,
-            })) as Partial<BillingCustomizationIntegration>;
-          const integrationBid = String(
-            savedIntegration.integration_bid || '',
-          ).trim();
-          if (integrationBid) {
-            await api.verifyAdminBillingCustomizationIntegration({
-              creator_bid: nextCreatorBid,
-              provider,
-              integration_bid: integrationBid,
-            });
-          }
+          await api.saveAdminBillingCustomizationIntegration({
+            creator_bid: nextCreatorBid,
+            provider,
+            public_config: integrationDraft.public_config,
+            secret_config: integrationDraft.secret_config,
+          });
         }
       }
 
@@ -672,15 +682,6 @@ export function AdminBillingEntitlementDialog({
           analytics_tier: current?.analytics_tier || 'basic',
           support_tier: current?.support_tier || 'self_serve',
         }));
-      }
-
-      if (shouldSkipPaymentEnable) {
-        setValues(current => ({ ...current, custom_payment_enabled: false }));
-        toast({
-          title: t(
-            'module.billing.admin.entitlements.grant.skippedIncompletePayment',
-          ),
-        });
       }
 
       if (nextCreatorBid) {
@@ -724,133 +725,57 @@ export function AdminBillingEntitlementDialog({
       return null;
     }
 
-    if (!resolvedItem?.creator_bid) {
-      return (
-        <div className='border-t border-slate-200 bg-slate-50/70 px-4 py-4'>
-          <CreateDraftSection
-            field={field}
-            draftDomain={draftDomain}
-            draftIntegrations={draftIntegrations}
-            draftSquareLogoFile={draftSquareLogoFile}
-            draftSquareLogoPreview={draftSquareLogoPreview}
-            draftSquareLogo={draftSquareLogo}
-            draftWideLogoFile={draftWideLogoFile}
-            draftWideLogoPreview={draftWideLogoPreview}
-            draftWideLogo={draftWideLogo}
-            selectedPaymentProviders={selectedDraftPaymentProviders}
-            onSelectedPaymentProvidersChange={setSelectedDraftPaymentProviders}
-            onDraftDomainChange={setDraftDomain}
-            onDraftIntegrationChange={(provider, section, key, value) => {
-              setDraftIntegrations(current => ({
-                ...current,
-                [provider]: {
-                  ...current[provider],
-                  [section]: {
-                    ...current[provider][section],
-                    [key]: value,
-                  },
-                },
-              }));
-            }}
-            onDraftSquareLogoFileChange={file => {
-              void handleDraftLogoSelection('square', file).catch(error => {
-                toast({
-                  title:
-                    error instanceof Error
-                      ? error.message
-                      : t('module.billing.customization.branding.uploadFailed'),
-                  variant: 'destructive',
-                });
-              });
-            }}
-            onDraftSquareLogoChange={setDraftSquareLogo}
-            onDraftWideLogoFileChange={file => {
-              void handleDraftLogoSelection('wide', file).catch(error => {
-                toast({
-                  title:
-                    error instanceof Error
-                      ? error.message
-                      : t('module.billing.customization.branding.uploadFailed'),
-                  variant: 'destructive',
-                });
-              });
-            }}
-            onDraftWideLogoChange={setDraftWideLogo}
-          />
-        </div>
-      );
-    }
-
     return (
-      <div className='border-t border-slate-200 px-4 py-4'>
-        <BillingCustomizationPanelContent
-          creatorBid={resolvedItem.creator_bid}
-          embedded
-          sectionFilter={ENTITLEMENT_SECTION_FILTERS[field]}
-          capabilityOverrides={{
-            branding: values.branding_enabled,
-            custom_domain: values.custom_domain_enabled,
-            custom_wechat: values.custom_wechat_enabled,
-            custom_payment: values.custom_payment_enabled,
+      <div className='border-t border-slate-200 bg-slate-50/70 px-4 py-4'>
+        <CreateDraftSection
+          field={field}
+          draftDomain={draftDomain}
+          draftIntegrations={draftIntegrations}
+          draftSquareLogoFile={draftSquareLogoFile}
+          draftSquareLogoPreview={draftSquareLogoPreview}
+          draftSquareLogo={draftSquareLogo}
+          draftWideLogoFile={draftWideLogoFile}
+          draftWideLogoPreview={draftWideLogoPreview}
+          draftWideLogo={draftWideLogo}
+          selectedPaymentProviders={selectedDraftPaymentProviders}
+          onSelectedPaymentProvidersChange={setSelectedDraftPaymentProviders}
+          onDraftDomainChange={setDraftDomain}
+          onDraftIntegrationChange={(provider, section, key, value) => {
+            setDraftIntegrations(current => ({
+              ...current,
+              [provider]: {
+                ...current[provider],
+                [section]: {
+                  ...current[provider][section],
+                  [key]: value,
+                },
+              },
+            }));
           }}
-          loadingFallback={
-            <CreateDraftSection
-              field={field}
-              draftDomain={draftDomain}
-              draftIntegrations={draftIntegrations}
-              draftSquareLogoFile={draftSquareLogoFile}
-              draftSquareLogoPreview={draftSquareLogoPreview}
-              draftSquareLogo={draftSquareLogo}
-              draftWideLogoFile={draftWideLogoFile}
-              draftWideLogoPreview={draftWideLogoPreview}
-              draftWideLogo={draftWideLogo}
-              selectedPaymentProviders={selectedDraftPaymentProviders}
-              onSelectedPaymentProvidersChange={
-                setSelectedDraftPaymentProviders
-              }
-              onDraftDomainChange={setDraftDomain}
-              onDraftIntegrationChange={(provider, section, key, value) => {
-                setDraftIntegrations(current => ({
-                  ...current,
-                  [provider]: {
-                    ...current[provider],
-                    [section]: {
-                      ...current[provider][section],
-                      [key]: value,
-                    },
-                  },
-                }));
-              }}
-              onDraftSquareLogoFileChange={file => {
-                void handleDraftLogoSelection('square', file).catch(error => {
-                  toast({
-                    title:
-                      error instanceof Error
-                        ? error.message
-                        : t(
-                            'module.billing.customization.branding.uploadFailed',
-                          ),
-                    variant: 'destructive',
-                  });
-                });
-              }}
-              onDraftSquareLogoChange={setDraftSquareLogo}
-              onDraftWideLogoFileChange={file => {
-                void handleDraftLogoSelection('wide', file).catch(error => {
-                  toast({
-                    title:
-                      error instanceof Error
-                        ? error.message
-                        : t(
-                            'module.billing.customization.branding.uploadFailed',
-                          ),
-                    variant: 'destructive',
-                  });
-                });
-              }}
-              onDraftWideLogoChange={setDraftWideLogo}
-            />
-          }
+          onDraftSquareLogoFileChange={file => {
+            void handleDraftLogoSelection('square', file).catch(error => {
+              toast({
+                title:
+                  error instanceof Error
+                    ? error.message
+                    : t('module.billing.customization.branding.uploadFailed'),
+                variant: 'destructive',
+              });
+            });
+          }}
+          onDraftSquareLogoChange={setDraftSquareLogo}
+          onDraftWideLogoFileChange={file => {
+            void handleDraftLogoSelection('wide', file).catch(error => {
+              toast({
+                title:
+                  error instanceof Error
+                    ? error.message
+                    : t('module.billing.customization.branding.uploadFailed'),
+                variant: 'destructive',
+              });
+            });
+          }}
+          onDraftWideLogoChange={setDraftWideLogo}
         />
       </div>
     );
@@ -1428,6 +1353,11 @@ function CreateDraftIntegrationFields({
               <Textarea
                 rows={4}
                 value={config.secret_config[field] || ''}
+                placeholder={
+                  config.secret_configured_fields?.includes(field)
+                    ? t('module.billing.customization.actions.secretSaved')
+                    : undefined
+                }
                 onChange={event =>
                   onChange(provider, 'secret_config', field, event.target.value)
                 }
@@ -1436,6 +1366,11 @@ function CreateDraftIntegrationFields({
               <Input
                 type='password'
                 value={config.secret_config[field] || ''}
+                placeholder={
+                  config.secret_configured_fields?.includes(field)
+                    ? t('module.billing.customization.actions.secretSaved')
+                    : undefined
+                }
                 onChange={event =>
                   onChange(provider, 'secret_config', field, event.target.value)
                 }

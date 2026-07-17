@@ -39,6 +39,7 @@ export type BillingCustomizationIntegration = {
   status: 'unconfigured' | 'draft' | 'verified' | 'failed' | 'disabled';
   public_config: Record<string, string | boolean | string[]>;
   secret_configured: boolean;
+  secret_configured_fields?: string[];
   callback_url: string;
   verified_at?: string | null;
   last_error_code?: string;
@@ -598,6 +599,7 @@ export type AdminBillingCustomizationDraft = {
     {
       public_config: Record<string, string>;
       secret_config: Record<string, string>;
+      secret_configured_fields?: string[];
     }
   >;
 };

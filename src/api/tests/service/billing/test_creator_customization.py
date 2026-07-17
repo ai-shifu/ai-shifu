@@ -341,6 +341,21 @@ def test_failed_integration_draft_keeps_existing_active_config(app, monkeypatch)
             },
         )
         assert invalid["status"] == "draft"
+        draft_view = customization.build_creator_customization(
+            app, "creator-active-config"
+        )
+        latest_draft = next(
+            item for item in draft_view["integrations"] if item["provider"] == "stripe"
+        )
+        assert latest_draft["integration_bid"] == invalid["integration_bid"]
+        assert latest_draft["status"] == "draft"
+        assert (
+            latest_draft["public_config"]["publishable_key"] == "not-a-publishable-key"
+        )
+        assert set(latest_draft["secret_configured_fields"]) == {
+            "secret_key",
+            "webhook_secret",
+        }
         assert (
             funcs.get_sass_config("creator-active-config", active_key, default="")
             == current["integration_bid"]

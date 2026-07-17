@@ -139,7 +139,6 @@
           "custom_wechat_enabled": "Enregistrez d’abord les éléments activés, puis renseignez ici les paramètres du compte officiel WeChat.",
           "title": "Enregistrez puis poursuivez"
         },
-        "skippedIncompletePayment": "La configuration de paiement personnalisé ne contient pas les paramètres requis ; elle n’a donc pas été activée pour cet enseignant. Les autres modifications ont été enregistrées.",
         "submit": "Enregistrer la configuration",
         "submitting": "Enregistrement...",
         "success": "Droits personnalisés mis à jour pour {creator}",
@@ -583,7 +582,8 @@
     "actions": {
       "clear": "Effacer",
       "saveConfiguration": "Enregistrer la configuration",
-      "saveIntegration": "Enregistrer les paramètres de paiement"
+      "saveIntegration": "Enregistrer les paramètres de paiement",
+      "secretSaved": "Enregistré. Saisissez une nouvelle valeur pour le remplacer."
     },
     "branding": {
       "invalidFile": "Utilisez un fichier PNG, JPEG ou WebP de 2 Mo maximum",

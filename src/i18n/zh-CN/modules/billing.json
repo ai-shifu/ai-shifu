@@ -139,7 +139,6 @@
           "custom_wechat_enabled": "保存本次开通项后，可继续补充公众号配置参数。",
           "title": "保存后继续补充配置"
         },
-        "skippedIncompletePayment": "独立支付配置缺少必要通道参数，已暂不为该老师开通；其他配置已继续保存。",
         "submit": "保存配置",
         "submitting": "保存中...",
         "success": "已更新 {creator} 的品牌与收款配置",
@@ -583,7 +582,8 @@
     "actions": {
       "clear": "清空",
       "saveConfiguration": "保存配置",
-      "saveIntegration": "保存支付配置"
+      "saveIntegration": "保存支付配置",
+      "secretSaved": "已保存，可重新填写覆盖"
     },
     "branding": {
       "invalidFile": "仅支持 2MB 以内的 PNG、JPEG 或 WebP 图片",
