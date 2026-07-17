@@ -11,6 +11,7 @@ import type {
   AdminBillingEntitlementGrantPayload,
   AdminBillingEntitlementItem,
   BillingCustomization,
+  BillingDomainBinding,
   BillingCustomizationProvider,
 } from '@/types/billing';
 import { Button } from '@/components/ui/Button';
@@ -55,6 +56,10 @@ type DraftIntegrationConfig = {
 };
 
 type DraftDomainStatus = BillingCustomization['domains']['items'][number];
+type DomainBindResult = {
+  action: string;
+  binding: BillingDomainBinding;
+};
 
 const EMPTY_VALUES: Record<EntitlementField, boolean> = {
   branding_enabled: false,
@@ -304,6 +309,7 @@ export function AdminBillingEntitlementDialog({
   const [selectedDraftPaymentProviders, setSelectedDraftPaymentProviders] =
     React.useState<BillingCustomizationProvider[]>([]);
   const [submitting, setSubmitting] = React.useState(false);
+  const [verifyingDomain, setVerifyingDomain] = React.useState(false);
   const draftHydratedRef = React.useRef(false);
   const lastDraftTargetRef = React.useRef('');
   const draftLoadTokenRef = React.useRef(0);
@@ -336,6 +342,7 @@ export function AdminBillingEntitlementDialog({
     setDraftDomainStatus(null);
     setDraftIntegrations(createEmptyDraftIntegrations());
     setSelectedDraftPaymentProviders([]);
+    setVerifyingDomain(false);
     draftHydratedRef.current = false;
     lastDraftTargetRef.current = '';
     draftLoadTokenRef.current += 1;
@@ -672,10 +679,16 @@ export function AdminBillingEntitlementDialog({
           });
         }
 
-        if (values.custom_domain_enabled && draftDomain.trim()) {
+        const normalizedDraftDomain = draftDomain.trim();
+        const existingDomain = draftDomainStatus?.host || '';
+        if (
+          values.custom_domain_enabled &&
+          normalizedDraftDomain &&
+          normalizedDraftDomain !== existingDomain
+        ) {
           await api.createAdminBillingCustomizationDomain({
             creator_bid: nextCreatorBid,
-            host: draftDomain.trim(),
+            host: normalizedDraftDomain,
           });
         }
 
@@ -773,7 +786,9 @@ export function AdminBillingEntitlementDialog({
           field={field}
           draftDomain={draftDomain}
           draftDomainStatus={draftDomainStatus}
+          creatorBid={resolvedItem?.creator_bid || ''}
           draftIntegrations={draftIntegrations}
+          verifyingDomain={verifyingDomain}
           draftSquareLogoFile={draftSquareLogoFile}
           draftSquareLogoPreview={draftSquareLogoPreview}
           draftSquareLogo={draftSquareLogo}
@@ -783,6 +798,31 @@ export function AdminBillingEntitlementDialog({
           selectedPaymentProviders={selectedDraftPaymentProviders}
           onSelectedPaymentProvidersChange={setSelectedDraftPaymentProviders}
           onDraftDomainChange={setDraftDomain}
+          onDraftDomainStatusChange={setDraftDomainStatus}
+          onVerifyDraftDomain={async domain => {
+            if (!resolvedItem?.creator_bid || !domain.domain_binding_bid) {
+              return;
+            }
+            setVerifyingDomain(true);
+            try {
+              const result = (await api.verifyAdminBillingCustomizationDomain({
+                creator_bid: resolvedItem.creator_bid,
+                domain_binding_bid: domain.domain_binding_bid,
+              })) as DomainBindResult;
+              const nextBinding = result.binding || domain;
+              setDraftDomainStatus(nextBinding);
+              toast({
+                title: t(
+                  nextBinding.status === 'verified'
+                    ? 'module.billing.customization.domain.verifySuccess'
+                    : 'module.billing.customization.domain.verifyFailed',
+                ),
+              });
+              await mutate(isAdminBillingCustomizationCacheKey);
+            } finally {
+              setVerifyingDomain(false);
+            }
+          }}
           onDraftIntegrationChange={(provider, section, key, value) => {
             setDraftIntegrations(current => ({
               ...current,
@@ -1059,9 +1099,11 @@ export function AdminBillingEntitlementDialog({
 
 function CreateDraftSection({
   field,
+  creatorBid,
   draftDomain,
   draftDomainStatus,
   draftIntegrations,
+  verifyingDomain,
   draftSquareLogoFile,
   draftSquareLogoPreview,
   draftSquareLogo,
@@ -1071,6 +1113,8 @@ function CreateDraftSection({
   selectedPaymentProviders,
   onSelectedPaymentProvidersChange,
   onDraftDomainChange,
+  onDraftDomainStatusChange,
+  onVerifyDraftDomain,
   onDraftIntegrationChange,
   onDraftSquareLogoFileChange,
   onDraftSquareLogoChange,
@@ -1078,12 +1122,14 @@ function CreateDraftSection({
   onDraftWideLogoChange,
 }: {
   field: VisibleEntitlementField;
+  creatorBid: string;
   draftDomain: string;
   draftDomainStatus: DraftDomainStatus | null;
   draftIntegrations: Record<
     BillingCustomizationProvider,
     DraftIntegrationConfig
   >;
+  verifyingDomain: boolean;
   draftSquareLogoFile: File | null;
   draftSquareLogoPreview: string;
   draftSquareLogo: string;
@@ -1095,6 +1141,8 @@ function CreateDraftSection({
     providers: BillingCustomizationProvider[],
   ) => void;
   onDraftDomainChange: (value: string) => void;
+  onDraftDomainStatusChange: (value: DraftDomainStatus | null) => void;
+  onVerifyDraftDomain: (domain: DraftDomainStatus) => Promise<void>;
   onDraftIntegrationChange: (
     provider: BillingCustomizationProvider,
     section: 'public_config' | 'secret_config',
@@ -1143,7 +1191,12 @@ function CreateDraftSection({
         <CreateDraftInput
           label={t('module.billing.customization.domain.title')}
           value={draftDomain}
-          onChange={onDraftDomainChange}
+          onChange={value => {
+            onDraftDomainChange(value);
+            if (draftDomainStatus && value.trim() !== draftDomainStatus.host) {
+              onDraftDomainStatusChange(null);
+            }
+          }}
           placeholder={t('module.billing.customization.domain.placeholder')}
         />
         {draftDomainStatus ? (
@@ -1163,6 +1216,21 @@ function CreateDraftSection({
                   name: draftDomainStatus.verification_record_name,
                   value: draftDomainStatus.verification_record_value,
                 })}
+              </div>
+            ) : null}
+            {creatorBid ? (
+              <div className='mt-3'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  disabled={verifyingDomain}
+                  onClick={() => {
+                    void onVerifyDraftDomain(draftDomainStatus);
+                  }}
+                >
+                  {t('module.billing.customization.domain.verify')}
+                </Button>
               </div>
             ) : null}
           </div>
