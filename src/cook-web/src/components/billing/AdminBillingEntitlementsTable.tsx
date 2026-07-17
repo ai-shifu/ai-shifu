@@ -95,17 +95,6 @@ function resolveEntitlementSortBucket(
   return 2;
 }
 
-function hasIndependentEntitlementConfig(
-  item: AdminBillingEntitlementItem,
-): boolean {
-  return Boolean(
-    item.branding_enabled ||
-    item.custom_domain_enabled ||
-    item.custom_wechat_enabled ||
-    item.custom_payment_enabled,
-  );
-}
-
 function EntitlementSummaryBadges({
   labels,
   emptyLabel,
@@ -634,40 +623,16 @@ export function AdminBillingEntitlementsTable() {
       );
     };
   }, []);
-  const { data: entitlementsCountPage, error: entitlementsCountError } = useSWR<
-    BillingPagedResponse<AdminBillingEntitlementItem>
-  >(
-    buildBillingSwrKey('admin-billing-entitlements-count'),
-    async () =>
-      (await api.getAdminBillingEntitlements(
-        {
-          page_index: 1,
-          page_size: 1,
-        },
-        BILLING_PASSIVE_REQUEST_CONFIG,
-      )) as BillingPagedResponse<AdminBillingEntitlementItem>,
-    {
-      revalidateOnFocus: false,
-      keepPreviousData: true,
-    },
-  );
-
-  const entitlementsTotal = Math.max(
-    Number(entitlementsCountPage?.total || 0),
-    0,
-  );
-
   const { data: entitlementsPage, error: entitlementsPageError } = useSWR<
     BillingPagedResponse<AdminBillingEntitlementItem>
   >(
-    entitlementsCountPage
-      ? buildBillingSwrKey('admin-billing-entitlements-all', entitlementsTotal)
-      : null,
+    buildBillingSwrKey('admin-billing-entitlements-independent', pageIndex),
     async () =>
       (await api.getAdminBillingEntitlements(
         {
-          page_index: 1,
-          page_size: Math.max(entitlementsTotal, 1),
+          page_index: pageIndex,
+          page_size: ADMIN_BILLING_ENTITLEMENTS_PAGE_SIZE,
+          independent_only: true,
         },
         BILLING_PASSIVE_REQUEST_CONFIG,
       )) as BillingPagedResponse<AdminBillingEntitlementItem>,
@@ -682,13 +647,8 @@ export function AdminBillingEntitlementsTable() {
     [entitlementsPage?.items],
   );
 
-  const configuredItems = React.useMemo(
-    () => items.filter(hasIndependentEntitlementConfig),
-    [items],
-  );
-
   const sortedItems = React.useMemo(() => {
-    return [...configuredItems].sort((left, right) => {
+    return [...items].sort((left, right) => {
       const bucketDiff =
         resolveEntitlementSortBucket(left) -
         resolveEntitlementSortBucket(right);
@@ -716,17 +676,12 @@ export function AdminBillingEntitlementsTable() {
         String(right.creator_mobile || right.creator_bid),
       );
     });
-  }, [configuredItems]);
+  }, [items]);
 
-  const total = sortedItems.length;
-  const pageCount = total
-    ? Math.ceil(total / ADMIN_BILLING_ENTITLEMENTS_PAGE_SIZE)
-    : 1;
-  const safePageIndex = Math.min(pageIndex, pageCount);
-  const pagedItems = sortedItems.slice(
-    (safePageIndex - 1) * ADMIN_BILLING_ENTITLEMENTS_PAGE_SIZE,
-    safePageIndex * ADMIN_BILLING_ENTITLEMENTS_PAGE_SIZE,
-  );
+  const total = Math.max(Number(entitlementsPage?.total || 0), 0);
+  const pageCount = entitlementsPage?.page_count || 1;
+  const safePageIndex = entitlementsPage?.page || pageIndex;
+  const pagedItems = sortedItems;
 
   React.useEffect(() => {
     if (pageIndex !== safePageIndex) {
@@ -734,7 +689,7 @@ export function AdminBillingEntitlementsTable() {
     }
   }, [pageIndex, safePageIndex]);
 
-  const error = entitlementsCountError || entitlementsPageError;
+  const error = entitlementsPageError;
 
   return (
     <AdminBillingSectionCard
@@ -756,7 +711,7 @@ export function AdminBillingEntitlementsTable() {
       disableContentShell
     >
       <AdminTableShell
-        loading={!error && (!entitlementsCountPage || !entitlementsPage)}
+        loading={!error && !entitlementsPage}
         isEmpty={!sortedItems.length}
         emptyContent={t('module.billing.admin.entitlements.empty')}
         emptyColSpan={9}

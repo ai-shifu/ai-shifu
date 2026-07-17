@@ -497,24 +497,6 @@ class BillingDomainBindResultDTO(BillingBaseDTO):
 
 
 @register_schema_to_swagger
-class AdminBillingDomainBindingDTO(BillingDomainBindingDTO):
-    creator_identify: str = ""
-    creator_mobile: str = ""
-    creator_nickname: str = ""
-    custom_domain_enabled: bool
-    has_attention: bool
-
-
-@register_schema_to_swagger
-class BillingDomainAuditsPageDTO(BillingBaseDTO):
-    items: list[AdminBillingDomainBindingDTO]
-    page: int
-    page_count: int
-    page_size: int
-    total: int
-
-
-@register_schema_to_swagger
 class AdminBillingOrderDTO(BillingOrderSummaryDTO):
     creator_identify: str = ""
     creator_mobile: str = ""
@@ -525,15 +507,6 @@ class AdminBillingOrderDTO(BillingOrderSummaryDTO):
     failed_at: datetime | None = None
     refunded_at: datetime | None = None
     has_attention: bool
-
-
-@register_schema_to_swagger
-class AdminBillingOrdersPageDTO(BillingBaseDTO):
-    items: list[AdminBillingOrderDTO]
-    page: int
-    page_count: int
-    page_size: int
-    total: int
 
 
 @register_schema_to_swagger

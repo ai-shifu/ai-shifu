@@ -23,7 +23,6 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import {
   AdminBillingIdentityCell,
-  setAdminBillingExceptionHandledState,
   type AdminBillingCreatorTarget,
   resolveAdminBillingCreatorPrimary,
 } from './AdminBillingShared';
@@ -130,15 +129,7 @@ export function AdminBillingAdjustDialog({
         }),
       });
 
-      const exceptionRowKey = String(
-        initialTarget?.exception_row_key || '',
-      ).trim();
-      void Promise.allSettled([
-        exceptionRowKey
-          ? setAdminBillingExceptionHandledState(exceptionRowKey, true)
-          : Promise.resolve(),
-        mutate(isAdminBillingCacheKey, undefined, { revalidate: true }),
-      ]);
+      void mutate(isAdminBillingCacheKey, undefined, { revalidate: true });
     } catch {
       // The shared request layer already surfaces backend errors.
     } finally {

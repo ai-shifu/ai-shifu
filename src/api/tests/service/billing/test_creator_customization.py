@@ -8,7 +8,10 @@ import pytest
 from werkzeug.datastructures import FileStorage
 
 from flaskr.service.billing import customization
-from flaskr.service.billing.entitlements import grant_creator_manual_entitlement
+from flaskr.service.billing.entitlements import (
+    grant_creator_manual_entitlement,
+    resolve_creator_entitlement_state,
+)
 from flaskr.service.billing.models import BillingEntitlement
 from flaskr.service.common.models import AppException
 from flaskr.util.datetime import now_utc
@@ -519,6 +522,8 @@ def test_creator_branding_reuses_unified_config(app, monkeypatch):
             },
         )
         assert saved == customization.resolve_creator_branding("creator-brand-1")
+        state = resolve_creator_entitlement_state("creator-brand-1")
+        assert state.feature_payload.to_metadata_json()["branding"] == saved
 
 
 def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(app, monkeypatch):

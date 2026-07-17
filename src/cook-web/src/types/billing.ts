@@ -542,18 +542,6 @@ export type AdminBillingSubscriptionItem = BillingSubscription & {
   has_attention: boolean;
 };
 
-export type AdminBillingOrderItem = BillingOrderSummary & {
-  creator_identify?: string;
-  creator_mobile?: string;
-  creator_nickname?: string;
-  product_name_key?: string;
-  product_credit_amount?: number;
-  failure_code?: string;
-  failed_at?: string | null;
-  refunded_at?: string | null;
-  has_attention: boolean;
-};
-
 export type AdminBillingEntitlementItem = BillingEntitlements & {
   creator_bid: string;
   creator_identify?: string;

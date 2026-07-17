@@ -12,11 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
-import {
-  formatBillingCreditAmount,
-  resolveAdminBillingOrderFailureLabel,
-  resolveBillingEmptyLabel,
-} from '@/lib/billing';
+import { resolveBillingEmptyLabel } from '@/lib/billing';
 import { cn } from '@/lib/utils';
 
 type BillingTranslator = (
@@ -28,7 +24,6 @@ export type AdminBillingCreatorTarget = {
   creator_bid?: string | null;
   creator_mobile?: string | null;
   creator_nickname?: string | null;
-  exception_row_key?: string | null;
 };
 
 export type AdminBillingConfigStatus =
@@ -47,24 +42,18 @@ export type AdminBillingConfigStatusMap = Record<
   AdminBillingConfigStatusRecord
 >;
 
-export type AdminBillingExceptionHandledMap = Record<string, boolean>;
-
 export const ADMIN_BILLING_TABS_LIST_CLASSNAME =
   'h-auto w-fit justify-start rounded-xl bg-[var(--base-muted,#F5F5F5)] p-1 text-[var(--base-muted-foreground,#737373)]';
 export const ADMIN_BILLING_TABS_TRIGGER_CLASSNAME =
   'h-auto rounded-lg px-7 py-2 text-sm font-medium text-[var(--base-muted-foreground,#737373)] data-[state=active]:bg-white data-[state=active]:text-[var(--base-foreground,#0A0A0A)] data-[state=active]:shadow-sm';
 export const ADMIN_BILLING_CONFIG_STATUS_EVENT =
   'admin-billing-config-status-change';
-export const ADMIN_BILLING_EXCEPTION_HANDLED_EVENT =
-  'admin-billing-exception-handled-change';
 
 export type AdminBillingOpsState = {
   config_status?: AdminBillingConfigStatusMap;
-  exception_handled?: AdminBillingExceptionHandledMap;
 };
 
 let configStatusCache: AdminBillingConfigStatusMap = {};
-let exceptionHandledCache: AdminBillingExceptionHandledMap = {};
 
 function cloneConfigStatusMap(
   value: AdminBillingConfigStatusMap,
@@ -75,12 +64,6 @@ function cloneConfigStatusMap(
       { status: record.status, note: record.note || '' },
     ]),
   );
-}
-
-function cloneExceptionHandledMap(
-  value: AdminBillingExceptionHandledMap,
-): AdminBillingExceptionHandledMap {
-  return { ...value };
 }
 
 function dispatchAdminBillingStateChange(
@@ -109,13 +92,6 @@ export function applyAdminBillingOpsState(
     dispatchAdminBillingStateChange(
       ADMIN_BILLING_CONFIG_STATUS_EVENT,
       configStatusCache,
-    );
-  }
-  if (state.exception_handled) {
-    exceptionHandledCache = cloneExceptionHandledMap(state.exception_handled);
-    dispatchAdminBillingStateChange(
-      ADMIN_BILLING_EXCEPTION_HANDLED_EVENT,
-      exceptionHandledCache,
     );
   }
 }
@@ -152,49 +128,6 @@ export async function setAdminBillingConfigStatusState(
     dispatchAdminBillingStateChange(
       ADMIN_BILLING_CONFIG_STATUS_EVENT,
       configStatusCache,
-    );
-    throw error;
-  }
-  return next;
-}
-
-export function readAdminBillingExceptionHandledMap(): AdminBillingExceptionHandledMap {
-  return cloneExceptionHandledMap(exceptionHandledCache);
-}
-
-export async function setAdminBillingExceptionHandledState(
-  rowKey: string,
-  handled: boolean,
-): Promise<AdminBillingExceptionHandledMap> {
-  const normalizedRowKey = String(rowKey || '').trim();
-  const previous = readAdminBillingExceptionHandledMap();
-  const next = cloneExceptionHandledMap(previous);
-
-  if (!normalizedRowKey) {
-    return next;
-  }
-
-  if (handled) {
-    next[normalizedRowKey] = true;
-  } else {
-    delete next[normalizedRowKey];
-  }
-
-  exceptionHandledCache = cloneExceptionHandledMap(next);
-  dispatchAdminBillingStateChange(
-    ADMIN_BILLING_EXCEPTION_HANDLED_EVENT,
-    exceptionHandledCache,
-  );
-  try {
-    await api.updateAdminBillingExceptionHandled({
-      row_key: normalizedRowKey,
-      handled,
-    });
-  } catch (error) {
-    exceptionHandledCache = cloneExceptionHandledMap(previous);
-    dispatchAdminBillingStateChange(
-      ADMIN_BILLING_EXCEPTION_HANDLED_EVENT,
-      exceptionHandledCache,
     );
     throw error;
   }
@@ -240,37 +173,6 @@ export function resolveAdminBillingProductName(
 
   const normalizedFallback = String(fallback || '').trim();
   return normalizedFallback || resolveBillingEmptyLabel(t);
-}
-
-export function resolveAdminBillingOrderProductName(
-  t: BillingTranslator,
-  item: {
-    product_name_key?: string | null;
-    product_bid?: string | null;
-    product_code?: string | null;
-    product_credit_amount?: number | null;
-  },
-): string {
-  return resolveAdminBillingProductName(
-    t,
-    item.product_name_key,
-    item.product_code || item.product_bid,
-    {
-      credits: formatBillingCreditAmount(
-        Number(item.product_credit_amount || 0),
-      ),
-    },
-  );
-}
-
-export function resolveAdminBillingOrderFailure(
-  t: BillingTranslator,
-  item: {
-    failure_code?: string | null;
-    failure_message?: string | null;
-  },
-): string {
-  return resolveAdminBillingOrderFailureLabel(t, item);
 }
 
 export function resolveAdminBillingPaginationFootnote(

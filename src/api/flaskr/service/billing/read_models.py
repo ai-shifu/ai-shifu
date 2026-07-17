@@ -29,12 +29,7 @@ from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
 
 from .consts import (
-    BILLING_DOMAIN_BINDING_STATUS_DISABLED,
-    BILLING_DOMAIN_BINDING_STATUS_FAILED,
-    BILLING_DOMAIN_BINDING_STATUS_PENDING,
-    BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
     BILLING_ORDER_STATUS_CANCELED,
-    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_REFUNDED,
@@ -47,6 +42,7 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_LABELS,
     CREDIT_SOURCE_TYPE_USAGE,
@@ -62,9 +58,7 @@ from .dtos import (
     AdminBillingFocusTeacherDTO,
     AdminBillingFocusTeachersPageDTO,
     AdminBillingDailyUsageMetricsPageDTO,
-    AdminBillingOrdersPageDTO,
     BillingCatalogDTO,
-    BillingDomainAuditsPageDTO,
     BillingEntitlementsPageDTO,
     BillingLedgerAdjustResultDTO,
     BillingLedgerPageDTO,
@@ -83,7 +77,7 @@ from .entitlements import (
 from .models import (
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
-    BillingDomainBinding,
+    BillingEntitlement,
     BillingOrder,
     BillingProduct,
     BillingSubscription,
@@ -100,7 +94,6 @@ from .queries import (
     load_product_code_map as _load_product_code_map,
     load_wallet_map as _load_wallet_map,
     normalize_stat_date_filter as _normalize_stat_date_filter,
-    resolve_domain_binding_status_filter as _resolve_domain_binding_status_filter,
     resolve_order_status_filter as _resolve_order_status_filter,
     resolve_subscription_status_filter as _resolve_subscription_status_filter,
     subscription_has_attention as _subscription_has_attention,
@@ -114,9 +107,7 @@ from .serializers import (
     build_billing_alerts as _build_billing_alerts,
     serialize_admin_daily_ledger_summary as _serialize_admin_daily_ledger_summary,
     serialize_admin_daily_usage_metric as _serialize_admin_daily_usage_metric,
-    serialize_admin_domain_binding as _serialize_admin_domain_binding,
     serialize_admin_entitlement_state as _serialize_admin_entitlement_state,
-    serialize_admin_order_summary as _serialize_admin_order_summary,
     serialize_admin_subscription as _serialize_admin_subscription,
     serialize_ledger_entry as _serialize_ledger_entry,
     serialize_operator_credit_order as _serialize_operator_credit_order,
@@ -874,6 +865,7 @@ def build_admin_bill_entitlements_page(
     page_index: int = DEFAULT_PAGE_INDEX,
     page_size: int = DEFAULT_PAGE_SIZE,
     creator_bid: str = "",
+    independent_only: bool = False,
 ) -> BillingEntitlementsPageDTO:
     """Return paginated effective entitlement snapshots for admin billing."""
 
@@ -881,7 +873,13 @@ def build_admin_bill_entitlements_page(
     normalized_creator_bid = _normalize_bid(creator_bid)
 
     with app.app_context():
-        creator_bids = _load_admin_creator_bids(creator_bid=normalized_creator_bid)
+        creator_bids = (
+            _load_independent_entitlement_creator_bids(
+                creator_bid=normalized_creator_bid
+            )
+            if independent_only
+            else _load_admin_creator_bids(creator_bid=normalized_creator_bid)
+        )
         creator_map = _load_operator_creator_map(creator_bids)
         states = {
             candidate_creator_bid: resolve_creator_entitlement_state(
@@ -907,6 +905,15 @@ def build_admin_bill_entitlements_page(
             )
             for candidate_creator_bid in creator_bids
         ]
+        if independent_only:
+            items = [
+                item
+                for item in items
+                if item.branding_enabled
+                or item.custom_domain_enabled
+                or item.custom_wechat_enabled
+                or item.custom_payment_enabled
+            ]
         payload = _build_list_page_payload(
             items,
             page_index=safe_page_index,
@@ -915,173 +922,32 @@ def build_admin_bill_entitlements_page(
         return BillingEntitlementsPageDTO(**payload.to_dto_kwargs())
 
 
-def build_admin_billing_domain_audits_page(
-    app: Flask,
-    *,
-    page_index: int = DEFAULT_PAGE_INDEX,
-    page_size: int = DEFAULT_PAGE_SIZE,
-    creator_bid: str = "",
-    status: str = "",
-) -> BillingDomainAuditsPageDTO:
-    """Return paginated cross-creator domain binding rows for admin audit."""
-
-    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
+def _load_independent_entitlement_creator_bids(*, creator_bid: str = "") -> list[str]:
     normalized_creator_bid = _normalize_bid(creator_bid)
-    status_code = _resolve_domain_binding_status_filter(status)
-
-    with app.app_context():
-        query = BillingDomainBinding.query.filter(BillingDomainBinding.deleted == 0)
-        if normalized_creator_bid:
-            query = query.filter(
-                BillingDomainBinding.creator_bid == normalized_creator_bid,
-            )
-        if status_code is not None:
-            query = query.filter(BillingDomainBinding.status == status_code)
-
-        query = query.order_by(
-            case(
-                (
-                    BillingDomainBinding.status
-                    == BILLING_DOMAIN_BINDING_STATUS_PENDING,
-                    1,
-                ),
-                (
-                    BillingDomainBinding.status == BILLING_DOMAIN_BINDING_STATUS_FAILED,
-                    2,
-                ),
-                (
-                    BillingDomainBinding.status
-                    == BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
-                    3,
-                ),
-                (
-                    BillingDomainBinding.status
-                    == BILLING_DOMAIN_BINDING_STATUS_DISABLED,
-                    4,
-                ),
-                else_=9,
-            ),
-            BillingDomainBinding.updated_at.desc(),
-            BillingDomainBinding.id.desc(),
-        )
-
-        total = query.order_by(None).count()
-        if total == 0:
-            return BillingDomainAuditsPageDTO(
-                items=[],
-                page=safe_page_index,
-                page_count=0,
-                page_size=safe_page_size,
-                total=0,
-            )
-
-        page_count = (total + safe_page_size - 1) // safe_page_size
-        resolved_page = min(safe_page_index, max(page_count, 1))
-        offset = (resolved_page - 1) * safe_page_size
-        rows = query.offset(offset).limit(safe_page_size).all()
-        creator_map = _load_operator_creator_map(
-            [str(row.creator_bid or "").strip() for row in rows]
-        )
-        entitlement_flags = {
-            candidate_creator_bid: bool(
-                resolve_creator_entitlement_state(
-                    candidate_creator_bid
-                ).custom_domain_enabled
-            )
-            for candidate_creator_bid in {
-                _normalize_bid(row.creator_bid) for row in rows if row.creator_bid
-            }
-        }
-        return BillingDomainAuditsPageDTO(
-            items=[
-                _serialize_admin_domain_binding(
-                    app,
-                    row,
-                    creator=creator_map.get(str(row.creator_bid or "").strip(), {}),
-                    custom_domain_enabled=entitlement_flags.get(
-                        _normalize_bid(row.creator_bid),
-                        False,
-                    ),
-                )
-                for row in rows
-            ],
-            page=resolved_page,
-            page_count=page_count,
-            page_size=safe_page_size,
-            total=total,
-        )
-
-
-def build_admin_bill_orders_page(
-    app: Flask,
-    *,
-    page_index: int = DEFAULT_PAGE_INDEX,
-    page_size: int = DEFAULT_PAGE_SIZE,
-    creator_bid: str = "",
-    status: str = "",
-) -> AdminBillingOrdersPageDTO:
-    """Return paginated billing orders for the admin billing surface."""
-
-    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    status_code = _resolve_order_status_filter(status)
-
-    with app.app_context():
-        query = BillingOrder.query.filter(BillingOrder.deleted == 0)
-        if normalized_creator_bid:
-            query = query.filter(BillingOrder.creator_bid == normalized_creator_bid)
-        if status_code is not None:
-            query = query.filter(BillingOrder.status == status_code)
-        else:
-            query = query.filter(
-                BillingOrder.status.in_(
-                    [
-                        BILLING_ORDER_STATUS_PENDING,
-                        BILLING_ORDER_STATUS_FAILED,
-                        BILLING_ORDER_STATUS_TIMEOUT,
-                    ]
-                )
-            )
-
-        query = query.order_by(
-            BillingOrder.created_at.desc(),
-            BillingOrder.id.desc(),
-        )
-        total = query.order_by(None).count()
-        if total == 0:
-            return AdminBillingOrdersPageDTO(
-                items=[],
-                page=safe_page_index,
-                page_count=0,
-                page_size=safe_page_size,
-                total=0,
-            )
-
-        page_count = (total + safe_page_size - 1) // safe_page_size
-        resolved_page = min(safe_page_index, max(page_count, 1))
-        offset = (resolved_page - 1) * safe_page_size
-        rows = query.offset(offset).limit(safe_page_size).all()
-        creator_map = _load_operator_creator_map(
-            [str(row.creator_bid or "").strip() for row in rows]
-        )
-        product_map = _load_credit_order_product_map(
-            [str(row.product_bid or "").strip() for row in rows]
-        )
-        return AdminBillingOrdersPageDTO(
-            items=[
-                _serialize_admin_order_summary(
-                    app,
-                    row,
-                    creator=creator_map.get(str(row.creator_bid or "").strip(), {}),
-                    product=product_map.get(str(row.product_bid or "").strip()),
-                )
-                for row in rows
-            ],
-            page=resolved_page,
-            page_count=page_count,
-            page_size=safe_page_size,
-            total=total,
-        )
+    now = now_utc()
+    query = db.session.query(BillingEntitlement.creator_bid).filter(
+        BillingEntitlement.deleted == 0,
+        BillingEntitlement.creator_bid != "",
+        BillingEntitlement.source_type == CREDIT_SOURCE_TYPE_MANUAL,
+        BillingEntitlement.effective_from <= now,
+        (
+            (BillingEntitlement.effective_to.is_(None))
+            | (BillingEntitlement.effective_to > now)
+        ),
+        or_(
+            BillingEntitlement.branding_enabled == 1,
+            BillingEntitlement.custom_domain_enabled == 1,
+            BillingEntitlement.feature_payload.isnot(None),
+        ),
+    )
+    if normalized_creator_bid:
+        query = query.filter(BillingEntitlement.creator_bid == normalized_creator_bid)
+    rows = query.distinct().all()
+    return sorted(
+        normalized
+        for normalized in (_normalize_bid(row[0]) for row in rows)
+        if normalized
+    )
 
 
 def _resolve_credit_order_kind_filter(kind: str) -> int | None:

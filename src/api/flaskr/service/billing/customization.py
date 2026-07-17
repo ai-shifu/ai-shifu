@@ -403,6 +403,15 @@ def save_creator_branding(
                 remark="Course-owner brand profile",
             ),
         )
+        grant_creator_manual_entitlement(
+            app,
+            creator_bid,
+            branding_enabled=entitlement.branding_enabled,
+            custom_domain_enabled=entitlement.custom_domain_enabled,
+            custom_wechat_enabled=entitlement.custom_wechat_enabled,
+            custom_payment_enabled=entitlement.custom_payment_enabled,
+            branding=value,
+        )
         return value
 
 

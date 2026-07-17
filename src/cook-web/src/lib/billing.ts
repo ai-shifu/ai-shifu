@@ -143,12 +143,10 @@ const BILLING_CAPABILITY_TITLE_KEYS: Record<string, string> = {
   creator_orders: 'module.billing.capabilities.items.creatorOrders.title',
   admin_subscriptions:
     'module.billing.capabilities.items.adminSubscriptions.title',
-  admin_orders: 'module.billing.capabilities.items.adminOrders.title',
   admin_ledger_adjust:
     'module.billing.capabilities.items.adminLedgerAdjust.title',
   admin_entitlements:
     'module.billing.capabilities.items.adminEntitlements.title',
-  admin_domains: 'module.billing.capabilities.items.adminDomains.title',
   admin_reports: 'module.billing.capabilities.items.adminReports.title',
   runtime_billing_extensions:
     'module.billing.capabilities.items.runtimeBillingExtensions.title',
@@ -181,12 +179,10 @@ const BILLING_CAPABILITY_DESCRIPTION_KEYS: Record<string, string> = {
   creator_orders: 'module.billing.capabilities.items.creatorOrders.description',
   admin_subscriptions:
     'module.billing.capabilities.items.adminSubscriptions.description',
-  admin_orders: 'module.billing.capabilities.items.adminOrders.description',
   admin_ledger_adjust:
     'module.billing.capabilities.items.adminLedgerAdjust.description',
   admin_entitlements:
     'module.billing.capabilities.items.adminEntitlements.description',
-  admin_domains: 'module.billing.capabilities.items.adminDomains.description',
   admin_reports: 'module.billing.capabilities.items.adminReports.description',
   runtime_billing_extensions:
     'module.billing.capabilities.items.runtimeBillingExtensions.description',
@@ -375,23 +371,6 @@ export function formatBillingCreditBalance(value: number): string {
 
 export function formatBillingCreditAmount(value: number): string {
   return formatBillingNumber(value, 'en-US');
-}
-
-function translateBillingKeyIfResolved(
-  t: BillingTranslator,
-  key: string,
-  options?: Record<string, unknown>,
-): string {
-  const normalizedKey = String(key || '').trim();
-  if (!normalizedKey) {
-    return '';
-  }
-
-  const translated = t(normalizedKey, options);
-  if (!translated || translated === normalizedKey) {
-    return '';
-  }
-  return translated;
 }
 
 export function formatBillingCreditDetail(
@@ -792,44 +771,6 @@ export function resolveBillingProviderLabel(
   return t(BILLING_PROVIDER_KEYS[provider]);
 }
 
-export function resolveAdminBillingOrderFailureLabel(
-  t: BillingTranslator,
-  item: {
-    failure_code?: string | null;
-    failure_message?: string | null;
-  },
-): string {
-  const normalizedCode = String(item.failure_code || '')
-    .trim()
-    .toLowerCase();
-  const translatedCode = normalizedCode
-    ? translateBillingKeyIfResolved(
-        t,
-        `module.billing.admin.orders.failureReasons.${normalizedCode}`,
-      )
-    : '';
-  if (translatedCode) {
-    return translatedCode;
-  }
-
-  const normalizedMessage = String(item.failure_message || '').trim();
-  const normalizedMessageKey = normalizedMessage
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  const translatedMessage = normalizedMessageKey
-    ? translateBillingKeyIfResolved(
-        t,
-        `module.billing.admin.orders.failureReasons.${normalizedMessageKey}`,
-      )
-    : '';
-  if (translatedMessage) {
-    return translatedMessage;
-  }
-
-  return normalizedMessage || normalizedCode || resolveBillingEmptyLabel(t);
-}
-
 export function resolveBillingRenewalEventTypeLabel(
   t: BillingTranslator,
   eventType: BillingRenewalEventType,
@@ -918,14 +859,10 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
   void [
     t('module.billing.capabilities.fallbackDescription'),
     t('module.billing.capabilities.fallbackTitle'),
-    t('module.billing.capabilities.items.adminDomains.description'),
-    t('module.billing.capabilities.items.adminDomains.title'),
     t('module.billing.capabilities.items.adminEntitlements.description'),
     t('module.billing.capabilities.items.adminEntitlements.title'),
     t('module.billing.capabilities.items.adminLedgerAdjust.description'),
     t('module.billing.capabilities.items.adminLedgerAdjust.title'),
-    t('module.billing.capabilities.items.adminOrders.description'),
-    t('module.billing.capabilities.items.adminOrders.title'),
     t('module.billing.capabilities.items.adminReports.description'),
     t('module.billing.capabilities.items.adminReports.title'),
     t('module.billing.capabilities.items.adminSubscriptions.description'),
@@ -1206,19 +1143,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.reports.usageType.llm'),
     t('module.billing.reports.usageType.tts'),
     t('module.billing.admin.attention'),
-    t('module.billing.admin.domains.description'),
-    t('module.billing.admin.domains.empty'),
-    t('module.billing.admin.domains.loadError'),
-    t('module.billing.admin.domains.table.creator'),
-    t('module.billing.admin.domains.table.effective'),
-    t('module.billing.admin.domains.table.entitlement'),
-    t('module.billing.admin.domains.table.host'),
-    t('module.billing.admin.domains.table.lastVerified'),
-    t('module.billing.admin.domains.table.ssl'),
-    t('module.billing.admin.domains.table.status'),
-    t('module.billing.admin.domains.title'),
-    t('module.billing.admin.domains.values.effective'),
-    t('module.billing.admin.domains.values.inactive'),
     t('module.billing.admin.adjust.cancel'),
     t('module.billing.admin.adjust.description'),
     t('module.billing.admin.adjust.errors.amountInvalid'),
@@ -1336,9 +1260,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.entitlements.table.window'),
     t('module.billing.admin.entitlements.title'),
     t('module.billing.admin.subtitle'),
-    t('module.billing.admin.tabs.exceptions'),
     t('module.billing.admin.tabs.entitlements'),
-    t('module.billing.admin.tabs.orders'),
     t('module.billing.admin.tabs.reports'),
     t('module.billing.admin.tabs.subscriptions'),
     t('module.billing.admin.title'),
@@ -1356,23 +1278,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.subscriptions.table.renewalStatus'),
     t('module.billing.admin.subscriptions.table.status'),
     t('module.billing.admin.subscriptions.title'),
-    t(
-      'module.billing.admin.orders.failureReasons.billing_order_expired_after_30_minutes',
-    ),
-    t('module.billing.admin.orders.failureReasons.card_declined'),
-    t('module.billing.admin.orders.failureReasons.checkout_expired'),
-    t('module.billing.admin.orders.failureReasons.checkout_timeout'),
-    t('module.billing.admin.orders.description'),
-    t('module.billing.admin.orders.empty'),
-    t('module.billing.admin.orders.loadError'),
-    t('module.billing.admin.orders.table.amount'),
-    t('module.billing.admin.orders.table.createdAt'),
-    t('module.billing.admin.orders.table.creator'),
-    t('module.billing.admin.orders.table.failure'),
-    t('module.billing.admin.orders.table.order'),
-    t('module.billing.admin.orders.table.provider'),
-    t('module.billing.admin.orders.table.status'),
-    t('module.billing.admin.orders.title'),
     t('module.billing.admin.reports.description'),
     t('module.billing.admin.reports.empty'),
     t('module.billing.admin.reports.emptyHint'),
@@ -1382,7 +1287,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.reports.attentionReasons.high_frequency'),
     t('module.billing.admin.reports.attentionReasons.rapid_growth'),
     t('module.billing.admin.reports.attentionReasons.sustained_activity'),
-    t('module.billing.admin.reports.actions.viewExceptions'),
     t('module.billing.admin.reports.actions.viewOrders'),
     t('module.billing.admin.reports.filters.active_production'),
     t('module.billing.admin.reports.filters.all'),
@@ -1417,17 +1321,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.reports.table.productionRatio'),
     t('module.billing.admin.reports.table.recordCount7d'),
     t('module.billing.admin.reports.title'),
-    t('module.billing.admin.exceptions.description'),
-    t('module.billing.admin.exceptions.empty'),
-    t('module.billing.admin.exceptions.fields.amount'),
-    t('module.billing.admin.exceptions.fields.createdAt'),
-    t('module.billing.admin.exceptions.fields.detail'),
-    t('module.billing.admin.exceptions.fields.periodEnd'),
-    t('module.billing.admin.exceptions.fields.renewalEvent'),
-    t('module.billing.admin.exceptions.loadError'),
-    t('module.billing.admin.exceptions.sections.orders'),
-    t('module.billing.admin.exceptions.sections.subscriptions'),
-    t('module.billing.admin.exceptions.title'),
     t('module.billing.renewal.eventType.cancelEffective'),
     t('module.billing.renewal.eventType.downgradeEffective'),
     t('module.billing.renewal.eventType.expire'),

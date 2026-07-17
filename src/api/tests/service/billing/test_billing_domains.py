@@ -193,26 +193,6 @@ class TestBillingDomains:
             },
         )
 
-    def test_admin_billing_domain_audits_lists_existing_bindings(
-        self, billing_domain_client
-    ) -> None:
-        client = billing_domain_client["client"]
-
-        audit_response = client.get(
-            "/api/admin/billing/domain-audits?page_index=1&page_size=10",
-            headers={"X-Operator": "1"},
-        )
-        audit_payload = audit_response.get_json(force=True)
-
-        assert audit_payload["code"] == 0
-        assert audit_payload["data"]["total"] == 2
-        assert audit_payload["data"]["items"][0]["host"] == "academy.example.com"
-        assert audit_payload["data"]["items"][0]["status"] == "verified"
-        assert audit_payload["data"]["items"][0]["creator_bid"] == "creator-1"
-        assert audit_payload["data"]["items"][0]["custom_domain_enabled"] is True
-        assert audit_payload["data"]["items"][1]["host"] == "disabled.example.com"
-        assert audit_payload["data"]["items"][1]["status"] == "disabled"
-
     def test_creator_domain_bindings_keep_raw_last_verified_at(
         self, billing_domain_client
     ) -> None:

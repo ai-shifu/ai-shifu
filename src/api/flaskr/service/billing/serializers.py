@@ -17,12 +17,6 @@ from flaskr.service.metering.consts import (
 )
 
 from .consts import (
-    BILLING_DOMAIN_BINDING_STATUS_FAILED,
-    BILLING_DOMAIN_BINDING_STATUS_LABELS,
-    BILLING_DOMAIN_BINDING_STATUS_PENDING,
-    BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
-    BILLING_DOMAIN_SSL_STATUS_LABELS,
-    BILLING_DOMAIN_VERIFICATION_METHOD_LABELS,
     BILLING_INTERVAL_LABELS,
     BILLING_METRIC_LABELS,
     BILLING_CAMPAIGN_BENEFIT_TYPE_LABELS,
@@ -61,7 +55,6 @@ from .models import (
     BillingCampaignProduct,
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
-    BillingDomainBinding,
     BillingOrder,
     BillingProduct,
     BillingRenewalEvent,
@@ -76,7 +69,6 @@ from .dtos import (
     AdminBillingCampaignProductOptionDTO,
     AdminBillingDailyLedgerSummaryDTO,
     AdminBillingDailyUsageMetricDTO,
-    AdminBillingDomainBindingDTO,
     AdminBillingEntitlementDTO,
     AdminBillingOrderDTO,
     AdminBillingSubscriptionDTO,
@@ -616,60 +608,6 @@ def serialize_admin_entitlement_state(
         effective_from=state.effective_from,
         effective_to=state.effective_to,
         feature_payload=state.feature_payload.to_metadata_json(),
-    )
-
-
-def serialize_admin_domain_binding(
-    app: Flask,
-    row: BillingDomainBinding,
-    *,
-    creator: dict[str, str],
-    custom_domain_enabled: bool = False,
-) -> AdminBillingDomainBindingDTO:
-    metadata = normalize_json_object(row.metadata_json)
-    verification_record_name = str(
-        metadata.get("verification_record_name") or f"_ai-shifu.{row.host}"
-    )
-    verification_record_value = str(
-        metadata.get("verification_record_value") or row.verification_token or ""
-    )
-    is_effective = bool(
-        custom_domain_enabled and row.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
-    )
-    return AdminBillingDomainBindingDTO(
-        domain_binding_bid=row.domain_binding_bid,
-        creator_bid=row.creator_bid,
-        creator_identify=str(creator.get("identify") or ""),
-        creator_mobile=str(creator.get("mobile") or ""),
-        creator_nickname=str(creator.get("nickname") or ""),
-        host=row.host,
-        status=BILLING_DOMAIN_BINDING_STATUS_LABELS.get(row.status, "pending"),
-        verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_LABELS.get(
-            row.verification_method,
-            "dns_txt",
-        ),
-        verification_token=row.verification_token,
-        verification_record_name=verification_record_name,
-        verification_record_value=verification_record_value,
-        last_verified_at=row.last_verified_at,
-        ssl_status=BILLING_DOMAIN_SSL_STATUS_LABELS.get(
-            row.ssl_status,
-            "not_requested",
-        ),
-        is_effective=is_effective,
-        custom_domain_enabled=custom_domain_enabled,
-        has_attention=bool(
-            row.status
-            in {
-                BILLING_DOMAIN_BINDING_STATUS_PENDING,
-                BILLING_DOMAIN_BINDING_STATUS_FAILED,
-            }
-            or (
-                row.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
-                and not custom_domain_enabled
-            )
-        ),
-        metadata=metadata.to_metadata_json(),
     )
 
 
