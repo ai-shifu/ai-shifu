@@ -581,7 +581,9 @@
   },
   "customization": {
     "actions": {
-      "clear": "Clear"
+      "clear": "Clear",
+      "saveConfiguration": "Save configuration",
+      "saveIntegration": "Save payment settings"
     },
     "branding": {
       "invalidFile": "Use a PNG, JPEG, or WebP file no larger than 2 MB",

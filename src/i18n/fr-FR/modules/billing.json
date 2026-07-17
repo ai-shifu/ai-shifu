@@ -581,7 +581,9 @@
   },
   "customization": {
     "actions": {
-      "clear": "Effacer"
+      "clear": "Effacer",
+      "saveConfiguration": "Enregistrer la configuration",
+      "saveIntegration": "Enregistrer les paramètres de paiement"
     },
     "branding": {
       "invalidFile": "Utilisez un fichier PNG, JPEG ou WebP de 2 Mo maximum",

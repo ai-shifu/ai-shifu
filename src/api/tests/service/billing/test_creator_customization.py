@@ -360,6 +360,19 @@ def test_failed_integration_draft_keeps_existing_active_config(app, monkeypatch)
         )
 
         assert failed["status"] == "failed"
+        management_view = customization.build_creator_customization(
+            app, "creator-active-config"
+        )
+        latest_stripe = next(
+            item
+            for item in management_view["integrations"]
+            if item["provider"] == "stripe"
+        )
+        assert latest_stripe["integration_bid"] == invalid["integration_bid"]
+        assert latest_stripe["status"] == "failed"
+        assert (
+            latest_stripe["public_config"]["publishable_key"] == "not-a-publishable-key"
+        )
         assert (
             funcs.get_sass_config("creator-active-config", active_key, default="")
             == current["integration_bid"]

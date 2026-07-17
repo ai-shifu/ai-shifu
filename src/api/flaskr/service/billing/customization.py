@@ -21,7 +21,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.datastructures import FileStorage
 
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
-from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.models import AppException, raise_error, raise_param_error
 from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config.funcs import get_config
 from flaskr.util.datetime import now_utc, to_utc_iso
@@ -171,7 +171,7 @@ def build_creator_customization(
             "branding": resolve_creator_branding(creator_bid),
             "domains": build_creator_domain_bindings(app, creator_bid).__json__(),
             "integrations": [
-                _serialize_active_integration(app, creator_bid, provider)
+                _serialize_latest_management_integration(app, creator_bid, provider)
                 for provider in INTEGRATION_PROVIDERS
             ],
         }
@@ -660,6 +660,24 @@ def _serialize_active_integration(
             "secret_configured": False,
             "callback_url": "",
         }
+    return _serialize_integration(app, creator_bid, record)
+
+
+def _serialize_latest_management_integration(
+    app: Flask, creator_bid: str, provider: str
+) -> dict[str, Any]:
+    if _saas_funcs(required=False) is None:
+        return _serialize_active_integration(app, creator_bid, provider)
+    try:
+        integration_bid = _latest_version_bid(app, creator_bid, provider)
+    except AppException:
+        return _serialize_active_integration(app, creator_bid, provider)
+    record = _load_integration_record(
+        app,
+        integration_bid,
+        expected_creator_bid=creator_bid,
+        expected_provider=provider,
+    )
     return _serialize_integration(app, creator_bid, record)
 
 

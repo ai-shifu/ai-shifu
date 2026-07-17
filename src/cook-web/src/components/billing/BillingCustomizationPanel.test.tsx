@@ -22,7 +22,9 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     getBillingCustomization: jest.fn(),
+    saveBillingIntegration: jest.fn(),
     updateBillingBranding: jest.fn(),
+    verifyBillingIntegration: jest.fn(),
   },
 }));
 
@@ -37,6 +39,8 @@ jest.mock('react-i18next', () => ({
 }));
 
 const mockGetBillingCustomization = api.getBillingCustomization as jest.Mock;
+const mockSaveBillingIntegration = api.saveBillingIntegration as jest.Mock;
+const mockVerifyBillingIntegration = api.verifyBillingIntegration as jest.Mock;
 
 function buildCustomizationData(overrides: Record<string, unknown> = {}) {
   return {
@@ -80,6 +84,12 @@ describe('BillingCustomizationPanel', () => {
     mockMutateCache.mockReset();
     mockUploadFile.mockReset();
     mockGetBillingCustomization.mockReset();
+    mockSaveBillingIntegration.mockReset();
+    mockVerifyBillingIntegration.mockReset();
+    mockSaveBillingIntegration.mockResolvedValue({
+      integration_bid: 'integration-1',
+    });
+    mockVerifyBillingIntegration.mockResolvedValue({ status: 'verified' });
 
     mockUseSWR.mockReturnValue({
       data: buildCustomizationData(),
@@ -136,6 +146,71 @@ describe('BillingCustomizationPanel', () => {
     expect(screen.getByDisplayValue('alipay_owner_app')).toBeInTheDocument();
     expect(screen.queryByDisplayValue('pk_owner')).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue(/secret/i)).not.toBeInTheDocument();
+  });
+
+  test('does not preselect a payment provider when no payment integration exists', () => {
+    mockUseSWR.mockReturnValue({
+      data: buildCustomizationData({
+        integrations: [
+          {
+            provider: 'alipay',
+            status: 'unconfigured',
+            public_config: {},
+            secret_configured: false,
+            callback_url: '',
+          },
+          {
+            provider: 'wechatpay',
+            status: 'unconfigured',
+            public_config: {},
+            secret_configured: false,
+            callback_url: '',
+          },
+        ],
+      }),
+      isLoading: false,
+      mutate: jest.fn(),
+    });
+
+    render(<BillingCustomizationPanel />);
+
+    expect(screen.queryByText('app_private_key')).not.toBeInTheDocument();
+    expect(screen.queryByText('api_v3_key')).not.toBeInTheDocument();
+  });
+
+  test('saves payment settings without auto-verifying them', async () => {
+    mockUseSWR.mockReturnValue({
+      data: buildCustomizationData({
+        integrations: [
+          {
+            provider: 'wechatpay',
+            status: 'draft',
+            public_config: { app_id: 'wx_old' },
+            secret_configured: false,
+            callback_url: '',
+          },
+        ],
+      }),
+      isLoading: false,
+      mutate: jest.fn(),
+    });
+
+    render(<BillingCustomizationPanel />);
+
+    fireEvent.change(screen.getByDisplayValue('wx_old'), {
+      target: { value: 'wx_new' },
+    });
+    fireEvent.click(
+      screen.getByText('module.billing.customization.actions.saveIntegration'),
+    );
+
+    await waitFor(() => expect(mockSaveBillingIntegration).toHaveBeenCalled());
+    expect(mockSaveBillingIntegration).toHaveBeenCalledWith({
+      provider: 'wechatpay',
+      public_config: { app_id: 'wx_new' },
+      secret_config: {},
+    });
+    expect(mockVerifyBillingIntegration).not.toHaveBeenCalled();
   });
 
   test('uploads logos through the managed branding OSS endpoint', async () => {

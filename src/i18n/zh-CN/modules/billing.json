@@ -581,7 +581,9 @@
   },
   "customization": {
     "actions": {
-      "clear": "清空"
+      "clear": "清空",
+      "saveConfiguration": "保存配置",
+      "saveIntegration": "保存支付配置"
     },
     "branding": {
       "invalidFile": "仅支持 2MB 以内的 PNG、JPEG 或 WebP 图片",

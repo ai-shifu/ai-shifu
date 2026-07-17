@@ -84,11 +84,11 @@ const DRAFT_PROVIDER_FIELDS: Record<
     secret: ['secret_key', 'webhook_secret'],
   },
   alipay: {
-    public: ['app_id', 'gateway_url'],
+    public: ['app_id'],
     secret: ['app_private_key', 'alipay_public_key'],
   },
   wechatpay: {
-    public: ['app_id', 'mch_id', 'merchant_serial_no', 'base_url'],
+    public: ['app_id', 'mch_id', 'merchant_serial_no'],
     secret: ['api_v3_key', 'private_key', 'platform_cert'],
   },
 };
@@ -168,9 +168,7 @@ function hasCompleteDraftIntegrationConfig(
   config: DraftIntegrationConfig,
 ): boolean {
   const fields = DRAFT_PROVIDER_FIELDS[provider];
-  const requiredPublicFields = fields.public.filter(
-    field => !['gateway_url', 'base_url'].includes(field),
-  );
+  const requiredPublicFields = fields.public;
   return [...requiredPublicFields, ...fields.secret].every(field => {
     const source = requiredPublicFields.includes(field)
       ? config.public_config
@@ -278,7 +276,7 @@ export function AdminBillingEntitlementDialog({
     Record<BillingCustomizationProvider, DraftIntegrationConfig>
   >(createEmptyDraftIntegrations());
   const [selectedDraftPaymentProviders, setSelectedDraftPaymentProviders] =
-    React.useState<BillingCustomizationProvider[]>(['alipay']);
+    React.useState<BillingCustomizationProvider[]>([]);
   const [submitting, setSubmitting] = React.useState(false);
   const draftHydratedRef = React.useRef(false);
   const lastDraftTargetRef = React.useRef('');
@@ -310,7 +308,7 @@ export function AdminBillingEntitlementDialog({
     setDraftSquareLogoPreview('');
     setDraftDomain('');
     setDraftIntegrations(createEmptyDraftIntegrations());
-    setSelectedDraftPaymentProviders(['alipay']);
+    setSelectedDraftPaymentProviders([]);
     draftHydratedRef.current = false;
     lastDraftTargetRef.current = '';
     draftLoadTokenRef.current += 1;
@@ -447,9 +445,7 @@ export function AdminBillingEntitlementDialog({
         const draftPaymentProviders = VISIBLE_DRAFT_PAYMENT_PROVIDERS.filter(
           provider => hasDraftIntegrationValue(nextDraftIntegrations[provider]),
         );
-        setSelectedDraftPaymentProviders(
-          draftPaymentProviders.length > 0 ? draftPaymentProviders : ['alipay'],
-        );
+        setSelectedDraftPaymentProviders(draftPaymentProviders);
         draftHydratedRef.current = true;
       } catch {
         if (draftLoadTokenRef.current === loadToken) {

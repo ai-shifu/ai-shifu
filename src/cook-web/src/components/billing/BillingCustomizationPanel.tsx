@@ -28,11 +28,11 @@ const PROVIDER_FIELDS: Record<
     secret: ['secret_key', 'webhook_secret'],
   },
   alipay: {
-    public: ['app_id', 'gateway_url'],
+    public: ['app_id'],
     secret: ['app_private_key', 'alipay_public_key'],
   },
   wechatpay: {
-    public: ['app_id', 'mch_id', 'merchant_serial_no', 'base_url'],
+    public: ['app_id', 'mch_id', 'merchant_serial_no'],
     secret: ['api_v3_key', 'private_key', 'platform_cert'],
   },
 };
@@ -116,7 +116,7 @@ export function BillingCustomizationPanelContent({
   const { t } = useTranslation();
   const editor = useBillingCustomizationEditorState({ creatorBid, disabled });
   const [selectedPaymentProviders, setSelectedPaymentProviders] =
-    React.useState<BillingCustomizationProvider[]>(['alipay']);
+    React.useState<BillingCustomizationProvider[]>([]);
 
   React.useEffect(() => {
     if (!editor.data) {
@@ -137,7 +137,7 @@ export function BillingCustomizationPanelContent({
       const next = current.filter(provider =>
         VISIBLE_PAYMENT_CUSTOMIZATION_PROVIDERS.includes(provider),
       );
-      return next.length > 0 ? next : ['alipay'];
+      return next;
     });
   }, [editor.data]);
 
@@ -640,7 +640,7 @@ function BillingBrandingSection({
                 )
               }
             >
-              {t('common.save')}
+              {t('module.billing.customization.actions.saveConfiguration')}
             </Button>
           ) : null}
         </div>
@@ -1113,7 +1113,7 @@ function IntegrationCard({
   }, [integrationResetKey]);
 
   const saveIntegration = React.useCallback(async () => {
-    const saved = (await (isAdminMode
+    await (isAdminMode
       ? api.saveAdminBillingCustomizationIntegration({
           creator_bid: creatorBid,
           provider: integration.provider,
@@ -1124,28 +1124,9 @@ function IntegrationCard({
           provider: integration.provider,
           public_config: publicConfig,
           secret_config: secretConfig,
-        }))) as Partial<BillingCustomizationIntegration>;
-    const integrationBid = String(
-      saved?.integration_bid || integration.integration_bid || '',
-    ).trim();
-    if (!integrationBid) {
-      return;
-    }
-    if (isAdminMode) {
-      await api.verifyAdminBillingCustomizationIntegration({
-        creator_bid: creatorBid,
-        provider: integration.provider,
-        integration_bid: integrationBid,
-      });
-      return;
-    }
-    await api.verifyBillingIntegration({
-      provider: integration.provider,
-      integration_bid: integrationBid,
-    });
+        }));
   }, [
     creatorBid,
-    integration.integration_bid,
     integration.provider,
     isAdminMode,
     publicConfig,
@@ -1215,7 +1196,7 @@ function IntegrationCard({
               disabled={saving || actionDisabled}
               onClick={() => run(saveIntegration)}
             >
-              {t('common.save')}
+              {t('module.billing.customization.actions.saveIntegration')}
             </Button>
             {integration.integration_bid &&
             integration.status !== 'verified' ? (
