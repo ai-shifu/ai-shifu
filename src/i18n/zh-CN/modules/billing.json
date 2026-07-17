@@ -254,6 +254,7 @@
       "description": "查看支付失败、超时或处理中等需要排查的订单。",
       "empty": "当前没有需要处理的异常订单。",
       "failureReasons": {
+        "billing_order_expired_after_30_minutes": "支付订单超过 30 分钟未完成，已自动关闭",
         "card_declined": "银行卡被拒付",
         "checkout_expired": "支付超时未完成",
         "checkout_timeout": "支付超时未完成"

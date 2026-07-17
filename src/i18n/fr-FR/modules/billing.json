@@ -254,6 +254,7 @@
       "description": "Consultez les commandes en echec, expirees ou en cours de traitement qui necessitent encore une verification.",
       "empty": "Aucune commande en anomalie pour le moment.",
       "failureReasons": {
+        "billing_order_expired_after_30_minutes": "La commande de facturation a expiré après 30 minutes",
         "card_declined": "La carte a été refusée",
         "checkout_expired": "Le paiement a expiré avant la finalisation",
         "checkout_timeout": "Le paiement a expiré avant la finalisation"

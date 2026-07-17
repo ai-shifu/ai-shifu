@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
@@ -74,6 +75,7 @@ import {
 type CreditOrderFilters = {
   creator_keyword: string;
   product_keyword: string;
+  bill_order_bid: string;
   credit_order_kind: string;
   status: string;
   has_available_credits: boolean;
@@ -127,6 +129,7 @@ type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 const createDefaultFilters = (): CreditOrderFilters => ({
   creator_keyword: '',
   product_keyword: '',
+  bill_order_bid: '',
   credit_order_kind: '',
   status: 'paid',
   has_available_credits: false,
@@ -135,12 +138,30 @@ const createDefaultFilters = (): CreditOrderFilters => ({
   end_time: '',
 });
 
+const createFiltersFromSearchParams = (searchParams: {
+  get: (key: string) => string | null;
+}): CreditOrderFilters => {
+  const billOrderBid = (searchParams.get('bill_order_bid') || '').trim();
+  return {
+    ...createDefaultFilters(),
+    bill_order_bid: billOrderBid,
+    status: billOrderBid
+      ? ''
+      : (searchParams.get('status') || createDefaultFilters().status).trim(),
+    creator_keyword: (searchParams.get('creator_keyword') || '').trim(),
+    product_keyword: (searchParams.get('product_keyword') || '').trim(),
+    credit_order_kind: (searchParams.get('credit_order_kind') || '').trim(),
+    payment_provider: (searchParams.get('payment_provider') || '').trim(),
+  };
+};
+
 const areCreditOrderFiltersEqual = (
   left: CreditOrderFilters,
   right: CreditOrderFilters,
 ): boolean =>
   left.creator_keyword === right.creator_keyword &&
   left.product_keyword === right.product_keyword &&
+  left.bill_order_bid === right.bill_order_bid &&
   left.credit_order_kind === right.credit_order_kind &&
   left.status === right.status &&
   left.has_available_credits === right.has_available_credits &&
@@ -172,6 +193,11 @@ const areCreditOrderFiltersEqual = (
 export default function CreditOrdersTab() {
   const { t, i18n } = useTranslation();
   const { t: tOperationsOrder } = useTranslation('module.operationsOrder');
+  const searchParams = useSearchParams();
+  const initialFilters = React.useMemo(
+    () => createFiltersFromSearchParams(searchParams),
+    [searchParams],
+  );
   const loginMethodsEnabled = useEnvStore(
     (state: EnvStoreState) => state.loginMethodsEnabled,
   );
@@ -203,10 +229,10 @@ export default function CreditOrdersTab() {
   const [selectedBillOrderBid, setSelectedBillOrderBid] = React.useState('');
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [draftFilters, setDraftFilters] = React.useState<CreditOrderFilters>(
-    () => createDefaultFilters(),
+    () => initialFilters,
   );
   const [appliedFilters, setAppliedFilters] =
-    React.useState<CreditOrderFilters>(() => createDefaultFilters());
+    React.useState<CreditOrderFilters>(() => initialFilters);
   const [activeOverviewCardKey, setActiveOverviewCardKey] = React.useState<
     string | null
   >(null);
@@ -268,6 +294,9 @@ export default function CreditOrdersTab() {
           page_size: PAGE_SIZE,
           creator_keyword: filters.creator_keyword.trim(),
           product_keyword: filters.product_keyword.trim(),
+          ...(filters.bill_order_bid.trim()
+            ? { bill_order_bid: filters.bill_order_bid.trim() }
+            : {}),
           credit_order_kind: filters.credit_order_kind,
           status: filters.status,
           ...(filters.has_available_credits
@@ -607,6 +636,23 @@ export default function CreditOrdersTab() {
 
   const expandedFilterItems = [
     ...primaryFilterItems,
+    {
+      key: 'bill_order_bid',
+      label: tOperationsOrder('filters.orderId'),
+      component: (
+        <AdminClearableInput
+          value={draftFilters.bill_order_bid}
+          placeholder={tOperationsOrder('filters.orderIdPlaceholder')}
+          clearLabel={t('common.core.close')}
+          onChange={value =>
+            setDraftFilters(current => ({
+              ...current,
+              bill_order_bid: value,
+            }))
+          }
+        />
+      ),
+    },
     {
       key: 'product_keyword',
       label: tOperationsOrder('creditOrders.filters.productKeyword'),
