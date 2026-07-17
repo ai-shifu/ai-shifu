@@ -21,12 +21,22 @@ export const redirectToHomeUrlIfRootPath = (homeUrl?: string): boolean => {
     const currentUrl = new URL(window.location.href);
     const targetUrl = new URL(homeUrl, window.location.href);
 
+    if (targetUrl.protocol !== 'http:' && targetUrl.protocol !== 'https:') {
+      return false;
+    }
+
     const currentPath = currentUrl.pathname.replace(/\/+$/, '') || '/';
     const targetPath = targetUrl.pathname.replace(/\/+$/, '') || '/';
+    const targetCourseId = targetUrl.searchParams.get('courseId')?.trim() ?? '';
+    const isTargetBareCourse = targetPath === '/c' && !targetCourseId;
+    const isSameTarget =
+      currentPath === targetPath &&
+      currentUrl.search === targetUrl.search &&
+      currentUrl.hash === targetUrl.hash;
 
     if (
       currentUrl.origin === targetUrl.origin &&
-      (targetPath === '/' || targetPath === '/c' || currentPath === targetPath)
+      (isTargetBareCourse || isSameTarget)
     ) {
       return false;
     }

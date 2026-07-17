@@ -104,6 +104,46 @@ def _is_valid_rpm_limits_json(value: Any) -> bool:
     return True
 
 
+def parse_llm_model_max_output_tokens(value: Any) -> Dict[str, int]:
+    """Parse a routed model id -> maximum output token JSON map."""
+
+    if value in (None, ""):
+        return {}
+    if isinstance(value, dict):
+        candidate = value
+    else:
+        try:
+            candidate = json.loads(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("must be a JSON object") from exc
+    if not isinstance(candidate, dict):
+        raise ValueError("must be a JSON object")
+
+    parsed: Dict[str, int] = {}
+    for model, max_output_tokens in candidate.items():
+        if not isinstance(model, str) or not model.strip():
+            raise ValueError("model ids must be non-empty strings")
+        normalized_model = model.strip()
+        if normalized_model in parsed:
+            raise ValueError("model ids must be unique after trimming whitespace")
+        if (
+            isinstance(max_output_tokens, bool)
+            or not isinstance(max_output_tokens, int)
+            or max_output_tokens <= 0
+        ):
+            raise ValueError("maximum output token values must be positive integers")
+        parsed[normalized_model] = max_output_tokens
+    return parsed
+
+
+def _is_valid_llm_model_max_output_tokens_json(value: Any) -> bool:
+    try:
+        parse_llm_model_max_output_tokens(value)
+    except ValueError:
+        return False
+    return True
+
+
 # Environment variable registry
 ENV_VARS: Dict[str, EnvVar] = {
     # Application Configuration
@@ -203,8 +243,11 @@ ENV_VARS: Dict[str, EnvVar] = {
     ),
     "HOME_URL": EnvVar(
         name="HOME_URL",
-        default="/",
-        description="Cook Web logo/home redirect URL (default: /)",
+        default="/admin",
+        description=(
+            "Cook Web logo and entry redirect URL. Set /c/<shifu_bid> to use "
+            "a course as the landing page (default: /admin)"
+        ),
         group="frontend",
     ),
     "CONTACT_US_URL": EnvVar(
@@ -329,12 +372,6 @@ ENV_VARS: Dict[str, EnvVar] = {
         type=int,
         description="Upper bound for the DSL `limit` field accepted by creator-analytics",
         group="analytics",
-    ),
-    "DEFAULT_COURSE_ID": EnvVar(
-        name="DEFAULT_COURSE_ID",
-        default="",
-        description="Default course id for Cook Web",
-        group="frontend",
     ),
     "DEFAULT_LOGIN_METHOD": EnvVar(
         name="DEFAULT_LOGIN_METHOD",
@@ -602,6 +639,19 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
         ),
         group="llm",
         required=False,
+    ),
+    "LLM_MODEL_MAX_OUTPUT_TOKENS": EnvVar(
+        name="LLM_MODEL_MAX_OUTPUT_TOKENS",
+        default="",
+        type=str,
+        description=(
+            "Optional JSON object mapping full routed LLM model ids to positive "
+            "maximum output token limits. Values extend LiteLLM model metadata "
+            "and are sent as max_tokens for matching requests."
+        ),
+        group="llm",
+        required=False,
+        validator=_is_valid_llm_model_max_output_tokens_json,
     ),
     "DEFAULT_LLM_TEMPERATURE": EnvVar(
         name="DEFAULT_LLM_TEMPERATURE",
