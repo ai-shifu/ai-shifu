@@ -303,7 +303,9 @@ def _collect_retired_duplicate_root_bids(
 
     keep_roots = [by_bid[bid] for bid in keep_root_bids]
     non_root_keep_bids = [
-        bid for bid, item in zip(keep_root_bids, keep_roots) if item.parent_bid
+        bid
+        for bid, item in zip(keep_root_bids, keep_roots)
+        if str(item.parent_bid or "").strip()
     ]
     if non_root_keep_bids:
         return [], f"Keep outline is not a root: {', '.join(non_root_keep_bids)}"
@@ -489,7 +491,9 @@ def repair_shifu_outline_structure(
                 record.retired_outline_bids = locked_retired_outline_bids
 
                 current_time = now_utc()
-                change_by_bid = {item.outline_item_bid: item for item in changes}
+                change_by_bid = {
+                    str(item.outline_item_bid or "").strip(): item for item in changes
+                }
                 retired_bid_set = set(locked_retired_outline_bids)
                 for item in _load_latest_active_outline_items(shifu_bid):
                     outline_bid = str(item.outline_item_bid or "").strip()

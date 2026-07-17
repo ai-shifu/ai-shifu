@@ -346,3 +346,88 @@ def test_repair_shifu_outline_structure_retires_duplicate_root_generations(app):
         "keep-stage-2",
         "keep-stage-3",
     ]
+
+
+def test_repair_shifu_outline_structure_accepts_space_only_keep_root_parent(app):
+    with app.app_context():
+        _mk_shifu("shifu-space-root-parent")
+        _mk_outline(
+            "shifu-space-root-parent",
+            "old-root",
+            "01",
+            title="Old root",
+        )
+        _mk_outline(
+            "shifu-space-root-parent",
+            "keep-root",
+            "01",
+            parent_bid=" ",
+            title="Keep root",
+        )
+        db.session.commit()
+
+        result = repair_shifu_outline_structure(
+            app,
+            user_bid="repair-user-1",
+            shifu_bids=["shifu-space-root-parent"],
+            keep_root_bids=["keep-root"],
+            dry_run=False,
+        )
+
+        latest_keep = (
+            DraftOutlineItem.query.filter_by(
+                shifu_bid="shifu-space-root-parent",
+                outline_item_bid="keep-root",
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+
+    assert result.status == "repaired"
+    assert result.skipped_records == []
+    assert result.retired_outline_count == 1
+    assert result.changed_outline_count == 1
+    assert latest_keep is not None
+    assert latest_keep.deleted == 0
+    assert latest_keep.parent_bid == ""
+
+
+def test_repair_shifu_outline_structure_applies_changes_for_space_padded_bid(app):
+    with app.app_context():
+        _mk_shifu("shifu-space-padded-bid")
+        _mk_outline("shifu-space-padded-bid", "root-1", "01")
+        _mk_outline(
+            "shifu-space-padded-bid",
+            " child-a ",
+            "0101",
+            parent_bid="",
+        )
+        _mk_outline(
+            "shifu-space-padded-bid",
+            "child-b",
+            "0101",
+            parent_bid="root-1",
+        )
+        db.session.commit()
+
+        result = repair_shifu_outline_structure(
+            app,
+            user_bid="repair-user-1",
+            shifu_bids=["shifu-space-padded-bid"],
+            dry_run=False,
+        )
+
+        latest_child = (
+            DraftOutlineItem.query.filter_by(
+                shifu_bid="shifu-space-padded-bid",
+                outline_item_bid=" child-a ",
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+
+    assert result.status == "repaired"
+    assert result.changed_outline_count == 2
+    assert latest_child is not None
+    assert latest_child.parent_bid == "root-1"
+    assert latest_child.position == "0101"
