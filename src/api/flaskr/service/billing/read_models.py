@@ -925,7 +925,12 @@ def build_admin_bill_entitlements_page(
 def _load_independent_entitlement_creator_bids(*, creator_bid: str = "") -> list[str]:
     normalized_creator_bid = _normalize_bid(creator_bid)
     now = now_utc()
-    query = db.session.query(BillingEntitlement.creator_bid).filter(
+    query = db.session.query(
+        BillingEntitlement.creator_bid,
+        BillingEntitlement.branding_enabled,
+        BillingEntitlement.custom_domain_enabled,
+        BillingEntitlement.feature_payload,
+    ).filter(
         BillingEntitlement.deleted == 0,
         BillingEntitlement.creator_bid != "",
         BillingEntitlement.source_type == CREDIT_SOURCE_TYPE_MANUAL,
@@ -934,20 +939,34 @@ def _load_independent_entitlement_creator_bids(*, creator_bid: str = "") -> list
             (BillingEntitlement.effective_to.is_(None))
             | (BillingEntitlement.effective_to > now)
         ),
-        or_(
-            BillingEntitlement.branding_enabled == 1,
-            BillingEntitlement.custom_domain_enabled == 1,
-            BillingEntitlement.feature_payload.isnot(None),
-        ),
     )
     if normalized_creator_bid:
         query = query.filter(BillingEntitlement.creator_bid == normalized_creator_bid)
-    rows = query.distinct().all()
+    rows = query.all()
     return sorted(
-        normalized
-        for normalized in (_normalize_bid(row[0]) for row in rows)
-        if normalized
+        {
+            normalized
+            for row in rows
+            for normalized in [_normalize_bid(row[0])]
+            if normalized and _is_independent_entitlement_row(row)
+        }
     )
+
+
+def _is_independent_entitlement_row(row) -> bool:
+    if bool(row[1]) or bool(row[2]):
+        return True
+    payload = row[3] if isinstance(row[3], dict) else {}
+    return _payload_bool(payload.get("custom_wechat_enabled")) or _payload_bool(
+        payload.get("custom_payment_enabled")
+    )
+
+
+def _payload_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value or "").strip().lower()
+    return normalized in {"1", "true", "yes", "y", "on"}
 
 
 def _resolve_credit_order_kind_filter(kind: str) -> int | None:

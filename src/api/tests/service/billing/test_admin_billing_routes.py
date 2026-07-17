@@ -918,6 +918,16 @@ class TestAdminBillingRoutes:
                 "custom_payment_enabled": False,
             },
         )
+        client.post(
+            "/api/admin/billing/entitlements/grants",
+            json={
+                "creator_mobile": "13800138001",
+                "branding_enabled": False,
+                "custom_domain_enabled": False,
+                "custom_wechat_enabled": False,
+                "custom_payment_enabled": False,
+            },
+        )
 
         response = client.get(
             "/api/admin/billing/entitlements?page_index=1&page_size=10&independent_only=true"
