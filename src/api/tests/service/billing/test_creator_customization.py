@@ -282,6 +282,108 @@ def test_creator_integration_probe_failure_does_not_activate(app, monkeypatch):
         )
 
 
+def test_failed_integration_draft_keeps_existing_active_config(app, monkeypatch):
+    _require_saas_config_plugin()
+    app.config["TESTING"] = True
+    app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+    monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+
+    with app.app_context():
+        grant_creator_manual_entitlement(
+            app,
+            "creator-active-config",
+            custom_payment_enabled=True,
+        )
+        current = customization.save_creator_integration(
+            app,
+            "creator-active-config",
+            "stripe",
+            {
+                "public_config": {"publishable_key": "pk_test_current"},
+                "secret_config": {
+                    "secret_key": "sk_test_current",
+                    "webhook_secret": "whsec_current",
+                },
+            },
+        )
+        assert (
+            customization.verify_creator_integration(
+                app,
+                "creator-active-config",
+                "stripe",
+                current["integration_bid"],
+            )["status"]
+            == "verified"
+        )
+        funcs = customization._saas_funcs()
+        active_key = customization.INTEGRATION_ACTIVE_KEY.format(provider="stripe")
+        assert (
+            funcs.get_sass_config("creator-active-config", active_key, default="")
+            == current["integration_bid"]
+        )
+        assert (
+            funcs.get_sass_config(
+                "creator-active-config", "STRIPE_SECRET_KEY", default=""
+            )
+            == "sk_test_current"
+        )
+
+        invalid = customization.save_creator_integration(
+            app,
+            "creator-active-config",
+            "stripe",
+            {
+                "public_config": {"publishable_key": "not-a-publishable-key"},
+                "secret_config": {
+                    "secret_key": "not-a-secret-key",
+                    "webhook_secret": "not-a-webhook-secret",
+                },
+            },
+        )
+        assert invalid["status"] == "draft"
+        assert (
+            funcs.get_sass_config("creator-active-config", active_key, default="")
+            == current["integration_bid"]
+        )
+        assert (
+            funcs.get_sass_config(
+                "creator-active-config", "STRIPE_SECRET_KEY", default=""
+            )
+            == "sk_test_current"
+        )
+
+        failed = customization.verify_creator_integration(
+            app,
+            "creator-active-config",
+            "stripe",
+            invalid["integration_bid"],
+        )
+
+        assert failed["status"] == "failed"
+        assert (
+            funcs.get_sass_config("creator-active-config", active_key, default="")
+            == current["integration_bid"]
+        )
+        assert (
+            funcs.get_sass_config(
+                "creator-active-config", "STRIPE_PUBLISHABLE_KEY", default=""
+            )
+            == "pk_test_current"
+        )
+        assert (
+            funcs.get_sass_config(
+                "creator-active-config", "STRIPE_SECRET_KEY", default=""
+            )
+            == "sk_test_current"
+        )
+        context = customization.resolve_provider_credential_context(
+            app, creator_bid="creator-active-config", provider="stripe"
+        )
+        assert context is not None
+        assert context.integration_bid == current["integration_bid"]
+        assert context.secret_config["secret_key"] == "sk_test_current"
+
+
 def test_creator_branding_reuses_unified_config(app, monkeypatch):
     _require_saas_config_plugin()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)

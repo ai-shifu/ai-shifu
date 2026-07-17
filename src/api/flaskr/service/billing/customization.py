@@ -455,7 +455,6 @@ def save_creator_integration(
             updated_by=creator_bid,
             config_bid=integration_bid,
         )
-        _activate_provider_config(app, creator_bid, provider, record)
         return _serialize_integration(app, creator_bid, record)
 
 
@@ -503,6 +502,7 @@ def verify_creator_integration(
                 remark=f"Active course-owner {provider} integration",
             ),
         )
+        _activate_provider_config(app, creator_bid, provider, record)
         return _serialize_integration(app, creator_bid, record)
 
 
