@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 import flaskr.dao as dao
 from flaskr.service.billing import admin_ops_state
 
@@ -26,27 +24,26 @@ class _TrackingRedis:
         return _TrackingLock(self.events, key)
 
 
-class _FakeSaasFuncs:
-    def __init__(self):
-        self.store = {}
-        self.SaasUserConfigCreateDTO = SimpleNamespace
+def _patch_config_store(monkeypatch):
+    store = {}
 
-    def get_sass_config(self, user_bid, key, default=""):
-        return self.store.get((user_bid, key), default)
+    def fake_get_config(key, default=None):
+        return store.get(key, default)
 
-    def create_or_update_saas_user_config(self, _app, payload):
-        self.store[(payload.user_bid, payload.key)] = payload.value
-        self.store[(payload.user_bid, payload.key, "is_encrypted")] = (
-            payload.is_encrypted
-        )
-        return payload
+    def fake_update_config(_app, key, value, **kwargs):
+        store[key] = value
+        store[(key, "meta")] = kwargs
+        return True
+
+    monkeypatch.setattr(admin_ops_state, "get_config", fake_get_config)
+    monkeypatch.setattr(admin_ops_state, "update_config", fake_update_config)
+    return store
 
 
 def test_admin_billing_ops_state_updates_under_redis_lock(app, monkeypatch):
     redis = _TrackingRedis()
-    fake_saas = _FakeSaasFuncs()
+    store = _patch_config_store(monkeypatch)
     monkeypatch.setattr(dao, "redis_client", redis, raising=False)
-    monkeypatch.setattr(admin_ops_state, "_saas_funcs", lambda **_kwargs: fake_saas)
 
     admin_ops_state.update_admin_billing_config_status(
         app,
@@ -59,16 +56,11 @@ def test_admin_billing_ops_state_updates_under_redis_lock(app, monkeypatch):
         "status": "completed",
         "note": "checked",
     }
-    assert (
-        fake_saas.store[
-            (
-                "billing-admin-ops",
-                "ADMIN_BILLING.CONFIG_STATUS",
-                "is_encrypted",
-            )
-        ]
-        == 0
-    )
+    assert store[("ADMIN_BILLING.CONFIG_STATUS", "meta")] == {
+        "is_secret": False,
+        "remark": "Admin billing operations state",
+        "updated_by": "billing-admin-ops",
+    }
     assert redis.events == [
         ("lock", "billing:admin_ops_state:ADMIN_BILLING.CONFIG_STATUS"),
         ("acquire", "billing:admin_ops_state:ADMIN_BILLING.CONFIG_STATUS"),
@@ -76,13 +68,12 @@ def test_admin_billing_ops_state_updates_under_redis_lock(app, monkeypatch):
     ]
 
 
-def test_admin_billing_exception_handled_state_persists_without_encryption(
+def test_admin_billing_exception_handled_state_persists_in_core_config(
     app, monkeypatch
 ):
     redis = _TrackingRedis()
-    fake_saas = _FakeSaasFuncs()
+    store = _patch_config_store(monkeypatch)
     monkeypatch.setattr(dao, "redis_client", redis, raising=False)
-    monkeypatch.setattr(admin_ops_state, "_saas_funcs", lambda **_kwargs: fake_saas)
 
     result = admin_ops_state.update_admin_billing_exception_handled(
         app,
@@ -94,16 +85,11 @@ def test_admin_billing_exception_handled_state_persists_without_encryption(
     assert admin_ops_state.build_admin_billing_ops_state(app)["exception_handled"] == {
         "subscription:sub-past-due": True
     }
-    assert (
-        fake_saas.store[
-            (
-                "billing-admin-ops",
-                "ADMIN_BILLING.EXCEPTION_HANDLED",
-                "is_encrypted",
-            )
-        ]
-        == 0
-    )
+    assert store[("ADMIN_BILLING.EXCEPTION_HANDLED", "meta")] == {
+        "is_secret": False,
+        "remark": "Admin billing operations state",
+        "updated_by": "billing-admin-ops",
+    }
 
     admin_ops_state.update_admin_billing_exception_handled(
         app,

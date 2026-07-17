@@ -36,20 +36,16 @@ import type {
   BillingPagedResponse,
 } from '@/types/billing';
 import {
-  ADMIN_BILLING_EXCEPTION_HANDLED_EVENT,
   AdminBillingIdentityCell,
   AdminBillingSectionCard,
-  applyAdminBillingOpsState,
   resolveAdminBillingCreatorSecondary,
   resolveAdminBillingOrderFailure,
   resolveAdminBillingOrderProductName,
   resolveAdminBillingPaginationFootnote,
   resolveAdminBillingProductName,
-  readAdminBillingExceptionHandledMap,
   setAdminBillingExceptionHandledState,
   type AdminBillingCreatorTarget,
   type AdminBillingExceptionHandledMap,
-  type AdminBillingOpsState,
 } from './AdminBillingShared';
 
 const EXCEPTION_PAGE_SIZE = 10;
@@ -179,10 +175,14 @@ function resolveExceptionOpsStatusClass(isHandled: boolean): string {
 }
 
 type AdminBillingExceptionsPanelProps = {
+  handledMap: AdminBillingExceptionHandledMap;
+  opsStateReady: boolean;
   onAdjustCreatorBid?: (target: AdminBillingCreatorTarget) => void;
 };
 
 export function AdminBillingExceptionsPanel({
+  handledMap: externalHandledMap,
+  opsStateReady,
   onAdjustCreatorBid,
 }: AdminBillingExceptionsPanelProps) {
   const { t, i18n } = useTranslation();
@@ -194,46 +194,11 @@ export function AdminBillingExceptionsPanel({
   }, [searchParams]);
   const [pageIndex, setPageIndex] = React.useState(1);
   const [handledMap, setHandledMap] =
-    React.useState<AdminBillingExceptionHandledMap>({});
+    React.useState<AdminBillingExceptionHandledMap>(externalHandledMap);
 
   React.useEffect(() => {
-    setHandledMap(readAdminBillingExceptionHandledMap());
-  }, []);
-
-  const { data: opsState } = useSWR<AdminBillingOpsState>(
-    buildBillingSwrKey('admin-billing-ops-state-exceptions'),
-    async () =>
-      (await api.getAdminBillingOpsState(
-        {},
-        BILLING_PASSIVE_REQUEST_CONFIG,
-      )) as AdminBillingOpsState,
-    { revalidateOnFocus: false },
-  );
-
-  React.useEffect(() => {
-    if (!opsState) {
-      return;
-    }
-    applyAdminBillingOpsState(opsState);
-    setHandledMap(readAdminBillingExceptionHandledMap());
-  }, [opsState]);
-
-  React.useEffect(() => {
-    const handleHandledStateChange = () => {
-      setHandledMap(readAdminBillingExceptionHandledMap());
-    };
-
-    window.addEventListener(
-      ADMIN_BILLING_EXCEPTION_HANDLED_EVENT,
-      handleHandledStateChange,
-    );
-    return () => {
-      window.removeEventListener(
-        ADMIN_BILLING_EXCEPTION_HANDLED_EVENT,
-        handleHandledStateChange,
-      );
-    };
-  }, []);
+    setHandledMap(externalHandledMap);
+  }, [externalHandledMap]);
 
   const { data: subscriptionCountPage } = useSWR<
     BillingPagedResponse<AdminBillingSubscriptionItem>
@@ -418,6 +383,7 @@ export function AdminBillingExceptionsPanel({
   const isLoading =
     subscriptionsLoading ||
     ordersLoading ||
+    !opsStateReady ||
     subscriptionCountPage === undefined ||
     orderCountPage === undefined;
 

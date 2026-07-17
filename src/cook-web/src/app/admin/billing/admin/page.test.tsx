@@ -650,6 +650,66 @@ describe('AdminBillingOperationsConsole', () => {
     );
   });
 
+  test('waits for handled exception state before showing the exception badge', async () => {
+    let resolveOpsState: (value: {
+      config_status: Record<string, never>;
+      exception_handled: Record<string, boolean>;
+    }) => void = () => {};
+    mockGetAdminBillingOpsState.mockReturnValue(
+      new Promise(resolve => {
+        resolveOpsState = resolve;
+      }),
+    );
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingOperationsConsole />
+      </SWRConfig>,
+    );
+
+    const exceptionsTab = screen.getByRole('tab', {
+      name: 'module.billing.admin.tabs.exceptions',
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminBillingSubscriptions).toHaveBeenCalledWith(
+        {
+          page_index: 1,
+          page_size: 1,
+          attention_only: true,
+        },
+        { skipErrorToast: true },
+      );
+      expect(mockGetAdminBillingOrders).toHaveBeenCalledWith(
+        {
+          page_index: 1,
+          page_size: 1,
+        },
+        { skipErrorToast: true },
+      );
+    });
+
+    expect(within(exceptionsTab).queryByText('2')).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveOpsState({
+        config_status: {},
+        exception_handled: {
+          'subscription:sub-past-due': true,
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(within(exceptionsTab).getByText('1')).toBeInTheDocument();
+    });
+    expect(within(exceptionsTab).queryByText('2')).not.toBeInTheDocument();
+  });
+
   test('submits a manual ledger adjustment and revalidates admin billing data', async () => {
     const user = userEvent.setup();
 

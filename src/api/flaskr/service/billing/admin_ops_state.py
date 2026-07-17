@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import json
-from importlib import import_module
 from typing import Any, Iterator
 
 from flask import Flask
 
 from flaskr.service.common.models import raise_param_error
+from flaskr.service.config.funcs import get_config, update_config
 from .primitives import normalize_bid
 
 _ADMIN_OPS_OWNER_BID = "billing-admin-ops"
@@ -104,28 +104,18 @@ def _admin_ops_lock(key: str) -> Iterator[None]:
 
 
 def _read_map(key: str) -> dict[str, Any]:
-    funcs = _saas_funcs(required=False)
-    if funcs is None:
-        return {}
-    payload = _load_json(funcs.get_sass_config(_ADMIN_OPS_OWNER_BID, key, default="{}"))
+    payload = _load_json(get_config(key, "{}"))
     return payload if isinstance(payload, dict) else {}
 
 
 def _write_map(app: Flask, key: str, value: dict[str, Any]) -> None:
-    funcs = _saas_funcs(required=False)
-    if funcs is None:
-        return
-    funcs.create_or_update_saas_user_config(
+    update_config(
         app,
-        funcs.SaasUserConfigCreateDTO(
-            user_bid=_ADMIN_OPS_OWNER_BID,
-            key=key,
-            value=json.dumps(
-                value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-            ),
-            is_encrypted=0,
-            remark="Admin billing operations state",
-        ),
+        key,
+        json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True),
+        is_secret=False,
+        remark="Admin billing operations state",
+        updated_by=_ADMIN_OPS_OWNER_BID,
     )
 
 
@@ -135,16 +125,3 @@ def _load_json(value: Any) -> dict[str, Any]:
     except (TypeError, ValueError, json.JSONDecodeError):
         return {}
     return payload if isinstance(payload, dict) else {}
-
-
-def _saas_funcs(*, required: bool = True):
-    try:
-        return import_module(
-            "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs"
-        )
-    except ModuleNotFoundError as exc:
-        if not str(exc.name or "").startswith("flaskr.plugins.ai_shifu_saas_plugin"):
-            raise
-        if required:
-            raise RuntimeError("SaaS config plugin is not installed") from exc
-        return None

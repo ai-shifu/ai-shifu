@@ -86,8 +86,8 @@ export function AdminBillingOperationsConsole() {
   const [adjustTarget, setAdjustTarget] =
     React.useState<AdminBillingCreatorTarget | null>(null);
   const [adjustDialogOpen, setAdjustDialogOpen] = React.useState(false);
-  const [handledMap, setHandledMap] = React.useState(() =>
-    readAdminBillingExceptionHandledMap(),
+  const [handledMap, setHandledMap] = React.useState<Record<string, boolean>>(
+    {},
   );
 
   React.useEffect(() => {
@@ -118,7 +118,7 @@ export function AdminBillingOperationsConsole() {
     };
   }, []);
 
-  const { data: opsState } = useSWR<AdminBillingOpsState>(
+  const { data: opsState, error: opsStateError } = useSWR<AdminBillingOpsState>(
     billingEnabled && runtimeConfigLoaded
       ? buildBillingSwrKey('admin-billing-ops-state')
       : null,
@@ -137,6 +137,8 @@ export function AdminBillingOperationsConsole() {
     applyAdminBillingOpsState(opsState);
     setHandledMap(readAdminBillingExceptionHandledMap());
   }, [opsState]);
+
+  const opsStateReady = Boolean(opsState || opsStateError);
 
   const updateTab = React.useCallback(
     (nextTab: AdminBillingConsoleTab) => {
@@ -246,7 +248,7 @@ export function AdminBillingOperationsConsole() {
     const ordersReady =
       orderExceptionTotal === 0 || Boolean(allExceptionOrders);
 
-    if (subscriptionsReady && ordersReady) {
+    if (opsStateReady && subscriptionsReady && ordersReady) {
       return resolvePendingExceptionCount({
         handledMap,
         subscriptionItems,
@@ -254,11 +256,12 @@ export function AdminBillingOperationsConsole() {
       });
     }
 
-    return subscriptionExceptionTotal + orderExceptionTotal;
+    return 0;
   }, [
     allExceptionOrders,
     allExceptionSubscriptions,
     handledMap,
+    opsStateReady,
     orderExceptionTotal,
     subscriptionExceptionTotal,
   ]);
@@ -324,7 +327,7 @@ export function AdminBillingOperationsConsole() {
                 >
                   <span className='inline-flex items-center gap-2'>
                     <span>{t('module.billing.admin.tabs.exceptions')}</span>
-                    {pendingExceptionCount > 0 ? (
+                    {opsStateReady && pendingExceptionCount > 0 ? (
                       <span className='inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0 text-[10px] font-semibold leading-4 text-white'>
                         {pendingExceptionCount > 99
                           ? TAB_BADGE_OVERFLOW_LABEL
@@ -366,6 +369,8 @@ export function AdminBillingOperationsConsole() {
             className='mt-0'
           >
             <AdminBillingExceptionsPanel
+              handledMap={handledMap}
+              opsStateReady={opsStateReady}
               onAdjustCreatorBid={openAdjustDialog}
             />
           </TabsContent>
