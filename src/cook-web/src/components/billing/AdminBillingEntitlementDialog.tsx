@@ -1332,53 +1332,69 @@ function CreateDraftIntegrationFields({
       <div className='mb-3 text-sm font-medium text-slate-900'>
         {t(`module.billing.customization.providers.${provider}`)}
       </div>
-      <div className='grid gap-3 md:grid-cols-2'>
-        {fields.public.map(field => (
-          <CreateDraftInput
-            key={`${provider}-public-${field}`}
-            label={field}
-            value={config.public_config[field] || ''}
-            onChange={value =>
-              onChange(provider, 'public_config', field, value)
-            }
-          />
-        ))}
-        {fields.secret.map(field => (
-          <label
-            key={`${provider}-secret-${field}`}
-            className='grid gap-2 text-sm'
-          >
-            <span className='font-medium text-slate-900'>{field}</span>
-            {field.includes('key') || field.includes('cert') ? (
-              <Textarea
-                rows={4}
-                value={config.secret_config[field] || ''}
-                placeholder={
-                  config.secret_configured_fields?.includes(field)
-                    ? t('module.billing.customization.actions.secretSaved')
-                    : undefined
-                }
-                onChange={event =>
-                  onChange(provider, 'secret_config', field, event.target.value)
-                }
-              />
-            ) : (
-              <Input
-                type='password'
-                value={config.secret_config[field] || ''}
-                placeholder={
-                  config.secret_configured_fields?.includes(field)
-                    ? t('module.billing.customization.actions.secretSaved')
-                    : undefined
-                }
-                onChange={event =>
-                  onChange(provider, 'secret_config', field, event.target.value)
-                }
-              />
-            )}
-          </label>
-        ))}
-      </div>
+      {fields.public.length ? (
+        <div className='grid gap-3 md:grid-cols-2'>
+          {fields.public.map(field => (
+            <CreateDraftInput
+              key={`${provider}-public-${field}`}
+              label={field}
+              value={config.public_config[field] || ''}
+              onChange={value =>
+                onChange(provider, 'public_config', field, value)
+              }
+            />
+          ))}
+        </div>
+      ) : null}
+      {fields.secret.length ? (
+        <div className='mt-4 grid gap-3 md:grid-cols-2'>
+          {fields.secret.map(field => (
+            <label
+              key={`${provider}-secret-${field}`}
+              className='grid gap-2 text-sm'
+            >
+              <span className='font-medium text-slate-900'>{field}</span>
+              {field.includes('key') || field.includes('cert') ? (
+                <Textarea
+                  rows={4}
+                  value={config.secret_config[field] || ''}
+                  placeholder={
+                    config.secret_configured_fields?.includes(field)
+                      ? t('module.billing.customization.actions.secretSaved')
+                      : undefined
+                  }
+                  onChange={event =>
+                    onChange(
+                      provider,
+                      'secret_config',
+                      field,
+                      event.target.value,
+                    )
+                  }
+                />
+              ) : (
+                <Input
+                  type='password'
+                  value={config.secret_config[field] || ''}
+                  placeholder={
+                    config.secret_configured_fields?.includes(field)
+                      ? t('module.billing.customization.actions.secretSaved')
+                      : undefined
+                  }
+                  onChange={event =>
+                    onChange(
+                      provider,
+                      'secret_config',
+                      field,
+                      event.target.value,
+                    )
+                  }
+                />
+              )}
+            </label>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

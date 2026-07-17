@@ -1157,34 +1157,40 @@ function IntegrationCard({
         </div>
       ) : (
         <div className='mt-4 space-y-4'>
-          <div className='grid gap-3 md:grid-cols-2'>
-            {fields.public.map(field => (
-              <ConfigInput
-                key={field}
-                label={field}
-                value={publicConfig[field] || ''}
-                onChange={value =>
-                  setPublicConfig(current => ({ ...current, [field]: value }))
-                }
-              />
-            ))}
-            {fields.secret.map(field => (
-              <ConfigInput
-                key={field}
-                label={field}
-                value={secretConfig[field] || ''}
-                placeholder={
-                  integration.secret_configured_fields?.includes(field)
-                    ? t('module.billing.customization.actions.secretSaved')
-                    : undefined
-                }
-                onChange={value =>
-                  setSecretConfig(current => ({ ...current, [field]: value }))
-                }
-                secret
-              />
-            ))}
-          </div>
+          {fields.public.length ? (
+            <div className='grid gap-3 md:grid-cols-2'>
+              {fields.public.map(field => (
+                <ConfigInput
+                  key={field}
+                  label={field}
+                  value={publicConfig[field] || ''}
+                  onChange={value =>
+                    setPublicConfig(current => ({ ...current, [field]: value }))
+                  }
+                />
+              ))}
+            </div>
+          ) : null}
+          {fields.secret.length ? (
+            <div className='grid gap-3 md:grid-cols-2'>
+              {fields.secret.map(field => (
+                <ConfigInput
+                  key={field}
+                  label={field}
+                  value={secretConfig[field] || ''}
+                  placeholder={
+                    integration.secret_configured_fields?.includes(field)
+                      ? t('module.billing.customization.actions.secretSaved')
+                      : undefined
+                  }
+                  onChange={value =>
+                    setSecretConfig(current => ({ ...current, [field]: value }))
+                  }
+                  secret
+                />
+              ))}
+            </div>
+          ) : null}
           {integration.callback_url ? (
             <p className='break-all rounded bg-gray-50 p-3 text-xs text-gray-600'>
               {integration.callback_url}
