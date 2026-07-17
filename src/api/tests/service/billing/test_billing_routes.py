@@ -661,7 +661,7 @@ class TestBillingRoutes:
         } in payload["data"]["admin_routes"]
         assert {
             "method": "POST",
-            "path": "/api/admin/billing/entitlements/{creator_bid}",
+            "path": "/api/admin/billing/entitlements/grants",
         } in payload["data"]["admin_routes"]
         assert {
             "method": "GET",
@@ -696,9 +696,10 @@ class TestBillingRoutes:
         self, billing_test_client
     ) -> None:
         response = billing_test_client.post(
-            "/api/admin/billing/entitlements/creator-manual-grant",
+            "/api/admin/billing/entitlements/grants",
             headers={"X-Operator": "1"},
             json={
+                "creator_bid": "creator-1",
                 "branding_enabled": True,
                 "custom_domain_enabled": True,
                 "custom_wechat_enabled": True,
