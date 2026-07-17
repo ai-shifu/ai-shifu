@@ -1,39 +1,6 @@
 {
   "__namespace__": "module.billing",
   "admin": {
-    "adjust": {
-      "cancel": "取消",
-      "description": "用于补发或扣减老师积分，并记录本次人工处理原因。",
-      "errors": {
-        "amountInvalid": "请输入非 0 的十进制金额，最多保留 2 位小数。",
-        "creatorBidRequired": "请输入老师 BID。",
-        "creatorMobileRequired": "请输入老师手机号。"
-      },
-      "fields": {
-        "amount": "修正额度",
-        "creatorBid": "老师 BID",
-        "creatorMobile": "老师手机号",
-        "note": "备注"
-      },
-      "help": {
-        "amount": "请输入正数表示补发积分，输入负数表示扣减积分，最多保留 2 位小数。",
-        "creatorMobile": "",
-        "note": "建议写清处理原因，方便后续排查账本记录。"
-      },
-      "open": "修正账本",
-      "placeholders": {
-        "amount": "输入正数或负数，最多保留 2 位小数",
-        "creatorBid": "输入老师 BID",
-        "creatorMobile": "输入已注册老师手机号",
-        "note": "填写人工调整原因"
-      },
-      "quickAction": "修正账本",
-      "submit": "确认修正",
-      "submitting": "修正中...",
-      "success": "已更新 {creator} 的账本，当前可用积分 {availableCredits}。",
-      "targetSummary": "当前处理对象",
-      "title": "修正账本"
-    },
     "attention": "需关注",
     "backToCreatorBilling": "返回会员中心",
     "entitlements": {

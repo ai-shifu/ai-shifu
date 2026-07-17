@@ -1,39 +1,6 @@
 {
   "__namespace__": "module.billing",
   "admin": {
-    "adjust": {
-      "cancel": "Annuler",
-      "description": "Ajouter ou déduire des crédits enseignant et consigner la raison de cette correction manuelle.",
-      "errors": {
-        "amountInvalid": "Saisissez un montant decimal non nul avec 2 decimales maximum.",
-        "creatorBidRequired": "Le BID enseignant est requis.",
-        "creatorMobileRequired": "Le numéro de téléphone de l’enseignant est requis."
-      },
-      "fields": {
-        "amount": "Montant de correction",
-        "creatorBid": "BID enseignant",
-        "creatorMobile": "Numéro de téléphone de l’enseignant",
-        "note": "Note"
-      },
-      "help": {
-        "amount": "Saisissez une valeur positive pour ajouter des credits ou negative pour en deduire, avec 2 decimales maximum.",
-        "creatorMobile": "",
-        "note": "Ajoutez assez de contexte pour permettre aux opérateurs d’auditer ce mouvement manuel plus tard."
-      },
-      "open": "Corriger le grand livre",
-      "placeholders": {
-        "amount": "Saisissez une valeur positive ou negative avec 2 decimales maximum",
-        "creatorBid": "Saisir le BID enseignant",
-        "creatorMobile": "Numéro de téléphone d’un enseignant existant",
-        "note": "Raison de l’ajustement manuel"
-      },
-      "quickAction": "Corriger le grand livre",
-      "submit": "Appliquer la correction",
-      "submitting": "Correction en cours...",
-      "success": "Grand livre mis à jour pour {creator}. Crédits disponibles : {availableCredits}.",
-      "targetSummary": "Cible en cours",
-      "title": "Corriger le grand livre"
-    },
     "attention": "À traiter",
     "backToCreatorBilling": "Retour au centre de facturation",
     "entitlements": {

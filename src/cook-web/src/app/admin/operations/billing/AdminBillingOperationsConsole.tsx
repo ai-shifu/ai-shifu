@@ -5,13 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { useEnvStore } from '@/c-store';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import { AdminBillingAdjustDialog } from '@/components/billing/AdminBillingAdjustDialog';
 import { AdminBillingEntitlementsTable } from '@/components/billing/AdminBillingEntitlementsTable';
 import { AdminBillingReportsPanel } from '@/components/billing/AdminBillingReportsPanel';
 import { AdminBillingSubscriptionsTable } from '@/components/billing/AdminBillingSubscriptionsTable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { Button } from '@/components/ui/Button';
-import type { AdminBillingCreatorTarget } from '@/components/billing/AdminBillingShared';
 import {
   ADMIN_BILLING_TABS_LIST_CLASSNAME,
   ADMIN_BILLING_TABS_TRIGGER_CLASSNAME,
@@ -44,9 +41,6 @@ export function AdminBillingOperationsConsole() {
   }, [searchParams]);
   const [activeTab, setActiveTab] =
     React.useState<AdminBillingConsoleTab>(activeTabFromUrl);
-  const [adjustTarget, setAdjustTarget] =
-    React.useState<AdminBillingCreatorTarget | null>(null);
-  const [adjustDialogOpen, setAdjustDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     setActiveTab(activeTabFromUrl);
@@ -75,14 +69,6 @@ export function AdminBillingOperationsConsole() {
     [router],
   );
 
-  const openAdjustDialog = React.useCallback(
-    (target: AdminBillingCreatorTarget) => {
-      setAdjustTarget(target);
-      setAdjustDialogOpen(true);
-    },
-    [],
-  );
-
   if (!runtimeConfigLoaded || !billingEnabled) {
     return null;
   }
@@ -101,17 +87,6 @@ export function AdminBillingOperationsConsole() {
           <AdminTitle
             title={t('module.billing.admin.title')}
             description={t('module.billing.admin.subtitle')}
-            actions={
-              <div className='flex justify-start lg:justify-end'>
-                <Button
-                  type='button'
-                  className='h-12 rounded-full px-6 text-base font-semibold'
-                  onClick={() => openAdjustDialog({})}
-                >
-                  {t('module.billing.admin.adjust.open')}
-                </Button>
-              </div>
-            }
             tabs={
               <TabsList
                 data-testid='admin-billing-tabs'
@@ -159,17 +134,6 @@ export function AdminBillingOperationsConsole() {
           </TabsContent>
         </Tabs>
       </div>
-
-      <AdminBillingAdjustDialog
-        open={adjustDialogOpen}
-        initialTarget={adjustTarget}
-        onOpenChange={nextOpen => {
-          setAdjustDialogOpen(nextOpen);
-          if (!nextOpen) {
-            setAdjustTarget(null);
-          }
-        }}
-      />
     </div>
   );
 }

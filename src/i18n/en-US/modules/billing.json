@@ -1,39 +1,6 @@
 {
   "__namespace__": "module.billing",
   "admin": {
-    "adjust": {
-      "cancel": "Cancel",
-      "description": "Add or deduct teacher credits and record the reason for this manual adjustment.",
-      "errors": {
-        "amountInvalid": "Enter a non-zero decimal amount with up to 2 decimal places.",
-        "creatorBidRequired": "Teacher BID is required.",
-        "creatorMobileRequired": "Teacher phone number is required."
-      },
-      "fields": {
-        "amount": "Adjustment amount",
-        "creatorBid": "Teacher BID",
-        "creatorMobile": "Teacher phone number",
-        "note": "Note"
-      },
-      "help": {
-        "amount": "Enter a positive value to add credits or a negative value to deduct credits, with up to 2 decimals.",
-        "creatorMobile": "",
-        "note": "Add enough context so operators can audit the manual ledger change later."
-      },
-      "open": "Correct ledger",
-      "placeholders": {
-        "amount": "Enter a positive or negative value with up to 2 decimals",
-        "creatorBid": "Enter teacher BID",
-        "creatorMobile": "Existing teacher phone number",
-        "note": "Reason for the manual adjustment"
-      },
-      "quickAction": "Correct ledger",
-      "submit": "Apply correction",
-      "submitting": "Applying correction...",
-      "success": "Ledger updated for {creator}. Available credits: {availableCredits}.",
-      "targetSummary": "Current target",
-      "title": "Correct ledger"
-    },
     "attention": "Needs attention",
     "backToCreatorBilling": "Back to billing center",
     "entitlements": {

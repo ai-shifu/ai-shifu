@@ -47,7 +47,6 @@ jest.mock('@/lib/browser-timezone', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
-    adjustAdminBillingLedger: jest.fn(),
     getBillingBootstrap: jest.fn(),
     getAdminBillingFocusTeachers: jest.fn(),
     getAdminBillingDailyLedgerSummary: jest.fn(),
@@ -62,7 +61,6 @@ jest.mock('@/api', () => ({
   },
 }));
 
-const mockAdjustAdminBillingLedger = api.adjustAdminBillingLedger as jest.Mock;
 const mockGetBillingBootstrap = api.getBillingBootstrap as jest.Mock;
 const mockGetAdminBillingFocusTeachers =
   api.getAdminBillingFocusTeachers as jest.Mock;
@@ -93,7 +91,6 @@ describe('AdminBillingOperationsConsole', () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockEnvState.billingEnabled = 'true';
     mockEnvState.runtimeConfigLoaded = true;
-    mockAdjustAdminBillingLedger.mockReset();
     mockGetBillingBootstrap.mockReset();
     mockGetAdminBillingFocusTeachers.mockReset();
     mockGetAdminBillingDailyLedgerSummary.mockReset();
@@ -279,18 +276,6 @@ describe('AdminBillingOperationsConsole', () => {
       page_count: 1,
       page_size: 6,
       total: 1,
-    });
-    mockAdjustAdminBillingLedger.mockResolvedValue({
-      status: 'adjusted',
-      creator_bid: 'creator-2',
-      amount: 12.5,
-      wallet: {
-        wallet_bid: 'wallet-2',
-        available_credits: 17.5,
-        reserved_credits: 0,
-      },
-      wallet_bucket_bids: ['bucket-1'],
-      ledger_bids: ['ledger-1'],
     });
   });
 

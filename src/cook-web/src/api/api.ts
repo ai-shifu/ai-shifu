@@ -337,7 +337,6 @@ const api = {
   getAdminBillingFocusTeachers: 'GET /admin/billing/reports/focus-teachers',
   getAdminBillingDailyUsageMetrics: 'GET /admin/billing/reports/usage-daily',
   getAdminBillingDailyLedgerSummary: 'GET /admin/billing/reports/ledger-daily',
-  adjustAdminBillingLedger: 'POST /admin/billing/ledger/adjust',
 };
 
 export default api;

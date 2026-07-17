@@ -159,8 +159,5 @@ describe('billing api definitions', () => {
     expect(api.getAdminBillingDailyLedgerSummary).toBe(
       'GET /admin/billing/reports/ledger-daily',
     );
-    expect(api.adjustAdminBillingLedger).toBe(
-      'POST /admin/billing/ledger/adjust',
-    );
   });
 });
