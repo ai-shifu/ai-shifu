@@ -128,6 +128,95 @@ def test_creator_integration_uses_encrypted_unified_config_and_versions(
         assert edited_context.secret_config["secret_key"] == "sk_test_owner_2"
 
 
+def test_admin_creator_customization_draft_uses_short_saas_storage_keys(app):
+    _require_saas_config_plugin()
+    app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+
+    payload = {
+        "creator_mobile": "15811237246",
+        "branding_enabled": True,
+        "custom_domain_enabled": True,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": True,
+        "config_status": "in_progress",
+        "note": "draft note",
+        "branding": {
+            "logo_wide_url": "/storage/brand/wide.png",
+            "logo_square_url": "/api/storage/brand/square.png",
+        },
+        "domain": {"host": "teacher.example.com"},
+        "integrations": {
+            "wechatpay": {
+                "public_config": {
+                    "app_id": "wx_test",
+                    "mch_id": "mch_test",
+                    "merchant_serial_no": "serial_test",
+                },
+                "secret_config": {"api_v3_key": "api-v3-test"},
+            }
+        },
+    }
+
+    with app.app_context():
+        saved = customization.save_admin_creator_customization_draft(
+            app,
+            creator_bid="3b83fbdfce2748739d6543dde859898d",
+            creator_mobile="15811237246",
+            payload=payload,
+        )
+        loaded = customization.build_admin_creator_customization_draft(
+            app,
+            creator_bid="3b83fbdfce2748739d6543dde859898d",
+            creator_mobile="15811237246",
+        )
+        funcs = customization._saas_funcs()
+        model = customization._saas_model()
+        rows = model.query.filter(
+            model.user_bid == "3b83fbdfce2748739d6543dde859898d",
+            model.key == f"{customization.ADMIN_DRAFT_KEY}.CREATOR",
+            model.deleted == 0,
+        ).all()
+
+        assert saved["custom_domain_enabled"] is True
+        assert loaded["domain"]["host"] == "teacher.example.com"
+        assert len(rows) == 1
+        assert len(rows[0].user_bid) <= 36
+        assert (
+            funcs.get_sass_config(
+                "3b83fbdfce2748739d6543dde859898d",
+                customization.ADMIN_DRAFT_KEY,
+                default="",
+            )
+            == ""
+        )
+
+
+def test_admin_creator_customization_draft_mobile_identity_fits_saas_storage(app):
+    _require_saas_config_plugin()
+    app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+
+    with app.app_context():
+        saved = customization.save_admin_creator_customization_draft(
+            app,
+            creator_mobile="15811237246",
+            payload={"note": "mobile draft"},
+        )
+        loaded = customization.build_admin_creator_customization_draft(
+            app,
+            creator_mobile="15811237246",
+        )
+        model = customization._saas_model()
+        rows = model.query.filter(
+            model.key == f"{customization.ADMIN_DRAFT_KEY}.MOBILE",
+            model.deleted == 0,
+        ).all()
+
+        assert saved["note"] == "mobile draft"
+        assert loaded["note"] == "mobile draft"
+        assert rows
+        assert all(len(row.user_bid) <= 36 for row in rows)
+
+
 def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
     _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
@@ -460,8 +549,12 @@ def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(app, monkey
             "creator-logo-1",
             branding_enabled=True,
         )
+        image = Image.new("RGBA", (440, 64), (255, 255, 255, 255))
+        buffer = BytesIO()
+        image.save(buffer, format="PNG")
+        buffer.seek(0)
         logo = FileStorage(
-            stream=BytesIO(b"\x89PNG\r\n\x1a\nlogo"),
+            stream=buffer,
             filename="wide.png",
             content_type="image/png",
         )

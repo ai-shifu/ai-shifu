@@ -183,7 +183,7 @@ def build_admin_creator_customization_draft(
     creator_bid: str = "",
     creator_mobile: str = "",
 ) -> dict[str, Any]:
-    owner_bid = _admin_draft_owner_bid(
+    owner_bid, draft_key = _admin_draft_storage_identity(
         creator_bid=creator_bid,
         creator_mobile=creator_mobile,
     )
@@ -193,9 +193,7 @@ def build_admin_creator_customization_draft(
             return _empty_admin_creator_customization_draft(
                 creator_mobile=creator_mobile
             )
-        payload = _load_json(
-            value.get_sass_config(owner_bid, ADMIN_DRAFT_KEY, default="{}")
-        )
+        payload = _load_json(value.get_sass_config(owner_bid, draft_key, default="{}"))
         return _normalize_admin_creator_customization_draft(
             payload,
             creator_mobile=creator_mobile,
@@ -209,7 +207,7 @@ def save_admin_creator_customization_draft(
     creator_mobile: str = "",
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    owner_bid = _admin_draft_owner_bid(
+    owner_bid, draft_key = _admin_draft_storage_identity(
         creator_bid=creator_bid,
         creator_mobile=creator_mobile,
     )
@@ -225,7 +223,7 @@ def save_admin_creator_customization_draft(
             app,
             funcs.SaasUserConfigCreateDTO(
                 user_bid=owner_bid,
-                key=ADMIN_DRAFT_KEY,
+                key=draft_key,
                 value=_dump_json(normalized),
                 is_encrypted=1,
                 remark="Admin billing customization draft",
@@ -242,7 +240,7 @@ def clear_admin_creator_customization_draft(
 ) -> None:
     if not normalize_bid(creator_bid) and not str(creator_mobile or "").strip():
         return
-    owner_bid = _admin_draft_owner_bid(
+    owner_bid, draft_key = _admin_draft_storage_identity(
         creator_bid=creator_bid,
         creator_mobile=creator_mobile,
     )
@@ -253,7 +251,7 @@ def clear_admin_creator_customization_draft(
         funcs.soft_delete_saas_user_config(
             app,
             user_bid=owner_bid,
-            key=ADMIN_DRAFT_KEY,
+            key=draft_key,
         )
 
 
@@ -1210,6 +1208,22 @@ def _admin_draft_owner_bid(*, creator_bid: str = "", creator_mobile: str = "") -
         normalized_creator_mobile.encode("utf-8")
     ).hexdigest()
     return f"billing-admin-draft:mobile:{mobile_digest}"
+
+
+def _admin_draft_storage_identity(
+    *, creator_bid: str = "", creator_mobile: str = ""
+) -> tuple[str, str]:
+    normalized_creator_bid = normalize_bid(creator_bid)
+    if normalized_creator_bid:
+        return normalized_creator_bid, f"{ADMIN_DRAFT_KEY}.CREATOR"
+
+    normalized_creator_mobile = str(creator_mobile or "").strip()
+    if not normalized_creator_mobile:
+        raise_param_error("creator_mobile")
+    mobile_digest = hashlib.sha256(
+        normalized_creator_mobile.encode("utf-8")
+    ).hexdigest()
+    return mobile_digest[:36], f"{ADMIN_DRAFT_KEY}.MOBILE"
 
 
 def _empty_admin_creator_customization_draft(
