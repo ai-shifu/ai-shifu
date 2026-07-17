@@ -233,3 +233,116 @@ def test_repair_shifu_outline_structure_detects_parent_position_mismatch(app):
     assert result.repaired_records[0].changed_outlines[0].new_parent_bid == "root-b"
     assert result.repaired_records[0].changed_outlines[0].old_position == "0101"
     assert result.repaired_records[0].changed_outlines[0].new_position == "0201"
+
+
+def test_repair_shifu_outline_structure_retires_duplicate_root_generations(app):
+    with app.app_context():
+        shifu = _mk_shifu("shifu-root-generation", title="Python 新人训 AI 课")
+        shifu_db_id = shifu.id
+        for generation in range(1, 4):
+            _mk_outline(
+                "shifu-root-generation",
+                f"old-stage-1-{generation}",
+                "01",
+                title="阶段一",
+            )
+            _mk_outline(
+                "shifu-root-generation",
+                f"old-stage-2-{generation}",
+                "02",
+                title="阶段二：循环语句",
+            )
+            _mk_outline(
+                "shifu-root-generation",
+                f"old-stage-3-{generation}",
+                "03",
+                title="阶段三：列表・字符串・随机数",
+            )
+        _mk_outline(
+            "shifu-root-generation",
+            "keep-stage-1",
+            "01",
+            title="阶段一",
+        )
+        _mk_outline(
+            "shifu-root-generation",
+            "keep-stage-2",
+            "02",
+            title="阶段二：循环语句",
+        )
+        _mk_outline(
+            "shifu-root-generation",
+            "keep-stage-3",
+            "03",
+            title="阶段三：列表・字符串・随机数",
+        )
+        _mk_outline(
+            "shifu-root-generation",
+            "old-child",
+            "0101",
+            parent_bid="old-stage-1-1",
+        )
+        _mk_outline(
+            "shifu-root-generation",
+            "keep-child",
+            "0101",
+            parent_bid="keep-stage-1",
+        )
+        db.session.commit()
+
+        result = repair_shifu_outline_structure(
+            app,
+            user_bid="repair-user-1",
+            shifu_bids=["shifu-root-generation"],
+            keep_root_bids=["keep-stage-1", "keep-stage-2", "keep-stage-3"],
+            dry_run=False,
+        )
+
+        latest_ids = (
+            db.session.query(db.func.max(DraftOutlineItem.id).label("id"))
+            .filter(DraftOutlineItem.shifu_bid == "shifu-root-generation")
+            .group_by(DraftOutlineItem.outline_item_bid)
+            .subquery()
+        )
+        active_rows = (
+            DraftOutlineItem.query.filter(
+                DraftOutlineItem.id.in_(db.session.query(latest_ids.c.id)),
+                DraftOutlineItem.deleted == 0,
+            )
+            .order_by(DraftOutlineItem.position.asc(), DraftOutlineItem.id.asc())
+            .all()
+        )
+        active_by_bid = {row.outline_item_bid: row for row in active_rows}
+        latest_struct = (
+            LogDraftStruct.query.filter_by(shifu_bid="shifu-root-generation", deleted=0)
+            .order_by(LogDraftStruct.id.desc())
+            .first()
+        )
+
+    assert result.status == "repaired"
+    assert result.repaired_shifu_count == 1
+    assert result.changed_outline_count == 0
+    assert result.retired_outline_count == 10
+    assert result.repaired_records[0].issue_types == [
+        "position_collision",
+        "root_generation_collision",
+    ]
+    assert set(active_by_bid) == {
+        "keep-stage-1",
+        "keep-stage-2",
+        "keep-stage-3",
+        "keep-child",
+    }
+    assert active_by_bid["keep-stage-1"].position == "01"
+    assert active_by_bid["keep-stage-2"].position == "02"
+    assert active_by_bid["keep-stage-3"].position == "03"
+    assert active_by_bid["keep-child"].parent_bid == "keep-stage-1"
+
+    assert latest_struct is not None
+    history = HistoryItem.from_json(latest_struct.struct)
+    assert history.id == shifu_db_id
+    assert [child.bid for child in history.children] == [
+        "keep-stage-1",
+        "keep-stage-2",
+        "keep-stage-3",
+    ]

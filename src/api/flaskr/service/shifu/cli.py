@@ -22,6 +22,15 @@ def register_shifu_commands(console, app) -> None:
         help="Restrict repair to one or more shifu business identifiers.",
     )
     @click.option(
+        "--keep-root-bid",
+        "keep_root_bids",
+        multiple=True,
+        help=(
+            "For one shifu, keep these root outlines and retire duplicate root "
+            "generations sharing their positions."
+        ),
+    )
+    @click.option(
         "--user-bid",
         default=None,
         help="Operator user bid recorded on appended repair rows.",
@@ -33,6 +42,7 @@ def register_shifu_commands(console, app) -> None:
     )
     def repair_outline_structure_command(
         shifu_bids: tuple[str, ...],
+        keep_root_bids: tuple[str, ...],
         user_bid: str | None,
         dry_run: bool,
     ) -> None:
@@ -46,6 +56,7 @@ def register_shifu_commands(console, app) -> None:
             app,
             user_bid=user_bid,
             shifu_bids=list(shifu_bids) or None,
+            keep_root_bids=list(keep_root_bids) or None,
             dry_run=dry_run,
         ).to_payload()
         click.echo(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))

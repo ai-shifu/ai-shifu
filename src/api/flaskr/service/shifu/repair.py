@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 
 from flask import Flask
 
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.util.datetime import now_utc
 
 from .models import DraftOutlineItem, DraftShifu
@@ -42,6 +44,7 @@ class OutlineStructureRepairRecord:
     shifu_title: str
     issue_types: list[str]
     changed_outlines: list[OutlineStructureChange] = field(default_factory=list)
+    retired_outline_bids: list[str] = field(default_factory=list)
 
     def to_payload(self) -> dict:
         return {
@@ -50,6 +53,8 @@ class OutlineStructureRepairRecord:
             "issue_types": self.issue_types,
             "changed_outline_count": len(self.changed_outlines),
             "changed_outlines": [item.to_payload() for item in self.changed_outlines],
+            "retired_outline_count": len(self.retired_outline_bids),
+            "retired_outline_bids": self.retired_outline_bids,
         }
 
 
@@ -72,6 +77,7 @@ class OutlineStructureRepairResult:
     scanned_shifu_count: int
     repaired_shifu_count: int
     changed_outline_count: int
+    retired_outline_count: int
     rebuilt_struct_count: int
     repaired_records: list[OutlineStructureRepairRecord] = field(default_factory=list)
     skipped_records: list[OutlineStructureSkippedRecord] = field(default_factory=list)
@@ -83,6 +89,7 @@ class OutlineStructureRepairResult:
             "scanned_shifu_count": self.scanned_shifu_count,
             "repaired_shifu_count": self.repaired_shifu_count,
             "changed_outline_count": self.changed_outline_count,
+            "retired_outline_count": self.retired_outline_count,
             "rebuilt_struct_count": self.rebuilt_struct_count,
             "repaired_records": [item.to_payload() for item in self.repaired_records],
             "skipped_records": [item.to_payload() for item in self.skipped_records],
@@ -269,15 +276,84 @@ def _plan_outline_structure_repair(
     return changes, None
 
 
+def _normalize_bid_list(values: list[str] | tuple[str, ...] | None) -> list[str]:
+    if not values:
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        bid = str(value or "").strip()
+        if bid and bid not in seen:
+            normalized.append(bid)
+            seen.add(bid)
+    return normalized
+
+
+def _collect_retired_duplicate_root_bids(
+    items: list[DraftOutlineItem],
+    keep_root_bids: list[str],
+) -> tuple[list[str], str | None]:
+    if not keep_root_bids:
+        return [], None
+
+    by_bid = {str(item.outline_item_bid or "").strip(): item for item in items}
+    missing_keep_bids = [bid for bid in keep_root_bids if bid not in by_bid]
+    if missing_keep_bids:
+        return [], f"Keep root outline not found: {', '.join(missing_keep_bids)}"
+
+    keep_roots = [by_bid[bid] for bid in keep_root_bids]
+    non_root_keep_bids = [
+        bid for bid, item in zip(keep_root_bids, keep_roots) if item.parent_bid
+    ]
+    if non_root_keep_bids:
+        return [], f"Keep outline is not a root: {', '.join(non_root_keep_bids)}"
+
+    children_by_parent: dict[str, list[DraftOutlineItem]] = defaultdict(list)
+    for item in items:
+        children_by_parent[str(item.parent_bid or "").strip()].append(item)
+
+    keep_positions = {str(item.position or "").strip() for item in keep_roots}
+    keep_bid_set = set(keep_root_bids)
+    duplicate_root_bids = [
+        str(item.outline_item_bid or "").strip()
+        for item in children_by_parent.get("", [])
+        if str(item.position or "").strip() in keep_positions
+        and str(item.outline_item_bid or "").strip() not in keep_bid_set
+    ]
+
+    retired: list[str] = []
+    seen: set[str] = set()
+
+    def _walk_retired_subtree(outline_bid: str) -> None:
+        if outline_bid in seen:
+            return
+        seen.add(outline_bid)
+        retired.append(outline_bid)
+        for child in children_by_parent.get(outline_bid, []):
+            child_bid = str(child.outline_item_bid or "").strip()
+            if child_bid:
+                _walk_retired_subtree(child_bid)
+
+    for outline_bid in duplicate_root_bids:
+        _walk_retired_subtree(outline_bid)
+
+    return retired, None
+
+
 def repair_shifu_outline_structure(
     app: Flask,
     *,
     user_bid: str | None,
     shifu_bids: list[str] | None = None,
+    keep_root_bids: list[str] | None = None,
     dry_run: bool = False,
 ) -> OutlineStructureRepairResult:
     if not dry_run and not user_bid:
         raise ValueError("user_bid is required when dry_run is False")
+
+    normalized_keep_root_bids = _normalize_bid_list(keep_root_bids)
+    if normalized_keep_root_bids and (not shifu_bids or len(shifu_bids) != 1):
+        raise ValueError("keep_root_bids requires exactly one shifu_bid")
 
     with app.app_context():
         items = _load_latest_active_outline_items(shifu_bids)
@@ -300,97 +376,153 @@ def repair_shifu_outline_structure(
         skipped_records: list[OutlineStructureSkippedRecord] = []
         rebuilt_struct_count = 0
         changed_outline_count = 0
+        retired_outline_count = 0
 
-        for shifu_bid in target_shifu_bids:
-            shifu_items = items_by_shifu.get(shifu_bid, [])
-            if not shifu_items:
-                continue
-
-            issue_types = _detect_issue_types(shifu_items)
-            if not issue_types:
-                continue
-
-            changes, skip_reason = _plan_outline_structure_repair(shifu_items)
-            if skip_reason:
-                skipped_records.append(
-                    OutlineStructureSkippedRecord(
-                        shifu_bid=shifu_bid,
-                        reason=skip_reason,
-                    )
-                )
-                continue
-
-            if not changes:
-                continue
-
-            record = OutlineStructureRepairRecord(
-                shifu_bid=shifu_bid,
-                shifu_title=shifu_titles.get(shifu_bid, ""),
-                issue_types=issue_types,
-                changed_outlines=changes,
-            )
-            repaired_records.append(record)
-            changed_outline_count += len(changes)
-
-            if dry_run:
-                continue
-
-            __lock_shifu_for_outline_write(shifu_bid)
-            locked_items = _load_latest_active_outline_items(shifu_bid)
-            changes, skip_reason = _plan_outline_structure_repair(locked_items)
-            if skip_reason:
-                repaired_records.pop()
-                changed_outline_count -= len(record.changed_outlines)
-                skipped_records.append(
-                    OutlineStructureSkippedRecord(
-                        shifu_bid=shifu_bid,
-                        reason=skip_reason,
-                    )
-                )
-                continue
-            if not changes:
-                repaired_records.pop()
-                changed_outline_count -= len(record.changed_outlines)
-                continue
-            changed_outline_count += len(changes) - len(record.changed_outlines)
-            record.changed_outlines = changes
-
-            current_time = now_utc()
-            change_by_bid = {item.outline_item_bid: item for item in changes}
-            for item in locked_items:
-                change = change_by_bid.get(item.outline_item_bid)
-                if not change:
+        transaction_scope = nullcontext() if dry_run else unit_of_work()
+        with transaction_scope:
+            for shifu_bid in target_shifu_bids:
+                shifu_items = items_by_shifu.get(shifu_bid, [])
+                if not shifu_items:
                     continue
-                new_item = item.clone()
-                new_item.parent_bid = change.new_parent_bid
-                new_item.position = change.new_position
-                new_item.updated_user_bid = user_bid
-                new_item.updated_at = current_time
-                db.session.add(new_item)
 
-            db.session.flush()
+                issue_types = _detect_issue_types(shifu_items)
+                retired_outline_bids: list[str] = []
+                if normalized_keep_root_bids:
+                    retired_outline_bids, skip_reason = (
+                        _collect_retired_duplicate_root_bids(
+                            shifu_items,
+                            normalized_keep_root_bids,
+                        )
+                    )
+                    if skip_reason:
+                        skipped_records.append(
+                            OutlineStructureSkippedRecord(
+                                shifu_bid=shifu_bid,
+                                reason=skip_reason,
+                            )
+                        )
+                        continue
+                    if retired_outline_bids:
+                        issue_types = sorted(
+                            set(issue_types) | {"root_generation_collision"}
+                        )
+                        retired_bid_set = set(retired_outline_bids)
+                        shifu_items = [
+                            item
+                            for item in shifu_items
+                            if str(item.outline_item_bid or "").strip()
+                            not in retired_bid_set
+                        ]
+                if not issue_types:
+                    continue
 
-            latest_items = _load_latest_active_outline_items(shifu_bid)
-            history_tree = build_outline_history_tree_from_outlines(latest_items)
-            shifu_db_row = (
-                DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
-                .order_by(DraftShifu.id.desc())
-                .first()
-            )
-            save_outline_tree_history(
-                app=app,
-                user_id=user_bid,
-                shifu_bid=shifu_bid,
-                outline_tree=history_tree,
-                shifu_id=shifu_db_row.id if shifu_db_row else None,
-            )
-            rebuilt_struct_count += 1
+                changes, skip_reason = _plan_outline_structure_repair(shifu_items)
+                if skip_reason:
+                    skipped_records.append(
+                        OutlineStructureSkippedRecord(
+                            shifu_bid=shifu_bid,
+                            reason=skip_reason,
+                        )
+                    )
+                    continue
 
-        if not dry_run and (repaired_records or skipped_records):
-            db.session.commit()
+                if not changes:
+                    if not retired_outline_bids:
+                        continue
 
-        if not dry_run and not repaired_records and not skipped_records:
-            db.session.rollback()
+                record = OutlineStructureRepairRecord(
+                    shifu_bid=shifu_bid,
+                    shifu_title=shifu_titles.get(shifu_bid, ""),
+                    issue_types=issue_types,
+                    changed_outlines=changes,
+                    retired_outline_bids=retired_outline_bids,
+                )
+                repaired_records.append(record)
+                changed_outline_count += len(changes)
+                retired_outline_count += len(retired_outline_bids)
+
+                if dry_run:
+                    continue
+
+                __lock_shifu_for_outline_write(shifu_bid)
+                locked_items = _load_latest_active_outline_items(shifu_bid)
+                locked_retired_outline_bids: list[str] = []
+                skip_reason = None
+                if normalized_keep_root_bids:
+                    locked_retired_outline_bids, skip_reason = (
+                        _collect_retired_duplicate_root_bids(
+                            locked_items,
+                            normalized_keep_root_bids,
+                        )
+                    )
+                    if skip_reason is None:
+                        locked_retired_bid_set = set(locked_retired_outline_bids)
+                        locked_items = [
+                            item
+                            for item in locked_items
+                            if str(item.outline_item_bid or "").strip()
+                            not in locked_retired_bid_set
+                        ]
+                if skip_reason is None:
+                    changes, skip_reason = _plan_outline_structure_repair(locked_items)
+                if skip_reason:
+                    repaired_records.pop()
+                    changed_outline_count -= len(record.changed_outlines)
+                    retired_outline_count -= len(record.retired_outline_bids)
+                    skipped_records.append(
+                        OutlineStructureSkippedRecord(
+                            shifu_bid=shifu_bid,
+                            reason=skip_reason,
+                        )
+                    )
+                    continue
+                if not changes and not locked_retired_outline_bids:
+                    repaired_records.pop()
+                    changed_outline_count -= len(record.changed_outlines)
+                    retired_outline_count -= len(record.retired_outline_bids)
+                    continue
+                changed_outline_count += len(changes) - len(record.changed_outlines)
+                retired_outline_count += len(locked_retired_outline_bids) - len(
+                    record.retired_outline_bids
+                )
+                record.changed_outlines = changes
+                record.retired_outline_bids = locked_retired_outline_bids
+
+                current_time = now_utc()
+                change_by_bid = {item.outline_item_bid: item for item in changes}
+                retired_bid_set = set(locked_retired_outline_bids)
+                for item in _load_latest_active_outline_items(shifu_bid):
+                    outline_bid = str(item.outline_item_bid or "").strip()
+                    change = change_by_bid.get(outline_bid)
+                    if not change and outline_bid not in retired_bid_set:
+                        continue
+                    new_item = item.clone()
+                    if change:
+                        new_item.parent_bid = change.new_parent_bid
+                        new_item.position = change.new_position
+                    if outline_bid in retired_bid_set:
+                        new_item.deleted = 1
+                    new_item.updated_user_bid = user_bid
+                    new_item.updated_at = current_time
+                    db.session.add(new_item)
+
+                db.session.flush()
+
+                latest_items = _load_latest_active_outline_items(shifu_bid)
+                history_tree = build_outline_history_tree_from_outlines(latest_items)
+                shifu_db_row = (
+                    DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+                    .order_by(DraftShifu.id.desc())
+                    .first()
+                )
+                save_outline_tree_history(
+                    app=app,
+                    user_id=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_tree=history_tree,
+                    shifu_id=shifu_db_row.id if shifu_db_row else None,
+                )
+                rebuilt_struct_count += 1
 
         status = "noop"
         if repaired_records:
@@ -404,6 +536,7 @@ def repair_shifu_outline_structure(
             scanned_shifu_count=len(target_shifu_bids),
             repaired_shifu_count=len(repaired_records),
             changed_outline_count=changed_outline_count,
+            retired_outline_count=retired_outline_count,
             rebuilt_struct_count=rebuilt_struct_count,
             repaired_records=repaired_records,
             skipped_records=skipped_records,
