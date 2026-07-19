@@ -28,6 +28,7 @@ import {
   formatBillingCreditBalance,
   formatBillingCreditDetail,
   formatBillingCompactDateTime,
+  parseBillingDateValue,
   registerBillingTranslationUsage,
   resolveBillingBucketCategoryLabel,
 } from '@/lib/billing';
@@ -43,19 +44,50 @@ type CategorySummaryRow = {
 };
 
 const CATEGORY_ORDER: BillingBucketCategory[] = ['subscription', 'topup'];
+const SUBSCRIPTION_FREE_SOURCE_TYPES = new Set(['gift', 'manual']);
+
+function isBucketInCurrentWindow(
+  bucket: BillingWalletBucket,
+  now: Date,
+): boolean {
+  const effectiveFrom = parseBillingDateValue(bucket.effective_from);
+  const effectiveTo = parseBillingDateValue(bucket.effective_to);
+
+  return (
+    (!effectiveFrom || effectiveFrom <= now) &&
+    (!effectiveTo || effectiveTo > now)
+  );
+}
+
+function bucketRequiresActiveSubscription(
+  bucket: BillingWalletBucket,
+): boolean {
+  if (bucket.category === 'topup') {
+    return true;
+  }
+
+  return !SUBSCRIPTION_FREE_SOURCE_TYPES.has(bucket.source_type);
+}
 
 function buildCategorySummary(
   buckets: BillingWalletBucket[],
   options: {
     hasActiveSubscription: boolean;
     activeSubscriptionEffectiveTo: string | null;
+    now?: Date;
   },
 ): CategorySummaryRow[] {
   const { activeSubscriptionEffectiveTo, hasActiveSubscription } = options;
+  const now = options.now || new Date();
 
   return CATEGORY_ORDER.flatMap(category => {
     const activeBuckets = buckets.filter(
-      bucket => bucket.category === category && bucket.status === 'active',
+      bucket =>
+        bucket.category === category &&
+        bucket.status === 'active' &&
+        Number(bucket.available_credits || 0) > 0 &&
+        isBucketInCurrentWindow(bucket, now) &&
+        (hasActiveSubscription || !bucketRequiresActiveSubscription(bucket)),
     );
 
     if (activeBuckets.length === 0) {
