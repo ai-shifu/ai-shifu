@@ -571,6 +571,63 @@ def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatc
     assert [chunk.content for chunk in chunks] == ["synthesized", " answer"]
 
 
+def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
+    app, monkeypatch
+):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            json_data={
+                "success": True,
+                "data": {
+                    "results": [
+                        {},
+                        {"created_at": "2026-02-25 10:00:00"},
+                        {
+                            "note_id": "note-1",
+                            "title": "Useful note",
+                            "content": "Useful content",
+                        },
+                    ]
+                },
+            }
+        ),
+    )
+
+    captured_context = {}
+
+    def _context_stream_factory(knowledge_context):
+        captured_context["value"] = knowledge_context
+        return iter([types.SimpleNamespace(result="answer")])
+
+    runtime = module.AskProviderRuntime(
+        llm_context_stream_factory=_context_stream_factory,
+    )
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[],
+            provider_config={
+                "config": {
+                    "api_key": "gk-live-1",
+                    "client_id": "cli-1",
+                    "topic_id": "topic-1",
+                }
+            },
+            runtime=runtime,
+        )
+    )
+
+    assert captured_context["value"] == "3. **Useful note**\nUseful content"
+    assert [chunk.content for chunk in chunks] == ["answer"]
+
+
 def test_get_biji_knowledge_adapter_empty_results_synthesizes_no_results_context(
     app, monkeypatch
 ):

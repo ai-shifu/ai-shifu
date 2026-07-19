@@ -81,11 +81,14 @@ def _extract_results(payload: Any) -> list[Any]:
 def _format_result(index: int, result: Any) -> str:
     if not isinstance(result, dict):
         content = extract_text(result) or _normalize_text(result)
-        return f"{index}. {content}".strip()
+        return f"{index}. {content}".strip() if content else ""
 
     title = _normalize_text(result.get("title"))
     content = extract_text(result.get("content")) or extract_text(result)
     created_at = _normalize_text(result.get("created_at"))
+
+    if not title and not content:
+        return ""
 
     header = f"{index}. **{title}**" if title else f"{index}."
     parts = [header]
