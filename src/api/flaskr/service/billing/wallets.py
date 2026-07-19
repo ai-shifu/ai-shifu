@@ -37,12 +37,14 @@ from .bucket_categories import (
     resolve_credit_bucket_priority,
     resolve_runtime_credit_bucket_category,
     resolve_wallet_bucket_runtime_category,
+    wallet_bucket_requires_active_subscription,
 )
 from .dtos import BillingLedgerAdjustResultDTO, BillingWalletRefDTO
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .primitives import credit_decimal_to_number as _credit_decimal_to_number
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
+from .queries import load_primary_active_subscription
 
 _ZERO = Decimal("0")
 _PRESERVED_BUCKET_STATUSES = {
@@ -164,9 +166,14 @@ class ManualCreditGrantResult:
         return self.to_payload()[key]
 
 
-def refresh_credit_wallet_snapshot(wallet: CreditWallet) -> CreditWallet:
+def refresh_credit_wallet_snapshot(
+    wallet: CreditWallet,
+    *,
+    snapshot_at: datetime | None = None,
+) -> CreditWallet:
     """Rebuild wallet balances from the current bucket snapshot table."""
 
+    resolved_snapshot_at = snapshot_at or now_utc()
     rows = (
         CreditWalletBucket.query.filter(
             CreditWalletBucket.deleted == 0,
@@ -175,8 +182,30 @@ def refresh_credit_wallet_snapshot(wallet: CreditWallet) -> CreditWallet:
         .order_by(CreditWalletBucket.id.asc())
         .all()
     )
+    has_active_subscription = (
+        load_primary_active_subscription(
+            wallet.creator_bid,
+            as_of=resolved_snapshot_at,
+        )
+        is not None
+    )
+    current_consumable_rows = [
+        row
+        for row in rows
+        if int(row.status or 0) == CREDIT_BUCKET_STATUS_ACTIVE
+        and _to_decimal(row.available_credits) > _ZERO
+        and (row.effective_from is None or row.effective_from <= resolved_snapshot_at)
+        and (row.effective_to is None or row.effective_to > resolved_snapshot_at)
+        and (
+            has_active_subscription
+            or not wallet_bucket_requires_active_subscription(
+                row,
+                load_order_type=load_billing_order_type_by_bid,
+            )
+        )
+    ]
     wallet.available_credits = sum(
-        (_to_decimal(row.available_credits) for row in rows),
+        (_to_decimal(row.available_credits) for row in current_consumable_rows),
         start=_ZERO,
     )
     wallet.reserved_credits = sum(
@@ -609,7 +638,7 @@ def grant_refund_return_credits(
         bucket.updated_at = now
         sync_credit_bucket_status(bucket)
         db.session.add(bucket)
-        refresh_credit_wallet_snapshot(wallet)
+        refresh_credit_wallet_snapshot(wallet, snapshot_at=now)
         ledger_entry = CreditLedgerEntry(
             ledger_bid=generate_id(app),
             creator_bid=normalized_creator_bid,
@@ -1068,7 +1097,7 @@ def _expire_credit_wallet_buckets_in_session(
                     bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
                 db.session.add(bucket)
 
-                refresh_credit_wallet_snapshot(wallet)
+                refresh_credit_wallet_snapshot(wallet, snapshot_at=cutoff)
                 ledger_entry = CreditLedgerEntry(
                     ledger_bid=generate_id(app),
                     creator_bid=bucket.creator_bid,
