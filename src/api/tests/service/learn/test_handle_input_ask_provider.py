@@ -222,8 +222,9 @@ def _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config):
             self.temperature = temperature
 
     class _DummyAskProviderRuntime:
-        def __init__(self, llm_stream_factory=None):
+        def __init__(self, llm_stream_factory=None, llm_context_stream_factory=None):
             self.llm_stream_factory = llm_stream_factory
+            self.llm_context_stream_factory = llm_context_stream_factory
 
     class _DummyAskProviderTimeoutError(AskProviderError):
         pass
@@ -424,6 +425,76 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(app, monkeypatch):
         for event in events
         if event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
     )
+    assert events[-1].type == GeneratedType.BREAK
+
+
+def test_handle_input_ask_get_biji_synthesizes_via_context_factory(app, monkeypatch):
+    from flaskr.service.learn import handle_input_ask as module
+
+    ask_provider_config = {
+        "provider": "get_biji_knowledge",
+        "mode": "provider_only",
+        "config": {
+            "api_key": "gk-live-1",
+            "client_id": "cli-1",
+            "topic_id": "topic-1",
+        },
+    }
+    _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config)
+
+    llm_calls = []
+
+    def _fake_chat_llm(*_args, **kwargs):
+        llm_calls.append(kwargs)
+        yield _LLMChunk("synthesized-answer")
+
+    monkeypatch.setattr(module, "chat_llm", _fake_chat_llm)
+
+    def _retrieval_provider_stream(**kwargs):
+        # Mimic a retrieval adapter: synthesize through the runtime factory.
+        runtime = kwargs.get("runtime")
+        assert runtime is not None
+        assert runtime.llm_context_stream_factory is not None
+        return (
+            types.SimpleNamespace(content=chunk.result)
+            for chunk in runtime.llm_context_stream_factory("knowledge snippets")
+        )
+
+    monkeypatch.setattr(
+        module,
+        "stream_ask_provider_response",
+        _retrieval_provider_stream,
+    )
+
+    events = list(
+        module.handle_input_ask(
+            app=app,
+            context=_Context(),
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            input="hello",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="shifu-1",
+                bid="outline-1",
+                title="Outline",
+                position=1,
+            ),
+            trace_args={"output": ""},
+            trace=_DummyTrace(),
+        )
+    )
+
+    contents = _collect_content_chunks(events)
+    assert "synthesized-answer" in contents
+    assert len(llm_calls) == 1
+    context_messages = llm_calls[0]["messages"]
+    system_contents = [
+        message["content"]
+        for message in context_messages
+        if message["role"] == "system"
+    ]
+    assert any("knowledge snippets" in content for content in system_contents)
+    assert context_messages[-1]["role"] == "user"
     assert events[-1].type == GeneratedType.BREAK
 
 

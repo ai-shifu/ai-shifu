@@ -10,6 +10,31 @@ from flaskr.service.config import get_config
 from .base import AskProviderError
 
 
+KNOWLEDGE_CONTEXT_PROMPT_TEMPLATE = (
+    "Reference material retrieved from the configured knowledge base for the "
+    "user's question:\n\n{knowledge_context}\n\n"
+    "Answer the user's question based on this material first. If the material "
+    "is insufficient or irrelevant, say so and answer with your own knowledge."
+)
+
+
+def build_context_messages(
+    messages: list[dict[str, Any]], knowledge_context: str
+) -> list[dict[str, Any]]:
+    """Insert retrieved knowledge as a system message before the user turn."""
+    context_messages = [dict(message) for message in messages]
+    context_messages.insert(
+        max(len(context_messages) - 1, 0),
+        {
+            "role": "system",
+            "content": KNOWLEDGE_CONTEXT_PROMPT_TEMPLATE.format(
+                knowledge_context=knowledge_context
+            ),
+        },
+    )
+    return context_messages
+
+
 def provider_timeout_seconds() -> int:
     raw = get_config("ASK_PROVIDER_TIMEOUT_SECONDS")
     try:

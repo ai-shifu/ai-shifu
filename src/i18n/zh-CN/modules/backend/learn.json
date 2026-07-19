@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "askProviderNoResults": "未检索到相关知识库内容",
     "askProviderTimeout": "外部知识库响应超时，请稍后再试",
     "askProviderUnavailable": "外部知识库暂时不可用",
     "generatedBlockNotFound": "生成的块未找到",
