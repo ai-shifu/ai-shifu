@@ -13,7 +13,7 @@ import sys
 import time
 from typing import Any, Callable
 
-from sqlalchemy import inspect, text
+from sqlalchemy import Numeric, bindparam, inspect, text
 
 
 API_ROOT = Path(__file__).resolve().parents[1]
@@ -134,7 +134,15 @@ def rows_probe(
 
 
 def execute_rows(db: Any, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
-    rows = db.session.execute(text(sql), params).mappings().all()
+    statement = text(sql)
+    decimal_params = [
+        bindparam(key, type_=Numeric(20, 10))
+        for key, value in params.items()
+        if isinstance(value, Decimal)
+    ]
+    if decimal_params:
+        statement = statement.bindparams(*decimal_params)
+    rows = db.session.execute(statement, params).mappings().all()
     return [row_to_dict(row) for row in rows]
 
 
@@ -329,7 +337,7 @@ def probe_wallet_snapshot(
             ),
             "subscription_status_draft": BILLING_SUBSCRIPTION_STATUS_DRAFT,
             "now": now,
-            "epsilon": 0.000001,
+            "epsilon": Decimal("0.000001"),
             "limit": args.limit,
         },
     )
