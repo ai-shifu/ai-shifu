@@ -9,6 +9,7 @@ from werkzeug.datastructures import FileStorage
 from .import_user import import_user
 from .unified_migration_task import UnifiedMigrationTask, MigrationConfig
 from ..service.billing.cli import register_billing_commands
+from ..service.shifu.cli import register_shifu_commands
 from ..service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
 from .update_shifu_demo import update_demo_shifu
 
@@ -32,6 +33,7 @@ def enable_commands(app: Flask):
         pass
 
     register_billing_commands(console)
+    register_shifu_commands(console, app)
 
     @console.command(name="import_user")
     @click.argument("mobile")

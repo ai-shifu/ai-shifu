@@ -24,7 +24,10 @@ from flaskr.api.langfuse import (
     get_request_id,
     resolve_langfuse_trace_id,
 )
-from flaskr.common.config import get_explicit_env_override
+from flaskr.common.config import (
+    get_explicit_env_override,
+    parse_llm_model_max_output_tokens,
+)
 from flaskr.service.config import get_config
 from flaskr.util.datetime import now_utc
 from flaskr.service.common.models import raise_error_with_args
@@ -39,7 +42,6 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_LLM,
     normalize_usage_scene,
 )
-from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +111,7 @@ class ProviderState:
 
 MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
 PROVIDER_STATES: Dict[str, ProviderState] = {}
+MODEL_MAX_OUTPUT_TOKENS: Dict[str, int] = {}
 _USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
 
 
@@ -229,6 +232,37 @@ def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
     return allowed, display_names
 
 
+def _load_and_register_model_max_output_tokens() -> Dict[str, int]:
+    raw_limits = get_config("LLM_MODEL_MAX_OUTPUT_TOKENS", "")
+    try:
+        limits = parse_llm_model_max_output_tokens(raw_limits)
+    except ValueError as exc:
+        _log_warning(f"Ignoring invalid LLM_MODEL_MAX_OUTPUT_TOKENS: {exc}")
+        return {}
+    if not limits:
+        return {}
+
+    register_model = getattr(litellm, "register_model", None)
+    if not callable(register_model):
+        _log_warning(
+            "LiteLLM register_model is unavailable; using configured model "
+            "output limits without extending LiteLLM metadata"
+        )
+        return limits
+    try:
+        register_model(
+            {
+                model: {"max_output_tokens": max_output_tokens}
+                for model, max_output_tokens in limits.items()
+            }
+        )
+    except Exception as exc:
+        _log_warning(
+            f"Registering LLM_MODEL_MAX_OUTPUT_TOKENS with LiteLLM failed: {exc}"
+        )
+    return limits
+
+
 def _register_provider_models(
     config: ProviderConfig, raw_models: List[Union[str, Tuple[str, str]]]
 ) -> List[str]:
@@ -335,14 +369,33 @@ def _is_litellm_repeated_stream_chunk_error(exc: Exception) -> bool:
 
 
 def _stream_litellm_completion(
-    app: Flask, model: str, messages: list, params: dict, kwargs: dict
+    app: Flask,
+    requested_model: str,
+    model: str,
+    messages: list,
+    params: dict,
+    kwargs: dict,
 ):
     try:
-        try:
-            max_tokens = get_max_tokens(model)
-            kwargs["max_tokens"] = max_tokens
-        except Exception as exc:
-            _log_warning(f"get max tokens for {model} failed: {exc}")
+        # Routed ids are the application-level identity. LiteLLM completion uses
+        # the stripped provider model id, which can collide across routes (for
+        # example, a Qwen-hosted DeepSeek model and the direct DeepSeek provider).
+        max_tokens = MODEL_MAX_OUTPUT_TOKENS.get(requested_model)
+        if max_tokens is None:
+            try:
+                max_tokens = litellm.get_max_tokens(model)
+            except Exception as exc:
+                _log_warning(f"get max tokens for {model} failed: {exc}")
+        if max_tokens is not None:
+            requested_max_tokens = kwargs.get("max_tokens")
+            if (
+                isinstance(requested_max_tokens, int)
+                and not isinstance(requested_max_tokens, bool)
+                and requested_max_tokens > 0
+            ):
+                kwargs["max_tokens"] = min(requested_max_tokens, max_tokens)
+            else:
+                kwargs["max_tokens"] = max_tokens
         app.logger.info(
             f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
         )
@@ -602,6 +655,8 @@ for config in LITELLM_PROVIDER_CONFIGS:
     PROVIDER_STATES[config.key] = _init_litellm_provider(config)
     PROVIDER_CONFIG_HINTS[config.key] = config.config_hint or config.api_key_env
 
+MODEL_MAX_OUTPUT_TOKENS.update(_load_and_register_model_max_output_tokens())
+
 
 any_litellm_enabled = any(state.enabled for state in PROVIDER_STATES.values())
 if not any_litellm_enabled:
@@ -718,6 +773,7 @@ def invoke_llm(
             )
         response = _stream_litellm_completion(
             app,
+            model,
             invoke_model,
             messages,
             params,
@@ -887,6 +943,7 @@ def chat_llm(
         kwargs["stream_options"] = {"include_usage": True}
         response = _stream_litellm_completion(
             app,
+            model,
             invoke_model,
             messages,
             params,

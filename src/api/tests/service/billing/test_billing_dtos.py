@@ -186,7 +186,6 @@ def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> Non
 
 def test_runtime_config_dto_json_uses_public_aliases() -> None:
     dto = RuntimeConfigDTO(
-        courseId="course-1",
         defaultLlmModel="gpt-5.4",
         wechatAppId="wechat-app-1",
         enableWechatCode=True,
@@ -266,6 +265,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     }
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 2
+    assert "courseId" not in payload
     assert payload["branding"]["home_url"] == "https://creator.example.com"
     assert payload["contactUsUrl"] == "https://ai-shifu.cn/contact.html"
     assert payload["officialSiteUrl"] == "https://official.example.com"

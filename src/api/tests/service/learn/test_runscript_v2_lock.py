@@ -612,6 +612,49 @@ def test_log_run_script_stream_error_keeps_error_for_unexpected_exception():
     assert error_calls[1][0]["description"] == "boom"
 
 
+def test_run_script_inner_rejects_missing_course_without_default(monkeypatch):
+    app = Flask(__name__)
+    rollback_calls = []
+    remove_calls = []
+
+    monkeypatch.setattr(
+        runscript_v2,
+        "db",
+        SimpleNamespace(
+            session=SimpleNamespace(
+                rollback=lambda: rollback_calls.append("rollback"),
+                remove=lambda: remove_calls.append("remove"),
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "load_user_aggregate",
+        lambda _user_bid: SimpleNamespace(user_id="user-1"),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_dto",
+        lambda *_args, **_kwargs: pytest.fail(
+            "missing course ids must not select a course"
+        ),
+    )
+
+    with pytest.raises(AppException) as exc_info:
+        list(
+            runscript_v2.run_script_inner(
+                app=app,
+                user_bid="user-1",
+                shifu_bid="",
+                outline_bid="",
+            )
+        )
+
+    assert exc_info.value.code == 4001
+    assert rollback_calls == ["rollback"]
+    assert remove_calls == ["remove"]
+
+
 def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
     app = Flask(__name__)
     session_spy = SimpleNamespace(

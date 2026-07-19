@@ -13,6 +13,12 @@ def _install_litellm_stub() -> None:
         return
 
     litellm_stub = types.ModuleType("litellm")
+    litellm_stub.model_cost = {}
+
+    def register_model(model_map):
+        litellm_stub.model_cost.update(model_map)
+
+    litellm_stub.register_model = register_model
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.completion = lambda *args, **kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
@@ -386,6 +392,11 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(monkeypatch, app):
     monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {})
     monkeypatch.setattr(
         llm,
+        "MODEL_MAX_OUTPUT_TOKENS",
+        {"qwen/deepseek-v4-flash": 393216},
+    )
+    monkeypatch.setattr(
+        llm,
         "PROVIDER_CONFIG_HINTS",
         {"qwen": "QWEN_API_KEY,QWEN_API_URL"},
     )
@@ -406,6 +417,146 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(monkeypatch, app):
     assert captured["model"] == "deepseek-v4-flash"
     assert captured["kwargs"]["temperature"] == 0.7
     assert captured["kwargs"]["extra_body"] == {"enable_thinking": False}
+    assert captured["kwargs"]["max_tokens"] == 393216
+
+
+def test_load_and_register_model_max_output_tokens(monkeypatch):
+    configured = {
+        "qwen/deepseek-v4-flash": 393216,
+        "ark/doubao-seed-2-0-lite-260428": 131072,
+    }
+    captured = {}
+
+    monkeypatch.setattr(
+        llm,
+        "get_config",
+        lambda key, default=None: (
+            configured if key == "LLM_MODEL_MAX_OUTPUT_TOKENS" else default
+        ),
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "register_model",
+        lambda model_map: captured.update(model_map),
+        raising=False,
+    )
+
+    limits = llm._load_and_register_model_max_output_tokens()
+
+    assert limits == configured
+    assert captured == {
+        "qwen/deepseek-v4-flash": {"max_output_tokens": 393216},
+        "ark/doubao-seed-2-0-lite-260428": {"max_output_tokens": 131072},
+    }
+
+
+def test_load_model_max_output_tokens_ignores_invalid_config(monkeypatch):
+    monkeypatch.setattr(
+        llm,
+        "get_config",
+        lambda key, default=None: (
+            '{"qwen/model": 0}' if key == "LLM_MODEL_MAX_OUTPUT_TOKENS" else default
+        ),
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "register_model",
+        lambda _model_map: pytest.fail("invalid limits must not be registered"),
+        raising=False,
+    )
+
+    assert llm._load_and_register_model_max_output_tokens() == {}
+
+
+def test_stream_litellm_completion_falls_back_to_litellm_limit(monkeypatch, app):
+    captured = {}
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
+    monkeypatch.setattr(llm.litellm, "get_max_tokens", lambda model: 8192)
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *args, **kwargs: captured.update(kwargs) or iter([]),
+    )
+
+    list(
+        llm._stream_litellm_completion(
+            app,
+            "openai/gpt-test",
+            "gpt-test",
+            [],
+            {},
+            {},
+        )
+    )
+
+    assert captured["max_tokens"] == 8192
+
+
+@pytest.mark.parametrize(
+    ("requested_max_tokens", "expected_max_tokens"),
+    [(None, 131072), (4096, 4096), (200000, 131072)],
+)
+def test_stream_litellm_completion_applies_configured_limit_as_ceiling(
+    monkeypatch,
+    app,
+    requested_max_tokens,
+    expected_max_tokens,
+):
+    captured = {}
+    monkeypatch.setattr(
+        llm,
+        "MODEL_MAX_OUTPUT_TOKENS",
+        {"ark/doubao-seed-2-0-lite-260428": 131072},
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *args, **kwargs: captured.update(kwargs) or iter([]),
+    )
+    kwargs = {}
+    if requested_max_tokens is not None:
+        kwargs["max_tokens"] = requested_max_tokens
+
+    list(
+        llm._stream_litellm_completion(
+            app,
+            "ark/doubao-seed-2-0-lite-260428",
+            "doubao-seed-2-0-lite-260428",
+            [],
+            {},
+            kwargs,
+        )
+    )
+
+    assert captured["max_tokens"] == expected_max_tokens
+
+
+def test_stream_litellm_completion_omits_unknown_limit(monkeypatch, app):
+    captured = {}
+
+    def raise_unknown(_model):
+        raise ValueError("unknown model")
+
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
+    monkeypatch.setattr(llm.litellm, "get_max_tokens", raise_unknown)
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *args, **kwargs: captured.update(kwargs) or iter([]),
+    )
+
+    list(
+        llm._stream_litellm_completion(
+            app,
+            "qwen/unknown-model",
+            "unknown-model",
+            [],
+            {},
+            {},
+        )
+    )
+
+    assert "max_tokens" not in captured
 
 
 def test_qwen_provider_config_keeps_prefix_fallback():
