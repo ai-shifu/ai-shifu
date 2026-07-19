@@ -180,12 +180,12 @@ class ManualCreditGrantResult:
         return self.to_payload()[key]
 
 
-def refresh_credit_wallet_snapshot(
+def calculate_credit_wallet_snapshot_values(
     wallet: CreditWallet,
     *,
     snapshot_at: datetime | None = None,
-) -> CreditWallet:
-    """Rebuild wallet balances from the current bucket snapshot table."""
+) -> tuple[Decimal, Decimal]:
+    """Calculate wallet balances without mutating the ORM wallet row."""
 
     resolved_snapshot_at = snapshot_at or now_utc()
     rows = (
@@ -218,16 +218,33 @@ def refresh_credit_wallet_snapshot(
             )
         )
     ]
-    wallet.available_credits = sum(
+    available_credits = sum(
         (_to_decimal(row.available_credits) for row in current_consumable_rows),
         start=_ZERO,
     )
-    wallet.reserved_credits = sum(
+    reserved_credits = sum(
         (_to_decimal(row.reserved_credits) for row in rows),
         start=_ZERO,
     )
-    wallet.available_credits = _quantize_credit_amount(wallet.available_credits)
-    wallet.reserved_credits = _quantize_credit_amount(wallet.reserved_credits)
+    return (
+        _quantize_credit_amount(available_credits),
+        _quantize_credit_amount(reserved_credits),
+    )
+
+
+def refresh_credit_wallet_snapshot(
+    wallet: CreditWallet,
+    *,
+    snapshot_at: datetime | None = None,
+) -> CreditWallet:
+    """Rebuild wallet balances from the current bucket snapshot table."""
+
+    available_credits, reserved_credits = calculate_credit_wallet_snapshot_values(
+        wallet,
+        snapshot_at=snapshot_at,
+    )
+    wallet.available_credits = available_credits
+    wallet.reserved_credits = reserved_credits
     return wallet
 
 
@@ -441,9 +458,10 @@ def rebuild_credit_wallet_snapshots(
         for wallet in wallets:
             previous_available = _quantize_credit_amount(wallet.available_credits)
             previous_reserved = _quantize_credit_amount(wallet.reserved_credits)
-            refresh_credit_wallet_snapshot(wallet, snapshot_at=rebuilt_at)
-            next_available = _quantize_credit_amount(wallet.available_credits)
-            next_reserved = _quantize_credit_amount(wallet.reserved_credits)
+            next_available, next_reserved = calculate_credit_wallet_snapshot_values(
+                wallet,
+                snapshot_at=rebuilt_at,
+            )
             available_delta = _quantize_credit_amount(
                 next_available - previous_available
             )
@@ -476,9 +494,7 @@ def rebuild_credit_wallet_snapshots(
                 )
             )
 
-        if dry_run:
-            db.session.rollback()
-        else:
+        if not dry_run:
             db.session.commit()
         return WalletSnapshotRebuildResult(
             status="dry_run" if dry_run else "rebuilt",

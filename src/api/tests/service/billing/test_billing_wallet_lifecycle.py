@@ -799,6 +799,81 @@ def test_rebuild_credit_wallet_snapshots_dry_run_reports_without_writing(
         assert wallet.version == 0
 
 
+def test_rebuild_credit_wallet_snapshots_dry_run_preserves_outer_transaction(
+    billing_wallet_lifecycle_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        snapshot_at = datetime(2026, 4, 10, 0, 0, 0)
+        monkeypatch.setattr(
+            "flaskr.service.billing.wallets.now_utc",
+            lambda: snapshot_at,
+        )
+        wallet = CreditWallet(
+            wallet_bid="wallet-rebuild-dry-run-outer-1",
+            creator_bid="creator-rebuild-dry-run-outer-1",
+            available_credits=Decimal("999.0000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("1.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            CreditWalletBucket(
+                wallet_bucket_bid="bucket-rebuild-dry-run-outer-1",
+                wallet_bid=wallet.wallet_bid,
+                creator_bid="creator-rebuild-dry-run-outer-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid="manual-rebuild-dry-run-outer-1",
+                priority=20,
+                original_credits=Decimal("1.0000000000"),
+                available_credits=Decimal("1.0000000000"),
+                reserved_credits=Decimal("0"),
+                consumed_credits=Decimal("0"),
+                expired_credits=Decimal("0"),
+                effective_from=snapshot_at - timedelta(days=1),
+                effective_to=None,
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                metadata_json={},
+            )
+        )
+        dao.db.session.commit()
+
+        outer_marker = CreditWallet(
+            wallet_bid="wallet-outer-marker-1",
+            creator_bid="creator-outer-marker-1",
+            available_credits=Decimal("5.0000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("5.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        dao.db.session.add(outer_marker)
+
+        payload = rebuild_credit_wallet_snapshots(
+            billing_wallet_lifecycle_app,
+            creator_bid="creator-rebuild-dry-run-outer-1",
+            dry_run=True,
+        )
+        dao.db.session.commit()
+
+        marker = CreditWallet.query.filter_by(
+            creator_bid="creator-outer-marker-1"
+        ).one_or_none()
+        wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-rebuild-dry-run-outer-1"
+        ).one()
+
+        assert payload["status"] == "dry_run"
+        assert marker is not None
+        assert wallet.available_credits == Decimal("999.0000000000")
+        assert wallet.version == 0
+
+
 def test_grant_refund_return_credits_maps_topup_orders_back_to_topup_bucket(
     billing_wallet_lifecycle_app: Flask,
 ) -> None:
