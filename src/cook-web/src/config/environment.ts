@@ -11,8 +11,7 @@ interface EnvironmentConfig {
   // Core API Configuration
   apiBaseUrl: string;
 
-  // Content & Course Configuration
-  courseId: string;
+  // Content Configuration
   defaultLlmModel: string;
   currencySymbol: string;
 
@@ -151,13 +150,6 @@ export async function getDynamicApiBaseUrl(): Promise<string> {
     // Client fetches it dynamically
     return getClientApiBaseUrl();
   }
-}
-
-/**
- * Gets course ID
- */
-function getCourseId(): string {
-  return '';
 }
 
 /**
@@ -308,7 +300,7 @@ function getDefaultLoginMethod(): string {
  * Gets home URL
  */
 function getHomeUrl(): string {
-  return getRuntimeEnv('HOME_URL') || process.env.HOME_URL || '/';
+  return getRuntimeEnv('HOME_URL') || process.env.HOME_URL || '/admin';
 }
 
 /**
@@ -380,8 +372,7 @@ export const environment: EnvironmentConfig = {
   // Core API Configuration
   apiBaseUrl: getApiBaseUrl(),
 
-  // Content & Course Configuration
-  courseId: getCourseId(),
+  // Content Configuration
   defaultLlmModel: getDefaultLlmModel(),
 
   // WeChat Integration
