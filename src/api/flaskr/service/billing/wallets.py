@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Flask
@@ -1097,7 +1097,10 @@ def _expire_credit_wallet_buckets_in_session(
                     bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
                 db.session.add(bucket)
 
-                refresh_credit_wallet_snapshot(wallet, snapshot_at=cutoff)
+                refresh_credit_wallet_snapshot(
+                    wallet,
+                    snapshot_at=cutoff - timedelta(microseconds=1),
+                )
                 ledger_entry = CreditLedgerEntry(
                     ledger_bid=generate_id(app),
                     creator_bid=bucket.creator_bid,
