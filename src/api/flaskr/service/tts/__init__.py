@@ -6,6 +6,7 @@ This module provides text preprocessing for TTS synthesis.
 
 import logging
 import html
+import unicodedata
 
 # Import models to ensure they are registered with SQLAlchemy
 from .models import LearnGeneratedAudio, TTSMiniMaxClonedVoice  # noqa: F401
@@ -31,6 +32,14 @@ from flaskr.service.tts.patterns import (
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
 _FENCE = "```"
+
+
+def has_speakable_text(text: str) -> bool:
+    """Return whether text contains a Unicode letter or number."""
+    return any(
+        unicodedata.category(char).startswith(("L", "N"))
+        for char in str(text or "")
+    )
 
 
 def resolve_tts_billable_chars(text: str, usage_characters: int = 0) -> int:

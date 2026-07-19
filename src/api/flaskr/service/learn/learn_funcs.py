@@ -85,7 +85,11 @@ from flaskr.api.tts import (
     is_tts_configured,
     synthesize_text,
 )
-from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
+from flaskr.service.tts import (
+    has_speakable_text,
+    preprocess_for_tts,
+    resolve_tts_billable_chars,
+)
 from flaskr.service.tts.api import create_streaming_tts_processor, TTSRpmQueueTimeout
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
@@ -1893,7 +1897,11 @@ def stream_generated_block_audio(
                         continue
 
                     cleaned_segment = preprocess_for_tts(speakable_text or "")
-                    if not cleaned_segment or len(cleaned_segment.strip()) < 2:
+                    if (
+                        not cleaned_segment
+                        or len(cleaned_segment.strip()) < 2
+                        or not has_speakable_text(cleaned_segment)
+                    ):
                         continue
 
                     yield from _yield_run_tts_audio_events(

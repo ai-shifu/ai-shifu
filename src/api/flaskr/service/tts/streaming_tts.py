@@ -10,7 +10,6 @@ This module provides real-time TTS synthesis during content streaming.
 import base64
 import logging
 import traceback
-import unicodedata
 import uuid
 import threading
 import time
@@ -29,7 +28,11 @@ from flaskr.api.tts import (
     get_default_audio_settings,
 )
 from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
-from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
+from flaskr.service.tts import (
+    has_speakable_text,
+    preprocess_for_tts,
+    resolve_tts_billable_chars,
+)
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     export_audio_range_best_effort,
@@ -118,16 +121,10 @@ def _normalize_tts_provider(tts_provider: str) -> str:
     return (tts_provider or "").strip().lower()
 
 
-def _has_speakable_text(text: str) -> bool:
-    return any(
-        unicodedata.category(char).startswith(("L", "N")) for char in str(text or "")
-    )
-
-
 def _should_skip_non_speakable_tts_text(text: str, tts_provider: str) -> bool:
     return _normalize_tts_provider(
         tts_provider
-    ) in _NON_SPEAKABLE_TTS_SKIP_PROVIDERS and not _has_speakable_text(text)
+    ) in _NON_SPEAKABLE_TTS_SKIP_PROVIDERS and not has_speakable_text(text)
 
 
 def _log_skipped_non_speakable_tts_text(

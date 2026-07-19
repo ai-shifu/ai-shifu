@@ -503,7 +503,7 @@ class TestGeneratedBlockListenTtsElementFirst:
             db.session.add_all(
                 [
                     self.LearnGeneratedElement(
-                        element_bid="el-text-1",
+                        element_bid="el-text-markup-only",
                         progress_record_bid="progress-1",
                         user_bid=user_bid,
                         generated_block_bid=generated_block_bid,
@@ -523,6 +523,32 @@ class TestGeneratedBlockListenTtsElementFirst:
                         is_speakable=1,
                         is_navigable=1,
                         is_final=1,
+                        content_text=":::",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                    self.LearnGeneratedElement(
+                        element_bid="el-text-1",
+                        progress_record_bid="progress-1",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-1",
+                        run_event_seq=2,
+                        event_type="element",
+                        role="teacher",
+                        element_index=1,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=2,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
                         content_text="First.",
                         payload="",
                         status=1,
@@ -536,16 +562,16 @@ class TestGeneratedBlockListenTtsElementFirst:
                         outline_item_bid="outline-1",
                         shifu_bid=shifu_bid,
                         run_session_bid="run-1",
-                        run_event_seq=2,
+                        run_event_seq=3,
                         event_type="element",
                         role="teacher",
-                        element_index=1,
+                        element_index=2,
                         element_type="html",
                         change_type="render",
                         is_renderable=1,
                         is_new=1,
                         is_marker=0,
-                        sequence_number=2,
+                        sequence_number=3,
                         is_speakable=0,
                         is_navigable=1,
                         is_final=1,
@@ -562,16 +588,16 @@ class TestGeneratedBlockListenTtsElementFirst:
                         outline_item_bid="outline-1",
                         shifu_bid=shifu_bid,
                         run_session_bid="run-1",
-                        run_event_seq=3,
+                        run_event_seq=4,
                         event_type="element",
                         role="teacher",
-                        element_index=2,
+                        element_index=3,
                         element_type="text",
                         change_type="render",
                         is_renderable=0,
                         is_new=1,
                         is_marker=0,
-                        sequence_number=3,
+                        sequence_number=4,
                         is_speakable=1,
                         is_navigable=1,
                         is_final=1,
@@ -608,8 +634,8 @@ class TestGeneratedBlockListenTtsElementFirst:
             if event.type == GeneratedType.AUDIO_SEGMENT
         ]
 
-        assert complete_positions == [0, 1]
-        assert segment_positions == [0, 1]
+        assert complete_positions == [1, 2]
+        assert segment_positions == [1, 2]
         assert synthesized_texts == ["First.", "Second."]
         assert events[-1].type == GeneratedType.DONE
         audio_complete_events = [
@@ -617,7 +643,7 @@ class TestGeneratedBlockListenTtsElementFirst:
         ]
         assert [
             event.content.stream_element_number for event in audio_complete_events
-        ] == [0, 2]
+        ] == [1, 3]
         assert [
             event.content.stream_element_type for event in audio_complete_events
         ] == ["text", "text"]
@@ -644,7 +670,7 @@ class TestGeneratedBlockListenTtsElementFirst:
                 .order_by(self.LearnGeneratedAudio.position.asc())
                 .all()
             )
-            assert [r.position for r in records] == [0, 1]
+            assert [r.position for r in records] == [1, 2]
             assert all(r.oss_url for r in records)
             assert records[0].subtitle_cues[0]["text"] == "First."
             assert records[1].subtitle_cues[0]["text"] == "Second."
