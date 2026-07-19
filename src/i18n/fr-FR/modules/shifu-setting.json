@@ -20,6 +20,7 @@
     "coze": "Utiliser un bot Coze pour répondre aux questions des apprenants.",
     "coze_workflow": "Utiliser un workflow Coze pour répondre aux questions des apprenants.",
     "dify": "Utiliser une application de chat Dify pour répondre aux questions des apprenants.",
+    "get_biji_knowledge": "Chercher dans une base de connaissances Get Biji, puis laisser le LLM intégré répondre aux questions des apprenants.",
     "llm": "Utiliser le LLM intégré pour répondre aux questions des apprenants.",
     "volc_knowledge": "Chercher dans une base de connaissances Volcengine avant de répondre aux questions des apprenants."
   },
@@ -54,6 +55,24 @@
         "label": "URL de base"
       }
     },
+    "get_biji_knowledge": {
+      "api_key": {
+        "hint": "Clé OpenAPI Get Biji.",
+        "label": "Clé API"
+      },
+      "client_id": {
+        "hint": "Client ID OpenAPI Get Biji.",
+        "label": "Client ID"
+      },
+      "top_k": {
+        "hint": "Nombre de résultats de rappel sémantique, 1-10.",
+        "label": "Top K"
+      },
+      "topic_id": {
+        "hint": "ID de la base de connaissances Get Biji.",
+        "label": "ID de la base de connaissances"
+      }
+    },
     "volc_knowledge": {
       "account_id": {
         "hint": "ID de compte Volcengine pour l’en-tête V-Account-Id.",
@@ -81,6 +100,7 @@
     "coze": "Coze",
     "coze_workflow": "Workflow Coze",
     "dify": "Dify",
+    "get_biji_knowledge": "Base de connaissances Get Biji",
     "llm": "LLM intégré",
     "volc_knowledge": "Base de connaissances Volcengine"
   },

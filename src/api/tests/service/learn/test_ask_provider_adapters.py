@@ -9,6 +9,7 @@ from flaskr.service.learn.ask_provider_adapters import (
     coze_adapter,
     coze_workflow_adapter,
     dify_adapter,
+    get_biji_knowledge_adapter,
     volc_knowledge_adapter,
 )
 
@@ -462,6 +463,326 @@ def test_volc_knowledge_adapter_missing_config_raises_error(app):
                     "config": {
                         "account_id": "acc-1",
                         "collection_name": "collection-1",
+                    }
+                },
+            )
+        )
+
+
+def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatch):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    monkeypatch.setattr(
+        common,
+        "get_config",
+        lambda key: {
+            "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
+        }.get(key),
+    )
+
+    request_state = {}
+
+    def _fake_post(url, **kwargs):
+        request_state["url"] = url
+        request_state["headers"] = kwargs.get("headers") or {}
+        request_state["json"] = kwargs.get("json")
+        request_state["timeout"] = kwargs.get("timeout")
+        return _FakeResponse(
+            json_data={
+                "success": True,
+                "data": {
+                    "results": [
+                        {
+                            "note_id": "note-1",
+                            "note_type": "NOTE",
+                            "title": "First note",
+                            "content": "First content",
+                            "created_at": "2026-02-25 10:00:00",
+                        },
+                        {
+                            "note_id": "note-2",
+                            "note_type": "NOTE",
+                            "title": "Second note",
+                            "content": "Second content",
+                        },
+                    ]
+                },
+            }
+        )
+
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        _fake_post,
+    )
+
+    captured_context = {}
+
+    def _context_stream_factory(knowledge_context):
+        captured_context["value"] = knowledge_context
+        return iter(
+            [
+                types.SimpleNamespace(result="synthesized"),
+                types.SimpleNamespace(result=" answer"),
+                types.SimpleNamespace(result=None),
+            ]
+        )
+
+    runtime = module.AskProviderRuntime(
+        llm_context_stream_factory=_context_stream_factory,
+    )
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[],
+            provider_config={
+                "config": {
+                    "api_key": "gk-live-1",
+                    "client_id": "cli-1",
+                    "topic_id": "topic-1",
+                    "top_k": 50,
+                }
+            },
+            runtime=runtime,
+        )
+    )
+
+    assert request_state["url"] == (
+        "https://openapi.biji.com/open/api/v1/resource/recall/knowledge"
+    )
+    assert request_state["headers"] == {
+        "Authorization": "gk-live-1",
+        "X-Client-ID": "cli-1",
+        "Content-Type": "application/json",
+    }
+    assert request_state["json"] == {
+        "topic_id": "topic-1",
+        "query": "hello",
+        "top_k": 10,
+    }
+    assert request_state["timeout"] == (5, 20)
+    assert captured_context["value"] == (
+        "1. **First note**\nFirst content\n(2026-02-25 10:00:00)"
+        "\n\n2. **Second note**\nSecond content"
+    )
+    assert [chunk.content for chunk in chunks] == ["synthesized", " answer"]
+
+
+def test_get_biji_knowledge_adapter_empty_results_synthesizes_no_results_context(
+    app, monkeypatch
+):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            json_data={"success": True, "data": {"results": []}}
+        ),
+    )
+
+    captured_context = {}
+
+    def _context_stream_factory(knowledge_context):
+        captured_context["value"] = knowledge_context
+        return iter([types.SimpleNamespace(result="fallback answer")])
+
+    runtime = module.AskProviderRuntime(
+        llm_context_stream_factory=_context_stream_factory,
+    )
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[],
+            provider_config={
+                "config": {
+                    "api_key": "gk-live-1",
+                    "client_id": "cli-1",
+                    "topic_id": "topic-1",
+                }
+            },
+            runtime=runtime,
+        )
+    )
+
+    assert captured_context["value"] == (get_biji_knowledge_adapter.NO_RESULTS_CONTEXT)
+    assert [chunk.content for chunk in chunks] == ["fallback answer"]
+
+
+def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(app, monkeypatch):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    monkeypatch.setattr(
+        common,
+        "get_config",
+        lambda key: {
+            "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
+        }.get(key),
+    )
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            json_data={
+                "success": True,
+                "data": {
+                    "results": [
+                        {
+                            "note_id": "note-1",
+                            "title": "First note",
+                            "content": "First content",
+                        }
+                    ]
+                },
+            }
+        ),
+    )
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[],
+            provider_config={
+                "config": {
+                    "api_key": "gk-live-1",
+                    "client_id": "cli-1",
+                    "topic_id": "topic-1",
+                }
+            },
+        )
+    )
+
+    assert [chunk.content for chunk in chunks] == [
+        "1. **First note**\nFirst content\n\n",
+    ]
+
+
+def test_get_biji_knowledge_adapter_missing_config_raises_error(app):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    with pytest.raises(
+        module.AskProviderConfigError, match="api_key/client_id/topic_id"
+    ):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "api_key": "gk-live-1",
+                        "topic_id": "topic-1",
+                    }
+                },
+            )
+        )
+
+
+def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(app, monkeypatch):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    def _raise_timeout(*_args, **_kwargs):
+        raise requests.Timeout("timeout")
+
+    monkeypatch.setattr(get_biji_knowledge_adapter.requests, "post", _raise_timeout)
+
+    with pytest.raises(module.AskProviderTimeoutError):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "api_key": "gk-live-1",
+                        "client_id": "cli-1",
+                        "topic_id": "topic-1",
+                    }
+                },
+            )
+        )
+
+
+def test_get_biji_knowledge_adapter_http_error_raises_provider_error(app, monkeypatch):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+    http_error = requests.HTTPError("bad request")
+
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            text="get biji bad request",
+            status_code=400,
+            http_error=http_error,
+        ),
+    )
+
+    with pytest.raises(
+        module.AskProviderError, match="get_biji_knowledge request failed"
+    ):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "api_key": "gk-live-1",
+                        "client_id": "cli-1",
+                        "topic_id": "topic-1",
+                    }
+                },
+            )
+        )
+
+
+def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
+    app, monkeypatch
+):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            json_data={
+                "success": False,
+                "data": None,
+                "error": {
+                    "code": 10201,
+                    "message": "OpenAPI members only",
+                    "reason": "not_member",
+                },
+            }
+        ),
+    )
+
+    with pytest.raises(
+        module.AskProviderError,
+        match=r"OpenAPI members only \(reason: not_member\)",
+    ):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "api_key": "gk-live-1",
+                        "client_id": "cli-1",
+                        "topic_id": "topic-1",
                     }
                 },
             )

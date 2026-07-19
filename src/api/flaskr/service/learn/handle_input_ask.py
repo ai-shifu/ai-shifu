@@ -564,8 +564,12 @@ def handle_input_ask(
             fromlist=["chat_llm"],
         ).chat_llm
 
-    llm_runtime = ask_provider_runtime_cls(
-        llm_stream_factory=lambda: chat_llm_func(
+    from flaskr.service.learn.ask_provider_adapters.common import (
+        build_context_messages,
+    )
+
+    def _chat_llm_stream(stream_messages: list[dict[str, Any]]):
+        return chat_llm_func(
             app,
             user_info.user_id,
             span,
@@ -576,10 +580,18 @@ def handle_input_ask(
                 "temperature"
             ],  # Use configured temperature parameter
             generation_name=generation_name,
-            messages=llm_messages,  # Pass complete conversation history
+            messages=stream_messages,
             usage_context=usage_context,
             usage_scene=usage_scene,
         )
+
+    llm_runtime = ask_provider_runtime_cls(
+        # Pass complete conversation history
+        llm_stream_factory=lambda: _chat_llm_stream(llm_messages),
+        # Ground the built-in LLM on retrieval-provider output.
+        llm_context_stream_factory=lambda knowledge_context: _chat_llm_stream(
+            build_context_messages(llm_messages, knowledge_context)
+        ),
     )
 
     def _emit_provider_stream(

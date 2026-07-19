@@ -93,6 +93,35 @@ def test_validate_volc_knowledge_config_success():
     assert field is None
 
 
+def test_validate_get_biji_knowledge_requires_credentials_and_topic():
+    is_valid, field = module.validate_ask_provider_specific_config(
+        "get_biji_knowledge",
+        {
+            "api_key": "gk-live-1",
+            "client_id": "",
+            "topic_id": "topic-1",
+        },
+    )
+
+    assert is_valid is False
+    assert field == "client_id"
+
+
+def test_validate_get_biji_knowledge_config_success():
+    is_valid, field = module.validate_ask_provider_specific_config(
+        "get_biji_knowledge",
+        {
+            "api_key": "gk-live-1",
+            "client_id": "cli-1",
+            "topic_id": "topic-1",
+            "top_k": 5,
+        },
+    )
+
+    assert is_valid is True
+    assert field is None
+
+
 def test_ask_provider_metadata_contains_shifu_level_defaults():
     metadata = module.get_ask_provider_metadata()
     providers = {item["provider"]: item for item in metadata.get("providers", [])}
@@ -101,6 +130,7 @@ def test_ask_provider_metadata_contains_shifu_level_defaults():
     coze = providers.get("coze", {})
     coze_workflow = providers.get("coze_workflow", {})
     volc = providers.get("volc_knowledge", {})
+    get_biji = providers.get("get_biji_knowledge", {})
 
     assert dify.get("default_config", {}) == {
         "base_url": "",
@@ -119,6 +149,12 @@ def test_ask_provider_metadata_contains_shifu_level_defaults():
         "ak": "",
         "sk": "",
         "collection_name": "",
+    }
+    assert get_biji.get("default_config", {}) == {
+        "api_key": "",
+        "client_id": "",
+        "topic_id": "",
+        "top_k": 5,
     }
 
 
@@ -156,12 +192,19 @@ def test_ask_provider_metadata_marks_api_key_as_password():
         .get("properties", {})
         .get("sk", {})
     )
+    get_biji_api_key = (
+        providers.get("get_biji_knowledge", {})
+        .get("json_schema", {})
+        .get("properties", {})
+        .get("api_key", {})
+    )
 
     assert dify_api_key.get("format") == "password"
     assert coze_api_key.get("format") == "password"
     assert coze_workflow_api_key.get("format") == "password"
     assert volc_ak.get("format") == "password"
     assert volc_sk.get("format") == "password"
+    assert get_biji_api_key.get("format") == "password"
 
 
 def test_ask_provider_metadata_includes_all_providers():
@@ -169,7 +212,14 @@ def test_ask_provider_metadata_includes_all_providers():
     providers = {item["provider"] for item in metadata.get("providers", [])}
 
     assert metadata.get("feature_enabled") is True
-    assert providers == {"llm", "dify", "coze", "coze_workflow", "volc_knowledge"}
+    assert providers == {
+        "llm",
+        "dify",
+        "coze",
+        "coze_workflow",
+        "volc_knowledge",
+        "get_biji_knowledge",
+    }
 
 
 def test_ask_provider_metadata_exposes_minimal_schema_properties():
@@ -194,11 +244,18 @@ def test_ask_provider_metadata_exposes_minimal_schema_properties():
         .get("properties", {})
         .keys()
     )
+    get_biji_fields = (
+        providers.get("get_biji_knowledge", {})
+        .get("json_schema", {})
+        .get("properties", {})
+        .keys()
+    )
 
     assert set(dify_fields) == {"base_url", "api_key"}
     assert set(coze_fields) == {"api_key", "bot_id"}
     assert set(coze_workflow_fields) == {"api_key", "workflow_id"}
     assert set(volc_fields) == {"account_id", "ak", "sk", "collection_name"}
+    assert set(get_biji_fields) == {"api_key", "client_id", "topic_id", "top_k"}
 
 
 def test_ask_provider_metadata_localizes_text_for_zh_cn(app):
@@ -215,6 +272,12 @@ def test_ask_provider_metadata_localizes_text_for_zh_cn(app):
         assert (
             coze["json_schema"]["properties"]["bot_id"]["description"]
             == "Coze Bot 标识。"
+        )
+        get_biji = providers["get_biji_knowledge"]
+        assert get_biji["title"] == "Get 笔记知识库"
+        assert (
+            get_biji["json_schema"]["properties"]["topic_id"]["description"]
+            == "Get 笔记知识库 ID。"
         )
     finally:
         # Always restore the default locale so a failed assertion above
