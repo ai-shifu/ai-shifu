@@ -22,6 +22,8 @@
 
 </unlearned>
 
+{knowledge_section}
+
 # 基础设定
 <who_am_i>和</who_am_i> **两个标签中间，是你的基础设定,为最高优先级,需要严格遵守**
 

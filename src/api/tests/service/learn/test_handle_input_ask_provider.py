@@ -132,7 +132,7 @@ class _DummyLearnGeneratedElementModel:
 
 class _DummyFollowUpInfo:
     def __init__(self, ask_provider_config):
-        self.ask_prompt = "ASK_PROMPT::{shifu_system_message}"
+        self.ask_prompt = "ASK_PROMPT::{shifu_system_message}::{knowledge_section}"
         self.ask_model = "gpt-test"
         self.model_args = {"temperature": 0.2}
         self.ask_provider_config = ask_provider_config
@@ -493,7 +493,12 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(app, monkeypa
         for message in context_messages
         if message["role"] == "system"
     ]
-    assert any("knowledge snippets" in content for content in system_contents)
+    # The retrieval output fills the ask-template knowledge section.
+    assert any(
+        "<knowledge>\n\nknowledge snippets\n\n</knowledge>" in content
+        for content in system_contents
+    )
+    assert all("{knowledge_section}" not in content for content in system_contents)
     assert context_messages[-1]["role"] == "user"
     assert events[-1].type == GeneratedType.BREAK
 

@@ -2253,7 +2253,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             AskProviderError,
             AskProviderRuntime,
             AskProviderTimeoutError,
-            build_context_messages,
+            apply_knowledge_to_messages,
             stream_ask_provider_response,
         )
         from flaskr.service.learn.ask_provider_adapters.consts import (
@@ -2370,9 +2370,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 )
 
             return AskProviderRuntime(
-                llm_stream_factory=lambda: _chat_llm_stream(messages),
+                llm_stream_factory=lambda: _chat_llm_stream(
+                    apply_knowledge_to_messages(messages, "")
+                ),
                 llm_context_stream_factory=lambda knowledge_context: _chat_llm_stream(
-                    build_context_messages(messages, knowledge_context)
+                    apply_knowledge_to_messages(messages, knowledge_context)
                 ),
             )
 

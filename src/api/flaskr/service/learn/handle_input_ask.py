@@ -565,7 +565,7 @@ def handle_input_ask(
         ).chat_llm
 
     from flaskr.service.learn.ask_provider_adapters.common import (
-        build_context_messages,
+        apply_knowledge_to_messages,
     )
 
     def _chat_llm_stream(stream_messages: list[dict[str, Any]]):
@@ -586,11 +586,14 @@ def handle_input_ask(
         )
 
     llm_runtime = ask_provider_runtime_cls(
-        # Pass complete conversation history
-        llm_stream_factory=lambda: _chat_llm_stream(llm_messages),
-        # Ground the built-in LLM on retrieval-provider output.
+        # Pass complete conversation history; an empty knowledge context
+        # clears the ask-template {knowledge} placeholder.
+        llm_stream_factory=lambda: _chat_llm_stream(
+            apply_knowledge_to_messages(llm_messages, "")
+        ),
+        # Fill the ask-template knowledge section with retrieval output.
         llm_context_stream_factory=lambda knowledge_context: _chat_llm_stream(
-            build_context_messages(llm_messages, knowledge_context)
+            apply_knowledge_to_messages(llm_messages, knowledge_context)
         ),
     )
 

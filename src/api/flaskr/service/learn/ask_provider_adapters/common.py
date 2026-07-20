@@ -1,38 +1,77 @@
 """Shared helpers for ask provider adapters."""
 
 import json
+from functools import lru_cache
 from typing import Any, Iterable
 
 import requests
 
 from flaskr.service.config import get_config
+from flaskr.util.prompt_loader import load_prompt_template
 
 from .base import AskProviderError
 
 
-KNOWLEDGE_CONTEXT_PROMPT_TEMPLATE = (
-    "Reference material retrieved from the configured knowledge base for the "
-    "user's question:\n\n{knowledge_context}\n\n"
-    "Answer the user's question based on this material first. If the material "
-    "is insufficient or irrelevant, say so and answer with your own knowledge."
-)
+# Placeholder kept by the publish pipeline (prompts/ask.md via
+# _make_ask_prompt). At ask time it is replaced with the rendered knowledge
+# section when a retrieval provider returned material, or removed entirely so
+# the prompt carries no empty knowledge tags.
+KNOWLEDGE_SECTION_PLACEHOLDER = "{knowledge_section}"
 
 
-def build_context_messages(
+@lru_cache(maxsize=1)
+def _knowledge_section_template() -> str:
+    return load_prompt_template("ask_knowledge")
+
+
+def render_knowledge_section(knowledge_context: str) -> str:
+    """Render the provider-agnostic knowledge section of the ask prompt."""
+    return (
+        _knowledge_section_template().replace("{knowledge}", knowledge_context).strip()
+    )
+
+
+def apply_knowledge_context(system_prompt: str, knowledge_context: str) -> str:
+    """Fill or remove the ask-template knowledge section.
+
+    Prompts published before the template gained the placeholder get the
+    rendered section appended instead, so retrieval results are never
+    silently dropped.
+    """
+    knowledge_context = (knowledge_context or "").strip()
+    section = render_knowledge_section(knowledge_context) if knowledge_context else ""
+    if KNOWLEDGE_SECTION_PLACEHOLDER in system_prompt:
+        return system_prompt.replace(KNOWLEDGE_SECTION_PLACEHOLDER, section)
+    if not section:
+        return system_prompt
+    return system_prompt + "\n\n" + section
+
+
+def apply_knowledge_to_messages(
     messages: list[dict[str, Any]], knowledge_context: str
 ) -> list[dict[str, Any]]:
-    """Insert retrieved knowledge as a system message before the user turn."""
-    context_messages = [dict(message) for message in messages]
-    context_messages.insert(
-        max(len(context_messages) - 1, 0),
-        {
-            "role": "system",
-            "content": KNOWLEDGE_CONTEXT_PROMPT_TEMPLATE.format(
-                knowledge_context=knowledge_context
-            ),
-        },
-    )
-    return context_messages
+    """Return messages with the first system prompt carrying the knowledge.
+
+    Without a system message, a new one is prepended only when there is
+    knowledge to inject.
+    """
+    updated = [dict(message) for message in messages]
+    for message in updated:
+        if message.get("role") == "system":
+            message["content"] = apply_knowledge_context(
+                str(message.get("content") or ""), knowledge_context
+            )
+            return updated
+    knowledge_context = (knowledge_context or "").strip()
+    if knowledge_context:
+        updated.insert(
+            0,
+            {
+                "role": "system",
+                "content": apply_knowledge_context("", knowledge_context),
+            },
+        )
+    return updated
 
 
 def provider_timeout_seconds() -> int:
