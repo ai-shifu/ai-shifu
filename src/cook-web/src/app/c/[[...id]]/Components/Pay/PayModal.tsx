@@ -129,12 +129,14 @@ export const PayModal = ({
     stripeEnabled,
     paymentChannels,
     currencySymbol,
+    enableWxcode,
   } = useEnvStore(
     useShallow(state => ({
       stripePublishableKey: state.stripePublishableKey,
       stripeEnabled: state.stripeEnabled,
       paymentChannels: state.paymentChannels,
       currencySymbol: state.currencySymbol || '¥',
+      enableWxcode: state.enableWxcode,
     })),
   );
   const normalizedPaymentChannels = useMemo(
@@ -154,6 +156,12 @@ export const PayModal = ({
     () => typeof navigator !== 'undefined' && inWechat(),
     [],
   );
+  // JSAPI payment needs an openid, which is only obtainable when the WeChat
+  // code flow is enabled (it is disabled on custom domains).
+  const wechatJsapiAvailable =
+    isWechatBrowser &&
+    typeof enableWxcode === 'string' &&
+    enableWxcode.toLowerCase() === 'true';
   const isWechatQrAvailable = pingxxChannelEnabled || wechatpayChannelEnabled;
   const isAlipayQrAvailable = pingxxChannelEnabled || alipayChannelEnabled;
   const qrChannelEnabled = isWechatQrAvailable || isAlipayQrAvailable;
@@ -202,13 +210,13 @@ export const PayModal = ({
       if (
         channel === PAY_CHANNEL_WECHAT &&
         wechatpayChannelEnabled &&
-        isWechatBrowser
+        wechatJsapiAvailable
       ) {
         return PAY_CHANNEL_WECHAT_JSAPI;
       }
       return channel;
     },
-    [isWechatBrowser, wechatpayChannelEnabled],
+    [wechatJsapiAvailable, wechatpayChannelEnabled],
   );
 
   const resolvePaymentChannel = useCallback(
@@ -428,7 +436,7 @@ export const PayModal = ({
     if (!jsapiParams || typeof window === 'undefined') {
       return;
     }
-    if (!isWechatBrowser) {
+    if (!wechatJsapiAvailable) {
       toast({
         title: t('module.pay.wechatJsapiUnavailable'),
         variant: 'destructive',
@@ -495,7 +503,13 @@ export const PayModal = ({
         variant: 'destructive',
       });
     }
-  }, [isWechatBrowser, nativePayload.jsapi_params, syncOrderStatus, t, toast]);
+  }, [
+    wechatJsapiAvailable,
+    nativePayload.jsapi_params,
+    syncOrderStatus,
+    t,
+    toast,
+  ]);
 
   const onPayChannelSelectChange = useCallback(
     ({ channel }: { channel: string }) => {
