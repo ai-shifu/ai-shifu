@@ -1,39 +1,50 @@
 """Shared helpers for ask provider adapters."""
 
 import json
+from functools import lru_cache
 from typing import Any, Iterable
 
 import requests
 
 from flaskr.service.config import get_config
+from flaskr.util.prompt_loader import load_prompt_template
 
 from .base import AskProviderError
 
 
 # Placeholder kept by the publish pipeline (prompts/ask.md via
-# _make_ask_prompt) and filled at ask time with retrieval-provider results.
-KNOWLEDGE_PLACEHOLDER = "{knowledge}"
+# _make_ask_prompt). At ask time it is replaced with the rendered knowledge
+# section when a retrieval provider returned material, or removed entirely so
+# the prompt carries no empty knowledge tags.
+KNOWLEDGE_SECTION_PLACEHOLDER = "{knowledge_section}"
 
-# Appended to system prompts published before the template gained the
-# knowledge section, so retrieval results are never silently dropped.
-KNOWLEDGE_FALLBACK_SECTION_TEMPLATE = (
-    "\n\n# Knowledge base material\n"
-    "If the material between the <knowledge></knowledge> tags is relevant to "
-    "the user's question, answer based on it first.\n"
-    "<knowledge>\n\n{knowledge_context}\n\n</knowledge>"
-)
+
+@lru_cache(maxsize=1)
+def _knowledge_section_template() -> str:
+    return load_prompt_template("ask_knowledge")
+
+
+def render_knowledge_section(knowledge_context: str) -> str:
+    """Render the provider-agnostic knowledge section of the ask prompt."""
+    return (
+        _knowledge_section_template().replace("{knowledge}", knowledge_context).strip()
+    )
 
 
 def apply_knowledge_context(system_prompt: str, knowledge_context: str) -> str:
-    """Fill the ask-template knowledge section with retrieval results."""
+    """Fill or remove the ask-template knowledge section.
+
+    Prompts published before the template gained the placeholder get the
+    rendered section appended instead, so retrieval results are never
+    silently dropped.
+    """
     knowledge_context = (knowledge_context or "").strip()
-    if KNOWLEDGE_PLACEHOLDER in system_prompt:
-        return system_prompt.replace(KNOWLEDGE_PLACEHOLDER, knowledge_context)
-    if not knowledge_context:
+    section = render_knowledge_section(knowledge_context) if knowledge_context else ""
+    if KNOWLEDGE_SECTION_PLACEHOLDER in system_prompt:
+        return system_prompt.replace(KNOWLEDGE_SECTION_PLACEHOLDER, section)
+    if not section:
         return system_prompt
-    return system_prompt + KNOWLEDGE_FALLBACK_SECTION_TEMPLATE.format(
-        knowledge_context=knowledge_context
-    )
+    return system_prompt + "\n\n" + section
 
 
 def apply_knowledge_to_messages(

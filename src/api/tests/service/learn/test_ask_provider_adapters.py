@@ -846,30 +846,41 @@ def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
         )
 
 
+def test_render_knowledge_section_contains_rule_and_tags():
+    section = common.render_knowledge_section("retrieved material")
+
+    assert "<knowledge>\n\nretrieved material\n\n</knowledge>" in section
+    assert "{knowledge}" not in section
+
+
 def test_apply_knowledge_context_fills_template_placeholder():
-    prompt = "rules\n<knowledge>\n\n{knowledge}\n\n</knowledge>\nsettings"
+    prompt = "rules\n\n{knowledge_section}\n\nsettings"
 
     filled = common.apply_knowledge_context(prompt, "retrieved material")
 
-    assert "{knowledge}" not in filled
-    assert "retrieved material" in filled
+    assert "{knowledge_section}" not in filled
+    assert "<knowledge>\n\nretrieved material\n\n</knowledge>" in filled
 
 
-def test_apply_knowledge_context_clears_placeholder_without_knowledge():
-    prompt = "rules\n<knowledge>\n\n{knowledge}\n\n</knowledge>"
+def test_apply_knowledge_context_removes_section_without_knowledge():
+    prompt = "rules\n\n{knowledge_section}\n\nsettings"
 
-    assert common.apply_knowledge_context(prompt, "") == (
-        "rules\n<knowledge>\n\n\n\n</knowledge>"
-    )
+    filled = common.apply_knowledge_context(prompt, "")
+
+    # The whole section disappears: no placeholder, no empty tags, no title.
+    assert filled == "rules\n\n\n\nsettings"
+    assert "<knowledge>" not in filled
 
 
-def test_apply_knowledge_context_appends_fallback_section_for_legacy_prompts():
+def test_apply_knowledge_context_appends_section_for_legacy_prompts():
     prompt = "legacy prompt without placeholder"
 
     filled = common.apply_knowledge_context(prompt, "retrieved material")
 
     assert filled.startswith(prompt)
-    assert "<knowledge>\n\nretrieved material\n\n</knowledge>" in filled
+    assert filled == (
+        prompt + "\n\n" + common.render_knowledge_section("retrieved material")
+    )
 
 
 def test_apply_knowledge_context_keeps_legacy_prompt_without_knowledge():
@@ -880,16 +891,17 @@ def test_apply_knowledge_context_keeps_legacy_prompt_without_knowledge():
 
 def test_apply_knowledge_to_messages_updates_first_system_message():
     messages = [
-        {"role": "system", "content": "rules {knowledge} end"},
+        {"role": "system", "content": "rules {knowledge_section} end"},
         {"role": "user", "content": "question"},
     ]
 
     updated = common.apply_knowledge_to_messages(messages, "retrieved material")
 
-    assert updated[0]["content"] == "rules retrieved material end"
+    assert "{knowledge_section}" not in updated[0]["content"]
+    assert "retrieved material" in updated[0]["content"]
     assert updated[1] == {"role": "user", "content": "question"}
     # The original messages are untouched.
-    assert messages[0]["content"] == "rules {knowledge} end"
+    assert messages[0]["content"] == "rules {knowledge_section} end"
 
 
 def test_apply_knowledge_to_messages_prepends_system_when_missing():

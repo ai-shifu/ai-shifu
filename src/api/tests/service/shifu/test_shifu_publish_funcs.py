@@ -140,7 +140,9 @@ def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders():
     assert "unlearned summary" in result
     # Runtime placeholders survive publishing and are filled at ask time.
     assert "{shifu_system_message}" in result
-    assert "{knowledge}" in result
+    assert "{knowledge_section}" in result
+    # The knowledge section itself is rendered at ask time, not at publish.
+    assert "<knowledge>" not in result
 
 
 def test_get_summary_updates_trace_and_span_output(monkeypatch):

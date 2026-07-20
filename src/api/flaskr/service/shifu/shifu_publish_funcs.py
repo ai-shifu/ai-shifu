@@ -482,9 +482,10 @@ def _make_ask_prompt(
         learned=("\n" + learned_text) if learned_text else "",
         unlearned=("\n" + unlearned_text) if unlearned_text else "",
         # Runtime placeholders: shifu_system_message is filled on every ask,
-        # knowledge is filled with retrieval-provider results when configured.
+        # knowledge_section is replaced with the rendered knowledge section
+        # (or removed entirely) when a retrieval provider is configured.
         shifu_system_message="{shifu_system_message}",
-        knowledge="{knowledge}",
+        knowledge_section="{knowledge_section}",
     )
     return result
 
