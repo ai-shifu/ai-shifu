@@ -114,6 +114,7 @@ from .subscriptions import (
 from .trials import backfill_missing_creator_trial_credits
 from .wallets import (
     rebuild_credit_wallet_snapshots,
+    repair_expire_ledger_bucket_drift,
     repair_credit_bucket_runtime_statuses,
 )
 
@@ -763,6 +764,60 @@ def register_billing_commands(console) -> None:
             current_app,
             creator_bid=creator_bid,
             wallet_bid=wallet_bid,
+            dry_run=not apply_changes,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="repair-expire-ledger-bucket-drift")
+    @click.option("--creator-bid", default="", help="Repair one creator.")
+    @click.option(
+        "--wallet-bucket-bid",
+        default="",
+        help="Repair one wallet bucket directly.",
+    )
+    @click.option(
+        "--limit",
+        type=click.IntRange(min=1),
+        default=None,
+        help="Maximum bucket rows to scan when used with --all.",
+    )
+    @click.option(
+        "--all",
+        "process_all",
+        is_flag=True,
+        help="Scan every billing wallet bucket.",
+    )
+    @click.option(
+        "--apply",
+        "apply_changes",
+        is_flag=True,
+        help="Persist bucket and wallet snapshot repairs. Defaults to dry-run.",
+    )
+    @with_appcontext
+    def repair_expire_ledger_bucket_drift_command(
+        creator_bid: str,
+        wallet_bucket_bid: str,
+        limit: int | None,
+        process_all: bool,
+        apply_changes: bool,
+    ) -> None:
+        """Repair buckets skipped because an expire ledger already exists."""
+
+        if (
+            not str(creator_bid or "").strip()
+            and not str(wallet_bucket_bid or "").strip()
+            and not process_all
+        ):
+            raise click.ClickException(
+                "Pass --creator-bid, --wallet-bucket-bid, or --all for "
+                "expire-ledger bucket drift repair."
+            )
+
+        payload = repair_expire_ledger_bucket_drift(
+            current_app,
+            creator_bid=creator_bid,
+            wallet_bucket_bid=wallet_bucket_bid,
+            limit=limit if process_all else None,
             dry_run=not apply_changes,
         )
         _echo_payload(payload)
