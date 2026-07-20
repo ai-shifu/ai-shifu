@@ -8,7 +8,7 @@ from .base import (
     AskProviderRuntime,
     AskProviderTimeoutError,
 )
-from .common import build_context_messages
+from .common import apply_knowledge_to_messages
 from .coze_adapter import CozeAskProviderAdapter
 from .coze_workflow_adapter import CozeWorkflowAskProviderAdapter
 from .dify_adapter import DifyAskProviderAdapter
@@ -30,7 +30,7 @@ __all__ = [
     "GetBijiKnowledgeAskProviderAdapter",
     "LlmAskProviderAdapter",
     "VolcKnowledgeAskProviderAdapter",
-    "build_context_messages",
+    "apply_knowledge_to_messages",
     "get_ask_provider_adapter",
     "stream_ask_provider_response",
 ]

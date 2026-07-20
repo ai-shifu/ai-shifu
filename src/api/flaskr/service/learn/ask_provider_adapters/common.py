@@ -10,29 +10,57 @@ from flaskr.service.config import get_config
 from .base import AskProviderError
 
 
-KNOWLEDGE_CONTEXT_PROMPT_TEMPLATE = (
-    "Reference material retrieved from the configured knowledge base for the "
-    "user's question:\n\n{knowledge_context}\n\n"
-    "Answer the user's question based on this material first. If the material "
-    "is insufficient or irrelevant, say so and answer with your own knowledge."
+# Placeholder kept by the publish pipeline (prompts/ask.md via
+# _make_ask_prompt) and filled at ask time with retrieval-provider results.
+KNOWLEDGE_PLACEHOLDER = "{knowledge}"
+
+# Appended to system prompts published before the template gained the
+# knowledge section, so retrieval results are never silently dropped.
+KNOWLEDGE_FALLBACK_SECTION_TEMPLATE = (
+    "\n\n# Knowledge base material\n"
+    "If the material between the <knowledge></knowledge> tags is relevant to "
+    "the user's question, answer based on it first.\n"
+    "<knowledge>\n\n{knowledge_context}\n\n</knowledge>"
 )
 
 
-def build_context_messages(
+def apply_knowledge_context(system_prompt: str, knowledge_context: str) -> str:
+    """Fill the ask-template knowledge section with retrieval results."""
+    knowledge_context = (knowledge_context or "").strip()
+    if KNOWLEDGE_PLACEHOLDER in system_prompt:
+        return system_prompt.replace(KNOWLEDGE_PLACEHOLDER, knowledge_context)
+    if not knowledge_context:
+        return system_prompt
+    return system_prompt + KNOWLEDGE_FALLBACK_SECTION_TEMPLATE.format(
+        knowledge_context=knowledge_context
+    )
+
+
+def apply_knowledge_to_messages(
     messages: list[dict[str, Any]], knowledge_context: str
 ) -> list[dict[str, Any]]:
-    """Insert retrieved knowledge as a system message before the user turn."""
-    context_messages = [dict(message) for message in messages]
-    context_messages.insert(
-        max(len(context_messages) - 1, 0),
-        {
-            "role": "system",
-            "content": KNOWLEDGE_CONTEXT_PROMPT_TEMPLATE.format(
-                knowledge_context=knowledge_context
-            ),
-        },
-    )
-    return context_messages
+    """Return messages with the first system prompt carrying the knowledge.
+
+    Without a system message, a new one is prepended only when there is
+    knowledge to inject.
+    """
+    updated = [dict(message) for message in messages]
+    for message in updated:
+        if message.get("role") == "system":
+            message["content"] = apply_knowledge_context(
+                str(message.get("content") or ""), knowledge_context
+            )
+            return updated
+    knowledge_context = (knowledge_context or "").strip()
+    if knowledge_context:
+        updated.insert(
+            0,
+            {
+                "role": "system",
+                "content": apply_knowledge_context("", knowledge_context),
+            },
+        )
+    return updated
 
 
 def provider_timeout_seconds() -> int:

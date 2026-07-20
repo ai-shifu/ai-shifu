@@ -628,7 +628,7 @@ def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
     assert [chunk.content for chunk in chunks] == ["answer"]
 
 
-def test_get_biji_knowledge_adapter_empty_results_synthesizes_no_results_context(
+def test_get_biji_knowledge_adapter_empty_results_synthesizes_with_empty_context(
     app, monkeypatch
 ):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
@@ -668,7 +668,7 @@ def test_get_biji_knowledge_adapter_empty_results_synthesizes_no_results_context
         )
     )
 
-    assert captured_context["value"] == (get_biji_knowledge_adapter.NO_RESULTS_CONTEXT)
+    assert captured_context["value"] == ""
     assert [chunk.content for chunk in chunks] == ["fallback answer"]
 
 
@@ -844,6 +844,65 @@ def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
                 },
             )
         )
+
+
+def test_apply_knowledge_context_fills_template_placeholder():
+    prompt = "rules\n<knowledge>\n\n{knowledge}\n\n</knowledge>\nsettings"
+
+    filled = common.apply_knowledge_context(prompt, "retrieved material")
+
+    assert "{knowledge}" not in filled
+    assert "retrieved material" in filled
+
+
+def test_apply_knowledge_context_clears_placeholder_without_knowledge():
+    prompt = "rules\n<knowledge>\n\n{knowledge}\n\n</knowledge>"
+
+    assert common.apply_knowledge_context(prompt, "") == (
+        "rules\n<knowledge>\n\n\n\n</knowledge>"
+    )
+
+
+def test_apply_knowledge_context_appends_fallback_section_for_legacy_prompts():
+    prompt = "legacy prompt without placeholder"
+
+    filled = common.apply_knowledge_context(prompt, "retrieved material")
+
+    assert filled.startswith(prompt)
+    assert "<knowledge>\n\nretrieved material\n\n</knowledge>" in filled
+
+
+def test_apply_knowledge_context_keeps_legacy_prompt_without_knowledge():
+    prompt = "legacy prompt without placeholder"
+
+    assert common.apply_knowledge_context(prompt, "") == prompt
+
+
+def test_apply_knowledge_to_messages_updates_first_system_message():
+    messages = [
+        {"role": "system", "content": "rules {knowledge} end"},
+        {"role": "user", "content": "question"},
+    ]
+
+    updated = common.apply_knowledge_to_messages(messages, "retrieved material")
+
+    assert updated[0]["content"] == "rules retrieved material end"
+    assert updated[1] == {"role": "user", "content": "question"}
+    # The original messages are untouched.
+    assert messages[0]["content"] == "rules {knowledge} end"
+
+
+def test_apply_knowledge_to_messages_prepends_system_when_missing():
+    messages = [{"role": "user", "content": "question"}]
+
+    updated = common.apply_knowledge_to_messages(messages, "retrieved material")
+
+    assert updated[0]["role"] == "system"
+    assert "retrieved material" in updated[0]["content"]
+    assert updated[-1] == {"role": "user", "content": "question"}
+
+    unchanged = common.apply_knowledge_to_messages(messages, "")
+    assert unchanged == messages
 
 
 def test_llm_adapter_streams_from_runtime_factory(app):

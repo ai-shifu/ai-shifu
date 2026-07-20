@@ -34,10 +34,6 @@ GET_BIJI_KNOWLEDGE_RECALL_PATH = "/open/api/v1/resource/recall/knowledge"
 DEFAULT_TOP_K = 5
 MAX_TOP_K = 10
 
-NO_RESULTS_CONTEXT = (
-    "No relevant material was found in the knowledge base for this question."
-)
-
 
 def _normalize_text(value: Any) -> str:
     return str(value or "").strip()
@@ -170,11 +166,9 @@ class GetBijiKnowledgeAskProviderAdapter:
 
         context_factory = getattr(runtime, "llm_context_stream_factory", None)
         if context_factory is not None:
-            knowledge_context = (
-                "\n\n".join(formatted_results)
-                if formatted_results
-                else NO_RESULTS_CONTEXT
-            )
+            # An empty context leaves the ask-template knowledge section
+            # blank, so the LLM falls back to the regular course material.
+            knowledge_context = "\n\n".join(formatted_results)
             for chunk in context_factory(knowledge_context):
                 current_content = getattr(chunk, "result", None)
                 if isinstance(current_content, str) and current_content:
