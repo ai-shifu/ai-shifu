@@ -120,11 +120,12 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         domain_owner_bid = str(
             getattr(runtime_billing.domain, "creator_bid", None) or ""
         ).strip()
-        if (
-            domain_owner_bid
-            and getattr(runtime_billing.domain, "is_custom_domain", False)
-            and domain_owner_bid != creator_bid
-        ):
+        # Capture before the owner re-resolve below: its exception fallback
+        # rebuilds a default context that would drop the custom-domain flag.
+        is_custom_domain = bool(
+            getattr(runtime_billing.domain, "is_custom_domain", False)
+        )
+        if domain_owner_bid and is_custom_domain and domain_owner_bid != creator_bid:
             try:
                 runtime_billing = build_runtime_billing_context(
                     app,
@@ -153,10 +154,16 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         contact_us_url = branding.contact_us_url or get_config("CONTACT_US_URL", "")
         official_site_url = get_config("OFFICIAL_SITE_URL", "")
 
+        # Custom domains are not registered in the WeChat Official Account
+        # console, so the OAuth redirect would fail with error 10003. Disable
+        # the WeChat code flow (and hide the app id) on custom domains; phone
+        # login works without an openid.
+        wechat_app_id = "" if is_custom_domain else get_config("WECHAT_APP_ID", "")
+
         config = RuntimeConfigDTO(
             defaultLlmModel=get_config("DEFAULT_LLM_MODEL", ""),
-            wechatAppId=get_config("WECHAT_APP_ID", ""),
-            enableWechatCode=bool(get_config("WECHAT_APP_ID", "")),
+            wechatAppId=wechat_app_id,
+            enableWechatCode=bool(wechat_app_id),
             billingEnabled=billing_enabled,
             billingCreditPrecision=get_billing_credit_precision(),
             stripePublishableKey=get_config("STRIPE_PUBLISHABLE_KEY", ""),
