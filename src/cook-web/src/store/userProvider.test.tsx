@@ -127,6 +127,25 @@ describe('UserProvider', () => {
     expect(mockUpdateWechatCode).not.toHaveBeenCalled();
   });
 
+  test('skips WeChat OAuth and continues init when wxcode is disabled (custom domain)', async () => {
+    mockEnvState.enableWxcode = 'false';
+    mockInWechat.mockReturnValue(true);
+    mockInMiniProgram.mockReturnValue(false);
+    mockParseUrlParams.mockReturnValue({});
+
+    render(
+      <UserProvider>
+        <div aria-label='content' />
+      </UserProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockInitUser).toHaveBeenCalledTimes(1);
+    });
+    expect(mockWechatLogin).not.toHaveBeenCalled();
+    expect(mockUpdateWechatCode).not.toHaveBeenCalled();
+  });
+
   test('keeps course-route wxcode waiting in the shared provider without triggering OAuth redirect', () => {
     mockInWechat.mockReturnValue(true);
     mockInMiniProgram.mockReturnValue(false);
