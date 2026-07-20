@@ -2430,7 +2430,15 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 )
                 answer = _invoke_provider(requested_provider, runtime=llm_runtime)
             except (AskProviderError, AskProviderTimeoutError) as error:
-                provider_error = str(error)
+                # Surface a localized, human-readable message; keep the raw
+                # error (URL, response body) in the logs only.
+                app.logger.warning("ask preview provider error: %s", error)
+                if isinstance(error, AskProviderTimeoutError):
+                    provider_error = str(_("server.learn.askProviderTimeout"))
+                else:
+                    provider_error = getattr(error, "user_message", None) or str(
+                        _("server.learn.askProviderUnavailable")
+                    )
                 if (
                     mode != ASK_PROVIDER_MODE_PROVIDER_THEN_LLM
                     or requested_provider == ASK_PROVIDER_LLM

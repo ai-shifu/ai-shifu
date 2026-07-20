@@ -29,7 +29,15 @@ class AskProviderRuntime:
 
 
 class AskProviderError(Exception):
-    """Base exception for ask provider invocation errors."""
+    """Base exception for ask provider invocation errors.
+
+    ``user_message`` optionally carries a localized, human-readable
+    description safe to surface in the UI; the raw message stays for logs.
+    """
+
+    def __init__(self, message: str = "", user_message: str | None = None):
+        super().__init__(message)
+        self.user_message = user_message
 
 
 class AskProviderConfigError(AskProviderError):

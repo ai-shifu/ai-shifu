@@ -1,7 +1,10 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "askProviderAuthFailed": "Échec de l’authentification de la base de connaissances. Veuillez vérifier la clé API et le Client ID.",
     "askProviderNoResults": "Aucun contenu pertinent n’a été trouvé dans la base de connaissances.",
+    "askProviderNotMember": "Le compte Get Biji n’a pas d’abonnement actif, l’OpenAPI est donc indisponible.",
+    "askProviderRateLimited": "La limite de fréquence ou de quota des requêtes de la base de connaissances a été atteinte. Veuillez réessayer plus tard.",
     "askProviderTimeout": "Le service de connaissances externe a expiré. Veuillez réessayer plus tard.",
     "askProviderUnavailable": "Le service de connaissances externe est temporairement indisponible.",
     "generatedBlockNotFound": "Bloc généré introuvable",

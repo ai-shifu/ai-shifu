@@ -47,6 +47,26 @@ def _top_k_value(value: Any) -> int:
     return max(1, min(parsed, MAX_TOP_K))
 
 
+# Get Biji OpenAPI business error codes, per https://www.biji.com/openapi
+_AUTH_ERROR_CODES = {"10001", "10004"}
+_NOT_MEMBER_ERROR_CODE = "10201"
+_RATE_LIMIT_ERROR_CODES = {"10202", "10203"}
+
+
+def _user_message_for_error(code: str, reason: str) -> str | None:
+    if reason == "not_member" or code == _NOT_MEMBER_ERROR_CODE:
+        return str(_("server.learn.askProviderNotMember"))
+    if code in _AUTH_ERROR_CODES:
+        return str(_("server.learn.askProviderAuthFailed"))
+    if (
+        code in _RATE_LIMIT_ERROR_CODES
+        or reason.startswith("qps_")
+        or reason.startswith("quota_")
+    ):
+        return str(_("server.learn.askProviderRateLimited"))
+    return None
+
+
 def _raise_for_api_error(payload: Any) -> None:
     if not isinstance(payload, dict):
         return
@@ -54,15 +74,20 @@ def _raise_for_api_error(payload: Any) -> None:
         return
 
     error = payload.get("error")
+    code = ""
     message = ""
     reason = ""
     if isinstance(error, dict):
+        code = _normalize_text(error.get("code"))
         message = _normalize_text(error.get("message"))
         reason = _normalize_text(error.get("reason"))
     if not message:
         message = extract_text(error) or extract_text(payload) or str(payload)
     detail = f"{message} (reason: {reason})" if reason else message
-    raise AskProviderError(f"get_biji_knowledge error: {detail}")
+    raise AskProviderError(
+        f"get_biji_knowledge error: {detail}",
+        user_message=_user_message_for_error(code, reason),
+    )
 
 
 def _extract_results(payload: Any) -> list[Any]:
@@ -145,15 +170,17 @@ class GetBijiKnowledgeAskProviderAdapter:
         except requests.RequestException as exc:
             raise AskProviderError(f"get_biji_knowledge request failed: {exc}") from exc
 
-        response = raise_for_provider_response(response, self.provider)
         try:
             payload_data = response.json()
-        except ValueError as exc:
-            raise AskProviderError(
-                "get_biji_knowledge response is not valid json"
-            ) from exc
+        except ValueError:
+            payload_data = None
 
+        # Business errors carry a friendly user message even when the HTTP
+        # status is 4xx (e.g. 401 with error code 10004), so check them first.
         _raise_for_api_error(payload_data)
+        raise_for_provider_response(response, self.provider)
+        if payload_data is None:
+            raise AskProviderError("get_biji_knowledge response is not valid json")
         results = _extract_results(payload_data)
         formatted_results = [
             formatted
