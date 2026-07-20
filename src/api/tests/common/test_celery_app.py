@@ -36,6 +36,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
         BILLING_BUCKET_EXPIRE_CRON="*/15 * * * *",
         BILLING_LOW_BALANCE_CRON="30 * * * *",
         BILLING_CREDIT_EXPIRING_CRON="45 * * * *",
+        BILLING_DAILY_USAGE_METRICS_CRON="15 1 * * *",
         BILLING_DAILY_LEDGER_SUMMARY_CRON="45 1 * * *",
     )
 
@@ -82,6 +83,12 @@ def test_create_celery_app_reuses_flask_config() -> None:
         beat_schedule["billing.scan_credit_expiring_notifications.schedule"]["task"]
         == "billing.scan_credit_expiring_notifications"
     )
+    assert beat_schedule["billing.aggregate_daily_usage_metrics.schedule"]["task"] == (
+        "billing.aggregate_daily_usage_metrics"
+    )
+    assert beat_schedule["billing.aggregate_daily_usage_metrics.schedule"][
+        "kwargs"
+    ] == {"finalize": True}
     assert beat_schedule["billing.finalize_daily_ledger_summary.schedule"]["task"] == (
         "billing.finalize_daily_ledger_summary"
     )
@@ -111,6 +118,11 @@ def test_create_celery_app_reuses_flask_config() -> None:
         ],
         minute="45",
         hour="*",
+    )
+    _assert_cron_schedule(
+        beat_schedule["billing.aggregate_daily_usage_metrics.schedule"]["schedule"],
+        minute="15",
+        hour="1",
     )
     _assert_cron_schedule(
         beat_schedule["billing.finalize_daily_ledger_summary.schedule"]["schedule"],

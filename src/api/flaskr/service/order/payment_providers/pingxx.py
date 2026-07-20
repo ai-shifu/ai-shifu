@@ -3,11 +3,16 @@ from __future__ import annotations
 import json
 import os
 import re
+import base64
+from functools import wraps
+import threading
 from typing import Dict, Any
 
 from flask import Flask
 
 from flaskr.service.config import get_config
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
 
 from .base import (
     PaymentCreationResult,
@@ -21,6 +26,16 @@ from . import register_payment_provider
 
 _PINGPP_CLIENT: Any | None = None
 _PINGPP_IMPORT_ERROR: Exception | None = None
+_PINGPP_CONFIG_LOCK = threading.RLock()
+
+
+def _serialized_pingpp_config(func):
+    @wraps(func)
+    def wrapped(*args, **kwargs):
+        with _PINGPP_CONFIG_LOCK:
+            return func(*args, **kwargs)
+
+    return wrapped
 
 
 def _get_pingpp_client() -> Any:
@@ -44,32 +59,26 @@ class PingxxProvider(PaymentProvider):
 
     channel = "pingxx"
 
-    def __init__(self) -> None:
-        self._client_initialized = False
-
     def _ensure_client(self, app: Flask) -> Any:
-        """Configure pingpp client once per process."""
+        """Configure pingpp for the current owner context."""
         try:
             client = _get_pingpp_client()
         except Exception as exc:  # pragma: no cover
             app.logger.error("Pingxx dependency is not available: %s", exc)
             raise RuntimeError("Pingxx dependency is not available") from exc
 
-        if self._client_initialized:
-            return client
-
         api_key = get_config("PINGXX_SECRET_KEY")
+        private_key = str(get_config("PINGXX_PRIVATE_KEY", "") or "").strip()
         private_key_path = get_config("PINGXX_PRIVATE_KEY_PATH")
-        if not private_key_path:
-            app.logger.error("PINGXX_PRIVATE_KEY_PATH is not configured")
-            raise RuntimeError("Pingxx private key path missing")
-        if not os.path.exists(private_key_path):
+        if not private_key and not private_key_path:
+            raise RuntimeError("Pingxx private key is not configured")
+        if not private_key and not os.path.exists(private_key_path):
             app.logger.error("Pingxx private key not found at %s", private_key_path)
             raise FileNotFoundError(private_key_path)
 
         client.api_key = api_key
-        client.private_key_path = private_key_path
-        self._client_initialized = True
+        client.private_key = private_key or None
+        client.private_key_path = None if private_key else private_key_path
         app.logger.info("Pingxx client initialized")
         return client
 
@@ -105,6 +114,7 @@ class PingxxProvider(PaymentProvider):
                 sanitized[k] = v
         return sanitized
 
+    @_serialized_pingpp_config
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
@@ -133,6 +143,7 @@ class PingxxProvider(PaymentProvider):
             },
         )
 
+    @_serialized_pingpp_config
     def retrieve_charge(self, *, charge_id: str, app: Flask):
         client = self._ensure_client(app)
         return client.Charge.retrieve(charge_id)
@@ -155,11 +166,29 @@ class PingxxProvider(PaymentProvider):
     def verify_webhook(
         self, *, headers: Dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
-        del headers
+        normalized_headers = {
+            str(key).lower(): str(value) for key, value in (headers or {}).items()
+        }
         if isinstance(raw_body, bytes):
             raw_body_str = raw_body.decode("utf-8")
         else:
             raw_body_str = str(raw_body or "")
+        webhook_public_key = str(
+            get_config("PINGXX_WEBHOOK_PUBLIC_KEY", "") or ""
+        ).strip()
+        if webhook_public_key:
+            signature = normalized_headers.get("x-pingplusplus-signature", "")
+            if not signature:
+                raise RuntimeError("Pingxx signature header missing")
+            public_key = serialization.load_pem_public_key(
+                webhook_public_key.encode("utf-8")
+            )
+            public_key.verify(
+                base64.b64decode(signature),
+                raw_body_str.encode("utf-8"),
+                padding.PKCS1v15(),
+                hashes.SHA256(),
+            )
         if not raw_body_str:
             payload: Dict[str, Any] = {}
         else:

@@ -19,6 +19,7 @@ const TRANSLATION_OVERRIDES: Record<string, string> = {
 };
 let mockLanguage = 'en-US';
 const mockBrowserTimeZone = jest.fn(() => 'America/Los_Angeles');
+let mockSearchParamsValue = '';
 
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -61,6 +62,10 @@ jest.mock('next/link', () => ({
       {children}
     </a>
   ),
+}));
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
 }));
 
 jest.mock('@/api', () => ({
@@ -221,6 +226,7 @@ describe('CreditOrdersTab', () => {
     mockGetAdminOperationCreditOrders.mockReset();
     mockGetAdminOperationCreditOrderDetail.mockReset();
     mockLanguage = 'en-US';
+    mockSearchParamsValue = '';
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     window.localStorage.clear();
     mockGetAdminOperationCreditOrdersOverview.mockResolvedValue({
@@ -405,6 +411,27 @@ describe('CreditOrdersTab', () => {
         'module.operationsOrder.creditOrders.overview.metrics.canceledOrders',
       ),
     ).not.toBeInTheDocument();
+  });
+
+  test('applies bill order id from URL when opened from billing exceptions', async () => {
+    mockSearchParamsValue = 'bill_order_bid=bill-order-2';
+
+    render(<CreditOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 20,
+        creator_keyword: '',
+        product_keyword: '',
+        bill_order_bid: 'bill-order-2',
+        credit_order_kind: '',
+        status: '',
+        payment_provider: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
   });
 
   test('activates and clears the paid overview card without refetching the default paid credit view', async () => {

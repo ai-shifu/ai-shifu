@@ -1,6 +1,12 @@
 import request from '@/lib/request';
 import { useSystemStore } from '@/c-store/useSystemStore';
 
+const getCurrentShifuBid = (): string => {
+  if (typeof window === 'undefined') return '';
+  const match = window.location.pathname.match(/^\/c\/([^/]+)/);
+  return match?.[1] ? decodeURIComponent(match[1]) : '';
+};
+
 /**
  * @description Fetch user information
  * @returns
@@ -25,6 +31,7 @@ export const updateUserInfo = name => {
  */
 export const registerTmp = ({ temp_id }) => {
   const { channel, wechatCode: wxcode, language } = useSystemStore.getState();
+  const shifu_bid = getCurrentShifuBid();
   const source = (channel || '').trim() || 'web';
 
   return request.post('/api/user/require_tmp', {
@@ -32,6 +39,7 @@ export const registerTmp = ({ temp_id }) => {
     source,
     wxcode,
     language,
+    shifu_bid,
   });
 };
 
@@ -41,7 +49,8 @@ export const registerTmp = ({ temp_id }) => {
  */
 export const updateWxcode = ({ wxcode }) => {
   // const { wechatCode: wxcode } = useSystemStore.getState();
-  return request.post('/api/user/update_openid', { wxcode });
+  const shifu_bid = getCurrentShifuBid();
+  return request.post('/api/user/update_openid', { wxcode, shifu_bid });
 };
 
 export type ProfileOnboardingStatus = {

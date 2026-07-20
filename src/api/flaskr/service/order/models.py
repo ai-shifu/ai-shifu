@@ -46,6 +46,20 @@ class Order(db.Model):
         comment="User business identifier",
         index=True,
     )
+    creator_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Course owner identifier",
+        index=True,
+    )
+    payment_integration_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Snapshotted creator integration",
+        index=True,
+    )
     payable_price = Column(
         Numeric(10, 2), nullable=False, default="0.00", comment="Shifu original price"
     )

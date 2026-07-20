@@ -26,6 +26,31 @@ The new operator order page must include all legacy course-order records from th
 - coupon / redemption-based zero-paid orders
 - import-activation orders (`manual`)
 - Open API grant orders (`open_api`)
+- platform-domain learner orders paid through a teacher-owned Alipay or WeChat
+  Pay integration
+
+Custom-domain learner orders are a separate reporting scope. They may still be
+stored in `order_orders`, but the default platform-domain operator view should
+not silently mix them in once checkout captures domain attribution. Operator
+audit/search can expose them through an explicit source filter.
+
+## Independent payment scope
+
+The first order-management upgrade targets the case where a teacher has no
+custom domain but has a configured independent payment channel.
+
+These orders are still platform orders because course discovery, checkout, and
+authorization happen on the AI-Shifu domain. The platform does not collect the
+funds, so order reporting must distinguish:
+
+- `order_surface`: platform domain
+- `settlement_owner`: platform or teacher
+- `payment_channel`: Ping++, Stripe, Alipay, or WeChat Pay
+- `payment_integration_bid`: blank for platform credentials, populated for a
+  teacher-owned integration
+
+GMV and order-count metrics may include both platform and teacher-collected
+orders. Platform revenue/collections must exclude `settlement_owner=teacher`.
 
 ## Backend design
 
@@ -49,6 +74,8 @@ Supported filters:
 - `status`
 - `order_source`
 - `payment_channel`
+- `settlement_owner`
+- `payment_integration`: platform credentials or teacher-owned credentials
 - `start_time`
 - `end_time`
 
@@ -71,6 +98,16 @@ Suggested mapping:
 ### DTO strategy
 
 Extend the existing admin order summary/detail DTO payloads instead of creating a parallel incompatible shape, so the new operator detail drawer can reuse existing display patterns.
+
+Add non-secret payment attribution fields to list and detail DTOs:
+
+- `settlement_owner`
+- `settlement_owner_key`
+- `is_custom_payment`
+- `payment_integration_bid`
+- `payment_integration_label` or a masked provider summary when available
+
+Do not return merchant secrets.
 
 ## Frontend design
 
@@ -96,6 +133,8 @@ Match existing operator pages:
 - status
 - order source
 - payment channel
+- settlement owner: platform collection / teacher collection
+- payment credential scope: platform credentials / teacher independent payment
 - order created time range
 
 ### Table fields
@@ -108,9 +147,51 @@ Match existing operator pages:
 - status
 - amount block (`paid`, `payable`, `discount`)
 - payment channel
+- settlement owner
+- payment credential scope
 - coupon / redemption code summary
 - updated at
 - action
+
+### Metrics
+
+Overview cards should avoid treating teacher-collected orders as platform
+collections. Recommended cards:
+
+- total order count
+- paid GMV
+- platform-collected amount
+- teacher-collected amount
+
+Existing paid-count/status metrics can stay unchanged.
+
+## Implementation Plan: Platform Domain + Independent Payment
+
+1. Backend DTO and query preparation:
+   - derive `settlement_owner=teacher` when `payment_integration_bid` is present
+     on a learner order;
+   - derive `settlement_owner=platform` otherwise;
+   - add list/detail DTO fields and filters without changing old default query
+     behavior.
+2. Operator order APIs:
+   - extend `GET /shifu/admin/operations/orders` filters with
+     `settlement_owner` and payment credential scope;
+   - extend overview aggregation to return GMV, platform-collected amount, and
+     teacher-collected amount.
+3. Teacher order APIs:
+   - expose the same non-secret settlement fields on the existing creator order
+     list/detail payloads so teachers can identify independent-payment orders.
+4. Frontend:
+   - add filters and columns to the operator order page;
+   - add a lightweight settlement marker to the teacher order menu;
+   - update i18n strings and generated key typings.
+5. Tests:
+   - add backend coverage for platform-domain orders paid by a teacher-owned
+     integration;
+   - assert operator and creator lists both include the order;
+   - assert platform-collected metrics exclude it and teacher-collected metrics
+     include it;
+   - add focused frontend request/column rendering tests.
 
 ### Detail drawer
 
