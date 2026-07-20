@@ -12,11 +12,18 @@ from flaskr.util.prompt_loader import load_prompt_template
 from .base import AskProviderError
 
 
-# Placeholder kept by the publish pipeline (prompts/ask.md via
-# _make_ask_prompt). At ask time it is replaced with the rendered knowledge
-# section when a retrieval provider returned material, or removed entirely so
-# the prompt carries no empty knowledge tags.
+# Placeholders kept by the publish pipeline (prompts/ask.md via
+# _make_ask_prompt). At ask time knowledge_rule joins the answering-rules
+# list and knowledge_section carries the retrieved material; both are
+# removed entirely when there is no material, so the prompt carries neither
+# empty knowledge tags nor a dangling rule.
+KNOWLEDGE_RULE_PLACEHOLDER = "{knowledge_rule}"
 KNOWLEDGE_SECTION_PLACEHOLDER = "{knowledge_section}"
+
+
+@lru_cache(maxsize=1)
+def _knowledge_rule_template() -> str:
+    return load_prompt_template("ask_knowledge_rule")
 
 
 @lru_cache(maxsize=1)
@@ -24,27 +31,64 @@ def _knowledge_section_template() -> str:
     return load_prompt_template("ask_knowledge")
 
 
-def render_knowledge_section(knowledge_context: str) -> str:
-    """Render the provider-agnostic knowledge section of the ask prompt."""
+def render_knowledge_rule() -> str:
+    """Render the answering rule for the knowledge material."""
+    return _knowledge_rule_template().strip()
+
+
+def render_knowledge_section(knowledge_context: str, include_rule: bool) -> str:
+    """Render the knowledge section of the ask prompt.
+
+    ``include_rule`` keeps the answering rule inside the section for prompts
+    that cannot host it in their answering-rules list.
+    """
+    section = _knowledge_section_template().replace("{knowledge}", knowledge_context)
+    if include_rule:
+        section = section.replace(KNOWLEDGE_RULE_PLACEHOLDER, render_knowledge_rule())
+    else:
+        section = section.replace(KNOWLEDGE_RULE_PLACEHOLDER + "\n", "")
+    return section.strip()
+
+
+def _replace_placeholder(text: str, placeholder: str, replacement: str) -> str:
+    if replacement:
+        return text.replace(placeholder, replacement)
+    # Drop the placeholder together with its trailing blank line so the
+    # surrounding lines close up without leftover gaps.
     return (
-        _knowledge_section_template().replace("{knowledge}", knowledge_context).strip()
+        text.replace(placeholder + "\n\n", "")
+        .replace(placeholder + "\n", "")
+        .replace(placeholder, "")
     )
 
 
 def apply_knowledge_context(system_prompt: str, knowledge_context: str) -> str:
-    """Fill or remove the ask-template knowledge section.
+    """Fill or remove the ask-template knowledge rule and section.
 
-    Prompts published before the template gained the placeholder get the
-    rendered section appended instead, so retrieval results are never
-    silently dropped.
+    Prompts published before the template gained the placeholders get the
+    rendered section (rule included) appended instead, so retrieval results
+    are never silently dropped.
     """
     knowledge_context = (knowledge_context or "").strip()
-    section = render_knowledge_section(knowledge_context) if knowledge_context else ""
-    if KNOWLEDGE_SECTION_PLACEHOLDER in system_prompt:
-        return system_prompt.replace(KNOWLEDGE_SECTION_PLACEHOLDER, section)
-    if not section:
-        return system_prompt
-    return system_prompt + "\n\n" + section
+    has_rule = KNOWLEDGE_RULE_PLACEHOLDER in system_prompt
+    has_section = KNOWLEDGE_SECTION_PLACEHOLDER in system_prompt
+
+    result = system_prompt
+    if has_rule:
+        rule = render_knowledge_rule() if knowledge_context else ""
+        result = _replace_placeholder(result, KNOWLEDGE_RULE_PLACEHOLDER, rule)
+    if has_section:
+        section = (
+            render_knowledge_section(knowledge_context, include_rule=not has_rule)
+            if knowledge_context
+            else ""
+        )
+        return _replace_placeholder(result, KNOWLEDGE_SECTION_PLACEHOLDER, section)
+    if not knowledge_context:
+        return result
+    return (
+        result + "\n\n" + render_knowledge_section(knowledge_context, include_rule=True)
+    )
 
 
 def apply_knowledge_to_messages(
