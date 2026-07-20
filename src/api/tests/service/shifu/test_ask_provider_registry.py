@@ -107,6 +107,40 @@ def test_validate_get_biji_knowledge_requires_credentials_and_topic():
     assert field == "client_id"
 
 
+def test_validate_get_biji_knowledge_rejects_top_k_out_of_range():
+    base_config = {
+        "api_key": "gk-live-1",
+        "client_id": "cli-1",
+        "topic_id": "topic-1",
+    }
+
+    for bad_top_k in (0, -3, 11, 12, "999", "abc"):
+        is_valid, field = module.validate_ask_provider_specific_config(
+            "get_biji_knowledge",
+            {**base_config, "top_k": bad_top_k},
+        )
+
+        assert is_valid is False, f"top_k={bad_top_k!r} should be rejected"
+        assert field == "top_k"
+
+
+def test_validate_get_biji_knowledge_accepts_top_k_boundaries():
+    base_config = {
+        "api_key": "gk-live-1",
+        "client_id": "cli-1",
+        "topic_id": "topic-1",
+    }
+
+    for good_top_k in (1, 10, "5", None):
+        is_valid, field = module.validate_ask_provider_specific_config(
+            "get_biji_knowledge",
+            {**base_config, "top_k": good_top_k},
+        )
+
+        assert is_valid is True, f"top_k={good_top_k!r} should be accepted"
+        assert field is None
+
+
 def test_validate_get_biji_knowledge_config_success():
     is_valid, field = module.validate_ask_provider_specific_config(
         "get_biji_knowledge",

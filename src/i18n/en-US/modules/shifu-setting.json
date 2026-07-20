@@ -15,6 +15,7 @@
   "askPreviewUsedFallback": "{provider} failed, switched to the built-in LLM",
   "askPreviewUsedProvider": "Used this time: {provider}",
   "askProviderConfigInvalidJson": "{field} must be valid JSON object",
+  "askProviderConfigOutOfRange": "{field} must be between {min} and {max}",
   "askProviderConfigRequired": "{field} is required",
   "askProviderDescriptions": {
     "coze": "Use a Coze bot to answer learner follow-up questions.",
