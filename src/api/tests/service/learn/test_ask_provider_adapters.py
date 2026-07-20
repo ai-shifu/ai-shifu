@@ -900,30 +900,49 @@ def test_get_biji_knowledge_adapter_maps_business_errors_to_user_messages(
             )
 
 
-def test_render_knowledge_section_contains_rule_and_tags():
-    section = common.render_knowledge_section("retrieved material")
+def test_render_knowledge_rule_and_section():
+    rule = common.render_knowledge_rule()
+    section = common.render_knowledge_section("retrieved material", include_rule=False)
+    section_with_rule = common.render_knowledge_section(
+        "retrieved material", include_rule=True
+    )
 
+    assert rule.startswith("-")
     assert "<knowledge>\n\nretrieved material\n\n</knowledge>" in section
+    assert rule not in section
+    assert rule in section_with_rule
     assert "{knowledge}" not in section
+    assert "{knowledge_rule}" not in section
 
 
-def test_apply_knowledge_context_fills_template_placeholder():
-    prompt = "rules\n\n{knowledge_section}\n\nsettings"
+def test_apply_knowledge_context_fills_rule_and_section_placeholders():
+    prompt = (
+        "# rules\n- learned rule\n{knowledge_rule}\n- unlearned rule\n\n"
+        "{knowledge_section}\n\n# settings"
+    )
 
     filled = common.apply_knowledge_context(prompt, "retrieved material")
 
+    assert "{knowledge_rule}" not in filled
     assert "{knowledge_section}" not in filled
+    # The rule lands in the rules list, between learned and unlearned rules.
+    rule = common.render_knowledge_rule()
+    assert f"- learned rule\n{rule}\n- unlearned rule" in filled
     assert "<knowledge>\n\nretrieved material\n\n</knowledge>" in filled
+    # The rule appears exactly once (not duplicated inside the section).
+    assert filled.count(rule) == 1
 
 
-def test_apply_knowledge_context_removes_section_without_knowledge():
-    prompt = "rules\n\n{knowledge_section}\n\nsettings"
+def test_apply_knowledge_context_removes_rule_and_section_without_knowledge():
+    prompt = (
+        "# rules\n- learned rule\n{knowledge_rule}\n- unlearned rule\n\n"
+        "{knowledge_section}\n\n# settings"
+    )
 
     filled = common.apply_knowledge_context(prompt, "")
 
-    # The whole section disappears: no placeholder, no empty tags, no title.
-    assert filled == "rules\n\n\n\nsettings"
-    assert "<knowledge>" not in filled
+    # Both the rule line and the section disappear without leftover gaps.
+    assert filled == "# rules\n- learned rule\n- unlearned rule\n\n# settings"
 
 
 def test_apply_knowledge_context_appends_section_for_legacy_prompts():
@@ -932,9 +951,14 @@ def test_apply_knowledge_context_appends_section_for_legacy_prompts():
     filled = common.apply_knowledge_context(prompt, "retrieved material")
 
     assert filled.startswith(prompt)
+    # Legacy prompts cannot host the rule in a rules list, so it travels
+    # with the appended section.
     assert filled == (
-        prompt + "\n\n" + common.render_knowledge_section("retrieved material")
+        prompt
+        + "\n\n"
+        + common.render_knowledge_section("retrieved material", include_rule=True)
     )
+    assert common.render_knowledge_rule() in filled
 
 
 def test_apply_knowledge_context_keeps_legacy_prompt_without_knowledge():
