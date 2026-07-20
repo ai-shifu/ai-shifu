@@ -791,7 +791,7 @@ v1 的改造要求：
 - 当前实现中，`docker/docker-compose.yml`、`docker/docker-compose.latest.yml`、`docker/docker-compose.dev.yml` 已补 `ai-shifu-redis`、Celery worker、Celery beat 三类服务，并统一为 API / worker / beat 注入容器内 Redis/Celery 地址
 - 当前实现中，`src/api/flaskr/service/billing/tasks.py` 已注册 `billing.settle_usage`、`billing.replay_usage_settlement`、`billing.expire_wallet_buckets`、`billing.reconcile_provider_reference`、`billing.send_low_balance_alert`、`billing.run_renewal_event`、`billing.retry_failed_renewal` 以及 v1.1 的 `billing.aggregate_daily_usage_metrics`、`billing.aggregate_daily_ledger_summary`、`billing.finalize_daily_ledger_summary`、`billing.rebuild_daily_aggregates`、`billing.verify_domain_binding`
 - 当前实现中，`billing.expire_wallet_buckets` 会直接复用 `src/api/flaskr/service/billing/wallets.py:expire_credit_wallet_buckets`，扫描到期 bucket 并落 `credit_ledger_entries.entry_type=expire`
-- 当前实现中，`src/api/flaskr/service/billing/cli.py` 已提供 `flask console billing backfill-settlement`、`rebuild-wallets`、`rebuild-daily-aggregates`、`reconcile-order`、`run-renewal-event`、`retry-renewal` 六个离线运维入口，统一复用 service helper，不再单独实现一套 CLI 专属账务逻辑
+- 当前实现中，`src/api/flaskr/service/billing/cli.py` 已提供 `flask console billing backfill-settlement`、`rebuild-wallets`、`rebuild-daily-aggregates`、`reconcile-order`、`run-renewal-event`、`retry-renewal` 六个离线运维入口，统一复用 service helper，不再单独实现一套 CLI 专属账务逻辑；其中 `rebuild-wallets` 默认只做 dry-run 审计，必须显式传 `--apply` 才会写回 `credit_wallets` 快照
 - 当前实现中，billing v1.1 的所有表结构已统一收敛到 `src/api/migrations/versions/b114d7f5e2c1_add_billing_core_phase.py`
 - 当前实现中，`credit_usage_rates` 与 billing `sys_configs` 的 bootstrap 已移出 Alembic，改由 `flask console billing seed-bootstrap-data` 手工执行；付费 plan/topup/custom SKU 改由 `flask console billing upsert-product` 手工录入，不再在 migration 中写死产品目录
 - 当前实现中，creator 侧 entitlement/domain/report 的底层表、resolver、聚合任务与 runtime-config 扩展已落地；但 creator 运行时 `/admin/billing` 仍只保留 `packages` / `details` 两个 tab，不额外暴露独立 entitlements/domains/reports 接口
@@ -1036,7 +1036,7 @@ v1 需要新增：
 - 不再把周期扫描任务写进 HTTP route、`threading.Thread` 或 gunicorn worker 内部
 - 当前实现固定使用 `flask console billing ...` 作为运维入口：
   - `backfill-settlement`：离线 replay usage settlement，只用于 backfill / repair
-  - `rebuild-wallets`：从 `credit_wallet_buckets` 重建 `credit_wallets` 快照
+  - `rebuild-wallets`：从 `credit_wallet_buckets` 重建 `credit_wallets` 快照，默认 dry-run 输出变更明细，传 `--apply` 后才落库
   - `reconcile-order`：手动触发 provider sync / orphan recovery
   - `run-renewal-event`、`retry-renewal`：手动执行 renewal / retry / reconcile 补偿
 - 分工固定为：
