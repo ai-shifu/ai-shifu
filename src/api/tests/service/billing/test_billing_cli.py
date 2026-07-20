@@ -309,6 +309,38 @@ def test_billing_rebuild_wallets_cli_prints_helper_payload(
     assert result.exit_code == 0
     assert payload["status"] == "rebuilt"
     assert payload["kwargs"]["creator_bid"] == "creator-cli-1"
+    assert payload["kwargs"]["dry_run"] is True
+
+
+def test_billing_rebuild_wallets_cli_apply_persists_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.rebuild_credit_wallet_snapshots",
+        lambda app, **kwargs: {
+            "status": "rebuilt",
+            "wallet_count": 1,
+            "wallets": [{"wallet_bid": "wallet-1"}],
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "rebuild-wallets",
+            "--creator-bid",
+            "creator-cli-1",
+            "--apply",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "rebuilt"
+    assert payload["kwargs"]["dry_run"] is False
 
 
 def test_billing_repair_topup_expiry_cli_requires_creator_bid(
