@@ -183,6 +183,10 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     assert payload["officialSiteUrl"] == "https://official.example.com"
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 4
+    # Custom domains cannot complete the WeChat OAuth redirect (error 10003),
+    # so the WeChat code flow must be disabled and the app id hidden.
+    assert payload["wechatAppId"] == ""
+    assert payload["enableWechatCode"] is False
     assert payload["googleOauthRedirect"] == (
         "https://app.example.com/login/google-callback"
     )
@@ -240,7 +244,8 @@ def test_runtime_config_hides_creator_keys_without_matching_capability(
 
     assert payload["entitlements"]["custom_wechat_enabled"] is False
     assert payload["entitlements"]["custom_payment_enabled"] is False
-    assert payload["wechatAppId"] == "wechat-app-1"
+    assert payload["wechatAppId"] == ""
+    assert payload["enableWechatCode"] is False
     assert payload["stripePublishableKey"] == "pk_test_global"
     assert payload["paymentChannels"] == ["pingxx", "stripe"]
     assert payload["paymentConfigurationReady"] is False
@@ -333,6 +338,9 @@ def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective
     assert payload["contactUsUrl"] == ""
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 4
+    # Not an effective custom domain -> the WeChat code flow stays enabled.
+    assert payload["wechatAppId"] == "wechat-app-1"
+    assert payload["enableWechatCode"] is True
     assert payload["entitlements"] == {
         "branding_enabled": False,
         "custom_domain_enabled": False,
@@ -516,6 +524,10 @@ def test_runtime_config_reports_disabled_billing_flag(
     payload = response.get_json(force=True)["data"]
 
     assert payload["billingEnabled"] is False
+    # Billing disabled means no custom-domain resolution, so the WeChat code
+    # flow keeps its global configuration.
+    assert payload["wechatAppId"] == "wechat-app-1"
+    assert payload["enableWechatCode"] is True
     assert payload["entitlements"] == {
         "branding_enabled": False,
         "custom_domain_enabled": False,
