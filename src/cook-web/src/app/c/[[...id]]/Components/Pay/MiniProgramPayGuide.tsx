@@ -12,9 +12,16 @@ import MainButtonM from '@/c-components/m/MainButtonM';
 interface MiniProgramPayGuideProps {
   open: boolean;
   onClose: () => void;
+  titleKey?: string;
+  descriptionKey?: string;
 }
 
-const MiniProgramPayGuide = ({ open, onClose }: MiniProgramPayGuideProps) => {
+const MiniProgramPayGuide = ({
+  open,
+  onClose,
+  titleKey = 'module.pay.miniProgramNotSupported',
+  descriptionKey = 'module.pay.miniProgramGuide',
+}: MiniProgramPayGuideProps) => {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
@@ -47,11 +54,11 @@ const MiniProgramPayGuide = ({ open, onClose }: MiniProgramPayGuideProps) => {
     >
       <DialogContent className='w-full max-w-sm'>
         <DialogHeader>
-          <DialogTitle>{t('module.pay.miniProgramNotSupported')}</DialogTitle>
+          <DialogTitle>{t(titleKey)}</DialogTitle>
         </DialogHeader>
         <div className='flex flex-col items-center gap-4 px-4 pb-4'>
           <p className='text-sm text-muted-foreground text-center'>
-            {t('module.pay.miniProgramGuide')}
+            {t(descriptionKey)}
           </p>
           <MainButtonM
             className='w-full'
