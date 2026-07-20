@@ -4,6 +4,8 @@
   "clickRefresh": "Cliquer pour actualiser",
   "copyLink": "Copier le lien",
   "dialogTitle": "Fenêtre de paiement",
+  "externalBrowserGuide": "Veuillez copier le lien et l’ouvrir dans le navigateur de votre système pour finaliser le paiement",
+  "externalBrowserNotSupported": "Le paiement dans WeChat n’est pas pris en charge sur cette page",
   "finalPrice": "Prix final",
   "goToStripeCheckout": "Continuer dans Stripe Checkout",
   "linkCopied": "Lien copié",
