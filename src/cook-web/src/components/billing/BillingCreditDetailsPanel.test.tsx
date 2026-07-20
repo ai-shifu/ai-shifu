@@ -181,6 +181,46 @@ describe('BillingCreditDetailsPanel', () => {
     });
   });
 
+  test('revalidates wallet buckets when the subscription period changes', async () => {
+    const refreshWalletBuckets = jest.fn();
+    const overview = mockUseBillingOverview().data;
+    mockUseBillingOverview.mockImplementation(() => ({
+      data: overview,
+      error: undefined,
+      isLoading: false,
+    }));
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: { items: [] },
+      error: undefined,
+      isLoading: false,
+      mutate: refreshWalletBuckets,
+    });
+
+    const { rerender } = render(<BillingCreditDetailsPanel />);
+
+    await waitFor(() => {
+      expect(refreshWalletBuckets).toHaveBeenCalledTimes(1);
+    });
+
+    mockUseBillingOverview.mockImplementation(() => ({
+      data: {
+        ...overview,
+        subscription: {
+          ...overview.subscription,
+          current_period_end_at: '2026-11-12T23:59:00',
+        },
+      },
+      error: undefined,
+      isLoading: false,
+    }));
+
+    rerender(<BillingCreditDetailsPanel />);
+
+    await waitFor(() => {
+      expect(refreshWalletBuckets).toHaveBeenCalledTimes(2);
+    });
+  });
+
   test('falls back to the earliest manual grant expiry when no active subscription remains', () => {
     mockUseBillingOverview.mockReturnValue({
       data: {

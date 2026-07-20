@@ -233,8 +233,10 @@ export function BillingCreditDetailsPanel({
     void refreshWalletBuckets?.();
   }, [
     overview?.creator_bid,
-    overview?.wallet.available_credits,
-    overview?.wallet.reserved_credits,
+    overview?.wallet?.available_credits,
+    overview?.wallet?.reserved_credits,
+    overview?.subscription?.status,
+    overview?.subscription?.current_period_end_at,
     overviewLoading,
     refreshWalletBuckets,
   ]);
