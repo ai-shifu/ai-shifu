@@ -160,12 +160,14 @@ export const PayModalM = ({
     stripeEnabled,
     paymentChannels,
     currencySymbol,
+    enableWxcode,
   } = useEnvStore(
     useShallow(state => ({
       stripePublishableKey: state.stripePublishableKey,
       stripeEnabled: state.stripeEnabled,
       paymentChannels: state.paymentChannels,
       currencySymbol: state.currencySymbol || '¥',
+      enableWxcode: state.enableWxcode,
     })),
   );
   const initialPaymentRequestedRef = useRef(false);
@@ -216,6 +218,12 @@ export const PayModalM = ({
     () => typeof navigator !== 'undefined' && inWechat(),
     [],
   );
+  // JSAPI payment needs an openid, which is only obtainable when the WeChat
+  // code flow is enabled (it is disabled on custom domains).
+  const wechatJsapiAvailable =
+    isWechatBrowser &&
+    typeof enableWxcode === 'string' &&
+    enableWxcode.toLowerCase() === 'true';
   const wechatPaymentAvailable =
     pingxxChannelEnabled || wechatpayChannelEnabled;
   const alipayPaymentAvailable = pingxxChannelEnabled || alipayChannelEnabled;
@@ -232,7 +240,7 @@ export const PayModalM = ({
   const stripeMode = (stripePayload.mode || '').toLowerCase();
 
   const resolveDefaultChannel = useCallback(() => {
-    if (isWechatBrowser && wechatPaymentAvailable) {
+    if (wechatJsapiAvailable && wechatPaymentAvailable) {
       return PAY_CHANNEL_WECHAT_JSAPI;
     }
     if (alipayPaymentAvailable) {
@@ -248,18 +256,18 @@ export const PayModalM = ({
   }, [
     alipayPaymentAvailable,
     isStripeAvailable,
-    isWechatBrowser,
+    wechatJsapiAvailable,
     wechatPaymentAvailable,
   ]);
 
   const resolveRequestChannel = useCallback(
     (channel: string) => {
-      if (channel === PAY_CHANNEL_WECHAT_JSAPI && !isWechatBrowser) {
+      if (channel === PAY_CHANNEL_WECHAT_JSAPI && !wechatJsapiAvailable) {
         return PAY_CHANNEL_WECHAT;
       }
       return channel;
     },
-    [isWechatBrowser],
+    [wechatJsapiAvailable],
   );
 
   const resolvePaymentChannel = useCallback(
