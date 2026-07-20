@@ -167,6 +167,8 @@ class ExpireLedgerBucketDriftRecord:
     status: int
     expire_ledger_count: int
     expire_ledger_amount: int | float
+    repair_action: str
+    repair_reason: str
     changed: bool
 
     def to_payload(self) -> dict[str, Any]:
@@ -182,6 +184,8 @@ class ExpireLedgerBucketDriftRecord:
             "status": self.status,
             "expire_ledger_count": self.expire_ledger_count,
             "expire_ledger_amount": self.expire_ledger_amount,
+            "repair_action": self.repair_action,
+            "repair_reason": self.repair_reason,
             "changed": self.changed,
         }
 
@@ -193,6 +197,7 @@ class ExpireLedgerBucketDriftRepairResult:
     wallet_bucket_bid: str | None
     bucket_count: int
     repaired_bucket_count: int
+    manual_review_count: int
     dry_run: bool
     buckets: list[ExpireLedgerBucketDriftRecord] = field(default_factory=list)
 
@@ -203,6 +208,7 @@ class ExpireLedgerBucketDriftRepairResult:
             "wallet_bucket_bid": self.wallet_bucket_bid,
             "bucket_count": self.bucket_count,
             "repaired_bucket_count": self.repaired_bucket_count,
+            "manual_review_count": self.manual_review_count,
             "dry_run": self.dry_run,
             "buckets": [bucket.to_payload() for bucket in self.buckets],
         }
@@ -1151,6 +1157,7 @@ def repair_expire_ledger_bucket_drift(
     creator_bid: str = "",
     wallet_bucket_bid: str = "",
     repair_before: datetime | None = None,
+    limit: int | None = None,
     dry_run: bool = True,
 ) -> ExpireLedgerBucketDriftRepairResult:
     """Close buckets whose expire ledger exists but bucket state stayed live.
@@ -1164,6 +1171,7 @@ def repair_expire_ledger_bucket_drift(
 
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_wallet_bucket_bid = str(wallet_bucket_bid or "").strip()
+    normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
     repaired_at = repair_before or now_utc()
 
     with app.app_context():
@@ -1187,22 +1195,41 @@ def repair_expire_ledger_bucket_drift(
             CreditWalletBucket.effective_to.asc(),
             CreditWalletBucket.created_at.asc(),
             CreditWalletBucket.id.asc(),
-        ).all()
+        )
+        if normalized_limit is not None:
+            candidate_buckets = candidate_buckets.limit(normalized_limit)
+        candidate_buckets = candidate_buckets.all()
         records: list[ExpireLedgerBucketDriftRecord] = []
         changed_wallets: dict[str, CreditWallet] = {}
+        expire_ledgers_by_bucket: dict[str, list[CreditLedgerEntry]] = {}
+
+        if candidate_buckets:
+            bucket_bids = [bucket.wallet_bucket_bid for bucket in candidate_buckets]
+            ledger_rows = CreditLedgerEntry.query.filter(
+                CreditLedgerEntry.deleted == 0,
+                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+                CreditLedgerEntry.wallet_bucket_bid.in_(bucket_bids),
+                CreditLedgerEntry.idempotency_key.in_(
+                    [f"expire:{bucket_bid}" for bucket_bid in bucket_bids]
+                ),
+            ).all()
+            for ledger in ledger_rows:
+                if ledger.idempotency_key != f"expire:{ledger.wallet_bucket_bid}":
+                    continue
+                expire_ledgers_by_bucket.setdefault(
+                    ledger.wallet_bucket_bid, []
+                ).append(ledger)
 
         for bucket in candidate_buckets:
-            expire_ledgers = (
-                CreditLedgerEntry.query.filter(
-                    CreditLedgerEntry.deleted == 0,
-                    CreditLedgerEntry.creator_bid == bucket.creator_bid,
-                    CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
-                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-                    CreditLedgerEntry.idempotency_key
-                    == f"expire:{bucket.wallet_bucket_bid}",
-                )
-                .order_by(CreditLedgerEntry.id.asc())
-                .all()
+            expire_ledgers = sorted(
+                (
+                    ledger
+                    for ledger in expire_ledgers_by_bucket.get(
+                        bucket.wallet_bucket_bid, []
+                    )
+                    if ledger.creator_bid == bucket.creator_bid
+                ),
+                key=lambda ledger: int(ledger.id or 0),
             )
             if not expire_ledgers:
                 continue
@@ -1234,7 +1261,19 @@ def repair_expire_ledger_bucket_drift(
                 if _to_decimal(bucket.reserved_credits) > _ZERO
                 else CREDIT_BUCKET_STATUS_EXPIRED
             )
-            changed = (
+            has_amount_evidence = ledger_expired_amount == previous_available
+            has_expiry_evidence = all(
+                ledger.expires_at == bucket.effective_to for ledger in expire_ledgers
+            )
+            can_repair = has_amount_evidence and has_expiry_evidence
+            repair_action = "repair" if can_repair else "manual_review"
+            if not has_amount_evidence:
+                repair_reason = "expire_ledger_amount_mismatch"
+            elif not has_expiry_evidence:
+                repair_reason = "expire_ledger_expiry_mismatch"
+            else:
+                repair_reason = "expire_ledger_matches_bucket_balance_and_expiry"
+            changed = can_repair and (
                 previous_available != next_available
                 or previous_expired != next_expired
                 or previous_status != next_status
@@ -1258,6 +1297,8 @@ def repair_expire_ledger_bucket_drift(
                     expire_ledger_amount=_credit_decimal_to_number(
                         expire_ledger_amount
                     ),
+                    repair_action=repair_action,
+                    repair_reason=repair_reason,
                     changed=changed,
                 )
             )
@@ -1290,18 +1331,24 @@ def repair_expire_ledger_bucket_drift(
                     )
 
         repaired_bucket_count = sum(1 for record in records if record.changed)
+        manual_review_count = sum(
+            1 for record in records if record.repair_action == "manual_review"
+        )
         return ExpireLedgerBucketDriftRepairResult(
             status=(
                 "dry_run"
                 if dry_run
                 else "repaired"
                 if repaired_bucket_count
+                else "manual_review"
+                if manual_review_count
                 else "noop"
             ),
             creator_bid=normalized_creator_bid or None,
             wallet_bucket_bid=normalized_wallet_bucket_bid or None,
             bucket_count=len(records),
             repaired_bucket_count=repaired_bucket_count,
+            manual_review_count=manual_review_count,
             dry_run=dry_run,
             buckets=records,
         )

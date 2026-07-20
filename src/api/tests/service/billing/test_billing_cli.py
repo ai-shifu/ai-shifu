@@ -467,6 +467,7 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_prints_helper_payload(
     assert result.exit_code == 0
     assert payload["status"] == "dry_run"
     assert payload["kwargs"]["wallet_bucket_bid"] == "bucket-cli-1"
+    assert payload["kwargs"]["limit"] is None
     assert payload["kwargs"]["dry_run"] is True
 
 
@@ -489,6 +490,8 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_apply_persists_payload(
             "billing",
             "repair-expire-ledger-bucket-drift",
             "--all",
+            "--limit",
+            "10",
             "--apply",
         ]
     )
@@ -496,6 +499,7 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_apply_persists_payload(
     payload = json.loads(result.output)
     assert result.exit_code == 0
     assert payload["status"] == "repaired"
+    assert payload["kwargs"]["limit"] == 10
     assert payload["kwargs"]["dry_run"] is False
 
 
