@@ -1252,7 +1252,7 @@ class TestBillingWriteRoutes:
                     metadata_json={
                         "checkout_type": "subscription_preorder",
                         "preorder_state": "pending_effective",
-                        "renewal_cycle_start_at": current_period_end.isoformat(),
+                        "renewal_cycle_start_at": to_utc_iso(current_period_end),
                     },
                     created_at=now - timedelta(minutes=5),
                     updated_at=now - timedelta(minutes=5),
@@ -1319,7 +1319,7 @@ class TestBillingWriteRoutes:
                     metadata_json={
                         "checkout_type": "subscription_preorder",
                         "preorder_state": "pending_effective",
-                        "renewal_cycle_start_at": current_period_end.isoformat(),
+                        "renewal_cycle_start_at": to_utc_iso(current_period_end),
                     },
                     created_at=now - timedelta(minutes=5),
                     updated_at=now - timedelta(minutes=5),
@@ -1551,6 +1551,8 @@ class TestBillingWriteRoutes:
             assert bucket.source_bid == bill_order_bid
             assert bucket.available_credits == Decimal("3.0000000000")
             assert bucket.reserved_credits == Decimal("5.0000000000")
+            assert bucket.effective_from == current_period_start
+            assert bucket.effective_to == current_period_end
             assert wallet.available_credits == Decimal("3.0000000000")
             assert wallet.reserved_credits == Decimal("5.0000000000")
             assert grant_ledger.metadata_json["bucket_credit_state"] == "reserved"
@@ -1562,6 +1564,166 @@ class TestBillingWriteRoutes:
             assert downgrade_event.scheduled_at == normalize_mysql_datetime(
                 current_period_end
             )
+
+        replayed_sync = client.post(
+            f"/api/billing/orders/{bill_order_bid}/sync"
+        ).get_json(force=True)
+        assert replayed_sync["code"] == 0
+        assert replayed_sync["data"]["status"] == "paid"
+
+        with app.app_context():
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            bucket = CreditWalletBucket.query.filter_by(
+                wallet_bucket_bid="bucket-preorder-sync",
+            ).one()
+
+            assert bucket.available_credits == Decimal("3.0000000000")
+            assert bucket.reserved_credits == Decimal("5.0000000000")
+            assert bucket.effective_from == current_period_start
+            assert bucket.effective_to == current_period_end
+            assert wallet.available_credits == Decimal("3.0000000000")
+            assert wallet.reserved_credits == Decimal("5.0000000000")
+
+    def test_paid_preorder_replay_repairs_future_dated_shared_bucket(
+        self,
+        billing_write_client,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        app = billing_write_client["app"]
+        current_period_start = datetime(2026, 6, 24, 7, 35, 58)
+        current_period_end = datetime(2026, 7, 23, 15, 59, 59)
+        next_period_end = datetime(2026, 8, 22, 15, 59, 59)
+        replayed_at = datetime(2026, 7, 20, 0, 0, 0)
+        monkeypatch.setattr(
+            billing_subscriptions_module,
+            "now_utc",
+            lambda: replayed_at,
+        )
+
+        with app.app_context():
+            wallet = CreditWallet(
+                wallet_bid="wallet-preorder-damaged-replay",
+                creator_bid="creator-1",
+                available_credits=Decimal("234.7800000000"),
+                reserved_credits=Decimal("2050.0000000000"),
+                lifetime_granted_credits=Decimal("4050.0000000000"),
+                lifetime_consumed_credits=Decimal("315.2400000000"),
+                last_settled_usage_id=0,
+                version=0,
+                created_at=current_period_start,
+                updated_at=current_period_start,
+            )
+            subscription = BillingSubscription(
+                subscription_bid="sub-preorder-damaged-replay",
+                creator_bid="creator-1",
+                product_bid="bill-product-plan-monthly-pro",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="pingxx",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=current_period_start,
+                current_period_end_at=current_period_end,
+                cancel_at_period_end=0,
+                next_product_bid="bill-product-plan-monthly",
+                metadata_json={
+                    "preorder_order_bid": "bill-preorder-damaged-replay",
+                },
+                created_at=current_period_start,
+                updated_at=current_period_start,
+            )
+            order = BillingOrder(
+                bill_order_bid="bill-preorder-damaged-replay",
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid=subscription.subscription_bid,
+                currency="CNY",
+                payable_amount=990,
+                paid_amount=990,
+                payment_provider="pingxx",
+                channel="alipay_qr",
+                provider_reference_id="ch_preorder_damaged_replay",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=current_period_end - timedelta(days=5),
+                metadata_json={
+                    "checkout_type": "subscription_preorder",
+                    "preorder_state": "pending_effective",
+                    "renewal_cycle_start_at": to_utc_iso(current_period_end),
+                    "renewal_cycle_end_at": to_utc_iso(next_period_end),
+                },
+            )
+            bucket = CreditWalletBucket(
+                wallet_bucket_bid="bucket-preorder-damaged-replay",
+                wallet_bid=wallet.wallet_bid,
+                creator_bid="creator-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid=order.bill_order_bid,
+                priority=20,
+                original_credits=Decimal("4050.0000000000"),
+                available_credits=Decimal("1684.7600000000"),
+                reserved_credits=Decimal("2050.0000000000"),
+                consumed_credits=Decimal("315.2400000000"),
+                expired_credits=Decimal("0"),
+                effective_from=current_period_end,
+                effective_to=next_period_end,
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                metadata_json={
+                    "bill_order_bid": order.bill_order_bid,
+                    "subscription_bid": subscription.subscription_bid,
+                    "product_bid": order.product_bid,
+                    "payment_provider": "pingxx",
+                },
+                created_at=current_period_start,
+                updated_at=current_period_start,
+            )
+            grant_ledger = CreditLedgerEntry(
+                ledger_bid="ledger-preorder-damaged-replay",
+                creator_bid="creator-1",
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=bucket.wallet_bucket_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid=order.bill_order_bid,
+                idempotency_key=f"grant:{order.bill_order_bid}",
+                amount=Decimal("50.0000000000"),
+                balance_after=Decimal("1684.7600000000"),
+                expires_at=next_period_end,
+                consumable_from=current_period_end,
+                metadata_json={
+                    "bill_order_bid": order.bill_order_bid,
+                    "subscription_bid": subscription.subscription_bid,
+                    "product_bid": order.product_bid,
+                    "payment_provider": "pingxx",
+                    "grant_reason": "subscription",
+                    "bucket_credit_state": "reserved",
+                    "reserved_until": to_utc_iso(current_period_end),
+                },
+                created_at=current_period_end - timedelta(days=5),
+                updated_at=current_period_end - timedelta(days=5),
+            )
+            dao.db.session.add(wallet)
+            dao.db.session.add(subscription)
+            dao.db.session.add(order)
+            dao.db.session.add(bucket)
+            dao.db.session.add(grant_ledger)
+            dao.db.session.flush()
+
+            granted = grant_paid_order_credits(app, order)
+            dao.db.session.commit()
+
+            bucket = CreditWalletBucket.query.filter_by(
+                wallet_bucket_bid="bucket-preorder-damaged-replay",
+            ).one()
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+
+            assert granted is False
+            assert bucket.available_credits == Decimal("1684.7600000000")
+            assert bucket.reserved_credits == Decimal("2050.0000000000")
+            assert bucket.effective_from == current_period_start
+            assert bucket.effective_to == current_period_end
+            assert wallet.available_credits == Decimal("1684.7600000000")
+            assert wallet.reserved_credits == Decimal("2050.0000000000")
 
     def test_paid_same_plan_preorder_sync_reserves_until_cycle_boundary(
         self, billing_write_client
@@ -1954,7 +2116,7 @@ class TestBillingWriteRoutes:
                     metadata_json={
                         "checkout_type": "subscription_preorder",
                         "preorder_state": "pending_effective",
-                        "renewal_cycle_start_at": current_period_end.isoformat(),
+                        "renewal_cycle_start_at": to_utc_iso(current_period_end),
                     },
                     created_at=now - timedelta(minutes=5),
                     updated_at=now - timedelta(minutes=5),
@@ -2004,7 +2166,7 @@ class TestBillingWriteRoutes:
                         "payment_provider": "pingxx",
                         "grant_reason": "subscription_renewal",
                         "bucket_credit_state": "reserved",
-                        "reserved_until": current_period_end.isoformat(),
+                        "reserved_until": to_utc_iso(current_period_end),
                     },
                     created_at=now - timedelta(minutes=5),
                     updated_at=now - timedelta(minutes=5),
@@ -2156,7 +2318,7 @@ class TestBillingWriteRoutes:
                     metadata_json={
                         "checkout_type": "subscription_preorder",
                         "preorder_state": "pending_effective",
-                        "renewal_cycle_start_at": current_period_end.isoformat(),
+                        "renewal_cycle_start_at": to_utc_iso(current_period_end),
                     },
                     created_at=now - timedelta(minutes=5),
                     updated_at=now - timedelta(minutes=5),
@@ -2230,7 +2392,7 @@ class TestBillingWriteRoutes:
                     metadata_json={
                         "checkout_type": "subscription_preorder",
                         "preorder_state": "pending_effective",
-                        "renewal_cycle_start_at": current_period_end.isoformat(),
+                        "renewal_cycle_start_at": to_utc_iso(current_period_end),
                     },
                     created_at=now - timedelta(minutes=5),
                     updated_at=now - timedelta(minutes=5),
@@ -2319,8 +2481,8 @@ class TestBillingWriteRoutes:
                     "checkout_type": "subscription_preorder",
                     "preorder_state": "absorbed_by_upgrade",
                     "absorbed_by_bill_order_bid": "bill-upgrade-absorbed-replay",
-                    "renewal_cycle_start_at": current_period_end.isoformat(),
-                    "renewal_cycle_end_at": renewal_cycle_end.isoformat(),
+                    "renewal_cycle_start_at": to_utc_iso(current_period_end),
+                    "renewal_cycle_end_at": to_utc_iso(renewal_cycle_end),
                 },
                 created_at=now - timedelta(days=1),
                 updated_at=now - timedelta(days=1),
@@ -2396,7 +2558,7 @@ class TestBillingWriteRoutes:
                     metadata_json={
                         "checkout_type": "subscription_preorder",
                         "preorder_state": "pending_effective",
-                        "renewal_cycle_start_at": current_period_end.isoformat(),
+                        "renewal_cycle_start_at": to_utc_iso(current_period_end),
                     },
                     created_at=now - timedelta(minutes=5),
                     updated_at=now - timedelta(minutes=5),
@@ -3997,8 +4159,8 @@ class TestBillingWriteRoutes:
                 paid_at=datetime(2026, 4, 24, 9, 0, 0),
                 metadata_json={
                     "provider_reference_type": "charge",
-                    "renewal_cycle_start_at": renewal_cycle_start.isoformat(),
-                    "renewal_cycle_end_at": renewal_cycle_end.isoformat(),
+                    "renewal_cycle_start_at": to_utc_iso(renewal_cycle_start),
+                    "renewal_cycle_end_at": to_utc_iso(renewal_cycle_end),
                 },
             )
             wallet = CreditWallet(
@@ -4122,8 +4284,8 @@ class TestBillingWriteRoutes:
                 paid_at=paid_at,
                 metadata_json={
                     "provider_reference_type": "charge",
-                    "renewal_cycle_start_at": renewal_cycle_start.isoformat(),
-                    "renewal_cycle_end_at": renewal_cycle_end.isoformat(),
+                    "renewal_cycle_start_at": to_utc_iso(renewal_cycle_start),
+                    "renewal_cycle_end_at": to_utc_iso(renewal_cycle_end),
                 },
             )
             dao.db.session.add(subscription)
