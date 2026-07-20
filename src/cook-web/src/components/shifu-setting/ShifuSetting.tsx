@@ -861,6 +861,16 @@ export default function ShifuSettingDialog({
           );
         }
 
+        if (error.code === 'out_of_range') {
+          throw new Error(
+            t('module.shifuSetting.askProviderConfigOutOfRange', {
+              field: fieldLabel,
+              min: String(fieldSchema?.minimum ?? ''),
+              max: String(fieldSchema?.maximum ?? ''),
+            }),
+          );
+        }
+
         throw new Error(
           t('module.shifuSetting.askProviderConfigInvalidJson', {
             field: fieldLabel,

@@ -511,6 +511,8 @@ def get_ask_provider_schema_registry() -> dict[str, dict[str, Any]]:
                     },
                     "top_k": {
                         "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
                         "title": "Top K",
                         "description": "Number of semantic recall results, 1-10.",
                     },
@@ -540,6 +542,27 @@ def validate_ask_provider_specific_config(
             if not value.strip():
                 return False, field
         elif value is None:
+            return False, field
+
+    # Numeric fields must parse and respect schema bounds when provided.
+    properties = schema.get("properties", {})
+    for field, field_schema in properties.items():
+        if not isinstance(field_schema, dict):
+            continue
+        if field_schema.get("type") not in {"number", "integer"}:
+            continue
+        value = config.get(field)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return False, field
+        minimum = field_schema.get("minimum")
+        maximum = field_schema.get("maximum")
+        if minimum is not None and number < minimum:
+            return False, field
+        if maximum is not None and number > maximum:
             return False, field
 
     return True, None

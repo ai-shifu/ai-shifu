@@ -15,6 +15,7 @@
   "askPreviewUsedFallback": "{provider} 调用失败，已改用内置模型",
   "askPreviewUsedProvider": "本次使用：{provider}",
   "askProviderConfigInvalidJson": "{field} 必须是合法 JSON 对象",
+  "askProviderConfigOutOfRange": "{field} 需在 {min}-{max} 之间",
   "askProviderConfigRequired": "{field} 为必填项",
   "askProviderDescriptions": {
     "coze": "用 Coze Bot 回答学员追问。",
