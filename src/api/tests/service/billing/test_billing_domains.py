@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from flask import Flask, jsonify, request
 import pytest
+import flaskr.service.billing.domains as billing_domains
 
 import flaskr.dao as dao
 from flaskr.common.shifu_context import get_shifu_creator_bid, with_shifu_context
@@ -12,11 +13,13 @@ from flaskr.service.billing.consts import (
     BILLING_DOMAIN_BINDING_STATUS_DISABLED,
     BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+    BILLING_DOMAIN_SSL_STATUS_ACTIVE,
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     CREDIT_SOURCE_TYPE_MANUAL,
 )
 from flaskr.service.billing.domains import (
     build_creator_domain_bindings,
+    manage_creator_domain_binding,
     verify_domain_binding,
 )
 from flaskr.service.billing.models import BillingDomainBinding, BillingEntitlement
@@ -58,6 +61,7 @@ def billing_domain_client(monkeypatch):
             user_id=request.headers.get("X-User-Id", "creator-1"),
             language="en-US",
             is_creator=request.headers.get("X-Creator", "1") == "1",
+            is_operator=request.headers.get("X-Operator", "0") == "1",
         )
 
     @app.route("/_domain-context", methods=["GET"])
@@ -125,6 +129,7 @@ def billing_domain_client(monkeypatch):
                     verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
                     verification_token="token-academy",
                     last_verified_at=now - timedelta(hours=2),
+                    ssl_status=BILLING_DOMAIN_SSL_STATUS_ACTIVE,
                 ),
                 BillingDomainBinding(
                     domain_binding_bid="binding-disabled-1",
@@ -146,24 +151,47 @@ def billing_domain_client(monkeypatch):
 
 
 class TestBillingDomains:
-    def test_admin_billing_domain_audits_lists_existing_bindings(
-        self, billing_domain_client
-    ) -> None:
-        client = billing_domain_client["client"]
+    def test_tls_probe_requires_tls_1_2_or_newer(self, monkeypatch) -> None:
+        context = SimpleNamespace(minimum_version=None)
 
-        audit_response = client.get(
-            "/api/admin/billing/domain-audits?page_index=1&page_size=10"
+        monkeypatch.setattr(
+            billing_domains.ssl,
+            "create_default_context",
+            lambda: context,
         )
-        audit_payload = audit_response.get_json(force=True)
+        monkeypatch.setattr(
+            billing_domains.socket,
+            "create_connection",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError()),
+        )
 
-        assert audit_payload["code"] == 0
-        assert audit_payload["data"]["total"] == 2
-        assert audit_payload["data"]["items"][0]["host"] == "academy.example.com"
-        assert audit_payload["data"]["items"][0]["status"] == "verified"
-        assert audit_payload["data"]["items"][0]["creator_bid"] == "creator-1"
-        assert audit_payload["data"]["items"][0]["custom_domain_enabled"] is True
-        assert audit_payload["data"]["items"][1]["host"] == "disabled.example.com"
-        assert audit_payload["data"]["items"][1]["status"] == "disabled"
+        assert billing_domains._is_tls_ready("learn.example.com") is False
+        assert context.minimum_version == billing_domains.ssl.TLSVersion.TLSv1_2
+
+    def test_domain_dns_verification_requires_txt_and_configured_cname(
+        self, monkeypatch
+    ) -> None:
+        binding = BillingDomainBinding(
+            host="learn.example.com",
+            verification_token="verify-token",
+        )
+
+        def fake_resolve(name, record_type, lifetime):
+            assert lifetime == 5
+            if record_type == "TXT":
+                assert name == "_ai-shifu-verification.learn.example.com"
+                return [SimpleNamespace(strings=[b"verify-token"])]
+            assert record_type == "CNAME"
+            return [SimpleNamespace(target="courses.example.net.")]
+
+        monkeypatch.setattr(billing_domains.dns.resolver, "resolve", fake_resolve)
+        assert billing_domains._verify_domain_dns(
+            binding,
+            {
+                "verification_record_name": "_ai-shifu-verification.learn.example.com",
+                "cname_target": "courses.example.net",
+            },
+        )
 
     def test_creator_domain_bindings_keep_raw_last_verified_at(
         self, billing_domain_client
@@ -180,6 +208,47 @@ class TestBillingDomains:
             item for item in bindings.items if item.host == "academy.example.com"
         )
         assert verified.last_verified_at == datetime(2026, 4, 8, 10, 0, 0)
+
+    def test_rebinding_verified_domain_disables_sibling_bindings(
+        self, billing_domain_client
+    ) -> None:
+        app = billing_domain_client["app"]
+        now = datetime(2026, 4, 8, 12, 0, 0)
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingDomainBinding(
+                    domain_binding_bid="binding-pending-sibling",
+                    creator_bid="creator-1",
+                    host="pending.example.com",
+                    status=BILLING_DOMAIN_BINDING_STATUS_PENDING,
+                    verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
+                    verification_token="token-pending",
+                    last_verified_at=now - timedelta(hours=1),
+                )
+            )
+            dao.db.session.commit()
+
+        manage_creator_domain_binding(
+            app,
+            "creator-1",
+            {
+                "action": "bind",
+                "domain_binding_bid": "binding-verified-1",
+                "host": "academy.example.com",
+            },
+        )
+
+        with app.app_context():
+            verified = BillingDomainBinding.query.filter_by(
+                domain_binding_bid="binding-verified-1"
+            ).one()
+            sibling = BillingDomainBinding.query.filter_by(
+                domain_binding_bid="binding-pending-sibling"
+            ).one()
+
+        assert verified.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
+        assert sibling.status == BILLING_DOMAIN_BINDING_STATUS_DISABLED
 
     def test_with_shifu_context_resolves_creator_from_custom_domain_host(
         self, billing_domain_client

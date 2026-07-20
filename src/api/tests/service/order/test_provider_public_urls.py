@@ -168,7 +168,14 @@ def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempot
         checkout = FakeCheckout
 
     provider = StripeProvider()
-    monkeypatch.setattr(provider, "_ensure_client", lambda _app: FakeStripe)
+    monkeypatch.setattr(
+        provider,
+        "_client_options",
+        lambda _app: (
+            FakeStripe,
+            {"api_key": "sk_test", "stripe_version": "2024-06-20"},
+        ),
+    )
 
     result = provider.create_payment(
         request=PaymentRequest(
@@ -198,7 +205,11 @@ def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempot
     assert captured_coupon["idempotency_key"] == (
         "bill-order-1:subscription-first-invoice-discount"
     )
+    assert captured_coupon["api_key"] == "sk_test"
+    assert captured_coupon["stripe_version"] == "2024-06-20"
     assert captured_session["discounts"] == [{"coupon": "coupon-1"}]
+    assert captured_session["api_key"] == "sk_test"
+    assert captured_session["stripe_version"] == "2024-06-20"
 
 
 def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(
@@ -212,7 +223,7 @@ def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(
             return {"id": "coupon-cleanup-1"}
 
         @staticmethod
-        def delete(coupon_id):
+        def delete(coupon_id, **_kwargs):
             deleted.append(coupon_id)
 
     class FakeSession:
@@ -228,7 +239,11 @@ def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(
         checkout = FakeCheckout
 
     provider = StripeProvider()
-    monkeypatch.setattr(provider, "_ensure_client", lambda _app: FakeStripe)
+    monkeypatch.setattr(
+        provider,
+        "_client_options",
+        lambda _app: (FakeStripe, {"api_key": "sk_test"}),
+    )
 
     with pytest.raises(RuntimeError, match="session failed"):
         provider.create_payment(

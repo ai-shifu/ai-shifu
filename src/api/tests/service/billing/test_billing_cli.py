@@ -10,7 +10,13 @@ import pytest
 import flaskr.dao as dao
 from flaskr.service.billing import notifications as billing_notifications
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_FAILED,
+    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_TIMEOUT,
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
@@ -27,6 +33,7 @@ from flaskr.service.billing.models import (
     BillingRenewalEvent,
     BillingSubscription,
     CreditUsageRate,
+    BillingDailyUsageMetric,
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
@@ -1628,6 +1635,124 @@ def test_billing_seed_bootstrap_data_cli_is_idempotent(
     with billing_cli_db_app.app_context():
         assert CreditUsageRate.query.count() == len(CREDIT_USAGE_RATE_SEEDS)
         assert Config.query.count() == len(BILL_SYS_CONFIG_SEEDS)
+
+
+def test_billing_seed_sample_exception_orders_cli_is_idempotent(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(build_bill_products())
+        dao.db.session.commit()
+
+    first_result = runner.invoke(
+        args=["console", "billing", "seed-sample-exception-orders"]
+    )
+    second_result = runner.invoke(
+        args=["console", "billing", "seed-sample-exception-orders"]
+    )
+
+    first_payload = json.loads(first_result.output)
+    second_payload = json.loads(second_result.output)
+
+    assert first_result.exit_code == 0
+    assert second_result.exit_code == 0
+    assert first_payload["creators"]["inserted"] == 3
+    assert first_payload["subscriptions"]["inserted"] == 3
+    assert first_payload["renewal_events"]["inserted"] == 2
+    assert first_payload["orders"]["inserted"] == 3
+    assert second_payload["creators"]["updated"] == 3
+    assert second_payload["subscriptions"]["updated"] == 3
+    assert second_payload["renewal_events"]["updated"] == 2
+    assert second_payload["orders"]["updated"] == 3
+
+    with billing_cli_db_app.app_context():
+        orders = (
+            BillingOrder.query.filter(
+                BillingOrder.bill_order_bid.in_(
+                    [
+                        "billing-debug-order-failed",
+                        "billing-debug-order-pending",
+                        "billing-debug-order-timeout",
+                    ]
+                )
+            )
+            .order_by(BillingOrder.bill_order_bid.asc())
+            .all()
+        )
+        assert [order.status for order in orders] == [
+            BILLING_ORDER_STATUS_FAILED,
+            BILLING_ORDER_STATUS_PENDING,
+            BILLING_ORDER_STATUS_TIMEOUT,
+        ]
+        timeout_creator = UserEntity.query.filter_by(
+            user_bid="billing-debug-creator-timeout"
+        ).one()
+        assert timeout_creator.nickname == ""
+        assert (
+            BillingSubscription.query.filter(
+                BillingSubscription.subscription_bid.in_(
+                    [
+                        "billing-debug-subscription-failed",
+                        "billing-debug-subscription-pending",
+                        "billing-debug-subscription-paused",
+                    ]
+                )
+            ).count()
+            == 3
+        )
+
+
+def test_billing_seed_sample_focus_teachers_cli_is_idempotent(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    first_result = runner.invoke(
+        args=["console", "billing", "seed-sample-focus-teachers"]
+    )
+    second_result = runner.invoke(
+        args=["console", "billing", "seed-sample-focus-teachers"]
+    )
+
+    first_payload = json.loads(first_result.output)
+    second_payload = json.loads(second_result.output)
+
+    assert first_result.exit_code == 0
+    assert second_result.exit_code == 0
+    assert first_payload["creators"]["inserted"] == 4
+    assert first_payload["usage_metrics"]["inserted"] == 14
+    assert second_payload["creators"]["updated"] == 4
+    assert second_payload["usage_metrics"]["updated"] == 14
+
+    with billing_cli_db_app.app_context():
+        metrics = (
+            BillingDailyUsageMetric.query.filter(
+                BillingDailyUsageMetric.daily_usage_metric_bid.like("billing-focus-%")
+            )
+            .order_by(BillingDailyUsageMetric.daily_usage_metric_bid.asc())
+            .all()
+        )
+        assert len(metrics) == 14
+        assert {row.usage_scene for row in metrics} == {
+            BILL_USAGE_SCENE_PROD,
+            BILL_USAGE_SCENE_DEBUG,
+            BILL_USAGE_SCENE_PREVIEW,
+        }
+        assert (
+            UserEntity.query.filter(
+                UserEntity.user_bid.in_(
+                    [
+                        "billing-focus-creator-growth",
+                        "billing-focus-creator-debug",
+                        "billing-focus-creator-steady",
+                        "billing-focus-creator-recent",
+                    ]
+                )
+            ).count()
+            == 4
+        )
 
 
 def test_billing_upsert_product_cli_allows_manual_custom_product_values(
