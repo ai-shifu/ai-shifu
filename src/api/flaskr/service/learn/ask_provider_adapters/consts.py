@@ -17,6 +17,7 @@ ASK_PROVIDER_DIFY = "dify"
 ASK_PROVIDER_COZE = "coze"
 ASK_PROVIDER_COZE_WORKFLOW = "coze_workflow"
 ASK_PROVIDER_VOLC_KNOWLEDGE = "volc_knowledge"
+ASK_PROVIDER_GET_BIJI_KNOWLEDGE = "get_biji_knowledge"
 ASK_PROVIDER_MODE_PROVIDER_ONLY = "provider_only"
 ASK_PROVIDER_MODE_PROVIDER_THEN_LLM = "provider_then_llm"
 
@@ -26,6 +27,14 @@ SUPPORTED_ASK_PROVIDERS = {
     ASK_PROVIDER_COZE,
     ASK_PROVIDER_COZE_WORKFLOW,
     ASK_PROVIDER_VOLC_KNOWLEDGE,
+    ASK_PROVIDER_GET_BIJI_KNOWLEDGE,
+}
+
+# Providers that return retrieval snippets instead of a final answer; when the
+# runtime supplies ``llm_context_stream_factory`` they synthesize the
+# learner-facing reply through the built-in ask LLM.
+ASK_PROVIDERS_WITH_LLM_SYNTHESIS = {
+    ASK_PROVIDER_GET_BIJI_KNOWLEDGE,
 }
 SUPPORTED_ASK_PROVIDER_MODES = {
     ASK_PROVIDER_MODE_PROVIDER_ONLY,

@@ -9,6 +9,7 @@ from flaskr.service.learn.ask_provider_adapters import (
     coze_adapter,
     coze_workflow_adapter,
     dify_adapter,
+    get_biji_knowledge_adapter,
     volc_knowledge_adapter,
 )
 
@@ -466,6 +467,532 @@ def test_volc_knowledge_adapter_missing_config_raises_error(app):
                 },
             )
         )
+
+
+def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatch):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    monkeypatch.setattr(
+        common,
+        "get_config",
+        lambda key: {
+            "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
+        }.get(key),
+    )
+
+    request_state = {}
+
+    def _fake_post(url, **kwargs):
+        request_state["url"] = url
+        request_state["headers"] = kwargs.get("headers") or {}
+        request_state["json"] = kwargs.get("json")
+        request_state["timeout"] = kwargs.get("timeout")
+        return _FakeResponse(
+            json_data={
+                "success": True,
+                "data": {
+                    "results": [
+                        {
+                            "note_id": "note-1",
+                            "note_type": "NOTE",
+                            "title": "First note",
+                            "content": "First content",
+                            "created_at": "2026-02-25 10:00:00",
+                        },
+                        {
+                            "note_id": "note-2",
+                            "note_type": "NOTE",
+                            "title": "Second note",
+                            "content": "Second content",
+                        },
+                    ]
+                },
+            }
+        )
+
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        _fake_post,
+    )
+
+    captured_context = {}
+
+    def _context_stream_factory(knowledge_context):
+        captured_context["value"] = knowledge_context
+        return iter(
+            [
+                types.SimpleNamespace(result="synthesized"),
+                types.SimpleNamespace(result=" answer"),
+                types.SimpleNamespace(result=None),
+            ]
+        )
+
+    runtime = module.AskProviderRuntime(
+        llm_context_stream_factory=_context_stream_factory,
+    )
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[],
+            provider_config={
+                "config": {
+                    "api_key": "gk-live-1",
+                    "client_id": "cli-1",
+                    "topic_id": "topic-1",
+                    "top_k": 50,
+                }
+            },
+            runtime=runtime,
+        )
+    )
+
+    assert request_state["url"] == (
+        "https://openapi.biji.com/open/api/v1/resource/recall/knowledge"
+    )
+    assert request_state["headers"] == {
+        "Authorization": "gk-live-1",
+        "X-Client-ID": "cli-1",
+        "Content-Type": "application/json",
+    }
+    assert request_state["json"] == {
+        "topic_id": "topic-1",
+        "query": "hello",
+        "top_k": 10,
+    }
+    assert request_state["timeout"] == (5, 20)
+    assert captured_context["value"] == (
+        "1. **First note**\nFirst content\n(2026-02-25 10:00:00)"
+        "\n\n2. **Second note**\nSecond content"
+    )
+    assert [chunk.content for chunk in chunks] == ["synthesized", " answer"]
+
+
+def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
+    app, monkeypatch
+):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            json_data={
+                "success": True,
+                "data": {
+                    "results": [
+                        {},
+                        {"created_at": "2026-02-25 10:00:00"},
+                        {
+                            "note_id": "note-1",
+                            "title": "Useful note",
+                            "content": "Useful content",
+                        },
+                    ]
+                },
+            }
+        ),
+    )
+
+    captured_context = {}
+
+    def _context_stream_factory(knowledge_context):
+        captured_context["value"] = knowledge_context
+        return iter([types.SimpleNamespace(result="answer")])
+
+    runtime = module.AskProviderRuntime(
+        llm_context_stream_factory=_context_stream_factory,
+    )
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[],
+            provider_config={
+                "config": {
+                    "api_key": "gk-live-1",
+                    "client_id": "cli-1",
+                    "topic_id": "topic-1",
+                }
+            },
+            runtime=runtime,
+        )
+    )
+
+    assert captured_context["value"] == "3. **Useful note**\nUseful content"
+    assert [chunk.content for chunk in chunks] == ["answer"]
+
+
+def test_get_biji_knowledge_adapter_empty_results_synthesizes_with_empty_context(
+    app, monkeypatch
+):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            json_data={"success": True, "data": {"results": []}}
+        ),
+    )
+
+    captured_context = {}
+
+    def _context_stream_factory(knowledge_context):
+        captured_context["value"] = knowledge_context
+        return iter([types.SimpleNamespace(result="fallback answer")])
+
+    runtime = module.AskProviderRuntime(
+        llm_context_stream_factory=_context_stream_factory,
+    )
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[],
+            provider_config={
+                "config": {
+                    "api_key": "gk-live-1",
+                    "client_id": "cli-1",
+                    "topic_id": "topic-1",
+                }
+            },
+            runtime=runtime,
+        )
+    )
+
+    assert captured_context["value"] == ""
+    assert [chunk.content for chunk in chunks] == ["fallback answer"]
+
+
+def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(app, monkeypatch):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    monkeypatch.setattr(
+        common,
+        "get_config",
+        lambda key: {
+            "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
+        }.get(key),
+    )
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            json_data={
+                "success": True,
+                "data": {
+                    "results": [
+                        {
+                            "note_id": "note-1",
+                            "title": "First note",
+                            "content": "First content",
+                        }
+                    ]
+                },
+            }
+        ),
+    )
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[],
+            provider_config={
+                "config": {
+                    "api_key": "gk-live-1",
+                    "client_id": "cli-1",
+                    "topic_id": "topic-1",
+                }
+            },
+        )
+    )
+
+    assert [chunk.content for chunk in chunks] == [
+        "1. **First note**\nFirst content\n\n",
+    ]
+
+
+def test_get_biji_knowledge_adapter_missing_config_raises_error(app):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    with pytest.raises(
+        module.AskProviderConfigError, match="api_key/client_id/topic_id"
+    ):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "api_key": "gk-live-1",
+                        "topic_id": "topic-1",
+                    }
+                },
+            )
+        )
+
+
+def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(app, monkeypatch):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    def _raise_timeout(*_args, **_kwargs):
+        raise requests.Timeout("timeout")
+
+    monkeypatch.setattr(get_biji_knowledge_adapter.requests, "post", _raise_timeout)
+
+    with pytest.raises(module.AskProviderTimeoutError):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "api_key": "gk-live-1",
+                        "client_id": "cli-1",
+                        "topic_id": "topic-1",
+                    }
+                },
+            )
+        )
+
+
+def test_get_biji_knowledge_adapter_http_error_raises_provider_error(app, monkeypatch):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+    http_error = requests.HTTPError("bad request")
+
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            text="get biji bad request",
+            status_code=400,
+            http_error=http_error,
+        ),
+    )
+
+    with pytest.raises(
+        module.AskProviderError, match="get_biji_knowledge request failed"
+    ):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "api_key": "gk-live-1",
+                        "client_id": "cli-1",
+                        "topic_id": "topic-1",
+                    }
+                },
+            )
+        )
+
+
+def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
+    app, monkeypatch
+):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+
+    monkeypatch.setattr(
+        get_biji_knowledge_adapter.requests,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            json_data={
+                "success": False,
+                "data": None,
+                "error": {
+                    "code": 10201,
+                    "message": "OpenAPI members only",
+                    "reason": "not_member",
+                },
+            }
+        ),
+    )
+
+    with pytest.raises(
+        module.AskProviderError,
+        match=r"OpenAPI members only \(reason: not_member\)",
+    ) as exc_info:
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "api_key": "gk-live-1",
+                        "client_id": "cli-1",
+                        "topic_id": "topic-1",
+                    }
+                },
+            )
+        )
+
+    assert "membership" in (exc_info.value.user_message or "")
+
+
+def test_get_biji_knowledge_adapter_maps_business_errors_to_user_messages(
+    app, monkeypatch
+):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+    cases = [
+        # Auth failures arrive as HTTP 401 with a business error body.
+        ({"code": 10004, "message": "unauthorized"}, 401, "API Key"),
+        ({"code": 10001, "message": "auth failed"}, 401, "API Key"),
+        (
+            {"code": 10203, "message": "quota", "reason": "quota_daily_exceeded"},
+            429,
+            "quota",
+        ),
+        ({"code": 30000, "message": "internal"}, 500, None),
+    ]
+
+    for error_body, status_code, expected_fragment in cases:
+        monkeypatch.setattr(
+            get_biji_knowledge_adapter.requests,
+            "post",
+            lambda *_args, **_kwargs: _FakeResponse(
+                status_code=status_code,
+                json_data={"success": False, "data": None, "error": error_body},
+            ),
+        )
+
+        with pytest.raises(module.AskProviderError) as exc_info:
+            list(
+                adapter.stream_answer(
+                    app=app,
+                    user_id="user-1",
+                    user_query="hello",
+                    messages=[],
+                    provider_config={
+                        "config": {
+                            "api_key": "gk-live-1",
+                            "client_id": "cli-1",
+                            "topic_id": "topic-1",
+                        }
+                    },
+                )
+            )
+
+        user_message = exc_info.value.user_message
+        if expected_fragment is None:
+            assert user_message is None, f"error {error_body} should have no mapping"
+        else:
+            assert expected_fragment in (user_message or ""), (
+                f"error {error_body} should map to a message containing {expected_fragment}"
+            )
+
+
+def test_render_knowledge_rule_and_section():
+    rule = common.render_knowledge_rule()
+    section = common.render_knowledge_section("retrieved material", include_rule=False)
+    section_with_rule = common.render_knowledge_section(
+        "retrieved material", include_rule=True
+    )
+
+    assert rule.startswith("-")
+    assert "<knowledge>\n\nretrieved material\n\n</knowledge>" in section
+    assert rule not in section
+    assert rule in section_with_rule
+    assert "{knowledge}" not in section
+    assert "{knowledge_rule}" not in section
+
+
+def test_apply_knowledge_context_fills_rule_and_section_placeholders():
+    prompt = (
+        "# rules\n- learned rule\n{knowledge_rule}\n- unlearned rule\n\n"
+        "{knowledge_section}\n\n# settings"
+    )
+
+    filled = common.apply_knowledge_context(prompt, "retrieved material")
+
+    assert "{knowledge_rule}" not in filled
+    assert "{knowledge_section}" not in filled
+    # The rule lands in the rules list, between learned and unlearned rules.
+    rule = common.render_knowledge_rule()
+    assert f"- learned rule\n{rule}\n- unlearned rule" in filled
+    assert "<knowledge>\n\nretrieved material\n\n</knowledge>" in filled
+    # The rule appears exactly once (not duplicated inside the section).
+    assert filled.count(rule) == 1
+
+
+def test_apply_knowledge_context_removes_rule_and_section_without_knowledge():
+    prompt = (
+        "# rules\n- learned rule\n{knowledge_rule}\n- unlearned rule\n\n"
+        "{knowledge_section}\n\n# settings"
+    )
+
+    filled = common.apply_knowledge_context(prompt, "")
+
+    # Both the rule line and the section disappear without leftover gaps.
+    assert filled == "# rules\n- learned rule\n- unlearned rule\n\n# settings"
+
+
+def test_apply_knowledge_context_appends_section_for_legacy_prompts():
+    prompt = "legacy prompt without placeholder"
+
+    filled = common.apply_knowledge_context(prompt, "retrieved material")
+
+    assert filled.startswith(prompt)
+    # Legacy prompts cannot host the rule in a rules list, so it travels
+    # with the appended section.
+    assert filled == (
+        prompt
+        + "\n\n"
+        + common.render_knowledge_section("retrieved material", include_rule=True)
+    )
+    assert common.render_knowledge_rule() in filled
+
+
+def test_apply_knowledge_context_keeps_legacy_prompt_without_knowledge():
+    prompt = "legacy prompt without placeholder"
+
+    assert common.apply_knowledge_context(prompt, "") == prompt
+
+
+def test_apply_knowledge_to_messages_updates_first_system_message():
+    messages = [
+        {"role": "system", "content": "rules {knowledge_section} end"},
+        {"role": "user", "content": "question"},
+    ]
+
+    updated = common.apply_knowledge_to_messages(messages, "retrieved material")
+
+    assert "{knowledge_section}" not in updated[0]["content"]
+    assert "retrieved material" in updated[0]["content"]
+    assert updated[1] == {"role": "user", "content": "question"}
+    # The original messages are untouched.
+    assert messages[0]["content"] == "rules {knowledge_section} end"
+
+
+def test_apply_knowledge_to_messages_prepends_system_when_missing():
+    messages = [{"role": "user", "content": "question"}]
+
+    updated = common.apply_knowledge_to_messages(messages, "retrieved material")
+
+    assert updated[0]["role"] == "system"
+    assert "retrieved material" in updated[0]["content"]
+    assert updated[-1] == {"role": "user", "content": "question"}
+
+    unchanged = common.apply_knowledge_to_messages(messages, "")
+    assert unchanged == messages
 
 
 def test_llm_adapter_streams_from_runtime_factory(app):
