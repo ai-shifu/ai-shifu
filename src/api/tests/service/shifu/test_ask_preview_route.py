@@ -179,7 +179,11 @@ def test_ask_preview_route_fallbacks_to_llm(monkeypatch, test_client):
     assert payload["data"]["provider"] == "llm"
     assert payload["data"]["requested_provider"] == "dify"
     assert payload["data"]["fallback_used"] is True
-    assert "provider failed" in payload["data"]["provider_error"]
+    # The raw provider error stays in the logs; the payload carries the
+    # localized, human-readable message.
+    assert payload["data"]["provider_error"] == (
+        "The external knowledge service is temporarily unavailable."
+    )
 
 
 def test_ask_preview_route_rejects_empty_query(monkeypatch, test_client):
@@ -339,6 +343,89 @@ def test_ask_preview_route_provider_only_accepts_get_biji_knowledge(
     runtime = captured["runtime"]
     assert runtime is not None
     assert runtime.llm_context_stream_factory is not None
+
+
+def test_ask_preview_route_surfaces_friendly_provider_error(monkeypatch, test_client):
+    _mock_authenticated_user(monkeypatch)
+
+    def fake_stream_ask_provider_response(*args, **kwargs):
+        _ = (args, kwargs)
+        raise AskProviderError(
+            "get_biji_knowledge request failed: 401 Client Error for url: "
+            "https://openapi.biji.com/... | {raw json body}",
+            user_message="Knowledge base authentication failed.",
+        )
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        fake_stream_ask_provider_response,
+        raising=False,
+    )
+
+    resp = test_client.post(
+        "/api/shifu/ask/preview",
+        headers=_auth_headers(),
+        json={
+            "query": "hello",
+            "ask_model": "gpt-test",
+            "ask_provider_config": {
+                "provider": "get_biji_knowledge",
+                "mode": "provider_only",
+                "config": {
+                    "api_key": "gk-live-1",
+                    "client_id": "cli-1",
+                    "topic_id": "topic-1",
+                },
+            },
+        },
+    )
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+    assert "Knowledge base authentication failed." in payload["message"]
+    assert "openapi.biji.com" not in payload["message"]
+
+
+def test_ask_preview_route_falls_back_to_generic_provider_error(
+    monkeypatch, test_client
+):
+    _mock_authenticated_user(monkeypatch)
+
+    def fake_stream_ask_provider_response(*args, **kwargs):
+        _ = (args, kwargs)
+        raise AskProviderError("dify request failed: 500 | {raw body}")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        fake_stream_ask_provider_response,
+        raising=False,
+    )
+
+    resp = test_client.post(
+        "/api/shifu/ask/preview",
+        headers=_auth_headers(),
+        json={
+            "query": "hello",
+            "ask_model": "gpt-test",
+            "ask_provider_config": {
+                "provider": "dify",
+                "mode": "provider_only",
+                "config": {
+                    "base_url": "https://api.example.com/v1",
+                    "api_key": "test-api-key",
+                },
+            },
+        },
+    )
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+    assert "raw body" not in payload["message"]
+    assert "request failed" not in payload["message"]
 
 
 def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(

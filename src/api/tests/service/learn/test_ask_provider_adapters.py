@@ -828,7 +828,7 @@ def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
     with pytest.raises(
         module.AskProviderError,
         match=r"OpenAPI members only \(reason: not_member\)",
-    ):
+    ) as exc_info:
         list(
             adapter.stream_answer(
                 app=app,
@@ -844,6 +844,60 @@ def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
                 },
             )
         )
+
+    assert "membership" in (exc_info.value.user_message or "")
+
+
+def test_get_biji_knowledge_adapter_maps_business_errors_to_user_messages(
+    app, monkeypatch
+):
+    adapter = module.GetBijiKnowledgeAskProviderAdapter()
+    cases = [
+        # Auth failures arrive as HTTP 401 with a business error body.
+        ({"code": 10004, "message": "unauthorized"}, 401, "API Key"),
+        ({"code": 10001, "message": "auth failed"}, 401, "API Key"),
+        (
+            {"code": 10203, "message": "quota", "reason": "quota_daily_exceeded"},
+            429,
+            "quota",
+        ),
+        ({"code": 30000, "message": "internal"}, 500, None),
+    ]
+
+    for error_body, status_code, expected_fragment in cases:
+        monkeypatch.setattr(
+            get_biji_knowledge_adapter.requests,
+            "post",
+            lambda *_args, **_kwargs: _FakeResponse(
+                status_code=status_code,
+                json_data={"success": False, "data": None, "error": error_body},
+            ),
+        )
+
+        with pytest.raises(module.AskProviderError) as exc_info:
+            list(
+                adapter.stream_answer(
+                    app=app,
+                    user_id="user-1",
+                    user_query="hello",
+                    messages=[],
+                    provider_config={
+                        "config": {
+                            "api_key": "gk-live-1",
+                            "client_id": "cli-1",
+                            "topic_id": "topic-1",
+                        }
+                    },
+                )
+            )
+
+        user_message = exc_info.value.user_message
+        if expected_fragment is None:
+            assert user_message is None, f"error {error_body} should have no mapping"
+        else:
+            assert expected_fragment in (user_message or ""), (
+                f"error {error_body} should map to a message containing {expected_fragment}"
+            )
 
 
 def test_render_knowledge_section_contains_rule_and_tags():

@@ -1,7 +1,10 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "askProviderAuthFailed": "知识库鉴权失败，请检查 API Key 与 Client ID 是否正确",
     "askProviderNoResults": "未检索到相关知识库内容",
+    "askProviderNotMember": "Get 笔记账号未开通会员，无法调用开放接口",
+    "askProviderRateLimited": "知识库请求频率或配额受限，请稍后再试",
     "askProviderTimeout": "外部知识库响应超时，请稍后再试",
     "askProviderUnavailable": "外部知识库暂时不可用",
     "generatedBlockNotFound": "生成的块未找到",
