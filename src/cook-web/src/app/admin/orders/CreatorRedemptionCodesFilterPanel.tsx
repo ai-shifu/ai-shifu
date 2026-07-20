@@ -10,7 +10,6 @@ import {
 } from '@/app/admin/components/adminFilterFieldBuilders';
 import { COUPON_OPS_STATE_OPTIONS } from '@/app/admin/operations/promotions/promotionPageShared';
 import {
-  SINGLE_SELECT_ITEM_CLASS,
   fromSelectValue,
   toSelectValue,
   type RedemptionCodeFilters,
@@ -102,7 +101,6 @@ export default function CreatorRedemptionCodesFilterPanel({
         label: option.label,
       })),
       labelClassName: getOrderFilterLabelClassName(labelWidth),
-      selectItemClassName: SINGLE_SELECT_ITEM_CLASS,
     });
 
   const buildTextItem = (
