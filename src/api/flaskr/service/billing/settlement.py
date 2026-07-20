@@ -355,7 +355,7 @@ def settle_bill_usage(
                 else None
             )
 
-            refresh_credit_wallet_snapshot(wallet)
+            refresh_credit_wallet_snapshot(wallet, snapshot_at=settlement_at)
             ledger_entry = CreditLedgerEntry(
                 ledger_bid=generate_id(app),
                 creator_bid=creator_bid,

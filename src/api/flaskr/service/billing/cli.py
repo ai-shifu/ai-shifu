@@ -735,11 +735,18 @@ def register_billing_commands(console) -> None:
         is_flag=True,
         help="Rebuild every billing wallet snapshot.",
     )
+    @click.option(
+        "--apply",
+        "apply_changes",
+        is_flag=True,
+        help="Persist rebuilt wallet snapshots. Defaults to dry-run.",
+    )
     @with_appcontext
     def rebuild_wallets_command(
         creator_bid: str,
         wallet_bid: str,
         process_all: bool,
+        apply_changes: bool,
     ) -> None:
         """Rebuild wallet snapshots from bucket balances."""
 
@@ -756,6 +763,7 @@ def register_billing_commands(console) -> None:
             current_app,
             creator_bid=creator_bid,
             wallet_bid=wallet_bid,
+            dry_run=not apply_changes,
         )
         _echo_payload(payload)
 
