@@ -36,8 +36,21 @@ jest.mock('@/components/ui/Select', () => ({
   SelectContent: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
-  SelectItem: ({ children, value }: { children: ReactNode; value: string }) => (
-    <div data-value={value}>{children}</div>
+  SelectItem: ({
+    children,
+    value,
+    className,
+  }: {
+    children: ReactNode;
+    value: string;
+    className?: string;
+  }) => (
+    <div
+      data-value={value}
+      className={className}
+    >
+      {children}
+    </div>
   ),
 }));
 
@@ -94,6 +107,26 @@ describe('adminFilterFieldBuilders', () => {
       'aria-labelledby',
       'status-label',
     );
+    expect(screen.getByTestId('select-trigger')).toHaveClass('h-9');
+  });
+
+  test('applies admin select item classes before custom item classes', () => {
+    const item = createSelectFilterItem({
+      key: 'status',
+      label: 'Status',
+      value: '__all__',
+      placeholder: 'Choose status',
+      options: [{ value: '__all__', label: 'All' }],
+      onChange: jest.fn(),
+      selectItemClassName: 'min-w-[140px]',
+    });
+
+    render(item.component);
+
+    const optionElement = screen.getByText('All');
+    expect(optionElement).toHaveClass('data-[state=checked]:bg-muted');
+    expect(optionElement).toHaveClass('data-[state=checked]:text-foreground');
+    expect(optionElement).toHaveClass('min-w-[140px]');
   });
 
   test('builds date range filter item with trigger placeholder', () => {
