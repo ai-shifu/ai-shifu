@@ -711,6 +711,96 @@ def test_rebuild_credit_wallet_snapshots_excludes_non_consumable_bucket_rows(
         assert wallet.available_credits == Decimal("4.0000000000")
 
 
+def test_rebuild_credit_wallet_snapshots_keeps_current_bucket_with_reserved_balance(
+    billing_wallet_lifecycle_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        snapshot_at = datetime(2026, 7, 20, 0, 0, 0)
+        current_period_start = datetime(2026, 6, 24, 7, 35, 58)
+        current_period_end = datetime(2026, 7, 23, 15, 59, 59)
+        monkeypatch.setattr(
+            "flaskr.service.billing.wallets.now_utc",
+            lambda: snapshot_at,
+        )
+        wallet = CreditWallet(
+            wallet_bid="wallet-rebuild-reserved-current",
+            creator_bid="creator-rebuild-reserved-current",
+            available_credits=Decimal("999.0000000000"),
+            reserved_credits=Decimal("999.0000000000"),
+            lifetime_granted_credits=Decimal("4050.0000000000"),
+            lifetime_consumed_credits=Decimal("315.2400000000"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="subscription-rebuild-reserved-current",
+                creator_bid="creator-rebuild-reserved-current",
+                product_bid="bill-product-plan-monthly-pro",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                current_period_start_at=current_period_start,
+                current_period_end_at=current_period_end,
+            )
+        )
+        dao.db.session.add_all(
+            [
+                CreditWalletBucket(
+                    wallet_bucket_bid="bucket-rebuild-reserved-current",
+                    wallet_bid=wallet.wallet_bid,
+                    creator_bid="creator-rebuild-reserved-current",
+                    bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                    source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                    source_bid="bill-current-period",
+                    priority=20,
+                    original_credits=Decimal("4050.0000000000"),
+                    available_credits=Decimal("1684.7600000000"),
+                    reserved_credits=Decimal("2050.0000000000"),
+                    consumed_credits=Decimal("315.2400000000"),
+                    expired_credits=Decimal("0"),
+                    effective_from=current_period_start,
+                    effective_to=current_period_end,
+                    status=CREDIT_BUCKET_STATUS_ACTIVE,
+                    metadata_json={},
+                ),
+                CreditWalletBucket(
+                    wallet_bucket_bid="bucket-rebuild-reserved-topup",
+                    wallet_bid=wallet.wallet_bid,
+                    creator_bid="creator-rebuild-reserved-current",
+                    bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                    source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                    source_bid="bill-topup-current",
+                    priority=30,
+                    original_credits=Decimal("250.0000000000"),
+                    available_credits=Decimal("234.7800000000"),
+                    reserved_credits=Decimal("0"),
+                    consumed_credits=Decimal("15.2200000000"),
+                    expired_credits=Decimal("0"),
+                    effective_from=snapshot_at - timedelta(days=1),
+                    effective_to=current_period_end,
+                    status=CREDIT_BUCKET_STATUS_ACTIVE,
+                    metadata_json={},
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        payload = rebuild_credit_wallet_snapshots(
+            billing_wallet_lifecycle_app,
+            creator_bid="creator-rebuild-reserved-current",
+        )
+
+        wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-rebuild-reserved-current"
+        ).one()
+
+        assert payload["wallets"][0]["available_credits"] == 1919.54
+        assert payload["wallets"][0]["reserved_credits"] == 2050
+        assert wallet.available_credits == Decimal("1919.5400000000")
+        assert wallet.reserved_credits == Decimal("2050.0000000000")
+
+
 def test_rebuild_credit_wallet_snapshots_dry_run_reports_without_writing(
     billing_wallet_lifecycle_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
