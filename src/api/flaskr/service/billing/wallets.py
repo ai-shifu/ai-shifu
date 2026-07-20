@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Flask
 from sqlalchemy.exc import IntegrityError
 
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
 from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
@@ -37,12 +38,14 @@ from .bucket_categories import (
     resolve_credit_bucket_priority,
     resolve_runtime_credit_bucket_category,
     resolve_wallet_bucket_runtime_category,
+    wallet_bucket_requires_active_subscription,
 )
 from .dtos import BillingLedgerAdjustResultDTO, BillingWalletRefDTO
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .primitives import credit_decimal_to_number as _credit_decimal_to_number
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
+from .queries import load_primary_active_subscription
 
 _ZERO = Decimal("0")
 _PRESERVED_BUCKET_STATUSES = {
@@ -61,6 +64,11 @@ class WalletSnapshotRecord:
     creator_bid: str
     available_credits: int | float
     reserved_credits: int | float
+    previous_available_credits: int | float
+    previous_reserved_credits: int | float
+    available_credits_delta: int | float
+    reserved_credits_delta: int | float
+    changed: bool
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -68,6 +76,11 @@ class WalletSnapshotRecord:
             "creator_bid": self.creator_bid,
             "available_credits": self.available_credits,
             "reserved_credits": self.reserved_credits,
+            "previous_available_credits": self.previous_available_credits,
+            "previous_reserved_credits": self.previous_reserved_credits,
+            "available_credits_delta": self.available_credits_delta,
+            "reserved_credits_delta": self.reserved_credits_delta,
+            "changed": self.changed,
         }
 
     def __getitem__(self, key: str) -> Any:
@@ -80,6 +93,8 @@ class WalletSnapshotRebuildResult:
     creator_bid: str | None
     wallet_bid: str | None
     wallet_count: int
+    changed_wallet_count: int = 0
+    dry_run: bool = False
     wallets: list[WalletSnapshotRecord] = field(default_factory=list)
 
     def to_task_payload(self) -> dict[str, Any]:
@@ -88,6 +103,8 @@ class WalletSnapshotRebuildResult:
             "creator_bid": self.creator_bid,
             "wallet_bid": self.wallet_bid,
             "wallet_count": self.wallet_count,
+            "changed_wallet_count": self.changed_wallet_count,
+            "dry_run": self.dry_run,
             "wallets": [wallet.to_payload() for wallet in self.wallets],
         }
 
@@ -138,6 +155,69 @@ class WalletExpirationResult:
 
 
 @dataclass(slots=True, frozen=True)
+class ExpireLedgerBucketDriftRecord:
+    wallet_bucket_bid: str
+    wallet_bid: str
+    creator_bid: str
+    previous_available_credits: int | float
+    available_credits: int | float
+    previous_expired_credits: int | float
+    expired_credits: int | float
+    previous_status: int
+    status: int
+    expire_ledger_count: int
+    expire_ledger_amount: int | float
+    repair_action: str
+    repair_reason: str
+    changed: bool
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "wallet_bucket_bid": self.wallet_bucket_bid,
+            "wallet_bid": self.wallet_bid,
+            "creator_bid": self.creator_bid,
+            "previous_available_credits": self.previous_available_credits,
+            "available_credits": self.available_credits,
+            "previous_expired_credits": self.previous_expired_credits,
+            "expired_credits": self.expired_credits,
+            "previous_status": self.previous_status,
+            "status": self.status,
+            "expire_ledger_count": self.expire_ledger_count,
+            "expire_ledger_amount": self.expire_ledger_amount,
+            "repair_action": self.repair_action,
+            "repair_reason": self.repair_reason,
+            "changed": self.changed,
+        }
+
+
+@dataclass(slots=True, frozen=True)
+class ExpireLedgerBucketDriftRepairResult:
+    status: str
+    creator_bid: str | None
+    wallet_bucket_bid: str | None
+    bucket_count: int
+    repaired_bucket_count: int
+    manual_review_count: int
+    dry_run: bool
+    buckets: list[ExpireLedgerBucketDriftRecord] = field(default_factory=list)
+
+    def to_task_payload(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "creator_bid": self.creator_bid,
+            "wallet_bucket_bid": self.wallet_bucket_bid,
+            "bucket_count": self.bucket_count,
+            "repaired_bucket_count": self.repaired_bucket_count,
+            "manual_review_count": self.manual_review_count,
+            "dry_run": self.dry_run,
+            "buckets": [bucket.to_payload() for bucket in self.buckets],
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_task_payload()[key]
+
+
+@dataclass(slots=True, frozen=True)
 class ManualCreditGrantResult:
     status: str
     creator_bid: str | None
@@ -164,9 +244,14 @@ class ManualCreditGrantResult:
         return self.to_payload()[key]
 
 
-def refresh_credit_wallet_snapshot(wallet: CreditWallet) -> CreditWallet:
-    """Rebuild wallet balances from the current bucket snapshot table."""
+def calculate_credit_wallet_snapshot_values(
+    wallet: CreditWallet,
+    *,
+    snapshot_at: datetime | None = None,
+) -> tuple[Decimal, Decimal]:
+    """Calculate wallet balances without mutating the ORM wallet row."""
 
+    resolved_snapshot_at = snapshot_at or now_utc()
     rows = (
         CreditWalletBucket.query.filter(
             CreditWalletBucket.deleted == 0,
@@ -175,16 +260,55 @@ def refresh_credit_wallet_snapshot(wallet: CreditWallet) -> CreditWallet:
         .order_by(CreditWalletBucket.id.asc())
         .all()
     )
-    wallet.available_credits = sum(
-        (_to_decimal(row.available_credits) for row in rows),
+    has_active_subscription = (
+        load_primary_active_subscription(
+            wallet.creator_bid,
+            as_of=resolved_snapshot_at,
+        )
+        is not None
+    )
+    current_consumable_rows = [
+        row
+        for row in rows
+        if int(row.status or 0) == CREDIT_BUCKET_STATUS_ACTIVE
+        and _to_decimal(row.available_credits) > _ZERO
+        and (row.effective_from is None or row.effective_from <= resolved_snapshot_at)
+        and (row.effective_to is None or row.effective_to > resolved_snapshot_at)
+        and (
+            has_active_subscription
+            or not wallet_bucket_requires_active_subscription(
+                row,
+                load_order_type=load_billing_order_type_by_bid,
+            )
+        )
+    ]
+    available_credits = sum(
+        (_to_decimal(row.available_credits) for row in current_consumable_rows),
         start=_ZERO,
     )
-    wallet.reserved_credits = sum(
+    reserved_credits = sum(
         (_to_decimal(row.reserved_credits) for row in rows),
         start=_ZERO,
     )
-    wallet.available_credits = _quantize_credit_amount(wallet.available_credits)
-    wallet.reserved_credits = _quantize_credit_amount(wallet.reserved_credits)
+    return (
+        _quantize_credit_amount(available_credits),
+        _quantize_credit_amount(reserved_credits),
+    )
+
+
+def refresh_credit_wallet_snapshot(
+    wallet: CreditWallet,
+    *,
+    snapshot_at: datetime | None = None,
+) -> CreditWallet:
+    """Rebuild wallet balances from the current bucket snapshot table."""
+
+    available_credits, reserved_credits = calculate_credit_wallet_snapshot_values(
+        wallet,
+        snapshot_at=snapshot_at,
+    )
+    wallet.available_credits = available_credits
+    wallet.reserved_credits = reserved_credits
     return wallet
 
 
@@ -368,6 +492,7 @@ def rebuild_credit_wallet_snapshots(
     *,
     creator_bid: str = "",
     wallet_bid: str = "",
+    dry_run: bool = False,
 ) -> WalletSnapshotRebuildResult:
     """Rebuild wallet snapshots from bucket rows for one or many creators."""
 
@@ -386,36 +511,62 @@ def rebuild_credit_wallet_snapshots(
                 creator_bid=normalized_creator_bid or None,
                 wallet_bid=normalized_wallet_bid or None,
                 wallet_count=0,
+                changed_wallet_count=0,
+                dry_run=dry_run,
                 wallets=[],
             )
 
         rebuilt_at = now_utc()
         payload_wallets: list[WalletSnapshotRecord] = []
+        changed_wallet_count = 0
         for wallet in wallets:
-            refresh_credit_wallet_snapshot(wallet)
-            persist_credit_wallet_snapshot(
+            previous_available = _quantize_credit_amount(wallet.available_credits)
+            previous_reserved = _quantize_credit_amount(wallet.reserved_credits)
+            next_available, next_reserved = calculate_credit_wallet_snapshot_values(
                 wallet,
-                available_credits=wallet.available_credits,
-                reserved_credits=wallet.reserved_credits,
-                updated_at=rebuilt_at,
+                snapshot_at=rebuilt_at,
             )
+            available_delta = _quantize_credit_amount(
+                next_available - previous_available
+            )
+            reserved_delta = _quantize_credit_amount(next_reserved - previous_reserved)
+            changed = available_delta != _ZERO or reserved_delta != _ZERO
+            if changed:
+                changed_wallet_count += 1
+            if not dry_run:
+                persist_credit_wallet_snapshot(
+                    wallet,
+                    available_credits=next_available,
+                    reserved_credits=next_reserved,
+                    updated_at=rebuilt_at,
+                )
             payload_wallets.append(
                 WalletSnapshotRecord(
                     wallet_bid=wallet.wallet_bid,
                     creator_bid=wallet.creator_bid,
-                    available_credits=_credit_decimal_to_number(
-                        wallet.available_credits
+                    available_credits=_credit_decimal_to_number(next_available),
+                    reserved_credits=_credit_decimal_to_number(next_reserved),
+                    previous_available_credits=_credit_decimal_to_number(
+                        previous_available
                     ),
-                    reserved_credits=_credit_decimal_to_number(wallet.reserved_credits),
+                    previous_reserved_credits=_credit_decimal_to_number(
+                        previous_reserved
+                    ),
+                    available_credits_delta=_credit_decimal_to_number(available_delta),
+                    reserved_credits_delta=_credit_decimal_to_number(reserved_delta),
+                    changed=changed,
                 )
             )
 
-        db.session.commit()
+        if not dry_run:
+            db.session.commit()
         return WalletSnapshotRebuildResult(
-            status="rebuilt",
+            status="dry_run" if dry_run else "rebuilt",
             creator_bid=normalized_creator_bid or None,
             wallet_bid=normalized_wallet_bid or None,
             wallet_count=len(payload_wallets),
+            changed_wallet_count=changed_wallet_count,
+            dry_run=dry_run,
             wallets=payload_wallets,
         )
 
@@ -609,7 +760,7 @@ def grant_refund_return_credits(
         bucket.updated_at = now
         sync_credit_bucket_status(bucket)
         db.session.add(bucket)
-        refresh_credit_wallet_snapshot(wallet)
+        refresh_credit_wallet_snapshot(wallet, snapshot_at=now)
         ledger_entry = CreditLedgerEntry(
             ledger_bid=generate_id(app),
             creator_bid=normalized_creator_bid,
@@ -1000,6 +1151,209 @@ def expire_credit_wallet_buckets(
         return result
 
 
+def repair_expire_ledger_bucket_drift(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    wallet_bucket_bid: str = "",
+    repair_before: datetime | None = None,
+    limit: int | None = None,
+    dry_run: bool = True,
+) -> ExpireLedgerBucketDriftRepairResult:
+    """Close buckets whose expire ledger exists but bucket state stayed live.
+
+    This intentionally does not write another expire ledger. The target shape is
+    an active, already-ended bucket with remaining available credits and an
+    existing ``expire:<wallet_bucket_bid>`` ledger row. Writing a second ledger
+    would duplicate audit entries, so the repair only synchronizes the bucket
+    projection and wallet snapshot.
+    """
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_wallet_bucket_bid = str(wallet_bucket_bid or "").strip()
+    normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
+    repaired_at = repair_before or now_utc()
+
+    with app.app_context():
+        query = CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+            CreditWalletBucket.effective_to.isnot(None),
+            CreditWalletBucket.effective_to <= repaired_at,
+            CreditWalletBucket.available_credits > _ZERO,
+        )
+        if normalized_creator_bid:
+            query = query.filter(
+                CreditWalletBucket.creator_bid == normalized_creator_bid
+            )
+        if normalized_wallet_bucket_bid:
+            query = query.filter(
+                CreditWalletBucket.wallet_bucket_bid == normalized_wallet_bucket_bid
+            )
+
+        candidate_buckets = query.order_by(
+            CreditWalletBucket.effective_to.asc(),
+            CreditWalletBucket.created_at.asc(),
+            CreditWalletBucket.id.asc(),
+        )
+        if normalized_limit is not None:
+            candidate_buckets = candidate_buckets.limit(normalized_limit)
+        candidate_buckets = candidate_buckets.all()
+        records: list[ExpireLedgerBucketDriftRecord] = []
+        changed_wallets: dict[str, CreditWallet] = {}
+        expire_ledgers_by_bucket: dict[str, list[CreditLedgerEntry]] = {}
+
+        if candidate_buckets:
+            bucket_bids = [bucket.wallet_bucket_bid for bucket in candidate_buckets]
+            ledger_rows = CreditLedgerEntry.query.filter(
+                CreditLedgerEntry.deleted == 0,
+                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+                CreditLedgerEntry.wallet_bucket_bid.in_(bucket_bids),
+                CreditLedgerEntry.idempotency_key.in_(
+                    [f"expire:{bucket_bid}" for bucket_bid in bucket_bids]
+                ),
+            ).all()
+            for ledger in ledger_rows:
+                if ledger.idempotency_key != f"expire:{ledger.wallet_bucket_bid}":
+                    continue
+                expire_ledgers_by_bucket.setdefault(
+                    ledger.wallet_bucket_bid, []
+                ).append(ledger)
+
+        for bucket in candidate_buckets:
+            expire_ledgers = sorted(
+                (
+                    ledger
+                    for ledger in expire_ledgers_by_bucket.get(
+                        bucket.wallet_bucket_bid, []
+                    )
+                    if ledger.creator_bid == bucket.creator_bid
+                ),
+                key=lambda ledger: int(ledger.id or 0),
+            )
+            if not expire_ledgers:
+                continue
+
+            previous_available = _quantize_credit_amount(bucket.available_credits)
+            previous_expired = _quantize_credit_amount(bucket.expired_credits)
+            previous_status = int(bucket.status or 0)
+            expire_ledger_amount = _quantize_credit_amount(
+                sum(
+                    (_to_decimal(ledger.amount) for ledger in expire_ledgers),
+                    start=_ZERO,
+                )
+            )
+            ledger_expired_amount = _quantize_credit_amount(
+                sum(
+                    (abs(_to_decimal(ledger.amount)) for ledger in expire_ledgers),
+                    start=_ZERO,
+                )
+            )
+            next_available = _ZERO
+            next_expired = max(
+                previous_expired,
+                ledger_expired_amount
+                if ledger_expired_amount > _ZERO
+                else _quantize_credit_amount(previous_expired + previous_available),
+            )
+            next_status = (
+                CREDIT_BUCKET_STATUS_EXHAUSTED
+                if _to_decimal(bucket.reserved_credits) > _ZERO
+                else CREDIT_BUCKET_STATUS_EXPIRED
+            )
+            has_amount_evidence = ledger_expired_amount == previous_available
+            has_expiry_evidence = all(
+                ledger.expires_at == bucket.effective_to for ledger in expire_ledgers
+            )
+            can_repair = has_amount_evidence and has_expiry_evidence
+            repair_action = "repair" if can_repair else "manual_review"
+            if not has_amount_evidence:
+                repair_reason = "expire_ledger_amount_mismatch"
+            elif not has_expiry_evidence:
+                repair_reason = "expire_ledger_expiry_mismatch"
+            else:
+                repair_reason = "expire_ledger_matches_bucket_balance_and_expiry"
+            changed = can_repair and (
+                previous_available != next_available
+                or previous_expired != next_expired
+                or previous_status != next_status
+            )
+            records.append(
+                ExpireLedgerBucketDriftRecord(
+                    wallet_bucket_bid=bucket.wallet_bucket_bid,
+                    wallet_bid=bucket.wallet_bid,
+                    creator_bid=bucket.creator_bid,
+                    previous_available_credits=_credit_decimal_to_number(
+                        previous_available
+                    ),
+                    available_credits=_credit_decimal_to_number(next_available),
+                    previous_expired_credits=_credit_decimal_to_number(
+                        previous_expired
+                    ),
+                    expired_credits=_credit_decimal_to_number(next_expired),
+                    previous_status=previous_status,
+                    status=next_status,
+                    expire_ledger_count=len(expire_ledgers),
+                    expire_ledger_amount=_credit_decimal_to_number(
+                        expire_ledger_amount
+                    ),
+                    repair_action=repair_action,
+                    repair_reason=repair_reason,
+                    changed=changed,
+                )
+            )
+
+            if dry_run or not changed:
+                continue
+
+            bucket.available_credits = next_available
+            bucket.expired_credits = next_expired
+            bucket.status = next_status
+            bucket.updated_at = repaired_at
+            db.session.add(bucket)
+
+            wallet = changed_wallets.get(bucket.wallet_bid)
+            if wallet is None:
+                wallet = _load_credit_wallet_by_wallet_bid(bucket.wallet_bid)
+                if wallet is not None:
+                    changed_wallets[bucket.wallet_bid] = wallet
+
+        if not dry_run:
+            with unit_of_work():
+                db.session.flush()
+                for wallet in changed_wallets.values():
+                    refresh_credit_wallet_snapshot(wallet, snapshot_at=repaired_at)
+                    persist_credit_wallet_snapshot(
+                        wallet,
+                        available_credits=wallet.available_credits,
+                        reserved_credits=wallet.reserved_credits,
+                        updated_at=repaired_at,
+                    )
+
+        repaired_bucket_count = sum(1 for record in records if record.changed)
+        manual_review_count = sum(
+            1 for record in records if record.repair_action == "manual_review"
+        )
+        return ExpireLedgerBucketDriftRepairResult(
+            status=(
+                "dry_run"
+                if dry_run
+                else "repaired"
+                if repaired_bucket_count
+                else "manual_review"
+                if manual_review_count
+                else "noop"
+            ),
+            creator_bid=normalized_creator_bid or None,
+            wallet_bucket_bid=normalized_wallet_bucket_bid or None,
+            bucket_count=len(records),
+            repaired_bucket_count=repaired_bucket_count,
+            manual_review_count=manual_review_count,
+            dry_run=dry_run,
+            buckets=records,
+        )
+
+
 def _expire_credit_wallet_buckets_in_session(
     app: Flask,
     *,
@@ -1068,7 +1422,10 @@ def _expire_credit_wallet_buckets_in_session(
                     bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
                 db.session.add(bucket)
 
-                refresh_credit_wallet_snapshot(wallet)
+                refresh_credit_wallet_snapshot(
+                    wallet,
+                    snapshot_at=cutoff - timedelta(microseconds=1),
+                )
                 ledger_entry = CreditLedgerEntry(
                     ledger_bid=generate_id(app),
                     creator_bid=bucket.creator_bid,

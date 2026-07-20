@@ -45,7 +45,7 @@ export const gen = (option: string) => {
       });
     }
 
-    if (method === 'GET') {
+    if (method === 'GET' || method === 'DELETE') {
       if (urlParamsMap && Object.keys(urlParamsMap).length > 0) {
         const queryString = objectToQueryString(urlParamsMap);
         tarUrl = `${tarUrl}?${queryString}`;

@@ -54,6 +54,7 @@ const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
   'expired',
   'draft',
 ]);
+const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 
 function isBillingSubscriptionActive(
   subscription: BillingSubscription | null | undefined,
@@ -198,7 +199,11 @@ export function BillingOverviewTab({
     isLoading: catalogLoading,
   } = useSWR<BillingCatalogResponse>(
     buildBillingSwrKey('billing-catalog'),
-    async () => (await api.getBillingCatalog({})) as BillingCatalogResponse,
+    async () =>
+      (await api.getBillingCatalog(
+        {},
+        BILLING_PASSIVE_REQUEST_CONFIG,
+      )) as BillingCatalogResponse,
     {
       revalidateOnFocus: false,
     },

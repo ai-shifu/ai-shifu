@@ -42,6 +42,8 @@ class CreatorEntitlementState:
     effective_to: datetime | None
     branding_enabled: bool
     custom_domain_enabled: bool
+    custom_wechat_enabled: bool
+    custom_payment_enabled: bool
     priority_class: str
     analytics_tier: str
     support_tier: str
@@ -51,6 +53,8 @@ class CreatorEntitlementState:
         return {
             "branding_enabled": self.branding_enabled,
             "custom_domain_enabled": self.custom_domain_enabled,
+            "custom_wechat_enabled": self.custom_wechat_enabled,
+            "custom_payment_enabled": self.custom_payment_enabled,
             "priority_class": self.priority_class,
             "analytics_tier": self.analytics_tier,
             "support_tier": self.support_tier,
@@ -103,6 +107,8 @@ def grant_creator_manual_entitlement(
     *,
     branding_enabled: bool | None = None,
     custom_domain_enabled: bool | None = None,
+    custom_wechat_enabled: bool | None = None,
+    custom_payment_enabled: bool | None = None,
     branding: dict[str, Any] | None = None,
     home_url: str | None = None,
     commit: bool = True,
@@ -161,6 +167,13 @@ def grant_creator_manual_entitlement(
         row.branding_enabled = 1 if branding_enabled else 0
     if custom_domain_enabled is not None:
         row.custom_domain_enabled = 1 if custom_domain_enabled else 0
+    if custom_wechat_enabled is not None or custom_payment_enabled is not None:
+        payload = dict(row.feature_payload or {})
+        if custom_wechat_enabled is not None:
+            payload["custom_wechat_enabled"] = bool(custom_wechat_enabled)
+        if custom_payment_enabled is not None:
+            payload["custom_payment_enabled"] = bool(custom_payment_enabled)
+        row.feature_payload = payload
     if branding is not None:
         payload = dict(row.feature_payload or {})
         merged_branding = dict(payload.get("branding") or {})
@@ -244,6 +257,8 @@ def _resolve_subscription_product_entitlement_state(
         effective_to=subscription.current_period_end_at,
         branding_enabled=default_state.branding_enabled,
         custom_domain_enabled=default_state.custom_domain_enabled,
+        custom_wechat_enabled=default_state.custom_wechat_enabled,
+        custom_payment_enabled=default_state.custom_payment_enabled,
         priority_class=default_state.priority_class,
         analytics_tier=default_state.analytics_tier,
         support_tier=default_state.support_tier,
@@ -265,6 +280,8 @@ def _build_default_entitlement_state(creator_bid: str) -> CreatorEntitlementStat
         effective_to=None,
         branding_enabled=False,
         custom_domain_enabled=False,
+        custom_wechat_enabled=False,
+        custom_payment_enabled=False,
         priority_class=BILLING_ENTITLEMENT_PRIORITY_CLASS_LABELS.get(
             BILLING_ENTITLEMENT_PRIORITY_CLASS_STANDARD,
             "standard",
@@ -284,6 +301,8 @@ def _build_default_entitlement_state(creator_bid: str) -> CreatorEntitlementStat
 def _serialize_entitlement_row_state(
     row: BillingEntitlement,
 ) -> CreatorEntitlementState:
+    feature_payload = _normalize_feature_payload(row.feature_payload)
+    feature_values = feature_payload.to_metadata_json()
     return CreatorEntitlementState(
         creator_bid=_normalize_bid(row.creator_bid),
         source_kind="snapshot",
@@ -294,6 +313,8 @@ def _serialize_entitlement_row_state(
         effective_to=row.effective_to,
         branding_enabled=bool(row.branding_enabled),
         custom_domain_enabled=bool(row.custom_domain_enabled),
+        custom_wechat_enabled=_to_bool(feature_values.get("custom_wechat_enabled")),
+        custom_payment_enabled=_to_bool(feature_values.get("custom_payment_enabled")),
         priority_class=BILLING_ENTITLEMENT_PRIORITY_CLASS_LABELS.get(
             row.priority_class,
             "standard",
@@ -306,7 +327,7 @@ def _serialize_entitlement_row_state(
             row.support_tier,
             "self_serve",
         ),
-        feature_payload=_normalize_feature_payload(row.feature_payload),
+        feature_payload=feature_payload,
     )
 
 
@@ -321,6 +342,14 @@ def _apply_entitlement_payload(
     custom_domain_enabled = _to_bool(
         payload.get("custom_domain_enabled"),
         default=base_state.custom_domain_enabled,
+    )
+    custom_wechat_enabled = _to_bool(
+        payload.get("custom_wechat_enabled"),
+        default=base_state.custom_wechat_enabled,
+    )
+    custom_payment_enabled = _to_bool(
+        payload.get("custom_payment_enabled"),
+        default=base_state.custom_payment_enabled,
     )
     priority_class = _resolve_labeled_value(
         payload.get("priority_class"),
@@ -352,6 +381,8 @@ def _apply_entitlement_payload(
         effective_to=base_state.effective_to,
         branding_enabled=branding_enabled,
         custom_domain_enabled=custom_domain_enabled,
+        custom_wechat_enabled=custom_wechat_enabled,
+        custom_payment_enabled=custom_payment_enabled,
         priority_class=priority_class,
         analytics_tier=analytics_tier,
         support_tier=support_tier,

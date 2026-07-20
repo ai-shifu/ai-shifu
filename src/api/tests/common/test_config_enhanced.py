@@ -89,6 +89,36 @@ class TestEnhancedConfigValidation:
         error_msg = str(exc_info.value)
         assert "At least one LLM API key must be configured" in error_msg
 
+    def test_validate_creator_customization_requires_encryption_key(self, monkeypatch):
+        """Test creator customization fails closed without its encryption key."""
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
+        monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "9999")
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        monkeypatch.setenv("CREATOR_CUSTOMIZATION_ENABLED", "true")
+
+        config = EnhancedConfig(
+            {
+                **FULL_TEST_ENV_VARS,
+                "CREATOR_CUSTOMIZATION_ENABLED": EnvVar(
+                    name="CREATOR_CUSTOMIZATION_ENABLED",
+                    default=False,
+                    type=bool,
+                    description="Enable creator customization",
+                ),
+                "CREATOR_INTEGRATION_ENCRYPTION_KEY": EnvVar(
+                    name="CREATOR_INTEGRATION_ENCRYPTION_KEY",
+                    default="",
+                    description="Creator integration encryption key",
+                ),
+            }
+        )
+
+        with pytest.raises(EnvironmentConfigError) as exc_info:
+            config.validate_environment()
+
+        assert "CREATOR_INTEGRATION_ENCRYPTION_KEY" in str(exc_info.value)
+
     def test_validate_invalid_values(self, monkeypatch):
         """Test validation fails for invalid values."""
         # Set up environment with invalid values

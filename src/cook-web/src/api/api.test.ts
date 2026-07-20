@@ -140,21 +140,24 @@ describe('billing api definitions', () => {
     expect(api.updateAdminBillingCampaignStatus).toBe(
       'POST /admin/billing/campaigns/{campaign_bid}/status',
     );
-    expect(api.getAdminBillingOrders).toBe('GET /admin/billing/orders');
     expect(api.getAdminBillingEntitlements).toBe(
       'GET /admin/billing/entitlements',
     );
-    expect(api.getAdminBillingDomainAudits).toBe(
-      'GET /admin/billing/domain-audits',
+    expect(api.grantAdminBillingEntitlement).toBe(
+      'POST /admin/billing/entitlements/grants',
+    );
+    expect(api.getAdminBillingOpsState).toBe('GET /admin/billing/ops-state');
+    expect(api.updateAdminBillingConfigStatus).toBe(
+      'POST /admin/billing/ops-state/config-status',
+    );
+    expect(api.getAdminBillingFocusTeachers).toBe(
+      'GET /admin/billing/reports/focus-teachers',
     );
     expect(api.getAdminBillingDailyUsageMetrics).toBe(
       'GET /admin/billing/reports/usage-daily',
     );
     expect(api.getAdminBillingDailyLedgerSummary).toBe(
       'GET /admin/billing/reports/ledger-daily',
-    );
-    expect(api.adjustAdminBillingLedger).toBe(
-      'POST /admin/billing/ledger/adjust',
     );
   });
 });

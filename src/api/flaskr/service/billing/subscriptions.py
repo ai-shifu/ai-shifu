@@ -791,19 +791,6 @@ def _activate_subscription_for_paid_order(
         BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     }:
         if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
-            _activate_reserved_subscription_grant_for_order(
-                app,
-                order=order,
-                effective_from=effective_from,
-                effective_to=effective_to,
-            )
-            _activate_reserved_campaign_bonus_grant_for_order(
-                app,
-                order=order,
-                effective_from=effective_from,
-                effective_to=effective_to,
-            )
-        if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
             subscription.product_bid = (
                 _normalize_bid(subscription.next_product_bid) or order.product_bid
             )
@@ -824,6 +811,19 @@ def _activate_subscription_for_paid_order(
             effective_from=effective_from,
             effective_to=effective_to,
         )
+        if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+            _activate_reserved_subscription_grant_for_order(
+                app,
+                order=order,
+                effective_from=effective_from,
+                effective_to=effective_to,
+            )
+            _activate_reserved_campaign_bonus_grant_for_order(
+                app,
+                order=order,
+                effective_from=effective_from,
+                effective_to=effective_to,
+            )
         if _is_preorder_order(order):
             _mark_preorder_effective_applied(order)
             _clear_subscription_preorder_metadata(subscription)
@@ -970,12 +970,36 @@ def _repair_existing_paid_order_grant_bucket(
 
     changed = False
     effective_from = grant_entry.consumable_from
-    if effective_from is not None and bucket.effective_from != effective_from:
-        bucket.effective_from = effective_from
-        changed = True
-    if bucket.effective_to != effective_to:
-        bucket.effective_to = effective_to
-        changed = True
+    metadata = _normalize_json_object(grant_entry.metadata_json)
+    is_reserved_grant = (
+        str(metadata.get("bucket_credit_state") or "").strip().lower() == "reserved"
+    )
+    if is_reserved_grant:
+        subscription = _load_subscription_by_bid(order.subscription_bid)
+        has_current_available_balance = _to_decimal(bucket.available_credits) > 0
+        subscription_has_current_window = (
+            subscription is not None
+            and subscription.current_period_start_at is not None
+            and subscription.current_period_end_at is not None
+            and subscription.current_period_start_at <= now
+            and subscription.current_period_end_at > now
+        )
+        if has_current_available_balance and subscription_has_current_window:
+            current_period_start = subscription.current_period_start_at
+            current_period_end = subscription.current_period_end_at
+            if bucket.effective_from is None or bucket.effective_from > now:
+                bucket.effective_from = current_period_start
+                changed = True
+            if bucket.effective_to is None or bucket.effective_to > current_period_end:
+                bucket.effective_to = current_period_end
+                changed = True
+    else:
+        if effective_from is not None and bucket.effective_from != effective_from:
+            bucket.effective_from = effective_from
+            changed = True
+        if bucket.effective_to != effective_to:
+            bucket.effective_to = effective_to
+            changed = True
     if bucket.source_bid != order.bill_order_bid:
         bucket.source_bid = order.bill_order_bid
         changed = True
@@ -999,7 +1023,10 @@ def _repair_existing_paid_order_grant_bucket(
     db.session.add(bucket)
 
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
-    refresh_credit_wallet_snapshot(wallet)
+    refresh_credit_wallet_snapshot(
+        wallet,
+        snapshot_at=now if is_reserved_grant else effective_from or now,
+    )
     persist_credit_wallet_snapshot(
         wallet,
         available_credits=wallet.available_credits,
@@ -1053,7 +1080,10 @@ def _expire_credit_bucket_balance_for_transition(
     sync_credit_bucket_status(bucket)
     db.session.add(bucket)
 
-    refresh_credit_wallet_snapshot(wallet)
+    refresh_credit_wallet_snapshot(
+        wallet,
+        snapshot_at=transition_at - timedelta(microseconds=1),
+    )
     ledger_entry = CreditLedgerEntry(
         ledger_bid=generate_id(app),
         creator_bid=order.creator_bid,
@@ -1263,7 +1293,7 @@ def _activate_reserved_subscription_grant_for_order(
     grant_entry.updated_at = now
     db.session.add(grant_entry)
 
-    refresh_credit_wallet_snapshot(wallet)
+    refresh_credit_wallet_snapshot(wallet, snapshot_at=effective_from)
     persist_credit_wallet_snapshot(
         wallet,
         available_credits=wallet.available_credits,
@@ -1344,7 +1374,7 @@ def _activate_reserved_campaign_bonus_grant_for_order(
     grant_entry.updated_at = now
     db.session.add(grant_entry)
 
-    refresh_credit_wallet_snapshot(wallet)
+    refresh_credit_wallet_snapshot(wallet, snapshot_at=effective_from)
     persist_credit_wallet_snapshot(
         wallet,
         available_credits=wallet.available_credits,
@@ -1622,6 +1652,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         .first()
     )
     if existing_entry is not None:
+        _activate_subscription_for_paid_order(app, order)
         _repair_existing_paid_order_grant_bucket(
             app,
             order=order,
@@ -1634,7 +1665,6 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
             effective_from=effective_from,
             effective_to=effective_to,
         )
-        _activate_subscription_for_paid_order(app, order)
         return False
 
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
@@ -1664,7 +1694,10 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
             include_effective_to_boundary=False,
         )
 
-    refresh_credit_wallet_snapshot(wallet)
+    _activate_subscription_for_paid_order(app, order)
+
+    snapshot_at = now_utc() if reserve_grant else effective_from
+    refresh_credit_wallet_snapshot(wallet, snapshot_at=snapshot_at)
     balance_after = _quantize_credit_amount(wallet.available_credits)
     next_lifetime_granted = _quantize_credit_amount(
         _to_decimal(wallet.lifetime_granted_credits) + amount
@@ -1714,7 +1747,6 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         effective_from=effective_from,
         effective_to=effective_to,
     )
-    _activate_subscription_for_paid_order(app, order)
 
     return True
 
@@ -1797,7 +1829,7 @@ def _grant_paid_campaign_bonus_credits(
     )
     db.session.add(bucket)
     sync_credit_bucket_status(bucket)
-    refresh_credit_wallet_snapshot(wallet)
+    refresh_credit_wallet_snapshot(wallet, snapshot_at=effective_from)
     balance_after = _quantize_credit_amount(wallet.available_credits)
     next_lifetime_granted = _quantize_credit_amount(
         _to_decimal(wallet.lifetime_granted_credits) + bonus_amount

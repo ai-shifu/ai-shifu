@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from flask import Flask
@@ -11,10 +12,12 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_ORDER_TYPE_TOPUP,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
@@ -72,6 +75,18 @@ def _create_pingxx_billing_order(bill_order_bid: str, charge_id: str) -> Billing
         failure_code="",
         failure_message="",
         metadata_json={},
+    )
+
+
+def _create_active_subscription(creator_bid: str = "creator-1") -> BillingSubscription:
+    now = datetime(2024, 4, 8, 12, 0, 0)
+    return BillingSubscription(
+        subscription_bid=f"subscription-{creator_bid}",
+        creator_bid=creator_bid,
+        product_bid="bill-product-plan-monthly",
+        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        current_period_start_at=now - timedelta(days=1),
+        current_period_end_at=now + timedelta(days=30),
     )
 
 
@@ -310,6 +325,7 @@ class TestBillingPingxxCallbacks:
         self, billing_callback_app
     ) -> None:
         with billing_callback_app.app_context():
+            dao.db.session.add(_create_active_subscription())
             dao.db.session.add(
                 _create_pingxx_billing_order("bill-pingxx-1", "ch_billing_pingxx_1")
             )
@@ -408,6 +424,7 @@ class TestBillingPingxxCallbacks:
         )
 
         with billing_callback_app.app_context():
+            dao.db.session.add(_create_active_subscription())
             dao.db.session.add(
                 _create_pingxx_billing_order(
                     "bill-pingxx-route-1",
