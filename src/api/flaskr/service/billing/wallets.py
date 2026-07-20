@@ -63,6 +63,11 @@ class WalletSnapshotRecord:
     creator_bid: str
     available_credits: int | float
     reserved_credits: int | float
+    previous_available_credits: int | float
+    previous_reserved_credits: int | float
+    available_credits_delta: int | float
+    reserved_credits_delta: int | float
+    changed: bool
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -70,6 +75,11 @@ class WalletSnapshotRecord:
             "creator_bid": self.creator_bid,
             "available_credits": self.available_credits,
             "reserved_credits": self.reserved_credits,
+            "previous_available_credits": self.previous_available_credits,
+            "previous_reserved_credits": self.previous_reserved_credits,
+            "available_credits_delta": self.available_credits_delta,
+            "reserved_credits_delta": self.reserved_credits_delta,
+            "changed": self.changed,
         }
 
     def __getitem__(self, key: str) -> Any:
@@ -82,6 +92,8 @@ class WalletSnapshotRebuildResult:
     creator_bid: str | None
     wallet_bid: str | None
     wallet_count: int
+    changed_wallet_count: int = 0
+    dry_run: bool = False
     wallets: list[WalletSnapshotRecord] = field(default_factory=list)
 
     def to_task_payload(self) -> dict[str, Any]:
@@ -90,6 +102,8 @@ class WalletSnapshotRebuildResult:
             "creator_bid": self.creator_bid,
             "wallet_bid": self.wallet_bid,
             "wallet_count": self.wallet_count,
+            "changed_wallet_count": self.changed_wallet_count,
+            "dry_run": self.dry_run,
             "wallets": [wallet.to_payload() for wallet in self.wallets],
         }
 
@@ -166,12 +180,12 @@ class ManualCreditGrantResult:
         return self.to_payload()[key]
 
 
-def refresh_credit_wallet_snapshot(
+def calculate_credit_wallet_snapshot_values(
     wallet: CreditWallet,
     *,
     snapshot_at: datetime | None = None,
-) -> CreditWallet:
-    """Rebuild wallet balances from the current bucket snapshot table."""
+) -> tuple[Decimal, Decimal]:
+    """Calculate wallet balances without mutating the ORM wallet row."""
 
     resolved_snapshot_at = snapshot_at or now_utc()
     rows = (
@@ -204,16 +218,33 @@ def refresh_credit_wallet_snapshot(
             )
         )
     ]
-    wallet.available_credits = sum(
+    available_credits = sum(
         (_to_decimal(row.available_credits) for row in current_consumable_rows),
         start=_ZERO,
     )
-    wallet.reserved_credits = sum(
+    reserved_credits = sum(
         (_to_decimal(row.reserved_credits) for row in rows),
         start=_ZERO,
     )
-    wallet.available_credits = _quantize_credit_amount(wallet.available_credits)
-    wallet.reserved_credits = _quantize_credit_amount(wallet.reserved_credits)
+    return (
+        _quantize_credit_amount(available_credits),
+        _quantize_credit_amount(reserved_credits),
+    )
+
+
+def refresh_credit_wallet_snapshot(
+    wallet: CreditWallet,
+    *,
+    snapshot_at: datetime | None = None,
+) -> CreditWallet:
+    """Rebuild wallet balances from the current bucket snapshot table."""
+
+    available_credits, reserved_credits = calculate_credit_wallet_snapshot_values(
+        wallet,
+        snapshot_at=snapshot_at,
+    )
+    wallet.available_credits = available_credits
+    wallet.reserved_credits = reserved_credits
     return wallet
 
 
@@ -397,6 +428,7 @@ def rebuild_credit_wallet_snapshots(
     *,
     creator_bid: str = "",
     wallet_bid: str = "",
+    dry_run: bool = False,
 ) -> WalletSnapshotRebuildResult:
     """Rebuild wallet snapshots from bucket rows for one or many creators."""
 
@@ -415,36 +447,62 @@ def rebuild_credit_wallet_snapshots(
                 creator_bid=normalized_creator_bid or None,
                 wallet_bid=normalized_wallet_bid or None,
                 wallet_count=0,
+                changed_wallet_count=0,
+                dry_run=dry_run,
                 wallets=[],
             )
 
         rebuilt_at = now_utc()
         payload_wallets: list[WalletSnapshotRecord] = []
+        changed_wallet_count = 0
         for wallet in wallets:
-            refresh_credit_wallet_snapshot(wallet)
-            persist_credit_wallet_snapshot(
+            previous_available = _quantize_credit_amount(wallet.available_credits)
+            previous_reserved = _quantize_credit_amount(wallet.reserved_credits)
+            next_available, next_reserved = calculate_credit_wallet_snapshot_values(
                 wallet,
-                available_credits=wallet.available_credits,
-                reserved_credits=wallet.reserved_credits,
-                updated_at=rebuilt_at,
+                snapshot_at=rebuilt_at,
             )
+            available_delta = _quantize_credit_amount(
+                next_available - previous_available
+            )
+            reserved_delta = _quantize_credit_amount(next_reserved - previous_reserved)
+            changed = available_delta != _ZERO or reserved_delta != _ZERO
+            if changed:
+                changed_wallet_count += 1
+            if not dry_run:
+                persist_credit_wallet_snapshot(
+                    wallet,
+                    available_credits=next_available,
+                    reserved_credits=next_reserved,
+                    updated_at=rebuilt_at,
+                )
             payload_wallets.append(
                 WalletSnapshotRecord(
                     wallet_bid=wallet.wallet_bid,
                     creator_bid=wallet.creator_bid,
-                    available_credits=_credit_decimal_to_number(
-                        wallet.available_credits
+                    available_credits=_credit_decimal_to_number(next_available),
+                    reserved_credits=_credit_decimal_to_number(next_reserved),
+                    previous_available_credits=_credit_decimal_to_number(
+                        previous_available
                     ),
-                    reserved_credits=_credit_decimal_to_number(wallet.reserved_credits),
+                    previous_reserved_credits=_credit_decimal_to_number(
+                        previous_reserved
+                    ),
+                    available_credits_delta=_credit_decimal_to_number(available_delta),
+                    reserved_credits_delta=_credit_decimal_to_number(reserved_delta),
+                    changed=changed,
                 )
             )
 
-        db.session.commit()
+        if not dry_run:
+            db.session.commit()
         return WalletSnapshotRebuildResult(
-            status="rebuilt",
+            status="dry_run" if dry_run else "rebuilt",
             creator_bid=normalized_creator_bid or None,
             wallet_bid=normalized_wallet_bid or None,
             wallet_count=len(payload_wallets),
+            changed_wallet_count=changed_wallet_count,
+            dry_run=dry_run,
             wallets=payload_wallets,
         )
 
