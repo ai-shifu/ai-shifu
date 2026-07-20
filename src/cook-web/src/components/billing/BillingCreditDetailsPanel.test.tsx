@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   useBillingOverview,
@@ -163,6 +163,22 @@ describe('BillingCreditDetailsPanel', () => {
     );
 
     expect(onUpgrade).toHaveBeenCalledTimes(1);
+  });
+
+  test('revalidates wallet buckets after the overview snapshot loads', async () => {
+    const refreshWalletBuckets = jest.fn();
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: { items: [] },
+      error: undefined,
+      isLoading: false,
+      mutate: refreshWalletBuckets,
+    });
+
+    render(<BillingCreditDetailsPanel />);
+
+    await waitFor(() => {
+      expect(refreshWalletBuckets).toHaveBeenCalledTimes(1);
+    });
   });
 
   test('falls back to the earliest manual grant expiry when no active subscription remains', () => {

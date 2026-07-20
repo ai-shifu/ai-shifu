@@ -214,6 +214,7 @@ export function BillingCreditDetailsPanel({
     data: bucketList,
     error: bucketsError,
     isLoading: bucketsLoading,
+    mutate: refreshWalletBuckets,
   } = useBillingWalletBuckets();
   const hasActiveSubscription = Boolean(
     overview?.subscription &&
@@ -223,6 +224,20 @@ export function BillingCreditDetailsPanel({
     hasActiveSubscription && overview?.subscription?.current_period_end_at
       ? String(overview.subscription.current_period_end_at)
       : null;
+
+  React.useEffect(() => {
+    if (overviewLoading || !overview?.creator_bid) {
+      return;
+    }
+
+    void refreshWalletBuckets?.();
+  }, [
+    overview?.creator_bid,
+    overview?.wallet.available_credits,
+    overview?.wallet.reserved_credits,
+    overviewLoading,
+    refreshWalletBuckets,
+  ]);
 
   const summaryRows = useMemo(
     () =>
