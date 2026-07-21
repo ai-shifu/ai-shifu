@@ -29,7 +29,7 @@ export const adaptMarkdownFlowInteractionForRender = (content: string) => {
   const firstMultiSeparatorIndex = separatorProbe.indexOf('||');
   const isMultiSelect =
     firstMultiSeparatorIndex !== -1 &&
-    firstMultiSeparatorIndex <= firstSeparatorIndex;
+    firstMultiSeparatorIndex === firstSeparatorIndex;
   const optionSeparator = isMultiSelect
     ? '||'
     : SINGLE_OPTION_SEPARATOR_PATTERN;
