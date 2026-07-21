@@ -170,8 +170,9 @@ describe('ModelList', () => {
   });
 
   test('refreshes model options on open with a short ttl', () => {
+    const initialNow = Date.now() + 1_000_000;
     const nowSpy = jest.spyOn(Date, 'now');
-    nowSpy.mockReturnValue(1_000_000);
+    nowSpy.mockReturnValue(initialNow);
 
     try {
       render(
@@ -185,7 +186,7 @@ describe('ModelList', () => {
       fireEvent.click(screen.getByTestId('model-select'));
       expect(mockLoadModels).toHaveBeenCalledTimes(1);
 
-      nowSpy.mockReturnValue(1_031_000);
+      nowSpy.mockReturnValue(initialNow + 31_000);
       fireEvent.click(screen.getByTestId('model-select'));
       expect(mockLoadModels).toHaveBeenCalledTimes(2);
     } finally {
