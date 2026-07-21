@@ -498,7 +498,7 @@ body.listen-mode-vh-fallback #root {
     font-size: 10px;
     line-height: 1.4;
     overflow-wrap: anywhere;
-    word-break: break-all;
+    word-break: break-word;
     text-align: right;
     text-decoration: underline !important;
     text-underline-offset: 2px;
