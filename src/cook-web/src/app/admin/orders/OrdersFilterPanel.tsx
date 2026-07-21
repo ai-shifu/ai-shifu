@@ -28,8 +28,6 @@ import {
 import type { OrderFilters } from './ordersPageShared';
 
 const ALL_OPTION_VALUE = '__all__';
-const SINGLE_SELECT_ITEM_CLASS =
-  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
 
 type SelectOption = {
   value: string;
@@ -233,7 +231,6 @@ export default function OrdersFilterPanel({
         value: option.value || ALL_OPTION_VALUE,
         label: option.label,
       })),
-      selectItemClassName: SINGLE_SELECT_ITEM_CLASS,
     }),
     createSelectFilterItem({
       key: 'payment_channel',
@@ -249,7 +246,6 @@ export default function OrdersFilterPanel({
         value: option.value || ALL_OPTION_VALUE,
         label: option.label,
       })),
-      selectItemClassName: SINGLE_SELECT_ITEM_CLASS,
     }),
     createDateRangeFilterItem({
       key: 'date_range',

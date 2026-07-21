@@ -496,6 +496,7 @@ def test_settle_usage_writes_zero_amount_bill_when_consumption_quantizes_to_zero
     with billing_settlement_app.app_context():
         wallet = _create_wallet("creator-zero-bill", "1.0000000000")
         dao.db.session.add(wallet)
+        dao.db.session.add(_create_active_subscription("creator-zero-bill"))
         dao.db.session.add(
             _create_bucket(
                 creator_bid="creator-zero-bill",
@@ -906,6 +907,7 @@ def test_settle_usage_rebuilds_wallet_snapshot_from_bucket_balances(
     with billing_settlement_app.app_context():
         wallet = _create_wallet("creator-5", "999.0000000000")
         dao.db.session.add(wallet)
+        dao.db.session.add(_create_active_subscription("creator-5"))
         dao.db.session.add_all(
             [
                 _create_bucket(

@@ -299,7 +299,7 @@ def grant_referral_reward_credits_to_user(
                 synchronize_session=False,
             )
 
-        refresh_credit_wallet_snapshot(wallet)
+        refresh_credit_wallet_snapshot(wallet, snapshot_at=granted_at)
         balance_after = _quantize_credit_amount(wallet.available_credits)
         next_lifetime_granted = _quantize_credit_amount(
             _to_decimal(wallet.lifetime_granted_credits) + granted_amount

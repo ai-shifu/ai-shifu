@@ -139,6 +139,8 @@ def test_billing_v11_upgrade_can_backfill_new_views_from_v1_source_rows(
     assert serialize_creator_entitlements(entitlement_state) == {
         "branding_enabled": True,
         "custom_domain_enabled": False,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "priority",
         "analytics_tier": "advanced",
         "support_tier": "business_hours",

@@ -122,6 +122,30 @@ class _FakeLangfuseClient:
         return trace
 
 
+def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders():
+    from flaskr.service.shifu import shifu_publish_funcs as module
+    from flaskr.util.prompt_loader import load_prompt_template
+
+    app = Flask("shifu-ask-prompt")
+    template = load_prompt_template("ask")
+
+    result = module._make_ask_prompt(
+        app,
+        template,
+        learned_text="learned summary",
+        unlearned_text="unlearned summary",
+    )
+
+    assert "learned summary" in result
+    assert "unlearned summary" in result
+    # Runtime placeholders survive publishing and are filled at ask time.
+    assert "{shifu_system_message}" in result
+    assert "{knowledge_rule}" in result
+    assert "{knowledge_section}" in result
+    # The knowledge section itself is rendered at ask time, not at publish.
+    assert "<knowledge>" not in result
+
+
 def test_get_summary_updates_trace_and_span_output(monkeypatch):
     from flaskr.service.shifu import shifu_publish_funcs as module
 

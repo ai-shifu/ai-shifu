@@ -123,8 +123,9 @@ def _setup_handle_input_ask_test_doubles(
             self.temperature = temperature
 
     class _DummyAskProviderRuntime:
-        def __init__(self, llm_stream_factory=None):
+        def __init__(self, llm_stream_factory=None, llm_context_stream_factory=None):
             self.llm_stream_factory = llm_stream_factory
+            self.llm_context_stream_factory = llm_context_stream_factory
 
     class _DummyAskProviderTimeoutError(AskProviderError):
         pass

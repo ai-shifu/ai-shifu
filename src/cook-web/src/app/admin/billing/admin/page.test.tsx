@@ -4,9 +4,11 @@ import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
 
-import AdminBillingConsolePage from './page';
+import { AdminBillingOperationsConsole } from '@/app/admin/operations/billing/AdminBillingOperationsConsole';
+import { applyAdminBillingOpsState } from '@/components/billing/AdminBillingShared';
 
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 const mockEnvState = {
   billingEnabled: 'true',
   runtimeConfigLoaded: true,
@@ -14,8 +16,10 @@ const mockEnvState = {
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
+    push: mockPush,
     replace: mockReplace,
   }),
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -43,45 +47,87 @@ jest.mock('@/lib/browser-timezone', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
-    adjustAdminBillingLedger: jest.fn(),
     getBillingBootstrap: jest.fn(),
+    getAdminBillingFocusTeachers: jest.fn(),
     getAdminBillingDailyLedgerSummary: jest.fn(),
-    getAdminBillingDailyUsageMetrics: jest.fn(),
-    getAdminBillingDomainAudits: jest.fn(),
     getAdminBillingEntitlements: jest.fn(),
+    grantAdminBillingEntitlement: jest.fn(),
+    getAdminBillingCustomizationDraft: jest.fn(),
+    saveAdminBillingCustomizationDraft: jest.fn(),
+    deleteAdminBillingCustomizationDraft: jest.fn(),
     getAdminBillingSubscriptions: jest.fn(),
-    getAdminBillingOrders: jest.fn(),
+    getAdminBillingOpsState: jest.fn(),
+    updateAdminBillingConfigStatus: jest.fn(),
   },
 }));
 
-const mockAdjustAdminBillingLedger = api.adjustAdminBillingLedger as jest.Mock;
 const mockGetBillingBootstrap = api.getBillingBootstrap as jest.Mock;
+const mockGetAdminBillingFocusTeachers =
+  api.getAdminBillingFocusTeachers as jest.Mock;
 const mockGetAdminBillingDailyLedgerSummary =
   api.getAdminBillingDailyLedgerSummary as jest.Mock;
-const mockGetAdminBillingDailyUsageMetrics =
-  api.getAdminBillingDailyUsageMetrics as jest.Mock;
-const mockGetAdminBillingDomainAudits =
-  api.getAdminBillingDomainAudits as jest.Mock;
 const mockGetAdminBillingEntitlements =
   api.getAdminBillingEntitlements as jest.Mock;
+const mockGrantAdminBillingEntitlement =
+  api.grantAdminBillingEntitlement as jest.Mock;
+const mockGetAdminBillingCustomizationDraft =
+  api.getAdminBillingCustomizationDraft as jest.Mock;
+const mockSaveAdminBillingCustomizationDraft =
+  api.saveAdminBillingCustomizationDraft as jest.Mock;
+const mockDeleteAdminBillingCustomizationDraft =
+  api.deleteAdminBillingCustomizationDraft as jest.Mock;
 const mockGetAdminBillingSubscriptions =
   api.getAdminBillingSubscriptions as jest.Mock;
-const mockGetAdminBillingOrders = api.getAdminBillingOrders as jest.Mock;
+const mockGetAdminBillingOpsState = api.getAdminBillingOpsState as jest.Mock;
+const mockUpdateAdminBillingConfigStatus =
+  api.updateAdminBillingConfigStatus as jest.Mock;
 
-describe('AdminBillingConsolePage', () => {
+describe('AdminBillingOperationsConsole', () => {
   beforeEach(() => {
     mockReplace.mockReset();
+    mockPush.mockReset();
+    window.localStorage.clear();
+    applyAdminBillingOpsState({ config_status: {} });
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockEnvState.billingEnabled = 'true';
     mockEnvState.runtimeConfigLoaded = true;
-    mockAdjustAdminBillingLedger.mockReset();
     mockGetBillingBootstrap.mockReset();
+    mockGetAdminBillingFocusTeachers.mockReset();
     mockGetAdminBillingDailyLedgerSummary.mockReset();
-    mockGetAdminBillingDailyUsageMetrics.mockReset();
-    mockGetAdminBillingDomainAudits.mockReset();
     mockGetAdminBillingEntitlements.mockReset();
+    mockGrantAdminBillingEntitlement.mockReset();
+    mockGetAdminBillingCustomizationDraft.mockReset();
+    mockSaveAdminBillingCustomizationDraft.mockReset();
+    mockDeleteAdminBillingCustomizationDraft.mockReset();
     mockGetAdminBillingSubscriptions.mockReset();
-    mockGetAdminBillingOrders.mockReset();
+    mockGetAdminBillingOpsState.mockReset();
+    mockUpdateAdminBillingConfigStatus.mockReset();
+    mockGetAdminBillingOpsState.mockResolvedValue({
+      config_status: {},
+    });
+    mockUpdateAdminBillingConfigStatus.mockResolvedValue({});
+    mockGetAdminBillingCustomizationDraft.mockResolvedValue({
+      creator_mobile: '',
+      branding_enabled: false,
+      custom_domain_enabled: false,
+      custom_wechat_enabled: false,
+      custom_payment_enabled: false,
+      config_status: 'pending',
+      note: '',
+      branding: { logo_wide_url: '', logo_square_url: '' },
+      domain: { host: '' },
+      integrations: {
+        wechat_oauth: { public_config: {}, secret_config: {} },
+        pingxx: { public_config: {}, secret_config: {} },
+        stripe: { public_config: {}, secret_config: {} },
+        alipay: { public_config: {}, secret_config: {} },
+        wechatpay: { public_config: {}, secret_config: {} },
+      },
+    });
+    mockSaveAdminBillingCustomizationDraft.mockResolvedValue({});
+    mockDeleteAdminBillingCustomizationDraft.mockResolvedValue({
+      status: 'deleted',
+    });
 
     mockGetBillingBootstrap.mockResolvedValue({
       service: 'billing',
@@ -90,15 +136,6 @@ describe('AdminBillingConsolePage', () => {
       creator_routes: [],
       admin_routes: [],
       capabilities: [
-        {
-          key: 'admin_orders',
-          status: 'active',
-          audience: 'admin',
-          user_visible: true,
-          default_enabled: true,
-          entry_points: [],
-          notes: [],
-        },
         {
           key: 'renewal_task_queue',
           status: 'default_disabled',
@@ -126,6 +163,8 @@ describe('AdminBillingConsolePage', () => {
         {
           subscription_bid: 'sub-past-due',
           creator_bid: 'creator-2',
+          creator_mobile: '13800138002',
+          creator_nickname: 'Teacher Two',
           product_bid: 'bill-product-plan-yearly',
           product_code: 'creator-plan-yearly',
           status: 'past_due',
@@ -164,35 +203,6 @@ describe('AdminBillingConsolePage', () => {
       page_size: 10,
       total: 1,
     });
-    mockGetAdminBillingOrders.mockResolvedValue({
-      items: [
-        {
-          bill_order_bid: 'order-1',
-          creator_bid: 'creator-2',
-          product_bid: 'bill-product-plan-yearly',
-          subscription_bid: 'sub-past-due',
-          order_type: 'subscription_renewal',
-          status: 'failed',
-          payment_provider: 'stripe',
-          payment_mode: 'subscription',
-          payable_amount: 99900,
-          paid_amount: 0,
-          currency: 'CNY',
-          provider_reference_id: 'cs_failed',
-          failure_message: 'Card was declined',
-          failure_code: 'card_declined',
-          created_at: '2026-04-03T07:55:00Z',
-          paid_at: null,
-          failed_at: '2026-04-03T08:00:00Z',
-          refunded_at: null,
-          has_attention: true,
-        },
-      ],
-      page: 1,
-      page_count: 1,
-      page_size: 10,
-      total: 1,
-    });
     mockGetAdminBillingEntitlements.mockResolvedValue({
       items: [
         {
@@ -203,6 +213,8 @@ describe('AdminBillingConsolePage', () => {
           product_bid: '',
           branding_enabled: true,
           custom_domain_enabled: false,
+          custom_wechat_enabled: false,
+          custom_payment_enabled: false,
           priority_class: 'priority',
           analytics_tier: 'advanced',
           support_tier: 'business_hours',
@@ -216,52 +228,34 @@ describe('AdminBillingConsolePage', () => {
       page_size: 10,
       total: 1,
     });
-    mockGetAdminBillingDomainAudits.mockResolvedValue({
+    mockGrantAdminBillingEntitlement.mockResolvedValue({
+      creator_bid: 'creator-2',
+      branding_enabled: true,
+      custom_domain_enabled: true,
+      custom_wechat_enabled: true,
+      custom_payment_enabled: true,
+    });
+    mockGetAdminBillingFocusTeachers.mockResolvedValue({
       items: [
         {
-          domain_binding_bid: 'binding-1',
           creator_bid: 'creator-2',
-          host: 'academy.creator-two.com',
-          status: 'pending',
-          verification_method: 'dns_txt',
-          verification_token: 'token-1',
-          verification_record_name: '_ai-shifu.academy.creator-two.com',
-          verification_record_value: 'token-1',
-          last_verified_at: null,
-          ssl_status: 'pending',
-          is_effective: false,
-          custom_domain_enabled: false,
-          has_attention: true,
-          metadata: {},
+          creator_mobile: '13800138002',
+          creator_nickname: 'Teacher Two',
+          credits_7d: 12.5,
+          credits_30d: 18.5,
+          record_count_7d: 6,
+          active_days_7d: 4,
+          production_credits_30d: 8.5,
+          debug_preview_credits_30d: 10,
+          total_credits_30d: 18.5,
+          production_ratio_30d: 0.4595,
+          latest_usage_at: '2026-04-07T00:00:00Z',
+          attention_reasons: ['rapid_growth', 'high_consumption'],
         },
       ],
       page: 1,
       page_count: 1,
       page_size: 10,
-      total: 1,
-    });
-    mockGetAdminBillingDailyUsageMetrics.mockResolvedValue({
-      items: [
-        {
-          creator_bid: 'creator-2',
-          daily_usage_metric_bid: 'daily-usage-1',
-          stat_date: '2026-04-06',
-          shifu_bid: 'shifu-2',
-          usage_scene: 'production',
-          usage_type: 'llm',
-          provider: 'openai',
-          model: 'gpt-4o-mini',
-          billing_metric: 'llm_output_tokens',
-          raw_amount: 4096,
-          record_count: 4,
-          consumed_credits: 6.5,
-          window_started_at: '2026-04-06T00:00:00Z',
-          window_ended_at: '2026-04-07T00:00:00Z',
-        },
-      ],
-      page: 1,
-      page_count: 1,
-      page_size: 6,
       total: 1,
     });
     mockGetAdminBillingDailyLedgerSummary.mockResolvedValue({
@@ -283,18 +277,6 @@ describe('AdminBillingConsolePage', () => {
       page_size: 6,
       total: 1,
     });
-    mockAdjustAdminBillingLedger.mockResolvedValue({
-      status: 'adjusted',
-      creator_bid: 'creator-2',
-      amount: 12.5,
-      wallet: {
-        wallet_bid: 'wallet-2',
-        available_credits: 17.5,
-        reserved_credits: 0,
-      },
-      wallet_bucket_bids: ['bucket-1'],
-      ledger_bids: ['ledger-1'],
-    });
   });
 
   test('redirects back to admin when billing is disabled', async () => {
@@ -306,7 +288,7 @@ describe('AdminBillingConsolePage', () => {
           provider: () => new Map(),
         }}
       >
-        <AdminBillingConsolePage />
+        <AdminBillingOperationsConsole />
       </SWRConfig>,
     );
 
@@ -318,7 +300,7 @@ describe('AdminBillingConsolePage', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('renders admin billing tabs and loads subscriptions, orders, and exceptions', async () => {
+  test('renders admin billing tabs and loads active billing operation sections', async () => {
     const user = userEvent.setup();
 
     render(
@@ -327,7 +309,7 @@ describe('AdminBillingConsolePage', () => {
           provider: () => new Map(),
         }}
       >
-        <AdminBillingConsolePage />
+        <AdminBillingOperationsConsole />
       </SWRConfig>,
     );
 
@@ -341,61 +323,20 @@ describe('AdminBillingConsolePage', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('link', {
-        name: 'module.billing.admin.backToCreatorBilling',
-      }),
-    ).toHaveAttribute('href', '/admin/billing');
-    expect(
       screen.getByRole('tab', {
         name: 'module.billing.admin.tabs.subscriptions',
       }),
     ).toHaveAttribute('data-state', 'active');
-    expect(mockGetAdminBillingSubscriptions).toHaveBeenCalledWith({
-      page_index: 1,
-      page_size: 10,
-    });
-    expect(await screen.findByText('sub-past-due')).toBeInTheDocument();
-    expect(screen.getAllByText('2026-03-31 17:00:00').length).toBeGreaterThan(
-      0,
+    expect(screen.getAllByRole('tab')).toHaveLength(3);
+    expect(mockGetAdminBillingSubscriptions).toHaveBeenCalledWith(
+      {
+        page_index: 1,
+        page_size: 10,
+        attention_only: true,
+      },
+      { skipErrorToast: true },
     );
-    expect(screen.queryByText('2026-04-01T00:00:00Z')).not.toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.renewal.eventType.retry'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.renewal.status.failed'),
-    ).toBeInTheDocument();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('tab', {
-          name: 'module.billing.admin.tabs.orders',
-        }),
-      );
-    });
-
-    expect(await screen.findByText('order-1')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-03 00:55:00')).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.admin.orders.title'),
-    ).toBeInTheDocument();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('tab', {
-          name: 'module.billing.admin.tabs.exceptions',
-        }),
-      );
-    });
-
-    expect(
-      await screen.findByText('module.billing.admin.exceptions.title'),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText('creator-2').length).toBeGreaterThan(0);
-    expect(screen.getByText('Card was declined')).toBeInTheDocument();
-    expect(screen.getAllByText('2026-03-31 17:00:00').length).toBeGreaterThan(
-      0,
-    );
+    expect(await screen.findByText('Teacher Two')).toBeInTheDocument();
 
     await act(async () => {
       await user.click(
@@ -408,48 +349,14 @@ describe('AdminBillingConsolePage', () => {
     expect(
       await screen.findByText('module.billing.admin.entitlements.title'),
     ).toBeInTheDocument();
-    expect(screen.getByText('manual-2')).toBeInTheDocument();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('tab', {
-          name: 'module.billing.admin.tabs.domains',
-        }),
-      );
-    });
-
     expect(
-      await screen.findByText('module.billing.admin.domains.title'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('academy.creator-two.com')).toBeInTheDocument();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('tab', {
-          name: 'module.billing.admin.tabs.reports',
-        }),
-      );
-    });
-
-    expect(
-      await screen.findByText('module.billing.admin.reports.title'),
-    ).toBeInTheDocument();
-    expect(mockGetAdminBillingDailyUsageMetrics).toHaveBeenCalledWith({
-      page_index: 1,
-      page_size: 6,
-    });
-    expect(
-      screen.getByText('module.billing.admin.reports.sections.usage.title'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.reports.metric.llmOutputTokens'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getAllByText('2026-04-05 17:00:00 → 2026-04-06 17:00:00').length,
+      screen.getAllByRole('button', {
+        name: 'module.billing.admin.entitlements.actions.viewDetail',
+      }).length,
     ).toBeGreaterThan(0);
   });
 
-  test('submits a manual ledger adjustment and revalidates admin billing data', async () => {
+  test('grants creator customization entitlements from the admin console', async () => {
     const user = userEvent.setup();
 
     render(
@@ -458,68 +365,51 @@ describe('AdminBillingConsolePage', () => {
           provider: () => new Map(),
         }}
       >
-        <AdminBillingConsolePage />
+        <AdminBillingOperationsConsole />
       </SWRConfig>,
     );
 
-    await act(async () => {
-      await user.click(
-        screen.getByRole('tab', {
-          name: 'module.billing.admin.tabs.exceptions',
-        }),
-      );
-    });
-
-    await screen.findByText('module.billing.admin.exceptions.title');
-    const initialSubscriptionCalls =
-      mockGetAdminBillingSubscriptions.mock.calls.length;
-    const initialOrderCalls = mockGetAdminBillingOrders.mock.calls.length;
-
-    await act(async () => {
-      await user.click(
-        screen.getAllByRole('button', {
-          name: 'module.billing.admin.adjust.quickAction',
-        })[0],
-      );
-    });
-
-    expect(
-      screen.getByRole('dialog', {
-        name: 'module.billing.admin.adjust.title',
+    await user.click(
+      screen.getByRole('tab', {
+        name: 'module.billing.admin.tabs.entitlements',
       }),
-    ).toBeInTheDocument();
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'module.billing.admin.entitlements.actions.viewDetail',
+      }),
+    );
+
     expect(
-      screen.getByLabelText('module.billing.admin.adjust.fields.creatorBid'),
+      screen.getByLabelText(
+        'module.billing.admin.entitlements.grant.fields.creatorMobile',
+      ),
     ).toHaveValue('creator-2');
 
-    await act(async () => {
-      await user.type(
-        screen.getByLabelText('module.billing.admin.adjust.fields.amount'),
-        '12.5000000000',
-      );
-      await user.type(
-        screen.getByLabelText('module.billing.admin.adjust.fields.note'),
-        'manual recovery',
-      );
-      await user.click(
-        screen.getByRole('button', {
-          name: 'module.billing.admin.adjust.submit',
-        }),
-      );
-    });
-
-    expect(mockAdjustAdminBillingLedger).toHaveBeenCalledWith({
-      creator_bid: 'creator-2',
-      amount: '12.5000000000',
-      note: 'manual recovery',
-    });
-
-    await screen.findByText('module.billing.admin.exceptions.title');
-    expect(mockGetAdminBillingSubscriptions.mock.calls.length).toBeGreaterThan(
-      initialSubscriptionCalls,
+    await user.click(
+      screen.getByRole('switch', {
+        name: 'module.billing.admin.entitlements.grant.fields.custom_domain_enabled',
+      }),
     );
-    expect(mockGetAdminBillingOrders.mock.calls.length).toBeGreaterThan(
-      initialOrderCalls,
+    await user.click(
+      screen.getByRole('switch', {
+        name: 'module.billing.admin.entitlements.grant.fields.custom_payment_enabled',
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.admin.entitlements.grant.submit',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockGrantAdminBillingEntitlement).toHaveBeenCalledWith({
+        creator_bid: 'creator-2',
+        branding_enabled: true,
+        custom_domain_enabled: true,
+        custom_wechat_enabled: false,
+        custom_payment_enabled: true,
+      }),
     );
   });
 });

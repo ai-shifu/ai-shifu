@@ -135,6 +135,8 @@ def test_resolve_creator_entitlement_state_prefers_latest_active_snapshot(
     assert serialize_creator_entitlements(state) == {
         "branding_enabled": True,
         "custom_domain_enabled": True,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "vip",
         "analytics_tier": "enterprise",
         "support_tier": "priority",
@@ -176,6 +178,8 @@ def test_resolve_creator_entitlement_state_falls_back_to_product_payload_or_defa
     assert serialize_creator_entitlements(product_state) == {
         "branding_enabled": True,
         "custom_domain_enabled": False,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "priority",
         "analytics_tier": "advanced",
         "support_tier": "business_hours",
@@ -187,6 +191,8 @@ def test_resolve_creator_entitlement_state_falls_back_to_product_payload_or_defa
     assert serialize_creator_entitlements(default_state) == {
         "branding_enabled": False,
         "custom_domain_enabled": False,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "standard",
         "analytics_tier": "basic",
         "support_tier": "self_serve",

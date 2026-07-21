@@ -17,14 +17,17 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
     children,
     disabled,
     onClick,
+    className,
   }: React.PropsWithChildren<{
     disabled?: boolean;
     onClick?: () => void;
+    className?: string;
   }>) => (
     <button
       type='button'
       disabled={disabled}
       onClick={onClick}
+      className={className}
     >
       {children}
     </button>
@@ -80,6 +83,27 @@ describe('AdminRowActions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Grant credits' }));
 
     expect(grant).not.toHaveBeenCalled();
+  });
+
+  test('applies a disabled cursor override to disabled actions', () => {
+    render(
+      <AdminRowActions
+        label='More'
+        actions={[
+          {
+            key: 'grant',
+            label: 'Grant credits',
+            onClick: jest.fn(),
+            disabled: true,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Grant credits' })).toHaveClass(
+      'cursor-pointer',
+      'data-[disabled]:cursor-default',
+    );
   });
 
   test('renders nothing when every action is hidden', () => {

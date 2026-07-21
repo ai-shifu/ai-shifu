@@ -163,6 +163,16 @@ class TestResolvePaymentChannel:
         assert provider == "wechatpay"
         assert sub_channel == "wx_pub_qr"
 
+    def test_scoped_provider_allows_custom_wechat_when_global_default_is_pingxx(self):
+        provider, sub_channel = _resolve_payment_channel(
+            payment_channel_hint="wechatpay",
+            channel_hint="wx_pub_qr",
+            stored_channel=None,
+            additional_enabled_providers={"wechatpay"},
+        )
+        assert provider == "wechatpay"
+        assert sub_channel == "wx_pub_qr"
+
     def test_explicit_native_provider_rejects_unsupported_channel(self, monkeypatch):
         def fake_get_config(key, default=None):
             if key == "PAYMENT_CHANNELS_ENABLED":

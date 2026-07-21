@@ -20,6 +20,8 @@ services:
       LOGIN_METHODS_ENABLED: phone
       DEFAULT_LOGIN_METHOD: phone
       CAPTCHA_CODE_OVERRIDE: "0000"
+      CREATOR_INTEGRATION_ENCRYPTION_KEY: "9KxIo7loUIAmGkQmxUHQWwLpyJBKdIIFxg9FgDtw9NI="
+      SAAS_DB_URI: "mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4"
       REDIS_HOST: ai-shifu-redis
       REDIS_PORT: 6379
       SKIP_LOAD_DOTENV: "1"
@@ -48,6 +50,8 @@ services:
       REDIS_HOST: ai-shifu-redis
       REDIS_PORT: 6379
       SKIP_LOAD_DOTENV: "1"
+      CREATOR_INTEGRATION_ENCRYPTION_KEY: "9KxIo7loUIAmGkQmxUHQWwLpyJBKdIIFxg9FgDtw9NI="
+      SAAS_DB_URI: "mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4"
       CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
       CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
     depends_on:
@@ -70,6 +74,8 @@ services:
       REDIS_HOST: ai-shifu-redis
       REDIS_PORT: 6379
       SKIP_LOAD_DOTENV: "1"
+      CREATOR_INTEGRATION_ENCRYPTION_KEY: "9KxIo7loUIAmGkQmxUHQWwLpyJBKdIIFxg9FgDtw9NI="
+      SAAS_DB_URI: "mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4"
       CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
       CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
     depends_on:

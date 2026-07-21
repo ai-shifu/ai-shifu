@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   useBillingOverview,
@@ -32,6 +32,7 @@ const mockUseBillingWalletBuckets = useBillingWalletBuckets as jest.Mock;
 
 describe('BillingCreditDetailsPanel', () => {
   beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-04-15T00:00:00Z'));
     mockUseBillingOverview.mockReset();
     mockUseBillingWalletBuckets.mockReset();
 
@@ -125,8 +126,12 @@ describe('BillingCreditDetailsPanel', () => {
     });
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test('renders subscription credits in one row and prefers the active subscription expiry', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     const onUpgrade = jest.fn();
     render(<BillingCreditDetailsPanel onUpgrade={onUpgrade} />);
 
@@ -158,6 +163,62 @@ describe('BillingCreditDetailsPanel', () => {
     );
 
     expect(onUpgrade).toHaveBeenCalledTimes(1);
+  });
+
+  test('revalidates wallet buckets after the overview snapshot loads', async () => {
+    const refreshWalletBuckets = jest.fn();
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: { items: [] },
+      error: undefined,
+      isLoading: false,
+      mutate: refreshWalletBuckets,
+    });
+
+    render(<BillingCreditDetailsPanel />);
+
+    await waitFor(() => {
+      expect(refreshWalletBuckets).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test('revalidates wallet buckets when the subscription period changes', async () => {
+    const refreshWalletBuckets = jest.fn();
+    const overview = mockUseBillingOverview().data;
+    mockUseBillingOverview.mockImplementation(() => ({
+      data: overview,
+      error: undefined,
+      isLoading: false,
+    }));
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: { items: [] },
+      error: undefined,
+      isLoading: false,
+      mutate: refreshWalletBuckets,
+    });
+
+    const { rerender } = render(<BillingCreditDetailsPanel />);
+
+    await waitFor(() => {
+      expect(refreshWalletBuckets).toHaveBeenCalledTimes(1);
+    });
+
+    mockUseBillingOverview.mockImplementation(() => ({
+      data: {
+        ...overview,
+        subscription: {
+          ...overview.subscription,
+          current_period_end_at: '2026-11-12T23:59:00',
+        },
+      },
+      error: undefined,
+      isLoading: false,
+    }));
+
+    rerender(<BillingCreditDetailsPanel />);
+
+    await waitFor(() => {
+      expect(refreshWalletBuckets).toHaveBeenCalledTimes(2);
+    });
   });
 
   test('falls back to the earliest manual grant expiry when no active subscription remains', () => {
@@ -339,8 +400,199 @@ describe('BillingCreditDetailsPanel', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('excludes future and expired buckets from the current credit summary', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 245.81,
+          reserved_credits: 0,
+          lifetime_granted_credits: 2200,
+          lifetime_consumed_credits: 1954.19,
+        },
+        subscription: {
+          subscription_bid: 'sub-active',
+          product_bid: 'product-plan-paid',
+          product_code: 'creator-plan-pro',
+          status: 'active',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-07-01T00:00:00Z',
+          current_period_end_at: '2026-08-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: {
+          enabled: true,
+          status: 'ineligible',
+          product_bid: 'bill-product-plan-trial',
+          product_code: 'creator-plan-trial',
+          display_name: 'module.billing.package.free.title',
+          description: 'module.billing.package.free.description',
+          currency: 'CNY',
+          price_amount: 0,
+          credit_amount: 100,
+          valid_days: 15,
+          highlights: [],
+          starts_on_first_grant: true,
+          granted_at: null,
+          expires_at: null,
+        },
+      },
+      error: undefined,
+      isLoading: false,
+    });
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: {
+        items: [
+          {
+            wallet_bucket_bid: 'bucket-current',
+            category: 'subscription',
+            source_type: 'subscription',
+            source_bid: 'sub-active',
+            available_credits: 245.81,
+            effective_from: '2026-07-01T00:00:00Z',
+            effective_to: '2026-08-01T00:00:00Z',
+            priority: 20,
+            status: 'active',
+          },
+          {
+            wallet_bucket_bid: 'bucket-future',
+            category: 'subscription',
+            source_type: 'subscription',
+            source_bid: 'sub-future',
+            available_credits: 1684.76,
+            effective_from: '2026-07-23T15:59:59Z',
+            effective_to: '2026-08-23T15:59:59Z',
+            priority: 20,
+            status: 'active',
+          },
+          {
+            wallet_bucket_bid: 'bucket-expired',
+            category: 'topup',
+            source_type: 'topup',
+            source_bid: 'topup-expired',
+            available_credits: 99,
+            effective_from: '2026-06-01T00:00:00Z',
+            effective_to: '2026-07-01T00:00:00Z',
+            priority: 30,
+            status: 'active',
+          },
+        ],
+      },
+      error: undefined,
+      isLoading: false,
+    });
+    jest.setSystemTime(new Date('2026-07-19T00:00:00Z'));
+
+    render(<BillingCreditDetailsPanel />);
+
+    const subscriptionLabel = screen.getByText(
+      'module.billing.ledger.category.subscription',
+    );
+    const subscriptionRow = subscriptionLabel.closest('.grid');
+    const topupLabel = screen.getByText('module.billing.ledger.category.topup');
+    const topupRow = topupLabel.closest('.grid');
+
+    expect(screen.getByText('245')).toBeInTheDocument();
+    expect(subscriptionRow).not.toBeNull();
+    expect(
+      within(subscriptionRow as HTMLElement).getByText('245.81'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('1,684.76')).not.toBeInTheDocument();
+    expect(screen.queryByText('99.00')).not.toBeInTheDocument();
+    expect(topupRow).not.toBeNull();
+    expect(
+      within(topupRow as HTMLElement).getByText('0.00'),
+    ).toBeInTheDocument();
+  });
+
+  test('does not count topup buckets when there is no active subscription', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 15,
+          reserved_credits: 0,
+          lifetime_granted_credits: 1015,
+          lifetime_consumed_credits: 1000,
+        },
+        subscription: null,
+        billing_alerts: [],
+        trial_offer: {
+          enabled: true,
+          status: 'eligible',
+          product_bid: 'bill-product-plan-trial',
+          product_code: 'creator-plan-trial',
+          display_name: 'module.billing.package.free.title',
+          description: 'module.billing.package.free.description',
+          currency: 'CNY',
+          price_amount: 0,
+          credit_amount: 100,
+          valid_days: 15,
+          highlights: [],
+          starts_on_first_grant: true,
+          granted_at: null,
+          expires_at: null,
+        },
+      },
+      error: undefined,
+      isLoading: false,
+    });
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: {
+        items: [
+          {
+            wallet_bucket_bid: 'bucket-manual',
+            category: 'subscription',
+            source_type: 'manual',
+            source_bid: 'manual-1',
+            available_credits: 15,
+            effective_from: '2026-04-01T00:00:00Z',
+            effective_to: null,
+            priority: 20,
+            status: 'active',
+          },
+          {
+            wallet_bucket_bid: 'bucket-topup',
+            category: 'topup',
+            source_type: 'topup',
+            source_bid: 'topup-1',
+            available_credits: 1000,
+            effective_from: '2026-04-01T00:00:00Z',
+            effective_to: null,
+            priority: 30,
+            status: 'active',
+          },
+        ],
+      },
+      error: undefined,
+      isLoading: false,
+    });
+
+    render(<BillingCreditDetailsPanel />);
+
+    const subscriptionLabel = screen.getByText(
+      'module.billing.ledger.category.subscription',
+    );
+    const topupLabel = screen.getByText('module.billing.ledger.category.topup');
+
+    expect(
+      within(subscriptionLabel.closest('.grid') as HTMLElement).getByText(
+        '15.00',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(topupLabel.closest('.grid') as HTMLElement).getByText('0.00'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('1,000.00')).not.toBeInTheDocument();
+  });
+
   test('shows a tooltip for topup availability when the topup bucket has no expiry', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
     mockUseBillingWalletBuckets.mockReturnValue({
       data: {

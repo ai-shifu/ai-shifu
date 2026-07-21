@@ -32,25 +32,27 @@ function CapabilityCard({ capability }: { capability: BillingCapability }) {
   const { t } = useTranslation();
 
   return (
-    <div className='rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm'>
-      <div className='flex items-start justify-between gap-3'>
-        <div className='space-y-1'>
-          <h3 className='text-sm font-semibold text-slate-900'>
-            {resolveBillingCapabilityTitle(t, capability)}
-          </h3>
-          <p className='text-sm leading-6 text-slate-500'>
+    <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5'>
+      <div className='flex items-start gap-3'>
+        <div className='min-w-0 flex-1 space-y-1'>
+          <div className='flex flex-wrap items-center gap-2'>
+            <h3 className='text-sm font-semibold text-slate-900'>
+              {resolveBillingCapabilityTitle(t, capability)}
+            </h3>
+            <Badge
+              className={cn(
+                'border px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em]',
+                resolveCapabilityBadgeClass(capability.status),
+              )}
+              variant='outline'
+            >
+              {resolveBillingCapabilityStatusLabel(t, capability.status)}
+            </Badge>
+          </div>
+          <p className='text-sm leading-5 text-slate-500'>
             {resolveBillingCapabilityDescription(t, capability)}
           </p>
         </div>
-        <Badge
-          className={cn(
-            'border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]',
-            resolveCapabilityBadgeClass(capability.status),
-          )}
-          variant='outline'
-        >
-          {resolveBillingCapabilityStatusLabel(t, capability.status)}
-        </Badge>
       </div>
     </div>
   );
@@ -62,16 +64,19 @@ export function BillingCapabilitySummary({
   const { t } = useTranslation();
   const { data } = useBillingBootstrap();
   const capabilities = data?.capabilities ?? [];
+  const audienceCapabilities = capabilities.filter(
+    capability => capability.audience === audience,
+  );
   const visibleCapabilities = capabilities.filter(
     capability => capability.user_visible && capability.audience === audience,
   );
   const activeCount = visibleCapabilities.filter(
     capability => capability.status === 'active',
   ).length;
-  const defaultDisabledCount = capabilities.filter(
+  const defaultDisabledCount = audienceCapabilities.filter(
     capability => capability.status === 'default_disabled',
   ).length;
-  const internalOnlyCount = capabilities.filter(
+  const internalOnlyCount = audienceCapabilities.filter(
     capability => capability.status === 'internal_only',
   ).length;
 
@@ -81,15 +86,15 @@ export function BillingCapabilitySummary({
 
   return (
     <section
-      className='grid gap-4 rounded-[28px] border border-slate-200 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)]'
+      className='grid gap-3 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]'
       data-testid={`billing-capability-summary-${audience}`}
     >
       <div className='flex flex-wrap items-start justify-between gap-3'>
-        <div className='space-y-1'>
+        <div className='max-w-3xl space-y-1'>
           <p className='text-sm font-semibold text-slate-900'>
             {t('module.billing.capabilities.title')}
           </p>
-          <p className='text-sm leading-6 text-slate-500'>
+          <p className='text-sm leading-5 text-slate-500'>
             {t('module.billing.capabilities.description')}
           </p>
         </div>
@@ -112,7 +117,7 @@ export function BillingCapabilitySummary({
         </div>
       </div>
 
-      <div className='grid gap-3 lg:grid-cols-2'>
+      <div className='grid gap-2 lg:grid-cols-2'>
         {visibleCapabilities.map(capability => (
           <CapabilityCard
             key={capability.key}

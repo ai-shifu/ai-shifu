@@ -13,7 +13,7 @@ import sys
 import time
 from typing import Any, Callable
 
-from sqlalchemy import inspect, text
+from sqlalchemy import Numeric, bindparam, inspect, text
 
 
 API_ROOT = Path(__file__).resolve().parents[1]
@@ -23,7 +23,15 @@ if str(API_ROOT) not in sys.path:
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 
 CREDIT_BUCKET_STATUS_ACTIVE = 7441
+BILLING_SUBSCRIPTION_STATUS_ACTIVE = 7202
+BILLING_SUBSCRIPTION_STATUS_PAST_DUE = 7203
+BILLING_SUBSCRIPTION_STATUS_PAUSED = 7204
+BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED = 7205
+BILLING_SUBSCRIPTION_STATUS_DRAFT = 7201
+CREDIT_BUCKET_CATEGORY_FREE = 7431
 CREDIT_LEDGER_ENTRY_TYPE_CONSUME = 7402
+CREDIT_SOURCE_TYPE_GIFT = 7413
+CREDIT_SOURCE_TYPE_MANUAL = 7416
 CREDIT_SOURCE_TYPE_USAGE = 7414
 
 ProbeFn = Callable[[Any, Any, argparse.Namespace, datetime, datetime], dict[str, Any]]
@@ -126,7 +134,15 @@ def rows_probe(
 
 
 def execute_rows(db: Any, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
-    rows = db.session.execute(text(sql), params).mappings().all()
+    statement = text(sql)
+    decimal_params = [
+        bindparam(key, type_=Numeric(20, 10))
+        for key, value in params.items()
+        if isinstance(value, Decimal)
+    ]
+    if decimal_params:
+        statement = statement.bindparams(*decimal_params)
+    rows = db.session.execute(statement, params).mappings().all()
     return [row_to_dict(row) for row in rows]
 
 
@@ -199,30 +215,47 @@ def probe_wallet_snapshot(
     since: datetime,
 ) -> dict[str, Any]:
     description = (
-        "Wallet available/reserved totals that differ from active bucket totals."
+        "Wallet available/reserved totals that differ from current consumable "
+        "bucket totals."
     )
-    if not table_has_columns(
-        inspector,
-        "credit_wallets",
-        {
-            "wallet_bid",
-            "creator_bid",
-            "available_credits",
-            "reserved_credits",
-            "deleted",
-        },
-    ) or not table_has_columns(
-        inspector,
-        "credit_wallet_buckets",
-        {
-            "wallet_bid",
-            "available_credits",
-            "reserved_credits",
-            "effective_from",
-            "effective_to",
-            "status",
-            "deleted",
-        },
+    if (
+        not table_has_columns(
+            inspector,
+            "credit_wallets",
+            {
+                "wallet_bid",
+                "creator_bid",
+                "available_credits",
+                "reserved_credits",
+                "deleted",
+            },
+        )
+        or not table_has_columns(
+            inspector,
+            "credit_wallet_buckets",
+            {
+                "wallet_bid",
+                "available_credits",
+                "reserved_credits",
+                "bucket_category",
+                "source_type",
+                "effective_from",
+                "effective_to",
+                "status",
+                "deleted",
+            },
+        )
+        or not table_has_columns(
+            inspector,
+            "bill_subscriptions",
+            {
+                "creator_bid",
+                "status",
+                "current_period_start_at",
+                "current_period_end_at",
+                "deleted",
+            },
+        )
     ):
         return skipped_probe(
             "wallet-snapshot", description, "required tables are missing"
@@ -243,20 +276,42 @@ def probe_wallet_snapshot(
                AND b.status = :active_status
                AND b.effective_from <= :now
                AND (b.effective_to IS NULL OR b.effective_to > :now)
+               AND (
+                 b.bucket_category = :free_category
+                 OR b.source_type IN (:gift_source, :manual_source)
+                 OR active_subscription.creator_bid IS NOT NULL
+               )
               THEN b.available_credits
               ELSE 0
-            END), 0) AS active_bucket_available_credits,
+            END), 0) AS current_consumable_bucket_available_credits,
             COALESCE(SUM(CASE
               WHEN b.deleted = 0
                AND b.status = :active_status
-               AND b.effective_from <= :now
-               AND (b.effective_to IS NULL OR b.effective_to > :now)
               THEN b.reserved_credits
               ELSE 0
             END), 0) AS active_bucket_reserved_credits
           FROM credit_wallets w
           LEFT JOIN credit_wallet_buckets b
             ON b.wallet_bid = w.wallet_bid
+          LEFT JOIN (
+            SELECT DISTINCT creator_bid
+            FROM bill_subscriptions
+            WHERE deleted = 0
+              AND status IN (
+                :subscription_status_active,
+                :subscription_status_past_due,
+                :subscription_status_paused,
+                :subscription_status_cancel_scheduled,
+                :subscription_status_draft
+              )
+              AND (
+                current_period_start_at IS NULL
+                OR current_period_start_at <= :now
+              )
+              AND current_period_end_at IS NOT NULL
+              AND current_period_end_at > :now
+          ) active_subscription
+            ON active_subscription.creator_bid = w.creator_bid
           WHERE w.deleted = 0
           GROUP BY
             w.wallet_bid,
@@ -264,13 +319,23 @@ def probe_wallet_snapshot(
             w.available_credits,
             w.reserved_credits
         ) snapshot
-        WHERE ABS(wallet_available_credits - active_bucket_available_credits) > :epsilon
+        WHERE ABS(wallet_available_credits - current_consumable_bucket_available_credits) > :epsilon
            OR ABS(wallet_reserved_credits - active_bucket_reserved_credits) > :epsilon
         ORDER BY wallet_bid
         LIMIT :limit
         """,
         {
             "active_status": CREDIT_BUCKET_STATUS_ACTIVE,
+            "free_category": CREDIT_BUCKET_CATEGORY_FREE,
+            "gift_source": CREDIT_SOURCE_TYPE_GIFT,
+            "manual_source": CREDIT_SOURCE_TYPE_MANUAL,
+            "subscription_status_active": BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            "subscription_status_past_due": BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+            "subscription_status_paused": BILLING_SUBSCRIPTION_STATUS_PAUSED,
+            "subscription_status_cancel_scheduled": (
+                BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+            ),
+            "subscription_status_draft": BILLING_SUBSCRIPTION_STATUS_DRAFT,
             "now": now,
             "epsilon": Decimal("0.000001"),
             "limit": args.limit,

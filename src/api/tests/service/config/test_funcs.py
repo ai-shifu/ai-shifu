@@ -3,6 +3,7 @@ Unit tests for config service functions.
 """
 
 import flaskr
+import flaskr.plugins as flaskr_plugins
 import importlib
 import pytest
 import sys
@@ -148,11 +149,17 @@ def build_runtime_branding():
     )
 
     plugin_package_root = tmp_path / "flaskr"
+    plugin_namespace_root = plugin_package_root / "plugins"
     monkeypatch.syspath_prepend(str(tmp_path))
     monkeypatch.setattr(
         flaskr,
         "__path__",
         [*flaskr.__path__, str(plugin_package_root)],
+    )
+    monkeypatch.setattr(
+        flaskr_plugins,
+        "__path__",
+        [*flaskr_plugins.__path__, str(plugin_namespace_root)],
     )
     importlib.invalidate_caches()
 

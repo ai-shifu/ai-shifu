@@ -98,6 +98,11 @@ export const buildAdminMenuItems = ({
           label: t('common.core.profileOnboardingManagement'),
           href: '/admin/operations/profile-onboarding',
         },
+        {
+          id: 'operations-brand-payments',
+          label: t('common.core.brandPaymentsManagement'),
+          href: '/admin/operations/billing',
+        },
       ],
     });
   }

@@ -418,10 +418,13 @@ describe('AdminBillingPage', () => {
       expect(scrollIntoView).toHaveBeenCalled();
       expect(mockGetBillingLedger).toHaveBeenCalledTimes(1);
     });
-    expect(mockGetBillingLedger).toHaveBeenCalledWith({
-      page_index: 1,
-      page_size: 20,
-    });
+    expect(mockGetBillingLedger).toHaveBeenCalledWith(
+      {
+        page_index: 1,
+        page_size: 20,
+      },
+      { skipErrorToast: true },
+    );
 
     expect(
       screen.getByRole('tab', {
@@ -466,7 +469,10 @@ describe('AdminBillingPage', () => {
     expect(screen.getByTestId('billing-usage-table-scroll')).toHaveClass(
       'overflow-x-auto',
     );
-    expect(mockGetBillingCatalog).toHaveBeenCalledWith({});
+    expect(mockGetBillingCatalog).toHaveBeenCalledWith(
+      {},
+      { skipErrorToast: true },
+    );
   });
 
   test('respects the server-provided initial details tab before search params hydrate', async () => {

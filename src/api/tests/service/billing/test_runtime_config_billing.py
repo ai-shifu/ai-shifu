@@ -11,6 +11,7 @@ from flaskr.common.config import ENV_VARS
 from flaskr.route import config as config_route
 from flaskr.service.billing.consts import (
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+    BILLING_DOMAIN_SSL_STATUS_ACTIVE,
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     CREDIT_SOURCE_TYPE_MANUAL,
 )
@@ -142,6 +143,7 @@ def runtime_config_client(monkeypatch):
                     verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
                     verification_token="token-runtime-1",
                     last_verified_at=now - timedelta(hours=1),
+                    ssl_status=BILLING_DOMAIN_SSL_STATUS_ACTIVE,
                 ),
                 BillingDomainBinding(
                     domain_binding_bid="runtime-binding-2",
@@ -181,12 +183,18 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     assert payload["officialSiteUrl"] == "https://official.example.com"
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 4
+    # Custom domains cannot complete the WeChat OAuth redirect (error 10003),
+    # so the WeChat code flow must be disabled and the app id hidden.
+    assert payload["wechatAppId"] == ""
+    assert payload["enableWechatCode"] is False
     assert payload["googleOauthRedirect"] == (
         "https://app.example.com/login/google-callback"
     )
     assert payload["entitlements"] == {
         "branding_enabled": True,
         "custom_domain_enabled": True,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "priority",
         "analytics_tier": "advanced",
         "support_tier": "business_hours",
@@ -212,6 +220,35 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
         "host": "creator.example.com",
         "binding_status": "verified",
     }
+
+
+def test_runtime_config_hides_creator_keys_without_matching_capability(
+    runtime_config_client,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(config_route, "is_creator_customization_enabled", lambda: True)
+    monkeypatch.setattr(
+        config_route,
+        "resolve_creator_public_integrations",
+        lambda creator_bid: {
+            "wechat_oauth": {"app_id": "wx-custom"},
+            "stripe": {"publishable_key": "pk_creator"},
+        },
+    )
+
+    response = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=shifu-1",
+        headers={"Host": "creator.example.com"},
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["entitlements"]["custom_wechat_enabled"] is False
+    assert payload["entitlements"]["custom_payment_enabled"] is False
+    assert payload["wechatAppId"] == ""
+    assert payload["enableWechatCode"] is False
+    assert payload["stripePublishableKey"] == "pk_test_global"
+    assert payload["paymentChannels"] == ["pingxx", "stripe"]
+    assert payload["paymentConfigurationReady"] is False
 
 
 def test_runtime_config_uses_origin_header_for_google_redirect_when_host_url_missing(
@@ -301,9 +338,14 @@ def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective
     assert payload["contactUsUrl"] == ""
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 4
+    # Not an effective custom domain -> the WeChat code flow stays enabled.
+    assert payload["wechatAppId"] == "wechat-app-1"
+    assert payload["enableWechatCode"] is True
     assert payload["entitlements"] == {
         "branding_enabled": False,
         "custom_domain_enabled": False,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "standard",
         "analytics_tier": "basic",
         "support_tier": "self_serve",
@@ -433,6 +475,8 @@ def test_default_runtime_billing_context_is_database_free(monkeypatch) -> None:
         "entitlements": {
             "branding_enabled": False,
             "custom_domain_enabled": False,
+            "custom_wechat_enabled": False,
+            "custom_payment_enabled": False,
             "priority_class": "standard",
             "analytics_tier": "basic",
             "support_tier": "self_serve",
@@ -480,9 +524,15 @@ def test_runtime_config_reports_disabled_billing_flag(
     payload = response.get_json(force=True)["data"]
 
     assert payload["billingEnabled"] is False
+    # Billing disabled means no custom-domain resolution, so the WeChat code
+    # flow keeps its global configuration.
+    assert payload["wechatAppId"] == "wechat-app-1"
+    assert payload["enableWechatCode"] is True
     assert payload["entitlements"] == {
         "branding_enabled": False,
         "custom_domain_enabled": False,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "standard",
         "analytics_tier": "basic",
         "support_tier": "self_serve",
@@ -523,6 +573,8 @@ def test_runtime_config_falls_back_when_billing_context_build_fails(
     assert payload["entitlements"] == {
         "branding_enabled": False,
         "custom_domain_enabled": False,
+        "custom_wechat_enabled": False,
+        "custom_payment_enabled": False,
         "priority_class": "standard",
         "analytics_tier": "basic",
         "support_tier": "self_serve",
