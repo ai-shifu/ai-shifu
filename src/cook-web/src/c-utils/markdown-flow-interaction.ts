@@ -1,5 +1,5 @@
 const ANONYMOUS_TEXT_INPUT_PATTERN =
-  /^(\s*)\?\[(?!\s*%\{\{)\s*(?:(.*?)\s*(\|\||\|)\s*)?\.\.\.([^\]]*?)\](\s*)$/;
+  /^(\s*)\?\[(?!\s*%\{\{)\s*(?:(.*?)(\|\||\|)\s*)?\.\.\.([^\]]*?)\](\s*)$/;
 const SINGLE_OPTION_SEPARATOR_PATTERN = /(?<!\|)\|(?!\|)/;
 const BUTTON_VALUE_PATTERN = /^(.+?)\/\/(.+)$/;
 
@@ -23,10 +23,9 @@ export const adaptMarkdownFlowInteractionForRender = (content: string) => {
     return content;
   }
 
-  const optionContent = match[2]?.trim();
-  const separatorProbe = optionContent ? `${optionContent}${match[3]}` : '';
-  const firstSeparatorIndex = separatorProbe.indexOf('|');
-  const firstMultiSeparatorIndex = separatorProbe.indexOf('||');
+  const optionContent = match[2] ? `${match[2]}${match[3]}`.trim() : '';
+  const firstSeparatorIndex = optionContent.indexOf('|');
+  const firstMultiSeparatorIndex = optionContent.indexOf('||');
   const isMultiSelect =
     firstMultiSeparatorIndex !== -1 &&
     firstMultiSeparatorIndex === firstSeparatorIndex;

@@ -41,9 +41,11 @@ describe('adaptMarkdownFlowInteractionForRender', () => {
     );
   });
 
-  it('uses a leading double separator without splitting single pipes in an option', () => {
-    expect(adaptMarkdownFlowInteractionForRender('?[A||B | C||...Other]')).toBe(
-      '<custom-variable placeholder="Other" data-button-texts="[&quot;A&quot;,&quot;B | C&quot;]" data-button-values="[&quot;A&quot;,&quot;B | C&quot;]" data-is-multi-select="true"></custom-variable>',
+  it('uses a leading double separator even when a single pipe precedes the prompt', () => {
+    expect(
+      adaptMarkdownFlowInteractionForRender('?[A||B | C | ...Other]'),
+    ).toBe(
+      '<custom-variable placeholder="Other" data-button-texts="[&quot;A&quot;,&quot;B | C |&quot;]" data-button-values="[&quot;A&quot;,&quot;B | C |&quot;]" data-is-multi-select="true"></custom-variable>',
     );
   });
 
