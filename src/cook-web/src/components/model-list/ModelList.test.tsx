@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import ModelList from './ModelList';
 
@@ -43,7 +43,19 @@ jest.mock('react-i18next', () => ({
 
 jest.mock('../ui/Select', () => ({
   __esModule: true,
-  Select: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  Select: ({
+    children,
+    onOpenChange,
+  }: React.PropsWithChildren<{
+    onOpenChange?: (open: boolean) => void;
+  }>) => (
+    <div
+      data-testid='model-select'
+      onClick={() => onOpenChange?.(true)}
+    >
+      {children}
+    </div>
+  ),
   SelectTrigger: ({
     children,
     className,
@@ -72,6 +84,7 @@ jest.mock('../ui/Select', () => ({
   }>) => (
     <div
       role='option'
+      aria-selected='false'
       data-value={value}
       data-indicator-class={indicatorClassName}
       data-class={className}
@@ -82,6 +95,10 @@ jest.mock('../ui/Select', () => ({
 }));
 
 describe('ModelList', () => {
+  beforeEach(() => {
+    mockLoadModels.mockClear();
+  });
+
   test('renders multiplier badges only for models that have a multiplier', () => {
     render(
       <ModelList
@@ -150,5 +167,29 @@ describe('ModelList', () => {
     expect(
       screen.getByRole('listbox').querySelector('[data-value="__empty__"]'),
     ).toBeNull();
+  });
+
+  test('refreshes model options on open with a short ttl', () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    nowSpy.mockReturnValue(1_000_000);
+
+    try {
+      render(
+        <ModelList
+          value=''
+          onChange={() => undefined}
+        />,
+      );
+
+      fireEvent.click(screen.getByTestId('model-select'));
+      fireEvent.click(screen.getByTestId('model-select'));
+      expect(mockLoadModels).toHaveBeenCalledTimes(1);
+
+      nowSpy.mockReturnValue(1_031_000);
+      fireEvent.click(screen.getByTestId('model-select'));
+      expect(mockLoadModels).toHaveBeenCalledTimes(2);
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 });

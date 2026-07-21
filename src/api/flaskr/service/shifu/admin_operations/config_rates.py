@@ -46,6 +46,11 @@ _USAGE_TYPE_LABELS = {
 _USAGE_TYPE_CODES = {value: key for key, value in _USAGE_TYPE_LABELS.items()}
 _SCENE_LABELS = {BILL_USAGE_SCENE_PROD: "production"}
 _METRIC_CODES = {value: key for key, value in BILLING_METRIC_LABELS.items()}
+_LLM_MISSING_RATE_FALLBACK_RATIOS = {
+    BILLING_METRIC_LLM_INPUT_TOKENS: Decimal("0.25"),
+    BILLING_METRIC_LLM_CACHE_TOKENS: Decimal("0.125"),
+    BILLING_METRIC_LLM_OUTPUT_TOKENS: Decimal("1"),
+}
 
 
 def _rate_effective_now():
@@ -155,6 +160,45 @@ def _load_default_llm_reference_cost(
         )
     )
     return _unit_cost(rows[0])
+
+
+def _load_default_llm_metric_ratio(metric: int) -> Decimal:
+    if metric == BILLING_METRIC_LLM_OUTPUT_TOKENS:
+        return Decimal("1")
+
+    default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
+    if default_model:
+        provider, model_candidates = _resolve_llm_rate_identity(default_model)
+        metric_cost = _unit_cost(
+            _rate_for_identity(
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider=provider,
+                model_candidates=model_candidates,
+                billing_metric=metric,
+            )
+        )
+        output_cost = _unit_cost(
+            _rate_for_identity(
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider=provider,
+                model_candidates=model_candidates,
+                billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            )
+        )
+        if metric_cost and output_cost and output_cost > 0:
+            return metric_cost / output_cost
+
+    return _LLM_MISSING_RATE_FALLBACK_RATIOS.get(metric, Decimal("1"))
+
+
+def _llm_credits_for_missing_metric(
+    *,
+    metric: int,
+    output_unit_cost: Decimal,
+    unit_size: int,
+) -> Decimal:
+    ratio = _load_default_llm_metric_ratio(metric)
+    return output_unit_cost * ratio * Decimal(str(unit_size))
 
 
 def _rate_for_identity(
@@ -493,13 +537,23 @@ def update_operator_rate_config(
         for metric in metrics_to_update:
             next_unit_size = unit_size
             next_credits_per_unit = credits_per_unit
-            if usage_type == BILL_USAGE_TYPE_LLM and llm_scale is not None:
+            if usage_type == BILL_USAGE_TYPE_LLM:
                 current_metric_rate = current_rates_by_metric.get(metric)
                 current_metric_cost = _unit_cost(current_metric_rate)
-                if current_metric_rate is not None and current_metric_cost is not None:
+                if (
+                    llm_scale is not None
+                    and current_metric_rate is not None
+                    and current_metric_cost is not None
+                ):
                     next_unit_size = max(int(current_metric_rate.unit_size or 1), 1)
                     next_credits_per_unit = (
                         current_metric_cost * llm_scale * Decimal(str(next_unit_size))
+                    )
+                else:
+                    next_credits_per_unit = _llm_credits_for_missing_metric(
+                        metric=metric,
+                        output_unit_cost=target_unit_cost,
+                        unit_size=next_unit_size,
                     )
             same_second_row = CreditUsageRate.query.filter(
                 CreditUsageRate.deleted == 0,

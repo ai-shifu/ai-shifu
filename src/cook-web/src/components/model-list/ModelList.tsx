@@ -12,6 +12,8 @@ import { useTranslation } from 'react-i18next';
 import { ModelOption } from '@/types/shifu';
 
 const MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME = 'right-3';
+const MODEL_OPTIONS_REFRESH_TTL_MS = 30_000;
+let lastModelOptionsRefreshAt = 0;
 
 function ModelOptionLabel({
   label,
@@ -63,6 +65,14 @@ export default function ModelList({
       if (!open || options || disabled) {
         return;
       }
+      const now = Date.now();
+      if (
+        lastModelOptionsRefreshAt &&
+        now - lastModelOptionsRefreshAt < MODEL_OPTIONS_REFRESH_TTL_MS
+      ) {
+        return;
+      }
+      lastModelOptionsRefreshAt = now;
       void actions.loadModels();
     },
     [actions, disabled, options],
