@@ -98,6 +98,11 @@ export const buildAdminMenuItems = ({
           label: t('common.core.profileOnboardingManagement'),
           href: '/admin/operations/profile-onboarding',
         },
+        {
+          id: 'operations-config',
+          label: t('common.core.configManagement'),
+          href: '/admin/operations/config',
+        },
       ],
     });
   }

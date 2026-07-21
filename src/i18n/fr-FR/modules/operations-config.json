@@ -1,0 +1,52 @@
+{
+  "__namespace__": "module.operationsConfig",
+  "actions": {
+    "edit": "Modifier",
+    "save": "Enregistrer"
+  },
+  "confirm": {
+    "description": "Confirmer le passage du multiplicateur de {model} de {from} à {to}.",
+    "title": "Confirmer le multiplicateur"
+  },
+  "description": "Gérer les règles de consommation de crédits pour le LLM et la synthèse vocale. Les changements n’affectent que les usages futurs.",
+  "empty": "Aucun modèle configurable.",
+  "fields": {
+    "actions": "Actions",
+    "displayName": "Nom affiché",
+    "model": "Modèle",
+    "modelTier": "Modèle / Niveau",
+    "multiplier": "Multiplicateur",
+    "multiplierSuffix": "x",
+    "provider": "Fournisseur vocal",
+    "source": "Configuration",
+    "ttsMultiplier": "Multiplicateur de conversion",
+    "updatedAt": "Mis à jour le"
+  },
+  "invalidMultiplier": "Saisissez un multiplicateur supérieur à 0 avec 2 décimales au maximum.",
+  "loadFailed": "Échec du chargement de la configuration. Veuillez réessayer plus tard.",
+  "pagination": {
+    "next": "Suivant",
+    "prev": "Précédent"
+  },
+  "rules": {
+    "baselineModel": "Modèle de référence LLM 1x",
+    "baselineUnitCost": "Crédits unitaires de référence actuels",
+    "effectScope": "Périmètre d’effet",
+    "futureOnly": "Seuls les usages futurs sont affectés. Les factures historiques ne sont pas recalculées.",
+    "intro": "Valeurs de référence utilisées pour calculer les multiplicateurs, uniquement pour vérification opérationnelle.",
+    "tooltipAriaLabel": "Voir la référence de configuration",
+    "ttsFactor": "Facteur de conversion des caractères TTS"
+  },
+  "saveFailed": "Échec de l’enregistrement. Veuillez vérifier le formulaire.",
+  "saveSuccess": "Configuration enregistrée",
+  "source": {
+    "default": "Multiplicateur par défaut",
+    "exact": "Multiplicateur personnalisé",
+    "unconfigured": "Non configuré"
+  },
+  "tabs": {
+    "llm": "Multiplicateurs LLM",
+    "tts": "Multiplicateurs TTS"
+  },
+  "title": "Gestion de la configuration"
+}

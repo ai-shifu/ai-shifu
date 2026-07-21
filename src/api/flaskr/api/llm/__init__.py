@@ -33,6 +33,10 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import CreditUsageRate
+from flaskr.service.billing.rate_references import (
+    format_credit_multiplier,
+    load_default_llm_reference_cost,
+)
 from flaskr.service.metering import UsageContext, record_llm_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
@@ -1129,17 +1133,7 @@ def _attach_credit_multipliers(
     try:
         rows = _load_llm_output_rate_rows(app)
         now = now_utc()
-        default_provider, default_model_candidates = _resolve_billing_rate_identity(
-            default_model
-        )
-        default_rate = _rate_per_token(
-            _select_credit_usage_rate(
-                rows,
-                provider=default_provider,
-                model_candidates=default_model_candidates,
-                now=now,
-            )
-        )
+        default_rate = load_default_llm_reference_cost(default_model)
         if default_rate is None or default_rate <= 0:
             return [{**option, "credit_multiplier": None} for option in options]
 
@@ -1156,13 +1150,21 @@ def _attach_credit_multipliers(
                 )
             )
             multiplier = None
+            multiplier_label = None
             if model_rate is not None and model_rate > 0:
+                multiplier_value = model_rate / default_rate
                 multiplier = int(
-                    (model_rate / default_rate).to_integral_value(
-                        rounding=ROUND_CEILING
-                    )
+                    multiplier_value.to_integral_value(rounding=ROUND_CEILING)
                 )
-            enriched.append({**option, "credit_multiplier": multiplier})
+                multiplier_label = format_credit_multiplier(multiplier_value)
+            enriched.append(
+                {
+                    **option,
+                    "credit_multiplier": multiplier,
+                    "credit_multiplier_label": multiplier_label,
+                    "is_default": model == default_model,
+                }
+            )
         return enriched
     except Exception as exc:
         _log_warning(f"load LLM credit multipliers error: {exc}")

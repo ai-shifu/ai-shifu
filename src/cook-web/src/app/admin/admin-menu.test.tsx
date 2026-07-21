@@ -74,6 +74,11 @@ describe('buildAdminMenuItems', () => {
           label: 'common.core.profileOnboardingManagement',
           href: '/admin/operations/profile-onboarding',
         },
+        {
+          id: 'operations-config',
+          label: 'common.core.configManagement',
+          href: '/admin/operations/config',
+        },
       ],
     });
   });

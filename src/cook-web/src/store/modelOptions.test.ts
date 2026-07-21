@@ -8,6 +8,7 @@ describe('normalizeModelOptions', () => {
           model: 'qwen/deepseek-v4-flash',
           display_name: 'DeepSeek-V4-Flash',
           credit_multiplier: 1,
+          is_default: true,
         },
         {
           model: 'ark/doubao-seed-2-0-lite-260428',
@@ -27,18 +28,21 @@ describe('normalizeModelOptions', () => {
         label: 'DeepSeek-V4-Flash',
         creditMultiplier: 1,
         creditMultiplierLabel: '',
+        isDefault: true,
       },
       {
         value: 'ark/doubao-seed-2-0-lite-260428',
         label: 'Doubao-Seed-2.0-lite',
         creditMultiplier: 3,
         creditMultiplierLabel: '3x',
+        isDefault: false,
       },
       {
         value: 'qwen/no-rate-model',
         label: 'No Rate',
         creditMultiplier: null,
         creditMultiplierLabel: '',
+        isDefault: false,
       },
     ]);
   });

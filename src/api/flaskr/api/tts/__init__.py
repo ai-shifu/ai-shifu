@@ -26,6 +26,7 @@ from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_METRIC_TTS_OUTPUT_CHARS,
 )
+from flaskr.service.billing.rate_references import load_default_llm_reference_cost
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_LLM,
@@ -349,7 +350,9 @@ def _resolve_credit_multiplier_label(provider_name: str, model: str) -> str | No
         # chars-synthesized-per-token, then take the ratio. The label is
         # therefore "TTS task consumption / LLM task consumption" on the very
         # same scale as the LLM model multipliers.
-        baseline_cost = _load_default_llm_unit_cost()
+        baseline_cost = load_default_llm_reference_cost()
+        if baseline_cost is None or baseline_cost <= 0:
+            baseline_cost = _load_default_llm_unit_cost()
         if baseline_cost is None or baseline_cost <= 0:
             return None
         chars_per_token = _load_tts_chars_per_llm_token()

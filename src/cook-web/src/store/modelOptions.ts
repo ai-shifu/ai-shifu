@@ -33,7 +33,13 @@ export const normalizeModelOptions = (list: any): ModelOption[] => {
         item.credit_multiplier_label || item.creditMultiplierLabel || '',
       ).trim();
       seen.add(value);
-      options.push({ value, label, creditMultiplier, creditMultiplierLabel });
+      options.push({
+        value,
+        label,
+        creditMultiplier,
+        creditMultiplierLabel,
+        isDefault: Boolean(item.is_default ?? item.isDefault),
+      });
     }
   });
 

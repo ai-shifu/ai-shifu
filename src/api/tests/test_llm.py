@@ -281,11 +281,52 @@ def test_get_current_models_adds_output_token_credit_multiplier(monkeypatch, app
 
     by_model = {item["model"]: item for item in models}
     assert by_model["qwen/deepseek-v4-flash"]["credit_multiplier"] == 1
+    assert by_model["qwen/deepseek-v4-flash"]["credit_multiplier_label"] == "1x"
+    assert by_model["qwen/deepseek-v4-flash"]["is_default"] is True
     assert by_model["ark/doubao-seed-2-0-lite-260428"]["credit_multiplier"] == 3
+    assert (
+        by_model["ark/doubao-seed-2-0-lite-260428"]["credit_multiplier_label"] == "2.7x"
+    )
     assert by_model["qwen/no-rate-model"]["credit_multiplier"] is None
+    assert by_model["qwen/no-rate-model"]["credit_multiplier_label"] is None
     assert by_model["ark/doubao-seed-2-0-lite-260428"]["display_name"] == (
         "Doubao-Seed-2.0-lite"
     )
+
+
+def test_get_current_models_uses_stable_default_multiplier_anchor(monkeypatch, app):
+    _configure_model_list(monkeypatch)
+    with app.app_context():
+        db.session.query(CreditUsageRate).delete()
+        db.session.add_all(
+            [
+                _create_credit_rate(
+                    rate_bid="default-original-output",
+                    provider="qwen",
+                    model="qwen/deepseek-v4-flash",
+                    credits_per_unit="0.000066667",
+                    effective_from=datetime(2026, 1, 1, 0, 0, 0),
+                ),
+                _create_credit_rate(
+                    rate_bid="default-edited-output",
+                    provider="qwen",
+                    model="qwen/deepseek-v4-flash",
+                    credits_per_unit="0.000466669",
+                    effective_from=datetime(2026, 2, 1, 0, 0, 0),
+                ),
+            ]
+        )
+        db.session.commit()
+
+        models = llm.get_current_models(app)
+
+        db.session.query(CreditUsageRate).delete()
+        db.session.commit()
+
+    by_model = {item["model"]: item for item in models}
+    assert by_model["qwen/deepseek-v4-flash"]["credit_multiplier"] == pytest.approx(7)
+    assert by_model["qwen/deepseek-v4-flash"]["credit_multiplier_label"] == "7x"
+    assert by_model["qwen/deepseek-v4-flash"]["is_default"] is True
 
 
 def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(monkeypatch, app):

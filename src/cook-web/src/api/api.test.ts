@@ -31,6 +31,12 @@ describe('profile onboarding api definitions', () => {
     expect(api.updateAdminOperationProfileOnboardingConfig).toBe(
       'POST /shifu/admin/operations/profile-onboarding',
     );
+    expect(api.getAdminOperationConfigRates).toBe(
+      'GET /shifu/admin/operations/config/rates',
+    );
+    expect(api.updateAdminOperationConfigRate).toBe(
+      'POST /shifu/admin/operations/config/rates',
+    );
   });
 });
 

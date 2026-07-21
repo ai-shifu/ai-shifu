@@ -36,6 +36,7 @@
     "module.groupon",
     "module.lesson",
     "module.onboarding",
+    "module.operationsConfig",
     "module.operationsCourse",
     "module.operationsCreditNotifications",
     "module.operationsOrder",
