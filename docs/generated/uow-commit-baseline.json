@@ -41,7 +41,6 @@
   "service/shifu/admin_operations/courses_transfer_copy.py": 2,
   "service/shifu/admin_operations/voice_clones.py": 1,
   "service/shifu/funcs.py": 6,
-  "service/shifu/repair.py": 1,
   "service/shifu/route.py": 2,
   "service/shifu/shifu_draft_funcs.py": 4,
   "service/shifu/shifu_import_export_funcs.py": 1,

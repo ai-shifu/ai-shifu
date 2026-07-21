@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 from flask import Flask
 
@@ -150,6 +151,9 @@ def test_tts_credit_multiplier_uses_shared_llm_anchor(monkeypatch):
     )
     monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config("0.5"))
     monkeypatch.setattr(
+        tts_api, "load_default_llm_reference_cost", lambda: Decimal("0.0001")
+    )
+    monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
         fake_load_usage_rate,
     )
@@ -159,12 +163,6 @@ def test_tts_credit_multiplier_uses_shared_llm_anchor(monkeypatch):
     # baseline and the TTS rate are looked up (one shared anchor, not a standalone
     # TTS baseline).
     assert tts_api._resolve_credit_multiplier_label("tencent", "") == "4x"
-    assert (
-        BILL_USAGE_TYPE_LLM,
-        "qwen",
-        "deepseek-v4-flash",
-        BILLING_METRIC_LLM_OUTPUT_TOKENS,
-    ) in captured
     assert (
         BILL_USAGE_TYPE_TTS,
         "tencent",
@@ -203,6 +201,9 @@ def test_tts_credit_multiplier_scales_with_chars_per_token(monkeypatch):
         lambda: ("qwen", ["deepseek-v4-flash"]),
     )
     monkeypatch.setattr(
+        tts_api, "load_default_llm_reference_cost", lambda: Decimal("0.0001")
+    )
+    monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
         fake_load_usage_rate,
     )
@@ -239,6 +240,9 @@ def test_tts_credit_multiplier_none_when_tts_rate_missing(monkeypatch):
     )
     monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config("0.216"))
     monkeypatch.setattr(
+        tts_api, "load_default_llm_reference_cost", lambda: Decimal("0.0001")
+    )
+    monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
         fake_load_usage_rate,
     )
@@ -266,6 +270,9 @@ def test_tts_credit_multiplier_none_when_conversion_unset(monkeypatch):
         lambda: ("qwen", ["deepseek-v4-flash"]),
     )
     monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config(""))
+    monkeypatch.setattr(
+        tts_api, "load_default_llm_reference_cost", lambda: Decimal("0.0001")
+    )
     monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
         fake_load_usage_rate,

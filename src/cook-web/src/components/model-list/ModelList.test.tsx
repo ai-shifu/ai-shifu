@@ -3,12 +3,16 @@ import { render, screen, within } from '@testing-library/react';
 
 import ModelList from './ModelList';
 
+const mockLoadModels = jest.fn();
+
 const mockShifuState = {
   models: [
     {
       value: 'qwen/deepseek-v4-flash',
       label: 'DeepSeek-V4-Flash',
-      creditMultiplier: 1,
+      creditMultiplier: 6,
+      creditMultiplierLabel: '6x',
+      isDefault: true,
     },
     {
       value: 'ark/doubao-seed-2-0-lite-260428',
@@ -21,6 +25,9 @@ const mockShifuState = {
       creditMultiplier: null,
     },
   ],
+  actions: {
+    loadModels: mockLoadModels,
+  },
 };
 
 jest.mock('@/store', () => ({
@@ -87,7 +94,7 @@ describe('ModelList', () => {
     expect(screen.getByText('DeepSeek-V4-Flash')).toBeInTheDocument();
     expect(screen.getByText('Doubao-Seed-2.0-lite')).toBeInTheDocument();
     expect(screen.getByText('No Rate')).toBeInTheDocument();
-    expect(screen.getAllByText('1x')).toHaveLength(3);
+    expect(screen.getAllByText('6x')).toHaveLength(3);
     expect(screen.getByText('3x')).toBeInTheDocument();
 
     const trigger = screen.getByRole('button');
@@ -98,7 +105,7 @@ describe('ModelList', () => {
     expect(
       within(trigger).getByText('common.core.default'),
     ).toBeInTheDocument();
-    expect(within(trigger).getByText('1x')).toBeInTheDocument();
+    expect(within(trigger).getByText('6x')).toBeInTheDocument();
 
     const noRateOption = screen.getByText('No Rate').closest('[role="option"]');
     expect(noRateOption).toBeTruthy();
@@ -117,7 +124,7 @@ describe('ModelList', () => {
       expect.stringContaining('right-3'),
     );
     expect(
-      within(defaultOption as HTMLElement).getByText('1x'),
+      within(defaultOption as HTMLElement).getByText('6x'),
     ).toBeInTheDocument();
   });
 

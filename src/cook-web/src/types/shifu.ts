@@ -15,6 +15,7 @@ export interface ModelOption {
   label: string;
   creditMultiplier?: number | null;
   creditMultiplierLabel?: string;
+  isDefault?: boolean;
 }
 
 export interface Shifu {

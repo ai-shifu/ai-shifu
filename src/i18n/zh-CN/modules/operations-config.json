@@ -1,0 +1,52 @@
+{
+  "__namespace__": "module.operationsConfig",
+  "actions": {
+    "edit": "编辑",
+    "save": "保存"
+  },
+  "confirm": {
+    "description": "确认将 {model} 的倍率从 {from} 调整到 {to}。",
+    "title": "确认保存倍率"
+  },
+  "description": "维护 LLM 与语音合成的积分消耗规则，调整后仅影响后续新产生的用量结算。",
+  "empty": "暂无可配置模型。",
+  "fields": {
+    "actions": "操作",
+    "displayName": "展示名称",
+    "model": "模型",
+    "modelTier": "模型 / 档位",
+    "multiplier": "倍率",
+    "multiplierSuffix": "x",
+    "provider": "语音厂商",
+    "source": "配置方式",
+    "ttsMultiplier": "折算倍率",
+    "updatedAt": "更新时间"
+  },
+  "invalidMultiplier": "请输入大于 0 的倍率，最多保留 2 位小数。",
+  "loadFailed": "配置加载失败，请稍后重试。",
+  "pagination": {
+    "next": "下一页",
+    "prev": "上一页"
+  },
+  "rules": {
+    "baselineModel": "LLM 1x 参考模型",
+    "baselineUnitCost": "当前参考单位积分",
+    "effectScope": "生效范围",
+    "futureOnly": "仅影响后续新产生的用量，历史账单不回算",
+    "intro": "当前系统用于计算倍率的参考值，仅供运营配置时核对。",
+    "tooltipAriaLabel": "查看配置参考",
+    "ttsFactor": "TTS 字符折算系数"
+  },
+  "saveFailed": "配置保存失败，请检查填写内容。",
+  "saveSuccess": "配置已保存",
+  "source": {
+    "default": "使用默认倍率",
+    "exact": "已单独调整",
+    "unconfigured": "未配置"
+  },
+  "tabs": {
+    "llm": "LLM 倍率",
+    "tts": "TTS 倍率"
+  },
+  "title": "配置管理"
+}
