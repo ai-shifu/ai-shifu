@@ -1410,7 +1410,7 @@ export const NewChatComponents = ({
                 </div>
                 <div
                   data-lesson-print-site-brand='true'
-                  className='lesson-pdf-site-brand ml-auto flex shrink-0 flex-col items-end gap-1 text-right'
+                  className='lesson-pdf-site-brand ml-auto flex shrink-0 flex-col items-end text-right'
                 >
                   <Image
                     data-lesson-print-site-logo='true'

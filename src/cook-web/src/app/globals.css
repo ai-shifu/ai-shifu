@@ -486,7 +486,6 @@ body.listen-mode-vh-fallback #root {
     flex-direction: column;
     align-items: flex-end;
     flex-shrink: 0;
-    gap: 4px;
     margin-left: auto;
     text-align: right;
   }
@@ -494,6 +493,7 @@ body.listen-mode-vh-fallback #root {
   html.lesson-pdf-print .lesson-pdf-site-link {
     display: block !important;
     max-width: 220px;
+    margin-top: 4px;
     color: #525252 !important;
     font-size: 10px;
     line-height: 1.4;
