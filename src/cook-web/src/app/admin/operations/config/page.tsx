@@ -72,6 +72,8 @@ type RateConfigResponse = {
   baseline?: {
     default_llm_model?: string;
     unit_cost?: number;
+    per_1000_output_tokens?: number;
+    is_configured?: boolean;
     tts_chars_per_llm_token?: number;
   };
   llm_rates?: RateRow[];
@@ -128,8 +130,12 @@ function ConfigReferenceTooltip({
   const { t } = useTranslation(['module.operationsConfig']);
   const items = [
     {
-      label: t('rules.baselineModel'),
-      value: baseline?.default_llm_model || '-',
+      label: t('rules.baselinePer1000'),
+      value: baseline?.is_configured
+        ? t('rules.baselinePer1000Value', {
+            value: formatNumber(baseline?.per_1000_output_tokens),
+          })
+        : t('rules.baselineMissing'),
     },
     {
       label: t('rules.baselineUnitCost'),
@@ -141,7 +147,7 @@ function ConfigReferenceTooltip({
     },
     {
       label: t('rules.effectScope'),
-      value: t('rules.futureOnly'),
+      value: `${t('rules.fixedBaseline')}；${t('rules.futureOnly')}`,
     },
   ];
 
@@ -472,6 +478,10 @@ export default function AdminOperationsConfigPage() {
       toast({ title: t('invalidMultiplier'), variant: 'destructive' });
       return;
     }
+    if (!config.baseline?.is_configured) {
+      toast({ title: t('baselineMissing'), variant: 'destructive' });
+      return;
+    }
     const nextCreditsPerUnit = updateCreditsFromMultiplier(
       editState.multiplier,
       editState,
@@ -506,7 +516,14 @@ export default function AdminOperationsConfigPage() {
     } finally {
       setSaving(false);
     }
-  }, [editState, loadConfig, t, toast, updateCreditsFromMultiplier]);
+  }, [
+    config.baseline?.is_configured,
+    editState,
+    loadConfig,
+    t,
+    toast,
+    updateCreditsFromMultiplier,
+  ]);
 
   const requestSaveEdit = React.useCallback(() => {
     if (!editState) {
@@ -516,8 +533,12 @@ export default function AdminOperationsConfigPage() {
       toast({ title: t('invalidMultiplier'), variant: 'destructive' });
       return;
     }
+    if (!config.baseline?.is_configured) {
+      toast({ title: t('baselineMissing'), variant: 'destructive' });
+      return;
+    }
     setConfirmOpen(true);
-  }, [editState, t, toast]);
+  }, [config.baseline?.is_configured, editState, t, toast]);
 
   const updateEditMultiplier = React.useCallback(
     (rawValue: string) => {

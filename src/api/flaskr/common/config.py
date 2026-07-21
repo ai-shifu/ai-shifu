@@ -638,6 +638,19 @@ DeepSeek: deepseek-chat
 Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
         group="llm",
     ),
+    "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": EnvVar(
+        name="LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS",
+        default="",
+        example="0.066667",
+        description=(
+            "Fixed global 1x credit anchor for LLM output tokens, expressed as "
+            "credits consumed per 1000 output tokens. This value is used for "
+            "operator rate multiplier display, save conversion, and model-picker "
+            "multiplier labels. It must not be derived from DEFAULT_LLM_MODEL."
+        ),
+        group="llm",
+        required=False,
+    ),
     "LLM_ALLOWED_MODELS": EnvVar(
         name="LLM_ALLOWED_MODELS",
         default=[],
@@ -1554,9 +1567,10 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
             "TTS characters synthesized per LLM output token in a task, used to "
             "put TTS (billed per character) and LLM (billed per token) on one "
             "shared 1x anchor. Default 0.216 = omega(13.5%) x 1.6 chars/token. "
-            "The picker multiplier is TTS char cost x this factor / the default "
-            "LLM output-token cost, so TTS tiers stay on the same scale as LLM "
-            "model multipliers and track the default LLM price automatically."
+            "The picker multiplier is TTS char cost x this factor / the fixed "
+            "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS anchor, so TTS tiers stay on "
+            "the same scale as LLM model multipliers without depending on the "
+            "current DEFAULT_LLM_MODEL price."
         ),
         group="tts",
     ),

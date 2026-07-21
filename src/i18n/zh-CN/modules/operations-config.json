@@ -4,6 +4,7 @@
     "edit": "编辑",
     "save": "保存"
   },
+  "baselineMissing": "1x 基准未配置，暂不能保存消耗倍率。",
   "confirm": {
     "description": "确认将 {model} 的消耗倍率从 {from} 调整到 {to}。",
     "title": "确认保存消耗倍率"
@@ -29,11 +30,14 @@
     "prev": "上一页"
   },
   "rules": {
-    "baselineModel": "LLM 1x 参考模型",
-    "baselineUnitCost": "当前参考单位积分",
+    "baselineMissing": "1x 基准未配置，暂不能保存消耗倍率。",
+    "baselinePer1000": "1x 基准",
+    "baselinePer1000Value": "每 1000 个 LLM 输出 Token 消耗 {value} 积分",
+    "baselineUnitCost": "单 Token 基准",
     "effectScope": "生效范围",
+    "fixedBaseline": "该基准为全局固定值，不随默认模型和模型倍率调整而变化",
     "futureOnly": "仅影响后续新产生的用量，历史账单不回算",
-    "intro": "当前系统用于计算消耗倍率的参考值，仅供运营配置时核对。",
+    "intro": "当前系统用于计算消耗倍率的固定参考值，仅供运营配置时核对。",
     "tooltipAriaLabel": "查看配置参考",
     "ttsFactor": "TTS 字符折算系数"
   },

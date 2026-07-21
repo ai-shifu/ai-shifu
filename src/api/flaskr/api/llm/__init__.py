@@ -38,7 +38,7 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.models import CreditUsageRate
 from flaskr.service.billing.rate_references import (
     format_credit_multiplier,
-    load_default_llm_reference_cost,
+    load_llm_credit_1x_unit_cost,
 )
 from flaskr.service.metering import UsageContext, record_llm_usage
 from flaskr.service.metering.consts import (
@@ -1184,13 +1184,13 @@ def _attach_credit_multipliers(
     app: Flask, options: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
-    if not options or not default_model:
+    if not options:
         return [{**option, "credit_multiplier": None} for option in options]
 
     try:
         rows = _load_llm_output_rate_rows(app)
         now = now_utc()
-        default_rate = load_default_llm_reference_cost(default_model)
+        default_rate = load_llm_credit_1x_unit_cost()
         if default_rate is None or default_rate <= 0:
             return [{**option, "credit_multiplier": None} for option in options]
 

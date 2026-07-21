@@ -4,6 +4,7 @@
     "edit": "Modifier",
     "save": "Enregistrer"
   },
+  "baselineMissing": "La référence 1x n’est pas configurée ; les multiplicateurs de consommation ne peuvent pas être enregistrés.",
   "confirm": {
     "description": "Confirmer le passage du multiplicateur de consommation de crédits de {model} de {from} à {to}.",
     "title": "Confirmer le multiplicateur de consommation"
@@ -29,11 +30,14 @@
     "prev": "Précédent"
   },
   "rules": {
-    "baselineModel": "Modèle de référence LLM 1x",
-    "baselineUnitCost": "Crédits unitaires de référence actuels",
+    "baselineMissing": "La référence 1x n’est pas configurée ; les multiplicateurs de consommation ne peuvent pas être enregistrés.",
+    "baselinePer1000": "Référence 1x",
+    "baselinePer1000Value": "{value} crédits pour 1000 tokens de sortie LLM",
+    "baselineUnitCost": "Référence par token",
     "effectScope": "Périmètre d’effet",
+    "fixedBaseline": "Cette référence globale est fixe et ne change pas avec le modèle par défaut ni les mises à jour de multiplicateur.",
     "futureOnly": "Seuls les usages futurs sont affectés. Les factures historiques ne sont pas recalculées.",
-    "intro": "Valeurs de référence utilisées pour calculer les multiplicateurs de consommation, uniquement pour vérification opérationnelle.",
+    "intro": "Valeurs de référence fixes utilisées pour calculer les multiplicateurs de consommation, uniquement pour vérification opérationnelle.",
     "tooltipAriaLabel": "Voir la référence de configuration",
     "ttsFactor": "Facteur de conversion des caractères TTS"
   },

@@ -21,6 +21,10 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_STATUS_LABELS,
 )
 from flaskr.service.billing.models import CreditUsageRate
+from flaskr.service.common.credit_rate_references import (
+    load_llm_credit_1x_per_1000_output_tokens,
+    load_llm_credit_1x_unit_cost,
+)
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.config.funcs import get_config
 from flaskr.service.metering.consts import (
@@ -114,52 +118,10 @@ def _resolve_llm_rate_identity(model: str) -> tuple[str, list[str]]:
     return _resolve_billing_rate_identity(normalized)
 
 
-def _load_default_llm_reference_cost(
-    default_model: str | None = None,
-) -> Decimal | None:
-    """Return the stable 1x anchor used by the operator config page."""
+def _load_llm_credit_1x_reference_cost() -> Decimal | None:
+    """Return the fixed 1x anchor used by the operator config page."""
 
-    default_model = str(
-        default_model
-        if default_model is not None
-        else get_config("DEFAULT_LLM_MODEL", "") or ""
-    ).strip()
-    if not default_model:
-        return None
-    provider, model_candidates = _resolve_llm_rate_identity(default_model)
-    normalized_models = [
-        str(model or "").strip()
-        for model in model_candidates
-        if str(model or "").strip()
-    ]
-    if not normalized_models:
-        return None
-    model_priority = {
-        model: len(normalized_models) - index
-        for index, model in enumerate(normalized_models)
-    }
-    rows = (
-        CreditUsageRate.query.filter(
-            CreditUsageRate.deleted == 0,
-            CreditUsageRate.usage_type == BILL_USAGE_TYPE_LLM,
-            CreditUsageRate.provider == provider,
-            CreditUsageRate.model.in_(normalized_models),
-            CreditUsageRate.usage_scene == BILL_USAGE_SCENE_PROD,
-            CreditUsageRate.billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        )
-        .order_by(CreditUsageRate.effective_from.asc(), CreditUsageRate.id.asc())
-        .all()
-    )
-    if not rows:
-        return None
-    rows.sort(
-        key=lambda row: (
-            row.effective_from,
-            -model_priority.get(str(row.model or ""), 0),
-            int(row.id or 0),
-        )
-    )
-    return _unit_cost(rows[0])
+    return load_llm_credit_1x_unit_cost()
 
 
 def _load_default_llm_metric_ratio(metric: int) -> Decimal:
@@ -389,11 +351,16 @@ def _build_tts_rows(baseline_cost: Decimal | None) -> list[dict[str, Any]]:
 
 def get_operator_rate_config(app: Flask) -> dict[str, Any]:
     with app_context_scope(app):
-        baseline_cost = _load_default_llm_reference_cost()
+        baseline_cost = _load_llm_credit_1x_reference_cost()
+        baseline_per_1000 = load_llm_credit_1x_per_1000_output_tokens()
         return {
             "baseline": {
                 "default_llm_model": str(get_config("DEFAULT_LLM_MODEL", "") or ""),
                 "unit_cost": _decimal_to_number(baseline_cost or Decimal("0")),
+                "per_1000_output_tokens": _decimal_to_number(
+                    baseline_per_1000 or Decimal("0")
+                ),
+                "is_configured": bool(baseline_cost and baseline_cost > 0),
                 "tts_chars_per_llm_token": _decimal_to_number(
                     _load_tts_chars_per_llm_token() or Decimal("0")
                 ),
@@ -465,6 +432,10 @@ def update_operator_rate_config(
         unit_size = int(payload.get("unit_size") or 1)
         if unit_size <= 0:
             raise_param_error("unit_size")
+
+        baseline_cost = _load_llm_credit_1x_reference_cost()
+        if baseline_cost is None or baseline_cost <= 0:
+            raise_param_error("llm_credit_1x_per_1000_output_tokens")
 
         credits_per_unit = _decimal(
             payload.get("credits_per_unit"), field_name="credits_per_unit"
@@ -586,7 +557,6 @@ def update_operator_rate_config(
                     status=status_code,
                 )
             )
-        baseline_cost = _load_default_llm_reference_cost()
         return _serialize_rate_row(
             usage_type=usage_type,
             provider=provider,

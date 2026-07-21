@@ -4,6 +4,7 @@
     "edit": "Edit",
     "save": "Save"
   },
+  "baselineMissing": "The 1x baseline is not configured, so credit consumption multipliers cannot be saved.",
   "confirm": {
     "description": "Change {model} credit consumption multiplier from {from} to {to}?",
     "title": "Confirm credit consumption multiplier change"
@@ -29,11 +30,14 @@
     "prev": "Previous"
   },
   "rules": {
-    "baselineModel": "LLM 1x reference model",
-    "baselineUnitCost": "Current reference unit credits",
+    "baselineMissing": "The 1x baseline is not configured, so credit consumption multipliers cannot be saved.",
+    "baselinePer1000": "1x Baseline",
+    "baselinePer1000Value": "{value} credits per 1000 LLM output tokens",
+    "baselineUnitCost": "Per-token baseline",
     "effectScope": "Effective Scope",
+    "fixedBaseline": "This is a fixed global baseline and does not change with the default model or model multiplier updates.",
     "futureOnly": "Only future usage is affected. Historical bills are not recalculated.",
-    "intro": "Reference values used to calculate credit consumption multipliers, for operations review only.",
+    "intro": "Fixed reference values used to calculate credit consumption multipliers, for operations review only.",
     "tooltipAriaLabel": "View configuration reference",
     "ttsFactor": "TTS character conversion factor"
   },

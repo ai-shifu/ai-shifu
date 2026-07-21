@@ -100,6 +100,7 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import CreditUsageRate
+from flaskr.service.common import credit_rate_references
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -214,6 +215,7 @@ def _configure_model_list(monkeypatch):
     )
     config = {
         "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
+        "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "0.066667",
         "LLM_ALLOWED_MODELS": ",".join(available_models),
         "LLM_ALLOWED_MODEL_DISPLAY_NAMES": (
             "DeepSeek-V4-Flash,Doubao-Seed-2.0-lite,No Rate"
@@ -221,6 +223,11 @@ def _configure_model_list(monkeypatch):
     }
     monkeypatch.setattr(
         llm, "get_config", lambda key, default=None: config.get(key, default)
+    )
+    monkeypatch.setattr(
+        credit_rate_references,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
     )
 
 
@@ -274,7 +281,7 @@ def test_get_current_models_adds_output_token_credit_multiplier(monkeypatch, app
                     rate_bid="doubao-output",
                     provider="ark",
                     model="ark/doubao-seed-2-0-lite-260428",
-                    credits_per_unit="0.00018",
+                    credits_per_unit="0.0001800009",
                 ),
             ]
         )
@@ -300,7 +307,7 @@ def test_get_current_models_adds_output_token_credit_multiplier(monkeypatch, app
     )
 
 
-def test_get_current_models_uses_stable_default_multiplier_anchor(monkeypatch, app):
+def test_get_current_models_uses_fixed_credit_1x_anchor(monkeypatch, app):
     _configure_model_list(monkeypatch)
     with app.app_context():
         db.session.query(CreditUsageRate).delete()
@@ -320,6 +327,13 @@ def test_get_current_models_uses_stable_default_multiplier_anchor(monkeypatch, a
                     credits_per_unit="0.000466669",
                     effective_from=datetime(2026, 2, 1, 0, 0, 0),
                 ),
+                _create_credit_rate(
+                    rate_bid="doubao-output",
+                    provider="ark",
+                    model="ark/doubao-seed-2-0-lite-260428",
+                    credits_per_unit="0.0001800009",
+                    effective_from=datetime(2026, 1, 1, 0, 0, 0),
+                ),
             ]
         )
         db.session.commit()
@@ -333,6 +347,51 @@ def test_get_current_models_uses_stable_default_multiplier_anchor(monkeypatch, a
     assert by_model["qwen/deepseek-v4-flash"]["credit_multiplier"] == pytest.approx(7)
     assert by_model["qwen/deepseek-v4-flash"]["credit_multiplier_label"] == "7x"
     assert by_model["qwen/deepseek-v4-flash"]["is_default"] is True
+    assert (
+        by_model["ark/doubao-seed-2-0-lite-260428"]["credit_multiplier_label"] == "2.7x"
+    )
+
+
+def test_get_current_models_hides_multiplier_when_credit_1x_anchor_missing(
+    monkeypatch, app
+):
+    _configure_model_list(monkeypatch)
+    missing_anchor_config = {
+        "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
+        "LLM_ALLOWED_MODELS": (
+            "qwen/deepseek-v4-flash,ark/doubao-seed-2-0-lite-260428"
+        ),
+    }
+    monkeypatch.setattr(
+        llm,
+        "get_config",
+        lambda key, default=None: missing_anchor_config.get(key, default),
+    )
+    monkeypatch.setattr(
+        credit_rate_references,
+        "get_config",
+        lambda key, default=None: missing_anchor_config.get(key, default),
+    )
+
+    with app.app_context():
+        db.session.query(CreditUsageRate).delete()
+        db.session.add(
+            _create_credit_rate(
+                rate_bid="default-output",
+                provider="qwen",
+                model="qwen/deepseek-v4-flash",
+                credits_per_unit="0.000066667",
+            )
+        )
+        db.session.commit()
+
+        models = llm.get_current_models(app)
+
+        db.session.query(CreditUsageRate).delete()
+        db.session.commit()
+
+    assert all(item["credit_multiplier"] is None for item in models)
+    assert all(item.get("credit_multiplier_label") is None for item in models)
 
 
 def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(monkeypatch, app):
