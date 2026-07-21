@@ -205,6 +205,8 @@ def with_shifu_context(
                     shifu_bid = payload.get("shifu_bid") or payload.get("course_id")
 
             if shifu_bid:
+                app = None
+                creator_bid = None
                 try:
                     app = current_app._get_current_object()
                     creator_bid = _get_shifu_creator_bid_cached(app, shifu_bid)
@@ -212,6 +214,14 @@ def with_shifu_context(
                 except Exception:
                     # Context population failures should not break the endpoint.
                     pass
+                if app is not None and creator_bid:
+                    host_creator_bid = _resolve_host_creator_bid(
+                        app, _extract_request_host(request) or ""
+                    )
+                    if host_creator_bid and host_creator_bid != creator_bid:
+                        from flaskr.service.common.models import raise_error
+
+                        raise_error("server.shifu.shifuNotFound")
             else:
                 try:
                     app = current_app._get_current_object()

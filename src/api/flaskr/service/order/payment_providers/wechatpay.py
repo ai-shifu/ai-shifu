@@ -154,7 +154,10 @@ class WechatPayProvider(PaymentProvider):
         )
 
     def _build_transaction_body(self, request: PaymentRequest) -> dict[str, Any]:
-        notify_url = build_wechatpay_notify_url()
+        notify_url = (
+            str(get_config("WECHATPAY_WEBHOOK_URL", "") or "")
+            or build_wechatpay_notify_url()
+        )
         return {
             "appid": _wechatpay_app_id(),
             "mchid": _required_config("WECHATPAY_MCH_ID"),
@@ -259,8 +262,7 @@ class WechatPayProvider(PaymentProvider):
         signature = normalized_headers.get("wechatpay-signature", "")
         if not timestamp or not nonce or not signature:
             raise RuntimeError("WeChat Pay signature headers missing")
-        platform_cert_path = _required_config("WECHATPAY_PLATFORM_CERT_PATH")
-        public_key = _load_public_key_from_certificate(platform_cert_path)
+        public_key = _load_public_key_from_certificate()
         message = f"{timestamp}\n{nonce}\n{raw_body}\n".encode("utf-8")
         public_key.verify(
             base64.b64decode(signature),
@@ -312,7 +314,7 @@ def _wechatpay_base_url() -> str:
 
 
 def _sign_with_merchant_key(message: str) -> str:
-    private_key = _load_private_key(_required_config("WECHATPAY_PRIVATE_KEY_PATH"))
+    private_key = _load_private_key()
     signature = private_key.sign(
         message.encode("utf-8"),
         padding.PKCS1v15(),
@@ -321,13 +323,23 @@ def _sign_with_merchant_key(message: str) -> str:
     return base64.b64encode(signature).decode("utf-8")
 
 
-def _load_private_key(path: str):
-    pem = Path(path).read_bytes()
+def _load_private_key():
+    inline = str(get_config("WECHATPAY_PRIVATE_KEY", "") or "").strip()
+    pem = (
+        inline.encode("utf-8")
+        if inline
+        else Path(_required_config("WECHATPAY_PRIVATE_KEY_PATH")).read_bytes()
+    )
     return serialization.load_pem_private_key(pem, password=None)
 
 
-def _load_public_key_from_certificate(path: str):
-    pem = Path(path).read_bytes()
+def _load_public_key_from_certificate():
+    inline = str(get_config("WECHATPAY_PLATFORM_CERT", "") or "").strip()
+    pem = (
+        inline.encode("utf-8")
+        if inline
+        else Path(_required_config("WECHATPAY_PLATFORM_CERT_PATH")).read_bytes()
+    )
     cert = x509.load_pem_x509_certificate(pem)
     return cert.public_key()
 

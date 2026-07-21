@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from flask import Flask
 
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.util.datetime import now_utc
 
 from .models import DraftOutlineItem, DraftShifu
@@ -387,7 +388,8 @@ def repair_shifu_outline_structure(
             rebuilt_struct_count += 1
 
         if not dry_run and (repaired_records or skipped_records):
-            db.session.commit()
+            with unit_of_work():
+                pass
 
         if not dry_run and not repaired_records and not skipped_records:
             db.session.rollback()

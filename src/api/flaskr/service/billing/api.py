@@ -35,6 +35,12 @@ from flaskr.service.billing.domains import (
     resolve_creator_bid_by_host,
     resolve_effective_custom_origin,
 )
+from flaskr.service.billing.customization import (
+    build_provider_config_overrides,
+    resolve_creator_public_integrations,
+    resolve_payment_integration_for_new_order,
+    resolve_provider_credential_context,
+)
 from flaskr.service.billing.operation_credits import (
     OperationCreditCaptureResult,
     OperationCreditEstimate,
@@ -71,10 +77,14 @@ __all__ = [
     "OperationCreditReservationResult",
     "admit_creator_usage",
     "build_billing_catalog",
+    "build_provider_config_overrides",
     "capture_reserved_operation_credits",
     "estimate_voice_clone_operation_credits",
     "resolve_creator_bid_by_host",
+    "resolve_creator_public_integrations",
     "resolve_effective_custom_origin",
+    "resolve_payment_integration_for_new_order",
+    "resolve_provider_credential_context",
     "build_operator_credit_orders_overview",
     "build_operator_credit_orders_page",
     "dry_run_credit_notifications",

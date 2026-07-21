@@ -8,6 +8,7 @@ from .consts import (
     ASK_PROVIDER_COZE,
     ASK_PROVIDER_COZE_WORKFLOW,
     ASK_PROVIDER_DIFY,
+    ASK_PROVIDER_GET_BIJI_KNOWLEDGE,
     ASK_PROVIDER_LLM,
     ASK_PROVIDER_VOLC_KNOWLEDGE,
 )
@@ -21,6 +22,7 @@ from .base import (
 from .coze_adapter import CozeAskProviderAdapter
 from .coze_workflow_adapter import CozeWorkflowAskProviderAdapter
 from .dify_adapter import DifyAskProviderAdapter
+from .get_biji_knowledge_adapter import GetBijiKnowledgeAskProviderAdapter
 from .llm_adapter import LlmAskProviderAdapter
 from .volc_knowledge_adapter import VolcKnowledgeAskProviderAdapter
 
@@ -37,6 +39,8 @@ def get_ask_provider_adapter(provider: str) -> AskProviderAdapter | None:
         return CozeWorkflowAskProviderAdapter()
     if provider == ASK_PROVIDER_VOLC_KNOWLEDGE:
         return VolcKnowledgeAskProviderAdapter()
+    if provider == ASK_PROVIDER_GET_BIJI_KNOWLEDGE:
+        return GetBijiKnowledgeAskProviderAdapter()
     return None
 
 

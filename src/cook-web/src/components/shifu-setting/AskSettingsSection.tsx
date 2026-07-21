@@ -305,6 +305,8 @@ export default function AskSettingsSection({
                     ? 'password'
                     : 'text'
               }
+              min={(fieldSchema as any)?.minimum}
+              max={(fieldSchema as any)?.maximum}
               value={rawFieldValue ?? ''}
               onChange={e =>
                 setAskProviderConfig(prev => ({

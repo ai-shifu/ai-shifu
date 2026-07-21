@@ -25,6 +25,7 @@ import {
 import { useAdminPaginatedListState } from '@/app/admin/hooks/useAdminPaginatedListState';
 
 const RECENT_ITEMS_LIMIT = 20;
+const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 
 type BillingRecentActivitySectionProps = {
   className?: string;
@@ -92,10 +93,13 @@ export function BillingRecentActivitySection({
   } = useSWR<BillingPagedResponse<BillingLedgerItem>>(
     buildBillingSwrKey('billing-ledger-recent', pageIndex, RECENT_ITEMS_LIMIT),
     async () =>
-      (await api.getBillingLedger({
-        page_index: pageIndex,
-        page_size: RECENT_ITEMS_LIMIT,
-      })) as BillingPagedResponse<BillingLedgerItem>,
+      (await api.getBillingLedger(
+        {
+          page_index: pageIndex,
+          page_size: RECENT_ITEMS_LIMIT,
+        },
+        BILLING_PASSIVE_REQUEST_CONFIG,
+      )) as BillingPagedResponse<BillingLedgerItem>,
     {
       revalidateOnFocus: false,
     },
