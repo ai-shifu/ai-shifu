@@ -1607,9 +1607,9 @@ def test_build_usage_metric_charges_uses_superseded_rate_for_old_settlement_time
             settlement_at=datetime(2026, 4, 8, 11, 59, 59),
         )
 
-        assert charge.billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS
-        assert charge.credits_per_unit == Decimal("2.0000000000")
-        assert charge.consumed_credits == Decimal("2.00")
+        assert charge["billing_metric"] == BILLING_METRIC_LLM_OUTPUT_TOKENS
+        assert charge["credits_per_unit"] == Decimal("2.0000000000")
+        assert charge["consumed_credits"] == Decimal("2.00")
 
 
 def test_resolve_credit_multiplier_label_uses_utc_default_settlement(monkeypatch):
