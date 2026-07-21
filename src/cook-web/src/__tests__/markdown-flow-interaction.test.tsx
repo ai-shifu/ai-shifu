@@ -23,6 +23,30 @@ describe('adaptMarkdownFlowInteractionForRender', () => {
     );
   });
 
+  it('preserves custom values for anonymous mixed options', () => {
+    expect(
+      adaptMarkdownFlowInteractionForRender(
+        '?[Small//S | Medium//M | ...custom size]',
+      ),
+    ).toBe(
+      '<custom-variable placeholder="custom size" data-button-texts="[&quot;Small&quot;,&quot;Medium&quot;]" data-button-values="[&quot;S&quot;,&quot;M&quot;]"></custom-variable>',
+    );
+  });
+
+  it('uses a leading single separator without splitting double pipes in an option', () => {
+    expect(
+      adaptMarkdownFlowInteractionForRender('?[A | B||C | ...Other]'),
+    ).toBe(
+      '<custom-variable placeholder="Other" data-button-texts="[&quot;A&quot;,&quot;B||C&quot;]" data-button-values="[&quot;A&quot;,&quot;B||C&quot;]"></custom-variable>',
+    );
+  });
+
+  it('uses a leading double separator without splitting single pipes in an option', () => {
+    expect(adaptMarkdownFlowInteractionForRender('?[A||B | C||...Other]')).toBe(
+      '<custom-variable placeholder="Other" data-button-texts="[&quot;A&quot;,&quot;B | C&quot;]" data-button-values="[&quot;A&quot;,&quot;B | C&quot;]" data-is-multi-select="true"></custom-variable>',
+    );
+  });
+
   it('escapes the prompt when adapting it into an HTML attribute', () => {
     expect(
       adaptMarkdownFlowInteractionForRender(

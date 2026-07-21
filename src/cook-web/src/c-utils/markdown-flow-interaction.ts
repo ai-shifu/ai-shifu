@@ -1,5 +1,7 @@
 const ANONYMOUS_TEXT_INPUT_PATTERN =
   /^(\s*)\?\[(?!\s*%\{\{)\s*(?:(.*?)\s*(\|\||\|)\s*)?\.\.\.([^\]]*?)\](\s*)$/;
+const SINGLE_OPTION_SEPARATOR_PATTERN = /(?<!\|)\|(?!\|)/;
+const BUTTON_VALUE_PATTERN = /^(.+?)\/\/(.+)$/;
 
 const escapeHtmlAttribute = (value: string) =>
   value
@@ -21,9 +23,19 @@ export const adaptMarkdownFlowInteractionForRender = (content: string) => {
     return content;
   }
 
-  const options = match[2]
-    ? match[2]
-        .split(match[3])
+  const optionContent = match[2]?.trim();
+  const separatorProbe = optionContent ? `${optionContent}${match[3]}` : '';
+  const firstSeparatorIndex = separatorProbe.indexOf('|');
+  const firstMultiSeparatorIndex = separatorProbe.indexOf('||');
+  const isMultiSelect =
+    firstMultiSeparatorIndex !== -1 &&
+    firstMultiSeparatorIndex <= firstSeparatorIndex;
+  const optionSeparator = isMultiSelect
+    ? '||'
+    : SINGLE_OPTION_SEPARATOR_PATTERN;
+  const options = optionContent
+    ? optionContent
+        .split(optionSeparator)
         .map(option => option.trim())
         .filter(Boolean)
     : [];
@@ -33,10 +45,23 @@ export const adaptMarkdownFlowInteractionForRender = (content: string) => {
     )}"></custom-variable>${match[5]}`;
   }
 
-  const optionValues = escapeStringArrayAttribute(options);
-  const multiSelectAttribute =
-    match[3] === '||' ? ' data-is-multi-select="true"' : '';
+  const parsedOptions = options.map(option => {
+    const valueMatch = BUTTON_VALUE_PATTERN.exec(option);
+    return {
+      text: valueMatch?.[1]?.trim() || option,
+      value: valueMatch?.[2]?.trim() || option,
+    };
+  });
+  const optionTexts = escapeStringArrayAttribute(
+    parsedOptions.map(option => option.text),
+  );
+  const optionValues = escapeStringArrayAttribute(
+    parsedOptions.map(option => option.value),
+  );
+  const multiSelectAttribute = isMultiSelect
+    ? ' data-is-multi-select="true"'
+    : '';
   return `${match[1]}<custom-variable placeholder="${escapeHtmlAttribute(
     prompt,
-  )}" data-button-texts="${optionValues}" data-button-values="${optionValues}"${multiSelectAttribute}></custom-variable>${match[5]}`;
+  )}" data-button-texts="${optionTexts}" data-button-values="${optionValues}"${multiSelectAttribute}></custom-variable>${match[5]}`;
 };
