@@ -9,6 +9,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     ASK_PROVIDER_COZE,
     ASK_PROVIDER_COZE_WORKFLOW,
     ASK_PROVIDER_VOLC_KNOWLEDGE,
+    ASK_PROVIDER_GET_BIJI_KNOWLEDGE,
     ASK_PROVIDER_MODE_PROVIDER_ONLY,
     ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
     normalize_ask_provider_config,
@@ -60,6 +61,12 @@ def _localize_provider_title(provider: str, fallback: str) -> str:
             "module.shifuSetting.askProviderOptions.volc_knowledge",
             fallback,
         )
+    if provider == ASK_PROVIDER_GET_BIJI_KNOWLEDGE:
+        return _translated_or_fallback(
+            _("module.shifuSetting.askProviderOptions.get_biji_knowledge"),
+            "module.shifuSetting.askProviderOptions.get_biji_knowledge",
+            fallback,
+        )
     return fallback
 
 
@@ -92,6 +99,12 @@ def _localize_provider_description(provider: str, fallback: str) -> str:
         return _translated_or_fallback(
             _("module.shifuSetting.askProviderDescriptions.volc_knowledge"),
             "module.shifuSetting.askProviderDescriptions.volc_knowledge",
+            fallback,
+        )
+    if provider == ASK_PROVIDER_GET_BIJI_KNOWLEDGE:
+        return _translated_or_fallback(
+            _("module.shifuSetting.askProviderDescriptions.get_biji_knowledge"),
+            "module.shifuSetting.askProviderDescriptions.get_biji_knowledge",
             fallback,
         )
     return fallback
@@ -162,6 +175,34 @@ def _localize_provider_field_label(
             "module.shifuSetting.askProviderFields.volc_knowledge.collection_name.label",
             fallback,
         )
+    if provider == ASK_PROVIDER_GET_BIJI_KNOWLEDGE and field_name == "api_key":
+        return _translated_or_fallback(
+            _("module.shifuSetting.askProviderFields.get_biji_knowledge.api_key.label"),
+            "module.shifuSetting.askProviderFields.get_biji_knowledge.api_key.label",
+            fallback,
+        )
+    if provider == ASK_PROVIDER_GET_BIJI_KNOWLEDGE and field_name == "client_id":
+        return _translated_or_fallback(
+            _(
+                "module.shifuSetting.askProviderFields.get_biji_knowledge.client_id.label"
+            ),
+            "module.shifuSetting.askProviderFields.get_biji_knowledge.client_id.label",
+            fallback,
+        )
+    if provider == ASK_PROVIDER_GET_BIJI_KNOWLEDGE and field_name == "topic_id":
+        return _translated_or_fallback(
+            _(
+                "module.shifuSetting.askProviderFields.get_biji_knowledge.topic_id.label"
+            ),
+            "module.shifuSetting.askProviderFields.get_biji_knowledge.topic_id.label",
+            fallback,
+        )
+    if provider == ASK_PROVIDER_GET_BIJI_KNOWLEDGE and field_name == "top_k":
+        return _translated_or_fallback(
+            _("module.shifuSetting.askProviderFields.get_biji_knowledge.top_k.label"),
+            "module.shifuSetting.askProviderFields.get_biji_knowledge.top_k.label",
+            fallback,
+        )
     return fallback
 
 
@@ -226,6 +267,32 @@ def _localize_provider_field_hint(provider: str, field_name: str, fallback: str)
                 "module.shifuSetting.askProviderFields.volc_knowledge.collection_name.hint"
             ),
             "module.shifuSetting.askProviderFields.volc_knowledge.collection_name.hint",
+            fallback,
+        )
+    if provider == ASK_PROVIDER_GET_BIJI_KNOWLEDGE and field_name == "api_key":
+        return _translated_or_fallback(
+            _("module.shifuSetting.askProviderFields.get_biji_knowledge.api_key.hint"),
+            "module.shifuSetting.askProviderFields.get_biji_knowledge.api_key.hint",
+            fallback,
+        )
+    if provider == ASK_PROVIDER_GET_BIJI_KNOWLEDGE and field_name == "client_id":
+        return _translated_or_fallback(
+            _(
+                "module.shifuSetting.askProviderFields.get_biji_knowledge.client_id.hint"
+            ),
+            "module.shifuSetting.askProviderFields.get_biji_knowledge.client_id.hint",
+            fallback,
+        )
+    if provider == ASK_PROVIDER_GET_BIJI_KNOWLEDGE and field_name == "topic_id":
+        return _translated_or_fallback(
+            _("module.shifuSetting.askProviderFields.get_biji_knowledge.topic_id.hint"),
+            "module.shifuSetting.askProviderFields.get_biji_knowledge.topic_id.hint",
+            fallback,
+        )
+    if provider == ASK_PROVIDER_GET_BIJI_KNOWLEDGE and field_name == "top_k":
+        return _translated_or_fallback(
+            _("module.shifuSetting.askProviderFields.get_biji_knowledge.top_k.hint"),
+            "module.shifuSetting.askProviderFields.get_biji_knowledge.top_k.hint",
             fallback,
         )
     return fallback
@@ -411,6 +478,49 @@ def get_ask_provider_schema_registry() -> dict[str, dict[str, Any]]:
                 "additionalProperties": True,
             },
         },
+        ASK_PROVIDER_GET_BIJI_KNOWLEDGE: {
+            "title": "Get Biji Knowledge Base",
+            "description": (
+                "Retrieve from the Get Biji knowledge base semantic recall API, "
+                "then synthesize the answer with the built-in ask LLM."
+            ),
+            "default_config": {
+                "api_key": "",
+                "client_id": "",
+                "topic_id": "",
+                "top_k": 5,
+            },
+            "json_schema": {
+                "type": "object",
+                "properties": {
+                    "api_key": {
+                        "type": "string",
+                        "format": "password",
+                        "title": "API Key",
+                        "description": "Get Biji OpenAPI key.",
+                    },
+                    "client_id": {
+                        "type": "string",
+                        "title": "Client ID",
+                        "description": "Get Biji OpenAPI client id.",
+                    },
+                    "topic_id": {
+                        "type": "string",
+                        "title": "Topic ID",
+                        "description": "Get Biji knowledge base topic id.",
+                    },
+                    "top_k": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "title": "Top K",
+                        "description": "Number of semantic recall results, 1-10.",
+                    },
+                },
+                "required": ["api_key", "client_id", "topic_id"],
+                "additionalProperties": True,
+            },
+        },
     }
 
 
@@ -434,6 +544,27 @@ def validate_ask_provider_specific_config(
         elif value is None:
             return False, field
 
+    # Numeric fields must parse and respect schema bounds when provided.
+    properties = schema.get("properties", {})
+    for field, field_schema in properties.items():
+        if not isinstance(field_schema, dict):
+            continue
+        if field_schema.get("type") not in {"number", "integer"}:
+            continue
+        value = config.get(field)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return False, field
+        minimum = field_schema.get("minimum")
+        maximum = field_schema.get("maximum")
+        if minimum is not None and number < minimum:
+            return False, field
+        if maximum is not None and number > maximum:
+            return False, field
+
     return True, None
 
 
@@ -455,6 +586,7 @@ def get_ask_provider_metadata() -> dict[str, Any]:
         ASK_PROVIDER_COZE,
         ASK_PROVIDER_COZE_WORKFLOW,
         ASK_PROVIDER_VOLC_KNOWLEDGE,
+        ASK_PROVIDER_GET_BIJI_KNOWLEDGE,
     ]:
         item = registry[provider]
         providers.append(

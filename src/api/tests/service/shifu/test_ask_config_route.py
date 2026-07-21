@@ -21,6 +21,7 @@ def test_ask_config_route_localizes_response_by_user_language(monkeypatch, test_
         item["provider"]: item for item in payload["data"].get("providers", [])
     }
     assert providers["volc_knowledge"]["title"] == "火山引擎知识库"
+    assert providers["get_biji_knowledge"]["title"] == "Get 笔记知识库"
     assert "base_url" not in providers["coze"]["json_schema"]["properties"]
     assert (
         providers["coze"]["json_schema"]["properties"]["bot_id"]["description"]

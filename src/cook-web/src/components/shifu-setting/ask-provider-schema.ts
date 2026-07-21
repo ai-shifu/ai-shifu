@@ -3,6 +3,8 @@ export type AskProviderSchemaField = {
   format?: string;
   title?: string;
   description?: string;
+  minimum?: number;
+  maximum?: number;
 };
 
 export type AskProviderJsonSchema = {
@@ -16,7 +18,10 @@ export type BuildAskProviderConfigParams = {
   objectInputs?: Record<string, string>;
 };
 
-export type AskProviderValidationCode = 'required' | 'invalid_json';
+export type AskProviderValidationCode =
+  | 'required'
+  | 'invalid_json'
+  | 'out_of_range';
 
 export class AskProviderSchemaValidationError extends Error {
   code: AskProviderValidationCode;
@@ -88,7 +93,15 @@ export const buildAskProviderConfigForSubmit = ({
       if (Number.isNaN(parsed)) {
         throw new AskProviderSchemaValidationError('invalid_json', field);
       }
-      result[field] = fieldType === 'integer' ? Math.round(parsed) : parsed;
+      const normalized = fieldType === 'integer' ? Math.round(parsed) : parsed;
+      if (
+        (fieldSchema?.minimum !== undefined &&
+          normalized < fieldSchema.minimum) ||
+        (fieldSchema?.maximum !== undefined && normalized > fieldSchema.maximum)
+      ) {
+        throw new AskProviderSchemaValidationError('out_of_range', field);
+      }
+      result[field] = normalized;
       continue;
     }
 

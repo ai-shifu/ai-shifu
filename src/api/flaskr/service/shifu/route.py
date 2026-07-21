@@ -2253,7 +2253,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             AskProviderError,
             AskProviderRuntime,
             AskProviderTimeoutError,
+            apply_knowledge_to_messages,
             stream_ask_provider_response,
+        )
+        from flaskr.service.learn.ask_provider_adapters.consts import (
+            ASK_PROVIDERS_WITH_LLM_SYNTHESIS,
         )
         from flaskr.service.metering import UsageContext
         from flaskr.service.shifu.shifu_draft_funcs import (
@@ -2286,6 +2290,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         require_llm_model = (
             requested_provider == ASK_PROVIDER_LLM
             or mode == ASK_PROVIDER_MODE_PROVIDER_THEN_LLM
+            or requested_provider in ASK_PROVIDERS_WITH_LLM_SYNTHESIS
         )
 
         ask_model = str(json_data.get("ask_model") or "").strip()
@@ -2344,13 +2349,14 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 if bool(getattr(getattr(request, "user", None), "is_creator", False))
                 else 0
             )
-            return AskProviderRuntime(
-                llm_stream_factory=lambda: chat_llm(
+
+            def _chat_llm_stream(stream_messages: list[dict[str, str]]):
+                return chat_llm(
                     app,
                     preview_user_id,
                     preview_span,
                     model=ask_model,
-                    messages=messages,
+                    messages=stream_messages,
                     generation_name="ask_provider_preview",
                     temperature=ask_temperature,
                     usage_context=UsageContext(
@@ -2362,6 +2368,14 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     billable=runtime_billable,
                     stream=True,
                 )
+
+            return AskProviderRuntime(
+                llm_stream_factory=lambda: _chat_llm_stream(
+                    apply_knowledge_to_messages(messages, "")
+                ),
+                llm_context_stream_factory=lambda knowledge_context: _chat_llm_stream(
+                    apply_knowledge_to_messages(messages, knowledge_context)
+                ),
             )
 
         def _invoke_provider(
@@ -2408,12 +2422,23 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             try:
                 llm_runtime = (
                     _build_llm_runtime()
-                    if requested_provider == ASK_PROVIDER_LLM
+                    if (
+                        requested_provider == ASK_PROVIDER_LLM
+                        or requested_provider in ASK_PROVIDERS_WITH_LLM_SYNTHESIS
+                    )
                     else None
                 )
                 answer = _invoke_provider(requested_provider, runtime=llm_runtime)
             except (AskProviderError, AskProviderTimeoutError) as error:
-                provider_error = str(error)
+                # Surface a localized, human-readable message; keep the raw
+                # error (URL, response body) in the logs only.
+                app.logger.warning("ask preview provider error: %s", error)
+                if isinstance(error, AskProviderTimeoutError):
+                    provider_error = str(_("server.learn.askProviderTimeout"))
+                else:
+                    provider_error = getattr(error, "user_message", None) or str(
+                        _("server.learn.askProviderUnavailable")
+                    )
                 if (
                     mode != ASK_PROVIDER_MODE_PROVIDER_THEN_LLM
                     or requested_provider == ASK_PROVIDER_LLM
