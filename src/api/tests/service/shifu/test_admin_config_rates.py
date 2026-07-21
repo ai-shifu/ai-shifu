@@ -125,6 +125,7 @@ def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(monkeypatch, ap
 
         config = config_rates.get_operator_rate_config(app)
         row = config["llm_rates"][0]
+        rate_change_at = fixed_now.replace(microsecond=0)
         active_rows = {
             rate.billing_metric: rate
             for rate in CreditUsageRate.query.filter(
@@ -132,8 +133,17 @@ def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(monkeypatch, ap
                 CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,
                 CreditUsageRate.provider == "qwen",
                 CreditUsageRate.model == "deepseek-v4-flash",
+                CreditUsageRate.effective_from == rate_change_at,
+                CreditUsageRate.effective_to.is_(None),
             ).all()
         }
+        superseded_rows = CreditUsageRate.query.filter(
+            CreditUsageRate.deleted == 0,
+            CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,
+            CreditUsageRate.provider == "qwen",
+            CreditUsageRate.model == "deepseek-v4-flash",
+            CreditUsageRate.effective_from == datetime(2026, 1, 1, 0, 0, 0),
+        ).all()
 
         assert result["rate_model"] == "deepseek-v4-flash"
         assert result["multiplier"] == 4
@@ -148,8 +158,13 @@ def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(monkeypatch, ap
             BILLING_METRIC_LLM_OUTPUT_TOKENS
         ].credits_per_unit == Decimal("12")
         assert active_rows[BILLING_METRIC_LLM_OUTPUT_TOKENS].effective_from == (
-            fixed_now.replace(microsecond=0)
+            rate_change_at
         )
+        assert len(superseded_rows) == 3
+        assert {row.status for row in superseded_rows} == {
+            CREDIT_USAGE_RATE_STATUS_ACTIVE
+        }
+        assert {row.effective_to for row in superseded_rows} == {rate_change_at}
 
         # A second save in the same DB second should update the deterministic
         # version instead of colliding on the rate lookup unique key.
@@ -176,6 +191,8 @@ def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(monkeypatch, ap
             CreditUsageRate.provider == "qwen",
             CreditUsageRate.model == "deepseek-v4-flash",
             CreditUsageRate.billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            CreditUsageRate.effective_from == rate_change_at,
+            CreditUsageRate.effective_to.is_(None),
         ).all()
 
         assert second_result["multiplier"] == 7

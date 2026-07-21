@@ -5,8 +5,8 @@
     "save": "Save"
   },
   "confirm": {
-    "description": "Change {model} multiplier from {from} to {to}?",
-    "title": "Confirm multiplier change"
+    "description": "Change {model} credit consumption multiplier from {from} to {to}?",
+    "title": "Confirm credit consumption multiplier change"
   },
   "description": "Manage credit consumption rules for LLM and speech synthesis. Changes only affect future usage settlement.",
   "empty": "No configurable models.",
@@ -15,14 +15,14 @@
     "displayName": "Display Name",
     "model": "Model",
     "modelTier": "Model / Tier",
-    "multiplier": "Multiplier",
+    "multiplier": "Credit Consumption Multiplier",
     "multiplierSuffix": "x",
     "provider": "Voice Provider",
     "source": "Configuration",
-    "ttsMultiplier": "Conversion Multiplier",
+    "ttsMultiplier": "Credit Consumption Multiplier",
     "updatedAt": "Updated At"
   },
-  "invalidMultiplier": "Enter a multiplier greater than 0 with up to 2 decimal places.",
+  "invalidMultiplier": "Enter a credit consumption multiplier greater than 0 with up to 2 decimal places.",
   "loadFailed": "Failed to load config. Please try again later.",
   "pagination": {
     "next": "Next",
@@ -33,20 +33,20 @@
     "baselineUnitCost": "Current reference unit credits",
     "effectScope": "Effective Scope",
     "futureOnly": "Only future usage is affected. Historical bills are not recalculated.",
-    "intro": "Reference values used to calculate multipliers, for operations review only.",
+    "intro": "Reference values used to calculate credit consumption multipliers, for operations review only.",
     "tooltipAriaLabel": "View configuration reference",
     "ttsFactor": "TTS character conversion factor"
   },
   "saveFailed": "Failed to save config. Please check the form.",
   "saveSuccess": "Config saved",
   "source": {
-    "default": "Default multiplier",
-    "exact": "Custom multiplier",
+    "default": "Default credit consumption multiplier",
+    "exact": "Custom credit consumption multiplier",
     "unconfigured": "Not configured"
   },
   "tabs": {
-    "llm": "LLM Multipliers",
-    "tts": "TTS Multipliers"
+    "llm": "LLM Credit Consumption",
+    "tts": "TTS Credit Consumption"
   },
   "title": "Config Management"
 }

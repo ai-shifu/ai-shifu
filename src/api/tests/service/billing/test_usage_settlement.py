@@ -1540,6 +1540,78 @@ def test_build_usage_metric_charges_matches_llm_rate_model_alias(
         assert charge.consumed_credits == Decimal("6.00")
 
 
+def test_build_usage_metric_charges_uses_superseded_rate_for_old_settlement_time(
+    billing_settlement_app: Flask,
+    monkeypatch,
+) -> None:
+    from flaskr.service.billing import charges as charge_module
+
+    monkeypatch.setattr(
+        charge_module,
+        "resolve_llm_rate_identity",
+        lambda _model: ("deepseek", ["deepseek-v4-flash"]),
+    )
+
+    with billing_settlement_app.app_context():
+        old_rate = _create_rate(
+            rate_bid="rate-old-deepseek-flash",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="deepseek",
+            model="deepseek-v4-flash",
+            billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            credits_per_unit="2.0000000000",
+            unit_size=1000,
+        )
+        old_rate.effective_from = datetime(2026, 4, 1, 0, 0, 0)
+        old_rate.effective_to = datetime(2026, 4, 8, 12, 0, 0)
+        # Superseded rows stay active so delayed settlement can still resolve
+        # by the usage's original settlement window.
+        old_rate.status = CREDIT_USAGE_RATE_STATUS_ACTIVE
+
+        new_rate = _create_rate(
+            rate_bid="rate-new-deepseek-flash",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="deepseek",
+            model="deepseek-v4-flash",
+            billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            credits_per_unit="8.0000000000",
+            unit_size=1000,
+        )
+        new_rate.effective_from = datetime(2026, 4, 8, 12, 0, 0)
+
+        wildcard_rate = _create_rate(
+            rate_bid="rate-wildcard-fallback",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="*",
+            model="*",
+            billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            credits_per_unit="5.0000000000",
+            unit_size=1000,
+        )
+
+        usage = _create_usage(
+            usage_bid="usage-before-rate-change",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="deepseek",
+            model="deepseek-v4-flash",
+            input_value=0,
+            input_cache=0,
+            output=1000,
+            total=1000,
+        )
+        dao.db.session.add_all([old_rate, new_rate, wildcard_rate, usage])
+        dao.db.session.commit()
+
+        [charge] = build_usage_metric_charges(
+            usage,
+            settlement_at=datetime(2026, 4, 8, 11, 59, 59),
+        )
+
+        assert charge.billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS
+        assert charge.credits_per_unit == Decimal("2.0000000000")
+        assert charge.consumed_credits == Decimal("2.00")
+
+
 def test_resolve_credit_multiplier_label_uses_utc_default_settlement(monkeypatch):
     from flaskr.service.billing import charges
 

@@ -532,7 +532,6 @@ def update_operator_rate_config(
         )
         for row in existing_rows:
             row.effective_to = now
-            row.status = CREDIT_USAGE_RATE_STATUS_INACTIVE
 
         for metric in metrics_to_update:
             next_unit_size = unit_size
