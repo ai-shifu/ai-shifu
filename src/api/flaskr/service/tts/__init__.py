@@ -37,8 +37,7 @@ _FENCE = "```"
 def has_speakable_text(text: str) -> bool:
     """Return whether text contains a Unicode letter or number."""
     return any(
-        unicodedata.category(char).startswith(("L", "N"))
-        for char in str(text or "")
+        unicodedata.category(char).startswith(("L", "N")) for char in str(text or "")
     )
 
 
