@@ -81,7 +81,7 @@ type RateConfigResponse = {
 type EditState = {
   row: RateRow;
   unitSize: string;
-  creditsPerUnit: string;
+  creditsPerUnit: string | null;
   multiplier: string;
 };
 
@@ -89,6 +89,9 @@ const getRateRowKey = (row: RateRow) =>
   `${row.usage_type}-${row.provider}-${row.rate_model || row.model}-${row.billing_metric}`;
 
 const formatNumber = (value: unknown, fallback = '-') => {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
     return fallback;
@@ -437,7 +440,7 @@ export default function AdminOperationsConfigPage() {
   }, []);
 
   const updateCreditsFromMultiplier = React.useCallback(
-    (multiplierText: string, current: EditState) => {
+    (multiplierText: string, current: EditState): string | null => {
       const multiplier = Number(multiplierText);
       const unitSize = Number(current.unitSize || 1);
       const baseline = Number(config.baseline?.unit_cost || 0);
@@ -446,13 +449,13 @@ export default function AdminOperationsConfigPage() {
         !Number.isFinite(unitSize) ||
         baseline <= 0
       ) {
-        return current.creditsPerUnit;
+        return null;
       }
       let value = baseline * multiplier * unitSize;
       if (current.row.usage_type === 'tts') {
         const factor = Number(config.baseline?.tts_chars_per_llm_token || 0);
         if (factor <= 0) {
-          return current.creditsPerUnit;
+          return null;
         }
         value = (baseline * multiplier * unitSize) / factor;
       }
@@ -473,7 +476,7 @@ export default function AdminOperationsConfigPage() {
       editState.multiplier,
       editState,
     );
-    if (Number(nextCreditsPerUnit) <= 0) {
+    if (nextCreditsPerUnit == null || Number(nextCreditsPerUnit) <= 0) {
       toast({ title: t('invalidMultiplier'), variant: 'destructive' });
       return;
     }
@@ -541,11 +544,11 @@ export default function AdminOperationsConfigPage() {
         ? {
             ...current,
             multiplier: '',
-            creditsPerUnit: updateCreditsFromMultiplier('', current),
+            creditsPerUnit: null,
           }
         : current,
     );
-  }, [updateCreditsFromMultiplier]);
+  }, []);
 
   if (!isReady) {
     return <Loading />;
