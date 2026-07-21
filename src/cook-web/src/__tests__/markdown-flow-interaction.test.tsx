@@ -17,6 +17,16 @@ describe('adaptMarkdownFlowInteractionForRender', () => {
     );
   });
 
+  it('adapts a variable-free multi-select into selectable options', () => {
+    expect(
+      adaptMarkdownFlowInteractionForRender(
+        '?[ 搜索工具 || 效率助手 || 数字员工 || 组织重构力量 ]',
+      ),
+    ).toBe(
+      '<custom-variable data-button-texts="[&quot;搜索工具&quot;,&quot;效率助手&quot;,&quot;数字员工&quot;,&quot;组织重构力量&quot;]" data-button-values="[&quot;搜索工具&quot;,&quot;效率助手&quot;,&quot;数字员工&quot;,&quot;组织重构力量&quot;]" data-is-multi-select="true"></custom-variable>',
+    );
+  });
+
   it('keeps anonymous single-select options separate from the text input', () => {
     expect(adaptMarkdownFlowInteractionForRender('?[选项 | ...输入]')).toBe(
       '<custom-variable placeholder="输入" data-button-texts="[&quot;选项&quot;]" data-button-values="[&quot;选项&quot;]"></custom-variable>',
@@ -63,7 +73,8 @@ describe('adaptMarkdownFlowInteractionForRender', () => {
     '?[继续]',
     '?[%{{name}}...你叫什么名字]',
     '?[%{{role}} 搜索工具 || ...其他角色]',
-    '?[搜索工具 || 效率助手]',
+    '?[搜索工具 | 效率助手]',
+    '?[搜索工具 | 效率助手||数字员工]',
     '?[处理中...请稍候]',
     '?[...]',
     '示例：?[...你叫什么名字]',
