@@ -28,6 +28,7 @@ import { fail, toast } from '@/hooks/useToast';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { resolveWideLogoSource } from '@/c-components/logo/logoSource';
+import { resolveOfficialSiteUrl } from '@/config/environment';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
@@ -173,13 +174,19 @@ export const NewChatComponents = ({
   useEffect(() => {
     setLessonPdfCourseUrl(buildCoursePageUrl(window.location.href));
   }, [shifuBid]);
-  const { logoHorizontal, logoWideUrl } = useEnvStore(
+  const {
+    logoHorizontal,
+    logoWideUrl,
+    officialSiteUrl: officialSiteUrlValue,
+  } = useEnvStore(
     useShallow(state => ({
       logoHorizontal: state.logoHorizontal,
       logoWideUrl: state.logoWideUrl,
+      officialSiteUrl: state.officialSiteUrl,
     })),
   );
   const printBrandLogo = resolveWideLogoSource(logoWideUrl, logoHorizontal);
+  const officialSiteUrl = resolveOfficialSiteUrl(officialSiteUrlValue);
   const { refreshUserInfo } = useUserStore(
     useShallow(state => ({
       refreshUserInfo: state.refreshUserInfo,
@@ -1401,16 +1408,30 @@ export const NewChatComponents = ({
                     {lessonTitle}
                   </h2>
                 </div>
-                <Image
-                  data-lesson-print-site-logo='true'
-                  src={printBrandLogo}
-                  alt=''
-                  width={92}
-                  height={24}
-                  loading='eager'
-                  unoptimized
-                  className='h-6 w-auto shrink-0 object-contain'
-                />
+                <div
+                  data-lesson-print-site-brand='true'
+                  className='lesson-pdf-site-brand ml-auto flex shrink-0 flex-col items-end text-right'
+                >
+                  <Image
+                    data-lesson-print-site-logo='true'
+                    src={printBrandLogo}
+                    alt=''
+                    width={92}
+                    height={24}
+                    loading='eager'
+                    unoptimized
+                    className='h-6 w-auto object-contain'
+                  />
+                  <a
+                    data-lesson-print-site-url='true'
+                    href={officialSiteUrl}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='lesson-pdf-site-link block text-right'
+                  >
+                    {officialSiteUrl}
+                  </a>
+                </div>
               </div>
             </header>
             {shouldShowResetLoading ? (
