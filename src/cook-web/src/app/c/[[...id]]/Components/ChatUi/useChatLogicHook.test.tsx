@@ -3160,12 +3160,18 @@ describe('useChatLogicHook stream cleanup', () => {
       records: [],
     };
 
-    const renderWithStreamingRun = async () => {
+    const renderWithStreamingRun = async (options?: {
+      isListenMode?: boolean;
+    }) => {
       mockGetLessonStudyRecord.mockResolvedValueOnce(
         HISTORY_WITH_TWO_INTERACTIONS,
       );
       const renderResult = renderHook(
-        () => useChatLogicHook(buildBaseParams()),
+        () =>
+          useChatLogicHook({
+            ...buildBaseParams(),
+            isListenMode: options?.isListenMode ?? false,
+          }),
         { wrapper },
       );
       await waitFor(() =>
@@ -3248,6 +3254,40 @@ describe('useChatLogicHook stream cleanup', () => {
       expect(lastCall[3]).toMatchObject({
         input: { var_old: expect.anything() },
         input_type: SSE_INPUT_TYPE.NORMAL,
+      });
+    });
+
+    it('clears trailing listen history before re-requesting an earlier interaction', async () => {
+      const { result } = await renderWithStreamingRun({ isListenMode: true });
+
+      act(() => {
+        result.current.onSend(
+          { variableName: 'var_old', selectedValues: ['B'] },
+          'interaction-old',
+        );
+      });
+      expect(result.current.reGenerateConfirm.open).toBe(true);
+
+      await act(async () => {
+        result.current.reGenerateConfirm.onConfirm();
+      });
+
+      await waitFor(() =>
+        expect(
+          result.current.items.find(
+            item => item.element_bid === 'interaction-new',
+          ),
+        ).toBeUndefined(),
+      );
+      expect(
+        result.current.items.find(item => item.element_bid === 'content-new'),
+      ).toBeUndefined();
+      expect(
+        result.current.items.find(
+          item => item.element_bid === 'interaction-old',
+        ),
+      ).toMatchObject({
+        user_input: 'B',
       });
     });
 
