@@ -481,6 +481,28 @@ body.listen-mode-vh-fallback #root {
     object-fit: contain !important;
   }
 
+  html.lesson-pdf-print .lesson-pdf-site-brand {
+    display: flex !important;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    gap: 4px;
+    margin-left: auto;
+    text-align: right;
+  }
+
+  html.lesson-pdf-print .lesson-pdf-site-link {
+    display: block !important;
+    max-width: 220px;
+    color: #525252 !important;
+    font-size: 10px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    text-align: right;
+    text-decoration: underline !important;
+    text-underline-offset: 2px;
+  }
+
   html.lesson-pdf-print [data-lesson-print-scroll] :is(iframe, table) {
     max-width: 100% !important;
   }

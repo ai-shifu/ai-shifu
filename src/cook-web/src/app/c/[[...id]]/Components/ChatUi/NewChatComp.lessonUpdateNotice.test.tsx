@@ -10,6 +10,7 @@ let mockCourseAvatar = '';
 let mockLearningMode = 'listen';
 let mockLogoHorizontal = '';
 let mockLogoWideUrl = '';
+let mockOfficialSiteUrl = 'https://official.example.com';
 let mockLessonPdfReady = false;
 let mockLessonPdfPreparing = false;
 const mockPrintLessonPdf = jest.fn();
@@ -136,6 +137,7 @@ jest.mock('@/c-store/envStore', () => ({
       selector({
         logoHorizontal: mockLogoHorizontal,
         logoWideUrl: mockLogoWideUrl,
+        officialSiteUrl: mockOfficialSiteUrl,
       }),
     {
       getState: () => ({
@@ -361,6 +363,7 @@ describe('NewChatComponents', () => {
     mockLearningMode = 'listen';
     mockLogoHorizontal = '';
     mockLogoWideUrl = '';
+    mockOfficialSiteUrl = 'https://official.example.com';
     mockLessonPdfReady = false;
     mockLessonPdfPreparing = false;
     requestAnimationFrameSpy = jest
@@ -481,24 +484,40 @@ describe('NewChatComponents', () => {
     expect(footer.nextElementSibling).toHaveAttribute('id', 'chat-box-bottom');
   });
 
-  it('includes the course avatar and configured site brand in the print header', () => {
+  it('includes the course avatar, site brand, and official link in the print header', () => {
     mockCourseAvatar = '/course-avatar.png';
     mockLearningMode = 'read';
     mockLogoHorizontal = '/runtime-horizontal-logo.png';
     mockLogoWideUrl = '/configured-wide-logo.png';
+    mockOfficialSiteUrl = 'https://learn.example.com';
 
     const { container } = renderNewChatComponents();
 
     const courseAvatar = container.querySelector(
       '[data-lesson-print-course-avatar="true"]',
     );
-    const siteLogo = container.querySelector(
+    const siteBrand = container.querySelector<HTMLElement>(
+      '[data-lesson-print-site-brand="true"]',
+    );
+    const siteLogo = container.querySelector<HTMLImageElement>(
       '[data-lesson-print-site-logo="true"]',
+    );
+    const siteUrl = container.querySelector<HTMLAnchorElement>(
+      '[data-lesson-print-site-url="true"]',
     );
     expect(courseAvatar).toHaveAttribute('src', '/course-avatar.png');
     expect(courseAvatar).toHaveAttribute('loading', 'eager');
+    expect(siteBrand).toHaveClass('ml-auto', 'items-end', 'text-right');
+    expect(siteBrand).toContainElement(siteLogo);
+    expect(siteBrand).toContainElement(siteUrl);
     expect(siteLogo).toHaveAttribute('src', '/configured-wide-logo.png');
     expect(siteLogo).toHaveAttribute('loading', 'eager');
+    expect(siteUrl).toBeInstanceOf(HTMLAnchorElement);
+    expect(siteUrl).toHaveAttribute('href', 'https://learn.example.com');
+    expect(siteUrl).toHaveAttribute('target', '_blank');
+    expect(siteUrl).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(siteUrl).toHaveTextContent('https://learn.example.com');
+    expect(siteLogo?.nextElementSibling).toBe(siteUrl);
     expect(
       container.querySelector('[data-lesson-print-course-name="true"]'),
     ).toHaveTextContent('测试课程');
