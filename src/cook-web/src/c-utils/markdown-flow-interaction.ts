@@ -1,5 +1,7 @@
 const ANONYMOUS_TEXT_INPUT_PATTERN =
   /^(\s*)\?\[(?!\s*%\{\{)\s*(?:(.*?)(\|\||\|)\s*)?\.\.\.([^\]]*?)\](\s*)$/;
+const ANONYMOUS_INTERACTION_PATTERN =
+  /^(\s*)\?\[(?!\s*%\{\{)\s*([^\]]*?)\s*\](\s*)$/;
 const SINGLE_OPTION_SEPARATOR_PATTERN = /(?<!\|)\|(?!\|)/;
 const BUTTON_VALUE_PATTERN = /^(.+?)\/\/(.+)$/;
 
@@ -16,14 +18,7 @@ const escapeHtmlAttribute = (value: string) =>
 const escapeStringArrayAttribute = (values: string[]) =>
   escapeHtmlAttribute(JSON.stringify(values));
 
-export const adaptMarkdownFlowInteractionForRender = (content: string) => {
-  const match = ANONYMOUS_TEXT_INPUT_PATTERN.exec(content);
-  const prompt = match?.[4]?.trim();
-  if (!match || !prompt) {
-    return content;
-  }
-
-  const optionContent = match[2] ? `${match[2]}${match[3]}`.trim() : '';
+const parseAnonymousOptions = (optionContent: string) => {
   const firstSeparatorIndex = optionContent.indexOf('|');
   const firstMultiSeparatorIndex = optionContent.indexOf('||');
   const isMultiSelect =
@@ -38,12 +33,6 @@ export const adaptMarkdownFlowInteractionForRender = (content: string) => {
         .map(option => option.trim())
         .filter(Boolean)
     : [];
-  if (!options.length) {
-    return `${match[1]}<custom-variable placeholder="${escapeHtmlAttribute(
-      prompt,
-    )}"></custom-variable>${match[5]}`;
-  }
-
   const parsedOptions = options.map(option => {
     const valueMatch = BUTTON_VALUE_PATTERN.exec(option);
     return {
@@ -51,16 +40,84 @@ export const adaptMarkdownFlowInteractionForRender = (content: string) => {
       value: valueMatch?.[2]?.trim() || option,
     };
   });
-  const optionTexts = escapeStringArrayAttribute(
-    parsedOptions.map(option => option.text),
-  );
-  const optionValues = escapeStringArrayAttribute(
-    parsedOptions.map(option => option.value),
-  );
-  const multiSelectAttribute = isMultiSelect
-    ? ' data-is-multi-select="true"'
-    : '';
-  return `${match[1]}<custom-variable placeholder="${escapeHtmlAttribute(
-    prompt,
-  )}" data-button-texts="${optionTexts}" data-button-values="${optionValues}"${multiSelectAttribute}></custom-variable>${match[5]}`;
+
+  return { isMultiSelect, parsedOptions };
+};
+
+const renderAnonymousInteraction = ({
+  leadingWhitespace,
+  trailingWhitespace,
+  prompt,
+  isMultiSelect,
+  parsedOptions,
+}: {
+  leadingWhitespace: string;
+  trailingWhitespace: string;
+  prompt?: string;
+  isMultiSelect: boolean;
+  parsedOptions: Array<{ text: string; value: string }>;
+}) => {
+  const attributes: string[] = [];
+
+  if (prompt) {
+    attributes.push(`placeholder="${escapeHtmlAttribute(prompt)}"`);
+  }
+  if (parsedOptions.length) {
+    attributes.push(
+      `data-button-texts="${escapeStringArrayAttribute(
+        parsedOptions.map(option => option.text),
+      )}"`,
+      `data-button-values="${escapeStringArrayAttribute(
+        parsedOptions.map(option => option.value),
+      )}"`,
+    );
+  }
+  if (isMultiSelect) {
+    attributes.push('data-is-multi-select="true"');
+  }
+
+  return `${leadingWhitespace}<custom-variable${
+    attributes.length ? ` ${attributes.join(' ')}` : ''
+  }></custom-variable>${trailingWhitespace}`;
+};
+
+export const adaptMarkdownFlowInteractionForRender = (content: string) => {
+  const textInputMatch = ANONYMOUS_TEXT_INPUT_PATTERN.exec(content);
+  if (textInputMatch) {
+    const prompt = textInputMatch[4]?.trim();
+    if (!prompt) {
+      return content;
+    }
+
+    const optionContent = textInputMatch[2]
+      ? `${textInputMatch[2]}${textInputMatch[3]}`.trim()
+      : '';
+    const { isMultiSelect, parsedOptions } =
+      parseAnonymousOptions(optionContent);
+    return renderAnonymousInteraction({
+      leadingWhitespace: textInputMatch[1],
+      trailingWhitespace: textInputMatch[5],
+      prompt,
+      isMultiSelect,
+      parsedOptions,
+    });
+  }
+
+  const interactionMatch = ANONYMOUS_INTERACTION_PATTERN.exec(content);
+  if (!interactionMatch) {
+    return content;
+  }
+
+  const optionContent = interactionMatch[2].trim();
+  const { isMultiSelect, parsedOptions } = parseAnonymousOptions(optionContent);
+  if (!isMultiSelect || !parsedOptions.length) {
+    return content;
+  }
+
+  return renderAnonymousInteraction({
+    leadingWhitespace: interactionMatch[1],
+    trailingWhitespace: interactionMatch[3],
+    isMultiSelect,
+    parsedOptions,
+  });
 };
