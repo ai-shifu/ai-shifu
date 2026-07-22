@@ -44,8 +44,8 @@
   "saveFailed": "Échec de l’enregistrement. Veuillez vérifier le formulaire.",
   "saveSuccess": "Configuration enregistrée",
   "source": {
-    "default": "Multiplicateur de consommation par défaut",
-    "exact": "Multiplicateur de consommation personnalisé",
+    "default": "Multiplicateur par défaut du système",
+    "exact": "Multiplicateur dédié",
     "unconfigured": "Non configuré"
   },
   "tabs": {
