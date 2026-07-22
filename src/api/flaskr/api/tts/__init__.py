@@ -22,15 +22,9 @@ from flaskr.common.config import get_config
 from flaskr.util.datetime import now_utc
 from flaskr.common.log import AppLoggerProxy
 from flaskr.i18n import get_current_language
-from flaskr.service.billing.consts import (
-    BILLING_METRIC_LLM_OUTPUT_TOKENS,
-    BILLING_METRIC_TTS_OUTPUT_CHARS,
-)
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_LLM,
-    BILL_USAGE_TYPE_TTS,
-)
+from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
+from flaskr.service.billing.rate_references import load_llm_credit_1x_unit_cost
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_TTS
 
 # Re-export base classes for backward compatibility
 from flaskr.api.tts.base import (
@@ -343,13 +337,10 @@ def _resolve_localized_tts_label(
 
 def _resolve_credit_multiplier_label(provider_name: str, model: str) -> str | None:
     try:
-        # One shared 1x anchor for LLM and TTS: the default LLM output-token
-        # price (DeepSeek-V4-Flash). TTS is priced per character, so translate
-        # its per-character cost into the same per-LLM-token dimension using
-        # chars-synthesized-per-token, then take the ratio. The label is
-        # therefore "TTS task consumption / LLM task consumption" on the very
-        # same scale as the LLM model multipliers.
-        baseline_cost = _load_default_llm_unit_cost()
+        # One shared fixed 1x anchor for LLM and TTS. TTS is priced per
+        # character, so translate its per-character cost into the same
+        # per-LLM-token dimension using chars-synthesized-per-token.
+        baseline_cost = load_llm_credit_1x_unit_cost()
         if baseline_cost is None or baseline_cost <= 0:
             return None
         chars_per_token = _load_tts_chars_per_llm_token()
@@ -371,35 +362,11 @@ def _resolve_credit_multiplier_label(provider_name: str, model: str) -> str | No
         return None
 
 
-def _resolve_default_llm_rate_identity() -> tuple[str, list[str]]:
-    default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
-    if not default_model:
-        return "", [""]
-    try:
-        from flaskr.api.llm import _resolve_billing_rate_identity
-
-        return _resolve_billing_rate_identity(default_model)
-    except Exception:
-        return "", [default_model]
-
-
-def _load_default_llm_unit_cost() -> Decimal | None:
-    provider, model_candidates = _resolve_default_llm_rate_identity()
-    return _load_usage_rate_unit_cost(
-        usage_type=BILL_USAGE_TYPE_LLM,
-        provider=provider,
-        model_candidates=model_candidates or [""],
-        billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-    )
-
-
 def _load_tts_chars_per_llm_token() -> Decimal | None:
-    # TTS is billed per character but the 1x anchor is an LLM output token, so we
-    # need "how many TTS characters one LLM token turns into" to compare them on
-    # one scale. This is omega x 1.6 (TTS-token share of a task x token->char
-    # ratio); see TTS_CHARS_PER_LLM_TOKEN. Keeping it a factor over the shared
-    # LLM baseline (rather than a standalone TTS baseline) means the TTS 1x
-    # tracks the default LLM price automatically.
+    # TTS is billed per character but the fixed 1x anchor is an LLM output token,
+    # so we need "how many TTS characters one LLM token turns into" to compare
+    # them on one scale. This is omega x 1.6 (TTS-token share of a task x
+    # token->char ratio); see TTS_CHARS_PER_LLM_TOKEN.
     try:
         raw = get_config("TTS_CHARS_PER_LLM_TOKEN", "")
         if raw is None or str(raw).strip() == "":

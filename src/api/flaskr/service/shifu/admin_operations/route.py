@@ -73,6 +73,10 @@ from flaskr.service.shifu.admin_operations.credit_notifications import (
     sync_operator_credit_notification_template,
     update_operator_credit_notification_config,
 )
+from flaskr.service.shifu.admin_operations.config_rates import (
+    get_operator_rate_config,
+    update_operator_rate_config,
+)
 from flaskr.service.shifu.admin_operations.profile_onboarding import (
     get_operator_profile_onboarding_config,
     update_operator_profile_onboarding_config,
@@ -995,6 +999,33 @@ def register_admin_operations_routes(
             raise_param_error("profile_onboarding_config")
         return make_common_response(
             update_operator_profile_onboarding_config(
+                app,
+                payload=payload,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/config/rates",
+        methods=["GET"],
+    )
+    def admin_operation_rate_config():
+        """Get operator-managed model and TTS credit rate config."""
+        _require_operator()
+        return make_common_response(get_operator_rate_config(app))
+
+    @app.route(
+        path_prefix + "/admin/operations/config/rates",
+        methods=["POST"],
+    )
+    def admin_operation_update_rate_config():
+        """Update one operator-managed model or TTS credit rate config."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("rate_config")
+        return make_common_response(
+            update_operator_rate_config(
                 app,
                 payload=payload,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),

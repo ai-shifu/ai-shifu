@@ -1,4 +1,5 @@
 import { useShifu } from '@/store';
+import * as React from 'react';
 import {
   Select,
   SelectContent,
@@ -11,6 +12,8 @@ import { useTranslation } from 'react-i18next';
 import { ModelOption } from '@/types/shifu';
 
 const MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME = 'right-3';
+const MODEL_OPTIONS_REFRESH_TTL_MS = 30_000;
+let lastModelOptionsRefreshAt = 0;
 
 function ModelOptionLabel({
   label,
@@ -54,8 +57,26 @@ export default function ModelList({
   options?: ModelOption[];
   showDefaultOption?: boolean;
 }) {
-  const { models } = useShifu();
+  const { models, actions } = useShifu();
   const { t } = useTranslation();
+
+  const refreshModelOptions = React.useCallback(
+    (open: boolean) => {
+      if (!open || options || disabled) {
+        return;
+      }
+      const now = Date.now();
+      if (
+        lastModelOptionsRefreshAt &&
+        now - lastModelOptionsRefreshAt < MODEL_OPTIONS_REFRESH_TTL_MS
+      ) {
+        return;
+      }
+      lastModelOptionsRefreshAt = now;
+      void actions.loadModels();
+    },
+    [actions, disabled, options],
+  );
 
   const modelOptions: ModelOption[] = options || models || [];
 
@@ -64,11 +85,13 @@ export default function ModelList({
   const DEFAULT_MODEL_OPTION_VALUE = '__empty__';
   const displayValue =
     showDefaultOption && value === '' ? DEFAULT_MODEL_OPTION_VALUE : value;
+  const defaultModelOption =
+    modelOptions.find(item => item.isDefault) || modelOptions[0];
   const defaultOption: ModelOption = {
     value: DEFAULT_MODEL_OPTION_VALUE,
     label: t('common.core.default'),
-    creditMultiplier: 1,
-    creditMultiplierLabel: '',
+    creditMultiplier: defaultModelOption?.creditMultiplier ?? null,
+    creditMultiplierLabel: defaultModelOption?.creditMultiplierLabel || '',
   };
   const selectedOption =
     showDefaultOption && displayValue === DEFAULT_MODEL_OPTION_VALUE
@@ -85,6 +108,7 @@ export default function ModelList({
   return (
     <Select
       onValueChange={handleChange}
+      onOpenChange={refreshModelOptions}
       value={displayValue}
       disabled={disabled}
     >

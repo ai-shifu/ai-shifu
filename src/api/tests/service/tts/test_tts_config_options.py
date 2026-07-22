@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 from flask import Flask
 
@@ -114,26 +115,13 @@ def _chars_per_token_config(value: str):
 
 def test_tts_credit_multiplier_uses_shared_llm_anchor(monkeypatch):
     import flaskr.api.tts as tts_api
-    from flaskr.service.billing.consts import (
-        BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        BILLING_METRIC_TTS_OUTPUT_CHARS,
-    )
-    from flaskr.service.metering.consts import (
-        BILL_USAGE_TYPE_LLM,
-        BILL_USAGE_TYPE_TTS,
-    )
+    from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
+    from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
 
     captured = []
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
         captured.append((usage.usage_type, usage.provider, usage.model, billing_metric))
-        if (
-            usage.usage_type == BILL_USAGE_TYPE_LLM
-            and usage.provider == "qwen"
-            and usage.model == "deepseek-v4-flash"
-            and billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS
-        ):
-            return _FakeRate("1", 10000, "qwen", "deepseek-v4-flash")  # 0.0001/token
         if (
             usage.usage_type == BILL_USAGE_TYPE_TTS
             and usage.provider == "tencent"
@@ -143,28 +131,18 @@ def test_tts_credit_multiplier_uses_shared_llm_anchor(monkeypatch):
             return _FakeRate("8", 10000, "tencent", "")  # 0.0008/char
         return None
 
-    monkeypatch.setattr(
-        tts_api,
-        "_resolve_default_llm_rate_identity",
-        lambda: ("qwen", ["deepseek-v4-flash"]),
-    )
     monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config("0.5"))
+    monkeypatch.setattr(
+        tts_api, "load_llm_credit_1x_unit_cost", lambda: Decimal("0.0001")
+    )
     monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
         fake_load_usage_rate,
     )
 
-    # TTS 0.0008/char x 0.5 chars/token = 0.0004 credits per LLM token; the shared
-    # 1x anchor is the LLM rate 0.0001/token -> 0.0004 / 0.0001 = 4x. Both the LLM
-    # baseline and the TTS rate are looked up (one shared anchor, not a standalone
-    # TTS baseline).
+    # TTS 0.0008/char x 0.5 chars/token = 0.0004 credits per LLM token; the fixed
+    # 1x anchor is 0.0001 credits/token -> 0.0004 / 0.0001 = 4x.
     assert tts_api._resolve_credit_multiplier_label("tencent", "") == "4x"
-    assert (
-        BILL_USAGE_TYPE_LLM,
-        "qwen",
-        "deepseek-v4-flash",
-        BILLING_METRIC_LLM_OUTPUT_TOKENS,
-    ) in captured
     assert (
         BILL_USAGE_TYPE_TTS,
         "tencent",
@@ -175,21 +153,10 @@ def test_tts_credit_multiplier_uses_shared_llm_anchor(monkeypatch):
 
 def test_tts_credit_multiplier_scales_with_chars_per_token(monkeypatch):
     import flaskr.api.tts as tts_api
-    from flaskr.service.billing.consts import (
-        BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        BILLING_METRIC_TTS_OUTPUT_CHARS,
-    )
-    from flaskr.service.metering.consts import (
-        BILL_USAGE_TYPE_LLM,
-        BILL_USAGE_TYPE_TTS,
-    )
+    from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
+    from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
-        if (
-            usage.usage_type == BILL_USAGE_TYPE_LLM
-            and billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS
-        ):
-            return _FakeRate("1", 10000, "qwen", "deepseek-v4-flash")  # 0.0001/token
         if (
             usage.usage_type == BILL_USAGE_TYPE_TTS
             and billing_metric == BILLING_METRIC_TTS_OUTPUT_CHARS
@@ -198,9 +165,7 @@ def test_tts_credit_multiplier_scales_with_chars_per_token(monkeypatch):
         return None
 
     monkeypatch.setattr(
-        tts_api,
-        "_resolve_default_llm_rate_identity",
-        lambda: ("qwen", ["deepseek-v4-flash"]),
+        tts_api, "load_llm_credit_1x_unit_cost", lambda: Decimal("0.0001")
     )
     monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
@@ -221,23 +186,14 @@ def test_tts_credit_multiplier_scales_with_chars_per_token(monkeypatch):
 
 def test_tts_credit_multiplier_none_when_tts_rate_missing(monkeypatch):
     import flaskr.api.tts as tts_api
-    from flaskr.service.billing.consts import BILLING_METRIC_LLM_OUTPUT_TOKENS
-    from flaskr.service.metering.consts import BILL_USAGE_TYPE_LLM
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
-        if (
-            usage.usage_type == BILL_USAGE_TYPE_LLM
-            and billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS
-        ):
-            return _FakeRate("1", 10000, "qwen", "deepseek-v4-flash")
         return None  # no curated TTS rate
 
-    monkeypatch.setattr(
-        tts_api,
-        "_resolve_default_llm_rate_identity",
-        lambda: ("qwen", ["deepseek-v4-flash"]),
-    )
     monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config("0.216"))
+    monkeypatch.setattr(
+        tts_api, "load_llm_credit_1x_unit_cost", lambda: Decimal("0.0001")
+    )
     monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
         fake_load_usage_rate,
@@ -249,23 +205,14 @@ def test_tts_credit_multiplier_none_when_tts_rate_missing(monkeypatch):
 
 def test_tts_credit_multiplier_none_when_conversion_unset(monkeypatch):
     import flaskr.api.tts as tts_api
-    from flaskr.service.billing.consts import BILLING_METRIC_LLM_OUTPUT_TOKENS
-    from flaskr.service.metering.consts import BILL_USAGE_TYPE_LLM
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
-        if (
-            usage.usage_type == BILL_USAGE_TYPE_LLM
-            and billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS
-        ):
-            return _FakeRate("1", 10000, "qwen", "deepseek-v4-flash")
         return _FakeRate("8", 10000, "tencent", "")
 
-    monkeypatch.setattr(
-        tts_api,
-        "_resolve_default_llm_rate_identity",
-        lambda: ("qwen", ["deepseek-v4-flash"]),
-    )
     monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config(""))
+    monkeypatch.setattr(
+        tts_api, "load_llm_credit_1x_unit_cost", lambda: Decimal("0.0001")
+    )
     monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
         fake_load_usage_rate,

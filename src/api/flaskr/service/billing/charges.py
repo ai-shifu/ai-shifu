@@ -28,6 +28,7 @@ from .consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from .models import CreditUsageRate
+from .rate_references import resolve_llm_rate_identity
 from flaskr.util.datetime import now_utc
 
 from .primitives import (
@@ -264,6 +265,18 @@ def load_usage_rate(
 ) -> CreditUsageRate | None:
     provider = str(usage.provider or "").strip()
     model = str(usage.model or "").strip()
+    model_candidates = [model] if model else [""]
+    if int(usage.usage_type or 0) == BILL_USAGE_TYPE_LLM and model:
+        resolved_provider, resolved_models = resolve_llm_rate_identity(model)
+        if not provider and resolved_provider:
+            provider = resolved_provider
+        model_candidates = []
+        for candidate in [*resolved_models, model]:
+            normalized = str(candidate or "").strip()
+            if normalized and normalized not in model_candidates:
+                model_candidates.append(normalized)
+        if not model_candidates:
+            model_candidates = [model]
     usage_scene = int(usage.usage_scene or 0)
     rows = (
         CreditUsageRate.query.filter(
@@ -282,14 +295,19 @@ def load_usage_rate(
         if row.effective_from <= settlement_at
         and (row.effective_to is None or row.effective_to > settlement_at)
         and row.provider in {provider, "*"}
-        and row.model in {model, "*"}
+        and row.model in set(model_candidates).union({"*"})
     ]
     if not candidates:
         return None
+    model_priority = {
+        candidate: len(model_candidates) - index
+        for index, candidate in enumerate(model_candidates)
+    }
     candidates.sort(
         key=lambda row: (
             row.provider == provider,
-            row.model == model,
+            row.model in set(model_candidates),
+            model_priority.get(row.model, 0),
             row.effective_from or datetime.min,
             int(row.id or 0),
         ),

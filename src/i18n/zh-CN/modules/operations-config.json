@@ -1,0 +1,56 @@
+{
+  "__namespace__": "module.operationsConfig",
+  "actions": {
+    "edit": "编辑",
+    "save": "保存"
+  },
+  "baselineMissing": "1x 基准未配置，暂不能保存消耗倍率。",
+  "confirm": {
+    "description": "确认将 {model} 的消耗倍率从 {from} 调整到 {to}。",
+    "title": "确认保存消耗倍率"
+  },
+  "description": "维护 LLM 与语音合成的积分消耗规则，调整后仅影响后续新产生的用量结算。",
+  "empty": "暂无可配置模型。",
+  "fields": {
+    "actions": "操作",
+    "displayName": "展示名称",
+    "model": "模型",
+    "modelTier": "模型 / 档位",
+    "multiplier": "消耗倍率",
+    "multiplierSuffix": "x",
+    "provider": "语音厂商",
+    "source": "配置方式",
+    "ttsMultiplier": "消耗倍率",
+    "updatedAt": "更新时间"
+  },
+  "invalidMultiplier": "请输入大于 0 的消耗倍率，最多保留 2 位小数。",
+  "loadFailed": "配置加载失败，请稍后重试。",
+  "pagination": {
+    "next": "下一页",
+    "prev": "上一页"
+  },
+  "rules": {
+    "baselineMissing": "1x 基准未配置，暂不能保存消耗倍率。",
+    "baselinePer1000": "1x 基准",
+    "baselinePer1000Value": "每 1000 个 LLM 输出 Token 消耗 {value} 积分",
+    "baselineUnitCost": "单 Token 基准",
+    "effectScope": "生效范围",
+    "fixedBaseline": "该基准为全局固定值，不随默认模型和模型倍率调整而变化",
+    "futureOnly": "仅影响后续新产生的用量，历史账单不回算",
+    "intro": "当前系统用于计算消耗倍率的固定参考值，仅供运营配置时核对。",
+    "tooltipAriaLabel": "查看配置参考",
+    "ttsFactor": "TTS 字符折算系数"
+  },
+  "saveFailed": "配置保存失败，请检查填写内容。",
+  "saveSuccess": "配置已保存",
+  "source": {
+    "default": "使用默认消耗倍率",
+    "exact": "已单独调整",
+    "unconfigured": "未配置"
+  },
+  "tabs": {
+    "llm": "LLM 消耗倍率",
+    "tts": "TTS 消耗倍率"
+  },
+  "title": "配置管理"
+}

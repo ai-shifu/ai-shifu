@@ -1,0 +1,56 @@
+{
+  "__namespace__": "module.operationsConfig",
+  "actions": {
+    "edit": "Modifier",
+    "save": "Enregistrer"
+  },
+  "baselineMissing": "La référence 1x n’est pas configurée ; les multiplicateurs de consommation ne peuvent pas être enregistrés.",
+  "confirm": {
+    "description": "Confirmer le passage du multiplicateur de consommation de crédits de {model} de {from} à {to}.",
+    "title": "Confirmer le multiplicateur de consommation"
+  },
+  "description": "Gérer les règles de consommation de crédits pour le LLM et la synthèse vocale. Les changements n’affectent que les usages futurs.",
+  "empty": "Aucun modèle configurable.",
+  "fields": {
+    "actions": "Actions",
+    "displayName": "Nom affiché",
+    "model": "Modèle",
+    "modelTier": "Modèle / Niveau",
+    "multiplier": "Multiplicateur de consommation",
+    "multiplierSuffix": "x",
+    "provider": "Fournisseur vocal",
+    "source": "Configuration",
+    "ttsMultiplier": "Multiplicateur de consommation",
+    "updatedAt": "Mis à jour le"
+  },
+  "invalidMultiplier": "Saisissez un multiplicateur de consommation supérieur à 0 avec 2 décimales au maximum.",
+  "loadFailed": "Échec du chargement de la configuration. Veuillez réessayer plus tard.",
+  "pagination": {
+    "next": "Suivant",
+    "prev": "Précédent"
+  },
+  "rules": {
+    "baselineMissing": "La référence 1x n’est pas configurée ; les multiplicateurs de consommation ne peuvent pas être enregistrés.",
+    "baselinePer1000": "Référence 1x",
+    "baselinePer1000Value": "{value} crédits pour 1000 tokens de sortie LLM",
+    "baselineUnitCost": "Référence par token",
+    "effectScope": "Périmètre d’effet",
+    "fixedBaseline": "Cette référence globale est fixe et ne change pas avec le modèle par défaut ni les mises à jour de multiplicateur.",
+    "futureOnly": "Seuls les usages futurs sont affectés. Les factures historiques ne sont pas recalculées.",
+    "intro": "Valeurs de référence fixes utilisées pour calculer les multiplicateurs de consommation, uniquement pour vérification opérationnelle.",
+    "tooltipAriaLabel": "Voir la référence de configuration",
+    "ttsFactor": "Facteur de conversion des caractères TTS"
+  },
+  "saveFailed": "Échec de l’enregistrement. Veuillez vérifier le formulaire.",
+  "saveSuccess": "Configuration enregistrée",
+  "source": {
+    "default": "Multiplicateur de consommation par défaut",
+    "exact": "Multiplicateur de consommation personnalisé",
+    "unconfigured": "Non configuré"
+  },
+  "tabs": {
+    "llm": "Consommation LLM",
+    "tts": "Consommation TTS"
+  },
+  "title": "Gestion de la configuration"
+}
