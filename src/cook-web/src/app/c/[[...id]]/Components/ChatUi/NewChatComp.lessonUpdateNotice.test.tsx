@@ -510,7 +510,7 @@ describe('NewChatComponents', () => {
       },
     ]);
     const printPage = container.querySelector<HTMLElement>(
-      '[data-lesson-print-scroll="true"] > [data-lesson-print-page="true"]',
+      '[data-lesson-print-scroll="true"] > [data-lesson-print-content-page="true"]',
     );
     const printHeader = container
       .querySelector('[data-lesson-print-course-name="true"]')

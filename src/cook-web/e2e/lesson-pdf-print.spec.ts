@@ -23,7 +23,7 @@ type PrintLayoutMetrics = {
 const readPrintLayoutMetrics = (page: Page) =>
   page.evaluate<PrintLayoutMetrics>(() => {
     const printPage = document.querySelector<HTMLElement>(
-      '[data-lesson-print-scroll="true"] > [data-lesson-print-page="true"]',
+      '[data-lesson-print-scroll="true"] > [data-lesson-print-content-page="true"]',
     );
     const sections = Array.from(
       printPage?.querySelectorAll<HTMLElement>(
@@ -107,7 +107,7 @@ test('lesson PDF uses the printable width in every orientation', async ({
     fixture.dataset.lessonPrintPage = 'true';
     fixture.innerHTML = `
       <section data-lesson-print-scroll="true">
-        <div data-lesson-print-page="true">
+        <div data-lesson-print-content-page="true">
           <header data-print-section="true" style="box-sizing: border-box; margin: 0 auto; max-width: 1000px; padding: 0 20px;">
             Course header
           </header>

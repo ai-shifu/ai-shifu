@@ -330,7 +330,7 @@ body.listen-mode-vh-fallback #root {
 
   html.lesson-pdf-print
     [data-lesson-print-scroll='true']
-    > [data-lesson-print-page='true']
+    > [data-lesson-print-content-page='true']
     > :not([data-lesson-print-exclude='true']) {
     max-width: none !important;
   }
