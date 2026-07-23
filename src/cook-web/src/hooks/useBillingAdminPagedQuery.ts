@@ -26,20 +26,25 @@ export function useBillingAdminPagedQuery<T>({
   );
   const depsKey = normalizedDeps.join('\u0001');
   const lastDepsKeyRef = useRef(depsKey);
+  const depsChanged = lastDepsKeyRef.current !== depsKey;
+  const activePageIndex = depsChanged ? 1 : pageIndex;
 
   useEffect(() => {
-    if (lastDepsKeyRef.current === depsKey) {
+    if (!depsChanged) {
+      return;
+    }
+    if (pageIndex !== 1) {
+      setPageIndex(1);
       return;
     }
     lastDepsKeyRef.current = depsKey;
-    setPageIndex(1);
-  }, [depsKey]);
+  }, [depsChanged, depsKey, pageIndex]);
 
   const { data, error, isLoading } = useSWR<BillingPagedResponse<T>>(
-    buildBillingSwrKey(queryKey, pageIndex, ...normalizedDeps),
+    buildBillingSwrKey(queryKey, activePageIndex, ...normalizedDeps),
     async () =>
       fetchPage({
-        page_index: pageIndex,
+        page_index: activePageIndex,
         page_size: pageSize,
       }),
     {
@@ -47,7 +52,7 @@ export function useBillingAdminPagedQuery<T>({
     },
   );
 
-  const page = Number(data?.page || pageIndex);
+  const page = Number(data?.page || activePageIndex);
   const pageCount = Number(data?.page_count || 1);
   const total = Number(data?.total || 0);
 
