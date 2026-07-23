@@ -777,13 +777,12 @@ def get_shifu_draft_list(
                 draft for draft in shifu_drafts if draft.shifu_bid in favorite_ids
             ]
 
-        archive_map = _get_user_archive_map(
-            app, user_id, [draft.shifu_bid for draft in shifu_drafts]
-        )
+        current_shifu_bids = [draft.shifu_bid for draft in shifu_drafts]
+        archive_map = _get_user_archive_map(app, user_id, current_shifu_bids)
         published_bid_rows = (
             db.session.query(PublishedShifu.shifu_bid)
             .filter(
-                PublishedShifu.shifu_bid.in_([draft.shifu_bid for draft in shifu_drafts]),
+                PublishedShifu.shifu_bid.in_(current_shifu_bids),
                 PublishedShifu.deleted == 0,
             )
             .distinct()
