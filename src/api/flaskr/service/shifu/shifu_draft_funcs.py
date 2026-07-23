@@ -780,6 +780,18 @@ def get_shifu_draft_list(
         archive_map = _get_user_archive_map(
             app, user_id, [draft.shifu_bid for draft in shifu_drafts]
         )
+        published_bid_rows = (
+            db.session.query(PublishedShifu.shifu_bid)
+            .filter(
+                PublishedShifu.shifu_bid.in_([draft.shifu_bid for draft in shifu_drafts]),
+                PublishedShifu.deleted == 0,
+            )
+            .distinct()
+            .all()
+        )
+        published_bids = {
+            str(row[0]).strip() for row in published_bid_rows if row and row[0]
+        }
 
         def is_archived(draft: DraftShifu) -> bool:
             return bool(archive_map.get(draft.shifu_bid))
@@ -809,7 +821,11 @@ def get_shifu_draft_list(
                 shifu_draft.title,
                 shifu_draft.description,
                 res_url_map.get(shifu_draft.avatar_res_bid, ""),
-                STATUS_DRAFT,
+                (
+                    STATUS_PUBLISHED
+                    if shifu_draft.shifu_bid in published_bids
+                    else STATUS_DRAFT
+                ),
                 bool(is_favorite),
                 is_archived(shifu_draft),
                 can_manage_archive=True,

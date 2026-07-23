@@ -87,6 +87,7 @@ const COURSE_TABS_TRIGGER_CLASS =
 const CREATE_SUCCESS_TOAST_DURATION_MS = 2000;
 const CREATE_SUCCESS_REDIRECT_DELAY_MS = 600;
 const ACTION_DIALOG_RESET_DELAY_MS = 200;
+const SHIFU_STATE_PUBLISHED = 1;
 
 const ShifuCard = ({
   id,
@@ -813,36 +814,42 @@ const ScriptManagementPage = () => {
           />
           <div className='flex-1 overflow-auto'>
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-              {shifus.map(shifu => (
-                <ShifuCard
-                  id={shifu.bid + ''}
-                  key={shifu.bid}
-                  image={shifu.avatar}
-                  title={shifu.name || ''}
-                  description={shifu.description || ''}
-                  isFavorite={shifu.is_favorite || false}
-                  archived={Boolean(shifu.archived)}
-                  canManageArchive={canManageArchive(shifu)}
-                  canManagePermissions={canManagePermissions(shifu)}
-                  onArchiveRequest={() => handleArchiveRequest(shifu)}
-                  onPermissionRequest={() => handlePermissionRequest(shifu)}
-                  onImportActivationRequest={
-                    canManageOwnerCourseAction(shifu, currentUserId)
-                      ? () => handleImportActivationRequest(shifu)
-                      : undefined
-                  }
-                  onRedemptionCodeRequest={
-                    canManageOwnerCourseAction(shifu, currentUserId)
-                      ? () => handleRedemptionCodeRequest(shifu)
-                      : undefined
-                  }
-                  onboardingTargetId={
-                    shifu.bid === onboardingStatus?.guide_course.bid
-                      ? guideCourseTargetId
-                      : undefined
-                  }
-                />
-              ))}
+              {shifus.map(shifu => {
+                const canManagePublishedOwnerActions =
+                  canManageOwnerCourseAction(shifu, currentUserId) &&
+                  shifu.state === SHIFU_STATE_PUBLISHED;
+
+                return (
+                  <ShifuCard
+                    id={shifu.bid + ''}
+                    key={shifu.bid}
+                    image={shifu.avatar}
+                    title={shifu.name || ''}
+                    description={shifu.description || ''}
+                    isFavorite={shifu.is_favorite || false}
+                    archived={Boolean(shifu.archived)}
+                    canManageArchive={canManageArchive(shifu)}
+                    canManagePermissions={canManagePermissions(shifu)}
+                    onArchiveRequest={() => handleArchiveRequest(shifu)}
+                    onPermissionRequest={() => handlePermissionRequest(shifu)}
+                    onImportActivationRequest={
+                      canManagePublishedOwnerActions
+                        ? () => handleImportActivationRequest(shifu)
+                        : undefined
+                    }
+                    onRedemptionCodeRequest={
+                      canManagePublishedOwnerActions
+                        ? () => handleRedemptionCodeRequest(shifu)
+                        : undefined
+                    }
+                    onboardingTargetId={
+                      shifu.bid === onboardingStatus?.guide_course.bid
+                        ? guideCourseTargetId
+                        : undefined
+                    }
+                  />
+                );
+              })}
             </div>
             <div
               ref={containerRef}

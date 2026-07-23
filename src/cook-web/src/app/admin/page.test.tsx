@@ -320,6 +320,7 @@ describe('AdminPage', () => {
           bid: 'course-1',
           name: 'Course 1',
           description: 'Course description',
+          state: 1,
           archived: false,
           avatar: '',
           is_favorite: false,
@@ -408,6 +409,7 @@ describe('AdminPage', () => {
           bid: 'course-shared-1',
           name: 'Shared Course',
           description: 'Shared course description',
+          state: 1,
           archived: false,
           avatar: '',
           is_favorite: false,
@@ -421,6 +423,47 @@ describe('AdminPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Shared Course')).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.order.importActivation.action',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.order.redemptionCodes.action',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not show import activation or redemption code actions for unpublished owner courses', async () => {
+    mockGetShifuList.mockResolvedValue({
+      items: [
+        {
+          bid: 'course-draft-1',
+          name: 'Draft Course',
+          description: 'Draft course description',
+          state: 0,
+          archived: false,
+          avatar: '',
+          is_favorite: false,
+          created_user_bid: 'user-1',
+          can_manage_permissions: true,
+        },
+      ],
+    });
+
+    render(<AdminPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Draft Course')).toBeInTheDocument();
     });
 
     fireEvent.click(

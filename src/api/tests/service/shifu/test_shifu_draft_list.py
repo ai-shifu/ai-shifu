@@ -7,9 +7,11 @@ import flaskr.dao as dao
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
+    PublishedShifu,
     PublishedOutlineItem,
 )
 from flaskr.service.shifu.shifu_draft_funcs import get_shifu_draft_list
+from flaskr.service.shifu.consts import STATUS_DRAFT, STATUS_PUBLISHED
 
 
 def _seed_draft(
@@ -246,3 +248,62 @@ def test_get_shifu_draft_list_ignores_published_outline_activity(app):
         "draft-published-outline-reference",
         "draft-published-outline-course",
     ]
+
+
+def test_get_shifu_draft_list_marks_courses_with_published_versions(app):
+    owner_bid = "draft-list-published-state-owner"
+    with app.app_context():
+        PublishedShifu.query.filter(
+            PublishedShifu.shifu_bid == "draft-published-state-course"
+        ).delete(synchronize_session=False)
+        DraftShifu.query.filter(
+            DraftShifu.created_user_bid == owner_bid,
+            DraftShifu.shifu_bid.in_(
+                ["draft-published-state-course", "draft-only-state-course"]
+            ),
+        ).delete(synchronize_session=False)
+
+        _seed_draft(
+            shifu_bid="draft-published-state-course",
+            title="Published Draft",
+            owner_bid=owner_bid,
+            created_at=datetime(2026, 5, 10, 10, 0, 0),
+            updated_at=datetime(2026, 5, 11, 10, 0, 0),
+        )
+        _seed_draft(
+            shifu_bid="draft-only-state-course",
+            title="Draft Only",
+            owner_bid=owner_bid,
+            created_at=datetime(2026, 5, 10, 10, 0, 0),
+            updated_at=datetime(2026, 5, 10, 10, 0, 0),
+        )
+        dao.db.session.add(
+            PublishedShifu(
+                shifu_bid="draft-published-state-course",
+                title="Published Draft",
+                description="desc",
+                avatar_res_bid="res",
+                keywords="test",
+                llm="gpt",
+                llm_temperature=Decimal("0"),
+                llm_system_prompt="",
+                price=Decimal("0"),
+                created_user_bid=owner_bid,
+                updated_user_bid=owner_bid,
+            )
+        )
+        dao.db.session.commit()
+
+        result = get_shifu_draft_list(
+            app,
+            owner_bid,
+            page_index=1,
+            page_size=10,
+            is_favorite=False,
+            archived=False,
+            creator_only=True,
+        )
+
+    state_by_bid = {item.bid: item.state for item in result.data[:2]}
+    assert state_by_bid["draft-published-state-course"] == STATUS_PUBLISHED
+    assert state_by_bid["draft-only-state-course"] == STATUS_DRAFT
