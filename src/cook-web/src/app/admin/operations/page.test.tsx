@@ -84,7 +84,9 @@ jest.mock('@/api', () => ({
   default: {
     getAdminOperationCoursesOverview: jest.fn(),
     getAdminOperationCourses: jest.fn(),
+    getModelList: jest.fn(),
     getAdminOperationCoursePrompt: jest.fn(),
+    ttsConfig: jest.fn(),
     copyAdminOperationCourse: jest.fn(),
     transferAdminOperationCourseCreator: jest.fn(),
   },
@@ -427,8 +429,10 @@ jest.mock('@/components/ui/DropdownMenu', () => {
 const mockGetAdminOperationCoursesOverview =
   api.getAdminOperationCoursesOverview as jest.Mock;
 const mockGetAdminOperationCourses = api.getAdminOperationCourses as jest.Mock;
+const mockGetModelList = api.getModelList as jest.Mock;
 const mockGetAdminOperationCoursePrompt =
   api.getAdminOperationCoursePrompt as jest.Mock;
+const mockTtsConfig = api.ttsConfig as jest.Mock;
 const mockCopyAdminOperationCourse = api.copyAdminOperationCourse as jest.Mock;
 const mockTransferAdminOperationCourseCreator =
   api.transferAdminOperationCourseCreator as jest.Mock;
@@ -552,6 +556,16 @@ describe('OperationsPage', () => {
     });
 
     mockGetAdminOperationCoursesOverview.mockResolvedValue(DEFAULT_OVERVIEW);
+    mockGetModelList.mockResolvedValue([
+      {
+        model: 'gpt-4.1-mini',
+        display_name: 'GPT-4.1 Mini',
+      },
+      {
+        model: 'gpt-4.1',
+        display_name: 'GPT-4.1',
+      },
+    ]);
     mockGetAdminOperationCourses.mockResolvedValue({
       items: [
         {
@@ -559,7 +573,8 @@ describe('OperationsPage', () => {
           course_name: 'Course 1',
           course_status: 'published',
           price: '99',
-          course_model: 'gpt-4.1-mini',
+          llm_model: 'gpt-4.1-mini',
+          tts_model: 'speech-01',
           has_course_prompt: true,
           creator_user_bid: 'creator-1',
           creator_mobile: '15811112222',
@@ -577,7 +592,8 @@ describe('OperationsPage', () => {
           course_name: 'Custom System Course',
           course_status: 'unpublished',
           price: '0',
-          course_model: '',
+          llm_model: '',
+          tts_model: '',
           has_course_prompt: false,
           creator_user_bid: 'system',
           creator_mobile: '',
@@ -598,6 +614,15 @@ describe('OperationsPage', () => {
     });
     mockGetAdminOperationCoursePrompt.mockResolvedValue({
       course_prompt: LONG_COURSE_PROMPT,
+    });
+    mockTtsConfig.mockResolvedValue({
+      model_options: [
+        {
+          provider: 'minimax',
+          model: 'speech-2.8-turbo',
+          label: '精品语音',
+        },
+      ],
     });
     mockCopyAdminOperationCourse.mockResolvedValue({});
     mockTransferAdminOperationCourseCreator.mockResolvedValue({});
@@ -646,7 +671,11 @@ describe('OperationsPage', () => {
         'module.operationsCourse.overview.tooltips.totalCourses',
       ).tagName,
     ).toBe('BUTTON');
-    expect(screen.getByText('gpt-4.1-mini')).toBeInTheDocument();
+    expect(screen.getByText('GPT-4.1 Mini')).toBeInTheDocument();
+    expect(mockTtsConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ language: 'en-US' }),
+    );
+    expect(screen.getByText('精品语音')).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
         name: 'module.operationsCourse.table.detailAction',
@@ -701,7 +730,8 @@ describe('OperationsPage', () => {
           course_name: 'Timezone Course',
           course_status: 'published',
           price: '0',
-          course_model: '',
+          llm_model: '',
+          tts_model: '',
           has_course_prompt: false,
           creator_user_bid: 'creator-1',
           creator_mobile: '',
@@ -1433,7 +1463,8 @@ describe('OperationsPage', () => {
           course_name: 'Course 1',
           course_status: 'published',
           price: '99',
-          course_model: 'gpt-4.1-mini',
+          llm_model: 'gpt-4.1-mini',
+          tts_model: 'speech-01',
           has_course_prompt: true,
           creator_user_bid: 'creator-1',
           creator_mobile: '15811112222',
@@ -1544,7 +1575,8 @@ describe('OperationsPage', () => {
           course_name: 'Course Second',
           course_status: 'published',
           price: '29',
-          course_model: 'gpt-4.1',
+          llm_model: 'gpt-4.1',
+          tts_model: 'speech-01',
           has_course_prompt: true,
           creator_user_bid: 'creator-2',
           creator_mobile: '15899990000',
@@ -1573,7 +1605,8 @@ describe('OperationsPage', () => {
           course_name: 'Course First',
           course_status: 'published',
           price: '19',
-          course_model: 'gpt-4.1',
+          llm_model: 'gpt-4.1',
+          tts_model: 'speech-01',
           has_course_prompt: true,
           creator_user_bid: 'creator-1',
           creator_mobile: '15888880000',

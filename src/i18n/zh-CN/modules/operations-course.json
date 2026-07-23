@@ -410,10 +410,11 @@
     "createdAt": "创建时间",
     "creator": "创建者",
     "detailAction": "详情",
-    "model": "模型",
+    "llmModel": "LLM模型",
     "modifier": "修改者",
     "price": "价格",
     "status": "状态",
+    "ttsModel": "TTS模型",
     "updatedAt": "更新时间"
   },
   "title": "课程管理",
