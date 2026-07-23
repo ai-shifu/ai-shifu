@@ -44,8 +44,8 @@
   "saveFailed": "配置保存失败，请检查填写内容。",
   "saveSuccess": "配置已保存",
   "source": {
-    "default": "使用默认消耗倍率",
-    "exact": "已单独调整",
+    "default": "系统默认倍率",
+    "exact": "专属倍率",
     "unconfigured": "未配置"
   },
   "tabs": {

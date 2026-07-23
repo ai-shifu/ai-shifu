@@ -44,8 +44,8 @@
   "saveFailed": "Failed to save config. Please check the form.",
   "saveSuccess": "Config saved",
   "source": {
-    "default": "Default credit consumption multiplier",
-    "exact": "Custom credit consumption multiplier",
+    "default": "System default multiplier",
+    "exact": "Dedicated multiplier",
     "unconfigured": "Not configured"
   },
   "tabs": {
