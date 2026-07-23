@@ -81,8 +81,6 @@ jest.mock('../header', () => ({
     lessonHistoryUrl ? (
       <a
         href={lessonHistoryUrl}
-        target='_blank'
-        rel='noopener noreferrer'
         title='module.shifu.history.title'
         data-testid='lesson-history-link'
         data-history-updated-at={
@@ -620,7 +618,7 @@ describe('ShifuEdit draft conflict checks', () => {
     }
   });
 
-  test('renders the history entry as a native link for the current lesson', async () => {
+  test('renders the history entry as a same-window link for the current lesson', async () => {
     setLessonNode();
 
     render(<ScriptEditor id='shifu-1' />);
@@ -632,8 +630,8 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(historyLink.getAttribute('href')).toBe(
       '/shifu/shifu-1/history?lessonid=lesson-1',
     );
-    expect(historyLink.getAttribute('target')).toBe('_blank');
-    expect(historyLink.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(historyLink).not.toHaveAttribute('target');
+    expect(historyLink).not.toHaveAttribute('rel');
   });
 
   test('does not use global save time as lesson history timestamp fallback', async () => {
@@ -655,6 +653,7 @@ describe('ShifuEdit draft conflict checks', () => {
     render(<ScriptEditor id='shifu-1' />);
 
     const historyLink = screen.getByTitle('module.shifu.history.title');
+    historyLink.addEventListener('click', event => event.preventDefault());
     historyLink.click();
 
     expect(mockTrackEvent).toHaveBeenCalledWith('creator_lesson_history_click');
