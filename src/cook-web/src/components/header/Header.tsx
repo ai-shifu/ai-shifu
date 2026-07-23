@@ -420,8 +420,6 @@ const Header = ({
                     <TooltipTrigger asChild>
                       <Link
                         href={lessonHistoryUrl || '#'}
-                        target='_blank'
-                        rel='noopener noreferrer'
                         onClick={onLessonHistoryClick}
                         className='inline-flex items-center text-sm font-normal leading-5 text-[rgba(0,0,0,0.45)] transition-colors hover:text-foreground'
                         aria-label={historyTooltip}
