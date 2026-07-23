@@ -510,9 +510,15 @@ const OperationsPage = () => {
     void (async () => {
       await fetchCoursesRef.current?.(1, createDefaultFilters(), '');
       void fetchCourseOverview();
-      void fetchModelLabels();
     })();
-  }, [fetchCourseOverview, fetchModelLabels, isGuest, isInitialized, isReady]);
+  }, [fetchCourseOverview, isGuest, isInitialized, isReady]);
+
+  useEffect(() => {
+    if (!isInitialized || isGuest || !isReady) {
+      return;
+    }
+    void fetchModelLabels();
+  }, [fetchModelLabels, isGuest, isInitialized, isReady]);
 
   const resolveLlmModelLabel = useCallback(
     (model?: string) => {
