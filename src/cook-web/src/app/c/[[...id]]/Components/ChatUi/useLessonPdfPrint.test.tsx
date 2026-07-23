@@ -1231,7 +1231,7 @@ describe('useLessonPdfPrint', () => {
       }),
     );
     expect((snapshotLayoutDuringPrint as { styles: string }).styles).toContain(
-      'calc(100cqw / var(--lesson-print-iframe-source-width))',
+      'zoom: calc(100cqw / var(--lesson-print-iframe-source-width))',
     );
     expect(onError).not.toHaveBeenCalled();
     expect(

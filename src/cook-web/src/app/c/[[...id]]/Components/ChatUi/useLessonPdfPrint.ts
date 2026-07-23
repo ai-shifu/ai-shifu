@@ -556,10 +556,7 @@ const PRINT_SNAPSHOT_STYLES = `
     width: var(${IFRAME_PRINT_SOURCE_WIDTH_PROPERTY});
     height: var(${IFRAME_PRINT_SOURCE_HEIGHT_PROPERTY});
     overflow: hidden;
-    zoom: min(
-      1,
-      calc(100cqw / var(${IFRAME_PRINT_SOURCE_WIDTH_PROPERTY}))
-    );
+    zoom: calc(100cqw / var(${IFRAME_PRINT_SOURCE_WIDTH_PROPERTY}));
   }
 `;
 
@@ -896,12 +893,11 @@ const copyComputedStyleTree = (
     ...Array.from(targetRoot.querySelectorAll('*')),
   ];
   if (sourceElements.length !== targetElements.length) {
-    return false;
+    return;
   }
   sourceElements.forEach((sourceElement, index) => {
     copyComputedStyle(sourceElement, targetElements[index], sourceWindow);
   });
-  return true;
 };
 
 const hideSnapshotOnlyControls = (snapshotRoot: HTMLElement) => {
@@ -989,11 +985,7 @@ const createIframePrintSnapshots = (
         iframeWindow,
       );
       copyComputedStyle(iframeDocument.body, snapshotBody, iframeWindow);
-      const didFreezeRootLayout = copyComputedStyleTree(
-        iframeRoot,
-        snapshotRoot,
-        iframeWindow,
-      );
+      copyComputedStyleTree(iframeRoot, snapshotRoot, iframeWindow);
       neutralizeSnapshotMarkup(snapshotHtml);
       trackSnapshotIframeLoads(snapshotRoot);
       hideSnapshotOnlyControls(snapshotRoot);
@@ -1002,7 +994,6 @@ const createIframePrintSnapshots = (
       const sourceWidth = iframe.clientWidth || iframeRect.width;
       const sourceHeight = iframe.clientHeight || iframeRect.height;
       if (
-        didFreezeRootLayout &&
         Number.isFinite(sourceWidth) &&
         Number.isFinite(sourceHeight) &&
         sourceWidth > 0 &&
