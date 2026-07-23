@@ -328,6 +328,13 @@ body.listen-mode-vh-fallback #root {
     overflow: visible !important;
   }
 
+  html.lesson-pdf-print
+    [data-lesson-print-scroll='true']
+    > [data-lesson-print-page='true']
+    > :not([data-lesson-print-exclude='true']) {
+    max-width: none !important;
+  }
+
   html.lesson-pdf-print [data-lesson-print-only='true'] {
     display: block !important;
   }
@@ -506,14 +513,5 @@ body.listen-mode-vh-fallback #root {
 
   html.lesson-pdf-print [data-lesson-print-scroll] :is(iframe, table) {
     max-width: 100% !important;
-  }
-}
-
-@media print and (orientation: landscape) {
-  html.lesson-pdf-print
-    [data-lesson-print-scroll='true']
-    > [data-lesson-print-page='true']
-    > :not([data-lesson-print-exclude='true']) {
-    max-width: none !important;
   }
 }
