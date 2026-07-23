@@ -220,8 +220,10 @@ jest.mock(
 jest.mock(
   './ContentBlock',
   () =>
-    function MockContentBlock() {
-      return <div />;
+    function MockContentBlock({ item }: { item: { element_bid?: string } }) {
+      return (
+        <div data-testid={`content-block-${item.element_bid || 'item'}`} />
+      );
     },
 );
 jest.mock(
@@ -282,13 +284,14 @@ jest.mock('@/components/audio/AudioPlayer', () => ({
 const renderNewChatComponents = (
   onLessonUpdateNoticeVisibilityChange = jest.fn(),
   onLessonPdfActionChange = jest.fn(),
+  items: Array<Record<string, unknown>> = [],
 ) => {
   mockUseChatLogicHook.mockReturnValue({
     currentStreamingElementBid: '',
     currentTypewriterElementBid: '',
     isLoading: false,
     isOutputInProgress: false,
-    items: [],
+    items,
     lessonFeedbackPopup: {
       defaultCommentText: '',
       defaultScoreText: '',
@@ -482,6 +485,59 @@ describe('NewChatComponents', () => {
       '扫码进入课程，获得一对一讲解与答疑',
     );
     expect(footer.nextElementSibling).toHaveAttribute('id', 'chat-box-bottom');
+  });
+
+  it('groups printable lesson sections under the print page width scope', async () => {
+    mockLearningMode = 'read';
+
+    const { container } = renderNewChatComponents(jest.fn(), jest.fn(), [
+      {
+        content: '课时正文',
+        element_bid: 'content-1',
+        type: 'content',
+      },
+      {
+        ask_list: [],
+        element_bid: 'ask-1',
+        isAskExpanded: true,
+        parent_element_bid: 'content-1',
+        type: 'ask',
+      },
+      {
+        content: '?[选择答案](answer)',
+        element_bid: 'interaction-1',
+        type: 'interaction',
+      },
+    ]);
+    const printPage = container.querySelector<HTMLElement>(
+      '[data-lesson-print-scroll="true"] > [data-lesson-print-page="true"]',
+    );
+    const printHeader = container
+      .querySelector('[data-lesson-print-course-name="true"]')
+      ?.closest('header');
+    const lessonContent = screen.getByTestId('content-block-content-1');
+    const followUp = container.querySelector<HTMLElement>(
+      '[data-lesson-print-follow-up="true"]',
+    );
+    const interaction = container.querySelector<HTMLElement>(
+      '[data-lesson-print-interaction="true"]',
+    );
+    const footer = await waitFor(() => {
+      const element = container.querySelector<HTMLElement>(
+        '[data-lesson-print-course-qr="true"]',
+      );
+      expect(element).toBeInTheDocument();
+      return element as HTMLElement;
+    });
+
+    expect(printPage).toContainElement(printHeader as HTMLElement);
+    expect(printHeader?.parentElement).toBe(printPage);
+    expect(printPage).toContainElement(lessonContent);
+    expect(lessonContent.parentElement?.parentElement).toBe(printPage);
+    expect(followUp?.parentElement).toBe(printPage);
+    expect(interaction?.parentElement).toBe(printPage);
+    expect(printPage).toContainElement(footer);
+    expect(footer.parentElement).toBe(printPage);
   });
 
   it('includes the course avatar, site brand, and official link in the print header', () => {
