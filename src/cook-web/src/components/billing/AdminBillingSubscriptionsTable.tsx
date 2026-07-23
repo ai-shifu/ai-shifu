@@ -22,6 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { useBillingAdminPagedQuery } from '@/hooks/useBillingAdminPagedQuery';
+import { useAdminListQueryState } from '@/hooks/useAdminListQueryState';
 import type {
   AdminBillingSubscriptionItem,
   BillingPagedResponse,
@@ -47,6 +48,11 @@ import {
 const ADMIN_BILLING_SUBSCRIPTIONS_PAGE_SIZE = 10;
 const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 const ALL_SUBSCRIPTION_STATUS = '__all__';
+
+type SubscriptionAttentionFilters = {
+  creatorKeyword: string;
+  status: string;
+};
 
 function resolveAdminBillingSubscriptionOutcome(
   t: (key: string, options?: Record<string, unknown>) => string,
@@ -137,15 +143,28 @@ export function AdminBillingSubscriptionsTable() {
   registerBillingTranslationUsage(t);
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  const [searchInput, setSearchInput] = React.useState('');
-  const [creatorKeyword, setCreatorKeyword] = React.useState('');
-  const [statusInput, setStatusInput] = React.useState(ALL_SUBSCRIPTION_STATUS);
-  const [appliedStatus, setAppliedStatus] = React.useState(
-    ALL_SUBSCRIPTION_STATUS,
+  const defaultFilters = React.useMemo<SubscriptionAttentionFilters>(
+    () => ({
+      creatorKeyword: '',
+      status: ALL_SUBSCRIPTION_STATUS,
+    }),
+    [],
   );
   const clearLabel = t('module.chat.lessonFeedbackClearInput');
   const searchInputId = React.useId();
   const statusInputId = React.useId();
+  const {
+    draftFilters,
+    appliedFilters,
+    pageIndex,
+    setPageCount,
+    setDraftFilters,
+    applyDraftFilters,
+    resetFilters,
+    goToPage,
+  } = useAdminListQueryState({
+    defaultFilters,
+  });
   const contactMode = React.useMemo(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
@@ -184,42 +203,44 @@ export function AdminBillingSubscriptionsTable() {
     ],
     [t],
   );
-  const { error, isLoading, items, page, pageCount, total, setPage } =
+  const { error, isLoading, items, page, pageCount, total } =
     useBillingAdminPagedQuery<AdminBillingSubscriptionItem>({
       queryKey: 'admin-billing-subscriptions',
+      pageIndex,
       pageSize: ADMIN_BILLING_SUBSCRIPTIONS_PAGE_SIZE,
-      queryDeps: [creatorKeyword, appliedStatus],
+      queryDeps: [appliedFilters.creatorKeyword, appliedFilters.status],
       fetchPage: async params =>
         (await api.getAdminBillingSubscriptions(
           {
             ...params,
             attention_only: true,
-            creator_keyword: creatorKeyword.trim(),
+            creator_keyword: appliedFilters.creatorKeyword.trim(),
             status:
-              appliedStatus === ALL_SUBSCRIPTION_STATUS ? '' : appliedStatus,
+              appliedFilters.status === ALL_SUBSCRIPTION_STATUS
+                ? ''
+                : appliedFilters.status,
           },
           BILLING_PASSIVE_REQUEST_CONFIG,
         )) as BillingPagedResponse<AdminBillingSubscriptionItem>,
     });
 
+  React.useEffect(() => {
+    setPageCount(pageCount);
+  }, [pageCount, setPageCount]);
+
   const applySearch = React.useCallback(() => {
-    setCreatorKeyword(searchInput.trim());
-    setAppliedStatus(statusInput);
-  }, [searchInput, statusInput]);
+    applyDraftFilters();
+  }, [applyDraftFilters]);
 
-  const resetFilters = React.useCallback(() => {
-    setSearchInput('');
-    setCreatorKeyword('');
-    setStatusInput(ALL_SUBSCRIPTION_STATUS);
-    setAppliedStatus(ALL_SUBSCRIPTION_STATUS);
-  }, []);
-
-  const handleSearchChange = React.useCallback((value: string) => {
-    setSearchInput(value);
-    if (!value.trim()) {
-      setCreatorKeyword('');
-    }
-  }, []);
+  const handleSearchChange = React.useCallback(
+    (value: string) => {
+      setDraftFilters(current => ({
+        ...current,
+        creatorKeyword: value,
+      }));
+    },
+    [setDraftFilters],
+  );
 
   return (
     <AdminBillingSectionCard
@@ -246,7 +267,7 @@ export function AdminBillingSubscriptionsTable() {
                 <div className='min-w-0 flex-1'>
                   <AdminClearableInput
                     id={searchInputId}
-                    value={searchInput}
+                    value={draftFilters.creatorKeyword}
                     placeholder={searchPlaceholder}
                     clearLabel={clearLabel}
                     onChange={handleSearchChange}
@@ -263,8 +284,13 @@ export function AdminBillingSubscriptionsTable() {
                 </label>
                 <div className='min-w-0 flex-1'>
                   <Select
-                    value={statusInput}
-                    onValueChange={setStatusInput}
+                    value={draftFilters.status}
+                    onValueChange={value => {
+                      setDraftFilters(current => ({
+                        ...current,
+                        status: value,
+                      }));
+                    }}
                   >
                     <SelectTrigger
                       id={statusInputId}
@@ -310,7 +336,7 @@ export function AdminBillingSubscriptionsTable() {
         pagination={{
           pageIndex: page,
           pageCount,
-          onPageChange: setPage,
+          onPageChange: goToPage,
           prevLabel: t('module.dashboard.pagination.prev'),
           nextLabel: t('module.dashboard.pagination.next'),
           prevAriaLabel: t('module.dashboard.pagination.prev'),

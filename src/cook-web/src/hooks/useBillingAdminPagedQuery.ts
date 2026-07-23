@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import useSWR from 'swr';
 import { buildBillingSwrKey } from '@/lib/billing';
 import type { BillingPagedResponse } from '@/types/billing';
@@ -8,6 +8,7 @@ type BillingAdminPagedQueryParams<T> = {
     page_index: number;
     page_size: number;
   }) => Promise<BillingPagedResponse<T>>;
+  pageIndex: number;
   pageSize: number;
   queryKey: string;
   queryDeps?: Array<string | number | boolean | null | undefined>;
@@ -15,36 +16,21 @@ type BillingAdminPagedQueryParams<T> = {
 
 export function useBillingAdminPagedQuery<T>({
   fetchPage,
+  pageIndex,
   pageSize,
   queryKey,
   queryDeps = [],
 }: BillingAdminPagedQueryParams<T>) {
-  const [pageIndex, setPageIndex] = useState(1);
   const normalizedDeps = useMemo(
     () => queryDeps.map(value => String(value ?? '')),
     [queryDeps],
   );
-  const depsKey = normalizedDeps.join('\u0001');
-  const lastDepsKeyRef = useRef(depsKey);
-  const depsChanged = lastDepsKeyRef.current !== depsKey;
-  const activePageIndex = depsChanged ? 1 : pageIndex;
-
-  useEffect(() => {
-    if (!depsChanged) {
-      return;
-    }
-    if (pageIndex !== 1) {
-      setPageIndex(1);
-      return;
-    }
-    lastDepsKeyRef.current = depsKey;
-  }, [depsChanged, depsKey, pageIndex]);
 
   const { data, error, isLoading } = useSWR<BillingPagedResponse<T>>(
-    buildBillingSwrKey(queryKey, activePageIndex, ...normalizedDeps),
+    buildBillingSwrKey(queryKey, pageIndex, ...normalizedDeps),
     async () =>
       fetchPage({
-        page_index: activePageIndex,
+        page_index: pageIndex,
         page_size: pageSize,
       }),
     {
@@ -52,7 +38,7 @@ export function useBillingAdminPagedQuery<T>({
     },
   );
 
-  const page = Number(data?.page || activePageIndex);
+  const page = Number(data?.page || pageIndex);
   const pageCount = Number(data?.page_count || 1);
   const total = Number(data?.total || 0);
 
@@ -66,8 +52,5 @@ export function useBillingAdminPagedQuery<T>({
     total,
     canGoPrev: page > 1,
     canGoNext: page < pageCount,
-    goPrev: () => setPageIndex(current => Math.max(1, current - 1)),
-    goNext: () => setPageIndex(current => Math.min(pageCount, current + 1)),
-    setPage: (nextPage: number) => setPageIndex(Math.max(1, nextPage)),
   };
 }
