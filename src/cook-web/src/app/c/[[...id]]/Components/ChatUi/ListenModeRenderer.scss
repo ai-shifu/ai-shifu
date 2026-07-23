@@ -394,6 +394,163 @@
   --slide-player-notes-arrow-offset: 168px;
 }
 
+.listen-reveal-wrapper--classroom:not(.mobile) {
+  .slide-interaction-overlay {
+    box-sizing: border-box;
+    display: flex;
+    width: min(1080px, calc(100% - 48px));
+    max-height: calc(100% - 48px);
+  }
+
+  .slide-interaction-overlay--with-player {
+    // Classroom mode hides the player, so the overlay does not reserve its height.
+    bottom: 24px;
+  }
+
+  .slide-player__interaction-card {
+    box-sizing: border-box;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+    border: 2px solid var(--border, #e5e7eb);
+    border-radius: 32px;
+  }
+
+  .slide-player__interaction-drag-handle {
+    top: 15px;
+    height: 48px;
+
+    svg {
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  .slide-player__interaction-drag-handle-icon {
+    width: 60px;
+    height: 48px;
+  }
+
+  .slide-player__interaction-header {
+    flex: 0 0 auto;
+    padding: 36px 84px 0 36px;
+  }
+
+  .slide-player__interaction-title {
+    font-size: 22px;
+    line-height: 30px;
+  }
+
+  .slide-player__interaction-body {
+    --mdf-slide-font-size: 24px;
+    --mdf-slide-line-height: 36px;
+
+    box-sizing: border-box;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    max-height: 640px;
+    padding: 0 36px 18px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+
+    .content-render {
+      --content-render-font-size: 24px;
+      --content-render-line-height: 36px;
+    }
+
+    .custom-variable-container {
+      margin-top: 24px;
+      padding: 12px 18px;
+      border-radius: 12px;
+    }
+
+    .single-select-container > span:first-child > button {
+      min-height: 48px;
+      padding: 9px 18px;
+      font-size: 21px;
+      line-height: 28px;
+    }
+
+    .multi-select-container {
+      gap: 18px;
+      padding: 6px 0;
+
+      label {
+        font-size: 21px;
+        line-height: 28px;
+
+        > span:first-child > span:last-child {
+          box-sizing: border-box;
+          display: inline-flex;
+          width: 24px;
+          height: 24px;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 24px;
+
+          svg {
+            width: 18px;
+            height: 18px;
+          }
+        }
+
+        > span:last-child {
+          margin-left: 12px;
+        }
+      }
+
+      > span.block {
+        width: 100%;
+        max-width: 750px;
+      }
+    }
+
+    .multi-select-confirm-button {
+      min-height: 48px;
+      padding: 10px 24px;
+      font-size: 21px;
+      line-height: 28px;
+    }
+
+    .input-container,
+    .multi-select-input-row {
+      width: 100%;
+      max-width: 750px;
+    }
+
+    .input-container,
+    .multi-select-input-row [data-slot='input-group'] {
+      min-height: 48px;
+    }
+
+    .input-container textarea,
+    .multi-select-input-row textarea {
+      min-height: 48px;
+      padding: 6px 18px;
+      font-size: 24px;
+      line-height: 36px;
+    }
+
+    .input-container [data-size='icon-sm'] {
+      width: 48px;
+      min-width: 48px;
+      height: 48px;
+      min-height: 48px;
+
+      img {
+        width: 32px;
+        height: 32px;
+      }
+    }
+  }
+}
+
 .listen-reveal-wrapper:not(.mobile):not(.listen-reveal-wrapper--classroom)
   .listen-slide-shell
   > .slide-ask-overlay,
