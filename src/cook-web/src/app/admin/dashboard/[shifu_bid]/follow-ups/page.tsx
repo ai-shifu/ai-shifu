@@ -732,7 +732,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
                   showToggle={false}
                   labelClassName={DASHBOARD_FILTER_LABEL_CLASS}
                   contentClassName={DASHBOARD_FILTER_CONTENT_CLASS}
-                  collapsedGridClassName={DASHBOARD_FILTER_FOLLOW_UPS_GRID_CLASS}
+                  collapsedGridClassName={
+                    DASHBOARD_FILTER_FOLLOW_UPS_GRID_CLASS
+                  }
                   expandedGridClassName={DASHBOARD_FILTER_FOLLOW_UPS_GRID_CLASS}
                 />
                 <div className={DASHBOARD_FILTER_FOOTER_CLASS}>

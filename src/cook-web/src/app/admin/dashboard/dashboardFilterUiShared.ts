@@ -19,8 +19,7 @@ export const DASHBOARD_FILTER_ACTION_BUTTON_CLASS = 'h-9 px-4';
 export const DASHBOARD_ENTRY_FILTER_ACTIONS_CLASS =
   'flex flex-col gap-2 md:flex-row md:items-center md:justify-end';
 export const DASHBOARD_ENTRY_FILTER_KEYWORD_CLASS = 'w-[280px] max-w-[80vw]';
-export const DASHBOARD_ENTRY_FILTER_DATE_RANGE_CLASS =
-  'w-[260px] max-w-[80vw]';
+export const DASHBOARD_ENTRY_FILTER_DATE_RANGE_CLASS = 'w-[260px] max-w-[80vw]';
 export const DASHBOARD_FILTER_LABEL_COMPACT_CLASS = 'w-[60px]';
 export const DASHBOARD_FILTER_LABEL_STANDARD_CLASS = 'w-[68px]';
 export const DASHBOARD_FILTER_LABEL_WIDE_CLASS = 'w-[88px]';
