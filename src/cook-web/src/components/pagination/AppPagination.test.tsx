@@ -156,11 +156,11 @@ describe('AppPagination', () => {
     expect(screen.queryByRole('link', { name: 'NaN' })).not.toBeInTheDocument();
   });
 
-  test('keeps jump input hidden below its threshold', () => {
+  test('does not render the trailing jump widget for large page sets', () => {
     render(
       <AppPagination
         pageIndex={5}
-        pageCount={9}
+        pageCount={30}
         onPageChange={jest.fn()}
         prevLabel='Previous'
         nextLabel='Next'
@@ -173,35 +173,37 @@ describe('AppPagination', () => {
     expect(
       screen.queryByRole('textbox', { name: 'Jump to page' }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText('/')).not.toBeInTheDocument();
   });
 
-  test('shows jump input for large page sets and clamps out-of-range values', () => {
-    const onPageChange = jest.fn();
+  test('keeps next-page navigation moving forward after page 10', () => {
+    function PaginationHarness() {
+      const [pageIndex, setPageIndex] = React.useState(1);
 
-    render(
-      <AppPagination
-        pageIndex={5}
-        pageCount={30}
-        onPageChange={onPageChange}
-        prevLabel='Previous'
-        nextLabel='Next'
-        prevAriaLabel='Go to previous page'
-        nextAriaLabel='Go to next page'
-        jumpInputAriaLabel='Jump to page'
-      />,
+      return (
+        <AppPagination
+          pageIndex={pageIndex}
+          pageCount={67}
+          onPageChange={setPageIndex}
+          prevLabel='Previous'
+          nextLabel='Next'
+          prevAriaLabel='Go to previous page'
+          nextAriaLabel='Go to next page'
+          jumpInputAriaLabel='Jump to page'
+        />
+      );
+    }
+
+    render(<PaginationHarness />);
+
+    const nextLink = screen.getByRole('link', { name: /next/i });
+    for (let clickCount = 0; clickCount < 10; clickCount += 1) {
+      fireEvent.click(nextLink);
+    }
+
+    expect(screen.getByRole('link', { name: '11' })).toHaveAttribute(
+      'aria-current',
+      'page',
     );
-
-    const jumpInput = screen.getByRole('textbox', { name: 'Jump to page' });
-    fireEvent.change(jumpInput, { target: { value: '18abc' } });
-    expect(jumpInput).toHaveValue('18');
-
-    jumpInput.focus();
-    fireEvent.keyDown(jumpInput, { key: 'Enter' });
-    expect(onPageChange).toHaveBeenCalledWith(18);
-    expect(onPageChange).toHaveBeenCalledTimes(1);
-
-    fireEvent.change(jumpInput, { target: { value: '999' } });
-    fireEvent.blur(jumpInput);
-    expect(onPageChange).toHaveBeenLastCalledWith(30);
   });
 });
