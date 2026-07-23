@@ -410,10 +410,11 @@
     "createdAt": "Created At",
     "creator": "Creator",
     "detailAction": "Detail",
-    "model": "Model",
+    "llmModel": "LLM Model",
     "modifier": "Modifier",
     "price": "Price",
     "status": "Status",
+    "ttsModel": "TTS Model",
     "updatedAt": "Updated At"
   },
   "title": "Course Management",

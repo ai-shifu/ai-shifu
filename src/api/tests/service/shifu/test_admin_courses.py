@@ -139,7 +139,8 @@ def test_list_operator_courses_prefers_latest_draft_and_formats_contacts():
     assert item.course_name == "Draft Course"
     assert item.course_status == "published"
     assert item.price == "199"
-    assert item.course_model == "gpt-4.1-mini"
+    assert item.llm_model == "gpt-4.1-mini"
+    assert item.tts_model == ""
     assert item.has_course_prompt is True
     assert item.creator_mobile == "15811112222"
     assert item.creator_email == "creator@example.com"
@@ -1211,6 +1212,140 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
     assert second_page_result.page == 2
     assert second_page_result.page_count == 3
     assert [item.shifu_bid for item in second_page_result.items] == [draft_only_bid]
+
+
+def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(app):
+    creator_bid = uuid.uuid4().hex[:32]
+    published_with_blank_draft_bid = uuid.uuid4().hex[:32]
+    published_history_fallback_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        DraftOutlineItem.query.delete()
+        PublishedOutlineItem.query.delete()
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
+        db.session.add_all(
+            [
+                PublishedShifu(
+                    shifu_bid=published_with_blank_draft_bid,
+                    title="Published Fallback Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-4.1",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    tts_model="speech-01-turbo",
+                    price=Decimal("79"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 10, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 10, 9, 0, 0),
+                ),
+                DraftShifu(
+                    shifu_bid=published_with_blank_draft_bid,
+                    title="Draft Overrides Title",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    tts_model="",
+                    price=Decimal("99"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 20, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 20, 9, 0, 0),
+                ),
+                PublishedShifu(
+                    shifu_bid=published_history_fallback_bid,
+                    title="Historical Model Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-4.1-mini",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    tts_model="speech-01",
+                    price=Decimal("59"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 12, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 12, 9, 0, 0),
+                ),
+                PublishedShifu(
+                    shifu_bid=published_history_fallback_bid,
+                    title="Historical Model Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    tts_model="",
+                    price=Decimal("59"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 13, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 13, 9, 0, 0),
+                ),
+            ]
+        )
+        db.session.commit()
+
+        with patch("flaskr.service.shifu.admin._load_user_map", return_value={}):
+            result = list_operator_courses(app, 1, 20, {})
+
+    by_bid = {item.shifu_bid: item for item in result.items}
+    published_with_blank_draft = by_bid[published_with_blank_draft_bid]
+    historical_fallback = by_bid[published_history_fallback_bid]
+
+    assert published_with_blank_draft.course_name == "Draft Overrides Title"
+    assert published_with_blank_draft.llm_model == "gpt-4.1"
+    assert published_with_blank_draft.tts_model == "speech-01-turbo"
+    assert historical_fallback.llm_model == "gpt-4.1-mini"
+    assert historical_fallback.tts_model == "speech-01"
+
+
+def test_list_operator_courses_sql_path_falls_back_to_default_llm_model(app):
+    creator_bid = uuid.uuid4().hex[:32]
+    empty_model_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        DraftOutlineItem.query.delete()
+        PublishedOutlineItem.query.delete()
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
+        db.session.add(
+            DraftShifu(
+                shifu_bid=empty_model_bid,
+                title="Uses Default Model",
+                description="desc",
+                avatar_res_bid="",
+                keywords="",
+                llm="",
+                llm_temperature=Decimal("0"),
+                llm_system_prompt="",
+                tts_model="",
+                price=Decimal("9"),
+                created_user_bid=creator_bid,
+                updated_user_bid=creator_bid,
+                created_at=datetime(2025, 4, 20, 9, 0, 0),
+                updated_at=datetime(2025, 4, 20, 9, 0, 0),
+            )
+        )
+        db.session.commit()
+
+        with patch("flaskr.service.shifu.admin._load_user_map", return_value={}):
+            result = list_operator_courses(app, 1, 20, {})
+
+    assert result.items[0].shifu_bid == empty_model_bid
+    assert result.items[0].llm_model == "gpt-test"
 
 
 def test_list_operator_courses_sql_path_uses_current_outline_revisions_only(app):

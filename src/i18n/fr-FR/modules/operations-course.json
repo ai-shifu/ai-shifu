@@ -410,10 +410,11 @@
     "createdAt": "Créé le",
     "creator": "Créateur",
     "detailAction": "Détail",
-    "model": "Modèle",
+    "llmModel": "Modèle LLM",
     "modifier": "Modificateur",
     "price": "Prix",
     "status": "Statut",
+    "ttsModel": "Modèle TTS",
     "updatedAt": "Mis à jour le"
   },
   "title": "Cours Gestion",

@@ -34,6 +34,9 @@ from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseOverviewDTO,
     AdminOperationCourseSummaryDTO,
 )
+from flaskr.service.shifu.admin_course_summary_mapper import (
+    build_admin_operation_course_summary,
+)
 from flaskr.service.shifu.course_activity import load_course_activity_map
 from flaskr.service.shifu.demo_courses import (
     load_builtin_demo_titles,
@@ -55,7 +58,6 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_STATUS_PUBLISHED,
     COURSE_STATUS_UNPUBLISHED,
     _find_matching_creator_bids,
-    _format_decimal,
     _load_user_map,
     _merge_courses,
 )
@@ -68,6 +70,7 @@ class OperatorCourseListSeed:
     title: str
     price: Any
     llm: str
+    tts_model: str
     created_user_bid: str
     updated_user_bid: str
     created_at: Optional[datetime]
@@ -82,6 +85,7 @@ class OperatorCourseListCandidate:
     title: str
     price: Any
     llm: str
+    tts_model: str
     created_user_bid: str
     updated_user_bid: str
     created_at: Optional[datetime]
@@ -100,6 +104,7 @@ def _build_operator_course_list_seed(row) -> OperatorCourseListSeed:
         title=str(row.title or ""),
         price=row.price,
         llm=str(row.llm or ""),
+        tts_model=str(getattr(row, "tts_model", "") or ""),
         created_user_bid=str(row.created_user_bid or ""),
         updated_user_bid=str(row.updated_user_bid or ""),
         created_at=row.created_at,
@@ -114,6 +119,7 @@ def _build_operator_course_list_candidate(row) -> OperatorCourseListCandidate:
         title=str(row.title or ""),
         price=row.price,
         llm=str(row.llm or ""),
+        tts_model=str(getattr(row, "tts_model", "") or ""),
         created_user_bid=str(row.created_user_bid or ""),
         updated_user_bid=str(row.updated_user_bid or ""),
         created_at=row.created_at,
@@ -168,17 +174,62 @@ def _build_latest_operator_course_rows_query(
         latest_subquery = latest_subquery.filter(model.shifu_bid == shifu_bid)
     latest_subquery = latest_subquery.group_by(model.shifu_bid).subquery()
 
+    latest_nonempty_llm_subquery = (
+        db.session.query(
+            model.shifu_bid.label("shifu_bid"),
+            model.llm.label("llm"),
+            db.func.row_number()
+            .over(partition_by=model.shifu_bid, order_by=model.id.desc())
+            .label("row_num"),
+        )
+        .filter(model.deleted == 0, db.func.coalesce(model.llm, "") != "")
+        .cte(f"{model.__tablename__}_latest_nonempty_llm")
+    )
+    latest_nonempty_tts_subquery = (
+        db.session.query(
+            model.shifu_bid.label("shifu_bid"),
+            model.tts_model.label("tts_model"),
+            db.func.row_number()
+            .over(partition_by=model.shifu_bid, order_by=model.id.desc())
+            .label("row_num"),
+        )
+        .filter(model.deleted == 0, db.func.coalesce(model.tts_model, "") != "")
+        .cte(f"{model.__tablename__}_latest_nonempty_tts")
+    )
+
     query = db.session.query(
         model.id.label("id"),
         model.shifu_bid.label("shifu_bid"),
         model.title.label("title"),
         model.price.label("price"),
-        model.llm.label("llm"),
+        db.func.coalesce(
+            db.func.nullif(model.llm, ""),
+            latest_nonempty_llm_subquery.c.llm,
+            "",
+        ).label("llm"),
+        db.func.coalesce(
+            db.func.nullif(model.tts_model, ""),
+            latest_nonempty_tts_subquery.c.tts_model,
+            "",
+        ).label("tts_model"),
         model.created_user_bid.label("created_user_bid"),
         model.updated_user_bid.label("updated_user_bid"),
         model.created_at.label("created_at"),
         model.updated_at.label("updated_at"),
     ).join(latest_subquery, model.id == latest_subquery.c.max_id)
+    query = query.outerjoin(
+        latest_nonempty_llm_subquery,
+        and_(
+            latest_nonempty_llm_subquery.c.shifu_bid == model.shifu_bid,
+            latest_nonempty_llm_subquery.c.row_num == 1,
+        ),
+    ).outerjoin(
+        latest_nonempty_tts_subquery,
+        and_(
+            latest_nonempty_tts_subquery.c.shifu_bid == model.shifu_bid,
+            latest_nonempty_tts_subquery.c.row_num == 1,
+        ),
+    )
 
     if course_name:
         query = query.filter(model.title.ilike(f"%{course_name}%"))
@@ -315,9 +366,27 @@ def _build_operator_course_candidate_query(
             else_=published_visible_subquery.c.price,
         ).label("price"),
         case(
-            (draft_visible_subquery.c.id.isnot(None), draft_visible_subquery.c.llm),
-            else_=published_visible_subquery.c.llm,
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                db.func.coalesce(
+                    db.func.nullif(draft_visible_subquery.c.llm, ""),
+                    published_visible_subquery.c.llm,
+                    "",
+                ),
+            ),
+            else_=db.func.coalesce(published_visible_subquery.c.llm, ""),
         ).label("llm"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                db.func.coalesce(
+                    db.func.nullif(draft_visible_subquery.c.tts_model, ""),
+                    published_visible_subquery.c.tts_model,
+                    "",
+                ),
+            ),
+            else_=db.func.coalesce(published_visible_subquery.c.tts_model, ""),
+        ).label("tts_model"),
         case(
             (
                 draft_visible_subquery.c.id.isnot(None),
@@ -554,6 +623,65 @@ def _build_latest_shifus_query(
     return latest_rows.order_by(model.updated_at.desc(), model.id.desc())
 
 
+def _apply_latest_nonempty_model_fields(model, rows) -> None:
+    if not rows:
+        return
+
+    shifu_bids = sorted(
+        {
+            str(getattr(row, "shifu_bid", "") or "").strip()
+            for row in rows
+            if str(getattr(row, "shifu_bid", "") or "").strip()
+        }
+    )
+    if not shifu_bids:
+        return
+
+    latest_nonempty_rows = (
+        db.session.query(
+            model.shifu_bid.label("shifu_bid"),
+            model.llm.label("llm"),
+            model.tts_model.label("tts_model"),
+            db.func.row_number()
+            .over(partition_by=model.shifu_bid, order_by=model.id.desc())
+            .label("row_num"),
+        )
+        .filter(
+            model.deleted == 0,
+            model.shifu_bid.in_(shifu_bids),
+            or_(
+                db.func.coalesce(model.llm, "") != "",
+                db.func.coalesce(model.tts_model, "") != "",
+            ),
+        )
+        .subquery()
+    )
+    fallback_rows = (
+        db.session.query(
+            latest_nonempty_rows.c.shifu_bid,
+            latest_nonempty_rows.c.llm,
+            latest_nonempty_rows.c.tts_model,
+        )
+        .filter(latest_nonempty_rows.c.row_num == 1)
+        .all()
+    )
+    fallback_map = {
+        str(row.shifu_bid or ""): {
+            "llm": str(getattr(row, "llm", "") or ""),
+            "tts_model": str(getattr(row, "tts_model", "") or ""),
+        }
+        for row in fallback_rows
+    }
+    for row in rows:
+        fallback = fallback_map.get(str(getattr(row, "shifu_bid", "") or ""))
+        if not fallback:
+            continue
+        if not str(getattr(row, "llm", "") or "").strip():
+            setattr(row, "llm", fallback["llm"])
+        if not str(getattr(row, "tts_model", "") or "").strip():
+            setattr(row, "tts_model", fallback["tts_model"])
+
+
 def _load_latest_shifus(
     model,
     *,
@@ -588,14 +716,18 @@ def _load_latest_shifus(
             model.title.label("title"),
             model.price.label("price"),
             model.llm.label("llm"),
+            model.tts_model.label("tts_model"),
             model.created_user_bid.label("created_user_bid"),
             model.updated_user_bid.label("updated_user_bid"),
             model.created_at.label("created_at"),
             model.updated_at.label("updated_at"),
         ).all()
+        _apply_latest_nonempty_model_fields(model, rows)
         return [_build_operator_course_list_seed(row) for row in rows]
 
     rows = ordered_query.all()
+    if hasattr(model, "__mapper__"):
+        _apply_latest_nonempty_model_fields(model, rows)
     if hasattr(model, "__mapper__") and attach_prompt_flags:
         _attach_course_prompt_flags(model, rows)
     return rows
@@ -632,11 +764,13 @@ def _load_latest_shifu_seeds(
         model.title.label("title"),
         model.price.label("price"),
         model.llm.label("llm"),
+        model.tts_model.label("tts_model"),
         model.created_user_bid.label("created_user_bid"),
         model.updated_user_bid.label("updated_user_bid"),
         model.created_at.label("created_at"),
         model.updated_at.label("updated_at"),
     ).all()
+    _apply_latest_nonempty_model_fields(model, rows)
     return [_build_operator_course_list_seed(row) for row in rows]
 
 
@@ -680,35 +814,11 @@ def _build_course_summary(
     course_status: str,
     activity: Optional[Dict[str, Any]] = None,
 ) -> AdminOperationCourseSummaryDTO:
-    resolved_activity = activity or {}
-    creator = user_map.get(course.created_user_bid or "", {})
-    updater_user_bid = str(
-        resolved_activity.get("updated_user_bid") or course.updated_user_bid or ""
-    ).strip()
-    updater = user_map.get(updater_user_bid, {})
-    updated_at = resolved_activity.get("updated_at") or course.updated_at
-    has_course_prompt = getattr(course, "has_course_prompt", None)
-    if has_course_prompt is None:
-        has_course_prompt = bool(
-            str(getattr(course, "llm_system_prompt", "") or "").strip()
-        )
-    return AdminOperationCourseSummaryDTO(
-        shifu_bid=course.shifu_bid or "",
-        course_name=course.title or "",
+    return build_admin_operation_course_summary(
+        course,
+        user_map=user_map,
         course_status=course_status,
-        price=_format_decimal(course.price),
-        course_model=str(course.llm or "").strip(),
-        has_course_prompt=bool(has_course_prompt),
-        creator_user_bid=course.created_user_bid or "",
-        creator_mobile=creator.get("mobile", ""),
-        creator_email=creator.get("email", ""),
-        creator_nickname=creator.get("nickname", ""),
-        updater_user_bid=updater_user_bid,
-        updater_mobile=updater.get("mobile", ""),
-        updater_email=updater.get("email", ""),
-        updater_nickname=updater.get("nickname", ""),
-        created_at=course.created_at,
-        updated_at=updated_at,
+        activity=activity,
     )
 
 
@@ -725,6 +835,69 @@ def _resolve_course_quick_filter(value: str) -> str:
     if normalized not in COURSE_QUICK_FILTER_VALUES:
         raise_param_error("quick_filter")
     return normalized
+
+
+def _apply_operator_course_list_filters(
+    query,
+    candidate_subquery,
+    *,
+    course_status: str,
+    quick_filter: str,
+    updated_start_time: Optional[datetime],
+    updated_end_time: Optional[datetime],
+    apply_updated_filters: bool,
+):
+    if course_status in {COURSE_STATUS_PUBLISHED, COURSE_STATUS_UNPUBLISHED}:
+        query = query.filter(candidate_subquery.c.course_status == course_status)
+    if quick_filter:
+        if quick_filter == COURSE_QUICK_FILTER_DRAFT:
+            query = query.filter(
+                candidate_subquery.c.course_status == COURSE_STATUS_UNPUBLISHED
+            )
+        elif quick_filter == COURSE_QUICK_FILTER_PUBLISHED:
+            query = query.filter(
+                candidate_subquery.c.course_status == COURSE_STATUS_PUBLISHED
+            )
+        elif quick_filter == COURSE_QUICK_FILTER_CREATED_LAST_7D:
+            created_window_start, created_window_end = _resolve_created_last_7d_window(
+                now_utc()
+            )
+            query = query.filter(
+                candidate_subquery.c.created_at >= created_window_start,
+                candidate_subquery.c.created_at <= created_window_end,
+            )
+        else:
+            if quick_filter == COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D:
+                matched_course_query = db.session.query(
+                    LearnProgressRecord.shifu_bid
+                ).filter(
+                    LearnProgressRecord.deleted == 0,
+                    LearnProgressRecord.status != LEARN_STATUS_RESET,
+                    LearnProgressRecord.created_at >= now_utc() - timedelta(days=30),
+                )
+            else:
+                matched_course_query = db.session.query(Order.shifu_bid).filter(
+                    Order.deleted == 0,
+                    Order.status == ORDER_STATUS_SUCCESS,
+                    Order.created_at >= now_utc() - timedelta(days=30),
+                )
+            query = query.filter(
+                candidate_subquery.c.shifu_bid.in_(matched_course_query)
+            )
+
+    if apply_updated_filters:
+        if updated_start_time:
+            query = query.filter(
+                candidate_subquery.c.activity_updated_at >= updated_start_time
+            )
+        if updated_end_time:
+            query = query.filter(
+                or_(
+                    candidate_subquery.c.activity_updated_at.is_(None),
+                    candidate_subquery.c.activity_updated_at <= updated_end_time,
+                )
+            )
+    return query
 
 
 def _resolve_created_last_7d_window(
@@ -1229,15 +1402,16 @@ def list_operator_courses(
         updated_end_time = filters.get("updated_end_time")
 
         creator_bids = _find_matching_creator_bids(creator_keyword)
-        candidate_query = _build_operator_course_candidate_query(
+        needs_activity_filters = bool(updated_start_time or updated_end_time)
+        count_candidate_query = _build_operator_course_candidate_query(
             shifu_bid=shifu_bid,
             course_name=course_name,
             creator_bids=creator_bids,
             start_time=start_time,
             end_time=end_time,
-            include_activity=True,
+            include_activity=needs_activity_filters,
         )
-        if candidate_query is None:
+        if count_candidate_query is None:
             return AdminOperationCourseListDTO(
                 items=[],
                 page=safe_page_index,
@@ -1245,64 +1419,47 @@ def list_operator_courses(
                 total=0,
                 page_count=0,
             )
-        candidate_subquery = candidate_query.subquery("operator_course_candidates")
-        query = db.session.query(candidate_subquery)
+        count_candidate_subquery = count_candidate_query.subquery(
+            "operator_course_count_candidates"
+        )
+        count_query = _apply_operator_course_list_filters(
+            db.session.query(count_candidate_subquery),
+            count_candidate_subquery,
+            course_status=course_status,
+            quick_filter=quick_filter,
+            updated_start_time=updated_start_time,
+            updated_end_time=updated_end_time,
+            apply_updated_filters=needs_activity_filters,
+        )
+        total = int(count_query.count() or 0)
 
-        if course_status in {COURSE_STATUS_PUBLISHED, COURSE_STATUS_UNPUBLISHED}:
-            query = query.filter(candidate_subquery.c.course_status == course_status)
-        if quick_filter:
-            if quick_filter == COURSE_QUICK_FILTER_DRAFT:
-                query = query.filter(
-                    candidate_subquery.c.course_status == COURSE_STATUS_UNPUBLISHED
-                )
-            elif quick_filter == COURSE_QUICK_FILTER_PUBLISHED:
-                query = query.filter(
-                    candidate_subquery.c.course_status == COURSE_STATUS_PUBLISHED
-                )
-            elif quick_filter == COURSE_QUICK_FILTER_CREATED_LAST_7D:
-                created_window_start, created_window_end = (
-                    _resolve_created_last_7d_window(now_utc())
-                )
-                query = query.filter(
-                    candidate_subquery.c.created_at >= created_window_start,
-                    candidate_subquery.c.created_at <= created_window_end,
-                )
-            else:
-                if quick_filter == COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D:
-                    active_course_query = db.session.query(
-                        LearnProgressRecord.shifu_bid
-                    ).filter(
-                        LearnProgressRecord.deleted == 0,
-                        LearnProgressRecord.status != LEARN_STATUS_RESET,
-                        LearnProgressRecord.created_at
-                        >= now_utc() - timedelta(days=30),
-                    )
-                    query = query.filter(
-                        candidate_subquery.c.shifu_bid.in_(active_course_query)
-                    )
-                else:
-                    paid_course_query = db.session.query(Order.shifu_bid).filter(
-                        Order.deleted == 0,
-                        Order.status == ORDER_STATUS_SUCCESS,
-                        Order.created_at >= now_utc() - timedelta(days=30),
-                    )
-                    query = query.filter(
-                        candidate_subquery.c.shifu_bid.in_(paid_course_query)
-                    )
-
-        if updated_start_time:
-            query = query.filter(
-                candidate_subquery.c.activity_updated_at >= updated_start_time
+        page_candidate_query = _build_operator_course_candidate_query(
+            shifu_bid=shifu_bid,
+            course_name=course_name,
+            creator_bids=creator_bids,
+            start_time=start_time,
+            end_time=end_time,
+            include_activity=True,
+        )
+        if page_candidate_query is None:
+            return AdminOperationCourseListDTO(
+                items=[],
+                page=safe_page_index,
+                page_size=safe_page_size,
+                total=0,
+                page_count=0,
             )
-        if updated_end_time:
-            query = query.filter(
-                or_(
-                    candidate_subquery.c.activity_updated_at.is_(None),
-                    candidate_subquery.c.activity_updated_at <= updated_end_time,
-                )
-            )
+        candidate_subquery = page_candidate_query.subquery("operator_course_candidates")
+        query = _apply_operator_course_list_filters(
+            db.session.query(candidate_subquery),
+            candidate_subquery,
+            course_status=course_status,
+            quick_filter=quick_filter,
+            updated_start_time=updated_start_time,
+            updated_end_time=updated_end_time,
+            apply_updated_filters=True,
+        )
 
-        total = int(query.count() or 0)
         page_offset = (safe_page_index - 1) * safe_page_size
         page_rows = (
             query.order_by(
