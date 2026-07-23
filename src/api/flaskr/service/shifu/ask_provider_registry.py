@@ -479,9 +479,9 @@ def get_ask_provider_schema_registry() -> dict[str, dict[str, Any]]:
             },
         },
         ASK_PROVIDER_GET_BIJI_KNOWLEDGE: {
-            "title": "Get Biji Knowledge Base",
+            "title": "Dedao Brain Knowledge Base",
             "description": (
-                "Retrieve from the Get Biji knowledge base semantic recall API, "
+                "Retrieve from the Dedao Brain knowledge base semantic recall API, "
                 "then synthesize the answer with the built-in ask LLM."
             ),
             "default_config": {
@@ -497,17 +497,17 @@ def get_ask_provider_schema_registry() -> dict[str, dict[str, Any]]:
                         "type": "string",
                         "format": "password",
                         "title": "API Key",
-                        "description": "Get Biji OpenAPI key.",
+                        "description": "Dedao Brain OpenAPI key.",
                     },
                     "client_id": {
                         "type": "string",
                         "title": "Client ID",
-                        "description": "Get Biji OpenAPI client id.",
+                        "description": "Dedao Brain OpenAPI client id.",
                     },
                     "topic_id": {
                         "type": "string",
                         "title": "Topic ID",
-                        "description": "Get Biji knowledge base topic id.",
+                        "description": "Dedao Brain knowledge base topic id.",
                     },
                     "top_k": {
                         "type": "integer",

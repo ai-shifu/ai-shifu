@@ -1,6 +1,6 @@
-"""Get Biji (Dedao Brain) knowledge base ask provider adapter.
+"""Dedao Brain knowledge base ask provider adapter.
 
-Calls the Get Biji OpenAPI semantic recall endpoint to retrieve knowledge
+Calls the Dedao Brain OpenAPI semantic recall endpoint to retrieve knowledge
 snippets for the learner's question, then synthesizes a natural-language
 answer through the built-in ask LLM when the runtime provides
 ``llm_context_stream_factory``. Without that factory it falls back to
@@ -47,7 +47,7 @@ def _top_k_value(value: Any) -> int:
     return max(1, min(parsed, MAX_TOP_K))
 
 
-# Get Biji OpenAPI business error codes, per https://www.biji.com/openapi
+# Dedao Brain OpenAPI business error codes, per https://www.biji.com/openapi
 _AUTH_ERROR_CODES = {"10001", "10004"}
 _NOT_MEMBER_ERROR_CODE = "10201"
 _RATE_LIMIT_ERROR_CODES = {"10202", "10203"}

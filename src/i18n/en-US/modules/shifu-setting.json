@@ -21,7 +21,7 @@
     "coze": "Use a Coze bot to answer learner follow-up questions.",
     "coze_workflow": "Use a Coze workflow to answer learner follow-up questions.",
     "dify": "Use a Dify chat app to answer learner follow-up questions.",
-    "get_biji_knowledge": "Retrieve from a Get Biji knowledge base, then let the built-in LLM answer learner follow-up questions.",
+    "get_biji_knowledge": "Retrieve from a Dedao Brain knowledge base, then let the built-in LLM answer learner follow-up questions.",
     "llm": "Use the built-in LLM to answer learner follow-up questions.",
     "volc_knowledge": "Search a Volcengine knowledge base before answering learner follow-up questions."
   },
@@ -58,11 +58,11 @@
     },
     "get_biji_knowledge": {
       "api_key": {
-        "hint": "Get Biji OpenAPI key.",
+        "hint": "Dedao Brain OpenAPI key.",
         "label": "API Key"
       },
       "client_id": {
-        "hint": "Get Biji OpenAPI client ID.",
+        "hint": "Dedao Brain OpenAPI client ID.",
         "label": "Client ID"
       },
       "top_k": {
@@ -70,7 +70,7 @@
         "label": "Top K"
       },
       "topic_id": {
-        "hint": "Get Biji knowledge base ID.",
+        "hint": "Dedao Brain knowledge base ID.",
         "label": "Knowledge Base ID"
       }
     },
@@ -101,7 +101,7 @@
     "coze": "Coze",
     "coze_workflow": "Coze Workflow",
     "dify": "Dify",
-    "get_biji_knowledge": "Get Biji Knowledge Base",
+    "get_biji_knowledge": "Dedao Brain Knowledge Base",
     "llm": "Built-in LLM",
     "volc_knowledge": "Volcengine Knowledge Base"
   },
