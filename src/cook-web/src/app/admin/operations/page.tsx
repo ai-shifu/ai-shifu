@@ -35,6 +35,11 @@ import { useToast } from '@/hooks/useToast';
 import { copyText } from '@/c-utils/textutils';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { normalizeModelOptions } from '@/store/modelOptions';
+import {
+  normalizeTtsModelOptions,
+  type TtsModelOption,
+} from '@/components/shifu-setting/tts-model-options';
 import CourseCopyDialog from './CourseCopyDialog';
 import CourseFiltersSection from './CourseFiltersSection';
 import CourseOverviewSection from './CourseOverviewSection';
@@ -79,6 +84,24 @@ import {
   type TransferContactType,
 } from './operationCoursePageShared';
 
+const buildModelLabelFallback = (value?: string) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  const rawLabel = normalized.includes('/')
+    ? normalized.split('/').slice(1).join('/')
+    : normalized;
+  return rawLabel
+    .split('-')
+    .filter(Boolean)
+    .map(segment => {
+      if (/^[a-z]+$/i.test(segment)) {
+        return segment.charAt(0).toUpperCase() + segment.slice(1);
+      }
+      return segment;
+    })
+    .join('-');
+};
+
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
  * t('module.operationsCourse.title')
@@ -116,7 +139,8 @@ import {
  * t('module.operationsCourse.table.courseId')
  * t('module.operationsCourse.table.status')
  * t('module.operationsCourse.table.price')
- * t('module.operationsCourse.table.model')
+ * t('module.operationsCourse.table.llmModel')
+ * t('module.operationsCourse.table.ttsModel')
  * t('module.operationsCourse.table.coursePrompt')
  * t('module.operationsCourse.table.detailAction')
  * t('module.operationsCourse.table.creator')
@@ -238,6 +262,13 @@ const OperationsPage = () => {
   );
 
   const [courses, setCourses] = useState<AdminOperationCourseItem[]>([]);
+  const [llmModelLabelMap, setLlmModelLabelMap] = useState<
+    Record<string, string>
+  >({});
+  const [ttsModelLabelMap, setTtsModelLabelMap] = useState<
+    Record<string, string>
+  >({});
+  const [ttsModelOptions, setTtsModelOptions] = useState<TtsModelOption[]>([]);
   const [courseOverview, setCourseOverview] =
     useState<AdminOperationCourseOverview>(EMPTY_COURSE_OVERVIEW);
   const [filters, setFilters] = useState<CourseFilters>(createDefaultFilters);
@@ -377,6 +408,37 @@ const OperationsPage = () => {
     }
   }, []);
 
+  const fetchModelLabels = useCallback(async () => {
+    const [llmResult, ttsResult] = await Promise.allSettled([
+      api.getModelList({}),
+      api.ttsConfig({ language: i18n.language || undefined }),
+    ]);
+
+    if (llmResult.status === 'fulfilled') {
+      const nextMap = normalizeModelOptions(llmResult.value).reduce<
+        Record<string, string>
+      >((acc, option) => {
+        if (option.value && option.label) {
+          acc[option.value] = option.label;
+        }
+        return acc;
+      }, {});
+      setLlmModelLabelMap(nextMap);
+    }
+
+    if (ttsResult.status === 'fulfilled') {
+      const options = normalizeTtsModelOptions(ttsResult.value?.model_options);
+      const nextMap = options.reduce<Record<string, string>>((acc, option) => {
+        if (option.model && option.label) {
+          acc[option.model] = option.label;
+        }
+        return acc;
+      }, {});
+      setTtsModelOptions(options);
+      setTtsModelLabelMap(nextMap);
+    }
+  }, [i18n.language]);
+
   const fetchCourses = useCallback(
     async (
       targetPage: number,
@@ -448,8 +510,55 @@ const OperationsPage = () => {
     void (async () => {
       await fetchCoursesRef.current?.(1, createDefaultFilters(), '');
       void fetchCourseOverview();
+      void fetchModelLabels();
     })();
-  }, [fetchCourseOverview, isGuest, isInitialized, isReady]);
+  }, [fetchCourseOverview, fetchModelLabels, isGuest, isInitialized, isReady]);
+
+  const resolveLlmModelLabel = useCallback(
+    (model?: string) => {
+      const normalized = String(model || '').trim();
+      if (!normalized) return '';
+      return (
+        llmModelLabelMap[normalized] || buildModelLabelFallback(normalized)
+      );
+    },
+    [llmModelLabelMap],
+  );
+
+  const resolveTtsModelLabel = useCallback(
+    (model?: string) => {
+      const normalized = String(model || '').trim();
+      if (!normalized) return '';
+      const exactLabel = ttsModelLabelMap[normalized];
+      if (exactLabel) {
+        return exactLabel;
+      }
+
+      // Historical TTS model ids are persisted on courses, while the current
+      // config API exposes one localized display label per provider/tier.
+      // Match old ids back to the current tier label so the table shows the
+      // same friendly names as the TTS config page.
+      if (normalized.startsWith('speech-')) {
+        const minimaxOption = ttsModelOptions.find(
+          option => option.provider === 'minimax',
+        );
+        if (minimaxOption?.label) {
+          return minimaxOption.label;
+        }
+      }
+      if (normalized.startsWith('seed-tts-')) {
+        const volcengineOption = ttsModelOptions.find(
+          option => option.provider === 'volcengine',
+        );
+        if (volcengineOption?.label) {
+          return volcengineOption.label;
+        }
+      }
+
+      return buildModelLabelFallback(normalized);
+    },
+    [ttsModelLabelMap, ttsModelOptions],
+  );
 
   const clearQuickFilterIfConflicted = useCallback(
     (key: keyof CourseFilters, value: string) => {
@@ -1204,7 +1313,8 @@ const OperationsPage = () => {
         courseId: course => [course.shifu_bid],
         status: course => [resolveCourseStatusLabel(course.course_status)],
         price: course => [formatMoney(course.price)],
-        model: course => [course.course_model],
+        llmModel: course => [resolveLlmModelLabel(course.llm_model)],
+        ttsModel: course => [resolveTtsModelLabel(course.tts_model)],
         coursePrompt: course => [
           course.has_course_prompt
             ? tOperations('table.detailAction')
@@ -1238,7 +1348,8 @@ const OperationsPage = () => {
             courseId: 5,
             status: 5,
             price: 4,
-            model: 4.2,
+            llmModel: 4.2,
+            ttsModel: 4.2,
             coursePrompt: 5.5,
             creator: 4.6,
             modifier: 4.6,
@@ -1286,6 +1397,8 @@ const OperationsPage = () => {
       isManualColumn,
       resolveActorDisplay,
       resolveCourseStatusLabel,
+      resolveLlmModelLabel,
+      resolveTtsModelLabel,
       setColumnWidths,
       t,
       tOperations,
@@ -1367,6 +1480,8 @@ const OperationsPage = () => {
           getColumnStyle={getColumnStyle}
           renderResizeHandle={renderResizeHandle}
           resolveActorDisplay={resolveActorDisplay}
+          resolveLlmModelLabel={resolveLlmModelLabel}
+          resolveTtsModelLabel={resolveTtsModelLabel}
           resolveCourseStatusLabel={resolveCourseStatusLabel}
           formatMoney={formatMoney}
           onPageChange={handlePageChange}

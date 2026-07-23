@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
+from flask import current_app
 from sqlalchemy import and_, case, literal, not_
 from sqlalchemy.orm import defer
 from flaskr.i18n import _
@@ -692,6 +693,9 @@ def _build_course_summary(
 ) -> AdminOperationCourseSummaryDTO:
     resolved_activity = activity or {}
     creator = user_map.get(course.created_user_bid or "", {})
+    llm_model = str(course.llm or "").strip()
+    if not llm_model:
+        llm_model = str(current_app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()
     updater_user_bid = str(
         resolved_activity.get("updated_user_bid") or course.updated_user_bid or ""
     ).strip()
@@ -707,7 +711,8 @@ def _build_course_summary(
         course_name=course.title or "",
         course_status=course_status,
         price=_format_decimal(course.price),
-        course_model=str(course.llm or "").strip(),
+        llm_model=llm_model,
+        tts_model=str(getattr(course, "tts_model", "") or "").strip(),
         has_course_prompt=bool(has_course_prompt),
         creator_user_bid=course.created_user_bid or "",
         creator_mobile=creator.get("mobile", ""),

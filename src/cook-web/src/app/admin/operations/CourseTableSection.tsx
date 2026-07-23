@@ -42,6 +42,8 @@ type CourseTableSectionProps = {
     course: AdminOperationCourseItem,
     kind: 'creator' | 'updater',
   ) => ActorDisplay;
+  resolveLlmModelLabel: (model?: string) => string;
+  resolveTtsModelLabel: (model?: string) => string;
   resolveCourseStatusLabel: (status?: string) => string;
   formatMoney: (value?: string) => string;
   onPageChange: (page: number) => void;
@@ -58,6 +60,8 @@ export default function CourseTableSection({
   getColumnStyle,
   renderResizeHandle,
   resolveActorDisplay,
+  resolveLlmModelLabel,
+  resolveTtsModelLabel,
   resolveCourseStatusLabel,
   formatMoney,
   onPageChange,
@@ -110,10 +114,17 @@ export default function CourseTableSection({
               </TableHead>
               <TableHead
                 className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                style={getColumnStyle('model')}
+                style={getColumnStyle('llmModel')}
               >
-                {tOperations('table.model')}
-                {renderResizeHandle('model')}
+                {tOperations('table.llmModel')}
+                {renderResizeHandle('llmModel')}
+              </TableHead>
+              <TableHead
+                className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                style={getColumnStyle('ttsModel')}
+              >
+                {tOperations('table.ttsModel')}
+                {renderResizeHandle('ttsModel')}
               </TableHead>
               <TableHead
                 className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
@@ -219,10 +230,19 @@ export default function CourseTableSection({
                   </TableCell>
                   <TableCell
                     className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
-                    style={getColumnStyle('model')}
+                    style={getColumnStyle('llmModel')}
                   >
                     {renderTooltipText(
-                      course.course_model,
+                      resolveLlmModelLabel(course.llm_model),
+                      'mx-auto block text-foreground',
+                    )}
+                  </TableCell>
+                  <TableCell
+                    className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
+                    style={getColumnStyle('ttsModel')}
+                  >
+                    {renderTooltipText(
+                      resolveTtsModelLabel(course.tts_model),
                       'mx-auto block text-foreground',
                     )}
                   </TableCell>

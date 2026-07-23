@@ -21,7 +21,8 @@ class AdminOperationCourseSummaryDTO(BaseModel):
     course_name: str = Field(..., description="Course name", required=False)
     course_status: str = Field(..., description="Course status", required=False)
     price: str = Field(..., description="Course price", required=False)
-    course_model: str = Field(..., description="Course model", required=False)
+    llm_model: str = Field(..., description="Course LLM model", required=False)
+    tts_model: str = Field(..., description="Course TTS model", required=False)
     has_course_prompt: bool = Field(
         ...,
         description="Whether the course has a course-level system prompt",
@@ -48,7 +49,8 @@ class AdminOperationCourseSummaryDTO(BaseModel):
         course_name: str,
         course_status: str,
         price: str,
-        course_model: str,
+        llm_model: str,
+        tts_model: str,
         has_course_prompt: bool,
         creator_user_bid: str,
         creator_mobile: str,
@@ -66,7 +68,8 @@ class AdminOperationCourseSummaryDTO(BaseModel):
             course_name=course_name,
             course_status=course_status,
             price=price,
-            course_model=course_model,
+            llm_model=llm_model,
+            tts_model=tts_model,
             has_course_prompt=has_course_prompt,
             creator_user_bid=creator_user_bid,
             creator_mobile=creator_mobile,
@@ -86,7 +89,8 @@ class AdminOperationCourseSummaryDTO(BaseModel):
             "course_name": self.course_name,
             "course_status": self.course_status,
             "price": self.price,
-            "course_model": self.course_model,
+            "llm_model": self.llm_model,
+            "tts_model": self.tts_model,
             "has_course_prompt": self.has_course_prompt,
             "creator_user_bid": self.creator_user_bid,
             "creator_mobile": self.creator_mobile,
