@@ -48,10 +48,10 @@ jobs:
           fetch-depth: 0
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130  # v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
 
       - name: Prepare build metadata
         run: |
@@ -96,14 +96,14 @@ jobs:
 
       - name: Login to Docker Hub
         if: env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
         with:
           username: ${{ env.DOCKERHUB_USER }}
           password: ${{ env.DOCKERHUB_TOKEN }}
 
       - name: Login to Aliyun Docker Registry
         if: env.ALIYUN_DOCKER_USERNAME && env.ALIYUN_DOCKER_PASSWORD
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
         with:
           username: ${{ env.ALIYUN_DOCKER_USERNAME }}
           password: ${{ env.ALIYUN_DOCKER_PASSWORD }}
@@ -111,7 +111,7 @@ jobs:
 
       - name: Extract metadata for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051  # v5
         with:
           images: |
             ${{ env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN && format('{0}/{1}', env.DOCKERHUB_USER, env[matrix.image_name_env]) || '' }}
@@ -130,7 +130,7 @@ jobs:
             org.opencontainers.image.revision=${{ env.GIT_SHA }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
