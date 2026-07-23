@@ -91,6 +91,7 @@ class ShifuDto(BaseModel):
             "name": self.name,
             "description": self.description,
             "avatar": self.avatar,
+            "state": self.state,
             "is_favorite": self.is_favorite,
             "archived": self.archived,
             "can_manage_archive": self.can_manage_archive,
