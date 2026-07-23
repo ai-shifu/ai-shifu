@@ -42,7 +42,18 @@ import type {
 } from '@/types/dashboard';
 import {
   DASHBOARD_FILTER_CONTENT_CLASS,
+  DASHBOARD_DETAIL_SUMMARY_GRID_CLASS,
+  DASHBOARD_FILTER_ACTION_BUTTON_CLASS,
+  DASHBOARD_FILTER_ACTIONS_CLASS,
+  DASHBOARD_FILTER_FOLLOW_UPS_GRID_CLASS,
+  DASHBOARD_FILTER_FOOTER_CLASS,
   DASHBOARD_FILTER_LABEL_CLASS,
+  DASHBOARD_FILTER_LABEL_STANDARD_CLASS,
+  DASHBOARD_FILTER_PANEL_CLASS,
+  DASHBOARD_FILTER_RESULT_COUNT_CLASS,
+  DASHBOARD_FILTER_SELECT_CONTENT_CLASS,
+  DASHBOARD_FILTER_TEXT_CONTENT_BALANCED_CLASS,
+  DASHBOARD_FILTER_TEXT_CONTENT_LEAD_CLASS,
 } from '../../dashboardFilterUiShared';
 import FollowUpDetailSheet from './FollowUpDetailSheet';
 
@@ -63,10 +74,6 @@ const ALL_SOURCE_STATUS = 'all';
 const DETAIL_CACHE_LIMIT = 20;
 const FOLLOW_UP_SOURCE_STATUS_LABEL_ID = 'follow-ups-source-status-label';
 const FOLLOW_UP_SOURCE_STATUS_TRIGGER_ID = 'follow-ups-source-status-trigger';
-const FOLLOW_UP_FILTER_GRID_CLASS =
-  'gap-x-5 md:grid-cols-2 xl:grid-cols-[minmax(0,300px)_minmax(0,300px)_minmax(0,200px)_minmax(0,280px)]';
-const FOLLOW_UP_FILTER_LABEL_CLASS = 'w-[68px]';
-
 const EMPTY_FOLLOW_UPS_RESPONSE: DashboardCourseFollowUpListResponse = {
   summary: {
     follow_up_count: 0,
@@ -581,8 +588,8 @@ export default function AdminDashboardCourseFollowUpsPage() {
       onSubmit: handleSearch,
       placeholder: userKeywordPlaceholder,
       clearLabel,
-      labelClassName: FOLLOW_UP_FILTER_LABEL_CLASS,
-      contentClassName: 'min-w-0 flex-[1.35]',
+      labelClassName: DASHBOARD_FILTER_LABEL_STANDARD_CLASS,
+      contentClassName: DASHBOARD_FILTER_TEXT_CONTENT_LEAD_CLASS,
       inputClassName: 'min-w-0',
     }),
     createTextFilterItem({
@@ -597,8 +604,8 @@ export default function AdminDashboardCourseFollowUpsPage() {
       onSubmit: handleSearch,
       placeholder: outlineFilterPlaceholder,
       clearLabel,
-      labelClassName: FOLLOW_UP_FILTER_LABEL_CLASS,
-      contentClassName: 'min-w-0 flex-[1.15]',
+      labelClassName: DASHBOARD_FILTER_LABEL_STANDARD_CLASS,
+      contentClassName: DASHBOARD_FILTER_TEXT_CONTENT_BALANCED_CLASS,
       inputClassName: 'min-w-0',
     }),
     createSelectFilterItem({
@@ -617,7 +624,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
         'module.dashboard.detail.followUps.filters.sourceStatusAll',
       ),
       options: sourceStatusOptions,
-      contentClassName: 'min-w-0 flex-[1.1]',
+      contentClassName: DASHBOARD_FILTER_SELECT_CONTENT_CLASS,
       triggerClassName: 'min-w-[140px]',
     }),
     createDateRangeFilterItem({
@@ -655,7 +662,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
       <div className='pb-6'>
         <AdminTitle title={t('module.dashboard.detail.followUps.title')} />
         <div className='space-y-5'>
-          <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
+          <div className={DASHBOARD_DETAIL_SUMMARY_GRID_CLASS}>
             {summaryCards.map(card => (
               <Card
                 key={card.label}
@@ -704,7 +711,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
               </div>
             </CardHeader>
             <CardContent className='space-y-5 pt-0'>
-              <div className='rounded-xl border border-border bg-muted/20 p-3'>
+              <div className={DASHBOARD_FILTER_PANEL_CLASS}>
                 <AdminFilter
                   items={filterItems}
                   expanded={false}
@@ -725,11 +732,11 @@ export default function AdminDashboardCourseFollowUpsPage() {
                   showToggle={false}
                   labelClassName={DASHBOARD_FILTER_LABEL_CLASS}
                   contentClassName={DASHBOARD_FILTER_CONTENT_CLASS}
-                  collapsedGridClassName={FOLLOW_UP_FILTER_GRID_CLASS}
-                  expandedGridClassName={FOLLOW_UP_FILTER_GRID_CLASS}
+                  collapsedGridClassName={DASHBOARD_FILTER_FOLLOW_UPS_GRID_CLASS}
+                  expandedGridClassName={DASHBOARD_FILTER_FOLLOW_UPS_GRID_CLASS}
                 />
-                <div className='mt-3 flex flex-col gap-3 pl-3 sm:flex-row sm:items-center sm:justify-between'>
-                  <div className='text-sm text-muted-foreground'>
+                <div className={DASHBOARD_FILTER_FOOTER_CLASS}>
+                  <div className={DASHBOARD_FILTER_RESULT_COUNT_CLASS}>
                     {t(
                       'module.dashboard.detail.followUps.filters.resultCount',
                       {
@@ -737,12 +744,12 @@ export default function AdminDashboardCourseFollowUpsPage() {
                       },
                     )}
                   </div>
-                  <div className='flex items-center justify-end gap-2'>
+                  <div className={DASHBOARD_FILTER_ACTIONS_CLASS}>
                     <Button
                       type='button'
                       size='sm'
                       variant='outline'
-                      className='h-9 px-4'
+                      className={DASHBOARD_FILTER_ACTION_BUTTON_CLASS}
                       onClick={handleReset}
                       disabled={loading}
                     >
@@ -751,7 +758,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
                     <Button
                       type='button'
                       size='sm'
-                      className='h-9 px-4'
+                      className={DASHBOARD_FILTER_ACTION_BUTTON_CLASS}
                       onClick={handleSearch}
                       disabled={loading}
                     >
