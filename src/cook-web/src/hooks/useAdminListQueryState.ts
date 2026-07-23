@@ -70,14 +70,12 @@ export function useAdminListQueryState<TFilters>({
 
   const syncFilters = React.useCallback(
     (nextState: StateUpdater<TFilters>) => {
-      setDraftFiltersState(currentDraft => {
-        const nextFilters = resolveNextState(currentDraft, nextState);
-        setAppliedFiltersState(nextFilters);
-        return nextFilters;
-      });
+      const nextFilters = resolveNextState(draftFilters, nextState);
+      setDraftFiltersState(nextFilters);
+      setAppliedFiltersState(nextFilters);
       resetPage();
     },
-    [resetPage],
+    [draftFilters, resetPage],
   );
 
   const nextRequestId = React.useCallback(() => {

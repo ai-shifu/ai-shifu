@@ -203,7 +203,7 @@ export function AdminBillingSubscriptionsTable() {
     ],
     [t],
   );
-  const { error, isLoading, items, page, pageCount, total } =
+  const { data, error, isLoading, items, page, pageCount, total } =
     useBillingAdminPagedQuery<AdminBillingSubscriptionItem>({
       queryKey: 'admin-billing-subscriptions',
       pageIndex,
@@ -225,8 +225,10 @@ export function AdminBillingSubscriptionsTable() {
     });
 
   React.useEffect(() => {
-    setPageCount(pageCount);
-  }, [pageCount, setPageCount]);
+    if (data) {
+      setPageCount(pageCount);
+    }
+  }, [data, pageCount, setPageCount]);
 
   const applySearch = React.useCallback(() => {
     applyDraftFilters();
