@@ -1161,6 +1161,9 @@ class TestBillingRoutes:
         ]
         assert focus_payload["data"]["items"][0]["credits_30d"] == 9
         assert focus_payload["data"]["items"][0]["record_count_7d"] == 1
+        assert focus_payload["data"]["items"][0]["latest_usage_at"] == (
+            "2026-04-06T00:00:00Z"
+        )
         assert entitlements_payload["data"]["total"] == 3
         assert entitlements_payload["data"]["items"][0] == {
             "creator_bid": "creator-1",

@@ -407,6 +407,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_index=page_index,
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
+                creator_keyword=_get_optional_query_arg("creator_keyword"),
                 status=_get_optional_query_arg("status"),
                 attention_only=bool(_get_optional_bool_query_arg("attention_only")),
             )

@@ -223,6 +223,15 @@
     "subscriptions": {
       "description": "查看需要跟进的老师订阅、积分余额和后续处理状态。",
       "empty": "当前没有需要跟进的订阅。",
+      "filters": {
+        "reset": "重置",
+        "search": "查询",
+        "searchPlaceholderEmail": "输入老师邮箱",
+        "searchPlaceholderPhone": "输入老师手机号",
+        "status": "订阅状态",
+        "statusAll": "全部订阅状态",
+        "teacherField": "老师"
+      },
       "loadError": "后台订阅数据读取失败，请刷新后重试。",
       "preorderTarget": "预购：{product}",
       "results": {

@@ -11,6 +11,8 @@ const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockEnvState = {
   billingEnabled: 'true',
+  loginMethodsEnabled: ['phone'],
+  defaultLoginMethod: 'phone',
   runtimeConfigLoaded: true,
 };
 
@@ -61,6 +63,19 @@ jest.mock('@/api', () => ({
   },
 }));
 
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = () => false;
+}
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = () => undefined;
+}
+if (!Element.prototype.releasePointerCapture) {
+  Element.prototype.releasePointerCapture = () => undefined;
+}
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => undefined;
+}
+
 const mockGetBillingBootstrap = api.getBillingBootstrap as jest.Mock;
 const mockGetAdminBillingFocusTeachers =
   api.getAdminBillingFocusTeachers as jest.Mock;
@@ -90,6 +105,8 @@ describe('AdminBillingOperationsConsole', () => {
     applyAdminBillingOpsState({ config_status: {} });
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockEnvState.billingEnabled = 'true';
+    mockEnvState.loginMethodsEnabled = ['phone'];
+    mockEnvState.defaultLoginMethod = 'phone';
     mockEnvState.runtimeConfigLoaded = true;
     mockGetBillingBootstrap.mockReset();
     mockGetAdminBillingFocusTeachers.mockReset();
@@ -333,6 +350,8 @@ describe('AdminBillingOperationsConsole', () => {
         page_index: 1,
         page_size: 10,
         attention_only: true,
+        creator_keyword: '',
+        status: '',
       },
       { skipErrorToast: true },
     );
@@ -354,6 +373,94 @@ describe('AdminBillingOperationsConsole', () => {
         name: 'module.billing.admin.entitlements.actions.viewDetail',
       }).length,
     ).toBeGreaterThan(0);
+  });
+
+  test('searches subscription follow-up rows by creator keyword', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingOperationsConsole />
+      </SWRConfig>,
+    );
+
+    expect(await screen.findByText('Teacher Two')).toBeInTheDocument();
+
+    await user.type(
+      screen.getByPlaceholderText(
+        'module.billing.admin.subscriptions.filters.searchPlaceholderPhone',
+      ),
+      '13800138002',
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.admin.subscriptions.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminBillingSubscriptions).toHaveBeenLastCalledWith(
+        {
+          page_index: 1,
+          page_size: 10,
+          attention_only: true,
+          creator_keyword: '13800138002',
+          status: '',
+        },
+        { skipErrorToast: true },
+      );
+    });
+
+    expect(
+      screen.getByText('module.billing.admin.pagination.total'),
+    ).toBeInTheDocument();
+  });
+
+  test('filters subscription follow-up rows by subscription status on query', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingOperationsConsole />
+      </SWRConfig>,
+    );
+
+    expect(await screen.findByText('Teacher Two')).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('combobox', {
+        name: 'module.billing.admin.subscriptions.filters.status',
+      }),
+    );
+    await user.click(
+      screen.getAllByText('module.billing.status.pastDue').at(-1)!,
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.admin.subscriptions.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminBillingSubscriptions).toHaveBeenLastCalledWith(
+        {
+          page_index: 1,
+          page_size: 10,
+          attention_only: true,
+          creator_keyword: '',
+          status: 'past_due',
+        },
+        { skipErrorToast: true },
+      );
+    });
   });
 
   test('grants creator customization entitlements from the admin console', async () => {

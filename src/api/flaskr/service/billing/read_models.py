@@ -467,11 +467,7 @@ def _load_matching_creator_bids_for_keyword(keyword: str) -> list[str]:
 
     users = UserEntity.query.filter(
         UserEntity.deleted == 0,
-        (
-            (UserEntity.user_bid == normalized)
-            | (UserEntity.user_identify == normalized)
-            | (UserEntity.user_identify.ilike(f"%{normalized}%"))
-        ),
+        UserEntity.user_identify == normalized,
     ).yield_per(200)
     for user in users:
         user_bid = str(user.user_bid or "").strip()
@@ -481,7 +477,7 @@ def _load_matching_creator_bids_for_keyword(keyword: str) -> list[str]:
     credentials = AuthCredential.query.filter(
         AuthCredential.deleted == 0,
         AuthCredential.provider_name.in_(["phone", "email"]),
-        AuthCredential.identifier.ilike(f"%{normalized}%"),
+        AuthCredential.identifier == normalized,
     ).yield_per(200)
     for credential in credentials:
         user_bid = str(credential.user_bid or "").strip()
@@ -724,6 +720,7 @@ def build_admin_bill_subscriptions_page(
     page_index: int = DEFAULT_PAGE_INDEX,
     page_size: int = DEFAULT_PAGE_SIZE,
     creator_bid: str = "",
+    creator_keyword: str = "",
     status: str = "",
     attention_only: bool = False,
 ) -> BillingSubscriptionsPageDTO:
@@ -731,6 +728,7 @@ def build_admin_bill_subscriptions_page(
 
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_creator_bid = _normalize_bid(creator_bid)
+    normalized_creator_keyword = str(creator_keyword or "").strip()
     status_code = _resolve_subscription_status_filter(status)
 
     with app.app_context():
@@ -739,6 +737,16 @@ def build_admin_bill_subscriptions_page(
             query = query.filter(
                 BillingSubscription.creator_bid == normalized_creator_bid
             )
+        elif normalized_creator_keyword:
+            matched_creator_bids = _load_matching_creator_bids_for_keyword(
+                normalized_creator_keyword
+            )
+            if matched_creator_bids:
+                query = query.filter(
+                    BillingSubscription.creator_bid.in_(matched_creator_bids)
+                )
+            else:
+                query = query.filter(BillingSubscription.id == 0)
         if status_code is not None:
             query = query.filter(BillingSubscription.status == status_code)
 
@@ -1400,7 +1408,10 @@ def build_admin_billing_focus_teachers_page(
 
             credits = Decimal(str(credit_decimal_to_number(row.consumed_credits) or 0))
             record_count = int(row.record_count or 0)
-            latest_usage_at = row.window_ended_at or row.window_started_at
+            # Use the start of the UTC stat window as the visible "latest
+            # active" day. `window_ended_at` points at the next UTC day
+            # boundary and can render as a future local date in the admin UI.
+            latest_usage_at = row.window_started_at or row.window_ended_at
 
             item["credits_30d"] += credits
             item["total_credits_30d"] += credits

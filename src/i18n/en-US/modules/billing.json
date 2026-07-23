@@ -223,6 +223,15 @@
     "subscriptions": {
       "description": "Review subscriptions that need follow-up, including credit balances and next actions.",
       "empty": "There are no subscriptions that need follow-up right now.",
+      "filters": {
+        "reset": "Reset",
+        "search": "Search",
+        "searchPlaceholderEmail": "Enter teacher email",
+        "searchPlaceholderPhone": "Enter teacher phone",
+        "status": "Subscription status",
+        "statusAll": "All statuses",
+        "teacherField": "Teacher"
+      },
       "loadError": "Admin subscription data could not be loaded.",
       "preorderTarget": "Preorder: {product}",
       "results": {
