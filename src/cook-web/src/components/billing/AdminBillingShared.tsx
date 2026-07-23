@@ -177,25 +177,15 @@ export function resolveAdminBillingProductName(
 
 export function resolveAdminBillingPaginationFootnote(
   t: BillingTranslator,
-  page: number,
-  pageCount: number,
+  _page: number,
+  _pageCount: number,
   total: number,
 ): string | null {
   const normalizedTotal = Math.max(Number(total || 0), 0);
   if (normalizedTotal <= 0) {
     return null;
   }
-
-  const normalizedPageCount = Math.max(Number(pageCount || 0), 1);
-  if (normalizedPageCount <= 1) {
-    return t('module.billing.admin.pagination.total', {
-      total: normalizedTotal,
-    });
-  }
-
-  return t('module.billing.admin.pagination.page', {
-    page,
-    pageCount: normalizedPageCount,
+  return t('module.billing.admin.pagination.total', {
     total: normalizedTotal,
   });
 }

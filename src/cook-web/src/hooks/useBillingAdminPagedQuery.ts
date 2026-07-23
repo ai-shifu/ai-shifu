@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { buildBillingSwrKey } from '@/lib/billing';
 import type { BillingPagedResponse } from '@/types/billing';
@@ -10,19 +10,41 @@ type BillingAdminPagedQueryParams<T> = {
   }) => Promise<BillingPagedResponse<T>>;
   pageSize: number;
   queryKey: string;
+  queryDeps?: Array<string | number | boolean | null | undefined>;
 };
 
 export function useBillingAdminPagedQuery<T>({
   fetchPage,
   pageSize,
   queryKey,
+  queryDeps = [],
 }: BillingAdminPagedQueryParams<T>) {
   const [pageIndex, setPageIndex] = useState(1);
+  const normalizedDeps = useMemo(
+    () => queryDeps.map(value => String(value ?? '')),
+    [queryDeps],
+  );
+  const depsKey = normalizedDeps.join('\u0001');
+  const lastDepsKeyRef = useRef(depsKey);
+  const depsChanged = lastDepsKeyRef.current !== depsKey;
+  const activePageIndex = depsChanged ? 1 : pageIndex;
+
+  useEffect(() => {
+    if (!depsChanged) {
+      return;
+    }
+    if (pageIndex !== 1) {
+      setPageIndex(1);
+      return;
+    }
+    lastDepsKeyRef.current = depsKey;
+  }, [depsChanged, depsKey, pageIndex]);
+
   const { data, error, isLoading } = useSWR<BillingPagedResponse<T>>(
-    buildBillingSwrKey(queryKey, pageIndex),
+    buildBillingSwrKey(queryKey, activePageIndex, ...normalizedDeps),
     async () =>
       fetchPage({
-        page_index: pageIndex,
+        page_index: activePageIndex,
         page_size: pageSize,
       }),
     {
@@ -30,7 +52,7 @@ export function useBillingAdminPagedQuery<T>({
     },
   );
 
-  const page = Number(data?.page || pageIndex);
+  const page = Number(data?.page || activePageIndex);
   const pageCount = Number(data?.page_count || 1);
   const total = Number(data?.total || 0);
 

@@ -223,7 +223,16 @@
     "subscriptions": {
       "description": "Consultez les abonnements a suivre, avec le solde de credits et les actions a venir.",
       "empty": "Aucun abonnement ne necessite de suivi pour le moment.",
-      "loadError": "Impossible de charger les données d’abonnement admin.",
+      "filters": {
+        "reset": "Reinitialiser",
+        "search": "Rechercher",
+        "searchPlaceholderEmail": "Saisir l e-mail de l enseignant",
+        "searchPlaceholderPhone": "Saisir le telephone de l enseignant",
+        "status": "Statut d abonnement",
+        "statusAll": "Tous les statuts",
+        "teacherField": "Enseignant"
+      },
+      "loadError": "Impossible de charger les donnees d abonnement admin.",
       "preorderTarget": "Précommande : {product}",
       "results": {
         "cancelAtPeriodEnd": "Expire à l’échéance",
