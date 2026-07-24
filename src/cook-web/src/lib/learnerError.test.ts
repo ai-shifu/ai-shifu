@@ -1,4 +1,7 @@
-import { resolveLearnerErrorMessage } from './learnerError';
+import {
+  resolveLearnerErrorMessage,
+  resolveLearnerPaymentToast,
+} from './learnerError';
 import { getRequestFallbackMessage } from './request';
 
 jest.mock('i18next', () => ({
@@ -59,5 +62,49 @@ describe('resolveLearnerErrorMessage', () => {
       }),
     ).toBe('i18n:module.chat.requestFailed');
     expect(getRequestFallbackMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('resolveLearnerPaymentToast', () => {
+  it('maps payment cancellation to a non-destructive canceled message', () => {
+    expect(
+      resolveLearnerPaymentToast({
+        error: 'get_brand_wcpay_request:cancel',
+        fallbackMessage: 'fallback',
+        canceledMessage: 'canceled',
+        unsupportedMessage: 'unsupported',
+      }),
+    ).toEqual({
+      message: 'canceled',
+      variant: 'default',
+    });
+  });
+
+  it('maps unsupported environment markers to the unsupported message', () => {
+    expect(
+      resolveLearnerPaymentToast({
+        error: 'wechat_bridge_unavailable',
+        fallbackMessage: 'fallback',
+        canceledMessage: 'canceled',
+        unsupportedMessage: 'unsupported',
+      }),
+    ).toEqual({
+      message: 'unsupported',
+      variant: 'destructive',
+    });
+  });
+
+  it('preserves backend payment messages when they are user-facing', () => {
+    expect(
+      resolveLearnerPaymentToast({
+        message: '支付渠道暂时不可用，请稍后再试',
+        fallbackMessage: 'fallback',
+        canceledMessage: 'canceled',
+        unsupportedMessage: 'unsupported',
+      }),
+    ).toEqual({
+      message: '支付渠道暂时不可用，请稍后再试',
+      variant: 'destructive',
+    });
   });
 });

@@ -2,6 +2,20 @@ import { type ErrorWithCode, getRequestFallbackMessage } from './request';
 
 type LearnerErrorLike = Partial<Pick<ErrorWithCode, 'message' | 'status'>>;
 
+type LearnerToastVariant = 'default' | 'destructive';
+
+const PAYMENT_CANCEL_MARKERS = [
+  'cancel',
+  'canceled',
+  'cancelled',
+  'get_brand_wcpay_request:cancel',
+] as const;
+
+const PAYMENT_UNSUPPORTED_MARKERS = [
+  'wechat_bridge_unavailable',
+  'not in wechat',
+] as const;
+
 const hasOfflineSignal = () =>
   typeof navigator !== 'undefined' &&
   Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
@@ -9,6 +23,35 @@ const hasOfflineSignal = () =>
 
 const hasRequestContext = (error?: LearnerErrorLike | null) =>
   hasOfflineSignal() || typeof error?.status === 'number';
+
+const getNormalizedErrorMessage = (
+  error?: LearnerErrorLike | string | null,
+  message?: string | null,
+) => {
+  if (typeof message === 'string' && message.trim()) {
+    return message.trim();
+  }
+
+  if (typeof error === 'string' && error.trim()) {
+    return error.trim();
+  }
+
+  if (
+    error &&
+    typeof error !== 'string' &&
+    typeof error.message === 'string' &&
+    error.message.trim()
+  ) {
+    return error.message.trim();
+  }
+
+  return '';
+};
+
+const includesAnyMarker = (message: string, markers: readonly string[]) => {
+  const normalizedMessage = message.trim().toLowerCase();
+  return markers.some(marker => normalizedMessage.includes(marker));
+};
 
 export const resolveLearnerErrorMessage = ({
   error,
@@ -19,12 +62,7 @@ export const resolveLearnerErrorMessage = ({
   message?: string | null;
   fallbackMessage: string;
 }) => {
-  const normalizedMessage =
-    typeof message === 'string' && message.trim()
-      ? message.trim()
-      : typeof error?.message === 'string' && error.message.trim()
-        ? error.message.trim()
-        : '';
+  const normalizedMessage = getNormalizedErrorMessage(error, message);
 
   if (normalizedMessage) {
     return normalizedMessage;
@@ -35,4 +73,49 @@ export const resolveLearnerErrorMessage = ({
   }
 
   return fallbackMessage;
+};
+
+export const resolveLearnerPaymentToast = ({
+  error,
+  message,
+  fallbackMessage,
+  canceledMessage,
+  unsupportedMessage,
+}: {
+  error?: LearnerErrorLike | string | null;
+  message?: string | null;
+  fallbackMessage: string;
+  canceledMessage: string;
+  unsupportedMessage: string;
+}): { message: string; variant: LearnerToastVariant } => {
+  const normalizedMessage = getNormalizedErrorMessage(error, message);
+
+  if (normalizedMessage) {
+    if (includesAnyMarker(normalizedMessage, PAYMENT_CANCEL_MARKERS)) {
+      return {
+        message: canceledMessage,
+        variant: 'default',
+      };
+    }
+
+    if (includesAnyMarker(normalizedMessage, PAYMENT_UNSUPPORTED_MARKERS)) {
+      return {
+        message: unsupportedMessage,
+        variant: 'destructive',
+      };
+    }
+
+    return {
+      message: normalizedMessage,
+      variant: 'destructive',
+    };
+  }
+
+  return {
+    message: resolveLearnerErrorMessage({
+      error: typeof error === 'string' ? undefined : error,
+      fallbackMessage,
+    }),
+    variant: 'destructive',
+  };
 };
