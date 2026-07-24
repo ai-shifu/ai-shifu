@@ -34,6 +34,7 @@ export function useBillingAdminPagedQuery<T>({
         page_size: pageSize,
       }),
     {
+      keepPreviousData: true,
       revalidateOnFocus: false,
     },
   );

@@ -229,6 +229,7 @@ export function AdminBillingSubscriptionsTable() {
       setPageCount(pageCount);
     }
   }, [data, pageCount, setPageCount]);
+  const isTableLoading = isLoading && !data;
 
   const applySearch = React.useCallback(() => {
     applyDraftFilters();
@@ -252,7 +253,7 @@ export function AdminBillingSubscriptionsTable() {
       disableContentShell
     >
       <AdminTableShell
-        loading={isLoading}
+        loading={isTableLoading}
         isEmpty={!items.length}
         emptyContent={t('module.billing.admin.subscriptions.empty')}
         emptyColSpan={7}

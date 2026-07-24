@@ -846,6 +846,7 @@ describe('AdminBillingOperationsConsole', () => {
         ([params]) => params.page_index === 1,
       ),
     ).toHaveLength(1);
+    expect(screen.getByText('Teacher Two')).toBeInTheDocument();
 
     await act(async () => {
       secondPage.resolve({
