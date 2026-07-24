@@ -239,6 +239,26 @@ describe('LessonPreview billing action', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('shows the provided preview error message when preview is empty', () => {
+    render(
+      <LessonPreview
+        loading={false}
+        errorMessage='Preview parameters are incomplete.'
+        items={[]}
+        shifuBid='shifu-1'
+        onRefresh={jest.fn()}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Preview parameters are incomplete.',
+    );
+    expect(
+      screen.queryByText('module.shifu.previewArea.empty'),
+    ).not.toBeInTheDocument();
+  });
+
   test('copies preview content with hover guidance and copied button feedback', async () => {
     mockCopyText.mockResolvedValue(undefined);
     const items: ChatContentItem[] = [
