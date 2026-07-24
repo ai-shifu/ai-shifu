@@ -18,6 +18,8 @@
   "payChannelWechat": "WeChat",
   "payFailed": "Paiement échoué",
   "paySuccess": "Paiement réussi",
+  "paymentCanceled": "Paiement annulé",
+  "paymentStatusSyncPending": "Le paiement a été lancé. La synchronisation du statut est encore en cours.",
   "processing": "Traitement…",
   "stripeAwaitingIntent": "Génération d’un formulaire de paiement sécurisé…",
   "stripeCheckoutHint": "Impossible de créer un paiement par carte dans cet environnement. Continuez plutôt dans Stripe Checkout.",

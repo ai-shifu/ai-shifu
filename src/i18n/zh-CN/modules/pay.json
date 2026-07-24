@@ -18,6 +18,8 @@
   "payChannelWechat": "微信",
   "payFailed": "支付失败",
   "paySuccess": "支付成功",
+  "paymentCanceled": "已取消支付",
+  "paymentStatusSyncPending": "支付结果同步中，请稍后查看",
   "processing": "处理中…",
   "stripeAwaitingIntent": "正在生成安全支付表单…",
   "stripeCheckoutHint": "当前环境无法创建卡支付，请改用 Stripe Checkout 完成付款。",

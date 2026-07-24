@@ -30,6 +30,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 import { submitFeedback } from '@/c-api/bz';
 import { toast } from '@/hooks/useToast';
+import { resolveLearnerErrorMessage } from '@/lib/learnerError';
 
 const FEEDBACK_MAX_LENGTH = 300;
 
@@ -62,7 +63,10 @@ export const FeedbackModal = ({ open, onClose }) => {
         onClose();
       } catch (error) {
         toast({
-          title: t('module.feedback.feedbackError') || 'Submission failed',
+          title: resolveLearnerErrorMessage({
+            error: error as Error,
+            fallbackMessage: t('module.feedback.feedbackError'),
+          }),
           variant: 'destructive',
         });
       }
