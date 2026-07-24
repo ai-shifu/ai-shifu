@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/store';
 import { PermissionRequestModal } from '@/components/PermissionRequestModal';
+import { resolveErrorDisplayMessage } from '@/lib/errorDisplay';
 
 interface ErrorDisplayProps {
   errorCode: number;
@@ -124,6 +125,13 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
     }
   };
 
+  const resolvedMessage = resolveErrorDisplayMessage({
+    errorCode,
+    errorMessage,
+    fallbackMessage: getFriendlyMessage(),
+    showDetails,
+  });
+
   // Determine if login button should be shown
   const shouldShowLoginButton = () => {
     return (
@@ -159,7 +167,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
         <h2 className='text-xl font-semibold text-gray-900 mb-2'>
           {getTitle()}
         </h2>
-        <p className='text-gray-600 mb-6'>{getFriendlyMessage()}</p>
+        <p className='text-gray-600 mb-6'>{resolvedMessage}</p>
 
         {/* Error details section - Completely hidden in production */}
 

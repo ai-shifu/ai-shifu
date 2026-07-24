@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import ScrollText from './ScrollText.svg';
 import Image from 'next/image';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
@@ -171,6 +172,7 @@ const resolveLessonPreviewContentRenderKey = (
 
 const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
+  errorMessage,
   items = [],
   variables,
   shifuBid,
@@ -380,15 +382,27 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             )}
 
             {showEmpty && !loading && (
-              <div className='h-full flex flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
-                <Image
-                  src={ScrollText.src}
-                  alt=''
-                  width={64}
-                  height={64}
-                />
-                <span>{t('module.shifu.previewArea.empty')}</span>
-              </div>
+              <>
+                {errorMessage ? (
+                  <div
+                    role='alert'
+                    className='mx-auto flex max-w-md flex-col items-center justify-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-6 py-5 text-center text-sm text-amber-900'
+                  >
+                    <ExclamationTriangleIcon className='h-8 w-8 text-amber-500' />
+                    <span>{errorMessage}</span>
+                  </div>
+                ) : (
+                  <div className='h-full flex flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
+                    <Image
+                      src={ScrollText.src}
+                      alt=''
+                      width={64}
+                      height={64}
+                    />
+                    <span>{t('module.shifu.previewArea.empty')}</span>
+                  </div>
+                )}
+              </>
             )}
 
             {!showEmpty &&
