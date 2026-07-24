@@ -38,10 +38,7 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { useEnvStore } from '@/c-store/envStore';
 import { usePaymentFlow } from './hooks/usePaymentFlow';
 import { useToast } from '@/hooks/useToast';
-import {
-  resolveLearnerErrorMessage,
-  resolveLearnerPaymentToast,
-} from '@/lib/learnerError';
+import { resolveLearnerPaymentToast } from '@/lib/learnerError';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCurrencyCode } from '@/c-utils/currency';
@@ -412,12 +409,9 @@ export const PayModal = ({
     try {
       await syncOrderStatus();
       toast({ title: t('module.pay.paySuccess') });
-    } catch (error) {
+    } catch {
       toast({
-        title: resolveLearnerErrorMessage({
-          error: error as Error,
-          fallbackMessage: t('module.pay.paymentStatusSyncPending'),
-        }),
+        title: t('module.pay.paymentStatusSyncPending'),
         variant: 'default',
       });
     }
@@ -507,12 +501,9 @@ export const PayModal = ({
       });
       try {
         await syncOrderStatus({ paymentChannel: 'wechatpay' });
-      } catch (error) {
+      } catch {
         toast({
-          title: resolveLearnerErrorMessage({
-            error: error as Error,
-            fallbackMessage: t('module.pay.paymentStatusSyncPending'),
-          }),
+          title: t('module.pay.paymentStatusSyncPending'),
           variant: 'default',
         });
         return;
