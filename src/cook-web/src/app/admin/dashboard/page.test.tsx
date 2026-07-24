@@ -195,7 +195,11 @@ describe('AdminDashboardEntryPage', () => {
   });
 
   test('keeps pagination and scope note outside the list scroll region', async () => {
-    mockGetDashboardEntry.mockImplementation(() => new Promise(() => {}));
+    mockGetDashboardEntry.mockResolvedValue({
+      ...DASHBOARD_ENTRY_RESPONSE,
+      page_count: 3,
+      total: 42,
+    });
 
     render(<AdminDashboardEntryPage />);
 
@@ -214,7 +218,7 @@ describe('AdminDashboardEntryPage', () => {
     const scrollRegion = screen.getByTestId(
       'dashboard-course-list-scroll-region',
     );
-    const footer = screen.getByTestId('dashboard-course-list-footer');
+    const footer = await screen.findByTestId('dashboard-course-list-footer');
     const pagination = screen.getByRole('navigation', { name: 'pagination' });
     const footnote = screen.getByText('module.dashboard.entry.table.footnote');
 
