@@ -33,6 +33,11 @@ import {
   buildAdminOrdersUrl,
 } from './admin-dashboard-routes';
 import {
+  DASHBOARD_ENTRY_FILTER_ACTIONS_CLASS,
+  DASHBOARD_ENTRY_FILTER_DATE_RANGE_CLASS,
+  DASHBOARD_ENTRY_FILTER_KEYWORD_CLASS,
+} from './dashboardFilterUiShared';
+import {
   DashboardCourseTableRow,
   formatOrderAmount,
 } from './dashboardCourseTableRow';
@@ -211,8 +216,8 @@ export default function AdminDashboardEntryPage() {
         <AdminTitle
           title={t('module.dashboard.title')}
           actions={
-            <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-end'>
-              <div className='w-[280px] max-w-[80vw]'>
+            <div className={DASHBOARD_ENTRY_FILTER_ACTIONS_CLASS}>
+              <div className={DASHBOARD_ENTRY_FILTER_KEYWORD_CLASS}>
                 <AdminClearableInput
                   value={keyword}
                   onChange={setKeyword}
@@ -223,7 +228,7 @@ export default function AdminDashboardEntryPage() {
                   clearLabel={t('common.core.close')}
                 />
               </div>
-              <div className='w-[260px] max-w-[80vw]'>
+              <div className={DASHBOARD_ENTRY_FILTER_DATE_RANGE_CLASS}>
                 <AdminDateRangeFilter
                   startValue={startDate}
                   endValue={endDate}
