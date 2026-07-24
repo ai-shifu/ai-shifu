@@ -3,9 +3,7 @@ import { type ErrorWithCode, getRequestFallbackMessage } from './request';
 type LearnerErrorLike = Partial<Pick<ErrorWithCode, 'message' | 'status'>>;
 
 const hasOfflineSignal = () =>
-  typeof navigator !== 'undefined' &&
-  Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
-  navigator.onLine === false;
+  typeof navigator !== 'undefined' && navigator.onLine === false;
 
 const hasRequestContext = (error?: LearnerErrorLike | null) =>
   hasOfflineSignal() || typeof error?.status === 'number';

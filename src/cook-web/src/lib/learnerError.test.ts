@@ -10,12 +10,23 @@ jest.mock('./request', () => ({
 }));
 
 describe('resolveLearnerErrorMessage', () => {
+  const originalNavigatorOnLine = Object.getOwnPropertyDescriptor(
+    Navigator.prototype,
+    'onLine',
+  );
+
   afterEach(() => {
     jest.clearAllMocks();
-    Object.defineProperty(window.navigator, 'onLine', {
-      configurable: true,
-      value: true,
-    });
+
+    if (originalNavigatorOnLine) {
+      Object.defineProperty(
+        Navigator.prototype,
+        'onLine',
+        originalNavigatorOnLine,
+      );
+    } else {
+      delete (Navigator.prototype as { onLine?: boolean }).onLine;
+    }
   });
 
   it('prefers explicit learner-facing messages', () => {
@@ -39,7 +50,7 @@ describe('resolveLearnerErrorMessage', () => {
   });
 
   it('uses shared request fallback when the browser is offline', () => {
-    Object.defineProperty(window.navigator, 'onLine', {
+    Object.defineProperty(Navigator.prototype, 'onLine', {
       configurable: true,
       value: false,
     });
