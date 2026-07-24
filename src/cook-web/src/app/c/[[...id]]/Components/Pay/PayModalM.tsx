@@ -32,10 +32,7 @@ import { usePaymentFlow } from './hooks/usePaymentFlow';
 import { useWechat } from '@/c-common/hooks/useWechat';
 
 import { toast } from '@/hooks/useToast';
-import {
-  resolveLearnerErrorMessage,
-  resolveLearnerPaymentToast,
-} from '@/lib/learnerError';
+import { resolveLearnerPaymentToast } from '@/lib/learnerError';
 
 import { inWechat } from '@/c-constants/uiConstants';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
@@ -412,12 +409,9 @@ export const PayModalM = ({
           await syncOrderStatus(
             syncPaymentChannel ? { paymentChannel: syncPaymentChannel } : {},
           );
-        } catch (error) {
+        } catch {
           toast({
-            title: resolveLearnerErrorMessage({
-              error: error as Error,
-              fallbackMessage: t('module.pay.paymentStatusSyncPending'),
-            }),
+            title: t('module.pay.paymentStatusSyncPending'),
             variant: 'default',
           });
           return;
@@ -500,12 +494,9 @@ export const PayModalM = ({
     try {
       await syncOrderStatus();
       toast({ title: t('module.pay.paySuccess') });
-    } catch (error) {
+    } catch {
       toast({
-        title: resolveLearnerErrorMessage({
-          error: error as Error,
-          fallbackMessage: t('module.pay.paymentStatusSyncPending'),
-        }),
+        title: t('module.pay.paymentStatusSyncPending'),
         variant: 'default',
       });
     }
