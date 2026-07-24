@@ -1270,6 +1270,26 @@ class PreviewResolveBlockIndexTests(unittest.TestCase):
 
         self.assertEqual(resolved, 2)
 
+    def test_falls_back_to_last_block_when_requested_index_is_negative(self):
+        app = Flask("preview-block-index-negative")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        mdflow_context = types.SimpleNamespace(
+            get_all_blocks=lambda: ["b0", "b1", "b2"]
+        )
+
+        resolved = preview_ctx._resolve_preview_block_index(
+            mdflow_context,
+            -1,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+        )
+
+        self.assertEqual(resolved, 2)
+
+    def test_preview_request_rejects_negative_block_index(self):
+        with self.assertRaises(ValueError):
+            PlaygroundPreviewRequest(block_index=-1)
+
 
 class PreviewResolveVariablesTests(unittest.TestCase):
     def test_injects_request_language_when_missing(self):
@@ -1563,10 +1583,14 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 pass
 
             def get_context(self, *_args, **_kwargs):
+                captured["context_block_index"] = _args[1]
                 return []
 
             def replace_context(self, *_args, **_kwargs):
                 return None
+
+            def append_context(self, *_args, **_kwargs):
+                captured["appended_block_index"] = _args[1]
 
         class _FakePreviewMdflowContext:
             def __init__(self, *args, **kwargs):
@@ -1583,6 +1607,10 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
             @staticmethod
             def get_all_blocks():
                 return ["b0", "b1", "b2"]
+
+            @staticmethod
+            def flatten_user_input_map(_value):
+                return ""
 
             def get_block(self, _block_index):
                 return types.SimpleNamespace(
@@ -1642,7 +1670,6 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 preview_ctx, "_resolve_llm_settings", return_value=("gpt-test", 0.2)
             ),
             patch.object(preview_ctx, "_resolve_preview_variables", return_value={}),
-            patch.object(preview_ctx, "_update_preview_context", return_value=None),
             patch(
                 "flaskr.service.learn.context_v2._PreviewContextStore",
                 _FakePreviewContextStore,
@@ -1676,6 +1703,8 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
 
         self.assertTrue(messages)
         self.assertEqual(captured["process_block_index"], 2)
+        self.assertEqual(captured["context_block_index"], 2)
+        self.assertEqual(captured["appended_block_index"], 2)
         self.assertEqual(captured["trace_payload"]["id"], "preview-req-trace-1")
         self.assertEqual(captured["trace_payload"]["session_id"], "preview-session-1")
         self.assertEqual(captured["trace"].updated["input"], "Prompt block")

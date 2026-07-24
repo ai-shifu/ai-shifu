@@ -781,7 +781,9 @@ class RunScriptPreviewContextV2:
         outline_bid: str,
     ) -> int:
         block_count = len(mdflow_context.get_all_blocks() or [])
-        if requested_block_index >= block_count and block_count > 0:
+        if block_count > 0 and (
+            requested_block_index < 0 or requested_block_index >= block_count
+        ):
             fallback_block_index = block_count - 1
             self.app.logger.warning(
                 "preview block index out of range, fallback to last block | "
@@ -907,6 +909,28 @@ class RunScriptPreviewContextV2:
                 json.dumps(final_payload, ensure_ascii=False),
             )
 
+            preview_output_language = str(
+                resolved_variables.get("language")
+                or resolved_variables.get(SYS_USER_LANGUAGE)
+                or ""
+            )
+            mdflow_context = MdflowContextV2(
+                document=document,
+                llm_provider=provider,
+                document_prompt=document_prompt,
+                interaction_prompt=preview_request.interaction_prompt,
+                interaction_error_prompt=preview_request.interaction_error_prompt,
+                use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
+                visual_mode=bool(preview_request.visual_mode),
+                output_language=preview_output_language,
+            )
+            block_index = self._resolve_preview_block_index(
+                mdflow_context,
+                preview_request.block_index,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+            )
+
             context_store = _PreviewContextStore(
                 self.app,
                 user_bid,
@@ -922,40 +946,16 @@ class RunScriptPreviewContextV2:
                 preview_request.context
             )
             if request_context is None:
-                context_messages = context_store.get_context(
-                    document, preview_request.block_index
-                )
+                context_messages = context_store.get_context(document, block_index)
             else:
                 context_messages = request_context
                 context_store.replace_context(document, request_context)
 
-            preview_output_language = str(
-                resolved_variables.get("language")
-                or resolved_variables.get(SYS_USER_LANGUAGE)
-                or ""
-            )
             context_messages = MdflowContextV2.filter_context_by_output_language(
                 context_messages,
                 preview_output_language,
             )
 
-            mdflow_context = MdflowContextV2(
-                document=document,
-                llm_provider=provider,
-                document_prompt=document_prompt,
-                interaction_prompt=preview_request.interaction_prompt,
-                interaction_error_prompt=preview_request.interaction_error_prompt,
-                use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
-                visual_mode=bool(preview_request.visual_mode),
-                output_language=preview_output_language,
-            )
-
-            block_index = self._resolve_preview_block_index(
-                mdflow_context,
-                preview_request.block_index,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-            )
             current_block = mdflow_context.get_block(block_index)
             current_block_content = ""
             if current_block:
@@ -1012,6 +1012,7 @@ class RunScriptPreviewContextV2:
                 preview_request,
                 content_chunks,
                 current_block_content,
+                block_index,
             )
         finally:
             finalize_langfuse_trace(
@@ -1037,6 +1038,7 @@ class RunScriptPreviewContextV2:
         preview_request: PlaygroundPreviewRequest,
         content_chunks: list[str],
         current_block_content: str,
+        block_index: int,
     ) -> None:
         user_input_text = MdflowContextV2.flatten_user_input_map(
             preview_request.user_input
@@ -1051,7 +1053,7 @@ class RunScriptPreviewContextV2:
             return
         context_store.append_context(
             document,
-            preview_request.block_index,
+            block_index,
             user_message or None,
             assistant_message,
         )
