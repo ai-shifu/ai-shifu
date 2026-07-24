@@ -308,10 +308,10 @@ def test_ask_provider_metadata_localizes_text_for_zh_cn(app):
             == "Coze Bot 标识。"
         )
         get_biji = providers["get_biji_knowledge"]
-        assert get_biji["title"] == "Get 笔记知识库"
+        assert get_biji["title"] == "得到大脑知识库"
         assert (
             get_biji["json_schema"]["properties"]["topic_id"]["description"]
-            == "Get 笔记知识库 ID。"
+            == "得到大脑知识库 ID。"
         )
     finally:
         # Always restore the default locale so a failed assertion above

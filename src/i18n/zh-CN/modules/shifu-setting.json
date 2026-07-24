@@ -21,7 +21,7 @@
     "coze": "用 Coze Bot 回答学员追问。",
     "coze_workflow": "用 Coze 工作流回答学员追问。",
     "dify": "用 Dify 对话应用回答学员追问。",
-    "get_biji_knowledge": "用 Get 笔记知识库检索资料，再由内置模型总结回答学员追问。",
+    "get_biji_knowledge": "用得到大脑知识库检索资料，再由内置模型总结回答学员追问。",
     "llm": "用内置模型回答学员追问。",
     "volc_knowledge": "用火山引擎知识库检索后回答学员追问。"
   },
@@ -58,11 +58,11 @@
     },
     "get_biji_knowledge": {
       "api_key": {
-        "hint": "Get 笔记开放平台 API Key。",
+        "hint": "得到大脑开放平台 API Key。",
         "label": "API 密钥"
       },
       "client_id": {
-        "hint": "Get 笔记开放平台应用 Client ID。",
+        "hint": "得到大脑开放平台应用 Client ID。",
         "label": "Client ID"
       },
       "top_k": {
@@ -70,7 +70,7 @@
         "label": "返回条数"
       },
       "topic_id": {
-        "hint": "Get 笔记知识库 ID。",
+        "hint": "得到大脑知识库 ID。",
         "label": "知识库 ID"
       }
     },
@@ -101,7 +101,7 @@
     "coze": "Coze",
     "coze_workflow": "Coze 工作流",
     "dify": "Dify",
-    "get_biji_knowledge": "Get 笔记知识库",
+    "get_biji_knowledge": "得到大脑知识库",
     "llm": "内置模型",
     "volc_knowledge": "火山引擎知识库"
   },

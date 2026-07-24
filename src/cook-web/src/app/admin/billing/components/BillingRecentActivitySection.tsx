@@ -22,7 +22,7 @@ import {
   registerBillingTranslationUsage,
   resolveBillingLedgerReasonLabel,
 } from '@/lib/billing';
-import { useAdminPaginatedListState } from '@/app/admin/hooks/useAdminPaginatedListState';
+import { useAdminPaginatedListState } from '@/hooks/useAdminPaginatedListState';
 
 const RECENT_ITEMS_LIMIT = 20;
 const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
