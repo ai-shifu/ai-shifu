@@ -2,6 +2,7 @@ import sys
 import types
 from datetime import datetime
 
+import pytest
 from flask import Flask
 
 from flaskr.dao import db
@@ -187,7 +188,16 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch):
     assert trace.updated["output"] == "summary result"
 
 
-def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
+@pytest.mark.parametrize(
+    "shutdown_message",
+    [
+        "cannot schedule new futures after shutdown",
+        "cannot schedule new futures after interpreter shutdown",
+    ],
+)
+def test_run_summary_downgrades_shutdown_race_to_warning(
+    monkeypatch, shutdown_message
+):
     from unittest.mock import MagicMock
     from flaskr.service.shifu import shifu_publish_funcs as module
 
@@ -196,7 +206,7 @@ def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
     def _raise_shutdown(*_a, **_k):
         raise RuntimeError(
             "litellm.MidStreamFallbackError: APIConnectionError: OpenAIException - "
-            "cannot schedule new futures after shutdown"
+            f"{shutdown_message}"
         )
 
     monkeypatch.setattr(module, "get_shifu_summary", _raise_shutdown)
