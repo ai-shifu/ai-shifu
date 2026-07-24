@@ -16,6 +16,11 @@ const PAYMENT_UNSUPPORTED_MARKERS = [
   'not in wechat',
 ] as const;
 
+const PAYMENT_INTERNAL_FAILURE_MARKERS = [
+  'get_brand_wcpay_request:fail',
+  'wechat_pay_failed',
+] as const;
+
 const hasOfflineSignal = () =>
   typeof navigator !== 'undefined' &&
   Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
@@ -101,6 +106,15 @@ export const resolveLearnerPaymentToast = ({
     if (includesAnyMarker(normalizedMessage, PAYMENT_UNSUPPORTED_MARKERS)) {
       return {
         message: unsupportedMessage,
+        variant: 'destructive',
+      };
+    }
+
+    if (
+      includesAnyMarker(normalizedMessage, PAYMENT_INTERNAL_FAILURE_MARKERS)
+    ) {
+      return {
+        message: fallbackMessage,
         variant: 'destructive',
       };
     }
