@@ -40,7 +40,17 @@ import type {
 } from '@/types/dashboard';
 import {
   DASHBOARD_FILTER_CONTENT_CLASS,
+  DASHBOARD_DETAIL_SUMMARY_GRID_CLASS,
+  DASHBOARD_FILTER_ACTION_BUTTON_CLASS,
+  DASHBOARD_FILTER_ACTIONS_CLASS,
+  DASHBOARD_FILTER_FOOTER_CLASS,
   DASHBOARD_FILTER_LABEL_CLASS,
+  DASHBOARD_FILTER_LABEL_COMPACT_CLASS,
+  DASHBOARD_FILTER_LABEL_WIDE_CLASS,
+  DASHBOARD_FILTER_PANEL_CLASS,
+  DASHBOARD_FILTER_RATINGS_GRID_CLASS,
+  DASHBOARD_FILTER_RESULT_COUNT_CLASS,
+  DASHBOARD_FILTER_TEXT_CONTENT_BALANCED_CLASS,
 } from '../../dashboardFilterUiShared';
 
 type ErrorState = { message: string; code?: number };
@@ -63,11 +73,6 @@ const RATINGS_SCORE_LABEL_ID = 'ratings-score-label';
 const RATINGS_SCORE_TRIGGER_ID = 'ratings-score-trigger';
 const RATINGS_COMMENT_STATUS_LABEL_ID = 'ratings-comment-status-label';
 const RATINGS_COMMENT_STATUS_TRIGGER_ID = 'ratings-comment-status-trigger';
-const RATINGS_FILTER_GRID_CLASS =
-  'gap-x-6 md:grid-cols-2 xl:grid-cols-[minmax(0,280px)_minmax(0,280px)_minmax(0,152px)_minmax(0,172px)_minmax(0,286px)]';
-const RATINGS_FILTER_LABEL_SM_CLASS = 'w-[60px]';
-const RATINGS_FILTER_LABEL_MD_CLASS = 'w-[88px]';
-
 const EMPTY_RATINGS_RESPONSE: DashboardCourseRatingListResponse = {
   summary: {
     average_score: '',
@@ -418,8 +423,8 @@ export default function AdminDashboardCourseRatingsPage() {
       onSubmit: handleSearch,
       placeholder: userKeywordPlaceholder,
       clearLabel,
-      labelClassName: RATINGS_FILTER_LABEL_SM_CLASS,
-      contentClassName: 'min-w-0 flex-[1.15]',
+      labelClassName: DASHBOARD_FILTER_LABEL_COMPACT_CLASS,
+      contentClassName: DASHBOARD_FILTER_TEXT_CONTENT_BALANCED_CLASS,
       inputClassName: 'min-w-0',
     }),
     createTextFilterItem({
@@ -436,8 +441,8 @@ export default function AdminDashboardCourseRatingsPage() {
         'module.dashboard.detail.ratings.filters.chapterKeywordPlaceholder',
       ),
       clearLabel,
-      labelClassName: RATINGS_FILTER_LABEL_SM_CLASS,
-      contentClassName: 'min-w-0 flex-[1.15]',
+      labelClassName: DASHBOARD_FILTER_LABEL_COMPACT_CLASS,
+      contentClassName: DASHBOARD_FILTER_TEXT_CONTENT_BALANCED_CLASS,
       inputClassName: 'min-w-0',
     }),
     createSelectFilterItem({
@@ -452,7 +457,7 @@ export default function AdminDashboardCourseRatingsPage() {
         })),
       triggerId: RATINGS_SCORE_TRIGGER_ID,
       triggerAriaLabelledBy: RATINGS_SCORE_LABEL_ID,
-      labelClassName: RATINGS_FILTER_LABEL_SM_CLASS,
+      labelClassName: DASHBOARD_FILTER_LABEL_COMPACT_CLASS,
       placeholder: t('module.dashboard.detail.ratings.filters.scoreAll'),
       options: scoreOptions,
       triggerClassName: 'min-w-[108px]',
@@ -469,7 +474,7 @@ export default function AdminDashboardCourseRatingsPage() {
         })),
       triggerId: RATINGS_COMMENT_STATUS_TRIGGER_ID,
       triggerAriaLabelledBy: RATINGS_COMMENT_STATUS_LABEL_ID,
-      labelClassName: RATINGS_FILTER_LABEL_MD_CLASS,
+      labelClassName: DASHBOARD_FILTER_LABEL_WIDE_CLASS,
       placeholder: t(
         'module.dashboard.detail.ratings.filters.commentStatusAll',
       ),
@@ -488,7 +493,7 @@ export default function AdminDashboardCourseRatingsPage() {
           startTime: start,
           endTime: end,
         })),
-      labelClassName: RATINGS_FILTER_LABEL_MD_CLASS,
+      labelClassName: DASHBOARD_FILTER_LABEL_WIDE_CLASS,
       placeholder: t('module.dashboard.detail.ratings.filters.timePlaceholder'),
       resetLabel: t('module.dashboard.detail.ratings.filters.reset'),
       clearLabel,
@@ -508,7 +513,7 @@ export default function AdminDashboardCourseRatingsPage() {
       <div className='pb-6'>
         <AdminTitle title={t('module.dashboard.detail.ratings.title')} />
         <div className='space-y-5'>
-          <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
+          <div className={DASHBOARD_DETAIL_SUMMARY_GRID_CLASS}>
             {summaryCards.map(card => (
               <Card
                 key={card.label}
@@ -549,7 +554,7 @@ export default function AdminDashboardCourseRatingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className='space-y-5 pt-0'>
-              <div className='rounded-xl border border-border bg-muted/20 p-3'>
+              <div className={DASHBOARD_FILTER_PANEL_CLASS}>
                 <AdminFilter
                   items={filterItems}
                   expanded={false}
@@ -570,21 +575,21 @@ export default function AdminDashboardCourseRatingsPage() {
                   showToggle={false}
                   labelClassName={DASHBOARD_FILTER_LABEL_CLASS}
                   contentClassName={DASHBOARD_FILTER_CONTENT_CLASS}
-                  collapsedGridClassName={RATINGS_FILTER_GRID_CLASS}
-                  expandedGridClassName={RATINGS_FILTER_GRID_CLASS}
+                  collapsedGridClassName={DASHBOARD_FILTER_RATINGS_GRID_CLASS}
+                  expandedGridClassName={DASHBOARD_FILTER_RATINGS_GRID_CLASS}
                 />
-                <div className='mt-3 flex flex-col gap-3 pl-1 sm:flex-row sm:items-center sm:justify-between'>
-                  <div className='text-sm text-muted-foreground'>
+                <div className={DASHBOARD_FILTER_FOOTER_CLASS}>
+                  <div className={DASHBOARD_FILTER_RESULT_COUNT_CLASS}>
                     {t('module.dashboard.detail.ratings.filters.resultCount', {
                       count: ratings.total,
                     })}
                   </div>
-                  <div className='flex items-center justify-end gap-2'>
+                  <div className={DASHBOARD_FILTER_ACTIONS_CLASS}>
                     <Button
                       type='button'
                       size='sm'
                       variant='outline'
-                      className='h-9 px-4'
+                      className={DASHBOARD_FILTER_ACTION_BUTTON_CLASS}
                       onClick={handleReset}
                       disabled={loading}
                     >
@@ -593,7 +598,7 @@ export default function AdminDashboardCourseRatingsPage() {
                     <Button
                       type='button'
                       size='sm'
-                      className='h-9 px-4'
+                      className={DASHBOARD_FILTER_ACTION_BUTTON_CLASS}
                       onClick={handleSearch}
                       disabled={loading}
                     >

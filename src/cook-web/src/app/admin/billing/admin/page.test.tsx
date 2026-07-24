@@ -6,6 +6,7 @@ import api from '@/api';
 
 import { AdminBillingOperationsConsole } from '@/app/admin/operations/billing/AdminBillingOperationsConsole';
 import { applyAdminBillingOpsState } from '@/components/billing/AdminBillingShared';
+import type { AdminBillingSubscriptionItem } from '@/types/billing';
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
@@ -96,6 +97,16 @@ const mockGetAdminBillingSubscriptions =
 const mockGetAdminBillingOpsState = api.getAdminBillingOpsState as jest.Mock;
 const mockUpdateAdminBillingConfigStatus =
   api.updateAdminBillingConfigStatus as jest.Mock;
+
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
 
 describe('AdminBillingOperationsConsole', () => {
   beforeEach(() => {
@@ -731,6 +742,151 @@ describe('AdminBillingOperationsConsole', () => {
         { skipErrorToast: true },
       );
     });
+  });
+
+  test('keeps the requested subscriptions page while the next page is loading', async () => {
+    const user = userEvent.setup();
+    const secondPage = createDeferred<{
+      items: Array<AdminBillingSubscriptionItem>;
+      page: number;
+      page_count: number;
+      page_size: number;
+      total: number;
+    }>();
+
+    mockGetAdminBillingSubscriptions.mockImplementation(({ page_index }) => {
+      if (page_index === 2) {
+        return secondPage.promise;
+      }
+
+      return Promise.resolve({
+        items: [
+          {
+            subscription_bid: 'sub-past-due',
+            creator_bid: 'creator-2',
+            creator_mobile: '13800138002',
+            creator_nickname: 'Teacher Two',
+            product_bid: 'bill-product-plan-yearly',
+            product_code: 'creator-plan-yearly',
+            status: 'past_due',
+            billing_provider: 'stripe',
+            current_period_start_at: '2026-03-01T00:00:00Z',
+            current_period_end_at: '2026-04-01T00:00:00Z',
+            grace_period_end_at: '2026-04-08T00:00:00Z',
+            cancel_at_period_end: false,
+            next_product_bid: null,
+            next_product_code: '',
+            last_renewed_at: '2026-03-01T00:00:00Z',
+            last_failed_at: '2026-04-02T12:00:00Z',
+            wallet: {
+              available_credits: 5,
+              reserved_credits: 0,
+              lifetime_granted_credits: 5,
+              lifetime_consumed_credits: 0,
+            },
+            latest_renewal_event: {
+              renewal_event_bid: 'renewal-1',
+              event_type: 'retry',
+              status: 'failed',
+              scheduled_at: '2026-04-03T08:00:00Z',
+              processed_at: '2026-04-03T08:05:00Z',
+              attempt_count: 2,
+              last_error: 'card_declined',
+              payload: {
+                bill_order_bid: 'order-1',
+              },
+            },
+            has_attention: true,
+          },
+        ],
+        page: page_index,
+        page_count: 2,
+        page_size: 10,
+        total: 2,
+      });
+    });
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingOperationsConsole />
+      </SWRConfig>,
+    );
+
+    expect(await screen.findByText('Teacher Two')).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('link', {
+        name: 'module.dashboard.pagination.next',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminBillingSubscriptions).toHaveBeenCalledWith(
+        {
+          page_index: 2,
+          page_size: 10,
+          attention_only: true,
+          creator_keyword: '',
+          status: '',
+        },
+        { skipErrorToast: true },
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      mockGetAdminBillingSubscriptions.mock.calls.filter(
+        ([params]) => params.page_index === 1,
+      ),
+    ).toHaveLength(1);
+    expect(screen.getByText('Teacher Two')).toBeInTheDocument();
+
+    await act(async () => {
+      secondPage.resolve({
+        items: [
+          {
+            subscription_bid: 'sub-active',
+            creator_bid: 'creator-1',
+            creator_mobile: '13800138001',
+            creator_nickname: 'Teacher One',
+            product_bid: 'bill-product-plan-monthly',
+            product_code: 'creator-plan-monthly',
+            status: 'active',
+            billing_provider: 'stripe',
+            current_period_start_at: '2026-04-01T00:00:00Z',
+            current_period_end_at: '2026-05-01T00:00:00Z',
+            grace_period_end_at: null,
+            cancel_at_period_end: false,
+            next_product_bid: null,
+            next_product_code: '',
+            last_renewed_at: '2026-04-01T00:00:00Z',
+            last_failed_at: null,
+            wallet: {
+              available_credits: 12,
+              reserved_credits: 0,
+              lifetime_granted_credits: 20,
+              lifetime_consumed_credits: 8,
+            },
+            latest_renewal_event: null,
+            has_attention: false,
+          },
+        ],
+        page: 2,
+        page_count: 2,
+        page_size: 10,
+        total: 2,
+      });
+      await secondPage.promise;
+    });
+
+    expect(await screen.findByText('Teacher One')).toBeInTheDocument();
   });
 
   test('grants creator customization entitlements from the admin console', async () => {
