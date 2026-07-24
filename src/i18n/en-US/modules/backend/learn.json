@@ -3,7 +3,7 @@
   "__flat__": {
     "askProviderAuthFailed": "Knowledge base authentication failed. Please check the API Key and Client ID.",
     "askProviderNoResults": "No relevant knowledge base content was found.",
-    "askProviderNotMember": "The Get Biji account has no active membership, so the OpenAPI is unavailable.",
+    "askProviderNotMember": "The Dedao Brain account has no active membership, so the OpenAPI is unavailable.",
     "askProviderRateLimited": "The knowledge base request rate or quota limit was reached. Please try again later.",
     "askProviderTimeout": "The external knowledge service timed out. Please try again later.",
     "askProviderUnavailable": "The external knowledge service is temporarily unavailable.",
