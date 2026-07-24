@@ -12,6 +12,7 @@ const mockReloadTree = jest.fn();
 const mockUpdateLessonId = jest.fn();
 const mockUpdateChapterId = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockToast = jest.fn();
 
 interface MockChatMobileHeaderProps {
   lessonId?: string;
@@ -107,6 +108,10 @@ jest.mock('react-i18next', () => ({
       language: 'zh-CN',
     },
   }),
+}));
+
+jest.mock('@/hooks/useToast', () => ({
+  toast: (...args: unknown[]) => mockToast(...args),
 }));
 
 jest.mock('zustand/react/shallow', () => ({
@@ -300,6 +305,7 @@ describe('ChatPage profile onboarding gate', () => {
     mockSystemStoreState.learningMode = 'read';
     mockUiLayoutStoreState.frameLayout = 'desktop';
     mockSelectedLessonId = 'lesson-1';
+    mockToast.mockReset();
     mockLessonTreeLessons = [
       {
         id: 'lesson-1',
@@ -426,5 +432,46 @@ describe('ChatPage profile onboarding gate', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('昵称包含风险词');
     });
     expect(screen.queryByTestId('chat-ui')).not.toBeInTheDocument();
+  });
+
+  test('shows a toast and unblocks chat when onboarding status load fails', async () => {
+    mockGetProfileOnboarding.mockRejectedValue(new Error('画像配置暂时不可用'));
+
+    render(<ChatPage />);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: '画像配置暂时不可用',
+        variant: 'destructive',
+      });
+    });
+    expect(screen.getByTestId('chat-ui')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('profile-onboarding-modal'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('shows a sync-pending toast when onboarding save succeeds but refresh lags', async () => {
+    mockGetProfileOnboarding.mockResolvedValue({
+      should_show: true,
+      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
+      current_values: {},
+    });
+    mockRefreshUserInfo.mockRejectedValue(new Error('refresh delayed'));
+
+    render(<ChatPage />);
+
+    await screen.findByTestId('profile-onboarding-modal');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: completeOnboardingLabel }),
+    );
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.profileOnboarding.refreshPending',
+      });
+    });
+    expect(screen.getByTestId('chat-ui')).toBeInTheDocument();
   });
 });
