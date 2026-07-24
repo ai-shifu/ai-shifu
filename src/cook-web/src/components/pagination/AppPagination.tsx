@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { ChangeEvent, KeyboardEvent, MouseEvent } from 'react';
+import type { MouseEvent } from 'react';
 import {
   Pagination,
   PaginationContent,
@@ -27,8 +26,6 @@ export type AppPaginationProps = {
 };
 
 const MAX_VISIBLE_PAGES = 5;
-const DEFAULT_JUMP_INPUT_THRESHOLD = 20;
-const JUMP_INPUT_SEPARATOR = '/';
 const DISABLED_LINK_CLASS_NAME = 'pointer-events-none opacity-50';
 const ACTIVE_LINK_CLASS_NAME = 'pointer-events-none';
 
@@ -82,8 +79,6 @@ export function AppPagination({
   nextAriaLabel,
   className,
   hideWhenSinglePage = false,
-  jumpInputThreshold = DEFAULT_JUMP_INPUT_THRESHOLD,
-  jumpInputAriaLabel,
 }: AppPaginationProps) {
   const safePageCount = Number.isFinite(pageCount) ? pageCount : 1;
   const normalizedPageCount = Math.max(safePageCount, 1);
@@ -92,15 +87,6 @@ export function AppPagination({
     Math.max(safePageIndex, 1),
     normalizedPageCount,
   );
-  const shouldShowJumpInput =
-    normalizedPageCount >= Math.max(jumpInputThreshold, 1);
-  const [jumpInputValue, setJumpInputValue] = useState(
-    String(normalizedPageIndex),
-  );
-
-  useEffect(() => {
-    setJumpInputValue(String(normalizedPageIndex));
-  }, [normalizedPageIndex]);
 
   if (hideWhenSinglePage && normalizedPageCount <= 1) {
     return null;
@@ -118,38 +104,6 @@ export function AppPagination({
       }
       onPageChange(targetPage);
     };
-
-  const handleJumpInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setJumpInputValue(event.target.value.replace(/\D/g, ''));
-  };
-
-  const commitJumpInput = () => {
-    const targetPage = Number.parseInt(jumpInputValue, 10);
-    if (!Number.isFinite(targetPage)) {
-      setJumpInputValue(String(normalizedPageIndex));
-      return;
-    }
-    const normalizedTargetPage = Math.min(
-      Math.max(targetPage, 1),
-      normalizedPageCount,
-    );
-    setJumpInputValue(String(normalizedTargetPage));
-    if (normalizedTargetPage !== normalizedPageIndex) {
-      onPageChange(normalizedTargetPage);
-    }
-  };
-
-  const handleJumpInputBlur = () => {
-    commitJumpInput();
-  };
-
-  const handleJumpInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Enter') {
-      return;
-    }
-    event.preventDefault();
-    event.currentTarget.blur();
-  };
 
   return (
     <Pagination className={className}>
@@ -215,24 +169,6 @@ export function AppPagination({
             {nextLabel}
           </PaginationNext>
         </PaginationItem>
-
-        {shouldShowJumpInput && (
-          <PaginationItem className='ml-1 flex items-center gap-1 text-sm text-muted-foreground'>
-            <input
-              type='text'
-              inputMode='numeric'
-              pattern='[0-9]*'
-              value={jumpInputValue}
-              onChange={handleJumpInputChange}
-              onBlur={handleJumpInputBlur}
-              onKeyDown={handleJumpInputKeyDown}
-              aria-label={jumpInputAriaLabel}
-              className='h-9 w-14 rounded-md border border-input bg-background px-2 text-center text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20'
-            />
-            <span aria-hidden>{JUMP_INPUT_SEPARATOR}</span>
-            <span>{normalizedPageCount}</span>
-          </PaginationItem>
-        )}
       </PaginationContent>
     </Pagination>
   );
