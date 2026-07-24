@@ -32,6 +32,7 @@ import { usePaymentFlow } from './hooks/usePaymentFlow';
 import { useWechat } from '@/c-common/hooks/useWechat';
 
 import { toast } from '@/hooks/useToast';
+import { resolveLearnerPaymentToast } from '@/lib/learnerError';
 
 import { inWechat } from '@/c-constants/uiConstants';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
@@ -409,15 +410,25 @@ export const PayModalM = ({
             syncPaymentChannel ? { paymentChannel: syncPaymentChannel } : {},
           );
         } catch {
-          // The polling loop continues syncing native payments after the bridge reports success.
+          toast({
+            title: t('module.pay.paymentStatusSyncPending'),
+            variant: 'default',
+          });
+          return;
         }
         toast({
           title: t('module.pay.paySuccess'),
         });
-      } catch {
+      } catch (error) {
+        const resolvedToast = resolveLearnerPaymentToast({
+          error: error as Error,
+          fallbackMessage: t('module.pay.payFailed'),
+          canceledMessage: t('module.pay.paymentCanceled'),
+          unsupportedMessage: t('module.pay.wechatJsapiUnavailable'),
+        });
         toast({
-          title: t('module.pay.payFailed'),
-          variant: 'destructive',
+          title: resolvedToast.message,
+          variant: resolvedToast.variant,
         });
       }
     } else if (typeof payload.qr_url === 'string' && payload.qr_url) {
@@ -480,16 +491,32 @@ export const PayModalM = ({
   }, [onPayChannelChange]);
 
   const handleStripeSuccess = useCallback(async () => {
-    await syncOrderStatus();
-    toast({ title: t('module.pay.paySuccess') });
+    try {
+      await syncOrderStatus();
+      toast({ title: t('module.pay.paySuccess') });
+    } catch {
+      toast({
+        title: t('module.pay.paymentStatusSyncPending'),
+        variant: 'default',
+      });
+    }
   }, [syncOrderStatus, t]);
 
-  const handleStripeError = useCallback((message: string) => {
-    toast({
-      title: message,
-      variant: 'destructive',
-    });
-  }, []);
+  const handleStripeError = useCallback(
+    (message: string) => {
+      const resolvedToast = resolveLearnerPaymentToast({
+        message,
+        fallbackMessage: t('module.pay.payFailed'),
+        canceledMessage: t('module.pay.paymentCanceled'),
+        unsupportedMessage: t('module.pay.wechatJsapiUnavailable'),
+      });
+      toast({
+        title: resolvedToast.message,
+        variant: resolvedToast.variant,
+      });
+    },
+    [t],
+  );
 
   const handleStripeCheckout = useCallback(() => {
     if (stripeCheckoutUrl) {
