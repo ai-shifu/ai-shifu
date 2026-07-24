@@ -1253,6 +1253,24 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
         self.assertEqual(temperature, 0.3)
 
 
+class PreviewResolveBlockIndexTests(unittest.TestCase):
+    def test_falls_back_to_last_block_when_requested_index_is_stale(self):
+        app = Flask("preview-block-index-fallback")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        mdflow_context = types.SimpleNamespace(
+            get_all_blocks=lambda: ["b0", "b1", "b2"]
+        )
+
+        resolved = preview_ctx._resolve_preview_block_index(
+            mdflow_context,
+            7,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+        )
+
+        self.assertEqual(resolved, 2)
+
+
 class PreviewResolveVariablesTests(unittest.TestCase):
     def test_injects_request_language_when_missing(self):
         app = Flask("preview-variables")
@@ -1537,7 +1555,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
     def test_stream_preview_sets_session_id_and_finalizes_root_span(self):
         app = Flask("preview-langfuse-trace")
         preview_ctx = RunScriptPreviewContextV2(app)
-        preview_request = PlaygroundPreviewRequest(block_index=0)
+        preview_request = PlaygroundPreviewRequest(block_index=7)
         captured = {}
 
         class _FakePreviewContextStore:
@@ -1562,12 +1580,17 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
             def filter_context_by_output_language(context, _output_language):
                 return context
 
+            @staticmethod
+            def get_all_blocks():
+                return ["b0", "b1", "b2"]
+
             def get_block(self, _block_index):
                 return types.SimpleNamespace(
                     block_type=PreviewBlockType.CONTENT, content="Prompt block"
                 )
 
-            def process(self, **_kwargs):
+            def process(self, **kwargs):
+                captured["process_block_index"] = kwargs["block_index"]
                 return (
                     item
                     for item in [
@@ -1652,6 +1675,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
             )
 
         self.assertTrue(messages)
+        self.assertEqual(captured["process_block_index"], 2)
         self.assertEqual(captured["trace_payload"]["id"], "preview-req-trace-1")
         self.assertEqual(captured["trace_payload"]["session_id"], "preview-session-1")
         self.assertEqual(captured["trace"].updated["input"], "Prompt block")
