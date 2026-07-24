@@ -1,7 +1,11 @@
 {
   "__namespace__": "module.preview",
   "debugDisabledBySoftLimit": "Le solde de crédits est sous le seuil d’alerte. La prévisualisation de débogage est désactivée.",
+  "invalidParams": "Les paramètres de prévisualisation sont incomplets. Actualisez puis réessayez.",
   "llmError": "Erreur d’appel LLM",
+  "missingApiBaseUrl": "L’environnement actuel est mal configuré. Veuillez réessayer plus tard.",
   "previewAll": "Prévisualiser le brouillon",
-  "previewModeBanner": "Ce lien est un lien de prévisualisation visible uniquement par l’éditeur du cours"
+  "previewModeBanner": "Ce lien est un lien de prévisualisation visible uniquement par l’éditeur du cours",
+  "requestFailed": "La prévisualisation a échoué. Veuillez réessayer plus tard.",
+  "streamError": "La connexion de prévisualisation a été interrompue. Veuillez réessayer."
 }

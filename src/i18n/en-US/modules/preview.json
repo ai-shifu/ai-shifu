@@ -1,7 +1,11 @@
 {
   "__namespace__": "module.preview",
   "debugDisabledBySoftLimit": "Credit balance is below the reminder threshold. Preview debugging is disabled.",
+  "invalidParams": "Preview parameters are incomplete. Please refresh and try again.",
   "llmError": "LLM Invocation Error",
+  "missingApiBaseUrl": "The current environment is misconfigured. Please try again later.",
   "previewAll": "Preview Draft",
-  "previewModeBanner": "This link is a preview link and is only visible to the course publisher"
+  "previewModeBanner": "This link is a preview link and is only visible to the course publisher",
+  "requestFailed": "Preview failed. Please try again later.",
+  "streamError": "The preview connection was interrupted. Please try again."
 }

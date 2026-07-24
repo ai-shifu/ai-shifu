@@ -32,6 +32,7 @@ import { normalizeLegacyBlockCompatList } from '@/c-utils/chatUiCompat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
+import { resolveLearnerErrorMessage } from '@/lib/learnerError';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 import type { ErrorWithCode } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
@@ -1339,7 +1340,7 @@ export function usePreviewChat() {
       }
 
       if (!finalShifuBid || !finalOutlineBid) {
-        setError('Invalid preview params');
+        setError(t('module.preview.invalidParams'));
         return;
       }
 
@@ -1356,7 +1357,7 @@ export function usePreviewChat() {
       doneTerminalStateRef.current = null;
       const resolvedBaseUrl = await resolveBaseUrl();
       if (!resolvedBaseUrl) {
-        setError('Missing API base URL');
+        setError(t('module.preview.missingApiBaseUrl'));
         return;
       }
       setTrackedContentList(prev => [
@@ -1453,13 +1454,18 @@ export function usePreviewChat() {
             stopPreview();
             return;
           }
-          setError('Preview stream error');
+          setError(t('module.preview.streamError'));
           stopPreview();
         });
         source.stream();
       } catch (err) {
         console.error('preview stream error', err);
-        handlePreviewBusinessError((err as Error)?.message || 'Preview failed');
+        handlePreviewBusinessError(
+          resolveLearnerErrorMessage({
+            error: err as ErrorWithCode,
+            fallbackMessage: t('module.preview.requestFailed'),
+          }),
+        );
         stopPreview();
         setIsLoading(false);
       }

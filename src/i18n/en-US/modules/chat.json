@@ -50,6 +50,7 @@
   "regenerate": "Regenerate",
   "regenerateConfirmDescription": "Regenerating will replace this content and all subsequent content. The current content will be cleared.",
   "regenerateConfirmTitle": "Confirm regenerate this content?",
+  "requestFailed": "Request failed. Please try again later.",
   "slideAudioBuffering": "Buffering...",
   "streamTimeoutRetry": "The service timed out. Please refresh and try again.",
   "thinking": "Thinking...",
