@@ -66,7 +66,6 @@ jest.mock('@/components/outline-tree', () => {
   return MockOutlineTree;
 });
 jest.mock('@/components/chapter-setting', () => () => null);
-jest.mock('@/components/mdf-convert', () => ({ MdfConvertDialog: () => null }));
 jest.mock('../header', () => ({
   __esModule: true,
   default: ({
