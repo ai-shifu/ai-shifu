@@ -260,7 +260,6 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             officialSiteUrl=official_site_url,
             currencySymbol=get_config("CURRENCY_SYMBOL", "¥"),
             legalUrls=legal_urls,
-            genMdfApiUrl=get_config("GEN_MDF_API_URL", ""),
             entitlements=runtime_billing.entitlements,
             branding=runtime_billing.branding,
             domain=runtime_billing.domain,

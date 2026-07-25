@@ -55,4 +55,3 @@ hard backend constraints close to `src/api/`.
 - `src/api/SKILL.md`
 - `src/api/skills/shifu-authoring-flow/SKILL.md`
 - `src/api/skills/user-auth-flows/SKILL.md`
-- `src/api/skills/gen-mdf-proxy/SKILL.md`

@@ -225,7 +225,6 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
                 }
             ),
         ),
-        genMdfApiUrl="",
         entitlements=RuntimeBillingEntitlementsDTO(
             branding_enabled=True,
             custom_domain_enabled=True,
