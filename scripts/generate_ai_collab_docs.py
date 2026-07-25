@@ -265,8 +265,6 @@ API_SPEC = DocSpec(
         "history, and publish/import workflows.",
         "`src/api/skills/user-auth-flows/SKILL.md` covers verification codes, "
         "credential state, and auth-provider changes.",
-        "`src/api/skills/gen-mdf-proxy/SKILL.md` covers the MDF proxy boundary, "
-        "validation, and frontend/backend ownership split.",
     ),
 )
 
@@ -482,33 +480,6 @@ BACKEND_META = {
         ),
         tests_path="src/api/tests/service/feedback/",
         tests_exist=False,
-    ),
-    "gen_mdf": BackendModuleMeta(
-        summary=(
-            "the backend proxy that converts text through the external MDF "
-            "service while hiding provider details from the browser"
-        ),
-        key_files=("route.py", "funcs.py"),
-        invariants=(
-            "keep the frontend talking to the backend proxy instead of calling "
-            "the external MDF API directly",
-            "preserve validation of text length, language, and request timeout "
-            "before proxying to the external service",
-            "return errors in a form that the frontend can localize and present "
-            "without leaking the upstream endpoint configuration",
-        ),
-        avoid_points=(
-            "do not surface the external MDF URL or secret config values to "
-            "frontend code or browser-visible payloads",
-            "do not weaken proxy validation or timeout handling when adding new "
-            "request options",
-            "do not add frontend-specific formatting rules here when the service "
-            "should stay a thin backend proxy boundary",
-        ),
-        tests_path="src/api/tests/service/gen_mdf/",
-        tests_exist=False,
-        skill_refs=("src/api/skills/gen-mdf-proxy/SKILL.md",),
-        owns_models=False,
     ),
     "learn": BackendModuleMeta(
         summary=(

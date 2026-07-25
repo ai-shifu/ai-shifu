@@ -262,10 +262,6 @@ const api = {
   getProfileVariableUsage: 'GET /profiles/profile-variable-usage',
   updateProfileHiddenState: 'POST /profiles/update-profile-hidden-state',
 
-  // MDF Conversion
-  genMdfConvert: 'POST /gen_mdf/convert',
-  genMdfConfigStatus: 'GET /gen_mdf/config-status',
-
   // dashboard (teacher analytics)
   getDashboardEntry: 'GET /dashboard/entry',
   getDashboardCourseDetail: 'GET /dashboard/shifus/{shifu_bid}/detail',
