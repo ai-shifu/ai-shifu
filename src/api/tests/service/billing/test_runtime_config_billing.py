@@ -67,7 +67,6 @@ def runtime_config_client(monkeypatch):
         "LEGAL_PRIVACY_URL_ZH_CN": "/legal/privacy/zh",
         "LEGAL_PRIVACY_URL_EN_US": "/legal/privacy/en",
         "LEGAL_PRIVACY_URL_FR_FR": "",
-        "GEN_MDF_API_URL": "",
     }
 
     monkeypatch.setattr(

@@ -784,7 +784,6 @@ class RuntimeConfigDTO(BillingBaseDTO):
     officialSiteUrl: str
     currencySymbol: str
     legalUrls: RuntimeLegalUrlsDTO
-    genMdfApiUrl: str
     entitlements: RuntimeBillingEntitlementsDTO
     branding: RuntimeBillingBrandingDTO
     domain: RuntimeBillingDomainDTO
