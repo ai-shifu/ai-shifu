@@ -1,3 +1,4 @@
+import logging
 from types import SimpleNamespace
 
 from flask import Flask
@@ -177,3 +178,48 @@ def test_send_sms_ali_returns_none_when_provider_response_is_not_ok(monkeypatch)
     )
 
     assert result is None
+
+
+def test_send_sms_ali_logs_number_daily_throttle_as_warning(monkeypatch, caplog):
+    from flaskr.api.sms import aliyun as sms_aliyun
+
+    class FakeClient:
+        def __init__(self, _config):
+            pass
+
+        def send_sms_with_options(self, request, runtime):
+            del request, runtime
+            return SimpleNamespace(
+                body=SimpleNamespace(
+                    code="isv.BUSINESS_LIMIT_CONTROL",
+                    message="触发号码天级流控Permits:40",
+                    request_id="req-throttle-1",
+                    biz_id=None,
+                )
+            )
+
+    monkeypatch.setattr(sms_aliyun, "Dysmsapi20170525Client", FakeClient)
+
+    app = Flask("contract-sms-number-daily-throttle")
+    app.config.update(
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID="key",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET="secret",
+        ALIBABA_CLOUD_SMS_SIGN_NAME="TestSign",
+    )
+
+    with caplog.at_level(logging.WARNING):
+        result = sms_aliyun.send_sms_ali(
+            app,
+            "13800000000",
+            template_code="TPL-VERIFY-001",
+            template_params={"code": "1234"},
+        )
+
+    assert result is None
+    assert any(
+        record.levelno == logging.WARNING
+        and "isv.BUSINESS_LIMIT_CONTROL" in record.getMessage()
+        and "触发号码天级流控" in record.getMessage()
+        for record in caplog.records
+    )
+    assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
