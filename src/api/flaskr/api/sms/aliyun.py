@@ -72,12 +72,12 @@ def send_sms_ali(
         if response_code != "OK":
             response_message = _body_value(res, "message")
             log_provider_failure = app.logger.error
-            if (
-                response_code == "isv.BUSINESS_LIMIT_CONTROL"
-                and "触发号码天级流控" in response_message
+            if response_code == "isv.BUSINESS_LIMIT_CONTROL" and any(
+                throttle_message in response_message
+                for throttle_message in ("触发号码天级流控", "触发小时级流控")
             ):
-                # This is an expected provider rejection for one recipient, not
-                # an application failure that should page operations.
+                # These are expected provider rejections for one recipient, not
+                # application failures that should page operations.
                 log_provider_failure = app.logger.warning
             log_provider_failure(
                 "Aliyun SMS send failed for mobile=%s template_code=%s code=%s "
