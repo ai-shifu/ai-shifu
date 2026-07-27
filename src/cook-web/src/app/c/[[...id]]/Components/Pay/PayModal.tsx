@@ -38,6 +38,7 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { useEnvStore } from '@/c-store/envStore';
 import { usePaymentFlow } from './hooks/usePaymentFlow';
 import { useToast } from '@/hooks/useToast';
+import { resolveLearnerPaymentToast } from '@/lib/learnerError';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCurrencyCode } from '@/c-utils/currency';
@@ -405,8 +406,15 @@ export const PayModal = ({
   );
 
   const handleStripeSuccess = useCallback(async () => {
-    await syncOrderStatus();
-    toast({ title: t('module.pay.paySuccess') });
+    try {
+      await syncOrderStatus();
+      toast({ title: t('module.pay.paySuccess') });
+    } catch {
+      toast({
+        title: t('module.pay.paymentStatusSyncPending'),
+        variant: 'default',
+      });
+    }
   }, [syncOrderStatus, t, toast]);
 
   const handleStripeCheckout = useCallback(() => {
@@ -423,12 +431,18 @@ export const PayModal = ({
 
   const handleStripeError = useCallback(
     (message: string) => {
+      const resolvedToast = resolveLearnerPaymentToast({
+        message,
+        fallbackMessage: t('module.pay.payFailed'),
+        canceledMessage: t('module.pay.paymentCanceled'),
+        unsupportedMessage: t('module.pay.wechatJsapiUnavailable'),
+      });
       toast({
-        title: message,
-        variant: 'destructive',
+        title: resolvedToast.message,
+        variant: resolvedToast.variant,
       });
     },
-    [toast],
+    [t, toast],
   );
 
   const handleWechatJsapiPay = useCallback(async () => {
@@ -488,19 +502,25 @@ export const PayModal = ({
       try {
         await syncOrderStatus({ paymentChannel: 'wechatpay' });
       } catch {
-        // The polling loop continues syncing native payments after the bridge reports success.
+        toast({
+          title: t('module.pay.paymentStatusSyncPending'),
+          variant: 'default',
+        });
+        return;
       }
       toast({ title: t('module.pay.paySuccess') });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('WeChat JSAPI payment failed', error);
+      const resolvedToast = resolveLearnerPaymentToast({
+        error: error as Error,
+        fallbackMessage: t('module.pay.payFailed'),
+        canceledMessage: t('module.pay.paymentCanceled'),
+        unsupportedMessage: t('module.pay.wechatJsapiUnavailable'),
+      });
       toast({
-        title:
-          error instanceof Error &&
-          error.message === 'wechat_bridge_unavailable'
-            ? t('module.pay.wechatJsapiUnavailable')
-            : t('module.pay.payFailed'),
-        variant: 'destructive',
+        title: resolvedToast.message,
+        variant: resolvedToast.variant,
       });
     }
   }, [

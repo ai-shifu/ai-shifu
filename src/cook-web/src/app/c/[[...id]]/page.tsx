@@ -64,6 +64,7 @@ import { trackCourseVisitIfNeeded } from './courseVisitTracking';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
 import ProfileOnboardingModal from '@/components/profile-onboarding/ProfileOnboardingModal';
 import { ErrorWithCode } from '@/lib/request';
+import { resolveLearnerErrorMessage } from '@/lib/learnerError';
 
 const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
   ssr: false,
@@ -451,8 +452,10 @@ export default function ChatPage() {
 
   const resolveProfileOnboardingError = useCallback(
     (error: unknown) => {
-      const typedError = error as Partial<ErrorWithCode>;
-      return typedError.message || t('module.profileOnboarding.submitFailed');
+      return resolveLearnerErrorMessage({
+        error: error as Partial<ErrorWithCode>,
+        fallbackMessage: t('module.profileOnboarding.submitFailed'),
+      });
     },
     [t],
   );

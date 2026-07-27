@@ -265,10 +265,12 @@ jest.mock('@/components/profile-onboarding/ProfileOnboardingModal', () => ({
     open,
     onComplete,
     onSkip,
+    errorMessage,
   }: {
     open: boolean;
     onComplete: (variables: Record<string, string>) => void;
     onSkip: () => void;
+    errorMessage?: string;
   }) =>
     open ? (
       <div data-testid='profile-onboarding-modal'>
@@ -284,6 +286,7 @@ jest.mock('@/components/profile-onboarding/ProfileOnboardingModal', () => ({
         >
           {skipOnboardingLabel}
         </button>
+        {errorMessage ? <div role='alert'>{errorMessage}</div> : null}
       </div>
     ) : null,
 }));
@@ -399,5 +402,29 @@ describe('ChatPage profile onboarding gate', () => {
 
     const chatUi = await screen.findByTestId('chat-ui');
     expect(chatUi).toHaveAttribute('data-lesson-id', 'lesson-new');
+  });
+
+  test('surfaces the backend onboarding error message when submit fails', async () => {
+    mockGetProfileOnboarding.mockResolvedValue({
+      should_show: true,
+      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
+      current_values: {},
+    });
+    mockCompleteProfileOnboarding.mockRejectedValue(
+      new Error('昵称包含风险词'),
+    );
+
+    render(<ChatPage />);
+
+    await screen.findByTestId('profile-onboarding-modal');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: completeOnboardingLabel }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('昵称包含风险词');
+    });
+    expect(screen.queryByTestId('chat-ui')).not.toBeInTheDocument();
   });
 });
