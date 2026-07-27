@@ -812,13 +812,7 @@ def _activate_subscription_for_paid_order(
             effective_to=effective_to,
         )
         if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
-            _activate_reserved_subscription_grant_for_order(
-                app,
-                order=order,
-                effective_from=effective_from,
-                effective_to=effective_to,
-            )
-            _activate_reserved_campaign_bonus_grant_for_order(
+            _activate_reserved_renewal_grants_for_cycle(
                 app,
                 order=order,
                 effective_from=effective_from,
@@ -840,6 +834,91 @@ def _activate_subscription_for_paid_order(
     _sync_subscription_lifecycle_events(app, subscription)
     db.session.add(subscription)
     return True
+
+
+def _load_paid_subscription_renewal_orders_for_cycle(
+    *,
+    subscription_bid: str,
+    effective_from: datetime,
+) -> tuple[BillingOrder, ...]:
+    normalized_subscription_bid = _normalize_bid(subscription_bid)
+    if not normalized_subscription_bid:
+        return ()
+
+    rows = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.subscription_bid == normalized_subscription_bid,
+            BillingOrder.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+        )
+        .order_by(BillingOrder.created_at.asc(), BillingOrder.id.asc())
+        .all()
+    )
+    due_orders: list[BillingOrder] = []
+    for row in rows:
+        cycle_start_at = _extract_resolved_order_cycle_start_at(row.metadata_json)
+        if cycle_start_at != effective_from:
+            continue
+        due_orders.append(row)
+    return tuple(due_orders)
+
+
+def _activate_reserved_renewal_grants_for_cycle(
+    app: Flask,
+    *,
+    order: BillingOrder,
+    effective_from: datetime,
+    effective_to: datetime | None,
+) -> bool:
+    cycle_orders = list(
+        _load_paid_subscription_renewal_orders_for_cycle(
+            subscription_bid=order.subscription_bid,
+            effective_from=effective_from,
+        )
+    )
+    if not cycle_orders:
+        cycle_orders = [order]
+    else:
+        cycle_orders.sort(
+            key=lambda row: (
+                0 if row.bill_order_bid == order.bill_order_bid else 1,
+                row.created_at or datetime.min,
+                row.id,
+            )
+        )
+
+    attribution_order_bid = next(
+        (
+            row.bill_order_bid
+            for row in cycle_orders
+            if int(row.paid_amount or 0) > 0 or int(row.payable_amount or 0) > 0
+        ),
+        order.bill_order_bid,
+    )
+
+    activated = False
+    for cycle_order in cycle_orders:
+        activated = (
+            _activate_reserved_subscription_grant_for_order(
+                app,
+                order=cycle_order,
+                effective_from=effective_from,
+                effective_to=effective_to,
+                attribution_order_bid=attribution_order_bid,
+            )
+            or activated
+        )
+        activated = (
+            _activate_reserved_campaign_bonus_grant_for_order(
+                app,
+                order=cycle_order,
+                effective_from=effective_from,
+                effective_to=effective_to,
+            )
+            or activated
+        )
+    return activated
 
 
 def _realign_active_topup_bucket_effective_to(
@@ -1218,6 +1297,7 @@ def _activate_reserved_subscription_grant_for_order(
     order: BillingOrder,
     effective_from: datetime,
     effective_to: datetime | None,
+    attribution_order_bid: str | None = None,
 ) -> bool:
     grant_entry = _load_grant_ledger_entry_for_order(order)
     if grant_entry is None:
@@ -1246,13 +1326,17 @@ def _activate_reserved_subscription_grant_for_order(
         return False
 
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
-    _expire_credit_bucket_balance_for_transition(
-        app,
-        wallet=wallet,
-        bucket=bucket,
-        order=order,
-        transition_at=effective_from,
+    is_first_cycle_activation = (
+        bucket.effective_from is None or bucket.effective_from < effective_from
     )
+    if is_first_cycle_activation:
+        _expire_credit_bucket_balance_for_transition(
+            app,
+            wallet=wallet,
+            bucket=bucket,
+            order=order,
+            transition_at=effective_from,
+        )
 
     now = now_utc()
     release_amount = min(
@@ -1264,7 +1348,8 @@ def _activate_reserved_subscription_grant_for_order(
     bucket.source_type = resolve_bucket_source_type_for_category(
         CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
     )
-    bucket.source_bid = order.bill_order_bid
+    if is_first_cycle_activation:
+        bucket.source_bid = attribution_order_bid or order.bill_order_bid
     bucket.priority = resolve_credit_bucket_priority(
         CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
     )
@@ -1276,10 +1361,12 @@ def _activate_reserved_subscription_grant_for_order(
     )
     bucket.effective_from = effective_from
     bucket.effective_to = effective_to
-    bucket.metadata_json = {
-        **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
-        **_build_bucket_metadata_from_order(order),
-    }
+    if is_first_cycle_activation:
+        bucket.metadata_json = {
+            **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
+            **_build_bucket_metadata_from_order(order),
+            "bill_order_bid": attribution_order_bid or order.bill_order_bid,
+        }
     bucket.updated_at = now
     _prepare_bucket_for_runtime_reuse(bucket)
     sync_credit_bucket_status(bucket)
