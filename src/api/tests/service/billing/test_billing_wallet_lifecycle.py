@@ -1326,7 +1326,6 @@ def test_repair_renewal_state_drift_all_scope_includes_reserved_only_creator(
 
 def test_repair_renewal_state_drift_counts_only_successful_activations(
     billing_wallet_lifecycle_app: Flask,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     boundary_at = datetime(2026, 4, 8, 0, 0, 0)
     next_cycle_end = datetime(2026, 5, 8, 0, 0, 0)
@@ -1380,9 +1379,9 @@ def test_repair_renewal_state_drift_counts_only_successful_activations(
             source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-current-activation-fails",
             priority=20,
-            original_credits=Decimal("2000.0000000000"),
+            original_credits=Decimal("1500.0000000000"),
             available_credits=Decimal("1000.0000000000"),
-            reserved_credits=Decimal("1000.0000000000"),
+            reserved_credits=Decimal("500.0000000000"),
             consumed_credits=Decimal("0"),
             expired_credits=Decimal("0"),
             effective_from=datetime(2026, 3, 8, 0, 0, 0),
@@ -1400,7 +1399,7 @@ def test_repair_renewal_state_drift_counts_only_successful_activations(
             source_bid=order.bill_order_bid,
             idempotency_key=f"grant:{order.bill_order_bid}",
             amount=Decimal("1000.0000000000"),
-            balance_after=Decimal("1000.0000000000"),
+            balance_after=Decimal("500.0000000000"),
             expires_at=next_cycle_end,
             consumable_from=boundary_at,
             metadata_json={
@@ -1412,10 +1411,6 @@ def test_repair_renewal_state_drift_counts_only_successful_activations(
         dao.db.session.add_all([wallet, subscription, order, bucket, ledger])
         dao.db.session.commit()
 
-        monkeypatch.setattr(
-            "flaskr.service.billing.subscriptions.grant_paid_order_credits",
-            lambda app, order: False,
-        )
         payload = repair_renewal_state_drift(
             billing_wallet_lifecycle_app,
             creator_bid=creator_bid,
@@ -1424,6 +1419,7 @@ def test_repair_renewal_state_drift_counts_only_successful_activations(
         )
         dao.db.session.refresh(subscription)
         dao.db.session.refresh(bucket)
+        dao.db.session.refresh(ledger)
 
     assert payload["activated_reserved_order_count"] == 0
     assert payload["activated_creator_count"] == 0
@@ -1436,7 +1432,8 @@ def test_repair_renewal_state_drift_counts_only_successful_activations(
     assert subscription.current_period_end_at == boundary_at
     assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
     assert bucket.available_credits == Decimal("1000.0000000000")
-    assert bucket.reserved_credits == Decimal("1000.0000000000")
+    assert bucket.reserved_credits == Decimal("500.0000000000")
+    assert ledger.metadata_json["bucket_credit_state"] == "reserved"
 
 
 def test_repair_expire_ledger_bucket_drift_dry_run_reports_without_writing(

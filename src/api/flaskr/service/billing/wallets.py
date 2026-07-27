@@ -347,7 +347,8 @@ def _normalize_json_dict(payload: object) -> dict[str, Any]:
 
 
 def _json_extract_text(column: Any, path: str) -> Any:
-    dialect_name = (db.session.bind.dialect.name if db.session.bind else "").lower()
+    bind = db.session.get_bind()
+    dialect_name = bind.dialect.name.lower() if bind is not None else ""
     extracted = func.json_extract(column, path)
     if dialect_name == "mysql":
         return func.json_unquote(extracted)

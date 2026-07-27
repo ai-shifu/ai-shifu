@@ -790,6 +790,15 @@ def _activate_subscription_for_paid_order(
         BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
         BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     }:
+        if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL and not (
+            _activate_reserved_renewal_grants_for_cycle(
+                app,
+                order=order,
+                effective_from=effective_from,
+                effective_to=effective_to,
+            )
+        ):
+            return False
         if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
             subscription.product_bid = (
                 _normalize_bid(subscription.next_product_bid) or order.product_bid
@@ -812,11 +821,13 @@ def _activate_subscription_for_paid_order(
             effective_to=effective_to,
         )
         if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
-            _activate_reserved_renewal_grants_for_cycle(
-                app,
-                order=order,
-                effective_from=effective_from,
-                effective_to=effective_to,
+            wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+            refresh_credit_wallet_snapshot(wallet, snapshot_at=effective_from)
+            persist_credit_wallet_snapshot(
+                wallet,
+                available_credits=wallet.available_credits,
+                reserved_credits=wallet.reserved_credits,
+                updated_at=now_utc(),
             )
         if _is_preorder_order(order):
             _mark_preorder_effective_applied(order)
@@ -897,28 +908,39 @@ def _activate_reserved_renewal_grants_for_cycle(
         order.bill_order_bid,
     )
 
-    activated = False
+    blocked = False
     for cycle_order in cycle_orders:
-        activated = (
-            _activate_reserved_subscription_grant_for_order(
-                app,
-                order=cycle_order,
-                effective_from=effective_from,
-                effective_to=effective_to,
-                attribution_order_bid=attribution_order_bid,
-            )
-            or activated
+        subscription_activated = _activate_reserved_subscription_grant_for_order(
+            app,
+            order=cycle_order,
+            effective_from=effective_from,
+            effective_to=effective_to,
+            attribution_order_bid=attribution_order_bid,
         )
-        activated = (
-            _activate_reserved_campaign_bonus_grant_for_order(
-                app,
-                order=cycle_order,
-                effective_from=effective_from,
-                effective_to=effective_to,
-            )
-            or activated
+        bonus_activated = _activate_reserved_campaign_bonus_grant_for_order(
+            app,
+            order=cycle_order,
+            effective_from=effective_from,
+            effective_to=effective_to,
         )
-    return activated
+        if subscription_activated or bonus_activated:
+            continue
+        grant_entry = _load_grant_ledger_entry_for_order(cycle_order)
+        grant_metadata = _normalize_json_object(
+            grant_entry.metadata_json if grant_entry is not None else {}
+        )
+        bonus_entry = _load_campaign_bonus_ledger_entry_for_order(cycle_order)
+        bonus_metadata = _normalize_json_object(
+            bonus_entry.metadata_json if bonus_entry is not None else {}
+        )
+        if (
+            str(grant_metadata.get("bucket_credit_state") or "").strip().lower()
+            == "reserved"
+            or str(bonus_metadata.get("bucket_credit_state") or "").strip().lower()
+            == "reserved"
+        ):
+            blocked = True
+    return not blocked
 
 
 def _realign_active_topup_bucket_effective_to(
@@ -1325,6 +1347,11 @@ def _activate_reserved_subscription_grant_for_order(
     if bucket is None:
         return False
 
+    grant_amount = _quantize_credit_amount(_to_decimal(grant_entry.amount))
+    reserved_credits = _quantize_credit_amount(_to_decimal(bucket.reserved_credits))
+    if grant_amount <= 0 or reserved_credits < grant_amount:
+        return False
+
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
     is_first_cycle_activation = (
         bucket.effective_from is None or bucket.effective_from < effective_from
@@ -1339,10 +1366,7 @@ def _activate_reserved_subscription_grant_for_order(
         )
 
     now = now_utc()
-    release_amount = min(
-        _to_decimal(grant_entry.amount),
-        _to_decimal(bucket.reserved_credits),
-    )
+    release_amount = grant_amount
     bucket.wallet_bid = wallet.wallet_bid
     bucket.bucket_category = CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
     bucket.source_type = resolve_bucket_source_type_for_category(
@@ -1434,12 +1458,14 @@ def _activate_reserved_campaign_bonus_grant_for_order(
     if bucket is None:
         return False
 
+    grant_amount = _quantize_credit_amount(_to_decimal(grant_entry.amount))
+    reserved_credits = _quantize_credit_amount(_to_decimal(bucket.reserved_credits))
+    if grant_amount <= 0 or reserved_credits < grant_amount:
+        return False
+
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
     now = now_utc()
-    release_amount = min(
-        _to_decimal(grant_entry.amount),
-        _to_decimal(bucket.reserved_credits),
-    )
+    release_amount = grant_amount
     bucket.reserved_credits = _quantize_credit_amount(
         _to_decimal(bucket.reserved_credits) - release_amount
     )
