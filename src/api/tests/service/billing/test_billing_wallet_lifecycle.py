@@ -6,6 +6,7 @@ from decimal import Decimal
 from flask import Flask
 import pytest
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import attributes
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
@@ -221,6 +222,91 @@ def test_expire_credit_wallet_buckets_skips_bucket_with_conflicting_ledger(
             wallet_bucket_bid="bucket-conflict"
         ).all()
         assert len(conflict_ledgers) == 1
+
+
+def test_expire_credit_wallet_buckets_skips_bucket_realigned_during_refresh(
+    billing_wallet_lifecycle_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.billing import wallets as wallets_mod
+
+    future_effective_to = datetime(2026, 4, 30, 0, 0, 0)
+    with billing_wallet_lifecycle_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-expire-realigned",
+            creator_bid="creator-expire-realigned",
+            available_credits=Decimal("4.0000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("4.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-expire-realigned",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid="creator-expire-realigned",
+            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid="order-topup-realigned",
+            priority=30,
+            original_credits=Decimal("4.0000000000"),
+            available_credits=Decimal("4.0000000000"),
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=datetime(2026, 4, 1, 0, 0, 0),
+            effective_to=datetime(2026, 4, 7, 0, 0, 0),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={},
+            created_at=datetime(2026, 4, 1, 0, 0, 0),
+            updated_at=datetime(2026, 4, 1, 0, 0, 0),
+        )
+        dao.db.session.add_all([wallet, bucket])
+        dao.db.session.commit()
+
+        real_refresh = wallets_mod.db.session.refresh
+
+        def _refresh_with_realign(target_bucket):
+            if (
+                isinstance(target_bucket, CreditWalletBucket)
+                and target_bucket.wallet_bucket_bid == "bucket-expire-realigned"
+            ):
+                attributes.set_committed_value(
+                    target_bucket,
+                    "effective_to",
+                    future_effective_to,
+                )
+                return None
+            return real_refresh(target_bucket)
+
+        monkeypatch.setattr(wallets_mod.db.session, "refresh", _refresh_with_realign)
+
+        payload = expire_credit_wallet_buckets(
+            billing_wallet_lifecycle_app,
+            creator_bid="creator-expire-realigned",
+            expire_before=datetime(2026, 4, 8, 0, 0, 0),
+        )
+
+        dao.db.session.expire_all()
+        refreshed_bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-expire-realigned"
+        ).one()
+        wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-expire-realigned"
+        ).one()
+        ledgers = CreditLedgerEntry.query.filter_by(
+            wallet_bucket_bid="bucket-expire-realigned"
+        ).all()
+
+        assert payload["status"] == "noop"
+        assert payload["bucket_count"] == 0
+        assert refreshed_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+        assert refreshed_bucket.available_credits == Decimal("4.0000000000")
+        assert refreshed_bucket.expired_credits == Decimal("0")
+        assert refreshed_bucket.effective_to == datetime(2026, 4, 7, 0, 0, 0)
+        assert wallet.available_credits == Decimal("4.0000000000")
+        assert ledgers == []
 
 
 def test_expire_credit_wallet_buckets_skips_bucket_on_wallet_version_conflict(

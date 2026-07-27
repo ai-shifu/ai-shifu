@@ -1389,6 +1389,14 @@ def _expire_credit_wallet_buckets_in_session(
     expired_total = _ZERO
     expired_count = 0
     for bucket in buckets:
+        db.session.refresh(bucket)
+        if (
+            int(bucket.status or 0) != CREDIT_BUCKET_STATUS_ACTIVE
+            or bucket.effective_to is None
+            or bucket.effective_to > cutoff
+        ):
+            continue
+
         available = _to_decimal(bucket.available_credits)
         if available <= _ZERO:
             sync_credit_bucket_status(bucket)
