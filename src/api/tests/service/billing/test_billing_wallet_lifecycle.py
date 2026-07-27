@@ -300,10 +300,14 @@ def test_expire_credit_wallet_buckets_allows_reused_bucket_after_legacy_expire(
         wallet = CreditWallet.query.filter_by(
             creator_bid="creator-expire-reused-legacy"
         ).one()
-        expire_ledgers = CreditLedgerEntry.query.filter_by(
-            wallet_bucket_bid=bucket.wallet_bucket_bid,
-            entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-        ).order_by(CreditLedgerEntry.id.asc()).all()
+        expire_ledgers = (
+            CreditLedgerEntry.query.filter_by(
+                wallet_bucket_bid=bucket.wallet_bucket_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+            )
+            .order_by(CreditLedgerEntry.id.asc())
+            .all()
+        )
 
     assert payload["status"] == "expired"
     assert payload["bucket_count"] == 1

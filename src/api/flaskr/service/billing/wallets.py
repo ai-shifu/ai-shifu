@@ -44,7 +44,12 @@ from .bucket_categories import (
     wallet_bucket_requires_active_subscription,
 )
 from .dtos import BillingLedgerAdjustResultDTO, BillingWalletRefDTO
-from .models import BillingSubscription, CreditLedgerEntry, CreditWallet, CreditWalletBucket
+from .models import (
+    BillingSubscription,
+    CreditLedgerEntry,
+    CreditWallet,
+    CreditWalletBucket,
+)
 from .primitives import credit_decimal_to_number as _credit_decimal_to_number
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
@@ -315,7 +320,10 @@ def _is_matching_expire_ledger_for_bucket(
         return True
 
     legacy_key = _build_legacy_expire_ledger_idempotency_key(normalized_bucket_bid)
-    return ledger.idempotency_key == legacy_key and ledger.expires_at == bucket.effective_to
+    return (
+        ledger.idempotency_key == legacy_key
+        and ledger.expires_at == bucket.effective_to
+    )
 
 
 def calculate_credit_wallet_snapshot_values(

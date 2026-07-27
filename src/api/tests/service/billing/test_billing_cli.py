@@ -518,7 +518,9 @@ def test_billing_repair_renewal_state_drift_cli_requires_scope(
     )
 
     assert result.exit_code != 0
-    assert "Pass --creator-bid or --all for renewal state drift repair." in result.output
+    assert (
+        "Pass --creator-bid or --all for renewal state drift repair." in result.output
+    )
 
 
 def test_billing_repair_renewal_state_drift_cli_prints_helper_payload(

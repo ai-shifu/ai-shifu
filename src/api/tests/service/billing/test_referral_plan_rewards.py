@@ -930,7 +930,9 @@ def test_referral_plan_reward_boundary_releases_all_due_reserved_cycle_grants(
         assert bucket.effective_from == boundary_at
         assert bucket.effective_to == next_cycle_end
         assert bucket.source_bid == "bill-referral-boundary-primary"
-        assert bucket.metadata_json["bill_order_bid"] == "bill-referral-boundary-primary"
+        assert (
+            bucket.metadata_json["bill_order_bid"] == "bill-referral-boundary-primary"
+        )
         assert (
             ledgers["ledger-referral-boundary-primary"].metadata_json[
                 "bucket_credit_state"
