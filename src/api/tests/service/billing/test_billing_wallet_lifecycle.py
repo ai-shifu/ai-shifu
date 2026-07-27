@@ -2005,6 +2005,222 @@ def test_repair_renewal_state_drift_blocks_multi_order_cycle_atomically(
     assert ledger_b.metadata_json["bucket_credit_state"] == "reserved"
 
 
+def test_repair_renewal_state_drift_counts_all_activated_orders_in_shared_cycle(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    boundary_at = datetime(2026, 4, 8, 0, 0, 0)
+    next_cycle_end = datetime(2026, 5, 8, 0, 0, 0)
+    creator_bid = "creator-renewal-drift-multi-order-success"
+    subscription_bid = "subscription-renewal-drift-multi-order-success"
+
+    with billing_wallet_lifecycle_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-renewal-drift-multi-order-success",
+            creator_bid=creator_bid,
+            available_credits=Decimal("0"),
+            reserved_credits=Decimal("1050.0000000000"),
+            lifetime_granted_credits=Decimal("1050.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        subscription = BillingSubscription(
+            subscription_bid=subscription_bid,
+            creator_bid=creator_bid,
+            product_bid="bill-product-renewal-drift-multi-order-success-a",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            current_period_start_at=datetime(2026, 3, 8, 0, 0, 0),
+            current_period_end_at=boundary_at,
+        )
+        product_a = BillingProduct(
+            product_bid="bill-product-renewal-drift-multi-order-success-a",
+            product_code="repair-multi-order-success-a",
+            product_type=1,
+            display_name_i18n_key="billing.product.repair_multi_order_success_a",
+            description_i18n_key="billing.product.repair_multi_order_success_a.description",
+            status=1,
+            billing_mode=2,
+            billing_interval=2,
+            billing_interval_count=1,
+            credit_amount=Decimal("50.0000000000"),
+            currency="CNY",
+            price_amount=0,
+            allocation_interval=2,
+            auto_renew_enabled=1,
+        )
+        product_b = BillingProduct(
+            product_bid="bill-product-renewal-drift-multi-order-success-b",
+            product_code="repair-multi-order-success-b",
+            product_type=1,
+            display_name_i18n_key="billing.product.repair_multi_order_success_b",
+            description_i18n_key="billing.product.repair_multi_order_success_b.description",
+            status=1,
+            billing_mode=2,
+            billing_interval=2,
+            billing_interval_count=1,
+            credit_amount=Decimal("1000.0000000000"),
+            currency="CNY",
+            price_amount=0,
+            allocation_interval=2,
+            auto_renew_enabled=1,
+        )
+        order_a = BillingOrder(
+            bill_order_bid="order-renewal-drift-multi-order-success-a",
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid=product_a.product_bid,
+            subscription_bid=subscription_bid,
+            currency="CNY",
+            payable_amount=0,
+            paid_amount=0,
+            payment_provider="manual",
+            channel="manual",
+            provider_reference_id="repair-multi-order-success-a",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=datetime(2026, 4, 7, 0, 0, 0),
+            metadata_json={
+                "renewal_cycle_start_at": to_utc_iso(boundary_at),
+                "renewal_cycle_end_at": to_utc_iso(next_cycle_end),
+            },
+        )
+        order_b = BillingOrder(
+            bill_order_bid="order-renewal-drift-multi-order-success-b",
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid=product_b.product_bid,
+            subscription_bid=subscription_bid,
+            currency="CNY",
+            payable_amount=0,
+            paid_amount=0,
+            payment_provider="manual",
+            channel="manual",
+            provider_reference_id="repair-multi-order-success-b",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=datetime(2026, 4, 7, 0, 1, 0),
+            metadata_json={
+                "renewal_cycle_start_at": to_utc_iso(boundary_at),
+                "renewal_cycle_end_at": to_utc_iso(next_cycle_end),
+            },
+        )
+        bucket_a = CreditWalletBucket(
+            wallet_bucket_bid="bucket-renewal-drift-multi-order-success-a",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order_a.bill_order_bid,
+            priority=20,
+            original_credits=Decimal("50.0000000000"),
+            available_credits=Decimal("0"),
+            reserved_credits=Decimal("50.0000000000"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=boundary_at,
+            effective_to=next_cycle_end,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={"bill_order_bid": order_a.bill_order_bid},
+        )
+        bucket_b = CreditWalletBucket(
+            wallet_bucket_bid="bucket-renewal-drift-multi-order-success-b",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order_b.bill_order_bid,
+            priority=20,
+            original_credits=Decimal("1000.0000000000"),
+            available_credits=Decimal("0"),
+            reserved_credits=Decimal("1000.0000000000"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=boundary_at,
+            effective_to=next_cycle_end,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={"bill_order_bid": order_b.bill_order_bid},
+        )
+        ledger_a = CreditLedgerEntry(
+            ledger_bid="ledger-renewal-drift-multi-order-success-a",
+            creator_bid=creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket_a.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order_a.bill_order_bid,
+            idempotency_key=f"grant:{order_a.bill_order_bid}",
+            amount=Decimal("50.0000000000"),
+            balance_after=Decimal("0"),
+            expires_at=next_cycle_end,
+            consumable_from=boundary_at,
+            metadata_json={
+                "bill_order_bid": order_a.bill_order_bid,
+                "subscription_bid": subscription_bid,
+                "bucket_credit_state": "reserved",
+            },
+        )
+        ledger_b = CreditLedgerEntry(
+            ledger_bid="ledger-renewal-drift-multi-order-success-b",
+            creator_bid=creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket_b.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order_b.bill_order_bid,
+            idempotency_key=f"grant:{order_b.bill_order_bid}",
+            amount=Decimal("1000.0000000000"),
+            balance_after=Decimal("0"),
+            expires_at=next_cycle_end,
+            consumable_from=boundary_at,
+            metadata_json={
+                "bill_order_bid": order_b.bill_order_bid,
+                "subscription_bid": subscription_bid,
+                "bucket_credit_state": "reserved",
+            },
+        )
+        dao.db.session.add_all(
+            [
+                wallet,
+                subscription,
+                product_a,
+                product_b,
+                order_a,
+                order_b,
+                bucket_a,
+                bucket_b,
+                ledger_a,
+                ledger_b,
+            ]
+        )
+        dao.db.session.commit()
+
+        payload = repair_renewal_state_drift(
+            billing_wallet_lifecycle_app,
+            creator_bid=creator_bid,
+            repair_before=boundary_at + timedelta(minutes=1),
+            dry_run=False,
+        )
+        dao.db.session.refresh(subscription)
+        dao.db.session.refresh(wallet)
+        dao.db.session.refresh(bucket_a)
+        dao.db.session.refresh(bucket_b)
+        dao.db.session.refresh(ledger_a)
+        dao.db.session.refresh(ledger_b)
+
+    assert payload["activated_reserved_order_count"] == 2
+    assert payload["activated_creator_count"] == 1
+    assert payload["activated_creator_bids"] == [creator_bid]
+    assert payload["protected_creator_bids"] == []
+    assert subscription.current_period_start_at == boundary_at
+    assert subscription.current_period_end_at == next_cycle_end
+    assert wallet.available_credits == Decimal("1050.0000000000")
+    assert wallet.reserved_credits == Decimal("0E-10")
+    assert bucket_a.available_credits == Decimal("50.0000000000")
+    assert bucket_a.reserved_credits == Decimal("0E-10")
+    assert bucket_b.available_credits == Decimal("1000.0000000000")
+    assert bucket_b.reserved_credits == Decimal("0E-10")
+    assert ledger_a.metadata_json["bucket_credit_state"] == "available"
+    assert ledger_b.metadata_json["bucket_credit_state"] == "available"
+
+
 def test_repair_expire_ledger_bucket_drift_dry_run_reports_without_writing(
     billing_wallet_lifecycle_app: Flask,
 ) -> None:

@@ -923,21 +923,22 @@ def _activate_reserved_renewal_grants_for_cycle(
     )
 
     targets = _preflight_reserved_renewal_grants_for_cycle(cycle_orders)
-    for cycle_order in cycle_orders:
-        _activate_reserved_subscription_grant_for_order(
-            app,
-            order=cycle_order,
-            effective_from=effective_from,
-            effective_to=effective_to,
-            attribution_order_bid=attribution_order_bid,
-        )
-        _activate_reserved_campaign_bonus_grant_for_order(
-            app,
-            order=cycle_order,
-            effective_from=effective_from,
-            effective_to=effective_to,
-        )
-    _assert_reserved_activation_targets_completed(targets)
+    with db.session.begin_nested():
+        for cycle_order in cycle_orders:
+            _activate_reserved_subscription_grant_for_order(
+                app,
+                order=cycle_order,
+                effective_from=effective_from,
+                effective_to=effective_to,
+                attribution_order_bid=attribution_order_bid,
+            )
+            _activate_reserved_campaign_bonus_grant_for_order(
+                app,
+                order=cycle_order,
+                effective_from=effective_from,
+                effective_to=effective_to,
+            )
+        _assert_reserved_activation_targets_completed(targets)
     return True
 
 

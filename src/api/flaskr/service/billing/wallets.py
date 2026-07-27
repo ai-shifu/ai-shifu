@@ -355,83 +355,22 @@ def _json_extract_text(column: Any, path: str) -> Any:
     return extracted
 
 
-@dataclass(slots=True, frozen=True)
-class ReservedGrantActivationSnapshot:
-    grant_ledger_bid: str
-    wallet_bucket_bid: str
-    grant_amount: Decimal
-    reserved_credits: Decimal
-
-
 def _extract_order_bid_from_renewal_event(event: BillingRenewalEvent) -> str:
     payload = _normalize_json_dict(event.payload_json)
     return _normalize_bid(payload.get("bill_order_bid"))
 
 
-def _capture_reserved_grant_activation_snapshot(
-    order: BillingOrder,
-) -> ReservedGrantActivationSnapshot | None:
-    grant_entry = (
-        CreditLedgerEntry.query.filter(
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.creator_bid == order.creator_bid,
-            CreditLedgerEntry.idempotency_key == f"grant:{order.bill_order_bid}",
+def _collect_overdue_reserved_order_bids(
+    *, repaired_at: datetime, creator_bid: str
+) -> set[str]:
+    return {
+        _normalize_bid(record.bill_order_bid)
+        for record in _load_overdue_reserved_paid_order_records(
+            repaired_at=repaired_at,
+            creator_bid=creator_bid,
         )
-        .order_by(CreditLedgerEntry.id.desc())
-        .first()
-    )
-    if grant_entry is None or not _normalize_bid(grant_entry.wallet_bucket_bid):
-        return None
-    bucket = (
-        CreditWalletBucket.query.filter(
-            CreditWalletBucket.deleted == 0,
-            CreditWalletBucket.wallet_bucket_bid == grant_entry.wallet_bucket_bid,
-        )
-        .order_by(CreditWalletBucket.id.desc())
-        .first()
-    )
-    if bucket is None:
-        return None
-    return ReservedGrantActivationSnapshot(
-        grant_ledger_bid=grant_entry.ledger_bid,
-        wallet_bucket_bid=bucket.wallet_bucket_bid,
-        grant_amount=_to_decimal(grant_entry.amount),
-        reserved_credits=_to_decimal(bucket.reserved_credits),
-    )
-
-
-def _reserved_grant_activation_completed(
-    order: BillingOrder,
-    snapshot: ReservedGrantActivationSnapshot | None,
-) -> bool:
-    if snapshot is None:
-        return False
-    grant_entry = (
-        CreditLedgerEntry.query.filter(
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.ledger_bid == snapshot.grant_ledger_bid,
-        )
-        .order_by(CreditLedgerEntry.id.desc())
-        .first()
-    )
-    bucket = (
-        CreditWalletBucket.query.filter(
-            CreditWalletBucket.deleted == 0,
-            CreditWalletBucket.wallet_bucket_bid == snapshot.wallet_bucket_bid,
-        )
-        .order_by(CreditWalletBucket.id.desc())
-        .first()
-    )
-    if grant_entry is None or bucket is None:
-        return False
-    metadata = _normalize_json_dict(grant_entry.metadata_json)
-    if str(metadata.get("bucket_credit_state") or "").strip().lower() == "reserved":
-        return False
-    moved_reserved_amount = _quantize_credit_amount(
-        snapshot.reserved_credits - _to_decimal(bucket.reserved_credits)
-    )
-    expected_amount = _quantize_credit_amount(snapshot.grant_amount)
-    return moved_reserved_amount == expected_amount
+        if _normalize_bid(record.bill_order_bid)
+    }
 
 
 def _load_overdue_reserved_paid_order_records(
@@ -1105,6 +1044,7 @@ def repair_renewal_state_drift(
                         if _normalize_bid(order_bid)
                     }
                 )
+                candidate_orders: list[BillingOrder] = []
                 if candidate_order_bids:
                     candidate_orders = (
                         BillingOrder.query.filter(
@@ -1120,30 +1060,28 @@ def repair_renewal_state_drift(
                         )
                         .all()
                     )
-                    if candidate_orders:
-                        try:
-                            with unit_of_work():
-                                for order in candidate_orders:
-                                    activation_snapshot = (
-                                        _capture_reserved_grant_activation_snapshot(
-                                            order
-                                        )
-                                    )
-                                    grant_paid_order_credits(app, order)
-                                    if _reserved_grant_activation_completed(
-                                        order, activation_snapshot
-                                    ):
-                                        activated_reserved_order_count += 1
-                                        if (
-                                            target_creator_bid
-                                            not in activated_creator_bids
-                                        ):
-                                            activated_creator_bids.append(
-                                                target_creator_bid
-                                            )
-                        except IncompleteReservedGrantActivationError:
-                            protected_creator_bids.append(target_creator_bid)
-                            continue
+                if candidate_orders:
+                    reserved_order_bids_before = _collect_overdue_reserved_order_bids(
+                        repaired_at=repaired_at,
+                        creator_bid=target_creator_bid,
+                    )
+                    try:
+                        with unit_of_work():
+                            for order in candidate_orders:
+                                grant_paid_order_credits(app, order)
+                    except IncompleteReservedGrantActivationError:
+                        protected_creator_bids.append(target_creator_bid)
+                        continue
+                    reserved_order_bids_after = _collect_overdue_reserved_order_bids(
+                        repaired_at=repaired_at,
+                        creator_bid=target_creator_bid,
+                    )
+                    activated_order_bids = (
+                        reserved_order_bids_before - reserved_order_bids_after
+                    )
+                    if activated_order_bids:
+                        activated_reserved_order_count += len(activated_order_bids)
+                        activated_creator_bids.append(target_creator_bid)
 
                 remaining_reserved_records = _load_overdue_reserved_paid_order_records(
                     repaired_at=repaired_at,
