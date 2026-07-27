@@ -62,13 +62,15 @@ interface StartPreviewParams {
   shifuBid?: string;
   outlineBid?: string;
   mdflow?: string;
-  user_input?: Record<string, any>;
-  variables?: Record<string, any>;
+  user_input?: Record<string, unknown>;
+  variables?: Record<string, unknown>;
   block_index?: number;
   max_block_count?: number;
   systemVariableKeys?: string[];
   visual_mode?: boolean;
 }
+
+type PreviewSseSource = InstanceType<typeof SSE>;
 
 export const buildInteractionContinuationPreviewParams = ({
   currentParams,
@@ -459,8 +461,8 @@ export function usePreviewChat() {
   const currentContentIdRef = useRef<string | null>(null);
   const currentStreamingElementBidRef = useRef<string | null>(null);
   const sseParams = useRef<StartPreviewParams>({});
-  const sseRef = useRef<any>(null);
-  const ttsSseRef = useRef<Record<string, any>>({});
+  const sseRef = useRef<PreviewSseSource | null>(null);
+  const ttsSseRef = useRef<Record<string, PreviewSseSource>>({});
   const isStreamingRef = useRef(false);
   const doneTerminalStateRef = useRef<boolean | null>(null);
   const [variablesSnapshot, setVariablesSnapshot] =
