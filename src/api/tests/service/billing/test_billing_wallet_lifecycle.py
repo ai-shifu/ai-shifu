@@ -59,6 +59,7 @@ from flaskr.service.billing.wallets import (
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.util.datetime import to_utc_iso
 
 
 @pytest.fixture
@@ -1264,8 +1265,8 @@ def test_repair_renewal_state_drift_all_scope_includes_reserved_only_creator(
             status=BILLING_ORDER_STATUS_PAID,
             paid_at=datetime(2026, 4, 7, 0, 0, 0),
             metadata_json={
-                "renewal_cycle_start_at": datetime(2026, 4, 8, 0, 0, 0).isoformat(),
-                "renewal_cycle_end_at": datetime(2026, 5, 8, 0, 0, 0).isoformat(),
+                "renewal_cycle_start_at": to_utc_iso(datetime(2026, 4, 8, 0, 0, 0)),
+                "renewal_cycle_end_at": to_utc_iso(datetime(2026, 5, 8, 0, 0, 0)),
             },
         )
         bucket = CreditWalletBucket(
@@ -1367,8 +1368,8 @@ def test_repair_renewal_state_drift_counts_only_successful_activations(
             status=BILLING_ORDER_STATUS_PAID,
             paid_at=datetime(2026, 4, 7, 0, 0, 0),
             metadata_json={
-                "renewal_cycle_start_at": boundary_at.isoformat(),
-                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+                "renewal_cycle_start_at": to_utc_iso(boundary_at),
+                "renewal_cycle_end_at": to_utc_iso(next_cycle_end),
             },
         )
         bucket = CreditWalletBucket(
@@ -1421,12 +1422,21 @@ def test_repair_renewal_state_drift_counts_only_successful_activations(
             repair_before=boundary_at + timedelta(minutes=1),
             dry_run=False,
         )
+        dao.db.session.refresh(subscription)
+        dao.db.session.refresh(bucket)
 
     assert payload["activated_reserved_order_count"] == 0
     assert payload["activated_creator_count"] == 0
+    assert payload["updated_subscription_count"] == 0
+    assert payload["expired_bucket_count"] == 0
     assert payload["activated_creator_bids"] == []
     assert payload["protected_creator_count"] == 1
     assert payload["protected_creator_bids"] == [creator_bid]
+    assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+    assert subscription.current_period_end_at == boundary_at
+    assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+    assert bucket.available_credits == Decimal("1000.0000000000")
+    assert bucket.reserved_credits == Decimal("1000.0000000000")
 
 
 def test_repair_expire_ledger_bucket_drift_dry_run_reports_without_writing(
