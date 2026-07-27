@@ -354,7 +354,7 @@ export default function ChatPage() {
       }
     };
     updateCourse();
-  }, [courseId]);
+  }, [courseId, updateCourseId]);
 
   const {
     tree,
@@ -781,42 +781,30 @@ export default function ChatPage() {
    * Pay part
    */
 
-  const {
-    payModalOpen,
-    payModalState,
-    openPayModal,
-    closePayModal,
-    setPayModalResult,
-  } = useCourseStore(
-    useShallow(state => ({
-      payModalOpen: state.payModalOpen,
-      payModalState: state.payModalState,
-      openPayModal: state.openPayModal,
-      closePayModal: state.closePayModal,
-      setPayModalResult: state.setPayModalResult,
-    })),
-  );
+  const { payModalOpen, payModalState, closePayModal, setPayModalResult } =
+    useCourseStore(
+      useShallow(state => ({
+        payModalOpen: state.payModalOpen,
+        payModalState: state.payModalState,
+        closePayModal: state.closePayModal,
+        setPayModalResult: state.setPayModalResult,
+      })),
+    );
 
   const onPurchased = useCallback(() => {
     reloadTree();
   }, [reloadTree]);
 
-  const _onPayModalCancel = useCallback(
-    (_?: unknown) => {
-      closePayModal();
-      setPayModalResult('cancel');
-    },
-    [closePayModal, setPayModalResult],
-  );
+  const _onPayModalCancel = useCallback(() => {
+    closePayModal();
+    setPayModalResult('cancel');
+  }, [closePayModal, setPayModalResult]);
 
-  const _onPayModalOk = useCallback(
-    (_?: unknown) => {
-      closePayModal();
-      setPayModalResult('ok');
-      onPurchased();
-    },
-    [closePayModal, onPurchased, setPayModalResult],
-  );
+  const _onPayModalOk = useCallback(() => {
+    closePayModal();
+    setPayModalResult('ok');
+    onPurchased();
+  }, [closePayModal, onPurchased, setPayModalResult]);
 
   /**
    * Misc part

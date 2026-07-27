@@ -7,7 +7,7 @@ import {
   useMemo,
 } from 'react';
 import React from 'react';
-import { useLatest, useMountedState } from 'react-use';
+import { useLatest } from 'react-use';
 import {
   mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
@@ -80,6 +80,7 @@ import {
 } from '@/c-store/useLessonRunContentStore';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
 import { resolveLearnerErrorMessage } from '@/lib/learnerError';
+import { debugWarn } from '@/c-utils/debugConsole';
 
 interface LessonFeedbackPopupState {
   open: boolean;
@@ -288,7 +289,6 @@ export interface UseChatSessionParams {
   // scrollToBottom: (behavior?: ScrollBehavior) => void;
   showOutputInProgressToast: () => void;
   onPayModalOpen: () => void;
-  chatBoxBottomRef: React.RefObject<HTMLDivElement | null>;
   onGoChapter: (lessonId: string) => void;
 }
 
@@ -345,7 +345,6 @@ function useChatLogicHook({
   listenRequestEnabled = false,
   shouldPromptLessonFeedback = true,
   trackEvent,
-  chatBoxBottomRef,
   trackTrailProgress,
   lessonUpdate,
   chapterUpdate,
@@ -356,7 +355,7 @@ function useChatLogicHook({
   showOutputInProgressToast,
   onPayModalOpen,
 }: UseChatSessionParams): UseChatSessionResult {
-  const { t, i18n, ready } = useTranslation();
+  const { t } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
   const isListenModeLatest = useLatest(isListenMode);
 
@@ -368,14 +367,12 @@ function useChatLogicHook({
   const isStreamingRef = useRef(false);
   const [isOutputInProgress, setIsOutputInProgress] = useState(false);
   const [hasRunFailed, setHasRunFailed] = useState(false);
-  const { updateResetedChapterId, updateResetedLessonId, resetedLessonId } =
-    useCourseStore(
-      useShallow(state => ({
-        resetedLessonId: state.resetedLessonId,
-        updateResetedChapterId: state.updateResetedChapterId,
-        updateResetedLessonId: state.updateResetedLessonId,
-      })),
-    );
+  const { updateResetedLessonId, resetedLessonId } = useCourseStore(
+    useShallow(state => ({
+      resetedLessonId: state.resetedLessonId,
+      updateResetedLessonId: state.updateResetedLessonId,
+    })),
+  );
 
   const effectivePreviewMode = previewMode ?? false;
   const lessonRunContentCacheKey = useMemo(
@@ -1378,10 +1375,6 @@ function useChatLogicHook({
     [parseLessonFeedbackScore],
   );
 
-  // Use react-use hooks for safer state management
-  const isMounted = useMountedState();
-  const chatBoxBottomRefLatest = useLatest(chatBoxBottomRef);
-
   /**
    * Auto scroll to bottom when history records are loaded and rendered
    * Only scroll once, don't interfere with user scrolling
@@ -2355,7 +2348,7 @@ function useChatLogicHook({
               }
             }
           } catch (error) {
-            console.warn('SSE handling error:', error);
+            debugWarn('[lesson-run] SSE handling error', error);
           }
         },
         error => {
@@ -2428,6 +2421,9 @@ function useChatLogicHook({
       shifuBid,
       lessonId,
       mobileStyle,
+      resolveRecordElementType,
+      t,
+      trackEvent,
       trackTrailProgress,
       allowTtsStreaming,
       appendRunBusinessError,
@@ -2445,7 +2441,6 @@ function useChatLogicHook({
       itemMatchesListenSlideIdentity,
       lessonRunContentCacheKey,
       markLessonRunAudioBackfillReady,
-      matchItemBid,
       mergeListenSlides,
       openLessonFeedbackPopup,
       removeLikeStatusByParent,
@@ -2720,7 +2715,7 @@ function useChatLogicHook({
       if (isCurrentRefresh()) {
         setShowLessonUpdateNotice(false);
       }
-      console.warn('refreshData error:', error);
+      debugWarn('[lesson-run] refreshData error', error);
     } finally {
       if (isCurrentRefresh()) {
         setIsLoading(false);
