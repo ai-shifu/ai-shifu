@@ -1,5 +1,6 @@
 import {
   resolveLearnerErrorMessage,
+  resolveLearnerErrorToast,
   resolveLearnerPaymentToast,
 } from './learnerError';
 import { getRequestFallbackMessage } from './request';
@@ -77,6 +78,30 @@ describe('resolveLearnerErrorMessage', () => {
 });
 
 describe('resolveLearnerPaymentToast', () => {
+  it('builds a destructive toast from the shared learner error fallback', () => {
+    expect(
+      resolveLearnerErrorToast({
+        error: { status: 502 },
+        fallbackMessage: 'i18n:module.chat.requestFailed',
+      }),
+    ).toEqual({
+      message: 'request-fallback',
+      variant: 'destructive',
+    });
+  });
+
+  it('preserves explicit learner-facing toast messages', () => {
+    expect(
+      resolveLearnerErrorToast({
+        message: '请稍后重试',
+        fallbackMessage: 'i18n:module.preview.requestFailed',
+      }),
+    ).toEqual({
+      message: '请稍后重试',
+      variant: 'destructive',
+    });
+  });
+
   it('maps payment cancellation to a non-destructive canceled message', () => {
     expect(
       resolveLearnerPaymentToast({

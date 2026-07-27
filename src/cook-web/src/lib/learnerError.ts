@@ -78,6 +78,23 @@ export const resolveLearnerErrorMessage = ({
   return fallbackMessage;
 };
 
+export const resolveLearnerErrorToast = ({
+  error,
+  message,
+  fallbackMessage,
+}: {
+  error?: LearnerErrorLike | string | null;
+  message?: string | null;
+  fallbackMessage: string;
+}): { message: string; variant: LearnerToastVariant } => ({
+  message: resolveLearnerErrorMessage({
+    error: typeof error === 'string' ? undefined : error,
+    message: typeof error === 'string' ? error : message,
+    fallbackMessage,
+  }),
+  variant: 'destructive',
+});
+
 export const resolveLearnerPaymentToast = ({
   error,
   message,

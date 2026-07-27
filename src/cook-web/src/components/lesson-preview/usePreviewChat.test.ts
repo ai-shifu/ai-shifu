@@ -172,4 +172,37 @@ describe('usePreviewChat helpers and business error rendering', () => {
       buildPreviewBusinessErrorItem('余额不足'),
     ]);
   });
+
+  test('keeps the preview business code on the rendered error row', () => {
+    expect(
+      buildPreviewBusinessErrorItem('积分不足，请稍后重试', 7101),
+    ).toMatchObject({
+      element_bid: 'preview-business-error',
+      generated_block_bid: 'preview-business-error',
+      content: '积分不足，请稍后重试',
+      type: ChatContentItemType.ERROR,
+      business_code: 7101,
+    });
+  });
+
+  test('drops the loading placeholder without appending an empty error row', () => {
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'content-1',
+        generated_block_bid: 'content-1',
+        content: 'Existing content',
+        type: ChatContentItemType.CONTENT,
+      },
+      {
+        element_bid: 'loading',
+        generated_block_bid: 'loading',
+        content: '',
+        type: ChatContentItemType.CONTENT,
+      },
+    ];
+
+    expect(replacePreviewLoadingWithBusinessError(items, '   ')).toEqual([
+      items[0],
+    ]);
+  });
 });
