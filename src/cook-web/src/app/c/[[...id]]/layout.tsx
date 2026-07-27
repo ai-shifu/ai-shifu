@@ -7,7 +7,7 @@ import { parseUrlParams } from '@/c-utils/urlUtils';
 // import { ConfigProvider } from 'antd';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useTranslation } from 'react-i18next';
-import { debugError, debugInfo } from '@/c-utils/debugConsole';
+import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
 
 import { useShallow } from 'zustand/react/shallow';
 import { useParams } from 'next/navigation';
@@ -211,7 +211,7 @@ export default function ChatLayout({
     const currCode = params.code;
 
     if (!appId) {
-      console.warn('WeChat appId missing, skip OAuth redirect');
+      debugWarn('[lesson-layout] WeChat appId missing, skip OAuth redirect');
       setCheckWxcode(true);
       return;
     }
@@ -553,7 +553,7 @@ export default function ChatLayout({
               typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
             has_token: Boolean(useUserStore.getState().getToken()),
           });
-          console.warn('Skip 404 redirect for non-notfound course info error', {
+          debugWarn('[course-info] skip 404 redirect for non-notfound error', {
             courseId,
             error,
           });

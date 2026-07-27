@@ -63,6 +63,7 @@ import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
 import { trackCourseVisitIfNeeded } from './courseVisitTracking';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
 import ProfileOnboardingModal from '@/components/profile-onboarding/ProfileOnboardingModal';
+import { debugWarn } from '@/c-utils/debugConsole';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveLearnerErrorMessage } from '@/lib/learnerError';
 import { toast } from '@/hooks/useToast';
@@ -167,8 +168,7 @@ export default function ChatPage() {
     }
 
     void updateWxcode({ wxcode: wechatCode }).catch(err => {
-      // eslint-disable-next-line no-console
-      console.warn('Failed to update WeChat OpenID:', err);
+      debugWarn('[lesson-page] failed to update WeChat OpenID', err);
     });
   }, [initialized, isLoggedIn, wechatCode]);
 
@@ -474,8 +474,7 @@ export default function ChatPage() {
         setProfileOnboardingRuntimeReady(true);
       })
       .catch(error => {
-        // eslint-disable-next-line no-console
-        console.warn('Failed to load profile onboarding:', error);
+        debugWarn('[profile-onboarding] failed to load status', error);
         notifyProfileOnboardingLoadFailure(error);
         setProfileOnboardingRuntimeReady(true);
       });
@@ -497,8 +496,7 @@ export default function ChatPage() {
           variables,
         });
         await refreshUserInfo().catch(error => {
-          // eslint-disable-next-line no-console
-          console.warn('Failed to refresh user info after onboarding:', error);
+          debugWarn('[profile-onboarding] failed to refresh user info', error);
           notifyProfileOnboardingRefreshDelay();
         });
         closeProfileOnboarding();

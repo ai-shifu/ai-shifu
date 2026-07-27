@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  readLocalStorageItem,
+  writeLocalStorageItem,
+} from '@/c-utils/runtimeStorage';
+import { debugWarn } from '@/c-utils/debugConsole';
+
 const STORAGE_PREFIX = 'lesson_preview_variables';
 const GLOBAL_STORAGE_KEY = STORAGE_PREFIX;
 
@@ -34,11 +40,16 @@ const readStorage = (key: string): PreviewVariablesMap => {
   if (typeof window === 'undefined' || !key) {
     return {};
   }
+
+  const raw = readLocalStorageItem(
+    key,
+    '[preview-variable-storage] failed to read localStorage',
+  );
+  if (!raw) {
+    return {};
+  }
+
   try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) {
-      return {};
-    }
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') {
       return {};
@@ -49,7 +60,10 @@ const readStorage = (key: string): PreviewVariablesMap => {
       return acc;
     }, {});
   } catch (error) {
-    console.warn('Failed to parse preview variables from storage', error);
+    debugWarn('[preview-variable-storage] failed to parse localStorage JSON', {
+      key,
+      error,
+    });
     return {};
   }
 };
@@ -58,11 +72,11 @@ const writeStorage = (key: string, data: PreviewVariablesMap) => {
   if (typeof window === 'undefined' || !key) {
     return;
   }
-  try {
-    window.localStorage.setItem(key, JSON.stringify(data));
-  } catch (error) {
-    console.warn('Failed to save preview variables to storage', error);
-  }
+  writeLocalStorageItem(
+    key,
+    JSON.stringify(data),
+    '[preview-variable-storage] failed to write localStorage',
+  );
 };
 
 export const getStoredPreviewVariables = (
