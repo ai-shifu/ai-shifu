@@ -114,8 +114,9 @@ from .subscriptions import (
 from .trials import backfill_missing_creator_trial_credits
 from .wallets import (
     rebuild_credit_wallet_snapshots,
-    repair_expire_ledger_bucket_drift,
     repair_credit_bucket_runtime_statuses,
+    repair_expire_ledger_bucket_drift,
+    repair_renewal_state_drift,
 )
 
 _PRODUCT_TYPE_LABELS = {
@@ -817,6 +818,48 @@ def register_billing_commands(console) -> None:
             current_app,
             creator_bid=creator_bid,
             wallet_bucket_bid=wallet_bucket_bid,
+            limit=limit if process_all else None,
+            dry_run=not apply_changes,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="repair-renewal-state-drift")
+    @click.option("--creator-bid", default="", help="Repair one creator.")
+    @click.option(
+        "--limit",
+        type=click.IntRange(min=1),
+        default=None,
+        help="Maximum creator rows to scan when used with --all.",
+    )
+    @click.option(
+        "--all",
+        "process_all",
+        is_flag=True,
+        help="Scan every creator billing state for past-end drift.",
+    )
+    @click.option(
+        "--apply",
+        "apply_changes",
+        is_flag=True,
+        help="Persist drift repairs. Defaults to dry-run.",
+    )
+    @with_appcontext
+    def repair_renewal_state_drift_command(
+        creator_bid: str,
+        limit: int | None,
+        process_all: bool,
+        apply_changes: bool,
+    ) -> None:
+        """Repair lingering subscription or bucket state after cycle end."""
+
+        if not str(creator_bid or "").strip() and not process_all:
+            raise click.ClickException(
+                "Pass --creator-bid or --all for renewal state drift repair."
+            )
+
+        payload = repair_renewal_state_drift(
+            current_app,
+            creator_bid=creator_bid,
             limit=limit if process_all else None,
             dry_run=not apply_changes,
         )
