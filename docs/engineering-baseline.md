@@ -103,7 +103,7 @@ The project follows a microservices architecture with two main components:
 - Plugin-based architecture with hot reload support under
   `flaskr/framework/plugin/`
 - Service-layer organization with dedicated domains such as `shifu`, `learn`,
-  `user`, `order`, `profile`, `lesson`, `llm`, and `gen_mdf`
+  `user`, `order`, `profile`, `lesson`, and `llm`
 - Database migrations managed with Alembic under `migrations/`
 - Shared localization data managed under `src/i18n/`
 
@@ -115,14 +115,6 @@ The project follows a microservices architecture with two main components:
   variables
 - Prefer OpenAI-compatible providers so the shared LiteLLM wrapper can own the
   integration
-
-#### MDF Conversion Service
-
-- Backend endpoint: `POST /api/gen_mdf/convert`
-- Configuration: set `GEN_MDF_API_URL` in backend `.env`
-- Frontend must call the backend proxy via `api.genMdfConvert()`
-- Keep the upstream MDF URL hidden from the browser
-- Preserve validation for text length, language, and timeout boundaries
 
 ### Frontend Architecture Notes
 
