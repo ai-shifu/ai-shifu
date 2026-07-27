@@ -47,17 +47,14 @@ type RequestDebugMeta = {
   skipErrorToast?: boolean;
 };
 
-const getBusinessFallbackMessage = () => i18n.t('common.core.actionFailed');
+export const getBusinessFallbackMessage = () =>
+  i18n.t('common.core.actionFailed');
 
 const isServerSideStatus = (status?: number) =>
   typeof status === 'number' && status >= 500;
 
-const getRequestFallbackMessage = (error?: Partial<ErrorWithCode>) => {
-  if (
-    typeof navigator !== 'undefined' &&
-    Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
-    navigator.onLine === false
-  ) {
+export const getRequestFallbackMessage = (error?: Partial<ErrorWithCode>) => {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return i18n.t('common.core.networkError');
   }
 
