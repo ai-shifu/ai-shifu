@@ -1090,7 +1090,10 @@ def repair_renewal_state_drift(
 
         if not dry_run:
             # Local import avoids a circular dependency with subscriptions.py.
-            from .subscriptions import grant_paid_order_credits
+            from .subscriptions import (
+                IncompleteReservedGrantActivationError,
+                grant_paid_order_credits,
+            )
 
             for target_creator_bid in creator_bids:
                 candidate_order_bids = sorted(
@@ -1118,20 +1121,29 @@ def repair_renewal_state_drift(
                         .all()
                     )
                     if candidate_orders:
-                        with unit_of_work():
-                            for order in candidate_orders:
-                                activation_snapshot = (
-                                    _capture_reserved_grant_activation_snapshot(order)
-                                )
-                                grant_paid_order_credits(app, order)
-                                if _reserved_grant_activation_completed(
-                                    order, activation_snapshot
-                                ):
-                                    activated_reserved_order_count += 1
-                                    if target_creator_bid not in activated_creator_bids:
-                                        activated_creator_bids.append(
-                                            target_creator_bid
+                        try:
+                            with unit_of_work():
+                                for order in candidate_orders:
+                                    activation_snapshot = (
+                                        _capture_reserved_grant_activation_snapshot(
+                                            order
                                         )
+                                    )
+                                    grant_paid_order_credits(app, order)
+                                    if _reserved_grant_activation_completed(
+                                        order, activation_snapshot
+                                    ):
+                                        activated_reserved_order_count += 1
+                                        if (
+                                            target_creator_bid
+                                            not in activated_creator_bids
+                                        ):
+                                            activated_creator_bids.append(
+                                                target_creator_bid
+                                            )
+                        except IncompleteReservedGrantActivationError:
+                            protected_creator_bids.append(target_creator_bid)
+                            continue
 
                 remaining_reserved_records = _load_overdue_reserved_paid_order_records(
                     repaired_at=repaired_at,
