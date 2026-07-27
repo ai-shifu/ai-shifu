@@ -9,6 +9,7 @@ from typing import Any
 
 from flask import Flask
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import ObjectDeletedError
 
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
@@ -1600,9 +1601,14 @@ def _expire_credit_wallet_buckets_in_session(
     expired_total = _ZERO
     expired_count = 0
     for bucket in buckets:
-        db.session.refresh(bucket)
+        try:
+            db.session.refresh(bucket)
+        except ObjectDeletedError:
+            continue
         if (
-            int(bucket.status or 0) != CREDIT_BUCKET_STATUS_ACTIVE
+            int(bucket.deleted or 0) != 0
+            or int(bucket.status or 0) != CREDIT_BUCKET_STATUS_ACTIVE
+            or not str(bucket.wallet_bid or "").strip()
             or bucket.effective_to is None
             or bucket.effective_to > cutoff
         ):

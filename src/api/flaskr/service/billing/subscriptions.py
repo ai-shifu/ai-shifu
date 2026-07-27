@@ -888,6 +888,15 @@ def _activate_reserved_renewal_grants_for_cycle(
             )
         )
 
+    attribution_order_bid = next(
+        (
+            row.bill_order_bid
+            for row in cycle_orders
+            if int(row.paid_amount or 0) > 0 or int(row.payable_amount or 0) > 0
+        ),
+        order.bill_order_bid,
+    )
+
     activated = False
     for cycle_order in cycle_orders:
         activated = (
@@ -896,6 +905,7 @@ def _activate_reserved_renewal_grants_for_cycle(
                 order=cycle_order,
                 effective_from=effective_from,
                 effective_to=effective_to,
+                attribution_order_bid=attribution_order_bid,
             )
             or activated
         )
@@ -1287,6 +1297,7 @@ def _activate_reserved_subscription_grant_for_order(
     order: BillingOrder,
     effective_from: datetime,
     effective_to: datetime | None,
+    attribution_order_bid: str | None = None,
 ) -> bool:
     grant_entry = _load_grant_ledger_entry_for_order(order)
     if grant_entry is None:
@@ -1315,7 +1326,10 @@ def _activate_reserved_subscription_grant_for_order(
         return False
 
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
-    if bucket.effective_from is None or bucket.effective_from < effective_from:
+    is_first_cycle_activation = (
+        bucket.effective_from is None or bucket.effective_from < effective_from
+    )
+    if is_first_cycle_activation:
         _expire_credit_bucket_balance_for_transition(
             app,
             wallet=wallet,
@@ -1334,7 +1348,8 @@ def _activate_reserved_subscription_grant_for_order(
     bucket.source_type = resolve_bucket_source_type_for_category(
         CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
     )
-    bucket.source_bid = order.bill_order_bid
+    if is_first_cycle_activation:
+        bucket.source_bid = attribution_order_bid or order.bill_order_bid
     bucket.priority = resolve_credit_bucket_priority(
         CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
     )
@@ -1346,10 +1361,12 @@ def _activate_reserved_subscription_grant_for_order(
     )
     bucket.effective_from = effective_from
     bucket.effective_to = effective_to
-    bucket.metadata_json = {
-        **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
-        **_build_bucket_metadata_from_order(order),
-    }
+    if is_first_cycle_activation:
+        bucket.metadata_json = {
+            **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
+            **_build_bucket_metadata_from_order(order),
+            "bill_order_bid": attribution_order_bid or order.bill_order_bid,
+        }
     bucket.updated_at = now
     _prepare_bucket_for_runtime_reuse(bucket)
     sync_credit_bucket_status(bucket)
