@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Flask
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import ObjectDeletedError
 
@@ -345,9 +346,83 @@ def _normalize_json_dict(payload: object) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+@dataclass(slots=True, frozen=True)
+class ReservedGrantActivationSnapshot:
+    grant_ledger_bid: str
+    wallet_bucket_bid: str
+    grant_amount: Decimal
+    reserved_credits: Decimal
+
+
 def _extract_order_bid_from_renewal_event(event: BillingRenewalEvent) -> str:
     payload = _normalize_json_dict(event.payload_json)
     return _normalize_bid(payload.get("bill_order_bid"))
+
+
+def _capture_reserved_grant_activation_snapshot(
+    order: BillingOrder,
+) -> ReservedGrantActivationSnapshot | None:
+    grant_entry = (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == order.creator_bid,
+            CreditLedgerEntry.idempotency_key == f"grant:{order.bill_order_bid}",
+        )
+        .order_by(CreditLedgerEntry.id.desc())
+        .first()
+    )
+    if grant_entry is None or not _normalize_bid(grant_entry.wallet_bucket_bid):
+        return None
+    bucket = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.wallet_bucket_bid == grant_entry.wallet_bucket_bid,
+        )
+        .order_by(CreditWalletBucket.id.desc())
+        .first()
+    )
+    if bucket is None:
+        return None
+    return ReservedGrantActivationSnapshot(
+        grant_ledger_bid=grant_entry.ledger_bid,
+        wallet_bucket_bid=bucket.wallet_bucket_bid,
+        grant_amount=_to_decimal(grant_entry.amount),
+        reserved_credits=_to_decimal(bucket.reserved_credits),
+    )
+
+
+def _reserved_grant_activation_completed(
+    order: BillingOrder,
+    snapshot: ReservedGrantActivationSnapshot | None,
+) -> bool:
+    if snapshot is None:
+        return False
+    grant_entry = (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.ledger_bid == snapshot.grant_ledger_bid,
+        )
+        .order_by(CreditLedgerEntry.id.desc())
+        .first()
+    )
+    bucket = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.wallet_bucket_bid == snapshot.wallet_bucket_bid,
+        )
+        .order_by(CreditWalletBucket.id.desc())
+        .first()
+    )
+    if grant_entry is None or bucket is None:
+        return False
+    metadata = _normalize_json_dict(grant_entry.metadata_json)
+    if str(metadata.get("bucket_credit_state") or "").strip().lower() == "reserved":
+        return False
+    moved_reserved_amount = _quantize_credit_amount(
+        snapshot.reserved_credits - _to_decimal(bucket.reserved_credits)
+    )
+    expected_amount = _quantize_credit_amount(snapshot.grant_amount)
+    return moved_reserved_amount == expected_amount
 
 
 def _load_overdue_reserved_paid_order_records(
@@ -453,6 +528,50 @@ def _load_overdue_reserved_paid_order_records(
             )
         )
     return records
+
+
+def _load_overdue_reserved_paid_order_creator_bids(
+    *,
+    repaired_at: datetime,
+    creator_bid: str = "",
+    limit: int | None = None,
+) -> list[str]:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
+    bill_order_bid_expr = func.coalesce(
+        func.json_extract(CreditLedgerEntry.metadata_json, "$.bill_order_bid"),
+        CreditLedgerEntry.source_bid,
+    )
+    query = (
+        db.session.query(CreditLedgerEntry.creator_bid)
+        .join(
+            BillingOrder,
+            BillingOrder.bill_order_bid == bill_order_bid_expr,
+        )
+        .filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            CreditLedgerEntry.consumable_from.isnot(None),
+            CreditLedgerEntry.consumable_from <= repaired_at,
+            func.lower(
+                func.coalesce(
+                    func.json_extract(
+                        CreditLedgerEntry.metadata_json, "$.bucket_credit_state"
+                    ),
+                    "",
+                )
+            )
+            == "reserved",
+            BillingOrder.deleted == 0,
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+        )
+    )
+    if normalized_creator_bid:
+        query = query.filter(CreditLedgerEntry.creator_bid == normalized_creator_bid)
+    query = query.distinct().order_by(CreditLedgerEntry.creator_bid.asc())
+    if normalized_limit is not None:
+        query = query.limit(normalized_limit)
+    return [_normalize_bid(row[0]) for row in query.all() if _normalize_bid(row[0])]
 
 
 def _build_legacy_expire_ledger_idempotency_key(wallet_bucket_bid: str) -> str:
@@ -883,13 +1002,19 @@ def repair_renewal_state_drift(
             if candidate and candidate not in seen_creator_bids:
                 seen_creator_bids.add(candidate)
                 creator_bids.append(candidate)
-        overdue_reserved_grants = _load_overdue_reserved_paid_order_records(
-            repaired_at=repaired_at,
-            creator_bid=normalized_creator_bid,
-            creator_bids=None if normalized_creator_bid else seen_creator_bids,
-        )
-        for record in overdue_reserved_grants:
-            candidate = _normalize_bid(record.creator_bid)
+        remaining_limit = None
+        if normalized_limit is not None:
+            remaining_limit = max(normalized_limit - len(creator_bids), 0)
+        overdue_reserved_creator_bids: list[str] = []
+        if remaining_limit is None or remaining_limit > 0:
+            overdue_reserved_creator_bids = (
+                _load_overdue_reserved_paid_order_creator_bids(
+                    repaired_at=repaired_at,
+                    creator_bid=normalized_creator_bid,
+                    limit=remaining_limit,
+                )
+            )
+        for candidate in overdue_reserved_creator_bids:
             if candidate and candidate not in seen_creator_bids:
                 seen_creator_bids.add(candidate)
                 creator_bids.append(candidate)
@@ -920,6 +1045,11 @@ def repair_renewal_state_drift(
             )
 
         scoped_creator_bids = set(creator_bids)
+        overdue_reserved_grants = _load_overdue_reserved_paid_order_records(
+            repaired_at=repaired_at,
+            creator_bid=normalized_creator_bid,
+            creator_bids=scoped_creator_bids,
+        )
         scoped_stale_subscription_count = sum(
             1
             for row in stale_subscriptions
@@ -981,9 +1111,18 @@ def repair_renewal_state_drift(
                     if candidate_orders:
                         with unit_of_work():
                             for order in candidate_orders:
+                                activation_snapshot = (
+                                    _capture_reserved_grant_activation_snapshot(order)
+                                )
                                 grant_paid_order_credits(app, order)
-                                activated_reserved_order_count += 1
-                        activated_creator_bids.append(target_creator_bid)
+                                if _reserved_grant_activation_completed(
+                                    order, activation_snapshot
+                                ):
+                                    activated_reserved_order_count += 1
+                                    if target_creator_bid not in activated_creator_bids:
+                                        activated_creator_bids.append(
+                                            target_creator_bid
+                                        )
 
                 remaining_reserved_records = _load_overdue_reserved_paid_order_records(
                     repaired_at=repaired_at,
