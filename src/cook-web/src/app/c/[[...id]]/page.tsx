@@ -65,6 +65,7 @@ import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
 import ProfileOnboardingModal from '@/components/profile-onboarding/ProfileOnboardingModal';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveLearnerErrorMessage } from '@/lib/learnerError';
+import { toast } from '@/hooks/useToast';
 
 const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
   ssr: false,
@@ -406,6 +407,41 @@ export default function ChatPage() {
     useState(false);
   const [profileOnboardingError, setProfileOnboardingError] = useState('');
 
+  const closeProfileOnboarding = useCallback(() => {
+    setProfileOnboardingOpen(false);
+    setProfileOnboardingStatus(null);
+    setProfileOnboardingError('');
+  }, []);
+
+  const resolveProfileOnboardingError = useCallback(
+    (error: unknown) => {
+      return resolveLearnerErrorMessage({
+        error: error as Partial<ErrorWithCode>,
+        fallbackMessage: t('module.profileOnboarding.submitFailed'),
+      });
+    },
+    [t],
+  );
+
+  const notifyProfileOnboardingLoadFailure = useCallback(
+    (error: unknown) => {
+      toast({
+        title: resolveLearnerErrorMessage({
+          error: error as Partial<ErrorWithCode>,
+          fallbackMessage: t('module.profileOnboarding.loadFailed'),
+        }),
+        variant: 'destructive',
+      });
+    },
+    [t],
+  );
+
+  const notifyProfileOnboardingRefreshDelay = useCallback(() => {
+    toast({
+      title: t('module.profileOnboarding.refreshPending'),
+    });
+  }, [t]);
+
   useEffect(() => {
     if (!initialized) {
       setProfileOnboardingRuntimeReady(false);
@@ -440,25 +476,16 @@ export default function ChatPage() {
       .catch(error => {
         // eslint-disable-next-line no-console
         console.warn('Failed to load profile onboarding:', error);
+        notifyProfileOnboardingLoadFailure(error);
         setProfileOnboardingRuntimeReady(true);
       });
-  }, [courseName, initialized, isLoggedIn, previewMode]);
-
-  const closeProfileOnboarding = useCallback(() => {
-    setProfileOnboardingOpen(false);
-    setProfileOnboardingStatus(null);
-    setProfileOnboardingError('');
-  }, []);
-
-  const resolveProfileOnboardingError = useCallback(
-    (error: unknown) => {
-      return resolveLearnerErrorMessage({
-        error: error as Partial<ErrorWithCode>,
-        fallbackMessage: t('module.profileOnboarding.submitFailed'),
-      });
-    },
-    [t],
-  );
+  }, [
+    courseName,
+    initialized,
+    isLoggedIn,
+    notifyProfileOnboardingLoadFailure,
+    previewMode,
+  ]);
 
   const handleProfileOnboardingComplete = useCallback(
     async (variables: Record<string, string>) => {
@@ -472,6 +499,7 @@ export default function ChatPage() {
         await refreshUserInfo().catch(error => {
           // eslint-disable-next-line no-console
           console.warn('Failed to refresh user info after onboarding:', error);
+          notifyProfileOnboardingRefreshDelay();
         });
         closeProfileOnboarding();
         setProfileOnboardingRuntimeReady(true);
@@ -481,7 +509,12 @@ export default function ChatPage() {
         setProfileOnboardingSubmitting(false);
       }
     },
-    [closeProfileOnboarding, refreshUserInfo, resolveProfileOnboardingError],
+    [
+      closeProfileOnboarding,
+      notifyProfileOnboardingRefreshDelay,
+      refreshUserInfo,
+      resolveProfileOnboardingError,
+    ],
   );
 
   const handleProfileOnboardingSkip = useCallback(async () => {
