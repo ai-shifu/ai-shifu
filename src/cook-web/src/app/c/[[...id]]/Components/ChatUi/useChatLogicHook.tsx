@@ -79,6 +79,7 @@ import {
   useLessonRunContentStore,
 } from '@/c-store/useLessonRunContentStore';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
+import { resolveLearnerErrorMessage } from '@/lib/learnerError';
 
 interface LessonFeedbackPopupState {
   open: boolean;
@@ -1814,9 +1815,13 @@ function useChatLogicHook({
                   : typeof rawContent?.code === 'number'
                     ? rawContent.code
                     : undefined;
+              const resolvedErrorMessage = resolveLearnerErrorMessage({
+                message: errorContent,
+                fallbackMessage: t('module.chat.requestFailed'),
+              });
 
               toast({
-                title: errorContent || 'Request failed',
+                title: resolvedErrorMessage,
                 variant: 'destructive',
               });
               if (

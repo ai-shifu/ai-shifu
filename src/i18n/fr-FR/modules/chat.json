@@ -50,6 +50,7 @@
   "regenerate": "Régénérer",
   "regenerateConfirmDescription": "La régénération remplacera ce contenu et tout le contenu suivant. Le contenu actuel sera effacé.",
   "regenerateConfirmTitle": "Confirmer la régénération de ce contenu ?",
+  "requestFailed": "La requête a échoué. Veuillez réessayer plus tard.",
   "slideAudioBuffering": "Mise en mémoire tampon…",
   "streamTimeoutRetry": "Le service a expiré. Veuillez actualiser et réessayer.",
   "thinking": "Réflexion…",
