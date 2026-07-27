@@ -79,7 +79,7 @@ import {
   useLessonRunContentStore,
 } from '@/c-store/useLessonRunContentStore';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
-import { resolveLearnerErrorMessage } from '@/lib/learnerError';
+import { resolveLearnerErrorToast } from '@/lib/learnerError';
 import { debugWarn } from '@/c-utils/debugConsole';
 
 interface LessonFeedbackPopupState {
@@ -1808,14 +1808,14 @@ function useChatLogicHook({
                   : typeof rawContent?.code === 'number'
                     ? rawContent.code
                     : undefined;
-              const resolvedErrorMessage = resolveLearnerErrorMessage({
+              const resolvedErrorToast = resolveLearnerErrorToast({
                 message: errorContent,
                 fallbackMessage: t('module.chat.requestFailed'),
               });
 
               toast({
-                title: resolvedErrorMessage,
-                variant: 'destructive',
+                title: resolvedErrorToast.message,
+                variant: resolvedErrorToast.variant,
               });
               if (
                 effectivePreviewMode &&
@@ -2369,9 +2369,13 @@ function useChatLogicHook({
             businessError?.code === CREDIT_INSUFFICIENT_ERROR_CODE &&
             businessError?.message?.trim()
           ) {
+            const resolvedErrorToast = resolveLearnerErrorToast({
+              message: businessError.message.trim(),
+              fallbackMessage: t('module.chat.requestFailed'),
+            });
             toast({
-              title: businessError.message.trim(),
-              variant: 'destructive',
+              title: resolvedErrorToast.message,
+              variant: resolvedErrorToast.variant,
             });
             cleanupRunStreamState();
             setHasRunFailed(true);

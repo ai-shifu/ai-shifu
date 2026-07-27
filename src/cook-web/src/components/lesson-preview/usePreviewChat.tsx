@@ -33,7 +33,10 @@ import { normalizeLegacyBlockCompatList } from '@/c-utils/chatUiCompat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
-import { resolveLearnerErrorMessage } from '@/lib/learnerError';
+import {
+  resolveLearnerErrorMessage,
+  resolveLearnerErrorToast,
+} from '@/lib/learnerError';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 import type { ErrorWithCode } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
@@ -708,10 +711,12 @@ export function usePreviewChat() {
 
   const handlePreviewBusinessError = useCallback(
     (errorOrMessage?: string | ErrorWithCode | null, fallbackCode?: number) => {
-      const resolvedMessage =
-        typeof errorOrMessage === 'string'
-          ? errorOrMessage.trim() || t('module.preview.llmError')
-          : errorOrMessage?.message?.trim() || t('module.preview.llmError');
+      const resolvedToast = resolveLearnerErrorToast({
+        error: typeof errorOrMessage === 'string' ? undefined : errorOrMessage,
+        message:
+          typeof errorOrMessage === 'string' ? errorOrMessage : undefined,
+        fallbackMessage: t('module.preview.llmError'),
+      });
       const resolvedCode =
         typeof errorOrMessage === 'string'
           ? fallbackCode
@@ -719,11 +724,11 @@ export function usePreviewChat() {
       setTrackedContentList(prev =>
         replacePreviewLoadingWithBusinessError(
           prev,
-          resolvedMessage,
+          resolvedToast.message,
           resolvedCode,
         ),
       );
-      setError(resolvedMessage);
+      setError(resolvedToast.message);
       stopPreview();
     },
     [setTrackedContentList, stopPreview, t],

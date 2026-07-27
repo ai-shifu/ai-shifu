@@ -65,7 +65,10 @@ import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
 import ProfileOnboardingModal from '@/components/profile-onboarding/ProfileOnboardingModal';
 import { debugWarn } from '@/c-utils/debugConsole';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveLearnerErrorMessage } from '@/lib/learnerError';
+import {
+  resolveLearnerErrorMessage,
+  resolveLearnerErrorToast,
+} from '@/lib/learnerError';
 import { toast } from '@/hooks/useToast';
 
 const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
@@ -425,12 +428,13 @@ export default function ChatPage() {
 
   const notifyProfileOnboardingLoadFailure = useCallback(
     (error: unknown) => {
+      const resolvedToast = resolveLearnerErrorToast({
+        error: error as Partial<ErrorWithCode>,
+        fallbackMessage: t('module.profileOnboarding.loadFailed'),
+      });
       toast({
-        title: resolveLearnerErrorMessage({
-          error: error as Partial<ErrorWithCode>,
-          fallbackMessage: t('module.profileOnboarding.loadFailed'),
-        }),
-        variant: 'destructive',
+        title: resolvedToast.message,
+        variant: resolvedToast.variant,
       });
     },
     [t],
