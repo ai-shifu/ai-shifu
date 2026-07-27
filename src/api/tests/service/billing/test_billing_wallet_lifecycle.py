@@ -1003,19 +1003,48 @@ def test_repair_renewal_state_drift_dry_run_reports_overdue_reserved_paid_grant(
             repair_before=boundary_at + timedelta(minutes=1),
             dry_run=True,
         )
+        dao.db.session.expire_all()
+        wallet = CreditWallet.query.filter_by(creator_bid=creator_bid).one()
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-renewal-drift-protected-dry-run"
+        ).one()
+        ledger = CreditLedgerEntry.query.filter_by(ledger_bid=ledger_bid).one()
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid=subscription_bid
+        ).one()
+        event = BillingRenewalEvent.query.filter_by(
+            renewal_event_bid="renewal-event-protected-dry-run"
+        ).one()
 
     assert payload["status"] == "dry_run"
     assert payload["creator_count"] == 1
     assert payload["stale_subscription_count"] == 1
     assert payload["stale_bucket_count"] == 1
     assert payload["overdue_reserved_grant_count"] == 1
-    assert payload["protected_creator_count"] == 1
-    assert payload["protected_creator_bids"] == [creator_bid]
+    assert payload["activatable_creator_count"] == 1
+    assert payload["activatable_creator_bids"] == [creator_bid]
+    assert payload["activated_creator_count"] == 0
+    assert payload["activated_creator_bids"] == []
+    assert payload["protected_creator_count"] == 0
+    assert payload["protected_creator_bids"] == []
     assert payload["overdue_reserved_grants"][0]["bill_order_bid"] == order_bid
     assert payload["overdue_reserved_grants"][0]["grant_ledger_bid"] == ledger_bid
     assert payload["overdue_reserved_grants"][0]["renewal_event_bids"] == [
         "renewal-event-protected-dry-run"
     ]
+    assert (
+        payload["overdue_reserved_grants"][0]["consumable_from"]
+        == "2026-04-08T00:00:00Z"
+    )
+    assert payload["overdue_reserved_grants"][0]["paid_at"] == "2026-04-07T00:00:00Z"
+    assert wallet.reserved_credits == Decimal("1000.0000000000")
+    assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+    assert bucket.effective_to == boundary_at
+    assert bucket.reserved_credits == Decimal("1000.0000000000")
+    assert ledger.metadata_json["bucket_credit_state"] == "reserved"
+    assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+    assert subscription.current_period_end_at == boundary_at
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
 
 
 def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_expiry(
@@ -1171,8 +1200,13 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
 
     assert payload["status"] == "repaired"
     assert payload["overdue_reserved_grant_count"] == 1
+    assert payload["activatable_creator_count"] == 1
+    assert payload["activatable_creator_bids"] == [creator_bid]
     assert payload["activated_reserved_order_count"] == 1
+    assert payload["activated_creator_count"] == 1
+    assert payload["activated_creator_bids"] == [creator_bid]
     assert payload["protected_creator_count"] == 0
+    assert payload["protected_creator_bids"] == []
     assert payload["expired_bucket_count"] == 0
     assert payload["updated_subscription_count"] == 0
     assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE

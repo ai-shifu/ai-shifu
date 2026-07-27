@@ -15,7 +15,7 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
 from flaskr.util.uuid import generate_id
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 from .consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
@@ -275,8 +275,8 @@ class ReservedGrantRepairRecord:
             "subscription_bid": self.subscription_bid,
             "grant_ledger_bid": self.grant_ledger_bid,
             "wallet_bucket_bid": self.wallet_bucket_bid,
-            "consumable_from": self.consumable_from,
-            "paid_at": self.paid_at,
+            "consumable_from": to_utc_iso(self.consumable_from),
+            "paid_at": to_utc_iso(self.paid_at),
             "renewal_event_bids": list(self.renewal_event_bids),
         }
 
@@ -296,9 +296,13 @@ class RenewalStateDriftRepairResult:
     expired_credits: int | float
     dry_run: bool
     overdue_reserved_grant_count: int = 0
+    activatable_creator_count: int = 0
     activated_reserved_order_count: int = 0
+    activated_creator_count: int = 0
     protected_creator_count: int = 0
     creator_bids: list[str] = field(default_factory=list)
+    activatable_creator_bids: list[str] = field(default_factory=list)
+    activated_creator_bids: list[str] = field(default_factory=list)
     protected_creator_bids: list[str] = field(default_factory=list)
     overdue_reserved_grants: list[ReservedGrantRepairRecord] = field(
         default_factory=list
@@ -316,9 +320,13 @@ class RenewalStateDriftRepairResult:
             "expired_credits": self.expired_credits,
             "dry_run": self.dry_run,
             "overdue_reserved_grant_count": self.overdue_reserved_grant_count,
+            "activatable_creator_count": self.activatable_creator_count,
             "activated_reserved_order_count": self.activated_reserved_order_count,
+            "activated_creator_count": self.activated_creator_count,
             "protected_creator_count": self.protected_creator_count,
             "creator_bids": list(self.creator_bids),
+            "activatable_creator_bids": list(self.activatable_creator_bids),
+            "activated_creator_bids": list(self.activated_creator_bids),
             "protected_creator_bids": list(self.protected_creator_bids),
             "overdue_reserved_grants": [
                 record.to_payload() for record in self.overdue_reserved_grants
@@ -357,7 +365,9 @@ def _load_overdue_reserved_paid_order_records(
     normalized_creator_bid = _normalize_bid(creator_bid)
     if normalized_creator_bid:
         query = query.filter(CreditLedgerEntry.creator_bid == normalized_creator_bid)
-    elif creator_bids:
+    elif creator_bids is not None:
+        if not creator_bids:
+            return []
         query = query.filter(CreditLedgerEntry.creator_bid.in_(sorted(creator_bids)))
 
     candidate_ledgers: list[tuple[CreditLedgerEntry, str]] = []
@@ -861,11 +871,6 @@ def repair_renewal_state_drift(
             CreditWalletBucket.created_at.asc(),
             CreditWalletBucket.id.asc(),
         ).all()
-        overdue_reserved_grants = _load_overdue_reserved_paid_order_records(
-            repaired_at=repaired_at,
-            creator_bid=normalized_creator_bid,
-        )
-
         creator_bids: list[str] = []
         seen_creator_bids: set[str] = set()
         for row in stale_subscriptions:
@@ -878,6 +883,11 @@ def repair_renewal_state_drift(
             if candidate and candidate not in seen_creator_bids:
                 seen_creator_bids.add(candidate)
                 creator_bids.append(candidate)
+        overdue_reserved_grants = _load_overdue_reserved_paid_order_records(
+            repaired_at=repaired_at,
+            creator_bid=normalized_creator_bid,
+            creator_bids=None if normalized_creator_bid else seen_creator_bids,
+        )
         for record in overdue_reserved_grants:
             candidate = _normalize_bid(record.creator_bid)
             if candidate and candidate not in seen_creator_bids:
@@ -898,9 +908,13 @@ def repair_renewal_state_drift(
                 expired_credits=0,
                 dry_run=dry_run,
                 overdue_reserved_grant_count=0,
+                activatable_creator_count=0,
                 activated_reserved_order_count=0,
+                activated_creator_count=0,
                 protected_creator_count=0,
                 creator_bids=[],
+                activatable_creator_bids=[],
+                activated_creator_bids=[],
                 protected_creator_bids=[],
                 overdue_reserved_grants=[],
             )
@@ -926,14 +940,19 @@ def repair_renewal_state_drift(
             overdue_reserved_order_bids_by_creator.setdefault(
                 _normalize_bid(record.creator_bid), []
             ).append(record.bill_order_bid)
+        activatable_creator_bids = sorted(overdue_reserved_order_bids_by_creator.keys())
 
         expired_bucket_count = 0
         expired_credits = 0.0
         updated_subscription_count = 0
         activated_reserved_order_count = 0
+        activated_creator_bids: list[str] = []
         protected_creator_bids: list[str] = []
 
         if not dry_run:
+            # Local import avoids a circular dependency with subscriptions.py.
+            from .subscriptions import grant_paid_order_credits
+
             for target_creator_bid in creator_bids:
                 candidate_order_bids = sorted(
                     {
@@ -945,8 +964,6 @@ def repair_renewal_state_drift(
                     }
                 )
                 if candidate_order_bids:
-                    from .subscriptions import grant_paid_order_credits
-
                     candidate_orders = (
                         BillingOrder.query.filter(
                             BillingOrder.deleted == 0,
@@ -966,6 +983,7 @@ def repair_renewal_state_drift(
                             for order in candidate_orders:
                                 grant_paid_order_credits(app, order)
                                 activated_reserved_order_count += 1
+                        activated_creator_bids.append(target_creator_bid)
 
                 remaining_reserved_records = _load_overdue_reserved_paid_order_records(
                     repaired_at=repaired_at,
@@ -983,6 +1001,7 @@ def repair_renewal_state_drift(
                 expired_bucket_count += int(expiration_payload.bucket_count or 0)
                 expired_credits += float(expiration_payload.expired_credits or 0)
 
+            protected_creator_bid_set = set(protected_creator_bids)
             changed_subscriptions = (
                 BillingSubscription.query.filter(
                     BillingSubscription.deleted == 0,
@@ -997,18 +1016,15 @@ def repair_renewal_state_drift(
             if changed_subscriptions:
                 with unit_of_work():
                     for subscription in changed_subscriptions:
-                        if _normalize_bid(subscription.creator_bid) in set(
-                            protected_creator_bids
+                        if (
+                            _normalize_bid(subscription.creator_bid)
+                            in protected_creator_bid_set
                         ):
                             continue
                         subscription.status = BILLING_SUBSCRIPTION_STATUS_EXPIRED
                         subscription.updated_at = repaired_at
                         db.session.add(subscription)
                         updated_subscription_count += 1
-        else:
-            protected_creator_bids = sorted(
-                overdue_reserved_order_bids_by_creator.keys()
-            )
 
         return RenewalStateDriftRepairResult(
             status="dry_run" if dry_run else "repaired",
@@ -1021,9 +1037,13 @@ def repair_renewal_state_drift(
             expired_credits=expired_credits,
             dry_run=dry_run,
             overdue_reserved_grant_count=len(scoped_overdue_reserved_grants),
+            activatable_creator_count=len(activatable_creator_bids),
             activated_reserved_order_count=activated_reserved_order_count,
+            activated_creator_count=len(activated_creator_bids),
             protected_creator_count=len(protected_creator_bids),
             creator_bids=creator_bids,
+            activatable_creator_bids=activatable_creator_bids,
+            activated_creator_bids=activated_creator_bids,
             protected_creator_bids=protected_creator_bids,
             overdue_reserved_grants=scoped_overdue_reserved_grants,
         )
