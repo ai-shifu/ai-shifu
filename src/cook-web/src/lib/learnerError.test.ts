@@ -118,4 +118,30 @@ describe('resolveLearnerPaymentToast', () => {
       variant: 'destructive',
     });
   });
+
+  it('maps internal WeChat bridge failures to the localized fallback', () => {
+    expect(
+      resolveLearnerPaymentToast({
+        error: 'get_brand_wcpay_request:fail',
+        fallbackMessage: 'pay failed',
+        canceledMessage: 'canceled',
+        unsupportedMessage: 'unsupported',
+      }),
+    ).toEqual({
+      message: 'pay failed',
+      variant: 'destructive',
+    });
+
+    expect(
+      resolveLearnerPaymentToast({
+        error: 'wechat_pay_failed',
+        fallbackMessage: 'pay failed',
+        canceledMessage: 'canceled',
+        unsupportedMessage: 'unsupported',
+      }),
+    ).toEqual({
+      message: 'pay failed',
+      variant: 'destructive',
+    });
+  });
 });
