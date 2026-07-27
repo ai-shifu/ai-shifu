@@ -628,17 +628,18 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
     def test_get_config_lock_failed(self, mock_redis, mock_get_config_from_common, app):
-        """Test that get_config returns None when lock acquisition fails."""
+        """Common defaults should survive transient config lock contention."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
-            mock_get_config_from_common.return_value = None
+            mock_get_config_from_common.return_value = 0.5
             mock_redis.get.return_value = None
             mock_lock = MagicMock()
             mock_lock.acquire.return_value = False
             mock_redis.lock.return_value = mock_lock
 
-            result = get_config("test_key")
-            assert result is None
+            result = get_config("MIN_SHIFU_PRICE")
+            assert result == 0.5
+            mock_get_config_from_common.assert_called_once_with("MIN_SHIFU_PRICE", None)
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")

@@ -204,7 +204,7 @@ def get_config(key: str, default: str = None) -> str:
                             "get_config lock for %s expired before release; ignoring",
                             key,
                         )
-            return default
+            return get_config_from_common(key, default)
         except (SQLAlchemyError, RuntimeError) as exc:
             app.logger.warning("Database not ready for get_config(%s): %s", key, exc)
             return get_config_from_common(key, default)
