@@ -346,6 +346,14 @@ def _normalize_json_dict(payload: object) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _json_extract_text(column: Any, path: str) -> Any:
+    dialect_name = (db.session.bind.dialect.name if db.session.bind else "").lower()
+    extracted = func.json_extract(column, path)
+    if dialect_name == "mysql":
+        return func.json_unquote(extracted)
+    return extracted
+
+
 @dataclass(slots=True, frozen=True)
 class ReservedGrantActivationSnapshot:
     grant_ledger_bid: str
@@ -539,7 +547,7 @@ def _load_overdue_reserved_paid_order_creator_bids(
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
     bill_order_bid_expr = func.coalesce(
-        func.json_extract(CreditLedgerEntry.metadata_json, "$.bill_order_bid"),
+        _json_extract_text(CreditLedgerEntry.metadata_json, "$.bill_order_bid"),
         CreditLedgerEntry.source_bid,
     )
     query = (
@@ -555,7 +563,7 @@ def _load_overdue_reserved_paid_order_creator_bids(
             CreditLedgerEntry.consumable_from <= repaired_at,
             func.lower(
                 func.coalesce(
-                    func.json_extract(
+                    _json_extract_text(
                         CreditLedgerEntry.metadata_json, "$.bucket_credit_state"
                     ),
                     "",
