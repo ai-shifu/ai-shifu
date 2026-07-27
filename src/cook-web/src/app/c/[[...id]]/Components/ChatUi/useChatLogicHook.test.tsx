@@ -295,7 +295,6 @@ describe('useChatLogicHook stream cleanup', () => {
     scrollToLesson: jest.fn(),
     showOutputInProgressToast: jest.fn(),
     onPayModalOpen: jest.fn(),
-    chatBoxBottomRef: { current: document.createElement('div') },
     onGoChapter: jest.fn(),
   });
 

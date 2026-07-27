@@ -460,7 +460,6 @@ export const NewChatComponents = ({
     lessonHasContentUpdate,
     isListenMode: isListenModeActive,
     trackEvent,
-    chatBoxBottomRef,
     trackTrailProgress,
     lessonUpdate,
     chapterUpdate,
