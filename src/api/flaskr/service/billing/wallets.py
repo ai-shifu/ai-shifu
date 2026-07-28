@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import ObjectDeletedError
 
@@ -301,10 +301,12 @@ class RenewalStateDriftRepairResult:
     activated_reserved_order_count: int = 0
     activated_creator_count: int = 0
     protected_creator_count: int = 0
+    manual_review_creator_count: int = 0
     creator_bids: list[str] = field(default_factory=list)
     activatable_creator_bids: list[str] = field(default_factory=list)
     activated_creator_bids: list[str] = field(default_factory=list)
     protected_creator_bids: list[str] = field(default_factory=list)
+    manual_review_creator_bids: list[str] = field(default_factory=list)
     overdue_reserved_grants: list[ReservedGrantRepairRecord] = field(
         default_factory=list
     )
@@ -325,10 +327,12 @@ class RenewalStateDriftRepairResult:
             "activated_reserved_order_count": self.activated_reserved_order_count,
             "activated_creator_count": self.activated_creator_count,
             "protected_creator_count": self.protected_creator_count,
+            "manual_review_creator_count": self.manual_review_creator_count,
             "creator_bids": list(self.creator_bids),
             "activatable_creator_bids": list(self.activatable_creator_bids),
             "activated_creator_bids": list(self.activated_creator_bids),
             "protected_creator_bids": list(self.protected_creator_bids),
+            "manual_review_creator_bids": list(self.manual_review_creator_bids),
             "overdue_reserved_grants": [
                 record.to_payload() for record in self.overdue_reserved_grants
             ],
@@ -342,6 +346,11 @@ def _normalize_bid(value: object) -> str:
     return str(value or "").strip()
 
 
+def _normalize_optional_metadata_bid(value: object) -> str:
+    normalized = _normalize_bid(value)
+    return "" if normalized.lower() == "null" else normalized
+
+
 def _normalize_json_dict(payload: object) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
@@ -353,6 +362,15 @@ def _json_extract_text(column: Any, path: str) -> Any:
     if dialect_name == "mysql":
         return func.json_unquote(extracted)
     return extracted
+
+
+def _sql_null_if_empty_or_json_null(value: Any) -> Any:
+    text = func.trim(func.coalesce(value, ""))
+    return case(
+        (func.lower(text) == "null", None),
+        (text == "", None),
+        else_=text,
+    )
 
 
 def _extract_order_bid_from_renewal_event(event: BillingRenewalEvent) -> str:
@@ -400,9 +418,9 @@ def _load_overdue_reserved_paid_order_records(
         metadata = _normalize_json_dict(ledger.metadata_json)
         if str(metadata.get("bucket_credit_state") or "").strip().lower() != "reserved":
             continue
-        bill_order_bid = _normalize_bid(
+        bill_order_bid = _normalize_optional_metadata_bid(
             metadata.get("bill_order_bid")
-        ) or _normalize_bid(ledger.source_bid)
+        ) or _normalize_optional_metadata_bid(ledger.source_bid)
         if not bill_order_bid:
             continue
         candidate_ledgers.append((ledger, bill_order_bid))
@@ -487,8 +505,10 @@ def _load_overdue_reserved_paid_order_creator_bids(
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
     bill_order_bid_expr = func.coalesce(
-        _json_extract_text(CreditLedgerEntry.metadata_json, "$.bill_order_bid"),
-        CreditLedgerEntry.source_bid,
+        _sql_null_if_empty_or_json_null(
+            _json_extract_text(CreditLedgerEntry.metadata_json, "$.bill_order_bid")
+        ),
+        _sql_null_if_empty_or_json_null(CreditLedgerEntry.source_bid),
     )
     query = (
         db.session.query(CreditLedgerEntry.creator_bid)
@@ -985,10 +1005,12 @@ def repair_renewal_state_drift(
                 activated_reserved_order_count=0,
                 activated_creator_count=0,
                 protected_creator_count=0,
+                manual_review_creator_count=0,
                 creator_bids=[],
                 activatable_creator_bids=[],
                 activated_creator_bids=[],
                 protected_creator_bids=[],
+                manual_review_creator_bids=[],
                 overdue_reserved_grants=[],
             )
 
@@ -1018,48 +1040,68 @@ def repair_renewal_state_drift(
             overdue_reserved_order_bids_by_creator.setdefault(
                 _normalize_bid(record.creator_bid), []
             ).append(record.bill_order_bid)
-        activatable_creator_bids = sorted(overdue_reserved_order_bids_by_creator.keys())
 
         expired_bucket_count = 0
         expired_credits = 0.0
         updated_subscription_count = 0
         activated_reserved_order_count = 0
+        activatable_creator_bids: list[str] = []
         activated_creator_bids: list[str] = []
         protected_creator_bids: list[str] = []
+        manual_review_creator_bids: list[str] = []
+        candidate_orders_by_creator: dict[str, list[BillingOrder]] = {}
+
+        # Local import avoids a circular dependency with subscriptions.py.
+        from .subscriptions import (
+            IncompleteReservedGrantActivationError,
+            grant_paid_order_credits,
+            validate_reserved_renewal_cycle_activation,
+        )
+
+        for target_creator_bid in creator_bids:
+            candidate_order_bids = sorted(
+                {
+                    order_bid
+                    for order_bid in overdue_reserved_order_bids_by_creator.get(
+                        target_creator_bid, []
+                    )
+                    if _normalize_bid(order_bid)
+                }
+            )
+            if not candidate_order_bids:
+                continue
+            candidate_orders = (
+                BillingOrder.query.filter(
+                    BillingOrder.deleted == 0,
+                    BillingOrder.creator_bid == target_creator_bid,
+                    BillingOrder.bill_order_bid.in_(candidate_order_bids),
+                    BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+                )
+                .order_by(
+                    BillingOrder.paid_at.asc(),
+                    BillingOrder.created_at.asc(),
+                    BillingOrder.id.asc(),
+                )
+                .all()
+            )
+            candidate_orders_by_creator[target_creator_bid] = candidate_orders
+            try:
+                for order in candidate_orders:
+                    validate_reserved_renewal_cycle_activation(order)
+            except IncompleteReservedGrantActivationError:
+                manual_review_creator_bids.append(target_creator_bid)
+                protected_creator_bids.append(target_creator_bid)
+                continue
+            if candidate_orders:
+                activatable_creator_bids.append(target_creator_bid)
 
         if not dry_run:
-            # Local import avoids a circular dependency with subscriptions.py.
-            from .subscriptions import (
-                IncompleteReservedGrantActivationError,
-                grant_paid_order_credits,
-            )
-
             for target_creator_bid in creator_bids:
-                candidate_order_bids = sorted(
-                    {
-                        order_bid
-                        for order_bid in overdue_reserved_order_bids_by_creator.get(
-                            target_creator_bid, []
-                        )
-                        if _normalize_bid(order_bid)
-                    }
+                candidate_orders = candidate_orders_by_creator.get(
+                    target_creator_bid, []
                 )
-                candidate_orders: list[BillingOrder] = []
-                if candidate_order_bids:
-                    candidate_orders = (
-                        BillingOrder.query.filter(
-                            BillingOrder.deleted == 0,
-                            BillingOrder.creator_bid == target_creator_bid,
-                            BillingOrder.bill_order_bid.in_(candidate_order_bids),
-                            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
-                        )
-                        .order_by(
-                            BillingOrder.paid_at.asc(),
-                            BillingOrder.created_at.asc(),
-                            BillingOrder.id.asc(),
-                        )
-                        .all()
-                    )
+                if target_creator_bid in set(manual_review_creator_bids):
+                    continue
                 if candidate_orders:
                     reserved_order_bids_before = _collect_overdue_reserved_order_bids(
                         repaired_at=repaired_at,
@@ -1071,6 +1113,7 @@ def repair_renewal_state_drift(
                                 grant_paid_order_credits(app, order)
                     except IncompleteReservedGrantActivationError:
                         protected_creator_bids.append(target_creator_bid)
+                        manual_review_creator_bids.append(target_creator_bid)
                         continue
                     reserved_order_bids_after = _collect_overdue_reserved_order_bids(
                         repaired_at=repaired_at,
@@ -1135,14 +1178,16 @@ def repair_renewal_state_drift(
             expired_credits=expired_credits,
             dry_run=dry_run,
             overdue_reserved_grant_count=len(scoped_overdue_reserved_grants),
-            activatable_creator_count=len(activatable_creator_bids),
+            activatable_creator_count=len(sorted(set(activatable_creator_bids))),
             activated_reserved_order_count=activated_reserved_order_count,
-            activated_creator_count=len(activated_creator_bids),
-            protected_creator_count=len(protected_creator_bids),
+            activated_creator_count=len(sorted(set(activated_creator_bids))),
+            protected_creator_count=len(sorted(set(protected_creator_bids))),
+            manual_review_creator_count=len(sorted(set(manual_review_creator_bids))),
             creator_bids=creator_bids,
-            activatable_creator_bids=activatable_creator_bids,
-            activated_creator_bids=activated_creator_bids,
-            protected_creator_bids=protected_creator_bids,
+            activatable_creator_bids=sorted(set(activatable_creator_bids)),
+            activated_creator_bids=sorted(set(activated_creator_bids)),
+            protected_creator_bids=sorted(set(protected_creator_bids)),
+            manual_review_creator_bids=sorted(set(manual_review_creator_bids)),
             overdue_reserved_grants=scoped_overdue_reserved_grants,
         )
 
