@@ -9,6 +9,8 @@ const mockRefreshUserInfo = jest.fn();
 const mockUpdateCourseId = jest.fn();
 const mockLoadTree = jest.fn();
 const mockReloadTree = jest.fn();
+const mockUpdateLesson = jest.fn();
+const mockUpdateSelectedLesson = jest.fn();
 const mockUpdateLessonId = jest.fn();
 const mockUpdateChapterId = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -217,10 +219,10 @@ jest.mock('./hooks/useLessonTree', () => ({
     selectedLessonId: mockSelectedLessonId,
     loadTree: mockLoadTree,
     reloadTree: mockReloadTree,
-    updateSelectedLesson: jest.fn(),
+    updateSelectedLesson: mockUpdateSelectedLesson,
     toggleCollapse: jest.fn(),
     getCurrElement: jest.fn().mockResolvedValue(null),
-    updateLesson: jest.fn(),
+    updateLesson: mockUpdateLesson,
     updateChapterStatus: jest.fn(),
     getChapterByLesson: jest.fn(() => ({
       id: 'chapter-1',
@@ -328,6 +330,7 @@ describe('ChatPage profile onboarding gate', () => {
     mockCompleteProfileOnboarding.mockResolvedValue({
       completed: true,
     });
+    mockReloadTree.mockResolvedValue(null);
     mockRefreshUserInfo.mockResolvedValue(undefined);
   });
 
@@ -408,6 +411,62 @@ describe('ChatPage profile onboarding gate', () => {
 
     const chatUi = await screen.findByTestId('chat-ui');
     expect(chatUi).toHaveAttribute('data-lesson-id', 'lesson-new');
+  });
+
+  test('keeps a retaken lesson in progress after reloading its reset tree state', async () => {
+    let resolveReloadTree: (value: unknown) => void = () => {};
+    mockReloadTree.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveReloadTree = resolve;
+      }),
+    );
+
+    render(<ChatPage />);
+
+    await screen.findByTestId('chat-ui');
+
+    const { shifu: mockedShifu } = jest.requireMock('@/c-service/Shifu') as {
+      shifu: {
+        events: {
+          addEventListener: jest.Mock;
+        };
+      };
+    };
+    const resetChapterEventHandler =
+      mockedShifu.events.addEventListener.mock.calls.find(
+        ([eventType]) => eventType === 'RESET_CHAPTER',
+      )?.[1] as
+        | ((
+            event: CustomEvent<{
+              chapter_id: string;
+              lesson_id: string;
+            }>,
+          ) => Promise<void>)
+        | undefined;
+
+    expect(resetChapterEventHandler).toBeDefined();
+
+    const resetPromise = resetChapterEventHandler?.(
+      new CustomEvent('RESET_CHAPTER', {
+        detail: {
+          chapter_id: 'chapter-1',
+          lesson_id: 'lesson-1',
+        },
+      }),
+    );
+
+    expect(mockReloadTree).toHaveBeenCalledWith('chapter-1', 'lesson-1');
+    expect(mockUpdateLesson).not.toHaveBeenCalled();
+
+    resolveReloadTree(null);
+    await resetPromise;
+
+    expect(mockUpdateLesson).toHaveBeenCalledWith('lesson-1', {
+      id: 'lesson-1',
+      status: 'in_progress',
+      status_value: 'in_progress',
+    });
+    expect(mockUpdateSelectedLesson).toHaveBeenCalledWith('lesson-1', true);
   });
 
   test('surfaces the backend onboarding error message when submit fails', async () => {
