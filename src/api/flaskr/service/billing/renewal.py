@@ -48,6 +48,7 @@ from .queries import (
     calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
 )
 from .subscriptions import (
+    IncompleteReservedGrantActivationError,
     activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
     ensure_subscription_renewal_order,
     is_paid_referral_invitation_renewal as _is_paid_referral_invitation_renewal,
@@ -73,6 +74,24 @@ _TERMINAL_EVENT_STATUSES = (
 
 # Shared session-scope guard; see flaskr/dao/uow.py for the rationale.
 _app_context_scope = app_context_scope
+
+
+def _fail_paid_renewal_activation_event(
+    event: BillingRenewalEvent,
+    *,
+    now: datetime,
+    bill_order_bid: str,
+) -> RenewalEventResult:
+    _fail_renewal_event(
+        event,
+        now=now,
+        error="paid_renewal_activation_failed",
+    )
+    return _result_from_event(
+        "failed",
+        event,
+        bill_order_bid=bill_order_bid,
+    )
 
 
 @dataclass(slots=True, frozen=True)
@@ -361,21 +380,23 @@ def _execute_expire_subscription(
                 paid_renewal_order,
                 boundary_at=boundary_at,
             )
-            activated = _activate_subscription_for_paid_order(
-                app,
-                paid_renewal_order,
-                subscription=subscription,
-                force=True,
-            )
-            if not activated:
-                _fail_renewal_event(
+            try:
+                activated = _activate_subscription_for_paid_order(
+                    app,
+                    paid_renewal_order,
+                    subscription=subscription,
+                    force=True,
+                )
+            except IncompleteReservedGrantActivationError:
+                return _fail_paid_renewal_activation_event(
                     event,
                     now=now,
-                    error="paid_renewal_activation_failed",
+                    bill_order_bid=paid_renewal_order.bill_order_bid,
                 )
-                return _result_from_event(
-                    "failed",
+            if not activated:
+                return _fail_paid_renewal_activation_event(
                     event,
+                    now=now,
                     bill_order_bid=paid_renewal_order.bill_order_bid,
                 )
             notification_bid = _stage_preorder_credit_release_notification(
@@ -442,21 +463,23 @@ def _execute_downgrade_effective(
                 paid_renewal_order,
                 boundary_at=boundary_at,
             )
-            activated = _activate_subscription_for_paid_order(
-                app,
-                paid_renewal_order,
-                subscription=subscription,
-                force=True,
-            )
-            if not activated:
-                _fail_renewal_event(
+            try:
+                activated = _activate_subscription_for_paid_order(
+                    app,
+                    paid_renewal_order,
+                    subscription=subscription,
+                    force=True,
+                )
+            except IncompleteReservedGrantActivationError:
+                return _fail_paid_renewal_activation_event(
                     event,
                     now=now,
-                    error="paid_renewal_activation_failed",
+                    bill_order_bid=paid_renewal_order.bill_order_bid,
                 )
-                return _result_from_event(
-                    "failed",
+            if not activated:
+                return _fail_paid_renewal_activation_event(
                     event,
+                    now=now,
                     bill_order_bid=paid_renewal_order.bill_order_bid,
                 )
             notification_bid = _stage_preorder_credit_release_notification(

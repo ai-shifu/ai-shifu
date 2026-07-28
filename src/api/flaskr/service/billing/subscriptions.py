@@ -120,6 +120,20 @@ _PENDING_RENEWAL_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
 )
 
+
+class IncompleteReservedGrantActivationError(RuntimeError):
+    """Raised when a renewal cycle cannot activate every reserved grant atomically."""
+
+
+@dataclass(slots=True, frozen=True)
+class ReservedActivationTarget:
+    kind: str
+    order_bid: str
+    ledger_bid: str
+    wallet_bucket_bid: str
+    amount: Decimal
+
+
 SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
 
 
@@ -785,11 +799,19 @@ def _activate_subscription_for_paid_order(
         db.session.add(subscription)
         return False
 
+    activated_reserved_targets: tuple[ReservedActivationTarget, ...] = ()
     if order.order_type in {
         BILLING_ORDER_TYPE_SUBSCRIPTION_START,
         BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
         BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     }:
+        if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+            activated_reserved_targets = _activate_reserved_renewal_grants_for_cycle(
+                app,
+                order=order,
+                effective_from=effective_from,
+                effective_to=effective_to,
+            )
         if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
             subscription.product_bid = (
                 _normalize_bid(subscription.next_product_bid) or order.product_bid
@@ -812,11 +834,17 @@ def _activate_subscription_for_paid_order(
             effective_to=effective_to,
         )
         if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
-            _activate_reserved_renewal_grants_for_cycle(
-                app,
-                order=order,
-                effective_from=effective_from,
-                effective_to=effective_to,
+            wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+            refresh_credit_wallet_snapshot(wallet, snapshot_at=effective_from)
+            persist_credit_wallet_snapshot(
+                wallet,
+                available_credits=wallet.available_credits,
+                reserved_credits=wallet.reserved_credits,
+                updated_at=now_utc(),
+            )
+            _sync_activated_reserved_renewal_ledger_balances(
+                targets=activated_reserved_targets,
+                final_balance_after=wallet.available_credits,
             )
         if _is_preorder_order(order):
             _mark_preorder_effective_applied(order)
@@ -870,7 +898,67 @@ def _activate_reserved_renewal_grants_for_cycle(
     order: BillingOrder,
     effective_from: datetime,
     effective_to: datetime | None,
-) -> bool:
+) -> tuple[ReservedActivationTarget, ...]:
+    cycle_orders = _load_sorted_paid_subscription_renewal_orders_for_cycle(
+        order=order,
+        effective_from=effective_from,
+    )
+
+    attribution_order_bid = next(
+        (
+            row.bill_order_bid
+            for row in cycle_orders
+            if int(row.paid_amount or 0) > 0 or int(row.payable_amount or 0) > 0
+        ),
+        order.bill_order_bid,
+    )
+
+    if not _cycle_has_reserved_activation_evidence(cycle_orders):
+        return ()
+
+    targets = _preflight_reserved_renewal_grants_for_cycle(cycle_orders)
+    with db.session.begin_nested():
+        for cycle_order in cycle_orders:
+            _activate_reserved_subscription_grant_for_order(
+                app,
+                order=cycle_order,
+                effective_from=effective_from,
+                effective_to=effective_to,
+                attribution_order_bid=attribution_order_bid,
+            )
+            _activate_reserved_campaign_bonus_grant_for_order(
+                app,
+                order=cycle_order,
+                effective_from=effective_from,
+                effective_to=effective_to,
+            )
+        _assert_reserved_activation_targets_completed(cycle_orders)
+    return targets
+
+
+def validate_reserved_renewal_cycle_activation(
+    order: BillingOrder,
+    *,
+    effective_from: datetime | None = None,
+) -> tuple[ReservedActivationTarget, ...]:
+    """Validate a renewal cycle can activate every reserved grant atomically."""
+
+    resolved_effective_from = effective_from or _resolve_credit_bucket_effective_from(
+        order=order,
+        default_effective_from=order.paid_at or now_utc(),
+    )
+    cycle_orders = _load_sorted_paid_subscription_renewal_orders_for_cycle(
+        order=order,
+        effective_from=resolved_effective_from,
+    )
+    return _preflight_reserved_renewal_grants_for_cycle(cycle_orders)
+
+
+def _load_sorted_paid_subscription_renewal_orders_for_cycle(
+    *,
+    order: BillingOrder,
+    effective_from: datetime,
+) -> list[BillingOrder]:
     cycle_orders = list(
         _load_paid_subscription_renewal_orders_for_cycle(
             subscription_bid=order.subscription_bid,
@@ -882,43 +970,29 @@ def _activate_reserved_renewal_grants_for_cycle(
     else:
         cycle_orders.sort(
             key=lambda row: (
-                0 if row.bill_order_bid == order.bill_order_bid else 1,
+                0
+                if int(row.paid_amount or 0) > 0 or int(row.payable_amount or 0) > 0
+                else 1,
+                row.paid_at or row.created_at or datetime.min,
                 row.created_at or datetime.min,
                 row.id,
             )
         )
+    return cycle_orders
 
-    attribution_order_bid = next(
-        (
-            row.bill_order_bid
-            for row in cycle_orders
-            if int(row.paid_amount or 0) > 0 or int(row.payable_amount or 0) > 0
-        ),
-        order.bill_order_bid,
-    )
 
-    activated = False
+def _cycle_has_reserved_activation_evidence(cycle_orders: list[BillingOrder]) -> bool:
     for cycle_order in cycle_orders:
-        activated = (
-            _activate_reserved_subscription_grant_for_order(
-                app,
-                order=cycle_order,
-                effective_from=effective_from,
-                effective_to=effective_to,
-                attribution_order_bid=attribution_order_bid,
-            )
-            or activated
-        )
-        activated = (
-            _activate_reserved_campaign_bonus_grant_for_order(
-                app,
-                order=cycle_order,
-                effective_from=effective_from,
-                effective_to=effective_to,
-            )
-            or activated
-        )
-    return activated
+        for grant_entry in (
+            _load_grant_ledger_entry_for_order(cycle_order),
+            _load_campaign_bonus_ledger_entry_for_order(cycle_order),
+        ):
+            if (
+                grant_entry is not None
+                and _reserved_grant_state(grant_entry) != "available"
+            ):
+                return True
+    return False
 
 
 def _realign_active_topup_bucket_effective_to(
@@ -1008,6 +1082,332 @@ def _load_grant_ledger_entry_for_order(order: BillingOrder) -> CreditLedgerEntry
         .order_by(CreditLedgerEntry.id.desc())
         .first()
     )
+
+
+def _load_reserved_activation_bucket(
+    order: BillingOrder,
+    grant_entry: CreditLedgerEntry,
+    *,
+    fallback_bucket_category: int | None = None,
+) -> CreditWalletBucket | None:
+    bucket = None
+    if _normalize_bid(grant_entry.wallet_bucket_bid):
+        bucket = (
+            CreditWalletBucket.query.filter(
+                CreditWalletBucket.deleted == 0,
+                CreditWalletBucket.wallet_bucket_bid == grant_entry.wallet_bucket_bid,
+            )
+            .order_by(CreditWalletBucket.id.desc())
+            .first()
+        )
+    if bucket is None and fallback_bucket_category is not None:
+        bucket = load_primary_credit_bucket_by_category(
+            order.creator_bid,
+            bucket_category=fallback_bucket_category,
+        )
+    return bucket
+
+
+def _reserved_grant_state(grant_entry: CreditLedgerEntry) -> str:
+    metadata = _normalize_json_object(grant_entry.metadata_json)
+    return str(metadata.get("bucket_credit_state") or "").strip().lower()
+
+
+def _expected_subscription_grant_amount(order: BillingOrder) -> Decimal:
+    grant_entry = _load_grant_ledger_entry_for_order(order)
+    if grant_entry is not None:
+        metadata = _normalize_json_object(grant_entry.metadata_json)
+        for key in ("grant_credit_amount", "credit_amount"):
+            if metadata.get(key) is not None:
+                amount = _quantize_credit_amount(_to_decimal(metadata.get(key)))
+                if amount > 0:
+                    return amount
+    return Decimal("0")
+
+
+def _expected_subscription_cycle_grant_amount(order: BillingOrder) -> Decimal:
+    product = _load_billing_product_by_bid(order.product_bid)
+    if product is None:
+        raise IncompleteReservedGrantActivationError(
+            f"missing_subscription_product:{order.bill_order_bid}"
+        )
+    return _quantize_credit_amount(_to_decimal(product.credit_amount))
+
+
+def _expected_campaign_bonus_grant_amount(order: BillingOrder) -> Decimal:
+    if not _normalize_bid(order.campaign_bid):
+        return Decimal("0")
+    return _quantize_credit_amount(_to_decimal(order.campaign_bonus_credit_amount))
+
+
+def _build_reserved_activation_target(
+    *,
+    order: BillingOrder,
+    grant_entry: CreditLedgerEntry | None,
+    kind: str,
+    expected_amount: Decimal,
+    fallback_bucket_category: int | None = None,
+) -> ReservedActivationTarget | None:
+    if kind != "subscription" and expected_amount <= 0:
+        return None
+    if grant_entry is None:
+        raise IncompleteReservedGrantActivationError(
+            f"missing_{kind}_ledger:{order.bill_order_bid}"
+        )
+
+    state = _reserved_grant_state(grant_entry)
+    if state == "available":
+        return None
+    if state != "reserved":
+        raise IncompleteReservedGrantActivationError(
+            f"invalid_{kind}_state:{order.bill_order_bid}:{state or 'missing'}"
+        )
+
+    amount = _quantize_credit_amount(_to_decimal(grant_entry.amount))
+    if expected_amount > 0 and amount != expected_amount:
+        raise IncompleteReservedGrantActivationError(
+            f"{kind}_amount_mismatch:{order.bill_order_bid}"
+        )
+    if amount <= 0:
+        raise IncompleteReservedGrantActivationError(
+            f"invalid_{kind}_amount:{order.bill_order_bid}"
+        )
+
+    bucket = _load_reserved_activation_bucket(
+        order,
+        grant_entry,
+        fallback_bucket_category=fallback_bucket_category,
+    )
+    if bucket is None:
+        raise IncompleteReservedGrantActivationError(
+            f"missing_{kind}_bucket:{order.bill_order_bid}"
+        )
+    if _quantize_credit_amount(_to_decimal(bucket.reserved_credits)) < amount:
+        raise IncompleteReservedGrantActivationError(
+            f"insufficient_{kind}_reserved:{order.bill_order_bid}"
+        )
+
+    return ReservedActivationTarget(
+        kind=kind,
+        order_bid=order.bill_order_bid,
+        ledger_bid=grant_entry.ledger_bid,
+        wallet_bucket_bid=bucket.wallet_bucket_bid,
+        amount=amount,
+    )
+
+
+def _build_reserved_completion_target(
+    *,
+    order: BillingOrder,
+    grant_entry: CreditLedgerEntry | None,
+    kind: str,
+    expected_amount: Decimal,
+    fallback_bucket_category: int | None = None,
+) -> ReservedActivationTarget | None:
+    if kind != "subscription" and expected_amount <= 0:
+        return None
+    if grant_entry is None:
+        raise IncompleteReservedGrantActivationError(
+            f"missing_{kind}_ledger:{order.bill_order_bid}"
+        )
+    state = _reserved_grant_state(grant_entry)
+    if state != "available":
+        raise IncompleteReservedGrantActivationError(
+            f"incomplete_{kind}_activation:{order.bill_order_bid}"
+        )
+    amount = _quantize_credit_amount(_to_decimal(grant_entry.amount))
+    if expected_amount > 0 and amount != expected_amount:
+        raise IncompleteReservedGrantActivationError(
+            f"{kind}_amount_mismatch:{order.bill_order_bid}"
+        )
+    bucket = _load_reserved_activation_bucket(
+        order,
+        grant_entry,
+        fallback_bucket_category=fallback_bucket_category,
+    )
+    if bucket is None:
+        raise IncompleteReservedGrantActivationError(
+            f"missing_{kind}_bucket:{order.bill_order_bid}"
+        )
+    if _quantize_credit_amount(_to_decimal(bucket.available_credits)) < amount:
+        raise IncompleteReservedGrantActivationError(
+            f"incomplete_{kind}_bucket:{order.bill_order_bid}"
+        )
+    return ReservedActivationTarget(
+        kind=kind,
+        order_bid=order.bill_order_bid,
+        ledger_bid=grant_entry.ledger_bid,
+        wallet_bucket_bid=bucket.wallet_bucket_bid,
+        amount=amount,
+    )
+
+
+def _load_reserved_activation_targets_for_cycle_order(
+    order: BillingOrder,
+) -> tuple[ReservedActivationTarget, ...]:
+    targets: list[ReservedActivationTarget] = []
+    subscription_target = _build_reserved_activation_target(
+        order=order,
+        grant_entry=_load_grant_ledger_entry_for_order(order),
+        kind="subscription",
+        expected_amount=_expected_subscription_grant_amount(order),
+        fallback_bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    )
+    if subscription_target is not None:
+        targets.append(subscription_target)
+    campaign_target = _build_reserved_activation_target(
+        order=order,
+        grant_entry=_load_campaign_bonus_ledger_entry_for_order(order),
+        kind="campaign_bonus",
+        expected_amount=_expected_campaign_bonus_grant_amount(order),
+    )
+    if campaign_target is not None:
+        targets.append(campaign_target)
+    return tuple(targets)
+
+
+def _load_reserved_completion_targets_for_cycle_order(
+    order: BillingOrder,
+) -> tuple[ReservedActivationTarget, ...]:
+    targets: list[ReservedActivationTarget] = []
+    subscription_target = _build_reserved_completion_target(
+        order=order,
+        grant_entry=_load_grant_ledger_entry_for_order(order),
+        kind="subscription",
+        expected_amount=_expected_subscription_grant_amount(order),
+        fallback_bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    )
+    if subscription_target is not None:
+        targets.append(subscription_target)
+    campaign_target = _build_reserved_completion_target(
+        order=order,
+        grant_entry=_load_campaign_bonus_ledger_entry_for_order(order),
+        kind="campaign_bonus",
+        expected_amount=_expected_campaign_bonus_grant_amount(order),
+    )
+    if campaign_target is not None:
+        targets.append(campaign_target)
+    return tuple(targets)
+
+
+def _preflight_reserved_renewal_grants_for_cycle(
+    cycle_orders: list[BillingOrder],
+) -> tuple[ReservedActivationTarget, ...]:
+    targets: list[ReservedActivationTarget] = []
+    required_reserved_by_bucket: dict[str, Decimal] = {}
+    for cycle_order in cycle_orders:
+        for target in _load_reserved_activation_targets_for_cycle_order(cycle_order):
+            targets.append(target)
+            required_reserved_by_bucket[target.wallet_bucket_bid] = (
+                required_reserved_by_bucket.get(target.wallet_bucket_bid, Decimal("0"))
+                + target.amount
+            )
+    _assert_subscription_cycle_grant_amounts(cycle_orders, targets)
+
+    for wallet_bucket_bid, required_reserved in required_reserved_by_bucket.items():
+        bucket = (
+            CreditWalletBucket.query.filter(
+                CreditWalletBucket.deleted == 0,
+                CreditWalletBucket.wallet_bucket_bid == wallet_bucket_bid,
+            )
+            .order_by(CreditWalletBucket.id.desc())
+            .first()
+        )
+        if bucket is None:
+            raise IncompleteReservedGrantActivationError(
+                f"missing_bucket:{wallet_bucket_bid}"
+            )
+        if _quantize_credit_amount(
+            _to_decimal(bucket.reserved_credits)
+        ) < _quantize_credit_amount(required_reserved):
+            raise IncompleteReservedGrantActivationError(
+                f"insufficient_reserved:{wallet_bucket_bid}"
+            )
+    return tuple(targets)
+
+
+def _assert_reserved_activation_targets_completed(
+    cycle_orders: list[BillingOrder],
+) -> None:
+    targets: list[ReservedActivationTarget] = []
+    for cycle_order in cycle_orders:
+        targets.extend(_load_reserved_completion_targets_for_cycle_order(cycle_order))
+    _assert_subscription_cycle_grant_amounts(cycle_orders, targets)
+
+
+def _assert_subscription_cycle_grant_amounts(
+    cycle_orders: list[BillingOrder],
+    targets: list[ReservedActivationTarget] | tuple[ReservedActivationTarget, ...],
+) -> None:
+    subscription_amount_by_product: dict[str, Decimal] = {}
+    expected_subscription_amount_by_product: dict[str, Decimal] = {}
+    orders_by_bid = {
+        _normalize_bid(order.bill_order_bid): order for order in cycle_orders
+    }
+    orders_with_subscription_targets: set[str] = set()
+    for target in targets:
+        if target.kind != "subscription":
+            continue
+        order_bid = _normalize_bid(target.order_bid)
+        order = orders_by_bid.get(order_bid)
+        if order is None:
+            continue
+        orders_with_subscription_targets.add(order_bid)
+        product_bid = _normalize_bid(order.product_bid)
+        subscription_amount_by_product[product_bid] = (
+            subscription_amount_by_product.get(product_bid, Decimal("0"))
+            + target.amount
+        )
+
+    for order in cycle_orders:
+        order_bid = _normalize_bid(order.bill_order_bid)
+        if order_bid not in orders_with_subscription_targets:
+            continue
+        if _is_referral_invitation_renewal(order):
+            continue
+        product_bid = _normalize_bid(order.product_bid)
+        expected_subscription_amount_by_product[product_bid] = (
+            expected_subscription_amount_by_product.get(product_bid, Decimal("0"))
+            + _expected_subscription_cycle_grant_amount(order)
+        )
+
+    for product_bid, expected_amount in expected_subscription_amount_by_product.items():
+        if _quantize_credit_amount(
+            subscription_amount_by_product.get(product_bid, Decimal("0"))
+        ) < _quantize_credit_amount(expected_amount):
+            raise IncompleteReservedGrantActivationError(
+                f"subscription_cycle_amount_mismatch:{product_bid}"
+            )
+
+
+def _sync_activated_reserved_renewal_ledger_balances(
+    *,
+    targets: tuple[ReservedActivationTarget, ...],
+    final_balance_after: Decimal,
+) -> None:
+    if not targets:
+        return
+
+    total_activated = sum((target.amount for target in targets), start=Decimal("0"))
+    running_balance = _quantize_credit_amount(final_balance_after - total_activated)
+    now = now_utc()
+    for target in targets:
+        grant_entry = (
+            CreditLedgerEntry.query.filter(
+                CreditLedgerEntry.deleted == 0,
+                CreditLedgerEntry.ledger_bid == target.ledger_bid,
+            )
+            .order_by(CreditLedgerEntry.id.desc())
+            .first()
+        )
+        if grant_entry is None or _reserved_grant_state(grant_entry) != "available":
+            raise IncompleteReservedGrantActivationError(
+                f"incomplete_{target.kind}_activation:{target.order_bid}"
+            )
+        running_balance = _quantize_credit_amount(running_balance + target.amount)
+        grant_entry.balance_after = running_balance
+        grant_entry.updated_at = now
+        db.session.add(grant_entry)
 
 
 def _repair_existing_paid_order_grant_bucket(
@@ -1325,6 +1725,11 @@ def _activate_reserved_subscription_grant_for_order(
     if bucket is None:
         return False
 
+    grant_amount = _quantize_credit_amount(_to_decimal(grant_entry.amount))
+    reserved_credits = _quantize_credit_amount(_to_decimal(bucket.reserved_credits))
+    if grant_amount <= 0 or reserved_credits < grant_amount:
+        return False
+
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
     is_first_cycle_activation = (
         bucket.effective_from is None or bucket.effective_from < effective_from
@@ -1339,10 +1744,7 @@ def _activate_reserved_subscription_grant_for_order(
         )
 
     now = now_utc()
-    release_amount = min(
-        _to_decimal(grant_entry.amount),
-        _to_decimal(bucket.reserved_credits),
-    )
+    release_amount = grant_amount
     bucket.wallet_bid = wallet.wallet_bid
     bucket.bucket_category = CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
     bucket.source_type = resolve_bucket_source_type_for_category(
@@ -1434,12 +1836,14 @@ def _activate_reserved_campaign_bonus_grant_for_order(
     if bucket is None:
         return False
 
+    grant_amount = _quantize_credit_amount(_to_decimal(grant_entry.amount))
+    reserved_credits = _quantize_credit_amount(_to_decimal(bucket.reserved_credits))
+    if grant_amount <= 0 or reserved_credits < grant_amount:
+        return False
+
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
     now = now_utc()
-    release_amount = min(
-        _to_decimal(grant_entry.amount),
-        _to_decimal(bucket.reserved_credits),
-    )
+    release_amount = grant_amount
     bucket.reserved_credits = _quantize_credit_amount(
         _to_decimal(bucket.reserved_credits) - release_amount
     )
@@ -1809,6 +2213,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
                 "product_bid": order.product_bid,
                 "payment_provider": order.payment_provider,
                 "grant_reason": grant_context.grant_reason,
+                "grant_credit_amount": str(amount),
                 "bucket_credit_state": "reserved" if reserve_grant else "available",
                 "reserved_until": (
                     effective_from.isoformat() if reserve_grant else None
