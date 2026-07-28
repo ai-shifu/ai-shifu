@@ -416,7 +416,10 @@ def _load_overdue_reserved_paid_order_records(
     candidate_creator_bids: set[str] = set()
     for ledger in query.all():
         metadata = _normalize_json_dict(ledger.metadata_json)
-        if str(metadata.get("bucket_credit_state") or "").strip().lower() != "reserved":
+        if (
+            str(metadata.get("bucket_credit_state") or "").strip().lower()
+            == "available"
+        ):
             continue
         bill_order_bid = _normalize_optional_metadata_bid(
             metadata.get("bill_order_bid")
@@ -529,7 +532,7 @@ def _load_overdue_reserved_paid_order_creator_bids(
                     "",
                 )
             )
-            == "reserved",
+            != "available",
             BillingOrder.deleted == 0,
             BillingOrder.status == BILLING_ORDER_STATUS_PAID,
         )

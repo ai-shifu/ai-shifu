@@ -1604,6 +1604,256 @@ def test_repair_renewal_state_drift_blocks_cycle_when_subscription_grant_missing
     assert payload["manual_review_creator_bids"] == [creator_bid]
 
 
+def test_repair_renewal_state_drift_blocks_unknown_subscription_grant_state(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    boundary_at = datetime(2026, 4, 8, 0, 0, 0)
+    next_cycle_end = datetime(2026, 5, 8, 0, 0, 0)
+    creator_bid = "creator-renewal-drift-unknown-subscription-state"
+    subscription_bid = "subscription-renewal-drift-unknown-subscription-state"
+    order_bid = "order-renewal-drift-unknown-subscription-state"
+
+    with billing_wallet_lifecycle_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-renewal-drift-unknown-subscription-state",
+            creator_bid=creator_bid,
+            available_credits=Decimal("0"),
+            reserved_credits=Decimal("1000.0000000000"),
+            lifetime_granted_credits=Decimal("1000.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        subscription = BillingSubscription(
+            subscription_bid=subscription_bid,
+            creator_bid=creator_bid,
+            product_bid="bill-product-renewal-drift-unknown-subscription-state",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            current_period_start_at=datetime(2026, 3, 8, 0, 0, 0),
+            current_period_end_at=boundary_at,
+        )
+        order = BillingOrder(
+            bill_order_bid=order_bid,
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription_bid,
+            currency="CNY",
+            payable_amount=0,
+            paid_amount=0,
+            payment_provider="manual",
+            channel="manual",
+            provider_reference_id=order_bid,
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=datetime(2026, 4, 7, 0, 0, 0),
+            metadata_json={
+                "renewal_cycle_start_at": to_utc_iso(boundary_at),
+                "renewal_cycle_end_at": to_utc_iso(next_cycle_end),
+            },
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-renewal-drift-unknown-subscription-state",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order_bid,
+            priority=20,
+            original_credits=Decimal("1000.0000000000"),
+            available_credits=Decimal("0"),
+            reserved_credits=Decimal("1000.0000000000"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=boundary_at,
+            effective_to=next_cycle_end,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={"bill_order_bid": order_bid},
+        )
+        ledger = CreditLedgerEntry(
+            ledger_bid="ledger-renewal-drift-unknown-subscription-state",
+            creator_bid=creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order_bid,
+            idempotency_key=f"grant:{order_bid}",
+            amount=Decimal("1000.0000000000"),
+            balance_after=Decimal("0"),
+            expires_at=next_cycle_end,
+            consumable_from=boundary_at,
+            metadata_json={
+                "bill_order_bid": order_bid,
+                "subscription_bid": subscription_bid,
+                "bucket_credit_state": "unknown",
+            },
+        )
+        dao.db.session.add_all(
+            [
+                wallet,
+                subscription,
+                _create_monthly_plan_product(subscription.product_bid),
+                order,
+                bucket,
+                ledger,
+            ]
+        )
+        dao.db.session.commit()
+
+        dry_payload = repair_renewal_state_drift(
+            billing_wallet_lifecycle_app,
+            creator_bid=creator_bid,
+            repair_before=boundary_at + timedelta(minutes=1),
+            dry_run=True,
+        )
+        payload = repair_renewal_state_drift(
+            billing_wallet_lifecycle_app,
+            creator_bid=creator_bid,
+            repair_before=boundary_at + timedelta(minutes=1),
+            dry_run=False,
+        )
+        dao.db.session.refresh(subscription)
+        dao.db.session.refresh(bucket)
+        dao.db.session.refresh(ledger)
+
+    assert dry_payload["activatable_creator_bids"] == []
+    assert dry_payload["protected_creator_bids"] == [creator_bid]
+    assert dry_payload["manual_review_creator_bids"] == [creator_bid]
+    assert payload["activated_reserved_order_count"] == 0
+    assert payload["protected_creator_bids"] == [creator_bid]
+    assert payload["manual_review_creator_bids"] == [creator_bid]
+    assert payload["updated_subscription_count"] == 0
+    assert payload["expired_bucket_count"] == 0
+    assert subscription.current_period_end_at == boundary_at
+    assert bucket.reserved_credits == Decimal("1000.0000000000")
+    assert ledger.metadata_json["bucket_credit_state"] == "unknown"
+
+
+def test_repair_renewal_state_drift_blocks_short_subscription_grant_amount(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    boundary_at = datetime(2026, 4, 8, 0, 0, 0)
+    next_cycle_end = datetime(2026, 5, 8, 0, 0, 0)
+    creator_bid = "creator-renewal-drift-short-subscription-amount"
+    subscription_bid = "subscription-renewal-drift-short-subscription-amount"
+    order_bid = "order-renewal-drift-short-subscription-amount"
+
+    with billing_wallet_lifecycle_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-renewal-drift-short-subscription-amount",
+            creator_bid=creator_bid,
+            available_credits=Decimal("0"),
+            reserved_credits=Decimal("1.0000000000"),
+            lifetime_granted_credits=Decimal("1.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        subscription = BillingSubscription(
+            subscription_bid=subscription_bid,
+            creator_bid=creator_bid,
+            product_bid="bill-product-renewal-drift-short-subscription-amount",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            current_period_start_at=datetime(2026, 3, 8, 0, 0, 0),
+            current_period_end_at=boundary_at,
+        )
+        order = BillingOrder(
+            bill_order_bid=order_bid,
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription_bid,
+            currency="CNY",
+            payable_amount=0,
+            paid_amount=0,
+            payment_provider="manual",
+            channel="manual",
+            provider_reference_id=order_bid,
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=datetime(2026, 4, 7, 0, 0, 0),
+            metadata_json={
+                "renewal_cycle_start_at": to_utc_iso(boundary_at),
+                "renewal_cycle_end_at": to_utc_iso(next_cycle_end),
+            },
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-renewal-drift-short-subscription-amount",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order_bid,
+            priority=20,
+            original_credits=Decimal("1.0000000000"),
+            available_credits=Decimal("0"),
+            reserved_credits=Decimal("1.0000000000"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=boundary_at,
+            effective_to=next_cycle_end,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={"bill_order_bid": order_bid},
+        )
+        ledger = CreditLedgerEntry(
+            ledger_bid="ledger-renewal-drift-short-subscription-amount",
+            creator_bid=creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order_bid,
+            idempotency_key=f"grant:{order_bid}",
+            amount=Decimal("1.0000000000"),
+            balance_after=Decimal("0"),
+            expires_at=next_cycle_end,
+            consumable_from=boundary_at,
+            metadata_json={
+                "bill_order_bid": order_bid,
+                "subscription_bid": subscription_bid,
+                "bucket_credit_state": "reserved",
+            },
+        )
+        dao.db.session.add_all(
+            [
+                wallet,
+                subscription,
+                _create_monthly_plan_product(subscription.product_bid),
+                order,
+                bucket,
+                ledger,
+            ]
+        )
+        dao.db.session.commit()
+
+        dry_payload = repair_renewal_state_drift(
+            billing_wallet_lifecycle_app,
+            creator_bid=creator_bid,
+            repair_before=boundary_at + timedelta(minutes=1),
+            dry_run=True,
+        )
+        payload = repair_renewal_state_drift(
+            billing_wallet_lifecycle_app,
+            creator_bid=creator_bid,
+            repair_before=boundary_at + timedelta(minutes=1),
+            dry_run=False,
+        )
+        dao.db.session.refresh(subscription)
+        dao.db.session.refresh(bucket)
+        dao.db.session.refresh(ledger)
+
+    assert dry_payload["activatable_creator_bids"] == []
+    assert dry_payload["protected_creator_bids"] == [creator_bid]
+    assert dry_payload["manual_review_creator_bids"] == [creator_bid]
+    assert payload["activated_reserved_order_count"] == 0
+    assert payload["protected_creator_bids"] == [creator_bid]
+    assert payload["manual_review_creator_bids"] == [creator_bid]
+    assert payload["updated_subscription_count"] == 0
+    assert payload["expired_bucket_count"] == 0
+    assert subscription.current_period_end_at == boundary_at
+    assert bucket.reserved_credits == Decimal("1.0000000000")
+    assert ledger.metadata_json["bucket_credit_state"] == "reserved"
+
+
 def test_repair_renewal_state_drift_all_scope_falls_back_to_source_bid(
     billing_wallet_lifecycle_app: Flask,
 ) -> None:

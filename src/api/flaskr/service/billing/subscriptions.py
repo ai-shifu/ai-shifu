@@ -989,7 +989,7 @@ def _cycle_has_reserved_activation_evidence(cycle_orders: list[BillingOrder]) ->
         ):
             if (
                 grant_entry is not None
-                and _reserved_grant_state(grant_entry) == "reserved"
+                and _reserved_grant_state(grant_entry) != "available"
             ):
                 return True
     return False
@@ -1114,6 +1114,18 @@ def _reserved_grant_state(grant_entry: CreditLedgerEntry) -> str:
 
 
 def _expected_subscription_grant_amount(order: BillingOrder) -> Decimal:
+    grant_entry = _load_grant_ledger_entry_for_order(order)
+    if grant_entry is not None:
+        metadata = _normalize_json_object(grant_entry.metadata_json)
+        for key in ("grant_credit_amount", "credit_amount"):
+            if metadata.get(key) is not None:
+                amount = _quantize_credit_amount(_to_decimal(metadata.get(key)))
+                if amount > 0:
+                    return amount
+    return Decimal("0")
+
+
+def _expected_subscription_cycle_grant_amount(order: BillingOrder) -> Decimal:
     product = _load_billing_product_by_bid(order.product_bid)
     if product is None:
         raise IncompleteReservedGrantActivationError(
@@ -1136,7 +1148,7 @@ def _build_reserved_activation_target(
     expected_amount: Decimal,
     fallback_bucket_category: int | None = None,
 ) -> ReservedActivationTarget | None:
-    if expected_amount <= 0:
+    if kind != "subscription" and expected_amount <= 0:
         return None
     if grant_entry is None:
         raise IncompleteReservedGrantActivationError(
@@ -1152,7 +1164,7 @@ def _build_reserved_activation_target(
         )
 
     amount = _quantize_credit_amount(_to_decimal(grant_entry.amount))
-    if kind != "subscription" and amount != expected_amount:
+    if expected_amount > 0 and amount != expected_amount:
         raise IncompleteReservedGrantActivationError(
             f"{kind}_amount_mismatch:{order.bill_order_bid}"
         )
@@ -1192,7 +1204,7 @@ def _build_reserved_completion_target(
     expected_amount: Decimal,
     fallback_bucket_category: int | None = None,
 ) -> ReservedActivationTarget | None:
-    if expected_amount <= 0:
+    if kind != "subscription" and expected_amount <= 0:
         return None
     if grant_entry is None:
         raise IncompleteReservedGrantActivationError(
@@ -1204,7 +1216,7 @@ def _build_reserved_completion_target(
             f"incomplete_{kind}_activation:{order.bill_order_bid}"
         )
     amount = _quantize_credit_amount(_to_decimal(grant_entry.amount))
-    if kind != "subscription" and amount != expected_amount:
+    if expected_amount > 0 and amount != expected_amount:
         raise IncompleteReservedGrantActivationError(
             f"{kind}_amount_mismatch:{order.bill_order_bid}"
         )
@@ -1290,6 +1302,7 @@ def _preflight_reserved_renewal_grants_for_cycle(
                 required_reserved_by_bucket.get(target.wallet_bucket_bid, Decimal("0"))
                 + target.amount
             )
+    _assert_subscription_cycle_grant_amounts(cycle_orders, targets)
 
     for wallet_bucket_bid, required_reserved in required_reserved_by_bucket.items():
         bucket = (
@@ -1316,8 +1329,55 @@ def _preflight_reserved_renewal_grants_for_cycle(
 def _assert_reserved_activation_targets_completed(
     cycle_orders: list[BillingOrder],
 ) -> None:
+    targets: list[ReservedActivationTarget] = []
     for cycle_order in cycle_orders:
-        _load_reserved_completion_targets_for_cycle_order(cycle_order)
+        targets.extend(_load_reserved_completion_targets_for_cycle_order(cycle_order))
+    _assert_subscription_cycle_grant_amounts(cycle_orders, targets)
+
+
+def _assert_subscription_cycle_grant_amounts(
+    cycle_orders: list[BillingOrder],
+    targets: list[ReservedActivationTarget] | tuple[ReservedActivationTarget, ...],
+) -> None:
+    subscription_amount_by_product: dict[str, Decimal] = {}
+    expected_subscription_amount_by_product: dict[str, Decimal] = {}
+    orders_by_bid = {
+        _normalize_bid(order.bill_order_bid): order for order in cycle_orders
+    }
+    orders_with_subscription_targets: set[str] = set()
+    for target in targets:
+        if target.kind != "subscription":
+            continue
+        order_bid = _normalize_bid(target.order_bid)
+        order = orders_by_bid.get(order_bid)
+        if order is None:
+            continue
+        orders_with_subscription_targets.add(order_bid)
+        product_bid = _normalize_bid(order.product_bid)
+        subscription_amount_by_product[product_bid] = (
+            subscription_amount_by_product.get(product_bid, Decimal("0"))
+            + target.amount
+        )
+
+    for order in cycle_orders:
+        order_bid = _normalize_bid(order.bill_order_bid)
+        if order_bid not in orders_with_subscription_targets:
+            continue
+        if _is_referral_invitation_renewal(order):
+            continue
+        product_bid = _normalize_bid(order.product_bid)
+        expected_subscription_amount_by_product[product_bid] = (
+            expected_subscription_amount_by_product.get(product_bid, Decimal("0"))
+            + _expected_subscription_cycle_grant_amount(order)
+        )
+
+    for product_bid, expected_amount in expected_subscription_amount_by_product.items():
+        if _quantize_credit_amount(
+            subscription_amount_by_product.get(product_bid, Decimal("0"))
+        ) < _quantize_credit_amount(expected_amount):
+            raise IncompleteReservedGrantActivationError(
+                f"subscription_cycle_amount_mismatch:{product_bid}"
+            )
 
 
 def _sync_activated_reserved_renewal_ledger_balances(
@@ -2153,6 +2213,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
                 "product_bid": order.product_bid,
                 "payment_provider": order.payment_provider,
                 "grant_reason": grant_context.grant_reason,
+                "grant_credit_amount": str(amount),
                 "bucket_credit_state": "reserved" if reserve_grant else "available",
                 "reserved_until": (
                     effective_from.isoformat() if reserve_grant else None
