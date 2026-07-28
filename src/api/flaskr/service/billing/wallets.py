@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import case, func
+from sqlalchemy import case, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import ObjectDeletedError
 
@@ -416,10 +416,10 @@ def _load_overdue_reserved_paid_order_records(
     candidate_creator_bids: set[str] = set()
     for ledger in query.all():
         metadata = _normalize_json_dict(ledger.metadata_json)
-        if (
-            str(metadata.get("bucket_credit_state") or "").strip().lower()
-            == "available"
-        ):
+        state = _normalize_bucket_credit_state(metadata.get("bucket_credit_state"))
+        if state == "available":
+            continue
+        if not state and not _ledger_bucket_has_reserved_credits(ledger):
             continue
         bill_order_bid = _normalize_optional_metadata_bid(
             metadata.get("bill_order_bid")
@@ -499,6 +499,26 @@ def _load_overdue_reserved_paid_order_records(
     return records
 
 
+def _normalize_bucket_credit_state(value: Any) -> str:
+    state = str(value or "").strip().lower()
+    return "" if state == "null" else state
+
+
+def _ledger_bucket_has_reserved_credits(ledger: CreditLedgerEntry) -> bool:
+    wallet_bucket_bid = _normalize_bid(ledger.wallet_bucket_bid)
+    if not wallet_bucket_bid:
+        return False
+    bucket = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.wallet_bucket_bid == wallet_bucket_bid,
+        )
+        .order_by(CreditWalletBucket.id.desc())
+        .first()
+    )
+    return bucket is not None and _to_decimal(bucket.reserved_credits) > _ZERO
+
+
 def _load_overdue_reserved_paid_order_creator_bids(
     *,
     repaired_at: datetime,
@@ -513,26 +533,42 @@ def _load_overdue_reserved_paid_order_creator_bids(
         ),
         _sql_null_if_empty_or_json_null(CreditLedgerEntry.source_bid),
     )
+    state_expr = func.lower(
+        func.trim(
+            func.coalesce(
+                _json_extract_text(
+                    CreditLedgerEntry.metadata_json, "$.bucket_credit_state"
+                ),
+                "",
+            )
+        )
+    )
     query = (
         db.session.query(CreditLedgerEntry.creator_bid)
         .join(
             BillingOrder,
             BillingOrder.bill_order_bid == bill_order_bid_expr,
         )
+        .outerjoin(
+            CreditWalletBucket,
+            (
+                (CreditWalletBucket.deleted == 0)
+                & (
+                    CreditWalletBucket.wallet_bucket_bid
+                    == CreditLedgerEntry.wallet_bucket_bid
+                )
+            ),
+        )
         .filter(
             CreditLedgerEntry.deleted == 0,
             CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
             CreditLedgerEntry.consumable_from.isnot(None),
             CreditLedgerEntry.consumable_from <= repaired_at,
-            func.lower(
-                func.coalesce(
-                    _json_extract_text(
-                        CreditLedgerEntry.metadata_json, "$.bucket_credit_state"
-                    ),
-                    "",
-                )
-            )
-            != "available",
+            state_expr != "available",
+            or_(
+                ~state_expr.in_(["", "null"]),
+                CreditWalletBucket.reserved_credits > _ZERO,
+            ),
             BillingOrder.deleted == 0,
             BillingOrder.status == BILLING_ORDER_STATUS_PAID,
         )
