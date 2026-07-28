@@ -28,7 +28,7 @@ import {
 import { useUserStore } from '@/store';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useTracking } from '@/c-common/hooks/useTracking';
-import { useLessonTree } from './hooks/useLessonTree';
+import { useLessonTree, type LessonTreeLesson } from './hooks/useLessonTree';
 import {
   applyLessonSelection,
   resolveRequestedLessonId,
@@ -78,6 +78,8 @@ const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
 const PayModal = dynamic(() => import('./Components/Pay/PayModal'), {
   ssr: false,
 });
+
+type LessonUpdate = Pick<LessonTreeLesson, 'id'> & Partial<LessonTreeLesson>;
 
 // import LoginModal from './Components/Login/LoginModal';
 
@@ -717,8 +719,14 @@ export default function ChatPage() {
     }
   };
 
+  const lessonUpdateSequenceRef = useRef(0);
+  const latestLessonUpdatesRef = useRef(
+    new Map<string, { sequence: number; value: LessonUpdate }>(),
+  );
   const onLessonUpdate = useCallback(
-    val => {
+    (val: LessonUpdate) => {
+      const sequence = ++lessonUpdateSequenceRef.current;
+      latestLessonUpdatesRef.current.set(val.id, { sequence, value: val });
       updateLesson(val.id, val);
     },
     [updateLesson],
@@ -862,12 +870,20 @@ export default function ChatPage() {
   useEffect(() => {
     const resetChapterEventHandler = async e => {
       const targetLessonId = e.detail.lesson_id;
+      const lessonUpdateSequenceBeforeReload = lessonUpdateSequenceRef.current;
       await reloadTree(e.detail.chapter_id, targetLessonId);
-      onLessonUpdate({
-        id: targetLessonId,
-        status: LESSON_STATUS_VALUE.LEARNING,
-        status_value: LESSON_STATUS_VALUE.LEARNING,
-      });
+      const latestLessonUpdate =
+        latestLessonUpdatesRef.current.get(targetLessonId);
+      onLessonUpdate(
+        latestLessonUpdate &&
+          latestLessonUpdate.sequence > lessonUpdateSequenceBeforeReload
+          ? latestLessonUpdate.value
+          : {
+              id: targetLessonId,
+              status: LESSON_STATUS_VALUE.LEARNING,
+              status_value: LESSON_STATUS_VALUE.LEARNING,
+            },
+      );
       updateSelectedLesson(targetLessonId, true);
       onGoChapter(targetLessonId);
       if (mobileStyle) {

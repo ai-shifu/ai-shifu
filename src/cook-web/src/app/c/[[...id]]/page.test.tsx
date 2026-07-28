@@ -23,7 +23,32 @@ interface MockChatMobileHeaderProps {
 
 interface MockChatUiProps {
   lessonId?: string;
+  lessonUpdate?: (value: {
+    id: string;
+    status: string;
+    status_value: string;
+  }) => void;
 }
+
+type ResetChapterEventHandler = (
+  event: CustomEvent<{
+    chapter_id: string;
+    lesson_id: string;
+  }>,
+) => Promise<void>;
+
+const getResetChapterEventHandler = () => {
+  const { shifu: mockedShifu } = jest.requireMock('@/c-service/Shifu') as {
+    shifu: {
+      events: {
+        addEventListener: jest.Mock;
+      };
+    };
+  };
+  return mockedShifu.events.addEventListener.mock.calls.find(
+    ([eventType]) => eventType === 'RESET_CHAPTER',
+  )?.[1] as ResetChapterEventHandler | undefined;
+};
 
 const mockChatMobileHeader = jest.fn(
   ({ lessonId, lessonTitle }: MockChatMobileHeaderProps) => (
@@ -425,24 +450,7 @@ describe('ChatPage profile onboarding gate', () => {
 
     await screen.findByTestId('chat-ui');
 
-    const { shifu: mockedShifu } = jest.requireMock('@/c-service/Shifu') as {
-      shifu: {
-        events: {
-          addEventListener: jest.Mock;
-        };
-      };
-    };
-    const resetChapterEventHandler =
-      mockedShifu.events.addEventListener.mock.calls.find(
-        ([eventType]) => eventType === 'RESET_CHAPTER',
-      )?.[1] as
-        | ((
-            event: CustomEvent<{
-              chapter_id: string;
-              lesson_id: string;
-            }>,
-          ) => Promise<void>)
-        | undefined;
+    const resetChapterEventHandler = getResetChapterEventHandler();
 
     expect(resetChapterEventHandler).toBeDefined();
 
@@ -467,6 +475,56 @@ describe('ChatPage profile onboarding gate', () => {
       status_value: 'in_progress',
     });
     expect(mockUpdateSelectedLesson).toHaveBeenCalledWith('lesson-1', true);
+  });
+
+  test('preserves a newer lesson status received while the reset tree reloads', async () => {
+    let resolveReloadTree: (value: unknown) => void = () => {};
+    mockReloadTree.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveReloadTree = resolve;
+      }),
+    );
+
+    render(<ChatPage />);
+
+    await screen.findByTestId('chat-ui');
+
+    const resetChapterEventHandler = getResetChapterEventHandler();
+    const latestChatUiCall =
+      mockChatUi.mock.calls[mockChatUi.mock.calls.length - 1];
+    const lessonUpdate = latestChatUiCall?.[0].lessonUpdate;
+
+    expect(resetChapterEventHandler).toBeDefined();
+    expect(lessonUpdate).toBeDefined();
+
+    const resetPromise = resetChapterEventHandler?.(
+      new CustomEvent('RESET_CHAPTER', {
+        detail: {
+          chapter_id: 'chapter-1',
+          lesson_id: 'lesson-1',
+        },
+      }),
+    );
+
+    lessonUpdate?.({
+      id: 'lesson-1',
+      status: 'completed',
+      status_value: 'completed',
+    });
+
+    resolveReloadTree(null);
+    await resetPromise;
+
+    expect(mockUpdateLesson).toHaveBeenLastCalledWith('lesson-1', {
+      id: 'lesson-1',
+      status: 'completed',
+      status_value: 'completed',
+    });
+    expect(mockUpdateLesson).not.toHaveBeenCalledWith('lesson-1', {
+      id: 'lesson-1',
+      status: 'in_progress',
+      status_value: 'in_progress',
+    });
   });
 
   test('surfaces the backend onboarding error message when submit fails', async () => {
