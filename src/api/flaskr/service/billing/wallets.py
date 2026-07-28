@@ -2150,15 +2150,12 @@ def _expire_credit_wallet_buckets_in_session(
         # sees the pending bucket update.
         try:
             with db.session.begin_nested():
-                bucket.available_credits = _ZERO
-                bucket.expired_credits = _quantize_credit_amount(
-                    _to_decimal(bucket.expired_credits) + available
-                )
-                if _to_decimal(bucket.reserved_credits) > _ZERO:
-                    sync_credit_bucket_status(bucket)
-                else:
-                    bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
-                db.session.add(bucket)
+                if not _expire_bucket_available_credits_if_unchanged(
+                    bucket,
+                    available=available,
+                    cutoff=cutoff,
+                ):
+                    continue
 
                 refresh_credit_wallet_snapshot(
                     wallet,
@@ -2220,6 +2217,54 @@ def _expire_credit_wallet_buckets_in_session(
         bucket_count=expired_count,
         expired_credits=_credit_decimal_to_number(expired_total),
     )
+
+
+def _expire_bucket_available_credits_if_unchanged(
+    bucket: CreditWalletBucket,
+    *,
+    available: Decimal,
+    cutoff: datetime,
+) -> bool:
+    """Expire a bucket only if its refreshed balance/window still match."""
+
+    if bucket.id is None or bucket.effective_to is None:
+        return False
+
+    expected_available = _quantize_credit_amount(available)
+    expected_expired = _quantize_credit_amount(bucket.expired_credits)
+    expected_reserved = _quantize_credit_amount(bucket.reserved_credits)
+    next_expired = _quantize_credit_amount(expected_expired + expected_available)
+    next_status = (
+        CREDIT_BUCKET_STATUS_EXHAUSTED
+        if expected_reserved > _ZERO
+        else CREDIT_BUCKET_STATUS_EXPIRED
+    )
+    updated_rows = CreditWalletBucket.query.filter(
+        CreditWalletBucket.deleted == 0,
+        CreditWalletBucket.id == bucket.id,
+        CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+        CreditWalletBucket.effective_to == bucket.effective_to,
+        CreditWalletBucket.available_credits == expected_available,
+        CreditWalletBucket.expired_credits == expected_expired,
+        CreditWalletBucket.reserved_credits == expected_reserved,
+    ).update(
+        {
+            "available_credits": _ZERO,
+            "expired_credits": next_expired,
+            "status": next_status,
+            "updated_at": cutoff,
+        },
+        synchronize_session=False,
+    )
+    if updated_rows != 1:
+        db.session.expire(bucket)
+        return False
+
+    bucket.available_credits = _ZERO
+    bucket.expired_credits = next_expired
+    bucket.status = next_status
+    bucket.updated_at = cutoff
+    return True
 
 
 def sync_credit_bucket_status(bucket: CreditWalletBucket) -> int:
