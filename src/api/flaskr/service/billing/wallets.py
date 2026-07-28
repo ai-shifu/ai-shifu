@@ -2153,7 +2153,7 @@ def _expire_credit_wallet_buckets_in_session(
                 if not _expire_bucket_available_credits_if_unchanged(
                     bucket,
                     available=available,
-                    cutoff=cutoff,
+                    mutation_at=now_utc(),
                 ):
                     continue
 
@@ -2223,7 +2223,7 @@ def _expire_bucket_available_credits_if_unchanged(
     bucket: CreditWalletBucket,
     *,
     available: Decimal,
-    cutoff: datetime,
+    mutation_at: datetime,
 ) -> bool:
     """Expire a bucket only if its refreshed balance/window still match."""
 
@@ -2252,7 +2252,7 @@ def _expire_bucket_available_credits_if_unchanged(
             "available_credits": _ZERO,
             "expired_credits": next_expired,
             "status": next_status,
-            "updated_at": cutoff,
+            "updated_at": mutation_at,
         },
         synchronize_session=False,
     )
@@ -2263,7 +2263,7 @@ def _expire_bucket_available_credits_if_unchanged(
     bucket.available_credits = _ZERO
     bucket.expired_credits = next_expired
     bucket.status = next_status
-    bucket.updated_at = cutoff
+    bucket.updated_at = mutation_at
     return True
 
 

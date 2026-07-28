@@ -173,6 +173,66 @@ def test_expire_credit_wallet_buckets_marks_bucket_expired_and_writes_ledger(
         assert ledger.balance_after == Decimal("0E-10")
 
 
+def test_expire_credit_wallet_buckets_uses_actual_mutation_time_for_bucket_update(
+    billing_wallet_lifecycle_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.billing import wallets as wallets_mod
+
+    cutoff = datetime(2026, 4, 8, 0, 0, 0)
+    mutation_at = datetime(2026, 4, 9, 12, 30, 0)
+    with billing_wallet_lifecycle_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-expire-mutation-time",
+            creator_bid="creator-expire-mutation-time",
+            available_credits=Decimal("2.5000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("10.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-expire-mutation-time",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=wallet.creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid="order-expire-mutation-time",
+            priority=30,
+            original_credits=Decimal("2.5000000000"),
+            available_credits=Decimal("2.5000000000"),
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=datetime(2026, 4, 1, 0, 0, 0),
+            effective_to=datetime(2026, 4, 7, 0, 0, 0),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={},
+            created_at=datetime(2026, 4, 1, 0, 0, 0),
+            updated_at=datetime(2026, 4, 1, 0, 0, 0),
+        )
+        dao.db.session.add_all([wallet, bucket])
+        dao.db.session.commit()
+        monkeypatch.setattr(wallets_mod, "now_utc", lambda: mutation_at)
+
+        payload = expire_credit_wallet_buckets(
+            billing_wallet_lifecycle_app,
+            creator_bid=wallet.creator_bid,
+            expire_before=cutoff,
+        )
+
+        dao.db.session.expire_all()
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-expire-mutation-time"
+        ).one()
+
+    assert payload["bucket_count"] == 1
+    assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
+    assert bucket.updated_at == mutation_at
+    assert bucket.updated_at != cutoff
+
+
 def test_expire_credit_wallet_buckets_skips_bucket_with_conflicting_ledger(
     billing_wallet_lifecycle_app: Flask,
 ) -> None:
