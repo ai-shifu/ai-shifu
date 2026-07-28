@@ -843,6 +843,11 @@ def _activate_subscription_for_paid_order(
                 reserved_credits=wallet.reserved_credits,
                 updated_at=now_utc(),
             )
+            _sync_activated_reserved_renewal_ledger_balances(
+                order=order,
+                effective_from=effective_from,
+                balance_after=wallet.available_credits,
+            )
         if _is_preorder_order(order):
             _mark_preorder_effective_applied(order)
             _clear_subscription_preorder_metadata(subscription)
@@ -1166,6 +1171,50 @@ def _assert_reserved_activation_targets_completed(
             raise IncompleteReservedGrantActivationError(
                 f"incomplete_{target.kind}_activation:{target.order_bid}"
             )
+
+
+def _sync_activated_reserved_renewal_ledger_balances(
+    *,
+    order: BillingOrder,
+    effective_from: datetime,
+    balance_after: Decimal,
+) -> None:
+    cycle_orders = list(
+        _load_paid_subscription_renewal_orders_for_cycle(
+            subscription_bid=order.subscription_bid,
+            effective_from=effective_from,
+        )
+    )
+    if not cycle_orders:
+        cycle_orders = [order]
+
+    idempotency_keys: list[str] = []
+    for cycle_order in cycle_orders:
+        idempotency_keys.append(f"grant:{cycle_order.bill_order_bid}")
+        idempotency_keys.append(f"grant:campaign_bonus:{cycle_order.bill_order_bid}")
+
+    if not idempotency_keys:
+        return
+
+    grant_entries = CreditLedgerEntry.query.filter(
+        CreditLedgerEntry.deleted == 0,
+        CreditLedgerEntry.creator_bid == order.creator_bid,
+        CreditLedgerEntry.idempotency_key.in_(idempotency_keys),
+        CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    ).all()
+    now = now_utc()
+    for grant_entry in grant_entries:
+        metadata = _normalize_json_object(grant_entry.metadata_json)
+        if (
+            str(metadata.get("bucket_credit_state") or "").strip().lower()
+            != "available"
+        ):
+            continue
+        if "activated_at" not in metadata:
+            continue
+        grant_entry.balance_after = _quantize_credit_amount(balance_after)
+        grant_entry.updated_at = now
+        db.session.add(grant_entry)
 
 
 def _repair_existing_paid_order_grant_bucket(
