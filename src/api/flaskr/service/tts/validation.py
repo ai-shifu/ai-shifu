@@ -21,8 +21,9 @@ SUPPORTED_TTS_PROVIDERS = {
     "baidu",
     "aliyun",
     "tencent",
+    "tencent_texttovoice",
 }
-PROVIDERS_REQUIRING_MODEL = {"minimax", "volcengine"}
+PROVIDERS_REQUIRING_MODEL = {"minimax", "volcengine", "tencent_texttovoice"}
 
 
 @dataclass(frozen=True)
@@ -149,18 +150,20 @@ def validate_tts_settings_strict(
             f"TTS emotion is not supported for provider '{normalized_provider}'"
         )
 
-    # Volcengine: enforce resource-id consistency between model and voice.
-    if normalized_provider == "volcengine":
-        voice_resource_id = ""
-        for voice in cfg.voices or []:
-            if (voice.get("value") or "").strip() == normalized_voice_id:
-                voice_resource_id = (voice.get("resource_id") or "").strip()
-                break
-        if voice_resource_id and normalized_model != voice_resource_id:
-            _raise_param_error(
-                "Volcengine TTS model must match voice resource_id: "
-                f"{voice_resource_id}"
-            )
+    # Enforce resource-id consistency between model and voice for any provider
+    # whose voices declare a resource_id (volcengine resources, tencent
+    # TextToVoice tiers). Voices without resource_id are unaffected; an empty
+    # model skips the check so providers with optional models stay compatible.
+    voice_resource_id = ""
+    for voice in cfg.voices or []:
+        if (voice.get("value") or "").strip() == normalized_voice_id:
+            voice_resource_id = (voice.get("resource_id") or "").strip()
+            break
+    if voice_resource_id and normalized_model and normalized_model != voice_resource_id:
+        _raise_param_error(
+            f"TTS model for provider '{normalized_provider}' must match "
+            f"voice resource_id: {voice_resource_id}"
+        )
 
     return StrictTTSSettings(
         provider=normalized_provider,
