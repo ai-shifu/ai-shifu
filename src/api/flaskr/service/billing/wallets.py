@@ -411,21 +411,31 @@ def _load_overdue_reserved_paid_order_records(
             return []
         query = query.filter(CreditLedgerEntry.creator_bid.in_(sorted(creator_bids)))
 
-    candidate_ledgers: list[tuple[CreditLedgerEntry, str]] = []
-    candidate_order_bids: set[str] = set()
-    candidate_creator_bids: set[str] = set()
-    for ledger in query.all():
+    ledgers = query.all()
+    eligible_ledgers: list[tuple[CreditLedgerEntry, str, str, str]] = []
+    missing_state_bucket_bids: set[str] = set()
+    for ledger in ledgers:
         metadata = _normalize_json_dict(ledger.metadata_json)
         state = _normalize_bucket_credit_state(metadata.get("bucket_credit_state"))
         if state == "available":
             continue
-        if not state and not _ledger_bucket_has_reserved_credits(ledger):
-            continue
-        bill_order_bid = _normalize_optional_metadata_bid(
-            metadata.get("bill_order_bid")
-        ) or _normalize_optional_metadata_bid(ledger.source_bid)
+        bill_order_bid = _extract_ledger_bill_order_bid(ledger, metadata)
         if not bill_order_bid:
             continue
+        wallet_bucket_bid = _normalize_bid(ledger.wallet_bucket_bid)
+        if not state and wallet_bucket_bid:
+            missing_state_bucket_bids.add(wallet_bucket_bid)
+        eligible_ledgers.append((ledger, bill_order_bid, state, wallet_bucket_bid))
+
+    reserved_buckets_by_bid = _load_reserved_buckets_by_bid(missing_state_bucket_bids)
+    candidate_ledgers: list[tuple[CreditLedgerEntry, str]] = []
+    candidate_order_bids: set[str] = set()
+    candidate_creator_bids: set[str] = set()
+    for ledger, bill_order_bid, state, wallet_bucket_bid in eligible_ledgers:
+        if not state:
+            bucket = reserved_buckets_by_bid.get(wallet_bucket_bid)
+            if bucket is None or not _bucket_matches_order_bid(bucket, bill_order_bid):
+                continue
         candidate_ledgers.append((ledger, bill_order_bid))
         candidate_order_bids.add(bill_order_bid)
         candidate_creator_bids.add(_normalize_bid(ledger.creator_bid))
@@ -504,19 +514,52 @@ def _normalize_bucket_credit_state(value: Any) -> str:
     return "" if state == "null" else state
 
 
-def _ledger_bucket_has_reserved_credits(ledger: CreditLedgerEntry) -> bool:
-    wallet_bucket_bid = _normalize_bid(ledger.wallet_bucket_bid)
-    if not wallet_bucket_bid:
-        return False
-    bucket = (
+def _extract_ledger_bill_order_bid(
+    ledger: CreditLedgerEntry, metadata: dict[str, Any] | None = None
+) -> str:
+    normalized_metadata = _normalize_json_dict(metadata or ledger.metadata_json)
+    return _normalize_optional_metadata_bid(
+        normalized_metadata.get("bill_order_bid")
+    ) or _normalize_optional_metadata_bid(ledger.source_bid)
+
+
+def _load_reserved_buckets_by_bid(
+    wallet_bucket_bids: set[str],
+) -> dict[str, CreditWalletBucket]:
+    normalized_bids = sorted({_normalize_bid(bid) for bid in wallet_bucket_bids if bid})
+    if not normalized_bids:
+        return {}
+    buckets = (
         CreditWalletBucket.query.filter(
             CreditWalletBucket.deleted == 0,
-            CreditWalletBucket.wallet_bucket_bid == wallet_bucket_bid,
+            CreditWalletBucket.wallet_bucket_bid.in_(normalized_bids),
         )
         .order_by(CreditWalletBucket.id.desc())
-        .first()
+        .all()
     )
-    return bucket is not None and _to_decimal(bucket.reserved_credits) > _ZERO
+    reserved_buckets_by_bid: dict[str, CreditWalletBucket] = {}
+    for bucket in buckets:
+        wallet_bucket_bid = _normalize_bid(bucket.wallet_bucket_bid)
+        if (
+            wallet_bucket_bid
+            and wallet_bucket_bid not in reserved_buckets_by_bid
+            and _to_decimal(bucket.reserved_credits) > _ZERO
+        ):
+            reserved_buckets_by_bid[wallet_bucket_bid] = bucket
+    return reserved_buckets_by_bid
+
+
+def _bucket_matches_order_bid(bucket: CreditWalletBucket, bill_order_bid: str) -> bool:
+    normalized_order_bid = _normalize_bid(bill_order_bid)
+    if not normalized_order_bid:
+        return False
+    metadata = _normalize_json_dict(bucket.metadata_json)
+    bucket_order_bids = {
+        _normalize_optional_metadata_bid(bucket.source_bid),
+        _normalize_optional_metadata_bid(metadata.get("bill_order_bid")),
+        _normalize_optional_metadata_bid(metadata.get("billing_order_bid")),
+    }
+    return normalized_order_bid in bucket_order_bids
 
 
 def _load_overdue_reserved_paid_order_creator_bids(
@@ -532,6 +575,15 @@ def _load_overdue_reserved_paid_order_creator_bids(
             _json_extract_text(CreditLedgerEntry.metadata_json, "$.bill_order_bid")
         ),
         _sql_null_if_empty_or_json_null(CreditLedgerEntry.source_bid),
+    )
+    bucket_source_order_bid_expr = _sql_null_if_empty_or_json_null(
+        CreditWalletBucket.source_bid
+    )
+    bucket_bill_order_bid_expr = _sql_null_if_empty_or_json_null(
+        _json_extract_text(CreditWalletBucket.metadata_json, "$.bill_order_bid")
+    )
+    bucket_billing_order_bid_expr = _sql_null_if_empty_or_json_null(
+        _json_extract_text(CreditWalletBucket.metadata_json, "$.billing_order_bid")
     )
     state_expr = func.lower(
         func.trim(
@@ -553,6 +605,8 @@ def _load_overdue_reserved_paid_order_creator_bids(
             CreditWalletBucket,
             (
                 (CreditWalletBucket.deleted == 0)
+                & (CreditLedgerEntry.wallet_bucket_bid != "")
+                & (CreditWalletBucket.wallet_bucket_bid != "")
                 & (
                     CreditWalletBucket.wallet_bucket_bid
                     == CreditLedgerEntry.wallet_bucket_bid
@@ -567,7 +621,14 @@ def _load_overdue_reserved_paid_order_creator_bids(
             state_expr != "available",
             or_(
                 ~state_expr.in_(["", "null"]),
-                CreditWalletBucket.reserved_credits > _ZERO,
+                (
+                    (CreditWalletBucket.reserved_credits > _ZERO)
+                    & (
+                        (bucket_source_order_bid_expr == bill_order_bid_expr)
+                        | (bucket_bill_order_bid_expr == bill_order_bid_expr)
+                        | (bucket_billing_order_bid_expr == bill_order_bid_expr)
+                    )
+                ),
             ),
             BillingOrder.deleted == 0,
             BillingOrder.status == BILLING_ORDER_STATUS_PAID,
