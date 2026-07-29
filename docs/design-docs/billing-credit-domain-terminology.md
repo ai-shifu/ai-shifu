@@ -8,166 +8,161 @@ canonical: true
 
 # Billing Credit Domain Terminology
 
-## Purpose
+## 目的
 
-This document defines the product terms, code mappings, and refactoring
-boundaries for the AI-Shifu credit domain. It is the shared reference for the
-Billing-R refactoring series and should be read together with
-`docs/billing-subscription-design.md` and
-`docs/design-docs/billing-subscription-preorder.md`.
+本文定义 AI-Shifu 积分与计费体系的产品术语、代码映射和 Billing-R
+重构边界。本文的产品定义以以下本地资料为依据：
 
-The goal is to align product language with the current implementation without
-forcing a risky mass rename. Existing code may keep table and class names such
-as `CreditWallet`, but new design discussions should use the product terms in
-this document and explicitly map them to code entities when needed.
+- `积分术语表.md`
+- `积分变更审计.md`
+- `AI-Shifu 套餐订购与预购方案.md`
+- `AI-Shifu-积分系统代码审查与重构建议-2026-07-27.md`
 
-## Product Terms
+本文优先表达产品规则，再单独说明当前代码映射。后续代码重构不得把当前
+实现细节反向解释成产品规则。
 
-| Product term | English term | Current code mapping | Notes |
+## 产品术语
+
+| 产品术语 | 英文术语 | 产品定义 | 当前代码映射 |
 | --- | --- | --- | --- |
-| 积分 | Credits | `CreditLedgerEntry.amount`, bucket credit columns, wallet snapshots | The virtual unit teachers buy and consume. Avoid using “分” in new product docs. |
-| 积分账户 | Credit Account | `CreditWallet` | Stores account-level available and reserved snapshots. The code name `Wallet` remains for compatibility. |
-| 积分桶 | Credit Bucket | `CreditWalletBucket` | Mutable projection for source, validity window, priority, and remaining balances. |
-| 账本 | Ledger | `CreditLedgerEntry` | Audit trail for credit changes. Long-term direction is append-only ledger plus explicit grant/allocation state. |
-| 积分套餐 | Plan | `BillingProduct.product_type=plan`, subscription orders, subscription buckets | Recurring product for teachers. It grants plan credits per effective cycle. |
-| 积分包 | Credit Pack | `BillingProduct.product_type=topup`, topup orders, topup buckets | One-time credit product. Product target: pack credits should remain owned and only require an effective plan to be consumable. Current implementation still aligns topup bucket windows to the active subscription and can expire their available balance at that boundary; track this gap in R3/R5 before relying on the target invariant. |
-| 订阅 | Subscription | `BillingSubscription` | Contract between a teacher and a plan. Do not use it as the generic product name. |
-| 续订 | Renew | renewal order, renewal event | Continue the same plan for the next cycle. Avoid “续费” in product docs unless the payment action itself is meant. |
-| 升级 | Upgrade | `subscription_upgrade` order, preorder absorption path | Higher-tier plan switch. Immediate upgrades merge current remaining plan credits into the new cycle. |
-| 降级 | Downgrade | preorder metadata, downgrade effective renewal event | Lower-tier plan that takes effect at the current cycle boundary. |
-| 预购 | Pre-order | paid order with preorder metadata | Paid now, effective later. At most one pending preorder per active subscription. |
-| 自动续订 | Auto-renew | renewal task/provider renewal settings | System-driven renewal; do not call it “自动续费” in new product docs. |
+| 积分 | Credits | 平台虚拟货币。老师购买、获得并消耗积分。 | `CreditLedgerEntry.amount`、bucket 积分字段、wallet 快照字段 |
+| 积分账户 | Credit Account | 存放老师所有积分的账户。 | `CreditWallet`。代码暂保留 `Wallet` 命名，不做大规模重命名。 |
+| 积分桶 | Credit Bucket | 当前实现中承载一批积分来源、余额、可用窗口和消费优先级的技术投影。 | `CreditWalletBucket` |
+| 账本 | Ledger | 积分变动审计记录。 | `CreditLedgerEntry`。长期方向是 append-only ledger，加显式 grant/allocation 状态。 |
+| 积分套餐 | Plan | 面向老师的周期性订阅商品。每个周期提供套餐积分。 | `BillingProduct.product_type=plan`、subscription order、subscription bucket |
+| 积分包 | Credit Pack | 一次性购买的积分商品。积分包积分不因订阅失效而过期。 | `BillingProduct.product_type=topup`、topup order、topup bucket |
+| 订阅 | Subscription | 老师与积分套餐之间的合同关系。 | `BillingSubscription` |
+| 续订 | Renew | 购买同档下一周期。 | renewal order、renewal event |
+| 升级 | Upgrade | 切换到高档套餐。立即升级时旧套餐剩余积分合并到新套餐周期。 | `subscription_upgrade` order、preorder absorption path |
+| 降级 | Downgrade | 预购低档套餐，到当前周期结束后生效。 | preorder metadata、downgrade effective renewal event |
+| 预购 | Pre-order | 提前购买下一周期套餐。续订和降级均可作为预购生效。 | paid order with preorder metadata |
+| 自动续订 | Auto-renew | 系统自动续订。 | renewal task / provider renewal settings |
 
-## Credit Types
+中文产品文档和用户文案中不应把“老师”泛称为“创作者”，不应把“积分包”称为
+“充值包”，不应把“续订”称为“续费/续购”。
 
-| Product term | Current code mapping | Lifecycle rule |
+## 积分类型
+
+| 积分类型 | 产品规则 | 当前代码映射 |
 | --- | --- | --- |
-| 套餐积分 | `CREDIT_BUCKET_CATEGORY_SUBSCRIPTION` | Bound to the current plan cycle. Unused balance expires at cycle end unless an immediate upgrade merges it into the new cycle. |
-| 积分包积分 | `CREDIT_BUCKET_CATEGORY_TOPUP` | Purchased independently. Product target: remains owned by the teacher and consumption requires an active subscription. Current implementation may expire topup buckets because `_resolve_topup_bucket_effective_to()` aligns them to the active subscription period; do not audit current data as if the target invariant is already true. |
-| 试用积分 | `CREDIT_BUCKET_CATEGORY_SUBSCRIPTION` for current bootstrap, legacy `CREDIT_BUCKET_CATEGORY_FREE` for older/free records | New creator trial bootstrap currently persists subscription-category buckets. Runtime category normalization collapses legacy free buckets into subscription ordering, while `wallet_bucket_requires_active_subscription()` still treats explicitly free buckets as not requiring an active subscription. |
+| 套餐积分 | 与当前套餐周期绑定。周期结束未用完的套餐积分过期，不累计到下个周期。立即升级时，旧套餐剩余积分合并到新套餐周期。赠送积分如果来自 0 元套餐订单，本质上也是套餐积分。 | `CREDIT_BUCKET_CATEGORY_SUBSCRIPTION` |
+| 积分包积分 | 一次性购买后进入积分账户。积分包积分本身不过期；没有有效积分套餐时冻结/不可消耗；恢复有效积分套餐后解冻/恢复可消耗。 | `CREDIT_BUCKET_CATEGORY_TOPUP` |
 
-The runtime consumption order for current normalized categories is:
-
-```text
-subscription-like buckets -> topup
-```
-
-Legacy free buckets may still bypass the active-subscription requirement, but
-category normalization treats them as subscription-like for ordering. New trial
-bootstrap records should be audited as subscription-category records unless a
-legacy `free` bucket is explicitly present.
-
-Product-facing docs may describe the normal paid-user order as:
+正常付费用户的消耗顺序是：
 
 ```text
 套餐积分 -> 积分包积分
 ```
 
-When legacy free or bootstrap credits are relevant, call out their persisted
-category and active-subscription requirement explicitly instead of hiding them
-behind the paid-user wording.
+试用/历史免费积分属于实现兼容点，不是新的产品主分类。当前新老师试用
+bootstrap 写入 subscription-category bucket；历史 `free` bucket 仍可能存在，
+后续审计或迁移时必须按实际持久化类别识别。
 
-## Credit Change Verbs
+## 积分生命周期与审计动词
 
-These verbs should be used consistently in product docs, audit surfaces, and new
-backend design notes.
-
-| Verb | Meaning | Current implementation surface | Audit direction |
+| 生命周期动词 | 产品含义 | 审计展示方向 | 当前实现落点 |
 | --- | --- | --- | --- |
-| 充值 | Credits enter the account after purchase or grant. | grant ledger, bucket available/reserved increase, wallet snapshot refresh | Show as a positive change, such as buying a plan or credit pack. |
-| 消耗 | Credits are used by a learning, preview, or debug task. | usage settlement, consume ledger, bucket consumed increase | Show as a negative change tied to the usage actor and operation. |
-| 过期 | Remaining plan credits expire at cycle end. | expire ledger, bucket available decrease, expired increase | Show as a negative system change. |
-| 冻结 | Credit pack credits become unavailable because there is no effective plan. | eligibility/admission projection today; no dedicated frozen mutation yet | Future audit model should make this visible without subtracting owned pack credits. |
-| 解冻 | Credit pack credits become usable again after a plan is active. | eligibility/admission projection today; no dedicated unfrozen mutation yet | Future audit model should show restored usability without double-counting credits. |
-| 退还 | Credits return after a failed or reversed task. | refund ledger and bucket/wallet adjustment paths | Show as a positive correction tied to the original usage when possible. |
-| 合并 | Immediate upgrade carries remaining plan credits into the new plan window. | upgrade transition, bucket realignment, grant/expire handling | Show as a positive/realignment event for upgrade transparency. |
+| 充值 | 积分进入老师的积分账户。 | 正向变动，如购买积分套餐、购买积分包。 | grant ledger、bucket available/reserved 增加、wallet snapshot 刷新 |
+| 消耗 | 使用积分完成学习、调试或预览中的任务。 | 负向变动，关联操作人和具体操作。 | usage settlement、consume ledger、bucket consumed 增加 |
+| 过期 | 套餐周期结束后，未用完的套餐积分过期。 | 负向系统变动。 | expire ledger、subscription bucket available 减少、expired 增加 |
+| 冻结 | 没有有效积分套餐时，积分包积分不可用。冻结不是扣除，余额仍归老师所有。 | 可展示为不可用/冻结状态，不应减少拥有的积分包余额。 | 当前主要由 eligibility/admission 投影表达，尚无独立 frozen mutation。 |
+| 解冻 | 恢复有效积分套餐后，积分包积分恢复可用。 | 可展示为恢复可用状态，不应重复充值。 | 当前主要由 eligibility/admission 投影表达，尚无独立 unfrozen mutation。 |
+| 退还 | 任务失败或纠正时返还积分。 | 正向变动，尽量关联原消耗记录。 | refund ledger、bucket/wallet adjustment path |
+| 合并 | 立即升级时，旧套餐剩余积分并入新套餐周期。 | 正向或 realignment 事件，体现升级透明度。 | upgrade transition、bucket realignment、grant/expire handling |
 
-## Current State Sources
+用户购买入口不使用 top-up / recharge 语义；但“充值”可以用于生命周期和审计语境，
+表示积分已经进入积分账户。
 
-The current system expresses one credit fact across several mutable projections:
+## 套餐订购与预购积分规则
 
-| Entity | Role today | Refactoring note |
+- 新购积分套餐：支付成功后立即开始新订阅周期，并充值该周期套餐积分。
+- 续订预购：当前周期不变；到期切换时旧周期套餐积分过期，新周期套餐积分充值。
+- 降级预购：当前周期不变；到期切换时旧周期套餐积分过期，新套餐周期开始。
+- 立即升级：新套餐立即生效，旧套餐剩余积分合并到新套餐周期。
+- 积分包：独立购买；是否可消耗取决于当前是否存在有效积分套餐。
+
+## 当前实现映射与重构注意事项
+
+当前系统会用多张表共同表达一份积分事实：
+
+| 实体 | 当前职责 | 重构注意事项 |
 | --- | --- | --- |
-| `BillingOrder` | Payment and purchase truth source, including preorder metadata. | Keep as the source for paid evidence and immutable order snapshots. |
-| `BillingSubscription` | Current plan contract and cycle window. | Cycle changes should eventually flow through a single transition service. |
-| `BillingRenewalEvent` | Scheduled or compensating cycle work. | Terminal states must not be overwritten by ordinary lifecycle sync. |
-| `CreditWallet` | Account-level available/reserved snapshot. | Treat as a projection that must match eligible buckets. |
-| `CreditWalletBucket` | Mutable balance, validity, source, and priority projection. | Long-term direction is one allocation or cycle per bucket, not pooled reuse. |
-| `CreditLedgerEntry` | Ledger and current grant-state carrier. | Long-term direction is append-only ledger plus explicit `CreditGrant`/`CreditAllocation`. |
+| `BillingOrder` | 支付和购买事实，包括预购 metadata。 | 继续作为 paid evidence 和订单快照来源。 |
+| `BillingSubscription` | 当前套餐合同和周期窗口。 | 周期推进应逐步收口到统一 transition service。 |
+| `BillingRenewalEvent` | 周期边界任务、续订、重试和补偿事件。 | 终态事件不得被普通 lifecycle sync 覆盖。 |
+| `CreditWallet` | 积分账户的 available/reserved 快照。 | 这是投影，必须能由 bucket/allocation 重新计算。 |
+| `CreditWalletBucket` | 当前实现的余额、来源、有效窗口和优先级投影。 | 长期方向是 allocation/cycle 更清晰，避免跨订单/跨周期复用。 |
+| `CreditLedgerEntry` | 审计流水，同时临时承载部分 grant 当前状态。 | 长期方向是 ledger append-only，当前状态迁出到显式模型。 |
 
-## Refactoring Boundaries
+积分包冻结/解冻是后续 R3/R5 的重要边界：产品规则是积分包积分不过期，
+订阅失效时只是冻结。当前代码中 topup bucket 仍可能带有 subscription-window
+字段；后续修改周期过期、bucket expiration 或 allocation 模型时，必须把这些字段
+视为可消费资格窗口，而不是积分包所有权过期。由于当前没有确认真实线上错账风险，
+该项并入 R3/R5，不单独作为当前 correctness PR。
 
-The Billing-R series should progress in small, independently mergeable PRs.
-Each PR must remain safe if the following PR is delayed.
+Runtime admission 当前语义应保持：
 
-### R0: Terminology And Domain Boundary
+- `server.billing.creditInsufficient`：没有任何处于有效期内、可消费且余额大于 `0` 的 bucket。
+- `server.billing.subscriptionInactive`：没有有效订阅，但存在仍有余额且需要有效订阅才能消费的 bucket，例如套餐积分或积分包积分。
 
-- Define product terms and current code mappings.
-- Document what should not be renamed yet.
-- Document audit expectations for future ledger and allocation work.
-- No runtime behavior change.
+## Billing-R 重构边界
 
-### R1: Credit Mutation / Grant Transition
+Billing-R 系列必须按可独立合入的小 PR 推进。每个 PR 合入后都必须保持系统安全，
+不能留下“必须等下一个 PR 才正确”的中间状态。
 
-- Introduce shared helpers for low-level credit state transitions.
-- Return typed results with expected amount, moved amount, completion state, and
-  failure reason.
-- Start with narrow paths such as reserved grant activation before migrating
-  reserve, void, absorb, expire, refund, or consume paths.
-- Keep existing business behavior and transaction ownership unchanged unless a
-  later PR explicitly changes them.
+### R0：术语与领域边界
 
-### R2: Invariant Audit And Diagnostics
+- 定义产品术语和当前代码映射。
+- 明确哪些代码命名暂不重命名。
+- 明确审计和后续 allocation/ledger 方向。
+- 不改变 runtime 行为。
 
-- Add a read-only diagnostic model before adding more incident-specific repair
-  commands.
-- Cover wallet/bucket mismatch, bucket conservation, overdue reserved grants,
-  expire projection drift, and subscription-cycle/bucket-window mismatch.
-- Evidence-poor cases should be classified for manual review, not auto-repaired.
+### R1：Credit Mutation / Grant Transition
 
-### R3: Cycle Transition
+- 引入低层积分状态转换 helper。
+- 返回结构化结果，包括 expected amount、moved amount、completed、failure reason。
+- 先迁移 reserved grant activation 等小路径，再逐步覆盖 reserve、void、absorb、expire、refund、consume。
+- 除非单独说明，不改变事务归属和业务行为。
 
-- Move subscription cycle advancement, due reserved grant activation, old-cycle
-  plan credit expiration, topup eligibility alignment, and renewal event status
-  handling behind one cycle transition entry point.
-- Migrate callers one at a time so renewal and repair do not diverge.
+### R2：不变量审计与诊断
 
-### R4: Transaction And Concurrency Protocol
+- 先建立只读诊断模型，不继续扩散事故专用 repair。
+- 覆盖 wallet/bucket 汇总不一致、bucket 金额不守恒、overdue reserved grant、expire projection drift、subscription-cycle/bucket-window mismatch。
+- 证据不足的异常进入 manual review，不自动修复。
 
-- Define transaction ownership, lock order, retryable conflicts, and fail-closed
-  cases.
-- Fold MySQL two-session concurrency tests, deadlock retry, wallet CAS retry,
-  and settlement lock behavior into this protocol instead of creating many
-  unrelated follow-up PRs.
+### R3：Cycle Transition
 
-### R5: Allocation Model And Append-Only Ledger
+- 统一 subscription 周期推进、due reserved grants 激活、旧周期套餐积分过期、积分包冻结/解冻资格、renewal event 终态。
+- 按调用入口逐步迁移，避免 renewal 和 repair 走出不同语义。
 
-- Introduce explicit `CreditGrant` or `CreditAllocation` state when the lower
-  layers are stable.
-- Move grant current state out of ledger metadata.
-- Stop cross-order and cross-cycle pooled bucket reuse for new allocations.
-- Keep historical pooled buckets readable during migration; do not migrate all
-  history in one step.
+### R4：事务与并发协议
 
-## Testing Expectations
+- 明确事务归属、锁顺序、可重试冲突和 fail-closed 场景。
+- MySQL 双会话并发测试、deadlock retry、wallet CAS retry、settlement lock 行为统一归入这里。
 
-Use the smallest test set that covers the changed layer, then widen when a PR
-changes shared contracts or write paths.
+### R5：Allocation Model And Append-Only Ledger
 
-| Change type | Expected verification |
+- 引入显式 `CreditGrant` 或 `CreditAllocation` 状态。
+- 把 grant 当前状态从 ledger metadata 中迁出。
+- 新 allocation 不再依赖 subscription-aligned `effective_to` 表达积分包所有权过期。
+- 停止新数据跨订单、跨周期复用 pooled bucket。
+- 历史 pooled bucket 保持兼容读取，不一次性迁移全部历史。
+
+## 测试要求
+
+| 变更类型 | 验证要求 |
 | --- | --- |
-| Docs-only R0 change | `python scripts/check_repo_harness.py` and relevant markdown review. |
-| Behavior-preserving helper extraction | Targeted billing tests plus full `tests/service/billing/`. |
-| Real write-path migration | Targeted business regression for the migrated path, full billing tests, and dry-run if repair candidates may change. |
-| Cycle transition changes | Renewal, preorder, upgrade, expiration, campaign bonus, referral renewal, and repair dry-run/apply regression. |
-| Data model changes | Migration review, backward-compatible reads, dual-write or backfill plan, and post-merge dry-run/audit. |
+| R0 docs-only | `python scripts/check_repo_harness.py` 和文档 review。 |
+| 行为不变 helper 抽取 | targeted billing tests + full `tests/service/billing/`。 |
+| 真实写路径迁移 | 对应业务回归、full billing tests；如影响 repair 候选，再跑 dry-run。 |
+| 周期转换变更 | 续订、预购、升级、过期、campaign bonus、referral renewal、repair dry-run/apply 回归。 |
+| 数据模型变更 | migration review、兼容读、dual-write/backfill 计划、合入后 dry-run/audit。 |
 
-## Non-Goals For The Refactoring Series
+## 非目标
 
-- Do not rewrite all billing code at once.
-- Do not immediately rename every `Wallet` symbol to `Account`.
-- Do not introduce full event sourcing as the first step.
-- Do not migrate all historical ledger and bucket data in one PR.
-- Do not make Redis locks the final source of correctness.
-- Do not auto-repair data without sufficient evidence; route ambiguous findings
-  to manual review.
+- 不一次性重写 billing。
+- 不立即把所有 `Wallet` 符号重命名为 `Account`。
+- 不把 Event Sourcing 作为第一步。
+- 不一次性迁移全部历史 ledger 和 bucket。
+- 不把 Redis 锁作为最终正确性保障。
+- 不对证据不足的数据做自动修复；必须进入 manual review。
