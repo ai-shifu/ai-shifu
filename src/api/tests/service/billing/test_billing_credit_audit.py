@@ -186,7 +186,7 @@ def test_audit_credit_state_reports_expire_ledger_and_subscription_window_drift(
                 source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
                 source_bid="order-audit-expire",
                 idempotency_key="expire:audit-wrong-window",
-                amount=Decimal("-6.0000000000"),
+                amount=Decimal("-5.0000000000"),
                 balance_after=Decimal("4.0000000000"),
                 consumable_from=now - timedelta(days=30),
                 expires_at=bucket_end - timedelta(days=1),
@@ -270,6 +270,209 @@ def test_audit_credit_state_cli_outputs_read_only_report(
     payload = json.loads(result.output)
     assert payload["status"] == "issues_found"
     assert payload["counts_by_code"] == {"wallet_snapshot_mismatch": 1}
+
+
+def test_audit_credit_state_rejects_invalid_explicit_as_of(
+    billing_credit_audit_app: Flask,
+) -> None:
+    with billing_credit_audit_app.app_context():
+        try:
+            audit_credit_state(
+                creator_bid="creator-audit-invalid-time", as_of="bad-date"
+            )
+        except ValueError as exc:
+            assert "Unable to parse as_of value" in str(exc)
+        else:
+            raise AssertionError("Expected invalid as_of to raise ValueError")
+
+    runner = billing_credit_audit_app.test_cli_runner()
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "audit-credit-state",
+            "--creator-bid",
+            "creator-audit-invalid-time",
+            "--as-of",
+            "bad-date",
+        ]
+    )
+
+    assert result.exit_code != 0
+    assert "Unable to parse as_of value" in result.output
+
+
+def test_audit_credit_state_reports_truncated_issue_count(
+    billing_credit_audit_app: Flask,
+) -> None:
+    now = datetime(2026, 7, 29, 12, 0, 0)
+    with billing_credit_audit_app.app_context():
+        _seed_wallet_with_bucket(
+            creator_bid="creator-audit-limit",
+            wallet_bid="wallet-audit-limit",
+            bucket_bid="bucket-audit-limit",
+            wallet_available=Decimal("0"),
+            original=Decimal("10.0000000000"),
+            available=Decimal("7.0000000000"),
+            consumed=Decimal("1.0000000000"),
+        )
+        _seed_active_subscription(
+            creator_bid="creator-audit-limit",
+            subscription_bid="sub-audit-limit",
+        )
+        dao.db.session.commit()
+
+        payload = audit_credit_state(
+            creator_bid="creator-audit-limit",
+            as_of=now,
+            limit=1,
+        ).to_payload()
+
+    assert payload["status"] == "issues_found"
+    assert payload["issue_count"] == 2
+    assert payload["total_issue_count"] == 2
+    assert payload["returned_issue_count"] == 1
+    assert payload["truncated"] is True
+    assert len(payload["issues"]) == 1
+
+
+def test_audit_credit_state_loads_expire_counterpart_ledgers_with_limited_scan(
+    billing_credit_audit_app: Flask,
+) -> None:
+    now = datetime(2026, 7, 29, 12, 0, 0)
+    with billing_credit_audit_app.app_context():
+        wallet, bucket = _seed_wallet_with_bucket(
+            creator_bid="creator-audit-counterpart",
+            wallet_bid="wallet-audit-counterpart",
+            bucket_bid="bucket-audit-counterpart",
+            wallet_available=Decimal("0"),
+            original=Decimal("5.0000000000"),
+            available=Decimal("0"),
+            consumed=Decimal("1.0000000000"),
+            expired=Decimal("4.0000000000"),
+            status=CREDIT_BUCKET_STATUS_EXPIRED,
+            effective_to=now - timedelta(days=1),
+        )
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid="ledger-audit-counterpart-grant",
+                creator_bid=wallet.creator_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=bucket.wallet_bucket_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid="order-audit-counterpart",
+                idempotency_key="grant:audit-counterpart",
+                amount=Decimal("5.0000000000"),
+                balance_after=Decimal("5.0000000000"),
+                consumable_from=now - timedelta(days=30),
+                expires_at=now - timedelta(days=1),
+                metadata_json={"bucket_credit_state": "available"},
+            )
+        )
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid="ledger-audit-counterpart-expire",
+                creator_bid=wallet.creator_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=bucket.wallet_bucket_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid="order-audit-counterpart",
+                idempotency_key="expire:audit-counterpart",
+                amount=Decimal("-4.0000000000"),
+                balance_after=Decimal("0"),
+                consumable_from=now - timedelta(days=30),
+                expires_at=now - timedelta(days=1),
+            )
+        )
+        dao.db.session.commit()
+
+        payload = audit_credit_state(as_of=now, limit=1).to_payload()
+
+    assert payload["status"] == "ok"
+    assert payload["checked_ledger_count"] == 2
+
+
+def test_audit_credit_state_aggregates_reused_bucket_expire_ledgers(
+    billing_credit_audit_app: Flask,
+) -> None:
+    now = datetime(2026, 7, 29, 12, 0, 0)
+    with billing_credit_audit_app.app_context():
+        wallet, bucket = _seed_wallet_with_bucket(
+            creator_bid="creator-audit-reused-expire",
+            wallet_bid="wallet-audit-reused-expire",
+            bucket_bid="bucket-audit-reused-expire",
+            wallet_available=Decimal("0"),
+            original=Decimal("10.0000000000"),
+            available=Decimal("0"),
+            consumed=Decimal("4.0000000000"),
+            expired=Decimal("6.0000000000"),
+            status=CREDIT_BUCKET_STATUS_EXPIRED,
+            effective_to=now - timedelta(days=1),
+        )
+        for index, amount in enumerate(("-2.0000000000", "-4.0000000000"), start=1):
+            dao.db.session.add(
+                CreditLedgerEntry(
+                    ledger_bid=f"ledger-audit-reused-expire-{index}",
+                    creator_bid=wallet.creator_bid,
+                    wallet_bid=wallet.wallet_bid,
+                    wallet_bucket_bid=bucket.wallet_bucket_bid,
+                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+                    source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                    source_bid="order-audit-reused-expire",
+                    idempotency_key=f"expire:audit-reused-expire:{index}",
+                    amount=Decimal(amount),
+                    balance_after=Decimal("0"),
+                    consumable_from=now - timedelta(days=60),
+                    expires_at=now - timedelta(days=index),
+                )
+            )
+        dao.db.session.commit()
+
+        payload = audit_credit_state(
+            creator_bid="creator-audit-reused-expire",
+            as_of=now,
+        ).to_payload()
+
+    assert payload["status"] == "ok"
+    assert payload["counts_by_code"] == {}
+
+
+def test_audit_credit_state_uses_primary_subscription_for_window_check(
+    billing_credit_audit_app: Flask,
+) -> None:
+    now = datetime(2026, 7, 29, 12, 0, 0)
+    primary_end = now + timedelta(days=30)
+    secondary_end = now + timedelta(days=10)
+    with billing_credit_audit_app.app_context():
+        _seed_wallet_with_bucket(
+            creator_bid="creator-audit-overlap",
+            wallet_bid="wallet-audit-overlap",
+            bucket_bid="bucket-audit-overlap",
+            original=Decimal("4.0000000000"),
+            available=Decimal("4.0000000000"),
+            effective_to=primary_end,
+        )
+        _seed_active_subscription(
+            creator_bid="creator-audit-overlap",
+            subscription_bid="sub-audit-overlap-primary",
+            current_period_end_at=primary_end,
+        )
+        _seed_active_subscription(
+            creator_bid="creator-audit-overlap",
+            subscription_bid="sub-audit-overlap-secondary",
+            current_period_end_at=secondary_end,
+        )
+        dao.db.session.commit()
+
+        payload = audit_credit_state(
+            creator_bid="creator-audit-overlap",
+            as_of=now,
+        ).to_payload()
+
+    assert payload["status"] == "ok"
+    assert payload["counts_by_code"] == {}
 
 
 def _seed_wallet_with_bucket(

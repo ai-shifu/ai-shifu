@@ -805,11 +805,14 @@ def register_billing_commands(console) -> None:
                 "Pass --creator-bid or --all for credit state audit."
             )
 
-        report = audit_credit_state(
-            creator_bid=creator_bid,
-            as_of=as_of or None,
-            limit=limit if process_all else None,
-        )
+        try:
+            report = audit_credit_state(
+                creator_bid=creator_bid,
+                as_of=as_of or None,
+                limit=limit if process_all else None,
+            )
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
         _echo_payload(report.to_payload())
 
     @billing_group.command(name="repair-expire-ledger-bucket-drift")
