@@ -212,9 +212,13 @@ export function BillingCreditDetailsPanel({
     isLoading: bucketsLoading,
     mutate: refreshWalletBuckets,
   } = useBillingWalletBuckets();
+  const subscriptionPeriodEnd = parseBillingDateValue(
+    overview?.subscription?.current_period_end_at,
+  );
   const hasActiveSubscription = Boolean(
     overview?.subscription &&
-    !['canceled', 'expired', 'draft'].includes(overview.subscription.status),
+    !['canceled', 'expired', 'draft'].includes(overview.subscription.status) &&
+    (!subscriptionPeriodEnd || subscriptionPeriodEnd > new Date()),
   );
   const activeSubscriptionEffectiveTo =
     hasActiveSubscription && overview?.subscription?.current_period_end_at
