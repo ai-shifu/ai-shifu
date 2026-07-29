@@ -1043,16 +1043,20 @@ def _realign_active_credit_bucket_effective_to(
         bucket.updated_at = now
         db.session.add(bucket)
 
-    grant_entries = (
-        CreditLedgerEntry.query.filter(
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
-            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    grant_entry_filters = [
+        CreditLedgerEntry.deleted == 0,
+        CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
+        CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    ]
+    if not include_effective_to_boundary:
+        grant_entry_filters.append(
             (
                 CreditLedgerEntry.expires_at.is_(None)
                 | (CreditLedgerEntry.expires_at >= effective_from)
             ),
         )
+    grant_entries = (
+        CreditLedgerEntry.query.filter(*grant_entry_filters)
         .order_by(CreditLedgerEntry.id.asc())
         .all()
     )

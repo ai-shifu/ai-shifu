@@ -226,14 +226,30 @@ def test_expire_credit_wallet_buckets_skips_credit_pack_bucket(
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
         ).all()
 
+        assert payload["status"] == "noop"
+        assert payload["bucket_count"] == 0
+        assert payload["expired_credits"] == 0
+        assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+        assert bucket.available_credits == Decimal("2.5000000000")
+        assert bucket.expired_credits == Decimal("0")
+        assert wallet.available_credits == Decimal("0E-10")
+        first_wallet_version = wallet.version
+        assert ledgers == []
+
+        payload = expire_credit_wallet_buckets(
+            billing_wallet_lifecycle_app,
+            creator_bid="creator-expire-topup-skip",
+            expire_before=datetime(2026, 4, 9, 0, 0, 0),
+        )
+
+        dao.db.session.expire_all()
+        wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-expire-topup-skip"
+        ).one()
+
     assert payload["status"] == "noop"
-    assert payload["bucket_count"] == 0
-    assert payload["expired_credits"] == 0
-    assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
-    assert bucket.available_credits == Decimal("2.5000000000")
-    assert bucket.expired_credits == Decimal("0")
     assert wallet.available_credits == Decimal("0E-10")
-    assert ledgers == []
+    assert wallet.version == first_wallet_version
 
 
 def test_expire_credit_wallet_buckets_uses_actual_mutation_time_for_bucket_update(
@@ -1652,6 +1668,24 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
                 "reserved_until": boundary_at.isoformat(),
             },
         )
+        topup_ledger = CreditLedgerEntry(
+            ledger_bid="ledger-renewal-drift-topup-unfreeze",
+            creator_bid=wallet.creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=topup_bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid=topup_bucket.source_bid,
+            idempotency_key=f"grant:{topup_bucket.source_bid}",
+            amount=Decimal("500.0000000000"),
+            balance_after=Decimal("1500.0000000000"),
+            expires_at=topup_bucket.effective_to,
+            consumable_from=topup_bucket.effective_from,
+            metadata_json={
+                "bill_order_bid": topup_bucket.source_bid,
+                "grant_reason": "topup",
+            },
+        )
         event = BillingRenewalEvent(
             renewal_event_bid="renewal-event-protected-apply",
             subscription_bid=subscription.subscription_bid,
@@ -1665,7 +1699,17 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
             processed_at=None,
         )
         dao.db.session.add_all(
-            [wallet, subscription, product, order, bucket, topup_bucket, ledger, event]
+            [
+                wallet,
+                subscription,
+                product,
+                order,
+                bucket,
+                topup_bucket,
+                ledger,
+                topup_ledger,
+                event,
+            ]
         )
         dao.db.session.commit()
 
@@ -1689,6 +1733,9 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
         ).one()
         topup_bucket = CreditWalletBucket.query.filter_by(
             wallet_bucket_bid="bucket-renewal-drift-topup-unfreeze"
+        ).one()
+        topup_ledger = CreditLedgerEntry.query.filter_by(
+            ledger_bid="ledger-renewal-drift-topup-unfreeze"
         ).one()
 
     assert payload["status"] == "repaired"
@@ -1716,6 +1763,7 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
     assert topup_bucket.available_credits == Decimal("500.0000000000")
     assert topup_bucket.expired_credits == Decimal("0")
     assert topup_bucket.effective_to == next_cycle_end
+    assert topup_ledger.expires_at == next_cycle_end
     assert ledger.metadata_json["bucket_credit_state"] == "available"
 
 

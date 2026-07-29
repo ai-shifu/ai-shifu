@@ -2256,11 +2256,23 @@ def _refresh_frozen_credit_pack_wallet_snapshots(
 
         try:
             with db.session.begin_nested():
-                refresh_credit_wallet_snapshot(wallet, snapshot_at=snapshot_at)
+                available_credits, reserved_credits = (
+                    calculate_credit_wallet_snapshot_values(
+                        wallet,
+                        snapshot_at=snapshot_at,
+                    )
+                )
+                if (
+                    _quantize_credit_amount(wallet.available_credits)
+                    == available_credits
+                    and _quantize_credit_amount(wallet.reserved_credits)
+                    == reserved_credits
+                ):
+                    continue
                 persist_credit_wallet_snapshot(
                     wallet,
-                    available_credits=wallet.available_credits,
-                    reserved_credits=wallet.reserved_credits,
+                    available_credits=available_credits,
+                    reserved_credits=reserved_credits,
                     updated_at=snapshot_at,
                 )
         except RuntimeError as exc:
