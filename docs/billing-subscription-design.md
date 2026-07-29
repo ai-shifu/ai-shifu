@@ -32,7 +32,7 @@ v1.1 再补充下列扩展能力：
 - 支付持久化统一以 `bill_orders` 为业务真相源；provider 最新摘要保留在 `bill_orders.metadata`，provider raw snapshot 复用 `order_pingxx_orders` / `order_stripe_orders`，native 国内直连 provider 写入 `order_native_payment_orders`，并通过 `biz_domain`、`bill_order_bid`、`creator_bid` 隔离
 - 账户/积分桶/账本三层分离：`credit_wallets` 只做总余额快照，`credit_wallet_buckets` 负责按来源管理可消费积分桶，`credit_ledger_entries` 才是不可变真相源
 - `bill_usage + credit_ledger_entries` 是结算真相源；日报表只是报表层聚合，不参与扣费真相判断
-- 积分消费顺序固定为 `free > subscription > topup`；同优先级下按 `effective_to` 最早优先，再按 `created_at` 最早优先
+- 积分消费顺序固定为 `subscription > topup`；同优先级下按 `effective_to` 最早优先，再按 `created_at` 最早优先；历史 `free` bucket 仅作为兼容数据处理，不作为新的产品积分类型
 - 旧的学员购课 `/order` 流程继续保留，不与 creator billing 混表
 
 ### 1.4 当前实现批次范围（2026-04-08）
@@ -78,7 +78,7 @@ v1.1 再补充下列扩展能力：
 
 - 积分领域术语、当前代码映射、审计动词和 Billing-R 重构边界见
   `docs/design-docs/billing-credit-domain-terminology.md`。该文档用于统一
-  积分账户、套餐积分、积分包积分、充值、消耗、过期、冻结、解冻、合并等术语，
+  账户、套餐积分、积分包积分、充值、消耗、过期、冻结、解冻、合并等术语，
   并说明这些概念在 `CreditWallet` / `CreditWalletBucket` /
   `CreditLedgerEntry` / `BillingSubscription` / `BillingRenewalEvent` 中的当前落点。
 
@@ -244,7 +244,7 @@ v1 冻结业务规则：
 - 面向 creator 的公开自助目录继续由 `bill_products` 驱动，但 API 仍只把付费 plan/topup 投影到 `GET /billing/catalog` 的 `plans[]` / `topups[]`
 - `creator-plan-trial` 是一个正式 `bill_products` 记录：`product_type=plan`、`billing_mode=manual`、`price_amount=0`、`credit_amount=100`、`auto_renew_enabled=0`
 - public trial product 不进入 creator 自助 checkout；它只用于 `GET /billing/overview` 的免费试用卡片，以及 post-auth 自动开通
-- `gift` 积分不作为 creator 自助购买商品；赠送积分和后台正向补偿仍走运营或人工 grant 流程
+- `gift` 是内部来源标识，不作为独立产品积分类型或 creator 自助购买商品；活动奖励和后台正向补偿仍走运营或人工 grant 流程，并按实际归属映射为套餐积分或积分包积分
 - `product_type=grant` 与 `product_type=custom` 仅保留给运营投放、后台人工赠送和未来定制方案，不纳入当前 creator 自助购买入口
 
 ### 3.2 `bill_subscriptions`
@@ -389,7 +389,7 @@ v1 冻结 subscription lifecycle 规则：
 - 上线前必须明确是否允许用户在同一活动期内连续预购多个未来周期；若不
   允许，应继续保持同一 subscription 只有一笔 pending / paid preorder renewal
   可等待生效。
-- 需要明确赠送积分的生效策略：立即写入下周期 reserved bucket，还是等
+- 需要明确活动奖励积分的生效策略：立即写入下周期 reserved bucket，还是等
   preorder renewal 真正生效时再发放；无论选择哪种，都必须保持账本幂等。
 - Stripe subscription checkout 不能直接把活动价写成 recurring line item 后
   长期续费，否则会把一次预购优惠变成后续每期优惠。若支持 Stripe 预购续费
@@ -813,7 +813,7 @@ v1 的改造要求：
 - 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/subscriptions.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `bill_subscriptions` 周期字段，并同步维护 `bill_renewal_events`
 - 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；`billing.settle_usage` task entrypoint 已由 `src/api/flaskr/service/billing/tasks.py` 提供，`record_llm_usage` / `record_tts_usage` 会在 billable 的 root usage 落库后投递该异步入口，Celery app factory、worker/beat 基础设施和 creator 维度串行化仍留在后续任务
 - 当前实现中，`credit_wallet_buckets` 已承担 source bucket snapshot：paid grant 会按 order type 创建 `subscription` / `topup` bucket，wallet 总余额与冻结余额会从 bucket 表重算，consume 结算会把扣空 bucket 推进到 `exhausted`
-- 当前实现中，creator 在有效套餐期内购买 topup 时，grant 会把 topup bucket / ledger 的过期时间对齐到当前套餐 `current_period_end_at`，避免 topup 积分无限期保留
+- 当前实现中，topup bucket / ledger 仍可能携带 subscription-window 字段；这些字段只能视为可消费资格窗口，不表示积分包所有权过期。产品规则是积分包积分不过期，订阅失效时只是冻结/不可消耗，恢复有效套餐后解冻/恢复可消耗
 - 当前实现中，usage settlement 已固定按 `subscription > topup` 扣减；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先，`effective_to = null` 排在最后；历史 `free` bucket 会在运行时归并进 `subscription/topup`
 - 当前实现中，LLM usage 已拆成 `input`、`cache`、`output` 三个 billing metric 独立计算费率与扣分，并把每个 metric 的 breakdown 写入 `credit_ledger_entries.metadata`
 - 当前实现中，TTS usage 已支持两种 billing mode：有 `tts_request_count` 费率时按次扣分；未配置按次费率时回退到 `tts_output_chars`，再回退到 `tts_input_chars` 的按字数扣分
@@ -976,9 +976,9 @@ v1 冻结低余额阈值、告警与错误码规则：
   - `module.billing.alerts.subscriptionPastDue`
   - `module.billing.alerts.cancelScheduled`
 - creator runtime admission 的阻断错误码在 v1 固定只使用 `server.billing` 命名空间下的 2 个 key：
-  - `server.billing.creditInsufficient`：当前没有任何处于有效期内、可消费且余额大于 `0` 的 bucket
-  - `server.billing.subscriptionInactive`：当前没有 active-like subscription，但存在仍有余额且处于有效窗口内、需要有效订阅才能消费的 bucket，例如 subscription/topup runtime bucket
-- `server.billing.creditInsufficient` 的文案语义固定为“积分不足，请先开通订阅或购买积分”；`server.billing.subscriptionInactive` 的文案语义固定为“订阅不可用，当前仍有余额的套餐积分或积分包积分不能继续使用”；后续多语言翻译必须保持这个语义边界，不扩展额外业务分支说明
+  - `server.billing.creditInsufficient`：当前没有任何满足可消费资格且余额大于 `0` 的 bucket
+  - `server.billing.subscriptionInactive`：当前没有 active-like subscription，但老师持有的积分包积分被冻结，暂时无法消耗；重新获得有效积分套餐后解冻。若无有效订阅时仍残留套餐积分，应视为异常或历史兼容状态，不纳入正常产品语义
+- `server.billing.creditInsufficient` 的文案语义固定为“积分不足，请先开通订阅或购买积分”；`server.billing.subscriptionInactive` 的文案语义固定为“订阅不可用，当前仍有余额的积分包积分被冻结，不能继续使用”；后续多语言翻译必须保持这个语义边界，不扩展额外业务分支说明
 - 账务/积分用户可见文案命名约定固定如下：通用购买入口不得使用 top-up / recharge 语义；正文同时覆盖套餐和积分包时使用“开通订阅或购买积分”，且订阅优先；短按钮 CTA 使用“购买积分”；仅在明确指 `topup` 商品、订单、账本来源或 checkout 时使用“积分包”；用户可见余额主体称为“账户”，不称为“钱包”。“充值”只用于积分已进入账户的生命周期或审计语境，不用于泛化购买 CTA。内部 `topup` / `wallet` 技术字段、路由、枚举和 i18n key 不受该展示命名约束。
 - v1 不再新增新的 backend billing admission 错误码；更多 UI 提示优先通过 `billing_alerts` 承载，而不是扩散新的阻断错误 key
 - 当前版本不再保留 `server.billing.concurrencyExceeded`；runtime admission 阻断只围绕 credits / subscription 状态
@@ -1093,7 +1093,7 @@ v1 需要新增：
 - bucket 扣减顺序固定为：`subscription > topup`；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先
 - `gift`、正向人工补偿、退款返还不再形成第三类可消费 credits；它们仅保留为 `source_type`，bucket 统一归到 `subscription/topup`
 - 一条 usage 可以拆成多个 bucket 扣减，但默认只生成一条聚合 `consume` ledger；bucket 明细保留在 `metadata.bucket_breakdown[]`
-- bucket 过期任务只扫描 `credit_wallet_buckets`；过期后写 `expire` ledger 并把 bucket 关闭
+- bucket 过期任务只扫描 `credit_wallet_buckets`；对可过期的套餐积分写 `expire` ledger 并把 bucket 关闭；积分包积分不得因订阅失效或套餐周期结束被表达为所有权过期
 - 结算幂等 key 应至少以 `bill_usage.usage_bid` 为核心保证 usage 级去重；bucket 级扣减明细保留在 metadata 里
 - 当前实现中，`src/api/flaskr/service/billing/settlement.py` 已支持：
   - LLM `input/cache/output` 三维 rate 匹配与扣分
@@ -1532,7 +1532,7 @@ type CreatorBrandingConfig = {
 - 套餐购买、积分包购买、自动续费、失败重试、取消自动续费、恢复订阅
 - `production` / `preview` / `debug` 三场景 creator 归属是否正确
 - 多个学生并发学习同一 creator 课程时，Celery 串行扣减是否仍然准确
-- `free > subscription > topup` 的 bucket 扣减优先级是否严格生效
+- `subscription > topup` 的 bucket 扣减优先级是否严格生效，历史 `free` bucket 是否按兼容逻辑处理
 - 同一 bucket category 下是否按最早到期优先、再按最早创建优先
 - 一条 usage 超过单个 bucket 余额时，是否能拆分扣减多个 bucket，并在单条 usage consume ledger 的 `metadata.bucket_breakdown[]` 中保留可追溯明细
 - LLM `input/cache/output` 三维扣分是否准确
@@ -1540,7 +1540,7 @@ type CreatorBrandingConfig = {
 - webhook 幂等、乱序到达、sync 补偿、防重复发放或重复扣分
 - 最近一次 provider 摘要是否只覆盖写入关联 `bill_orders.metadata`，同时同步更新 provider raw snapshot
 - 找不到关联订单的 webhook 是否按 ignore 处理且不落库存档
-- bucket 过期后是否停止参与 admission / settlement，并生成 `expire` ledger
+- 可过期套餐积分 bucket 过期后是否停止参与 admission / settlement，并生成 `expire` ledger；积分包积分是否仅因无有效套餐被冻结/不可消耗，而不是被过期扣除
 - `credit_wallets`、`credit_wallet_buckets` 与 `credit_ledger_entries` 三者是否保持一致
 - 旧 `/order` 学员购课流程是否未被破坏
 - `CELERY_TASK_ALWAYS_EAGER=1` 时 billing 集成测试可同步执行

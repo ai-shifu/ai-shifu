@@ -11,25 +11,26 @@ canonical: true
 ## 目的
 
 本文定义 AI-Shifu 积分与计费体系的产品术语、代码映射和 Billing-R
-重构边界。本文的产品定义以以下本地资料为依据：
+重构边界。本文已固化当前确认的产品规则，不依赖仓库外本地资料作为
+review 前置条件。
 
-- `积分术语表.md`
-- `积分变更审计.md`
-- `AI-Shifu 套餐订购与预购方案.md`
-
-本文优先表达产品规则，再单独说明当前代码映射。后续代码重构不得把当前
-实现细节反向解释成产品规则。
+本文优先表达产品目标和标准术语，再单独说明当前实现、已知差距和未来方案。
+后续代码重构不得把当前实现细节反向解释成产品规则。
 
 ## 产品术语
 
 | 产品术语 | 英文术语 | 产品定义 | 当前代码映射 |
 | --- | --- | --- | --- |
 | 积分 | Credits | 平台虚拟货币。老师购买、获得并消耗积分。 | `CreditLedgerEntry.amount`、bucket 积分字段、wallet 快照字段 |
-| 积分账户 | Credit Account | 存放老师所有积分的账户。 | `CreditWallet`。代码暂保留 `Wallet` 命名，不做大规模重命名。 |
+| 账户 | Account | 存放老师所有积分的账户。 | `CreditWallet`。内部 `Wallet` 命名、API 字段和数据库标识暂保留，不做大规模重命名。 |
+| 余额 | Balance | 老师当前可用积分总数。套餐积分余额加可用积分包积分余额，不包含已冻结积分包积分。 | `CreditWallet.available_credits` 等运行时快照字段。 |
 | 积分桶 | Credit Bucket | 当前实现中承载一批积分来源、余额、可用窗口和消费优先级的技术投影。 | `CreditWalletBucket` |
 | 账本 | Ledger | 积分变动审计记录。 | `CreditLedgerEntry`。长期方向是 append-only ledger，加显式 grant/allocation 状态。 |
 | 积分套餐 | Plan | 面向老师的周期性订阅商品。每个周期提供套餐积分。 | `BillingProduct.product_type=plan`、subscription order、subscription bucket |
-| 积分包 | Credit Pack | 一次性购买的积分商品。积分包积分不因订阅失效而过期。 | `BillingProduct.product_type=topup`、topup order、topup bucket |
+| 积分包 | Credit Pack | 一次性购买的积分商品。积分包积分不因订阅失效或套餐周期结束而过期。 | `BillingProduct.product_type=topup`、topup order、topup bucket |
+| 老师 | Teacher | 建课、付费和管理课程的人。 | 通常对应 `creator_bid` 或课程负责人归属。 |
+| 学员 | Learner | 学习课程的人。 | learning usage 的触发用户。 |
+| 使用场景 | Usage Scene | 学习、调试、预览等积分消耗场景。 | `usage_scene`，如 production / debug / preview。 |
 | 订阅 | Subscription | 老师与积分套餐之间的合同关系。 | `BillingSubscription` |
 | 续订 | Renew | 购买同档下一周期。 | renewal order、renewal event |
 | 升级 | Upgrade | 切换到高档套餐。立即升级时旧套餐剩余积分合并到新套餐周期。 | `subscription_upgrade` order、preorder absorption path |
@@ -44,8 +45,8 @@ canonical: true
 
 | 积分类型 | 产品规则 | 当前代码映射 |
 | --- | --- | --- |
-| 套餐积分 | 与当前套餐周期绑定。周期结束未用完的套餐积分过期，不累计到下个周期。立即升级时，旧套餐剩余积分合并到新套餐周期。赠送积分如果来自 0 元套餐订单，本质上也是套餐积分。 | `CREDIT_BUCKET_CATEGORY_SUBSCRIPTION` |
-| 积分包积分 | 一次性购买后进入积分账户。积分包积分本身不过期；没有有效积分套餐时冻结/不可消耗；恢复有效积分套餐后解冻/恢复可消耗。 | `CREDIT_BUCKET_CATEGORY_TOPUP` |
+| 套餐积分 / Plan Credits | 与当前套餐周期绑定。周期结束未用完的套餐积分过期，不累计到下个周期。立即升级时，旧套餐剩余积分合并到新套餐周期。 | `CREDIT_BUCKET_CATEGORY_SUBSCRIPTION` |
+| 积分包积分 / Pack Credits | 一次性购买后进入账户。积分包积分本身不过期；没有有效积分套餐时冻结/不可消耗；恢复有效积分套餐后解冻/恢复可消耗。 | `CREDIT_BUCKET_CATEGORY_TOPUP` |
 
 正常付费用户的消耗顺序是：
 
@@ -57,25 +58,30 @@ canonical: true
 bootstrap 写入 subscription-category bucket；历史 `free` bucket 仍可能存在，
 后续审计或迁移时必须按实际持久化类别识别。
 
+“赠送积分”不是独立产品积分类型。若文档或代码中出现 gift、bonus、
+campaign bonus 等历史/内部标识，必须按实际业务归属映射为套餐积分或
+积分包积分；例如来自 0 元套餐订单的奖励最终属于套餐积分。
+
 ## 积分生命周期与审计动词
 
-| 生命周期动词 | 产品含义 | 审计展示方向 | 当前实现落点 |
-| --- | --- | --- | --- |
-| 充值 | 积分进入老师的积分账户。 | 正向变动，如购买积分套餐、购买积分包。 | grant ledger、bucket available/reserved 增加、wallet snapshot 刷新 |
-| 消耗 | 使用积分完成学习、调试或预览中的任务。 | 负向变动，关联操作人和具体操作。 | usage settlement、consume ledger、bucket consumed 增加 |
-| 过期 | 套餐周期结束后，未用完的套餐积分过期。 | 负向系统变动。 | expire ledger、subscription bucket available 减少、expired 增加 |
-| 冻结 | 没有有效积分套餐时，积分包积分不可用。冻结不是扣除，余额仍归老师所有。 | 可展示为不可用/冻结状态，不应减少拥有的积分包余额。 | 当前主要由 eligibility/admission 投影表达，尚无独立 frozen mutation。 |
-| 解冻 | 恢复有效积分套餐后，积分包积分恢复可用。 | 可展示为恢复可用状态，不应重复充值。 | 当前主要由 eligibility/admission 投影表达，尚无独立 unfrozen mutation。 |
-| 退还 | 任务失败或纠正时返还积分。 | 正向变动，尽量关联原消耗记录。 | refund ledger、bucket/wallet adjustment path |
-| 合并 | 立即升级时，旧套餐剩余积分并入新套餐周期。 | 正向或 realignment 事件，体现升级透明度。 | upgrade transition、bucket realignment、grant/expire handling |
+| 生命周期动词 | 英文术语 | 产品含义 | 审计展示方向 | 当前实现落点 |
+| --- | --- | --- | --- | --- |
+| 购买 | Purchase | 用户购买积分套餐或积分包。购买是原因，不是积分入账结果。 | 订单和支付记录。 | order / checkout / provider state |
+| 充值 | Top-up | 购买完成后，积分进入老师账户的结果。 | 正向入账变动，如购买积分套餐后套餐积分入账、购买积分包后积分包积分入账。 | grant ledger、bucket available/reserved 增加、wallet snapshot 刷新 |
+| 消耗 | Usage | 使用积分完成学习、调试或预览中的任务。 | 负向变动，关联操作人和具体操作。 | usage settlement、consume ledger、bucket consumed 增加 |
+| 过期 | Expired | 套餐周期结束后，未用完的套餐积分过期。 | 负向系统变动，操作名称可为“套餐到期清零”。 | expire ledger、subscription bucket available 减少、expired 增加 |
+| 冻结 | Frozen | 没有有效积分套餐时，积分包积分不可用。冻结不是扣除，积分包余额仍归老师所有。 | 可展示为不可用/冻结状态，不应减少拥有的积分包余额。 | 当前主要由 eligibility/admission 投影表达，尚无独立 frozen mutation。 |
+| 解冻 | Unfrozen | 恢复有效积分套餐后，积分包积分恢复可用。 | 可展示为恢复可用状态，不应重复充值。 | 当前主要由 eligibility/admission 投影表达，尚无独立 unfrozen mutation。 |
+| 退还 | Refund | 任务失败或纠正时返还积分。 | 正向变动，尽量关联原消耗记录。 | refund ledger、bucket/wallet adjustment path |
+| 合并 | Merge | 立即升级时，旧套餐剩余积分并入新套餐周期。 | 正向或 realignment 事件，体现升级透明度。 | upgrade transition、bucket realignment、grant/expire handling |
 
 用户购买入口不使用 top-up / recharge 语义；但“充值”可以用于生命周期和审计语境，
-表示积分已经进入积分账户。
+表示购买完成后的积分入账结果。
 
 ## 套餐订购与预购积分规则
 
-- 新购积分套餐：支付成功后立即开始新订阅周期，并充值该周期套餐积分。
-- 续订预购：当前周期不变；到期切换时旧周期套餐积分过期，新周期套餐积分充值。
+- 新购积分套餐：支付成功后立即开始新订阅周期，并使该周期套餐积分入账。
+- 续订预购：当前周期不变；到期切换时旧周期套餐积分过期，新周期套餐积分入账。
 - 降级预购：当前周期不变；到期切换时旧周期套餐积分过期，新套餐周期开始。
 - 立即升级：新套餐立即生效，旧套餐剩余积分合并到新套餐周期。
 - 积分包：独立购买；是否可消耗取决于当前是否存在有效积分套餐。
@@ -89,7 +95,7 @@ bootstrap 写入 subscription-category bucket；历史 `free` bucket 仍可能�
 | `BillingOrder` | 支付和购买事实，包括预购 metadata。 | 继续作为 paid evidence 和订单快照来源。 |
 | `BillingSubscription` | 当前套餐合同和周期窗口。 | 周期推进应逐步收口到统一 transition service。 |
 | `BillingRenewalEvent` | 周期边界任务、续订、重试和补偿事件。 | 终态事件不得被普通 lifecycle sync 覆盖。 |
-| `CreditWallet` | 积分账户的 available/reserved 快照。 | 这是投影，必须能由 bucket/allocation 重新计算。 |
+| `CreditWallet` | 账户的 available/reserved 快照。 | 这是投影，必须能由 bucket/allocation 重新计算。 |
 | `CreditWalletBucket` | 当前实现的余额、来源、有效窗口和优先级投影。 | 长期方向是 allocation/cycle 更清晰，避免跨订单/跨周期复用。 |
 | `CreditLedgerEntry` | 审计流水，同时临时承载部分 grant 当前状态。 | 长期方向是 ledger append-only，当前状态迁出到显式模型。 |
 
@@ -101,8 +107,11 @@ bootstrap 写入 subscription-category bucket；历史 `free` bucket 仍可能�
 
 Runtime admission 当前语义应保持：
 
-- `server.billing.creditInsufficient`：没有任何处于有效期内、可消费且余额大于 `0` 的 bucket。
-- `server.billing.subscriptionInactive`：没有有效订阅，但存在仍有余额且需要有效订阅才能消费的 bucket，例如套餐积分或积分包积分。
+- `server.billing.creditInsufficient`：没有任何满足当前可消费资格且余额大于 `0` 的 bucket。
+- `server.billing.subscriptionInactive`：没有有效积分套餐，但老师持有的积分包积分被冻结，暂时无法消耗；重新获得有效积分套餐后解冻。
+
+无有效订阅时仍残留套餐积分属于实现异常或历史兼容状态，不属于正常产品语义。
+相关诊断或迁移应把它标记为异常/兼容数据，不应描述为“冻结套餐积分”。
 
 ## Billing-R 重构边界
 
