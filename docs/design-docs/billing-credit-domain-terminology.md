@@ -102,8 +102,9 @@ campaign bonus 等历史/内部标识，必须按实际业务归属映射为套�
 积分包冻结/解冻是后续 R3/R5 的重要边界：产品规则是积分包积分不过期，
 订阅失效时只是冻结。当前代码中 topup bucket 仍可能带有 subscription-window
 字段；后续修改周期过期、bucket expiration 或 allocation 模型时，必须把这些字段
-视为可消费资格窗口，而不是积分包所有权过期。由于当前没有确认真实线上错账风险，
-该项并入 R3/R5，不单独作为当前 correctness PR。
+视为可消费资格窗口，而不是积分包所有权过期。当前实现仍会将部分积分包 bucket
+执行过期，属于已知实现差距，将由后续 Billing PR 修复。由于当前没有确认真实
+线上错账风险，该项并入 R3/R5，不单独作为当前 correctness PR。
 
 Runtime admission 当前语义应保持：
 
