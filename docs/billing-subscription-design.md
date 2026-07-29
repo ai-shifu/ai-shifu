@@ -813,7 +813,8 @@ v1 的改造要求：
 - 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/subscriptions.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `bill_subscriptions` 周期字段，并同步维护 `bill_renewal_events`
 - 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；`billing.settle_usage` task entrypoint 已由 `src/api/flaskr/service/billing/tasks.py` 提供，`record_llm_usage` / `record_tts_usage` 会在 billable 的 root usage 落库后投递该异步入口，Celery app factory、worker/beat 基础设施和 creator 维度串行化仍留在后续任务
 - 当前实现中，`credit_wallet_buckets` 已承担 source bucket snapshot：paid grant 会按 order type 创建 `subscription` / `topup` bucket，wallet 总余额与冻结余额会从 bucket 表重算，consume 结算会把扣空 bucket 推进到 `exhausted`
-- 当前实现中，topup bucket / ledger 仍可能携带 subscription-window 字段；这些字段只能视为可消费资格窗口，不表示积分包所有权过期。产品规则是积分包积分不过期，订阅失效时只是冻结/不可消耗，恢复有效套餐后解冻/恢复可消耗
+- 当前实现中，topup bucket / ledger 仍可能携带 subscription-window 字段；这些字段只能视为可消费资格窗口，不表示积分包所有权过期。产品规则是积分包积分不过期，订阅失效时只是冻结/不可消耗，恢复有效套餐后解冻/恢复可消耗；bucket expiration 不会把 topup bucket 迁移为 ownership expired，续订或恢复套餐会把 topup 可消费窗口重新对齐到当前套餐周期
+- 当前实现中，历史上已被旧逻辑错误过期的 paid topup bucket 只允许通过显式订单白名单修复：先 dry-run `flask console billing restore-expired-topup-buckets --bill-order-bid <bill_order_bid>`，确认匹配已付款 topup order、expired bucket、同周期 expire ledger 和金额后，再追加 `--apply`；该工具会恢复 bucket ownership，并写入 `adjustment` ledger 留存审计
 - 当前实现中，usage settlement 已固定按 `subscription > topup` 扣减；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先，`effective_to = null` 排在最后；历史 `free` bucket 会在运行时归并进 `subscription/topup`
 - 当前实现中，LLM usage 已拆成 `input`、`cache`、`output` 三个 billing metric 独立计算费率与扣分，并把每个 metric 的 breakdown 写入 `credit_ledger_entries.metadata`
 - 当前实现中，TTS usage 已支持两种 billing mode：有 `tts_request_count` 费率时按次扣分；未配置按次费率时回退到 `tts_output_chars`，再回退到 `tts_input_chars` 的按字数扣分
@@ -1093,7 +1094,7 @@ v1 需要新增：
 - bucket 扣减顺序固定为：`subscription > topup`；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先
 - `gift`、正向人工补偿、退款返还不再形成第三类可消费 credits；它们仅保留为 `source_type`，bucket 统一归到 `subscription/topup`
 - 一条 usage 可以拆成多个 bucket 扣减，但默认只生成一条聚合 `consume` ledger；bucket 明细保留在 `metadata.bucket_breakdown[]`
-- bucket 过期任务只扫描 `credit_wallet_buckets`；对可过期的套餐积分写 `expire` ledger 并把 bucket 关闭；积分包积分不得因订阅失效或套餐周期结束被表达为所有权过期
+- bucket 过期任务只扫描 `credit_wallet_buckets`；对可过期的套餐积分写 `expire` ledger 并把 bucket 关闭；积分包积分不得因订阅失效或套餐周期结束被表达为所有权过期，topup bucket 由有效套餐资格控制可消费性
 - 结算幂等 key 应至少以 `bill_usage.usage_bid` 为核心保证 usage 级去重；bucket 级扣减明细保留在 metadata 里
 - 当前实现中，`src/api/flaskr/service/billing/settlement.py` 已支持：
   - LLM `input/cache/output` 三维 rate 匹配与扣分
@@ -1540,7 +1541,7 @@ type CreatorBrandingConfig = {
 - webhook 幂等、乱序到达、sync 补偿、防重复发放或重复扣分
 - 最近一次 provider 摘要是否只覆盖写入关联 `bill_orders.metadata`，同时同步更新 provider raw snapshot
 - 找不到关联订单的 webhook 是否按 ignore 处理且不落库存档
-- 可过期套餐积分 bucket 过期后是否停止参与 admission / settlement，并生成 `expire` ledger；积分包积分是否仅因无有效套餐被冻结/不可消耗，而不是被过期扣除
+- 可过期套餐积分 bucket 过期后是否停止参与 admission / settlement，并生成 `expire` ledger；积分包积分是否仅因无有效套餐被冻结/不可消耗、不会生成 ownership expire ledger，恢复套餐后是否重新可消费
 - `credit_wallets`、`credit_wallet_buckets` 与 `credit_ledger_entries` 三者是否保持一致
 - 旧 `/order` 学员购课流程是否未被破坏
 - `CELERY_TASK_ALWAYS_EAGER=1` 时 billing 集成测试可同步执行
