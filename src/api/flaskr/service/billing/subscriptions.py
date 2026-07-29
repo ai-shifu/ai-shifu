@@ -56,6 +56,10 @@ from .bucket_categories import (
     resolve_bucket_category_from_order_type,
     resolve_credit_bucket_priority,
 )
+from .credit_mutations import (
+    activate_reserved_grant_credit,
+    reserved_grant_state as _shared_reserved_grant_state,
+)
 from .dtos import BillingSubscriptionDTO
 from .models import (
     BillingOrder,
@@ -1109,8 +1113,7 @@ def _load_reserved_activation_bucket(
 
 
 def _reserved_grant_state(grant_entry: CreditLedgerEntry) -> str:
-    metadata = _normalize_json_object(grant_entry.metadata_json)
-    return str(metadata.get("bucket_credit_state") or "").strip().lower()
+    return _shared_reserved_grant_state(grant_entry)
 
 
 def _expected_subscription_grant_amount(order: BillingOrder) -> Decimal:
@@ -1744,7 +1747,6 @@ def _activate_reserved_subscription_grant_for_order(
         )
 
     now = now_utc()
-    release_amount = grant_amount
     bucket.wallet_bid = wallet.wallet_bid
     bucket.bucket_category = CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
     bucket.source_type = resolve_bucket_source_type_for_category(
@@ -1755,32 +1757,22 @@ def _activate_reserved_subscription_grant_for_order(
     bucket.priority = resolve_credit_bucket_priority(
         CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
     )
-    bucket.reserved_credits = _quantize_credit_amount(
-        _to_decimal(bucket.reserved_credits) - release_amount
-    )
-    bucket.available_credits = _quantize_credit_amount(
-        _to_decimal(bucket.available_credits) + release_amount
-    )
-    bucket.effective_from = effective_from
-    bucket.effective_to = effective_to
     if is_first_cycle_activation:
         bucket.metadata_json = {
             **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
             **_build_bucket_metadata_from_order(order),
             "bill_order_bid": attribution_order_bid or order.bill_order_bid,
         }
-    bucket.updated_at = now
-    _prepare_bucket_for_runtime_reuse(bucket)
-    sync_credit_bucket_status(bucket)
-    db.session.add(bucket)
 
-    metadata["bucket_credit_state"] = "available"
-    metadata["activated_at"] = now.isoformat()
-    grant_entry.expires_at = effective_to
-    grant_entry.consumable_from = effective_from
-    grant_entry.metadata_json = metadata.to_metadata_json()
-    grant_entry.updated_at = now
-    db.session.add(grant_entry)
+    mutation_result = activate_reserved_grant_credit(
+        grant_entry=grant_entry,
+        bucket=bucket,
+        effective_from=effective_from,
+        effective_to=effective_to,
+        now=now,
+    )
+    if not mutation_result.completed:
+        return False
 
     refresh_credit_wallet_snapshot(wallet, snapshot_at=effective_from)
     persist_credit_wallet_snapshot(
@@ -1843,27 +1835,15 @@ def _activate_reserved_campaign_bonus_grant_for_order(
 
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
     now = now_utc()
-    release_amount = grant_amount
-    bucket.reserved_credits = _quantize_credit_amount(
-        _to_decimal(bucket.reserved_credits) - release_amount
+    mutation_result = activate_reserved_grant_credit(
+        grant_entry=grant_entry,
+        bucket=bucket,
+        effective_from=effective_from,
+        effective_to=effective_to,
+        now=now,
     )
-    bucket.available_credits = _quantize_credit_amount(
-        _to_decimal(bucket.available_credits) + release_amount
-    )
-    bucket.effective_from = effective_from
-    bucket.effective_to = effective_to
-    bucket.updated_at = now
-    _prepare_bucket_for_runtime_reuse(bucket)
-    sync_credit_bucket_status(bucket)
-    db.session.add(bucket)
-
-    metadata["bucket_credit_state"] = "available"
-    metadata["activated_at"] = now.isoformat()
-    grant_entry.expires_at = effective_to
-    grant_entry.consumable_from = effective_from
-    grant_entry.metadata_json = metadata.to_metadata_json()
-    grant_entry.updated_at = now
-    db.session.add(grant_entry)
+    if not mutation_result.completed:
+        return False
 
     refresh_credit_wallet_snapshot(wallet, snapshot_at=effective_from)
     persist_credit_wallet_snapshot(
