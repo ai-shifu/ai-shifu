@@ -6,6 +6,7 @@ import json
 
 from flask import Flask
 import pytest
+from sqlalchemy import event
 
 import flaskr.dao as dao
 from flaskr.service.billing.cli import register_billing_commands
@@ -270,6 +271,43 @@ def test_audit_credit_state_cli_outputs_read_only_report(
     payload = json.loads(result.output)
     assert payload["status"] == "issues_found"
     assert payload["counts_by_code"] == {"wallet_snapshot_mismatch": 1}
+
+
+def test_audit_credit_state_does_not_flush_pending_session_mutations(
+    billing_credit_audit_app: Flask,
+) -> None:
+    flush_count = 0
+
+    def _count_flush(*_args: object) -> None:
+        nonlocal flush_count
+        flush_count += 1
+
+    with billing_credit_audit_app.app_context():
+        event.listen(dao.db.session, "before_flush", _count_flush)
+        try:
+            pending_wallet = CreditWallet(
+                wallet_bid="wallet-audit-pending",
+                creator_bid="creator-audit-pending",
+                available_credits=Decimal("1.0000000000"),
+                reserved_credits=Decimal("0"),
+                lifetime_granted_credits=Decimal("1.0000000000"),
+                lifetime_consumed_credits=Decimal("0"),
+                last_settled_usage_id=0,
+                version=0,
+            )
+            dao.db.session.add(pending_wallet)
+
+            payload = audit_credit_state(
+                creator_bid="creator-audit-pending",
+                as_of=datetime(2026, 7, 29, 12, 0, 0),
+            ).to_payload()
+
+            assert payload["status"] == "ok"
+            assert pending_wallet.id is None
+            assert flush_count == 0
+        finally:
+            event.remove(dao.db.session, "before_flush", _count_flush)
+            dao.db.session.rollback()
 
 
 def test_audit_credit_state_rejects_invalid_explicit_as_of(

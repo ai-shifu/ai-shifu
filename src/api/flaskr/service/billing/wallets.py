@@ -2196,6 +2196,8 @@ def restore_wrongly_expired_credit_pack_buckets(
             status=(
                 "dry_run"
                 if dry_run
+                else "partial_repaired"
+                if repaired_count and manual_review_count
                 else "repaired"
                 if repaired_count
                 else "manual_review"

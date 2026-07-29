@@ -7,6 +7,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
+from flaskr.dao import db
+
 from .bucket_categories import load_billing_order_type_by_bid
 from .bucket_categories import resolve_wallet_bucket_runtime_category
 from .bucket_categories import wallet_bucket_requires_active_subscription
@@ -123,16 +125,31 @@ def audit_credit_state(
         if audit_at is None:
             raise ValueError(f"Unable to parse as_of value: {as_of!r}")
     resolved_limit = int(limit or 0)
+
+    with db.session.no_autoflush:
+        return _audit_credit_state_no_autoflush(
+            creator_bid=normalized_creator_bid,
+            as_of=audit_at,
+            limit=resolved_limit,
+        )
+
+
+def _audit_credit_state_no_autoflush(
+    *,
+    creator_bid: str,
+    as_of: datetime,
+    limit: int,
+) -> CreditAuditReport:
     issues: list[CreditAuditIssue] = []
 
-    wallets = _load_wallets(normalized_creator_bid, limit=resolved_limit)
+    wallets = _load_wallets(creator_bid, limit=limit)
     buckets = _load_buckets(
-        creator_bid=normalized_creator_bid,
-        limit=resolved_limit,
+        creator_bid=creator_bid,
+        limit=limit,
     )
     ledgers = _load_ledgers(
-        creator_bid=normalized_creator_bid,
-        limit=resolved_limit,
+        creator_bid=creator_bid,
+        limit=limit,
     )
     expire_ledgers = _load_expire_ledgers_for_buckets(
         bucket_bids={bucket.wallet_bucket_bid for bucket in buckets}
@@ -144,7 +161,7 @@ def audit_credit_state(
         expire_ledgers_by_bucket.setdefault(ledger.wallet_bucket_bid, []).append(ledger)
 
     for wallet in wallets:
-        issues.extend(_audit_wallet_snapshot(wallet, as_of=audit_at))
+        issues.extend(_audit_wallet_snapshot(wallet, as_of=as_of))
 
     for bucket in buckets:
         issues.extend(_audit_bucket_balance(bucket))
@@ -159,27 +176,27 @@ def audit_credit_state(
 
     for ledger in ledgers:
         if int(ledger.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_GRANT:
-            issues.extend(_audit_overdue_reserved_grant(ledger, as_of=audit_at))
+            issues.extend(_audit_overdue_reserved_grant(ledger, as_of=as_of))
 
     issues.extend(
         _audit_subscription_bucket_windows(
-            normalized_creator_bid,
+            creator_bid,
             buckets=buckets,
-            as_of=audit_at,
-            limit=resolved_limit,
+            as_of=as_of,
+            limit=limit,
         )
     )
     issues = _dedupe_issues(issues)
     total_issue_count = len(issues)
-    truncated = resolved_limit > 0 and total_issue_count > resolved_limit
-    if resolved_limit > 0:
-        issues = issues[:resolved_limit]
+    truncated = limit > 0 and total_issue_count > limit
+    if limit > 0:
+        issues = issues[:limit]
     returned_issue_count = len(issues)
 
     return CreditAuditReport(
         status="ok" if total_issue_count == 0 else "issues_found",
-        creator_bid=normalized_creator_bid or None,
-        as_of=audit_at,
+        creator_bid=creator_bid or None,
+        as_of=as_of,
         checked_wallet_count=len(wallets),
         checked_bucket_count=len(buckets),
         checked_ledger_count=len(checked_ledger_bids),
