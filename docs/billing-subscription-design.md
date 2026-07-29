@@ -76,6 +76,12 @@ v1.1 再补充下列扩展能力：
 
 ### 1.6 延伸设计
 
+- 积分领域术语、当前代码映射、审计动词和 Billing-R 重构边界见
+  `docs/design-docs/billing-credit-domain-terminology.md`。该文档用于统一
+  积分账户、套餐积分、积分包积分、充值、消耗、过期、冻结、解冻、合并等术语，
+  并说明这些概念在 `CreditWallet` / `CreditWalletBucket` /
+  `CreditLedgerEntry` / `BillingSubscription` / `BillingRenewalEvent` 中的当前落点。
+
 - 套餐预购与零退款升级抵扣方案见
   `docs/design-docs/billing-subscription-preorder.md`。该方案描述
   next-cycle 续订/降级预购、已预购后立即升级抵扣、积分合并/清零边界、
@@ -973,7 +979,7 @@ v1 冻结低余额阈值、告警与错误码规则：
   - `server.billing.creditInsufficient`：当前没有任何处于有效期内、可消费且余额大于 `0` 的 bucket
   - `server.billing.subscriptionInactive`：当前没有 active-like subscription，且也没有任何 `free/topup` bucket 可兜底
 - `server.billing.creditInsufficient` 的文案语义固定为“积分不足，请先开通订阅或购买积分”；`server.billing.subscriptionInactive` 的文案语义固定为“订阅不可用且没有免费/积分包积分可继续使用”；后续多语言翻译必须保持这个语义边界，不扩展额外业务分支说明
-- 账务/积分用户可见文案命名约定固定如下：不得使用“充值”或 top-up / recharge 语义；正文同时覆盖套餐和积分包时使用“开通订阅或购买积分”，且订阅优先；短按钮 CTA 使用“购买积分”；仅在明确指 `topup` 商品、订单、账本来源或 checkout 时使用“积分包”；用户可见余额主体称为“账户”，不称为“钱包”。内部 `topup` / `wallet` 技术字段、路由、枚举和 i18n key 不受该展示命名约束。
+- 账务/积分用户可见文案命名约定固定如下：通用购买入口不得使用 top-up / recharge 语义；正文同时覆盖套餐和积分包时使用“开通订阅或购买积分”，且订阅优先；短按钮 CTA 使用“购买积分”；仅在明确指 `topup` 商品、订单、账本来源或 checkout 时使用“积分包”；用户可见余额主体称为“账户”，不称为“钱包”。“充值”只用于积分已进入账户的生命周期或审计语境，不用于泛化购买 CTA。内部 `topup` / `wallet` 技术字段、路由、枚举和 i18n key 不受该展示命名约束。
 - v1 不再新增新的 backend billing admission 错误码；更多 UI 提示优先通过 `billing_alerts` 承载，而不是扩散新的阻断错误 key
 - 当前版本不再保留 `server.billing.concurrencyExceeded`；runtime admission 阻断只围绕 credits / subscription 状态
 
