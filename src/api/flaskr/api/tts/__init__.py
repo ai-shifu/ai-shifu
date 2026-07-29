@@ -7,6 +7,7 @@ This module provides integration with multiple Text-to-Speech providers:
 - Baidu (Short Text Online Synthesis API)
 - Aliyun (NLS RESTful TTS API)
 - Tencent (TRTC conversational SSE API)
+- Tencent TextToVoice (standard Tencent Cloud TTS API)
 
 The provider can be selected per-Shifu configuration.
 """
@@ -41,6 +42,7 @@ from flaskr.api.tts.baidu_provider import BaiduTTSProvider
 from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
 from flaskr.api.tts.aliyun_nls_token import is_aliyun_nls_token_configured
 from flaskr.api.tts.tencent_provider import TencentTTSProvider
+from flaskr.api.tts.tencent_texttovoice_provider import TencentTextToVoiceProvider
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
@@ -54,6 +56,7 @@ _PROVIDER_REGISTRY = {
     "baidu": BaiduTTSProvider,
     "aliyun": AliyunTTSProvider,
     "tencent": TencentTTSProvider,
+    "tencent_texttovoice": TencentTextToVoiceProvider,
 }
 _PROVIDER_PRIORITY = (
     "minimax",
@@ -62,6 +65,7 @@ _PROVIDER_PRIORITY = (
     "baidu",
     "aliyun",
     "tencent",
+    "tencent_texttovoice",
 )
 _AUTO_DETECT_PROVIDER_PRIORITY = (
     "minimax",

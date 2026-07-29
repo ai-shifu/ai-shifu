@@ -575,12 +575,8 @@ export default function ShifuSettingDialog({
   // Get voices for current provider
   const ttsVoiceOptions = useMemo(
     () =>
-      filterTtsVoicesForModel(
-        resolvedProvider,
-        currentProviderConfig?.voices || [],
-        ttsModel,
-      ),
-    [currentProviderConfig?.voices, resolvedProvider, ttsModel],
+      filterTtsVoicesForModel(currentProviderConfig?.voices || [], ttsModel),
+    [currentProviderConfig?.voices, ttsModel],
   );
 
   const showMiniMaxVoiceActionError = useCallback(
@@ -2021,18 +2017,16 @@ export default function ShifuSettingDialog({
                           value={ttsVoiceId}
                           onValueChange={value => {
                             setTtsVoiceId(value);
-                            if (resolvedProvider === 'volcengine') {
-                              const selectedVoice = ttsVoiceOptions.find(
-                                option => option.value === value,
-                              );
-                              const inferredResourceId =
-                                selectedVoice?.resource_id;
-                              if (
-                                inferredResourceId &&
-                                inferredResourceId !== ttsModel
-                              ) {
-                                setTtsModel(inferredResourceId);
-                              }
+                            const selectedVoice = ttsVoiceOptions.find(
+                              option => option.value === value,
+                            );
+                            const inferredResourceId =
+                              selectedVoice?.resource_id;
+                            if (
+                              inferredResourceId &&
+                              inferredResourceId !== ttsModel
+                            ) {
+                              setTtsModel(inferredResourceId);
                             }
                           }}
                           disabled={currentShifu?.readonly}
