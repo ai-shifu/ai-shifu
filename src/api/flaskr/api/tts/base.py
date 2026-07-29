@@ -21,6 +21,7 @@ class TTSProvider(str, Enum):
     BAIDU = "baidu"
     ALIYUN = "aliyun"
     TENCENT = "tencent"
+    TENCENT_TEXTTOVOICE = "tencent_texttovoice"
 
 
 @dataclass
