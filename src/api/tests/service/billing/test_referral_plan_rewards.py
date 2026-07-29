@@ -939,11 +939,17 @@ def test_referral_plan_reward_boundary_releases_all_due_reserved_cycle_grants(
             ]
             == "available"
         )
+        assert ledgers["ledger-referral-boundary-primary"].balance_after == Decimal(
+            "50.0000000000"
+        )
         assert (
             ledgers["ledger-referral-boundary-reward"].metadata_json[
                 "bucket_credit_state"
             ]
             == "available"
+        )
+        assert ledgers["ledger-referral-boundary-reward"].balance_after == Decimal(
+            "1050.0000000000"
         )
         assert len(expire_entries) == 1
         assert expire_entries[0].amount == Decimal("-200.0000000000")
