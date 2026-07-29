@@ -35,7 +35,7 @@ review 前置条件。
 | 续订 | Renew | 购买同档下一周期。 | renewal order、renewal event |
 | 升级 | Upgrade | 切换到高档套餐。立即升级时旧套餐剩余积分合并到新套餐周期。 | `subscription_upgrade` order、preorder absorption path |
 | 降级 | Downgrade | 预购低档套餐，到当前周期结束后生效。 | preorder metadata、downgrade effective renewal event |
-| 预购 | Pre-order | 提前购买下一周期套餐。续订和降级均可作为预购生效。 | paid order with preorder metadata |
+| 预购 | Preorder | 提前购买下一周期套餐。续订和降级均可作为预购生效。 | paid order with preorder metadata |
 | 自动续订 | Auto-renew | 系统自动续订。 | renewal task / provider renewal settings |
 
 中文产品文档和用户文案中不应把“老师”泛称为“创作者”，不应把“积分包”称为
