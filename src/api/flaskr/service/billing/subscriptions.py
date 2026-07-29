@@ -53,8 +53,10 @@ from .consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
 )
 from .bucket_categories import (
+    load_billing_order_type_by_bid,
     resolve_bucket_category_from_order_type,
     resolve_credit_bucket_priority,
+    resolve_wallet_bucket_runtime_category,
 )
 from .credit_mutations import (
     activate_reserved_grant_credit,
@@ -1025,45 +1027,79 @@ def _realign_active_credit_bucket_effective_to(
     if effective_to is None:
         return
 
-    bucket = load_primary_credit_bucket_by_category(
+    buckets = _load_active_credit_buckets_by_runtime_category(
         creator_bid,
         bucket_category=bucket_category,
     )
-    if bucket is None:
+    if not buckets:
         return
 
     now = now_utc()
-    if bucket.effective_from is not None and bucket.effective_from > effective_from:
-        return
-    if bucket.effective_to is not None:
-        if not include_effective_to_boundary and bucket.effective_to <= effective_from:
-            return
-    if bucket.effective_to != effective_to:
-        bucket.effective_to = effective_to
-        bucket.updated_at = now
-        db.session.add(bucket)
+    for bucket in buckets:
+        if bucket.effective_from is not None and bucket.effective_from > effective_from:
+            continue
+        if bucket.effective_to is not None:
+            if (
+                not include_effective_to_boundary
+                and bucket.effective_to <= effective_from
+            ):
+                continue
+        if bucket.effective_to != effective_to:
+            bucket.effective_to = effective_to
+            bucket.updated_at = now
+            db.session.add(bucket)
 
-    grant_entry_filters = [
-        CreditLedgerEntry.deleted == 0,
-        CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
-        CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-    ]
-    if not include_effective_to_boundary:
-        grant_entry_filters.append(
-            (
-                CreditLedgerEntry.expires_at.is_(None)
-                | (CreditLedgerEntry.expires_at >= effective_from)
-            ),
+        grant_entry_filters = [
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        ]
+        if not include_effective_to_boundary:
+            grant_entry_filters.append(
+                (
+                    CreditLedgerEntry.expires_at.is_(None)
+                    | (CreditLedgerEntry.expires_at >= effective_from)
+                ),
+            )
+        grant_entries = (
+            CreditLedgerEntry.query.filter(*grant_entry_filters)
+            .order_by(CreditLedgerEntry.id.asc())
+            .all()
         )
-    grant_entries = (
-        CreditLedgerEntry.query.filter(*grant_entry_filters)
-        .order_by(CreditLedgerEntry.id.asc())
+        for entry in grant_entries:
+            entry.expires_at = effective_to
+            entry.updated_at = now
+            db.session.add(entry)
+
+
+def _load_active_credit_buckets_by_runtime_category(
+    creator_bid: str,
+    *,
+    bucket_category: int,
+) -> list[CreditWalletBucket]:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return []
+
+    rows = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.creator_bid == normalized_creator_bid,
+            CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+            CreditWalletBucket.available_credits > 0,
+        )
+        .order_by(CreditWalletBucket.created_at.asc(), CreditWalletBucket.id.asc())
         .all()
     )
-    for entry in grant_entries:
-        entry.expires_at = effective_to
-        entry.updated_at = now
-        db.session.add(entry)
+    return [
+        row
+        for row in rows
+        if resolve_wallet_bucket_runtime_category(
+            row,
+            load_order_type=load_billing_order_type_by_bid,
+        )
+        == bucket_category
+    ]
 
 
 def _build_bucket_metadata_from_order(order: BillingOrder) -> dict[str, Any]:
