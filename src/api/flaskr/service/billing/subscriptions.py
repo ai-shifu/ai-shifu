@@ -1036,10 +1036,7 @@ def _realign_active_credit_bucket_effective_to(
     if bucket.effective_from is not None and bucket.effective_from > effective_from:
         return
     if bucket.effective_to is not None:
-        if include_effective_to_boundary:
-            if bucket.effective_to < effective_from:
-                return
-        elif bucket.effective_to <= effective_from:
+        if not include_effective_to_boundary and bucket.effective_to <= effective_from:
             return
     if bucket.effective_to != effective_to:
         bucket.effective_to = effective_to

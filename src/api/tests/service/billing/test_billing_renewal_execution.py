@@ -402,32 +402,29 @@ def test_run_billing_renewal_event_applies_expire(
 
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_EXPIRED
         assert wallet.available_credits == Decimal("0E-10")
-        assert len(ledger_entries) == 2
+        assert len(ledger_entries) == 1
         assert [entry.wallet_bucket_bid for entry in ledger_entries] == [
             "bucket-expire-subscription-1",
-            "bucket-expire-topup-1",
         ]
         assert [entry.amount for entry in ledger_entries] == [
             Decimal("-5.0000000000"),
-            Decimal("-2.5000000000"),
         ]
         assert [entry.balance_after for entry in ledger_entries] == [
             Decimal("2.5000000000"),
-            Decimal("0E-10"),
         ]
         assert (
             buckets["bucket-expire-subscription-1"].status
             == CREDIT_BUCKET_STATUS_EXPIRED
         )
-        assert buckets["bucket-expire-topup-1"].status == CREDIT_BUCKET_STATUS_EXPIRED
+        assert buckets["bucket-expire-topup-1"].status == CREDIT_BUCKET_STATUS_ACTIVE
         assert buckets["bucket-expire-subscription-1"].expired_credits == Decimal(
             "5.0000000000"
         )
-        assert buckets["bucket-expire-topup-1"].expired_credits == Decimal(
+        assert buckets["bucket-expire-topup-1"].expired_credits == Decimal("0")
+        assert buckets["bucket-expire-subscription-1"].available_credits == Decimal("0")
+        assert buckets["bucket-expire-topup-1"].available_credits == Decimal(
             "2.5000000000"
         )
-        assert buckets["bucket-expire-subscription-1"].available_credits == Decimal("0")
-        assert buckets["bucket-expire-topup-1"].available_credits == Decimal("0")
 
 
 def test_run_billing_renewal_event_does_not_duplicate_expire_ledger_when_replayed(

@@ -127,10 +127,10 @@ def test_expire_credit_wallet_buckets_marks_bucket_expired_and_writes_ledger(
                 wallet_bucket_bid="bucket-expire-1",
                 wallet_bid=wallet.wallet_bid,
                 creator_bid="creator-expire-1",
-                bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-                source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
                 source_bid="order-topup-expire-1",
-                priority=30,
+                priority=20,
                 original_credits=Decimal("2.5000000000"),
                 available_credits=Decimal("2.5000000000"),
                 reserved_credits=Decimal("0"),
@@ -173,6 +173,69 @@ def test_expire_credit_wallet_buckets_marks_bucket_expired_and_writes_ledger(
         assert ledger.balance_after == Decimal("0E-10")
 
 
+def test_expire_credit_wallet_buckets_skips_credit_pack_bucket(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-expire-topup-skip",
+            creator_bid="creator-expire-topup-skip",
+            available_credits=Decimal("2.5000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("2.5000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-expire-topup-skip",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=wallet.creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid="order-expire-topup-skip",
+            priority=30,
+            original_credits=Decimal("2.5000000000"),
+            available_credits=Decimal("2.5000000000"),
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=datetime(2026, 4, 1, 0, 0, 0),
+            effective_to=datetime(2026, 4, 7, 0, 0, 0),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={},
+        )
+        dao.db.session.add_all([wallet, bucket])
+        dao.db.session.commit()
+
+        payload = expire_credit_wallet_buckets(
+            billing_wallet_lifecycle_app,
+            creator_bid=wallet.creator_bid,
+            expire_before=datetime(2026, 4, 8, 0, 0, 0),
+        )
+
+        dao.db.session.expire_all()
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-expire-topup-skip"
+        ).one()
+        wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-expire-topup-skip"
+        ).one()
+        ledgers = CreditLedgerEntry.query.filter_by(
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+        ).all()
+
+    assert payload["status"] == "noop"
+    assert payload["bucket_count"] == 0
+    assert payload["expired_credits"] == 0
+    assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+    assert bucket.available_credits == Decimal("2.5000000000")
+    assert bucket.expired_credits == Decimal("0")
+    assert wallet.available_credits == Decimal("0E-10")
+    assert ledgers == []
+
+
 def test_expire_credit_wallet_buckets_uses_actual_mutation_time_for_bucket_update(
     billing_wallet_lifecycle_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -196,10 +259,10 @@ def test_expire_credit_wallet_buckets_uses_actual_mutation_time_for_bucket_updat
             wallet_bucket_bid="bucket-expire-mutation-time",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-mutation-time",
-            priority=30,
+            priority=20,
             original_credits=Decimal("2.5000000000"),
             available_credits=Decimal("2.5000000000"),
             reserved_credits=Decimal("0"),
@@ -261,10 +324,10 @@ def test_expire_credit_wallet_buckets_skips_bucket_with_conflicting_ledger(
                     wallet_bucket_bid=bid,
                     wallet_bid=wallet.wallet_bid,
                     creator_bid="creator-expire-race",
-                    bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-                    source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                    bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                    source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
                     source_bid=source,
-                    priority=30,
+                    priority=20,
                     original_credits=Decimal(amount),
                     available_credits=Decimal(amount),
                     reserved_credits=Decimal("0"),
@@ -287,7 +350,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_with_conflicting_ledger(
                 wallet_bid=wallet.wallet_bid,
                 wallet_bucket_bid="bucket-conflict",
                 entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-                source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
                 source_bid="order-conflict",
                 idempotency_key=_build_expire_ledger_idempotency_key(
                     "bucket-conflict",
@@ -341,10 +404,10 @@ def test_expire_credit_wallet_buckets_allows_reused_bucket_after_legacy_expire(
             wallet_bucket_bid="bucket-expire-reused-legacy",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-reused-legacy-second-cycle",
-            priority=30,
+            priority=20,
             original_credits=Decimal("15.0000000000"),
             available_credits=Decimal("5.0000000000"),
             reserved_credits=Decimal("0"),
@@ -365,7 +428,7 @@ def test_expire_credit_wallet_buckets_allows_reused_bucket_after_legacy_expire(
                     wallet_bid=wallet.wallet_bid,
                     wallet_bucket_bid=bucket.wallet_bucket_bid,
                     entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-                    source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                    source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
                     source_bid="order-expire-reused-legacy-first-cycle",
                     idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
                     amount=Decimal("-2.5000000000"),
@@ -436,10 +499,10 @@ def test_expire_credit_wallet_buckets_skips_bucket_realigned_during_refresh(
             wallet_bucket_bid="bucket-expire-realigned",
             wallet_bid=wallet.wallet_bid,
             creator_bid="creator-expire-realigned",
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-topup-realigned",
-            priority=30,
+            priority=20,
             original_credits=Decimal("4.0000000000"),
             available_credits=Decimal("4.0000000000"),
             reserved_credits=Decimal("0"),
@@ -520,10 +583,10 @@ def test_expire_credit_wallet_buckets_skips_bucket_consumed_before_write(
             wallet_bucket_bid="bucket-expire-consumed-before-write",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-consumed-before-write",
-            priority=30,
+            priority=20,
             original_credits=Decimal("4.0000000000"),
             available_credits=Decimal("4.0000000000"),
             reserved_credits=Decimal("0"),
@@ -538,10 +601,10 @@ def test_expire_credit_wallet_buckets_skips_bucket_consumed_before_write(
             wallet_bucket_bid="bucket-expire-consumed-before-write-ok",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-consumed-before-write-ok",
-            priority=30,
+            priority=20,
             original_credits=Decimal("2.0000000000"),
             available_credits=Decimal("2.0000000000"),
             reserved_credits=Decimal("0"),
@@ -642,10 +705,10 @@ def test_expire_credit_wallet_buckets_skips_bucket_extended_before_write(
             wallet_bucket_bid="bucket-expire-extended-before-write",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-extended-before-write",
-            priority=30,
+            priority=20,
             original_credits=Decimal("4.0000000000"),
             available_credits=Decimal("4.0000000000"),
             reserved_credits=Decimal("0"),
@@ -660,10 +723,10 @@ def test_expire_credit_wallet_buckets_skips_bucket_extended_before_write(
             wallet_bucket_bid="bucket-expire-extended-before-write-ok",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-extended-before-write-ok",
-            priority=30,
+            priority=20,
             original_credits=Decimal("2.0000000000"),
             available_credits=Decimal("2.0000000000"),
             reserved_credits=Decimal("0"),
@@ -841,10 +904,10 @@ def test_expire_credit_wallet_buckets_skips_bucket_deleted_during_refresh(
             wallet_bucket_bid="bucket-expire-refresh-skip",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-refresh-skip",
-            priority=30,
+            priority=20,
             original_credits=Decimal("4.0000000000"),
             available_credits=Decimal("4.0000000000"),
             reserved_credits=Decimal("0"),
@@ -859,10 +922,10 @@ def test_expire_credit_wallet_buckets_skips_bucket_deleted_during_refresh(
             wallet_bucket_bid="bucket-expire-refresh-ok",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-refresh-ok",
-            priority=30,
+            priority=20,
             original_credits=Decimal("5.0000000000"),
             available_credits=Decimal("5.0000000000"),
             reserved_credits=Decimal("0"),
@@ -933,10 +996,10 @@ def test_expire_credit_wallet_buckets_skips_bucket_when_refresh_raises_deleted(
             wallet_bucket_bid="bucket-expire-refresh-error",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-refresh-error",
-            priority=30,
+            priority=20,
             original_credits=Decimal("3.0000000000"),
             available_credits=Decimal("3.0000000000"),
             reserved_credits=Decimal("0"),
@@ -951,10 +1014,10 @@ def test_expire_credit_wallet_buckets_skips_bucket_when_refresh_raises_deleted(
             wallet_bucket_bid="bucket-expire-refresh-error-ok",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-refresh-error-ok",
-            priority=30,
+            priority=20,
             original_credits=Decimal("5.0000000000"),
             available_credits=Decimal("5.0000000000"),
             reserved_credits=Decimal("0"),
@@ -1034,10 +1097,10 @@ def test_expire_credit_wallet_buckets_skips_bucket_on_wallet_version_conflict(
                     wallet_bucket_bid=bid,
                     wallet_bid=wallet.wallet_bid,
                     creator_bid="creator-version-race",
-                    bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-                    source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                    bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                    source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
                     source_bid=f"order-{bid}",
-                    priority=30,
+                    priority=20,
                     original_credits=Decimal(amount),
                     available_credits=Decimal(amount),
                     reserved_credits=Decimal("0"),
@@ -1470,9 +1533,9 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-protected-apply",
             creator_bid=creator_bid,
-            available_credits=Decimal("1000.0000000000"),
+            available_credits=Decimal("1500.0000000000"),
             reserved_credits=Decimal("1000.0000000000"),
-            lifetime_granted_credits=Decimal("2000.0000000000"),
+            lifetime_granted_credits=Decimal("2500.0000000000"),
             lifetime_consumed_credits=Decimal("0"),
             last_settled_usage_id=0,
             version=0,
@@ -1548,6 +1611,24 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
             status=CREDIT_BUCKET_STATUS_ACTIVE,
             metadata_json={"bill_order_bid": "order-current-apply"},
         )
+        topup_bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-renewal-drift-topup-unfreeze",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=wallet.creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid="order-topup-unfreeze",
+            priority=30,
+            original_credits=Decimal("500.0000000000"),
+            available_credits=Decimal("500.0000000000"),
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=datetime(2026, 3, 8, 0, 0, 0),
+            effective_to=boundary_at - timedelta(days=1),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={"bill_order_bid": "order-topup-unfreeze"},
+        )
         ledger = CreditLedgerEntry(
             ledger_bid="ledger-renewal-drift-protected-apply",
             creator_bid=wallet.creator_bid,
@@ -1584,7 +1665,7 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
             processed_at=None,
         )
         dao.db.session.add_all(
-            [wallet, subscription, product, order, bucket, ledger, event]
+            [wallet, subscription, product, order, bucket, topup_bucket, ledger, event]
         )
         dao.db.session.commit()
 
@@ -1606,6 +1687,9 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
         subscription = BillingSubscription.query.filter_by(
             subscription_bid=subscription_bid
         ).one()
+        topup_bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-renewal-drift-topup-unfreeze"
+        ).one()
 
     assert payload["status"] == "repaired"
     assert payload["overdue_reserved_grant_count"] == 1
@@ -1621,13 +1705,17 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
     assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
     assert subscription.current_period_start_at == boundary_at
     assert subscription.current_period_end_at == next_cycle_end
-    assert wallet.available_credits == Decimal("1000.0000000000")
+    assert wallet.available_credits == Decimal("1500.0000000000")
     assert wallet.reserved_credits == Decimal("0E-10")
     assert bucket.source_bid == order_bid
     assert bucket.available_credits == Decimal("1000.0000000000")
     assert bucket.reserved_credits == Decimal("0E-10")
     assert bucket.effective_from == boundary_at
     assert bucket.effective_to == next_cycle_end
+    assert topup_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+    assert topup_bucket.available_credits == Decimal("500.0000000000")
+    assert topup_bucket.expired_credits == Decimal("0")
+    assert topup_bucket.effective_to == next_cycle_end
     assert ledger.metadata_json["bucket_credit_state"] == "available"
 
 
@@ -3733,10 +3821,10 @@ def test_repair_expire_ledger_bucket_drift_dry_run_reports_without_writing(
             wallet_bucket_bid="bucket-expire-ledger-drift-dry-run",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-ledger-drift-dry-run",
-            priority=30,
+            priority=20,
             original_credits=Decimal("10.0000000000"),
             available_credits=Decimal("2.5000000000"),
             reserved_credits=Decimal("0"),
@@ -3753,7 +3841,7 @@ def test_repair_expire_ledger_bucket_drift_dry_run_reports_without_writing(
             wallet_bid=wallet.wallet_bid,
             wallet_bucket_bid=bucket.wallet_bucket_bid,
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid=bucket.source_bid,
             idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
             amount=Decimal("-2.5000000000"),
@@ -3807,10 +3895,10 @@ def test_repair_expire_ledger_bucket_drift_applies_bucket_and_wallet_snapshot(
             wallet_bucket_bid="bucket-expire-ledger-drift-apply",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-ledger-drift-apply",
-            priority=30,
+            priority=20,
             original_credits=Decimal("10.0000000000"),
             available_credits=Decimal("2.5000000000"),
             reserved_credits=Decimal("0"),
@@ -3827,7 +3915,7 @@ def test_repair_expire_ledger_bucket_drift_applies_bucket_and_wallet_snapshot(
             wallet_bid=wallet.wallet_bid,
             wallet_bucket_bid=bucket.wallet_bucket_bid,
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid=bucket.source_bid,
             idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
             amount=Decimal("-2.5000000000"),
@@ -3887,10 +3975,10 @@ def test_repair_expire_ledger_bucket_drift_accepts_cycle_scoped_expire_key(
             wallet_bucket_bid="bucket-expire-ledger-drift-cycle-key",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-ledger-drift-cycle-key",
-            priority=30,
+            priority=20,
             original_credits=Decimal("10.0000000000"),
             available_credits=Decimal("2.5000000000"),
             reserved_credits=Decimal("0"),
@@ -3907,7 +3995,7 @@ def test_repair_expire_ledger_bucket_drift_accepts_cycle_scoped_expire_key(
             wallet_bid=wallet.wallet_bid,
             wallet_bucket_bid=bucket.wallet_bucket_bid,
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid=bucket.source_bid,
             idempotency_key=_build_expire_ledger_idempotency_key(
                 bucket.wallet_bucket_bid,
@@ -3964,10 +4052,10 @@ def test_repair_expire_ledger_bucket_drift_keeps_existing_expired_amount(
             wallet_bucket_bid="bucket-expire-ledger-drift-counted",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-ledger-drift-counted",
-            priority=30,
+            priority=20,
             original_credits=Decimal("10.0000000000"),
             available_credits=Decimal("2.5000000000"),
             reserved_credits=Decimal("0"),
@@ -3984,7 +4072,7 @@ def test_repair_expire_ledger_bucket_drift_keeps_existing_expired_amount(
             wallet_bid=wallet.wallet_bid,
             wallet_bucket_bid=bucket.wallet_bucket_bid,
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid=bucket.source_bid,
             idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
             amount=Decimal("-2.5000000000"),
@@ -4034,10 +4122,10 @@ def test_repair_expire_ledger_bucket_drift_skips_reused_bucket_for_manual_review
             wallet_bucket_bid="bucket-expire-ledger-drift-reused",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-ledger-drift-reused-second-cycle",
-            priority=30,
+            priority=20,
             original_credits=Decimal("15.0000000000"),
             available_credits=Decimal("5.0000000000"),
             reserved_credits=Decimal("0"),
@@ -4054,7 +4142,7 @@ def test_repair_expire_ledger_bucket_drift_skips_reused_bucket_for_manual_review
             wallet_bid=wallet.wallet_bid,
             wallet_bucket_bid=bucket.wallet_bucket_bid,
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-ledger-drift-reused-first-cycle",
             idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
             amount=Decimal("-2.5000000000"),
@@ -4112,10 +4200,10 @@ def test_repair_expire_ledger_bucket_drift_sets_exhausted_for_reserved_bucket(
             wallet_bucket_bid="bucket-expire-ledger-drift-reserved",
             wallet_bid=wallet.wallet_bid,
             creator_bid=wallet.creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid="order-expire-ledger-drift-reserved",
-            priority=30,
+            priority=20,
             original_credits=Decimal("10.0000000000"),
             available_credits=Decimal("2.5000000000"),
             reserved_credits=Decimal("1.0000000000"),
@@ -4132,7 +4220,7 @@ def test_repair_expire_ledger_bucket_drift_sets_exhausted_for_reserved_bucket(
             wallet_bid=wallet.wallet_bid,
             wallet_bucket_bid=bucket.wallet_bucket_bid,
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             source_bid=bucket.source_bid,
             idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
             amount=Decimal("-2.5000000000"),
@@ -4169,6 +4257,84 @@ def test_repair_expire_ledger_bucket_drift_sets_exhausted_for_reserved_bucket(
     assert bucket.expired_credits == Decimal("2.5000000000")
     assert wallet.available_credits == Decimal("0E-10")
     assert wallet.reserved_credits == Decimal("1.0000000000")
+
+
+def test_repair_expire_ledger_bucket_drift_skips_credit_pack_bucket(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-expire-ledger-drift-topup-skip",
+            creator_bid="creator-expire-ledger-drift-topup-skip",
+            available_credits=Decimal("2.5000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("10.0000000000"),
+            lifetime_consumed_credits=Decimal("7.5000000000"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-expire-ledger-drift-topup-skip",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=wallet.creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid="order-expire-ledger-drift-topup-skip",
+            priority=30,
+            original_credits=Decimal("10.0000000000"),
+            available_credits=Decimal("2.5000000000"),
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("7.5000000000"),
+            expired_credits=Decimal("0"),
+            effective_from=datetime(2026, 4, 1, 0, 0, 0),
+            effective_to=datetime(2026, 4, 7, 0, 0, 0),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={},
+        )
+        ledger = CreditLedgerEntry(
+            ledger_bid="ledger-expire-ledger-drift-topup-skip",
+            creator_bid=wallet.creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid=bucket.source_bid,
+            idempotency_key=_build_expire_ledger_idempotency_key(
+                bucket.wallet_bucket_bid,
+                effective_to=bucket.effective_to,
+            ),
+            amount=Decimal("-2.5000000000"),
+            balance_after=Decimal("0"),
+            expires_at=bucket.effective_to,
+            consumable_from=bucket.effective_from,
+            metadata_json={},
+        )
+        dao.db.session.add_all([wallet, bucket, ledger])
+        dao.db.session.commit()
+
+        payload = repair_expire_ledger_bucket_drift(
+            billing_wallet_lifecycle_app,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            repair_before=datetime(2026, 4, 8, 0, 0, 0),
+            dry_run=False,
+        )
+
+        dao.db.session.expire_all()
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-expire-ledger-drift-topup-skip"
+        ).one()
+        wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-expire-ledger-drift-topup-skip"
+        ).one()
+
+    assert payload["status"] == "noop"
+    assert payload["bucket_count"] == 0
+    assert payload["repaired_bucket_count"] == 0
+    assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+    assert bucket.available_credits == Decimal("2.5000000000")
+    assert bucket.expired_credits == Decimal("0")
+    assert wallet.available_credits == Decimal("2.5000000000")
+    assert wallet.version == 0
 
 
 def test_grant_refund_return_credits_creates_subscription_bucket_and_refund_ledger(
@@ -4957,10 +5123,10 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
             .order_by(CreditLedgerEntry.id.asc())
             .all()
         )
-        expire_entry = CreditLedgerEntry.query.filter_by(
+        expire_entries = CreditLedgerEntry.query.filter_by(
             wallet_bucket_bid="bucket-consistency-topup",
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-        ).one()
+        ).all()
 
         assert settle_payload["status"] == "settled"
         assert settle_payload["entry_count"] == 1
@@ -4977,13 +5143,12 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
             "bucket-consistency-sub",
         ]
 
-        assert expire_payload["status"] == "expired"
-        assert expire_payload["bucket_count"] == 1
-        assert expire_payload["expired_credits"] == 2
-        assert expire_entry.amount == Decimal("-2.0000000000")
-        assert expire_entry.balance_after == Decimal("0E-10")
+        assert expire_payload["status"] == "noop"
+        assert expire_payload["bucket_count"] == 0
+        assert expire_payload["expired_credits"] == 0
+        assert expire_entries == []
 
-        assert wallet.available_credits == Decimal("0E-10")
+        assert wallet.available_credits == Decimal("2.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
         assert wallet.lifetime_consumed_credits == Decimal("2.5000000000")
 
@@ -4995,13 +5160,11 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
         assert buckets["bucket-consistency-sub"].consumed_credits == Decimal(
             "1.5000000000"
         )
-        assert buckets["bucket-consistency-topup"].available_credits == Decimal("0")
-        assert buckets["bucket-consistency-topup"].expired_credits == Decimal(
+        assert buckets["bucket-consistency-topup"].available_credits == Decimal(
             "2.0000000000"
         )
-        assert (
-            buckets["bucket-consistency-topup"].status == CREDIT_BUCKET_STATUS_EXPIRED
-        )
+        assert buckets["bucket-consistency-topup"].expired_credits == Decimal("0")
+        assert buckets["bucket-consistency-topup"].status == CREDIT_BUCKET_STATUS_ACTIVE
 
         bucket_available_total = sum(
             (bucket.available_credits for bucket in buckets.values()),
@@ -5027,8 +5190,8 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
 
         assert bucket_available_total == wallet.available_credits
         assert bucket_consumed_total == Decimal("2.5000000000")
-        assert bucket_expired_total == Decimal("2.0000000000")
-        assert ledger_reduction_total == Decimal("4.5000000000")
+        assert bucket_expired_total == Decimal("0")
+        assert ledger_reduction_total == Decimal("2.5000000000")
         for bucket in buckets.values():
             assert bucket.original_credits == (
                 bucket.available_credits

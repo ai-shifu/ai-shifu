@@ -1937,6 +1937,8 @@ def repair_expire_ledger_bucket_drift(
                 ).append(ledger)
 
         for bucket in candidate_buckets:
+            if _is_credit_pack_runtime_bucket(bucket):
+                continue
             bucket_ledgers = sorted(
                 (
                     ledger
@@ -2110,6 +2112,7 @@ def _expire_credit_wallet_buckets_in_session(
         )
 
     wallets: dict[str, CreditWallet] = {}
+    frozen_credit_pack_wallet_bids: set[str] = set()
     expired_total = _ZERO
     expired_count = 0
     for bucket in buckets:
@@ -2124,6 +2127,9 @@ def _expire_credit_wallet_buckets_in_session(
             or bucket.effective_to is None
             or bucket.effective_to > cutoff
         ):
+            continue
+        if _is_credit_pack_runtime_bucket(bucket):
+            frozen_credit_pack_wallet_bids.add(bucket.wallet_bid)
             continue
 
         available = _to_decimal(bucket.available_credits)
@@ -2214,11 +2220,64 @@ def _expire_credit_wallet_buckets_in_session(
         expired_total += available
         expired_count += 1
 
+    _refresh_frozen_credit_pack_wallet_snapshots(
+        frozen_credit_pack_wallet_bids,
+        wallets=wallets,
+        snapshot_at=cutoff,
+    )
+
     return WalletExpirationResult(
         status="expired" if expired_count else "noop",
         creator_bid=normalized_creator_bid or None,
         bucket_count=expired_count,
         expired_credits=_credit_decimal_to_number(expired_total),
+    )
+
+
+def _refresh_frozen_credit_pack_wallet_snapshots(
+    wallet_bids: set[str],
+    *,
+    wallets: dict[str, CreditWallet],
+    snapshot_at: datetime,
+) -> None:
+    for wallet_bid in sorted(wallet_bids):
+        wallet = wallets.get(wallet_bid)
+        if wallet is None:
+            wallet = _load_credit_wallet_by_wallet_bid(wallet_bid)
+            if wallet is None:
+                continue
+            wallets[wallet_bid] = wallet
+
+        if (
+            load_primary_active_subscription(wallet.creator_bid, as_of=snapshot_at)
+            is not None
+        ):
+            continue
+
+        try:
+            with db.session.begin_nested():
+                refresh_credit_wallet_snapshot(wallet, snapshot_at=snapshot_at)
+                persist_credit_wallet_snapshot(
+                    wallet,
+                    available_credits=wallet.available_credits,
+                    reserved_credits=wallet.reserved_credits,
+                    updated_at=snapshot_at,
+                )
+        except RuntimeError as exc:
+            if str(exc) != "credit_wallet_version_conflict":
+                raise
+            db.session.refresh(wallet)
+
+
+def _is_credit_pack_runtime_bucket(bucket: CreditWalletBucket) -> bool:
+    """Return whether a bucket represents non-expiring credit pack ownership."""
+
+    return (
+        resolve_wallet_bucket_runtime_category(
+            bucket,
+            load_order_type=load_billing_order_type_by_bid,
+        )
+        == CREDIT_BUCKET_CATEGORY_TOPUP
     )
 
 
