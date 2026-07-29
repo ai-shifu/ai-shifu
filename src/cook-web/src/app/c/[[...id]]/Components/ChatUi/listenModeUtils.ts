@@ -126,28 +126,45 @@ const normalizeRawSubtitleCues = (
     : undefined;
 };
 
-const resolveAudioTrackSubtitleCues = (
-  tracks: AudioTrack[] = [],
-): unknown[] => {
-  return sortByPosition(tracks).flatMap(track => {
-    const segmentSubtitleCues = sortSegmentsByIndex(
-      track.audioSegments ?? [],
-    ).flatMap(segment =>
-      (segment.subtitleCues ?? []).map(cue => ({
-        ...cue,
-        position: cue.position ?? segment.position ?? track.position,
-      })),
-    );
-
-    if (segmentSubtitleCues.length > 0) {
-      return segmentSubtitleCues;
+const assignSubtitleCuePosition = (
+  rawSubtitleCues: unknown[] = [],
+  position?: number,
+) =>
+  rawSubtitleCues.map(cue => {
+    if (!cue || typeof cue !== 'object') {
+      return cue;
     }
 
-    if (track.subtitleCues?.length) {
-      return track.subtitleCues.map(cue => ({
-        ...cue,
-        position: cue.position ?? track.position,
-      }));
+    const rawCue = cue as Record<string, unknown>;
+    return {
+      ...rawCue,
+      position: rawCue.position ?? position,
+    };
+  });
+
+const resolveAudioTrackSubtitleCues = (
+  tracks: AudioTrack[] = [],
+): ElementSubtitleCue[] => {
+  return sortByPosition(tracks).flatMap(track => {
+    const sortedSegments = sortSegmentsByIndex(track.audioSegments ?? []);
+    for (const segment of [...sortedSegments].reverse()) {
+      const segmentSubtitleCues = normalizeRawSubtitleCues(
+        assignSubtitleCuePosition(
+          segment.subtitleCues,
+          segment.position ?? track.position,
+        ),
+      );
+
+      if (segmentSubtitleCues) {
+        return segmentSubtitleCues;
+      }
+    }
+
+    const trackSubtitleCues = normalizeRawSubtitleCues(
+      assignSubtitleCuePosition(track.subtitleCues, track.position),
+    );
+    if (trackSubtitleCues) {
+      return trackSubtitleCues;
     }
 
     return [];
@@ -161,7 +178,7 @@ export const resolveListenSlideSubtitleCues = (
     item.audioTracks ?? [],
   );
   if (trackSubtitleCues.length > 0) {
-    return normalizeRawSubtitleCues(trackSubtitleCues);
+    return trackSubtitleCues;
   }
 
   const audioPayload = item.payload?.audio as

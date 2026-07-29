@@ -522,6 +522,184 @@ describe('listenModeUtils', () => {
     ]);
   });
 
+  it('uses the latest cumulative streamed subtitle cue snapshot', () => {
+    const subtitleCues = resolveListenSlideSubtitleCues(
+      createContentItem({
+        audioTracks: [
+          {
+            position: 0,
+            audioSegments: [
+              {
+                segmentIndex: 0,
+                audioData: 'segment-0-audio',
+                durationMs: 1000,
+                isFinal: true,
+                position: 0,
+                subtitleCues: [
+                  {
+                    text: '第一句。',
+                    start_ms: 0,
+                    end_ms: 1000,
+                  },
+                ],
+              },
+              {
+                segmentIndex: 1,
+                audioData: 'segment-1-audio',
+                durationMs: 1000,
+                isFinal: true,
+                position: 0,
+                subtitleCues: [
+                  {
+                    text: '第一句。',
+                    start_ms: 0,
+                    end_ms: 1000,
+                  },
+                  {
+                    text: '第二句。',
+                    start_ms: 1000,
+                    end_ms: 2000,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(subtitleCues).toEqual([
+      {
+        text: '第一句',
+        start_ms: 0,
+        end_ms: 1000,
+        segment_index: 0,
+        position: 0,
+      },
+      {
+        text: '第二句',
+        start_ms: 1000,
+        end_ms: 2000,
+        segment_index: 0,
+        position: 0,
+      },
+    ]);
+  });
+
+  it('uses lower-priority subtitle cues when streamed cues are invalid', () => {
+    const subtitleCues = resolveListenSlideSubtitleCues(
+      createContentItem({
+        payload: {
+          audio: {
+            subtitle_cues: [
+              {
+                text: 'payload 字幕。',
+                start_ms: 1000,
+                end_ms: 2000,
+                position: 0,
+              },
+            ],
+          },
+        },
+        audioTracks: [
+          {
+            position: 0,
+            subtitleCues: [
+              {
+                text: 'track 字幕。',
+                start_ms: 0,
+                end_ms: 1000,
+              },
+            ],
+            audioSegments: [
+              {
+                segmentIndex: 0,
+                audioData: 'invalid-segment-audio',
+                durationMs: 1000,
+                isFinal: true,
+                position: 0,
+                subtitleCues: [
+                  {
+                    text: '',
+                    start_ms: 0,
+                    end_ms: 1000,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(subtitleCues).toEqual([
+      {
+        text: 'track 字幕',
+        start_ms: 0,
+        end_ms: 1000,
+        segment_index: 0,
+        position: 0,
+      },
+    ]);
+  });
+
+  it('uses payload subtitle cues when audio track cues are invalid', () => {
+    const subtitleCues = resolveListenSlideSubtitleCues(
+      createContentItem({
+        payload: {
+          audio: {
+            subtitle_cues: [
+              {
+                text: 'payload 字幕。',
+                start_ms: 1000,
+                end_ms: 2000,
+                position: 0,
+              },
+            ],
+          },
+        },
+        audioTracks: [
+          {
+            position: 0,
+            subtitleCues: [
+              {
+                text: '',
+                start_ms: 0,
+                end_ms: 1000,
+              },
+            ],
+            audioSegments: [
+              {
+                segmentIndex: 0,
+                audioData: 'invalid-segment-audio',
+                durationMs: 1000,
+                isFinal: true,
+                position: 0,
+                subtitleCues: [
+                  {
+                    text: '',
+                    start_ms: 0,
+                    end_ms: 1000,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(subtitleCues).toEqual([
+      {
+        text: 'payload 字幕',
+        start_ms: 1000,
+        end_ms: 2000,
+        segment_index: 0,
+        position: 0,
+      },
+    ]);
+  });
+
   it('strips disallowed trailing punctuation from subtitle cues', () => {
     const subtitleCues = resolveListenSlideSubtitleCues(
       createContentItem({
