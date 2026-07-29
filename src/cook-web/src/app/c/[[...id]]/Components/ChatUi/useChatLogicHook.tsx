@@ -2787,7 +2787,10 @@ function useChatLogicHook({
           : undefined;
       runRef.current?.({
         input: {
-          [variableName as string]: values,
+          // No-variable interactions have an empty variableName; submit
+          // under the canonical "input" key (markdown-flow contract),
+          // matching the preview flow in preview-submission.ts.
+          [variableName || 'input']: values,
         },
         input_type: SSE_INPUT_TYPE.NORMAL,
         reload_element_bid: reload_generated_block_bid,

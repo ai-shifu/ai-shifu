@@ -457,7 +457,9 @@ describe('ListenModeSlideRenderer', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it('adapts a variable-free ellipsis interaction into a slide text input', () => {
+  it('passes a variable-free ellipsis interaction through to the slide unchanged', () => {
+    // markdown-flow-ui >= 0.2.8 (remark-flow >= 1.2.0) parses variable-free
+    // text-input interactions natively; no host-side rewrite is needed.
     const onSend = jest.fn();
     render(
       <ListenModeSlideRenderer
@@ -496,8 +498,7 @@ describe('ListenModeSlideRenderer', () => {
 
     expect(interactionElement).toEqual(
       expect.objectContaining({
-        content:
-          '<custom-variable placeholder="你叫什么名字"></custom-variable>',
+        content: '?[...你叫什么名字]',
         user_input: '小明',
       }),
     );
