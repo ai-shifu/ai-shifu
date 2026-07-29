@@ -30,7 +30,7 @@ this document and explicitly map them to code entities when needed.
 | 积分桶 | Credit Bucket | `CreditWalletBucket` | Mutable projection for source, validity window, priority, and remaining balances. |
 | 账本 | Ledger | `CreditLedgerEntry` | Audit trail for credit changes. Long-term direction is append-only ledger plus explicit grant/allocation state. |
 | 积分套餐 | Plan | `BillingProduct.product_type=plan`, subscription orders, subscription buckets | Recurring product for teachers. It grants plan credits per effective cycle. |
-| 积分包 | Credit Pack | `BillingProduct.product_type=topup`, topup orders, topup buckets | One-time credit product. Pack credits do not expire by themselves but require an effective plan to be consumable. |
+| 积分包 | Credit Pack | `BillingProduct.product_type=topup`, topup orders, topup buckets | One-time credit product. Product target: pack credits should remain owned and only require an effective plan to be consumable. Current implementation still aligns topup bucket windows to the active subscription and can expire their available balance at that boundary; track this gap in R3/R5 before relying on the target invariant. |
 | 订阅 | Subscription | `BillingSubscription` | Contract between a teacher and a plan. Do not use it as the generic product name. |
 | 续订 | Renew | renewal order, renewal event | Continue the same plan for the next cycle. Avoid “续费” in product docs unless the payment action itself is meant. |
 | 升级 | Upgrade | `subscription_upgrade` order, preorder absorption path | Higher-tier plan switch. Immediate upgrades merge current remaining plan credits into the new cycle. |
@@ -43,14 +43,19 @@ this document and explicitly map them to code entities when needed.
 | Product term | Current code mapping | Lifecycle rule |
 | --- | --- | --- |
 | 套餐积分 | `CREDIT_BUCKET_CATEGORY_SUBSCRIPTION` | Bound to the current plan cycle. Unused balance expires at cycle end unless an immediate upgrade merges it into the new cycle. |
-| 积分包积分 | `CREDIT_BUCKET_CATEGORY_TOPUP` | Purchased independently. It remains owned by the teacher, but consumption requires an active subscription. |
-| 试用积分 | `CREDIT_BUCKET_CATEGORY_FREE` | Free/bootstrap credits used before or around paid activation. They keep their current priority semantics. |
+| 积分包积分 | `CREDIT_BUCKET_CATEGORY_TOPUP` | Purchased independently. Product target: remains owned by the teacher and consumption requires an active subscription. Current implementation may expire topup buckets because `_resolve_topup_bucket_effective_to()` aligns them to the active subscription period; do not audit current data as if the target invariant is already true. |
+| 试用积分 | `CREDIT_BUCKET_CATEGORY_SUBSCRIPTION` for current bootstrap, legacy `CREDIT_BUCKET_CATEGORY_FREE` for older/free records | New creator trial bootstrap currently persists subscription-category buckets. Runtime category normalization collapses legacy free buckets into subscription ordering, while `wallet_bucket_requires_active_subscription()` still treats explicitly free buckets as not requiring an active subscription. |
 
-The runtime consumption order remains the code contract:
+The runtime consumption order for current normalized categories is:
 
 ```text
-free -> subscription -> topup
+subscription-like buckets -> topup
 ```
+
+Legacy free buckets may still bypass the active-subscription requirement, but
+category normalization treats them as subscription-like for ordering. New trial
+bootstrap records should be audited as subscription-category records unless a
+legacy `free` bucket is explicitly present.
 
 Product-facing docs may describe the normal paid-user order as:
 
@@ -58,8 +63,9 @@ Product-facing docs may describe the normal paid-user order as:
 套餐积分 -> 积分包积分
 ```
 
-When free/bootstrap credits are relevant, call them out explicitly instead of
-hiding them behind the paid-user wording.
+When legacy free or bootstrap credits are relevant, call out their persisted
+category and active-subscription requirement explicitly instead of hiding them
+behind the paid-user wording.
 
 ## Credit Change Verbs
 
