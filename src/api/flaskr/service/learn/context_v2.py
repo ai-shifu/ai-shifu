@@ -27,6 +27,7 @@ from markdown_flow import (
     BlockType,
     InteractionParser,
     replace_variables_in_text,
+    USER_ANSWER_CONTEXT_KEY,
 )
 from markdown_flow.llm import LLMResult
 from flask import Flask
@@ -571,16 +572,20 @@ class MdflowContextV2:
                     )
                 else:
                     # No-variable interaction (e.g. plain button choice
-                    # ?[A | B | C]): markdown-flow has no variable to recover
-                    # the learner's choice from and would collapse the turn
-                    # into {user: "ok"} + {assistant: "ok"}, dropping the
-                    # actual selection. Use the selection captured in
-                    # generated_content instead; if it is empty, skip the turn
-                    # rather than fabricate an "ok".
-                    user_content = (generated_block.generated_content or "").strip()
-                    if user_content:
-                        message_list.append({"role": "user", "content": user_content})
-                        message_list.append({"role": "assistant", "content": "ok"})
+                    # ?[A | B | C]): hand the raw syntax to markdown-flow with
+                    # the learner's answer attached via USER_ANSWER_CONTEXT_KEY.
+                    # The library expands it into {user: answer} +
+                    # {assistant: "ok"}, or skips the turn when the answer is
+                    # empty (never answered).
+                    message_list.append(
+                        {
+                            "role": "assistant",
+                            "content": block.content or "",
+                            USER_ANSWER_CONTEXT_KEY: (
+                                generated_block.generated_content or ""
+                            ).strip(),
+                        }
+                    )
         return message_list
 
 
@@ -2668,6 +2673,11 @@ class RunScriptContextV2:
         )
         # Backward compatible: some clients may still send `{input: [...]}` or a single
         # unnamed key even when the interaction expects a specific variable.
+        # TODO(non-assignment rollout): markdown-flow >= 0.3.0 merges values
+        # from any key for no-variable interactions, and the web client now
+        # submits the canonical "input" key. Drop this remap once the
+        # "input"-key frontend has been fully rolled out for one release
+        # cycle (older cached clients may still send the legacy keys).
         if expected_variable and expected_variable not in user_input_param:
             if "input" in user_input_param and len(user_input_param) == 1:
                 app.logger.warning(
@@ -2808,7 +2818,35 @@ class RunScriptContextV2:
         fall through to the completion tail.
         """
         run_script_info = state.run_script_info
-        if not parsed_interaction.get("variable"):
+        validate_result = state.mdflow_context.process(
+            block_index=run_script_info.block_position,
+            mode=ProcessMode.COMPLETE,
+            user_input=user_input_param,
+            context=state.message_list,
+            variables=state.user_profile,
+        )
+
+        if (
+            validate_result.metadata is not None
+            and validate_result.metadata.get("interaction_type")
+            == "non_assignment_button"
+        ):
+            # No-variable interaction: markdown-flow normalized the answer
+            # (button display -> value, free text passed through) into
+            # metadata["answer"]. Persist the normalized value so the context
+            # rebuild feeds the canonical answer back to the LLM.
+            answer_values = validate_result.metadata.get("answer")
+            if isinstance(answer_values, list):
+                normalized_answer = ",".join(
+                    str(value) for value in answer_values if value is not None
+                )
+            elif answer_values is None:
+                normalized_answer = ""
+            else:
+                normalized_answer = str(answer_values)
+            if normalized_answer != (generated_block.generated_content or ""):
+                generated_block.generated_content = normalized_answer
+                self._recorder.save_generated_block(generated_block)
             self._can_continue = True
             self._run_type = RunType.OUTPUT
             self._recorder.update_progress_pointer(
@@ -2817,13 +2855,6 @@ class RunScriptContextV2:
                 block_position=run_script_info.block_position + 1,
             )
             return True
-        validate_result = state.mdflow_context.process(
-            block_index=run_script_info.block_position,
-            mode=ProcessMode.COMPLETE,
-            user_input=user_input_param,
-            context=state.message_list,
-            variables=state.user_profile,
-        )
 
         if validate_result.variables is not None and len(validate_result.variables) > 0:
             profile_to_save: list[ProfileToSave] = []
