@@ -25,6 +25,7 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_BUCKET_STATUS_EXPIRED,
+    CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_REFUND,
@@ -57,6 +58,7 @@ from flaskr.service.billing.wallets import (
     repair_expire_ledger_bucket_drift,
     repair_renewal_state_drift,
     rebuild_credit_wallet_snapshots,
+    restore_wrongly_expired_credit_pack_buckets,
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
@@ -4383,6 +4385,240 @@ def test_repair_expire_ledger_bucket_drift_skips_credit_pack_bucket(
     assert bucket.expired_credits == Decimal("0")
     assert wallet.available_credits == Decimal("2.5000000000")
     assert wallet.version == 0
+
+
+def test_restore_wrongly_expired_credit_pack_bucket_dry_run_does_not_write(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        wallet, bucket = _seed_wrongly_expired_credit_pack_bucket(
+            creator_bid="creator-restore-topup-dry-run",
+            wallet_bid="wallet-restore-topup-dry-run",
+            bucket_bid="bucket-restore-topup-dry-run",
+            order_bid="order-restore-topup-dry-run",
+            original=Decimal("250.0000000000"),
+            consumed=Decimal("0"),
+            expired=Decimal("250.0000000000"),
+        )
+
+        payload = restore_wrongly_expired_credit_pack_buckets(
+            billing_wallet_lifecycle_app,
+            bill_order_bids=["order-restore-topup-dry-run"],
+            dry_run=True,
+        )
+
+        dao.db.session.expire_all()
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid=bucket.wallet_bucket_bid
+        ).one()
+        adjustment_count = CreditLedgerEntry.query.filter_by(
+            creator_bid=wallet.creator_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+        ).count()
+
+    assert payload["status"] == "dry_run"
+    assert payload["repaired_bucket_count"] == 1
+    assert payload["buckets"][0]["repair_action"] == "repair"
+    assert payload["buckets"][0]["restored_credits"] == 250
+    assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
+    assert bucket.available_credits == Decimal("0")
+    assert bucket.expired_credits == Decimal("250.0000000000")
+    assert adjustment_count == 0
+
+
+def test_restore_wrongly_expired_credit_pack_bucket_restores_frozen_ownership(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        wallet, bucket = _seed_wrongly_expired_credit_pack_bucket(
+            creator_bid="creator-restore-topup-apply",
+            wallet_bid="wallet-restore-topup-apply",
+            bucket_bid="bucket-restore-topup-apply",
+            order_bid="order-restore-topup-apply",
+            original=Decimal("250.0000000000"),
+            consumed=Decimal("136.8500000000"),
+            expired=Decimal("113.1500000000"),
+        )
+        original_wallet_version = wallet.version
+
+        payload = restore_wrongly_expired_credit_pack_buckets(
+            billing_wallet_lifecycle_app,
+            bill_order_bids=["order-restore-topup-apply"],
+            dry_run=False,
+        )
+
+        dao.db.session.expire_all()
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid=bucket.wallet_bucket_bid
+        ).one()
+        wallet = CreditWallet.query.filter_by(wallet_bid=wallet.wallet_bid).one()
+        adjustment = CreditLedgerEntry.query.filter_by(
+            creator_bid=wallet.creator_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+        ).one()
+
+    assert payload["status"] == "repaired"
+    assert payload["repaired_bucket_count"] == 1
+    assert payload["manual_review_count"] == 0
+    assert payload["buckets"][0]["restored_credits"] == 113.15
+    assert payload["buckets"][0]["ledger_bid"] == adjustment.ledger_bid
+    assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+    assert bucket.available_credits == Decimal("113.1500000000")
+    assert bucket.consumed_credits == Decimal("136.8500000000")
+    assert bucket.expired_credits == Decimal("0E-10")
+    assert wallet.available_credits == Decimal("0E-10")
+    assert wallet.version == original_wallet_version
+    assert adjustment.amount == Decimal("113.1500000000")
+    assert adjustment.balance_after == Decimal("0E-10")
+    assert adjustment.metadata_json["repair_reason"] == (
+        "restore_wrongly_expired_credit_pack_bucket"
+    )
+
+
+def test_restore_wrongly_expired_credit_pack_bucket_is_idempotent(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        _seed_wrongly_expired_credit_pack_bucket(
+            creator_bid="creator-restore-topup-idempotent",
+            wallet_bid="wallet-restore-topup-idempotent",
+            bucket_bid="bucket-restore-topup-idempotent",
+            order_bid="order-restore-topup-idempotent",
+            original=Decimal("250.0000000000"),
+            consumed=Decimal("0"),
+            expired=Decimal("250.0000000000"),
+        )
+
+        first_payload = restore_wrongly_expired_credit_pack_buckets(
+            billing_wallet_lifecycle_app,
+            bill_order_bids=["order-restore-topup-idempotent"],
+            dry_run=False,
+        )
+        second_payload = restore_wrongly_expired_credit_pack_buckets(
+            billing_wallet_lifecycle_app,
+            bill_order_bids=["order-restore-topup-idempotent"],
+            dry_run=False,
+        )
+
+        adjustment_count = CreditLedgerEntry.query.filter_by(
+            creator_bid="creator-restore-topup-idempotent",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+        ).count()
+
+    assert first_payload["status"] == "repaired"
+    assert second_payload["status"] == "noop"
+    assert second_payload["noop_count"] == 1
+    assert second_payload["buckets"][0]["repair_reason"] == "already_repaired"
+    assert adjustment_count == 1
+
+
+def test_restore_wrongly_expired_credit_pack_bucket_requires_matching_expire_ledger(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        _seed_wrongly_expired_credit_pack_bucket(
+            creator_bid="creator-restore-topup-manual",
+            wallet_bid="wallet-restore-topup-manual",
+            bucket_bid="bucket-restore-topup-manual",
+            order_bid="order-restore-topup-manual",
+            original=Decimal("250.0000000000"),
+            consumed=Decimal("0"),
+            expired=Decimal("250.0000000000"),
+            expire_ledger_amount=Decimal("-1.0000000000"),
+        )
+
+        payload = restore_wrongly_expired_credit_pack_buckets(
+            billing_wallet_lifecycle_app,
+            bill_order_bids=["order-restore-topup-manual"],
+            dry_run=False,
+        )
+
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-restore-topup-manual"
+        ).one()
+        adjustment_count = CreditLedgerEntry.query.filter_by(
+            creator_bid="creator-restore-topup-manual",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+        ).count()
+
+    assert payload["status"] == "manual_review"
+    assert payload["manual_review_count"] == 1
+    assert payload["buckets"][0]["repair_reason"] == "expire_ledger_amount_mismatch"
+    assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
+    assert bucket.expired_credits == Decimal("250.0000000000")
+    assert adjustment_count == 0
+
+
+def _seed_wrongly_expired_credit_pack_bucket(
+    *,
+    creator_bid: str,
+    wallet_bid: str,
+    bucket_bid: str,
+    order_bid: str,
+    original: Decimal,
+    consumed: Decimal,
+    expired: Decimal,
+    expire_ledger_amount: Decimal | None = None,
+) -> tuple[CreditWallet, CreditWalletBucket]:
+    effective_from = datetime(2026, 4, 1, 0, 0, 0)
+    effective_to = datetime(2026, 4, 30, 0, 0, 0)
+    wallet = CreditWallet(
+        wallet_bid=wallet_bid,
+        creator_bid=creator_bid,
+        available_credits=Decimal("0"),
+        reserved_credits=Decimal("0"),
+        lifetime_granted_credits=original,
+        lifetime_consumed_credits=consumed,
+        last_settled_usage_id=0,
+        version=0,
+    )
+    order = BillingOrder(
+        bill_order_bid=order_bid,
+        creator_bid=creator_bid,
+        order_type=BILLING_ORDER_TYPE_TOPUP,
+        product_bid=f"product-{order_bid}",
+        status=BILLING_ORDER_STATUS_PAID,
+        paid_at=datetime(2026, 4, 1, 0, 0, 0),
+    )
+    bucket = CreditWalletBucket(
+        wallet_bucket_bid=bucket_bid,
+        wallet_bid=wallet_bid,
+        creator_bid=creator_bid,
+        bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+        source_type=CREDIT_SOURCE_TYPE_TOPUP,
+        source_bid=order_bid,
+        priority=30,
+        original_credits=original,
+        available_credits=Decimal("0"),
+        reserved_credits=Decimal("0"),
+        consumed_credits=consumed,
+        expired_credits=expired,
+        effective_from=effective_from,
+        effective_to=effective_to,
+        status=CREDIT_BUCKET_STATUS_EXPIRED,
+        metadata_json={},
+    )
+    expire_ledger = CreditLedgerEntry(
+        ledger_bid=f"ledger-{order_bid}",
+        creator_bid=creator_bid,
+        wallet_bid=wallet_bid,
+        wallet_bucket_bid=bucket_bid,
+        entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+        source_type=CREDIT_SOURCE_TYPE_TOPUP,
+        source_bid=order_bid,
+        idempotency_key=_build_expire_ledger_idempotency_key(
+            bucket_bid,
+            effective_to=effective_to,
+        ),
+        amount=expire_ledger_amount if expire_ledger_amount is not None else -expired,
+        balance_after=Decimal("0"),
+        expires_at=effective_to,
+        consumable_from=effective_from,
+        metadata_json={},
+    )
+    dao.db.session.add_all([wallet, order, bucket, expire_ledger])
+    dao.db.session.commit()
+    return wallet, bucket
 
 
 def test_grant_refund_return_credits_creates_subscription_bucket_and_refund_ledger(

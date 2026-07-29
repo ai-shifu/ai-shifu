@@ -117,6 +117,7 @@ from .wallets import (
     repair_credit_bucket_runtime_statuses,
     repair_expire_ledger_bucket_drift,
     repair_renewal_state_drift,
+    restore_wrongly_expired_credit_pack_buckets,
 )
 
 _PRODUCT_TYPE_LABELS = {
@@ -877,6 +878,38 @@ def register_billing_commands(console) -> None:
         payload = repair_topup_grant_expiries(
             current_app,
             creator_bid=creator_bid,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="restore-expired-topup-buckets")
+    @click.option(
+        "--bill-order-bid",
+        "bill_order_bids",
+        multiple=True,
+        help="Paid topup order bid to restore. Repeat for multiple orders.",
+    )
+    @click.option(
+        "--apply",
+        "apply_changes",
+        is_flag=True,
+        help="Persist bucket and wallet repairs. Defaults to dry-run.",
+    )
+    @with_appcontext
+    def restore_expired_topup_buckets_command(
+        bill_order_bids: tuple[str, ...],
+        apply_changes: bool,
+    ) -> None:
+        """Restore explicitly listed credit pack buckets expired by old logic."""
+
+        if not any(str(bid or "").strip() for bid in bill_order_bids):
+            raise click.ClickException(
+                "Pass at least one --bill-order-bid for expired topup bucket restore."
+            )
+
+        payload = restore_wrongly_expired_credit_pack_buckets(
+            current_app,
+            bill_order_bids=list(bill_order_bids),
+            dry_run=not apply_changes,
         )
         _echo_payload(payload)
 
