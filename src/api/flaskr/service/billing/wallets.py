@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Flask
+from sqlalchemy import case, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import ObjectDeletedError
 
@@ -15,10 +16,13 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
 from flaskr.util.uuid import generate_id
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 from .consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
+    BILLING_ORDER_STATUS_PAID,
+    BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+    BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -45,6 +49,8 @@ from .bucket_categories import (
 )
 from .dtos import BillingLedgerAdjustResultDTO, BillingWalletRefDTO
 from .models import (
+    BillingOrder,
+    BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
@@ -253,6 +259,33 @@ class ManualCreditGrantResult:
 
 
 @dataclass(slots=True, frozen=True)
+class ReservedGrantRepairRecord:
+    creator_bid: str
+    bill_order_bid: str
+    subscription_bid: str | None
+    grant_ledger_bid: str
+    wallet_bucket_bid: str | None
+    consumable_from: datetime | None
+    paid_at: datetime | None
+    renewal_event_bids: list[str] = field(default_factory=list)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "creator_bid": self.creator_bid,
+            "bill_order_bid": self.bill_order_bid,
+            "subscription_bid": self.subscription_bid,
+            "grant_ledger_bid": self.grant_ledger_bid,
+            "wallet_bucket_bid": self.wallet_bucket_bid,
+            "consumable_from": to_utc_iso(self.consumable_from),
+            "paid_at": to_utc_iso(self.paid_at),
+            "renewal_event_bids": list(self.renewal_event_bids),
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_payload()[key]
+
+
+@dataclass(slots=True, frozen=True)
 class RenewalStateDriftRepairResult:
     status: str
     creator_bid: str | None
@@ -263,7 +296,20 @@ class RenewalStateDriftRepairResult:
     expired_bucket_count: int
     expired_credits: int | float
     dry_run: bool
+    overdue_reserved_grant_count: int = 0
+    activatable_creator_count: int = 0
+    activated_reserved_order_count: int = 0
+    activated_creator_count: int = 0
+    protected_creator_count: int = 0
+    manual_review_creator_count: int = 0
     creator_bids: list[str] = field(default_factory=list)
+    activatable_creator_bids: list[str] = field(default_factory=list)
+    activated_creator_bids: list[str] = field(default_factory=list)
+    protected_creator_bids: list[str] = field(default_factory=list)
+    manual_review_creator_bids: list[str] = field(default_factory=list)
+    overdue_reserved_grants: list[ReservedGrantRepairRecord] = field(
+        default_factory=list
+    )
 
     def to_task_payload(self) -> dict[str, Any]:
         return {
@@ -276,11 +322,324 @@ class RenewalStateDriftRepairResult:
             "expired_bucket_count": self.expired_bucket_count,
             "expired_credits": self.expired_credits,
             "dry_run": self.dry_run,
+            "overdue_reserved_grant_count": self.overdue_reserved_grant_count,
+            "activatable_creator_count": self.activatable_creator_count,
+            "activated_reserved_order_count": self.activated_reserved_order_count,
+            "activated_creator_count": self.activated_creator_count,
+            "protected_creator_count": self.protected_creator_count,
+            "manual_review_creator_count": self.manual_review_creator_count,
             "creator_bids": list(self.creator_bids),
+            "activatable_creator_bids": list(self.activatable_creator_bids),
+            "activated_creator_bids": list(self.activated_creator_bids),
+            "protected_creator_bids": list(self.protected_creator_bids),
+            "manual_review_creator_bids": list(self.manual_review_creator_bids),
+            "overdue_reserved_grants": [
+                record.to_payload() for record in self.overdue_reserved_grants
+            ],
         }
 
     def __getitem__(self, key: str) -> Any:
         return self.to_task_payload()[key]
+
+
+def _normalize_bid(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _normalize_optional_metadata_bid(value: object) -> str:
+    normalized = _normalize_bid(value)
+    return "" if normalized.lower() == "null" else normalized
+
+
+def _normalize_json_dict(payload: object) -> dict[str, Any]:
+    return payload if isinstance(payload, dict) else {}
+
+
+def _json_extract_text(column: Any, path: str) -> Any:
+    bind = db.session.get_bind()
+    dialect_name = bind.dialect.name.lower() if bind is not None else ""
+    extracted = func.json_extract(column, path)
+    if dialect_name == "mysql":
+        return func.json_unquote(extracted)
+    return extracted
+
+
+def _sql_null_if_empty_or_json_null(value: Any) -> Any:
+    text = func.trim(func.coalesce(value, ""))
+    return case(
+        (func.lower(text) == "null", None),
+        (text == "", None),
+        else_=text,
+    )
+
+
+def _extract_order_bid_from_renewal_event(event: BillingRenewalEvent) -> str:
+    payload = _normalize_json_dict(event.payload_json)
+    return _normalize_bid(payload.get("bill_order_bid"))
+
+
+def _collect_overdue_reserved_order_bids(
+    *, repaired_at: datetime, creator_bid: str
+) -> set[str]:
+    return {
+        _normalize_bid(record.bill_order_bid)
+        for record in _load_overdue_reserved_paid_order_records(
+            repaired_at=repaired_at,
+            creator_bid=creator_bid,
+        )
+        if _normalize_bid(record.bill_order_bid)
+    }
+
+
+def _load_overdue_reserved_paid_order_records(
+    *,
+    repaired_at: datetime,
+    creator_bid: str = "",
+    creator_bids: set[str] | None = None,
+) -> list[ReservedGrantRepairRecord]:
+    query = CreditLedgerEntry.query.filter(
+        CreditLedgerEntry.deleted == 0,
+        CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        CreditLedgerEntry.consumable_from.isnot(None),
+        CreditLedgerEntry.consumable_from <= repaired_at,
+    ).order_by(CreditLedgerEntry.consumable_from.asc(), CreditLedgerEntry.id.asc())
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if normalized_creator_bid:
+        query = query.filter(CreditLedgerEntry.creator_bid == normalized_creator_bid)
+    elif creator_bids is not None:
+        if not creator_bids:
+            return []
+        query = query.filter(CreditLedgerEntry.creator_bid.in_(sorted(creator_bids)))
+
+    ledgers = query.all()
+    eligible_ledgers: list[tuple[CreditLedgerEntry, str, str, str]] = []
+    missing_state_bucket_bids: set[str] = set()
+    for ledger in ledgers:
+        metadata = _normalize_json_dict(ledger.metadata_json)
+        state = _normalize_bucket_credit_state(metadata.get("bucket_credit_state"))
+        if state == "available":
+            continue
+        bill_order_bid = _extract_ledger_bill_order_bid(ledger, metadata)
+        if not bill_order_bid:
+            continue
+        wallet_bucket_bid = _normalize_bid(ledger.wallet_bucket_bid)
+        if not state and wallet_bucket_bid:
+            missing_state_bucket_bids.add(wallet_bucket_bid)
+        eligible_ledgers.append((ledger, bill_order_bid, state, wallet_bucket_bid))
+
+    reserved_buckets_by_bid = _load_reserved_buckets_by_bid(missing_state_bucket_bids)
+    candidate_ledgers: list[tuple[CreditLedgerEntry, str]] = []
+    candidate_order_bids: set[str] = set()
+    candidate_creator_bids: set[str] = set()
+    for ledger, bill_order_bid, state, wallet_bucket_bid in eligible_ledgers:
+        if not state:
+            bucket = reserved_buckets_by_bid.get(wallet_bucket_bid)
+            if bucket is None or not _bucket_matches_order_bid(bucket, bill_order_bid):
+                continue
+        candidate_ledgers.append((ledger, bill_order_bid))
+        candidate_order_bids.add(bill_order_bid)
+        candidate_creator_bids.add(_normalize_bid(ledger.creator_bid))
+
+    if not candidate_ledgers:
+        return []
+
+    orders = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.bill_order_bid.in_(sorted(candidate_order_bids)),
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+        )
+        .order_by(BillingOrder.id.asc())
+        .all()
+    )
+    orders_by_bid = {
+        _normalize_bid(order.bill_order_bid): order
+        for order in orders
+        if _normalize_bid(order.bill_order_bid)
+    }
+    if not orders_by_bid:
+        return []
+
+    renewal_events_by_order_bid: dict[str, list[str]] = {}
+    if candidate_creator_bids:
+        event_rows = (
+            BillingRenewalEvent.query.filter(
+                BillingRenewalEvent.deleted == 0,
+                BillingRenewalEvent.creator_bid.in_(sorted(candidate_creator_bids)),
+                BillingRenewalEvent.status.notin_(
+                    [
+                        BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+                        BILLING_RENEWAL_EVENT_STATUS_FAILED,
+                    ]
+                ),
+            )
+            .order_by(
+                BillingRenewalEvent.scheduled_at.asc(), BillingRenewalEvent.id.asc()
+            )
+            .all()
+        )
+        for event in event_rows:
+            bill_order_bid = _extract_order_bid_from_renewal_event(event)
+            if not bill_order_bid or bill_order_bid not in orders_by_bid:
+                continue
+            renewal_event_bid = _normalize_bid(event.renewal_event_bid)
+            if not renewal_event_bid:
+                continue
+            renewal_events_by_order_bid.setdefault(bill_order_bid, []).append(
+                renewal_event_bid
+            )
+
+    records: list[ReservedGrantRepairRecord] = []
+    for ledger, bill_order_bid in candidate_ledgers:
+        order = orders_by_bid.get(bill_order_bid)
+        if order is None:
+            continue
+        records.append(
+            ReservedGrantRepairRecord(
+                creator_bid=_normalize_bid(ledger.creator_bid),
+                bill_order_bid=bill_order_bid,
+                subscription_bid=_normalize_bid(order.subscription_bid) or None,
+                grant_ledger_bid=_normalize_bid(ledger.ledger_bid),
+                wallet_bucket_bid=_normalize_bid(ledger.wallet_bucket_bid) or None,
+                consumable_from=ledger.consumable_from,
+                paid_at=order.paid_at,
+                renewal_event_bids=renewal_events_by_order_bid.get(bill_order_bid, []),
+            )
+        )
+    return records
+
+
+def _normalize_bucket_credit_state(value: Any) -> str:
+    state = str(value or "").strip().lower()
+    return "" if state == "null" else state
+
+
+def _extract_ledger_bill_order_bid(
+    ledger: CreditLedgerEntry, metadata: dict[str, Any] | None = None
+) -> str:
+    normalized_metadata = _normalize_json_dict(metadata or ledger.metadata_json)
+    return _normalize_optional_metadata_bid(
+        normalized_metadata.get("bill_order_bid")
+    ) or _normalize_optional_metadata_bid(ledger.source_bid)
+
+
+def _load_reserved_buckets_by_bid(
+    wallet_bucket_bids: set[str],
+) -> dict[str, CreditWalletBucket]:
+    normalized_bids = sorted({_normalize_bid(bid) for bid in wallet_bucket_bids if bid})
+    if not normalized_bids:
+        return {}
+    buckets = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.wallet_bucket_bid.in_(normalized_bids),
+        )
+        .order_by(CreditWalletBucket.id.desc())
+        .all()
+    )
+    reserved_buckets_by_bid: dict[str, CreditWalletBucket] = {}
+    for bucket in buckets:
+        wallet_bucket_bid = _normalize_bid(bucket.wallet_bucket_bid)
+        if (
+            wallet_bucket_bid
+            and wallet_bucket_bid not in reserved_buckets_by_bid
+            and _to_decimal(bucket.reserved_credits) > _ZERO
+        ):
+            reserved_buckets_by_bid[wallet_bucket_bid] = bucket
+    return reserved_buckets_by_bid
+
+
+def _bucket_matches_order_bid(bucket: CreditWalletBucket, bill_order_bid: str) -> bool:
+    normalized_order_bid = _normalize_bid(bill_order_bid)
+    if not normalized_order_bid:
+        return False
+    metadata = _normalize_json_dict(bucket.metadata_json)
+    bucket_order_bids = {
+        _normalize_optional_metadata_bid(bucket.source_bid),
+        _normalize_optional_metadata_bid(metadata.get("bill_order_bid")),
+        _normalize_optional_metadata_bid(metadata.get("billing_order_bid")),
+    }
+    return normalized_order_bid in bucket_order_bids
+
+
+def _load_overdue_reserved_paid_order_creator_bids(
+    *,
+    repaired_at: datetime,
+    creator_bid: str = "",
+    limit: int | None = None,
+) -> list[str]:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
+    bill_order_bid_expr = func.coalesce(
+        _sql_null_if_empty_or_json_null(
+            _json_extract_text(CreditLedgerEntry.metadata_json, "$.bill_order_bid")
+        ),
+        _sql_null_if_empty_or_json_null(CreditLedgerEntry.source_bid),
+    )
+    bucket_source_order_bid_expr = _sql_null_if_empty_or_json_null(
+        CreditWalletBucket.source_bid
+    )
+    bucket_bill_order_bid_expr = _sql_null_if_empty_or_json_null(
+        _json_extract_text(CreditWalletBucket.metadata_json, "$.bill_order_bid")
+    )
+    bucket_billing_order_bid_expr = _sql_null_if_empty_or_json_null(
+        _json_extract_text(CreditWalletBucket.metadata_json, "$.billing_order_bid")
+    )
+    state_expr = func.lower(
+        func.trim(
+            func.coalesce(
+                _json_extract_text(
+                    CreditLedgerEntry.metadata_json, "$.bucket_credit_state"
+                ),
+                "",
+            )
+        )
+    )
+    query = (
+        db.session.query(CreditLedgerEntry.creator_bid)
+        .join(
+            BillingOrder,
+            BillingOrder.bill_order_bid == bill_order_bid_expr,
+        )
+        .outerjoin(
+            CreditWalletBucket,
+            (
+                (CreditWalletBucket.deleted == 0)
+                & (CreditLedgerEntry.wallet_bucket_bid != "")
+                & (CreditWalletBucket.wallet_bucket_bid != "")
+                & (
+                    CreditWalletBucket.wallet_bucket_bid
+                    == CreditLedgerEntry.wallet_bucket_bid
+                )
+            ),
+        )
+        .filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            CreditLedgerEntry.consumable_from.isnot(None),
+            CreditLedgerEntry.consumable_from <= repaired_at,
+            state_expr != "available",
+            or_(
+                ~state_expr.in_(["", "null"]),
+                (
+                    (CreditWalletBucket.reserved_credits > _ZERO)
+                    & (
+                        (bucket_source_order_bid_expr == bill_order_bid_expr)
+                        | (bucket_bill_order_bid_expr == bill_order_bid_expr)
+                        | (bucket_billing_order_bid_expr == bill_order_bid_expr)
+                    )
+                ),
+            ),
+            BillingOrder.deleted == 0,
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+        )
+    )
+    if normalized_creator_bid:
+        query = query.filter(CreditLedgerEntry.creator_bid == normalized_creator_bid)
+    query = query.distinct().order_by(CreditLedgerEntry.creator_bid.asc())
+    if normalized_limit is not None:
+        query = query.limit(normalized_limit)
+    return [_normalize_bid(row[0]) for row in query.all() if _normalize_bid(row[0])]
 
 
 def _build_legacy_expire_ledger_idempotency_key(wallet_bucket_bid: str) -> str:
@@ -699,7 +1058,6 @@ def repair_renewal_state_drift(
             CreditWalletBucket.created_at.asc(),
             CreditWalletBucket.id.asc(),
         ).all()
-
         creator_bids: list[str] = []
         seen_creator_bids: set[str] = set()
         for row in stale_subscriptions:
@@ -709,6 +1067,22 @@ def repair_renewal_state_drift(
                 creator_bids.append(candidate)
         for row in stale_buckets:
             candidate = str(row.creator_bid or "").strip()
+            if candidate and candidate not in seen_creator_bids:
+                seen_creator_bids.add(candidate)
+                creator_bids.append(candidate)
+        remaining_limit = None
+        if normalized_limit is not None:
+            remaining_limit = max(normalized_limit - len(creator_bids), 0)
+        overdue_reserved_creator_bids: list[str] = []
+        if remaining_limit is None or remaining_limit > 0:
+            overdue_reserved_creator_bids = (
+                _load_overdue_reserved_paid_order_creator_bids(
+                    repaired_at=repaired_at,
+                    creator_bid=normalized_creator_bid,
+                    limit=remaining_limit,
+                )
+            )
+        for candidate in overdue_reserved_creator_bids:
             if candidate and candidate not in seen_creator_bids:
                 seen_creator_bids.add(candidate)
                 creator_bids.append(candidate)
@@ -726,10 +1100,26 @@ def repair_renewal_state_drift(
                 expired_bucket_count=0,
                 expired_credits=0,
                 dry_run=dry_run,
+                overdue_reserved_grant_count=0,
+                activatable_creator_count=0,
+                activated_reserved_order_count=0,
+                activated_creator_count=0,
+                protected_creator_count=0,
+                manual_review_creator_count=0,
                 creator_bids=[],
+                activatable_creator_bids=[],
+                activated_creator_bids=[],
+                protected_creator_bids=[],
+                manual_review_creator_bids=[],
+                overdue_reserved_grants=[],
             )
 
         scoped_creator_bids = set(creator_bids)
+        overdue_reserved_grants = _load_overdue_reserved_paid_order_records(
+            repaired_at=repaired_at,
+            creator_bid=normalized_creator_bid,
+            creator_bids=scoped_creator_bids,
+        )
         scoped_stale_subscription_count = sum(
             1
             for row in stale_subscriptions
@@ -740,13 +1130,110 @@ def repair_renewal_state_drift(
             for row in stale_buckets
             if str(row.creator_bid or "").strip() in scoped_creator_bids
         )
+        scoped_overdue_reserved_grants = [
+            record
+            for record in overdue_reserved_grants
+            if _normalize_bid(record.creator_bid) in scoped_creator_bids
+        ]
+        overdue_reserved_order_bids_by_creator: dict[str, list[str]] = {}
+        for record in scoped_overdue_reserved_grants:
+            overdue_reserved_order_bids_by_creator.setdefault(
+                _normalize_bid(record.creator_bid), []
+            ).append(record.bill_order_bid)
 
         expired_bucket_count = 0
         expired_credits = 0.0
         updated_subscription_count = 0
+        activated_reserved_order_count = 0
+        activatable_creator_bids: list[str] = []
+        activated_creator_bids: list[str] = []
+        protected_creator_bids: list[str] = []
+        manual_review_creator_bids: list[str] = []
+        candidate_orders_by_creator: dict[str, list[BillingOrder]] = {}
+
+        # Local import avoids a circular dependency with subscriptions.py.
+        from .subscriptions import (
+            IncompleteReservedGrantActivationError,
+            grant_paid_order_credits,
+            validate_reserved_renewal_cycle_activation,
+        )
+
+        for target_creator_bid in creator_bids:
+            candidate_order_bids = sorted(
+                {
+                    order_bid
+                    for order_bid in overdue_reserved_order_bids_by_creator.get(
+                        target_creator_bid, []
+                    )
+                    if _normalize_bid(order_bid)
+                }
+            )
+            if not candidate_order_bids:
+                continue
+            candidate_orders = (
+                BillingOrder.query.filter(
+                    BillingOrder.deleted == 0,
+                    BillingOrder.creator_bid == target_creator_bid,
+                    BillingOrder.bill_order_bid.in_(candidate_order_bids),
+                    BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+                )
+                .order_by(
+                    BillingOrder.paid_at.asc(),
+                    BillingOrder.created_at.asc(),
+                    BillingOrder.id.asc(),
+                )
+                .all()
+            )
+            candidate_orders_by_creator[target_creator_bid] = candidate_orders
+            try:
+                for order in candidate_orders:
+                    validate_reserved_renewal_cycle_activation(order)
+            except IncompleteReservedGrantActivationError:
+                manual_review_creator_bids.append(target_creator_bid)
+                protected_creator_bids.append(target_creator_bid)
+                continue
+            if candidate_orders:
+                activatable_creator_bids.append(target_creator_bid)
 
         if not dry_run:
             for target_creator_bid in creator_bids:
+                candidate_orders = candidate_orders_by_creator.get(
+                    target_creator_bid, []
+                )
+                if target_creator_bid in set(manual_review_creator_bids):
+                    continue
+                if candidate_orders:
+                    reserved_order_bids_before = _collect_overdue_reserved_order_bids(
+                        repaired_at=repaired_at,
+                        creator_bid=target_creator_bid,
+                    )
+                    try:
+                        with unit_of_work():
+                            for order in candidate_orders:
+                                grant_paid_order_credits(app, order)
+                    except IncompleteReservedGrantActivationError:
+                        protected_creator_bids.append(target_creator_bid)
+                        manual_review_creator_bids.append(target_creator_bid)
+                        continue
+                    reserved_order_bids_after = _collect_overdue_reserved_order_bids(
+                        repaired_at=repaired_at,
+                        creator_bid=target_creator_bid,
+                    )
+                    activated_order_bids = (
+                        reserved_order_bids_before - reserved_order_bids_after
+                    )
+                    if activated_order_bids:
+                        activated_reserved_order_count += len(activated_order_bids)
+                        activated_creator_bids.append(target_creator_bid)
+
+                remaining_reserved_records = _load_overdue_reserved_paid_order_records(
+                    repaired_at=repaired_at,
+                    creator_bid=target_creator_bid,
+                )
+                if remaining_reserved_records:
+                    protected_creator_bids.append(target_creator_bid)
+                    continue
+
                 expiration_payload = expire_credit_wallet_buckets(
                     app,
                     creator_bid=target_creator_bid,
@@ -755,6 +1242,7 @@ def repair_renewal_state_drift(
                 expired_bucket_count += int(expiration_payload.bucket_count or 0)
                 expired_credits += float(expiration_payload.expired_credits or 0)
 
+            protected_creator_bid_set = set(protected_creator_bids)
             changed_subscriptions = (
                 BillingSubscription.query.filter(
                     BillingSubscription.deleted == 0,
@@ -769,6 +1257,11 @@ def repair_renewal_state_drift(
             if changed_subscriptions:
                 with unit_of_work():
                     for subscription in changed_subscriptions:
+                        if (
+                            _normalize_bid(subscription.creator_bid)
+                            in protected_creator_bid_set
+                        ):
+                            continue
                         subscription.status = BILLING_SUBSCRIPTION_STATUS_EXPIRED
                         subscription.updated_at = repaired_at
                         db.session.add(subscription)
@@ -784,7 +1277,18 @@ def repair_renewal_state_drift(
             expired_bucket_count=expired_bucket_count,
             expired_credits=expired_credits,
             dry_run=dry_run,
+            overdue_reserved_grant_count=len(scoped_overdue_reserved_grants),
+            activatable_creator_count=len(sorted(set(activatable_creator_bids))),
+            activated_reserved_order_count=activated_reserved_order_count,
+            activated_creator_count=len(sorted(set(activated_creator_bids))),
+            protected_creator_count=len(sorted(set(protected_creator_bids))),
+            manual_review_creator_count=len(sorted(set(manual_review_creator_bids))),
             creator_bids=creator_bids,
+            activatable_creator_bids=sorted(set(activatable_creator_bids)),
+            activated_creator_bids=sorted(set(activated_creator_bids)),
+            protected_creator_bids=sorted(set(protected_creator_bids)),
+            manual_review_creator_bids=sorted(set(manual_review_creator_bids)),
+            overdue_reserved_grants=scoped_overdue_reserved_grants,
         )
 
 
@@ -1624,8 +2128,11 @@ def _expire_credit_wallet_buckets_in_session(
 
         available = _to_decimal(bucket.available_credits)
         if available <= _ZERO:
-            sync_credit_bucket_status(bucket)
-            db.session.add(bucket)
+            _sync_empty_available_bucket_status_if_unchanged(
+                bucket,
+                available=available,
+                mutation_at=now_utc(),
+            )
             continue
 
         wallet = wallets.get(bucket.wallet_bid)
@@ -1646,15 +2153,12 @@ def _expire_credit_wallet_buckets_in_session(
         # sees the pending bucket update.
         try:
             with db.session.begin_nested():
-                bucket.available_credits = _ZERO
-                bucket.expired_credits = _quantize_credit_amount(
-                    _to_decimal(bucket.expired_credits) + available
-                )
-                if _to_decimal(bucket.reserved_credits) > _ZERO:
-                    sync_credit_bucket_status(bucket)
-                else:
-                    bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
-                db.session.add(bucket)
+                if not _expire_bucket_available_credits_if_unchanged(
+                    bucket,
+                    available=available,
+                    mutation_at=now_utc(),
+                ):
+                    continue
 
                 refresh_credit_wallet_snapshot(
                     wallet,
@@ -1716,6 +2220,94 @@ def _expire_credit_wallet_buckets_in_session(
         bucket_count=expired_count,
         expired_credits=_credit_decimal_to_number(expired_total),
     )
+
+
+def _expire_bucket_available_credits_if_unchanged(
+    bucket: CreditWalletBucket,
+    *,
+    available: Decimal,
+    mutation_at: datetime,
+) -> bool:
+    """Expire a bucket only if its refreshed balance/window still match."""
+
+    if bucket.id is None or bucket.effective_to is None:
+        return False
+
+    expected_available = _quantize_credit_amount(available)
+    expected_expired = _quantize_credit_amount(bucket.expired_credits)
+    expected_reserved = _quantize_credit_amount(bucket.reserved_credits)
+    next_expired = _quantize_credit_amount(expected_expired + expected_available)
+    next_status = (
+        CREDIT_BUCKET_STATUS_EXHAUSTED
+        if expected_reserved > _ZERO
+        else CREDIT_BUCKET_STATUS_EXPIRED
+    )
+    updated_rows = CreditWalletBucket.query.filter(
+        CreditWalletBucket.deleted == 0,
+        CreditWalletBucket.id == bucket.id,
+        CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+        CreditWalletBucket.effective_to == bucket.effective_to,
+        CreditWalletBucket.available_credits == expected_available,
+        CreditWalletBucket.expired_credits == expected_expired,
+        CreditWalletBucket.reserved_credits == expected_reserved,
+    ).update(
+        {
+            "available_credits": _ZERO,
+            "expired_credits": next_expired,
+            "status": next_status,
+            "updated_at": mutation_at,
+        },
+        synchronize_session=False,
+    )
+    if updated_rows != 1:
+        db.session.expire(bucket)
+        return False
+
+    bucket.available_credits = _ZERO
+    bucket.expired_credits = next_expired
+    bucket.status = next_status
+    bucket.updated_at = mutation_at
+    return True
+
+
+def _sync_empty_available_bucket_status_if_unchanged(
+    bucket: CreditWalletBucket,
+    *,
+    available: Decimal,
+    mutation_at: datetime,
+) -> bool:
+    """Mark an ended empty bucket exhausted only if it stayed empty."""
+
+    if bucket.id is None or bucket.effective_to is None:
+        return False
+
+    expected_available = _quantize_credit_amount(available)
+    expected_expired = _quantize_credit_amount(bucket.expired_credits)
+    expected_reserved = _quantize_credit_amount(bucket.reserved_credits)
+    updated_rows = CreditWalletBucket.query.filter(
+        CreditWalletBucket.deleted == 0,
+        CreditWalletBucket.id == bucket.id,
+        CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+        CreditWalletBucket.effective_to == bucket.effective_to,
+        CreditWalletBucket.available_credits == expected_available,
+        CreditWalletBucket.expired_credits == expected_expired,
+        CreditWalletBucket.reserved_credits == expected_reserved,
+    ).update(
+        {
+            "available_credits": _ZERO,
+            "status": CREDIT_BUCKET_STATUS_EXHAUSTED,
+            "updated_at": mutation_at,
+        },
+        synchronize_session=False,
+    )
+    if updated_rows != 1:
+        db.session.expire(bucket)
+        return False
+
+    bucket.available_credits = _ZERO
+    bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED
+    bucket.updated_at = mutation_at
+    return True
 
 
 def sync_credit_bucket_status(bucket: CreditWalletBucket) -> int:
