@@ -130,6 +130,19 @@ const resolveAudioTrackSubtitleCues = (
   tracks: AudioTrack[] = [],
 ): unknown[] => {
   return sortByPosition(tracks).flatMap(track => {
+    const segmentSubtitleCues = sortSegmentsByIndex(
+      track.audioSegments ?? [],
+    ).flatMap(segment =>
+      (segment.subtitleCues ?? []).map(cue => ({
+        ...cue,
+        position: cue.position ?? segment.position ?? track.position,
+      })),
+    );
+
+    if (segmentSubtitleCues.length > 0) {
+      return segmentSubtitleCues;
+    }
+
     if (track.subtitleCues?.length) {
       return track.subtitleCues.map(cue => ({
         ...cue,
@@ -137,35 +150,24 @@ const resolveAudioTrackSubtitleCues = (
       }));
     }
 
-    return sortSegmentsByIndex(track.audioSegments ?? []).flatMap(segment =>
-      (segment.subtitleCues ?? []).map(cue => ({
-        ...cue,
-        position: cue.position ?? segment.position ?? track.position,
-      })),
-    );
+    return [];
   });
 };
 
 export const resolveListenSlideSubtitleCues = (
   item: ListenSlideSubtitleCueSource,
 ): ElementSubtitleCue[] | undefined => {
-  const audioPayload = item.payload?.audio as
-    | StudyRecordAudioPayload
-    | undefined;
-  const payloadSubtitleCues = normalizeRawSubtitleCues(
-    audioPayload?.subtitle_cues,
-  );
-
-  if (payloadSubtitleCues?.length) {
-    return payloadSubtitleCues;
-  }
-
   const trackSubtitleCues = resolveAudioTrackSubtitleCues(
     item.audioTracks ?? [],
   );
-  return trackSubtitleCues.length > 0
-    ? normalizeRawSubtitleCues(trackSubtitleCues)
-    : undefined;
+  if (trackSubtitleCues.length > 0) {
+    return normalizeRawSubtitleCues(trackSubtitleCues);
+  }
+
+  const audioPayload = item.payload?.audio as
+    | StudyRecordAudioPayload
+    | undefined;
+  return normalizeRawSubtitleCues(audioPayload?.subtitle_cues);
 };
 
 export const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {

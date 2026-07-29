@@ -428,9 +428,22 @@ describe('listenModeUtils', () => {
     ]);
   });
 
-  it('falls back to audio track subtitle cues when payload cues are absent', () => {
+  it('uses audio track subtitle cues before payload cues to match the active audio source', () => {
     const subtitleCues = resolveListenSlideSubtitleCues(
       createContentItem({
+        payload: {
+          audio: {
+            subtitle_cues: [
+              {
+                text: '旧的完整音频字幕。',
+                start_ms: 3000,
+                end_ms: 3900,
+                segment_index: 0,
+                position: 1,
+              },
+            ],
+          },
+        },
         audioTracks: [
           {
             position: 1,
@@ -455,6 +468,56 @@ describe('listenModeUtils', () => {
         end_ms: 900,
         segment_index: 0,
         position: 1,
+      },
+    ]);
+  });
+
+  it('uses segment subtitle cues before complete-track cues while streamed segments are preserved', () => {
+    const subtitleCues = resolveListenSlideSubtitleCues(
+      createContentItem({
+        audioTracks: [
+          {
+            position: 0,
+            audioUrl: 'https://example.com/complete.mp3',
+            subtitleCues: [
+              {
+                text: '完整音频字幕。',
+                start_ms: 100,
+                end_ms: 1000,
+                segment_index: 0,
+                position: 0,
+              },
+            ],
+            audioSegments: [
+              {
+                segmentIndex: 0,
+                audioData: 'streamed-audio',
+                durationMs: 900,
+                isFinal: true,
+                position: 0,
+                subtitleCues: [
+                  {
+                    text: '流式片段字幕。',
+                    start_ms: 0,
+                    end_ms: 900,
+                    segment_index: 0,
+                    position: 0,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(subtitleCues).toEqual([
+      {
+        text: '流式片段字幕',
+        start_ms: 0,
+        end_ms: 900,
+        segment_index: 0,
+        position: 0,
       },
     ]);
   });

@@ -265,6 +265,87 @@ describe('ListenModeSlideRenderer', () => {
     ]);
   });
 
+  it('keeps slide subtitle cues aligned with streamed segment audio', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+            payload: {
+              audio: {
+                subtitle_cues: [
+                  {
+                    text: 'stale payload cue',
+                    start_ms: 1000,
+                    end_ms: 1400,
+                    segment_index: 0,
+                    position: 0,
+                  },
+                ],
+              },
+            },
+            audioTracks: [
+              {
+                position: 0,
+                audioUrl: '/api/storage/default/tts-audio/complete.mp3',
+                isAudioStreaming: false,
+                audioSegments: [
+                  {
+                    segmentIndex: 0,
+                    audioData: 'streamed-audio',
+                    durationMs: 400,
+                    isFinal: true,
+                    position: 0,
+                    subtitleCues: [
+                      {
+                        text: 'streamed segment cue.',
+                        start_ms: 0,
+                        end_ms: 400,
+                        segment_index: 0,
+                        position: 0,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    const contentElement = slideProps?.elementList?.find(
+      element => element.blockBid === 'content-1',
+    );
+
+    expect(contentElement?.audio_segments).toEqual([
+      expect.objectContaining({
+        segment_index: 0,
+        audio_data: 'streamed-audio',
+        duration_ms: 400,
+        is_final: true,
+        position: 0,
+      }),
+    ]);
+    expect(contentElement?.subtitle_cues).toEqual([
+      {
+        text: 'streamed segment cue',
+        start_ms: 0,
+        end_ms: 400,
+        segment_index: 0,
+        position: 0,
+      },
+    ]);
+  });
+
   it('passes a stable listen player class for footer-safe positioning', () => {
     render(
       <ListenModeSlideRenderer
