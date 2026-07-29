@@ -14,6 +14,8 @@ Implementation and architecture decisions that shape repository behavior live he
   - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [AI Tool Compatibility Layer Design](../design-docs/ai-tool-compat.md)
   - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
+- [Billing Credit Domain Terminology](../design-docs/billing-credit-domain-terminology.md)
+  - Status: `accepted` | Owner: `backend` | Last reviewed: `2026-07-29` | Canonical: `true`
 - [Billing Subscription Preorder](../design-docs/billing-subscription-preorder.md)
   - Status: `proposed` | Owner: `backend` | Last reviewed: `2026-05-25` | Canonical: `true`
 - [Creator Brand Domain And Payments](../design-docs/creator-brand-domain-payments.md)
