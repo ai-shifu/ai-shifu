@@ -2835,10 +2835,15 @@ class RunScriptContextV2:
             # (button display -> value, free text passed through) into
             # metadata["answer"]. Persist the normalized value so the context
             # rebuild feeds the canonical answer back to the LLM.
-            answer_values = validate_result.metadata.get("answer") or []
-            normalized_answer = ",".join(
-                str(value) for value in answer_values if value is not None
-            )
+            answer_values = validate_result.metadata.get("answer")
+            if isinstance(answer_values, list):
+                normalized_answer = ",".join(
+                    str(value) for value in answer_values if value is not None
+                )
+            elif answer_values is None:
+                normalized_answer = ""
+            else:
+                normalized_answer = str(answer_values)
             if normalized_answer != (generated_block.generated_content or ""):
                 generated_block.generated_content = normalized_answer
                 self._recorder.save_generated_block(generated_block)
