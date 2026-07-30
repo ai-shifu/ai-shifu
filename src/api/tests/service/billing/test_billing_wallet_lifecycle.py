@@ -4549,6 +4549,48 @@ def test_restore_wrongly_expired_credit_pack_bucket_requires_matching_expire_led
     assert adjustment_count == 0
 
 
+def test_restore_wrongly_expired_credit_pack_bucket_reports_partial_repaired_status(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        _seed_wrongly_expired_credit_pack_bucket(
+            creator_bid="creator-restore-topup-partial-repaired",
+            wallet_bid="wallet-restore-topup-partial-repaired",
+            bucket_bid="bucket-restore-topup-partial-repaired",
+            order_bid="order-restore-topup-partial-repaired",
+            original=Decimal("250.0000000000"),
+            consumed=Decimal("0"),
+            expired=Decimal("250.0000000000"),
+        )
+        _seed_wrongly_expired_credit_pack_bucket(
+            creator_bid="creator-restore-topup-partial-manual",
+            wallet_bid="wallet-restore-topup-partial-manual",
+            bucket_bid="bucket-restore-topup-partial-manual",
+            order_bid="order-restore-topup-partial-manual",
+            original=Decimal("250.0000000000"),
+            consumed=Decimal("0"),
+            expired=Decimal("250.0000000000"),
+            expire_ledger_amount=Decimal("-1.0000000000"),
+        )
+
+        payload = restore_wrongly_expired_credit_pack_buckets(
+            billing_wallet_lifecycle_app,
+            bill_order_bids=[
+                "order-restore-topup-partial-repaired",
+                "order-restore-topup-partial-manual",
+            ],
+            dry_run=False,
+        )
+
+    assert payload["status"] == "partial_repaired"
+    assert payload["repaired_bucket_count"] == 1
+    assert payload["manual_review_count"] == 1
+    assert [bucket["repair_action"] for bucket in payload["buckets"]] == [
+        "repair",
+        "manual_review",
+    ]
+
+
 def _seed_wrongly_expired_credit_pack_bucket(
     *,
     creator_bid: str,
