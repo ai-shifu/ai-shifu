@@ -756,9 +756,9 @@ describe('AdminLayout', () => {
       'data-href',
       '/admin/billing?tab=packages',
     );
-    expect(screen.getByTestId('admin-billing-sidebar-card')).toHaveTextContent(
-      '0',
-    );
+    expect(
+      screen.getByTestId('admin-billing-sidebar-balance'),
+    ).toHaveTextContent('0');
     expect(
       screen.queryByText('module.billing.sidebar.placeholderValue'),
     ).not.toBeInTheDocument();

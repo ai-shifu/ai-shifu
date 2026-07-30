@@ -90,7 +90,12 @@ export function BillingSidebarCard({
           <span className='shrink-0'>
             {t('module.billing.sidebar.nonMemberBalanceTitle')}
           </span>
-          <span className='truncate pr-1'>{creditsValue}</span>
+          <span
+            className='truncate pr-1'
+            data-testid='admin-billing-sidebar-balance'
+          >
+            {creditsValue}
+          </span>
         </div>
         <div className='flex min-w-0 items-center justify-between gap-3 pt-2.5 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[rgba(10,10,10,0.45)]'>
           <div className='min-w-0'>

@@ -370,6 +370,38 @@ def test_reserve_operation_credits_freezes_topup_without_active_subscription(
             ).count()
             == 0
         )
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid=f"subscription-{creator_bid}"
+        ).one()
+        subscription.current_period_start_at = datetime(2026, 1, 1, 0, 0, 0)
+        subscription.current_period_end_at = datetime(2099, 1, 1, 0, 0, 0)
+        dao.db.session.commit()
+
+    reservation = reserve_operation_credits(
+        operation_credit_app,
+        creator_bid=creator_bid,
+        amount=Decimal("1.0000000000"),
+        operation_type="voice_clone",
+        operation_bid="voice-bid-frozen-topup",
+        metadata={},
+    )
+
+    assert reservation.status == "reserved"
+    assert reservation.wallet_bucket_bids == [f"bucket-{creator_bid}"]
+    with operation_credit_app.app_context():
+        wallet = CreditWallet.query.filter_by(creator_bid=creator_bid).one()
+        bucket = CreditWalletBucket.query.filter_by(creator_bid=creator_bid).one()
+        assert wallet.available_credits == Decimal("14.0000000000")
+        assert wallet.reserved_credits == Decimal("1.0000000000")
+        assert bucket.available_credits == Decimal("14.0000000000")
+        assert bucket.reserved_credits == Decimal("1.0000000000")
+        assert (
+            CreditLedgerEntry.query.filter_by(
+                creator_bid=creator_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_HOLD,
+            ).count()
+            == 1
+        )
 
 
 def test_operation_credit_mutations_request_wallet_and_bucket_locks(

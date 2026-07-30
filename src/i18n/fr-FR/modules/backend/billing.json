@@ -19,7 +19,7 @@
     "notificationPolicySaveFailed": "Échec de l’enregistrement de la règle de notification des crédits. Veuillez réessayer plus tard.",
     "referralRewardProductMismatch": "La configuration du forfait de récompense d’invitation ne correspond pas au produit de facturation. Contactez un administrateur pour vérifier la campagne.",
     "subscriptionCheckoutBusy": "La demande d’achat du forfait est en cours de traitement. Veuillez réessayer plus tard.",
-    "subscriptionInactive": "Un abonnement actif est requis. Les crédits du pack de crédits ne peuvent être achetés ou utilisés que pendant la période d’abonnement.",
+    "subscriptionInactive": "Veuillez d’abord acheter un forfait de crédits. Les packs de crédits ne peuvent être utilisés que lorsque le compte dispose d’un forfait de crédits actif.",
     "subscriptionPreorderAlreadyExists": "Une précommande de forfait est déjà en attente pour cet abonnement.",
     "subscriptionPreorderProviderUnsupported": "La précommande de forfait est actuellement prise en charge uniquement pour les canaux de paiement autogérés.",
     "subscriptionPreorderTargetInvalid": "La précommande de forfait prend uniquement en charge le renouvellement du même forfait ou le passage à un forfait inférieur en fin de cycle.",
