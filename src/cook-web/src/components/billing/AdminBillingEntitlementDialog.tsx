@@ -303,6 +303,7 @@ export function AdminBillingEntitlementDialog({
   const [draftSquareLogoPreview, setDraftSquareLogoPreview] =
     React.useState('');
   const [draftHomeUrl, setDraftHomeUrl] = React.useState('');
+  const [persistedHomeUrl, setPersistedHomeUrl] = React.useState('');
   const [draftDomain, setDraftDomain] = React.useState('');
   const [draftDomainStatus, setDraftDomainStatus] =
     React.useState<DraftDomainStatus | null>(null);
@@ -342,6 +343,7 @@ export function AdminBillingEntitlementDialog({
     setDraftWideLogoPreview('');
     setDraftSquareLogoPreview('');
     setDraftHomeUrl('');
+    setPersistedHomeUrl('');
     setDraftDomain('');
     setDraftDomainStatus(null);
     setDraftIntegrations(createEmptyDraftIntegrations());
@@ -488,6 +490,7 @@ export function AdminBillingEntitlementDialog({
               customization.branding.logo_square_url || '',
             );
             setDraftHomeUrl(customization.branding.home_url || '');
+            setPersistedHomeUrl(customization.branding.home_url || '');
             setDraftDomain(customization.domains.items[0]?.host || '');
             setDraftDomainStatus(nextDraftDomainStatus);
             setDraftIntegrations(nextDraftIntegrations);
@@ -524,6 +527,7 @@ export function AdminBillingEntitlementDialog({
           ) {
             return;
           }
+          setPersistedHomeUrl(customization.branding.home_url || '');
           setDraftDomainStatus(resolveDraftDomainStatus(customization));
         }
         const nextDraftIntegrations = cloneDraftIntegrations(
@@ -650,16 +654,19 @@ export function AdminBillingEntitlementDialog({
           }
         }
 
+        const nextHomeUrl = draftHomeUrl.trim();
+        const homeUrlChanged = nextHomeUrl !== persistedHomeUrl.trim();
         if (
           values.branding_enabled &&
-          (nextWideLogo || nextSquareLogo || draftHomeUrl.trim())
+          (nextWideLogo || nextSquareLogo || homeUrlChanged)
         ) {
           await api.updateAdminBillingCustomizationBranding({
             creator_bid: nextCreatorBid,
             logo_wide_url: nextWideLogo,
             logo_square_url: nextSquareLogo,
-            home_url: draftHomeUrl.trim(),
+            home_url: nextHomeUrl,
           });
+          setPersistedHomeUrl(nextHomeUrl);
         }
 
         const normalizedDraftDomain = draftDomain.trim();
