@@ -59,6 +59,12 @@ function isBucketInCurrentWindow(
   );
 }
 
+function hasBucketStarted(bucket: BillingWalletBucket, now: Date): boolean {
+  const effectiveFrom = parseBillingDateValue(bucket.effective_from);
+
+  return !effectiveFrom || effectiveFrom <= now;
+}
+
 function bucketRequiresActiveSubscription(
   bucket: BillingWalletBucket,
 ): boolean {
@@ -86,8 +92,11 @@ function buildCategorySummary(
         bucket.category === category &&
         bucket.status === 'active' &&
         Number(bucket.available_credits || 0) > 0 &&
-        isBucketInCurrentWindow(bucket, now) &&
-        (hasActiveSubscription || !bucketRequiresActiveSubscription(bucket)),
+        (category === 'topup'
+          ? hasActiveSubscription && hasBucketStarted(bucket, now)
+          : isBucketInCurrentWindow(bucket, now) &&
+            (hasActiveSubscription ||
+              !bucketRequiresActiveSubscription(bucket))),
     );
 
     if (activeBuckets.length === 0) {
@@ -127,29 +136,16 @@ function buildCategorySummary(
       ];
     }
 
-    const grouped = new Map<string, CategorySummaryRow>();
-    activeBuckets.forEach(bucket => {
-      const effectiveTo = bucket.effective_to || null;
-      const groupKey = effectiveTo || '__never_expires__';
-      const existing = grouped.get(groupKey);
-
-      if (existing) {
-        existing.availableCredits += Number(bucket.available_credits || 0);
-        return;
-      }
-
-      grouped.set(groupKey, {
+    return [
+      {
         category,
-        availableCredits: Number(bucket.available_credits || 0),
-        effectiveTo,
-      });
-    });
-
-    return Array.from(grouped.values()).sort((left, right) =>
-      String(left.effectiveTo || '9999-12-31T23:59:59').localeCompare(
-        String(right.effectiveTo || '9999-12-31T23:59:59'),
-      ),
-    );
+        availableCredits: activeBuckets.reduce(
+          (total, bucket) => total + Number(bucket.available_credits || 0),
+          0,
+        ),
+        effectiveTo: null,
+      },
+    ];
   });
 }
 
@@ -168,11 +164,11 @@ function CategoryValidityCell({
   topupAvailabilityLabel: string;
   topupAvailabilityTooltip: string;
 }) {
-  if (effectiveTo) {
-    return <>{formatBillingCompactDateTime(effectiveTo, locale)}</>;
-  }
-
   if (category !== 'topup') {
+    if (effectiveTo) {
+      return <>{formatBillingCompactDateTime(effectiveTo, locale)}</>;
+    }
+
     return <>{neverExpiresLabel}</>;
   }
 
@@ -216,9 +212,13 @@ export function BillingCreditDetailsPanel({
     isLoading: bucketsLoading,
     mutate: refreshWalletBuckets,
   } = useBillingWalletBuckets();
+  const subscriptionPeriodEnd = parseBillingDateValue(
+    overview?.subscription?.current_period_end_at,
+  );
   const hasActiveSubscription = Boolean(
     overview?.subscription &&
-    !['canceled', 'expired', 'draft'].includes(overview.subscription.status),
+    !['canceled', 'expired', 'draft'].includes(overview.subscription.status) &&
+    (!subscriptionPeriodEnd || subscriptionPeriodEnd > new Date()),
   );
   const activeSubscriptionEffectiveTo =
     hasActiveSubscription && overview?.subscription?.current_period_end_at
