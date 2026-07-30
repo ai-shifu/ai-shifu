@@ -464,6 +464,9 @@
       "secretSaved": "已保存，可重新填写覆盖"
     },
     "branding": {
+      "homeUrl": "Logo 跳转地址",
+      "homeUrlHint": "学习页点击 Logo 时跳转的网址，留空则使用默认地址。",
+      "homeUrlPlaceholder": "例如 https://www.example.com",
       "invalidFile": "仅支持 2MB 以内的 PNG、JPEG 或 WebP 图片",
       "resizeNotice": "图片尺寸与推荐规格不完全一致，保存后会按常规方式缩放处理。",
       "squareHint": "建议上传 32x32px 方形 Logo，也支持更高清的倍图。",

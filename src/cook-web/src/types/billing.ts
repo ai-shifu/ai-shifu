@@ -53,6 +53,7 @@ export type BillingCustomization = {
   branding: {
     logo_wide_url: string;
     logo_square_url: string;
+    home_url: string;
   };
   domains: {
     custom_domain_enabled: boolean;
@@ -578,6 +579,7 @@ export type AdminBillingCustomizationDraft = {
   branding: {
     logo_wide_url: string;
     logo_square_url: string;
+    home_url: string;
   };
   domain: {
     host: string;
