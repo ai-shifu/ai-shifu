@@ -464,6 +464,9 @@
       "secretSaved": "Enregistré. Saisissez une nouvelle valeur pour le remplacer."
     },
     "branding": {
+      "homeUrl": "URL du lien du logo",
+      "homeUrlHint": "Adresse ouverte lorsque l’apprenant clique sur le logo. Laissez vide pour utiliser l’adresse par défaut.",
+      "homeUrlPlaceholder": "ex. https://www.example.com",
       "invalidFile": "Utilisez un fichier PNG, JPEG ou WebP de 2 Mo maximum",
       "resizeNotice": "L’image ne correspond pas totalement au format recommandé. Elle sera tout de même téléversée puis redimensionnée de façon standard.",
       "squareHint": "Recommandé : un logo carré de 32x32 px. Les variantes en plus haute définition sont aussi prises en charge.",

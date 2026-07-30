@@ -302,6 +302,7 @@ export function AdminBillingEntitlementDialog({
   const [draftWideLogoPreview, setDraftWideLogoPreview] = React.useState('');
   const [draftSquareLogoPreview, setDraftSquareLogoPreview] =
     React.useState('');
+  const [draftHomeUrl, setDraftHomeUrl] = React.useState('');
   const [draftDomain, setDraftDomain] = React.useState('');
   const [draftDomainStatus, setDraftDomainStatus] =
     React.useState<DraftDomainStatus | null>(null);
@@ -340,6 +341,7 @@ export function AdminBillingEntitlementDialog({
     setDraftSquareLogoFile(null);
     setDraftWideLogoPreview('');
     setDraftSquareLogoPreview('');
+    setDraftHomeUrl('');
     setDraftDomain('');
     setDraftDomainStatus(null);
     setDraftIntegrations(createEmptyDraftIntegrations());
@@ -380,6 +382,7 @@ export function AdminBillingEntitlementDialog({
         branding: {
           logo_wide_url: draftWideLogo,
           logo_square_url: draftSquareLogo,
+          home_url: draftHomeUrl,
         },
         domain: {
           host: draftDomain,
@@ -394,6 +397,7 @@ export function AdminBillingEntitlementDialog({
     creatorMobile,
     draftDomain,
     draftDomainStatus,
+    draftHomeUrl,
     draftIntegrations,
     draftSquareLogo,
     draftSquareLogoFile,
@@ -450,6 +454,7 @@ export function AdminBillingEntitlementDialog({
           Boolean(draft.note?.trim()) ||
           Boolean(draft.branding?.logo_wide_url) ||
           Boolean(draft.branding?.logo_square_url) ||
+          Boolean(draft.branding?.home_url) ||
           Boolean(draft.domain?.host) ||
           Object.values(draft.integrations || {}).some(
             integration =>
@@ -482,6 +487,7 @@ export function AdminBillingEntitlementDialog({
             setDraftSquareLogoPreview(
               customization.branding.logo_square_url || '',
             );
+            setDraftHomeUrl(customization.branding.home_url || '');
             setDraftDomain(customization.domains.items[0]?.host || '');
             setDraftDomainStatus(nextDraftDomainStatus);
             setDraftIntegrations(nextDraftIntegrations);
@@ -505,6 +511,7 @@ export function AdminBillingEntitlementDialog({
         setDraftSquareLogo(draft.branding.logo_square_url || '');
         setDraftWideLogoPreview(draft.branding.logo_wide_url || '');
         setDraftSquareLogoPreview(draft.branding.logo_square_url || '');
+        setDraftHomeUrl(draft.branding.home_url || '');
         setDraftDomain(draft.domain.host || '');
         if (creatorBid) {
           const customization = (await api.getAdminBillingCustomization(
@@ -643,11 +650,15 @@ export function AdminBillingEntitlementDialog({
           }
         }
 
-        if (values.branding_enabled && (nextWideLogo || nextSquareLogo)) {
+        if (
+          values.branding_enabled &&
+          (nextWideLogo || nextSquareLogo || draftHomeUrl.trim())
+        ) {
           await api.updateAdminBillingCustomizationBranding({
             creator_bid: nextCreatorBid,
             logo_wide_url: nextWideLogo,
             logo_square_url: nextSquareLogo,
+            home_url: draftHomeUrl.trim(),
           });
         }
 
@@ -767,6 +778,8 @@ export function AdminBillingEntitlementDialog({
           draftWideLogoFile={draftWideLogoFile}
           draftWideLogoPreview={draftWideLogoPreview}
           draftWideLogo={draftWideLogo}
+          draftHomeUrl={draftHomeUrl}
+          onDraftHomeUrlChange={setDraftHomeUrl}
           selectedPaymentProviders={selectedDraftPaymentProviders}
           onSelectedPaymentProvidersChange={setSelectedDraftPaymentProviders}
           onDraftDomainChange={setDraftDomain}
@@ -1092,6 +1105,8 @@ function CreateDraftSection({
   onDraftSquareLogoChange,
   onDraftWideLogoFileChange,
   onDraftWideLogoChange,
+  draftHomeUrl,
+  onDraftHomeUrlChange,
 }: {
   field: VisibleEntitlementField;
   creatorBid: string;
@@ -1125,6 +1140,8 @@ function CreateDraftSection({
   onDraftSquareLogoChange: (value: string) => void;
   onDraftWideLogoFileChange: (file: File | null) => void;
   onDraftWideLogoChange: (value: string) => void;
+  draftHomeUrl: string;
+  onDraftHomeUrlChange: (value: string) => void;
 }) {
   const { t } = useTranslation();
 
@@ -1153,6 +1170,17 @@ function CreateDraftSection({
           onChange={onDraftSquareLogoChange}
           onFileChange={onDraftSquareLogoFileChange}
         />
+        <div className='md:col-span-2'>
+          <CreateDraftInput
+            label={t('module.billing.customization.branding.homeUrl')}
+            hint={t('module.billing.customization.branding.homeUrlHint')}
+            placeholder={t(
+              'module.billing.customization.branding.homeUrlPlaceholder',
+            )}
+            value={draftHomeUrl}
+            onChange={onDraftHomeUrlChange}
+          />
+        </div>
       </div>
     );
   }
