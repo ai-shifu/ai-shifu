@@ -340,7 +340,7 @@ def test_audit_credit_state_rejects_invalid_explicit_as_of(
     assert "Unable to parse as_of value" in result.output
 
 
-def test_audit_credit_state_reports_truncated_issue_count(
+def test_audit_credit_state_does_not_truncate_issues_for_limited_creator_scan(
     billing_credit_audit_app: Flask,
 ) -> None:
     now = datetime(2026, 7, 29, 12, 0, 0)
@@ -369,9 +369,135 @@ def test_audit_credit_state_reports_truncated_issue_count(
     assert payload["status"] == "issues_found"
     assert payload["issue_count"] == 2
     assert payload["total_issue_count"] == 2
-    assert payload["returned_issue_count"] == 1
+    assert payload["returned_issue_count"] == 2
+    assert payload["truncated"] is False
+    assert len(payload["issues"]) == 2
+
+
+def test_audit_credit_state_limited_all_reports_unscanned_creators(
+    billing_credit_audit_app: Flask,
+) -> None:
+    now = datetime(2026, 7, 29, 12, 0, 0)
+    with billing_credit_audit_app.app_context():
+        _seed_wallet_with_bucket(
+            creator_bid="creator-audit-page-a",
+            wallet_bid="wallet-audit-page-a",
+            bucket_bid="bucket-audit-page-a",
+            original=Decimal("10.0000000000"),
+            available=Decimal("10.0000000000"),
+        )
+        _seed_active_subscription(
+            creator_bid="creator-audit-page-a",
+            subscription_bid="sub-audit-page-a",
+        )
+        _seed_wallet_with_bucket(
+            creator_bid="creator-audit-page-z",
+            wallet_bid="wallet-audit-page-z",
+            bucket_bid="bucket-audit-page-z",
+            wallet_available=Decimal("0"),
+            original=Decimal("10.0000000000"),
+            available=Decimal("10.0000000000"),
+        )
+        _seed_active_subscription(
+            creator_bid="creator-audit-page-z",
+            subscription_bid="sub-audit-page-z",
+        )
+        dao.db.session.commit()
+
+        limited_payload = audit_credit_state(as_of=now, limit=1).to_payload()
+        full_payload = audit_credit_state(as_of=now).to_payload()
+
+    assert limited_payload["status"] == "ok"
+    assert limited_payload["truncated"] is True
+    assert limited_payload["checked_wallet_count"] == 1
+    assert limited_payload["total_issue_count"] == 0
+    assert full_payload["status"] == "issues_found"
+    assert full_payload["counts_by_code"] == {"wallet_snapshot_mismatch": 1}
+
+
+def test_audit_credit_state_limited_all_uses_creator_not_row_id_order(
+    billing_credit_audit_app: Flask,
+) -> None:
+    now = datetime(2026, 7, 29, 12, 0, 0)
+    with billing_credit_audit_app.app_context():
+        _seed_wallet_with_bucket(
+            creator_bid="creator-audit-row-z",
+            wallet_bid="wallet-audit-row-z",
+            bucket_bid="bucket-audit-row-z",
+            original=Decimal("10.0000000000"),
+            available=Decimal("10.0000000000"),
+        )
+        _seed_active_subscription(
+            creator_bid="creator-audit-row-z",
+            subscription_bid="sub-audit-row-z",
+        )
+        _seed_wallet_with_bucket(
+            creator_bid="creator-audit-row-a",
+            wallet_bid="wallet-audit-row-a",
+            bucket_bid="bucket-audit-row-a",
+            wallet_available=Decimal("0"),
+            original=Decimal("10.0000000000"),
+            available=Decimal("10.0000000000"),
+        )
+        _seed_active_subscription(
+            creator_bid="creator-audit-row-a",
+            subscription_bid="sub-audit-row-a",
+        )
+        dao.db.session.commit()
+
+        payload = audit_credit_state(as_of=now, limit=1).to_payload()
+
+    assert payload["status"] == "issues_found"
     assert payload["truncated"] is True
-    assert len(payload["issues"]) == 1
+    assert payload["checked_wallet_count"] == 1
+    assert payload["issues"][0]["creator_bid"] == "creator-audit-row-a"
+    assert payload["counts_by_code"] == {"wallet_snapshot_mismatch": 1}
+
+
+def test_audit_credit_state_limited_all_loads_all_ledgers_for_selected_creator(
+    billing_credit_audit_app: Flask,
+) -> None:
+    now = datetime(2026, 7, 29, 12, 0, 0)
+    with billing_credit_audit_app.app_context():
+        wallet, bucket = _seed_wallet_with_bucket(
+            creator_bid="creator-audit-many-ledgers",
+            wallet_bid="wallet-audit-many-ledgers",
+            bucket_bid="bucket-audit-many-ledgers",
+            original=Decimal("10.0000000000"),
+            available=Decimal("10.0000000000"),
+        )
+        _seed_active_subscription(
+            creator_bid="creator-audit-many-ledgers",
+            subscription_bid="sub-audit-many-ledgers",
+        )
+        for index in range(3):
+            dao.db.session.add(
+                CreditLedgerEntry(
+                    ledger_bid=f"ledger-audit-many-ledgers-{index}",
+                    creator_bid=wallet.creator_bid,
+                    wallet_bid=wallet.wallet_bid,
+                    wallet_bucket_bid=bucket.wallet_bucket_bid,
+                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                    source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                    source_bid=f"order-audit-many-ledgers-{index}",
+                    idempotency_key=f"grant:audit-many-ledgers:{index}",
+                    amount=Decimal("1.0000000000"),
+                    balance_after=Decimal("1.0000000000"),
+                    consumable_from=now - timedelta(days=1),
+                    expires_at=now + timedelta(days=30),
+                    metadata_json={
+                        "bucket_credit_state": "reserved" if index == 2 else "available"
+                    },
+                )
+            )
+        dao.db.session.commit()
+
+        limited_payload = audit_credit_state(as_of=now, limit=1).to_payload()
+        full_payload = audit_credit_state(as_of=now).to_payload()
+
+    assert limited_payload["checked_ledger_count"] == 3
+    assert limited_payload["counts_by_code"] == {"overdue_reserved_grant": 1}
+    assert limited_payload == full_payload
 
 
 def test_audit_credit_state_loads_expire_counterpart_ledgers_with_limited_scan(

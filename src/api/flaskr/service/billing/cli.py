@@ -777,7 +777,7 @@ def register_billing_commands(console) -> None:
         "--limit",
         type=click.IntRange(min=1),
         default=None,
-        help="Maximum rows and issues to scan when used with --all.",
+        help="Maximum creator candidates to scan when used with --all.",
     )
     @click.option(
         "--as-of",

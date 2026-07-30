@@ -141,15 +141,17 @@ def _audit_credit_state_no_autoflush(
     limit: int,
 ) -> CreditAuditReport:
     issues: list[CreditAuditIssue] = []
-
-    wallets = _load_wallets(creator_bid, limit=limit)
-    buckets = _load_buckets(
+    creator_bids, truncated = _resolve_audit_creator_bids(
         creator_bid=creator_bid,
         limit=limit,
     )
+
+    wallets = _load_wallets(creator_bids=creator_bids)
+    buckets = _load_buckets(
+        creator_bids=creator_bids,
+    )
     ledgers = _load_ledgers(
-        creator_bid=creator_bid,
-        limit=limit,
+        creator_bids=creator_bids,
     )
     expire_ledgers = _load_expire_ledgers_for_buckets(
         bucket_bids={bucket.wallet_bucket_bid for bucket in buckets}
@@ -183,14 +185,10 @@ def _audit_credit_state_no_autoflush(
             creator_bid,
             buckets=buckets,
             as_of=as_of,
-            limit=limit,
         )
     )
     issues = _dedupe_issues(issues)
     total_issue_count = len(issues)
-    truncated = limit > 0 and total_issue_count > limit
-    if limit > 0:
-        issues = issues[:limit]
     returned_issue_count = len(issues)
 
     return CreditAuditReport(
@@ -208,41 +206,77 @@ def _audit_credit_state_no_autoflush(
     )
 
 
-def _load_wallets(creator_bid: str, *, limit: int) -> list[CreditWallet]:
-    query = CreditWallet.query.filter(CreditWallet.deleted == 0)
+def _resolve_audit_creator_bids(
+    *,
+    creator_bid: str,
+    limit: int,
+) -> tuple[list[str], bool]:
     if creator_bid:
-        query = query.filter(CreditWallet.creator_bid == creator_bid)
-    query = query.order_by(CreditWallet.id.asc())
+        return [creator_bid], False
+
+    wallet_query = db.session.query(
+        CreditWallet.creator_bid.label("creator_bid")
+    ).filter(
+        CreditWallet.deleted == 0,
+        CreditWallet.creator_bid != "",
+    )
+    bucket_query = db.session.query(
+        CreditWalletBucket.creator_bid.label("creator_bid")
+    ).filter(
+        CreditWalletBucket.deleted == 0,
+        CreditWalletBucket.creator_bid != "",
+    )
+    ledger_query = db.session.query(
+        CreditLedgerEntry.creator_bid.label("creator_bid")
+    ).filter(
+        CreditLedgerEntry.deleted == 0,
+        CreditLedgerEntry.creator_bid != "",
+    )
+    creator_query = wallet_query.union(bucket_query, ledger_query).subquery()
+    query = db.session.query(creator_query.c.creator_bid).order_by(
+        creator_query.c.creator_bid.asc()
+    )
     if limit > 0:
-        query = query.limit(limit)
+        query = query.limit(limit + 1)
+
+    creator_bids = [str(row.creator_bid or "").strip() for row in query.all()]
+    creator_bids = [bid for bid in creator_bids if bid]
+    truncated = limit > 0 and len(creator_bids) > limit
+    if truncated:
+        creator_bids = creator_bids[:limit]
+    return creator_bids, truncated
+
+
+def _load_wallets(creator_bids: list[str]) -> list[CreditWallet]:
+    if not creator_bids:
+        return []
+    query = CreditWallet.query.filter(CreditWallet.deleted == 0)
+    query = query.filter(CreditWallet.creator_bid.in_(creator_bids))
+    query = query.order_by(CreditWallet.id.asc())
     return query.all()
 
 
 def _load_buckets(
     *,
-    creator_bid: str,
-    limit: int,
+    creator_bids: list[str],
 ) -> list[CreditWalletBucket]:
+    if not creator_bids:
+        return []
     query = CreditWalletBucket.query.filter(CreditWalletBucket.deleted == 0)
-    if creator_bid:
-        query = query.filter(CreditWalletBucket.creator_bid == creator_bid)
+    query = query.filter(CreditWalletBucket.creator_bid.in_(creator_bids))
     query = query.order_by(CreditWalletBucket.id.asc())
-    if limit > 0:
-        query = query.limit(limit)
     return query.all()
 
 
 def _load_ledgers(
     *,
-    creator_bid: str,
-    limit: int,
+    creator_bids: list[str],
 ) -> list[CreditLedgerEntry]:
+    if not creator_bids:
+        return []
     query = CreditLedgerEntry.query.filter(CreditLedgerEntry.deleted == 0)
-    if creator_bid:
-        query = query.filter(CreditLedgerEntry.creator_bid == creator_bid)
+    query = query.filter(CreditLedgerEntry.creator_bid.in_(creator_bids))
     query = query.order_by(CreditLedgerEntry.id.asc())
-    if limit > 0:
-        query = query.limit(limit)
     return query.all()
 
 
@@ -401,14 +435,10 @@ def _audit_subscription_bucket_windows(
     *,
     buckets: list[CreditWalletBucket],
     as_of: datetime,
-    limit: int,
 ) -> list[CreditAuditIssue]:
     issues: list[CreditAuditIssue] = []
     primary_by_creator: dict[str, BillingSubscription | None] = {}
-    checked = 0
     for bucket in buckets:
-        if limit > 0 and checked >= limit:
-            break
         if creator_bid and bucket.creator_bid != creator_bid:
             continue
         if int(bucket.status or 0) != CREDIT_BUCKET_STATUS_ACTIVE:
@@ -425,7 +455,6 @@ def _audit_subscription_bucket_windows(
             )
         ):
             continue
-        checked += 1
         if bucket.creator_bid not in primary_by_creator:
             primary_by_creator[bucket.creator_bid] = load_primary_active_subscription(
                 bucket.creator_bid,
