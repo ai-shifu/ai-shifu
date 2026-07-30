@@ -28,12 +28,11 @@ export function BillingSidebarCard({
 }: BillingSidebarCardProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  const availableCredits = overview?.wallet.available_credits ?? 0;
-  const shouldShowCredits = availableCredits > 0;
-  const creditsValue =
-    !isLoading && shouldShowCredits
-      ? formatBillingCreditBalance(availableCredits)
-      : t('module.billing.sidebar.placeholderValue');
+  const availableCredits = overview?.wallet?.available_credits;
+  const shouldShowCredits = !isLoading && availableCredits != null;
+  const creditsValue = shouldShowCredits
+    ? formatBillingCreditBalance(availableCredits ?? 0)
+    : t('module.billing.sidebar.placeholderValue');
 
   const expiryCountdown = !isLoading
     ? formatBillingExpiryCountdown(

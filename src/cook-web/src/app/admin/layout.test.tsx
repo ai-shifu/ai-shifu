@@ -735,7 +735,7 @@ describe('AdminLayout', () => {
     ).toHaveAttribute('href', '/admin/referral');
   });
 
-  test('hides the credits section when available credits are zero', () => {
+  test('renders zero when available credits are zero', () => {
     mockUseBillingOverview.mockReturnValue({
       data: buildBillingOverview({ availableCredits: 0, subscription: null }),
       error: undefined,
@@ -756,10 +756,12 @@ describe('AdminLayout', () => {
       'data-href',
       '/admin/billing?tab=packages',
     );
-    expect(screen.queryByText(/0(?:\.0+)?/)).not.toBeInTheDocument();
+    expect(screen.getByTestId('admin-billing-sidebar-card')).toHaveTextContent(
+      '0',
+    );
     expect(
-      screen.getByText('module.billing.sidebar.placeholderValue'),
-    ).toBeInTheDocument();
+      screen.queryByText('module.billing.sidebar.placeholderValue'),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: 'module.billing.sidebar.usageCta',

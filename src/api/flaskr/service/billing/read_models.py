@@ -118,7 +118,10 @@ from .serializers import (
     serialize_wallet_bucket as _serialize_wallet_bucket,
 )
 from .trials import resolve_new_creator_trial_offer as _resolve_new_creator_trial_offer
-from .wallets import adjust_credit_wallet_balance
+from .wallets import (
+    adjust_credit_wallet_balance,
+    calculate_credit_wallet_snapshot_values,
+)
 
 _OPERATOR_PRODUCT_FILTER_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
@@ -603,6 +606,17 @@ def build_billing_overview(
         subscription = _load_current_subscription(normalized_creator_bid)
 
         wallet_payload = _serialize_wallet(wallet)
+        if wallet is not None:
+            available_credits, reserved_credits = (
+                calculate_credit_wallet_snapshot_values(
+                    wallet,
+                    snapshot_at=now_utc(),
+                )
+            )
+            wallet_payload.available_credits = credit_decimal_to_number(
+                available_credits
+            )
+            wallet_payload.reserved_credits = credit_decimal_to_number(reserved_credits)
         subscription_payload = _serialize_subscription(app, subscription)
         limit_state = resolve_creator_limit_state(app, normalized_creator_bid)
         softlimit_threshold = limit_state.get("softlimit_threshold")

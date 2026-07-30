@@ -814,6 +814,25 @@ class TestBillingRoutes:
         assert bucket_payload["data"]["items"][0]["priority"] == 20
         assert bucket_payload["data"]["items"][2]["source_bid"] == "topup-1"
 
+    def test_overview_recalculates_wallet_snapshot_for_current_balance(
+        self, billing_test_client
+    ) -> None:
+        app = billing_test_client.application
+        with app.app_context():
+            wallet = CreditWallet.query.filter(
+                CreditWallet.wallet_bid == "wallet-1",
+            ).one()
+            wallet.available_credits = Decimal("0")
+            wallet.reserved_credits = Decimal("0")
+            dao.db.session.add(wallet)
+            dao.db.session.commit()
+
+            overview = build_billing_overview(app, "creator-1")
+
+            assert overview.wallet.available_credits == 120.5
+            assert overview.wallet.reserved_credits == 0
+            assert wallet.available_credits == Decimal("0")
+
     def test_overview_marks_stale_active_subscription_expired_without_db_update(
         self, billing_test_client
     ) -> None:
