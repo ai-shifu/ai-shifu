@@ -101,6 +101,7 @@ from .queries import (
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import credit_decimal_to_number
+from .primitives import is_billing_enabled
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 from .serializers import (
@@ -619,7 +620,16 @@ def build_billing_overview(
             )
             wallet_payload.reserved_credits = credit_decimal_to_number(reserved_credits)
         subscription_payload = _serialize_subscription(app, subscription)
-        limit_state = build_creator_limit_state_for_available_credits(available_credits)
+        limit_state = (
+            build_creator_limit_state_for_available_credits(available_credits)
+            if is_billing_enabled()
+            else {
+                "state": "normal",
+                "debug_allowed": True,
+                "available_credits": "0",
+                "softlimit_threshold": "0",
+            }
+        )
         softlimit_threshold = limit_state.get("softlimit_threshold")
         return BillingOverviewDTO(
             creator_bid=normalized_creator_bid,

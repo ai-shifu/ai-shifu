@@ -836,9 +836,16 @@ class TestBillingRoutes:
             assert wallet.available_credits == Decimal("0")
 
     def test_overview_limit_state_uses_current_consumable_bucket_balance(
-        self, billing_test_client
+        self,
+        billing_test_client,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         app = billing_test_client.application
+        monkeypatch.setattr(
+            billing_read_models_module,
+            "is_billing_enabled",
+            lambda: True,
+        )
         with app.app_context():
             wallet = CreditWallet.query.filter(
                 CreditWallet.wallet_bid == "wallet-1",
@@ -861,6 +868,34 @@ class TestBillingRoutes:
 
             assert overview.wallet.available_credits == 0
             assert overview.credit_status == "hardlimit"
+
+    def test_overview_limit_state_remains_normal_when_billing_disabled(
+        self,
+        billing_test_client,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        app = billing_test_client.application
+        monkeypatch.setattr(
+            billing_read_models_module,
+            "is_billing_enabled",
+            lambda: False,
+        )
+        with app.app_context():
+            wallet = CreditWallet.query.filter(
+                CreditWallet.wallet_bid == "wallet-1",
+            ).one()
+            wallet.available_credits = Decimal("0")
+            for bucket in CreditWalletBucket.query.filter(
+                CreditWalletBucket.wallet_bid == "wallet-1",
+            ).all():
+                bucket.available_credits = Decimal("0")
+            dao.db.session.commit()
+
+            overview = build_billing_overview(app, "creator-1")
+
+            assert overview.wallet.available_credits == 0
+            assert overview.credit_status == "normal"
+            assert overview.debug_allowed is True
 
     def test_overview_marks_stale_active_subscription_expired_without_db_update(
         self, billing_test_client

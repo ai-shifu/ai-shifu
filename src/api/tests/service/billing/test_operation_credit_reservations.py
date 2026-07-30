@@ -301,9 +301,14 @@ def test_reserve_operation_credits_rejects_insufficient_balance(
 
 def test_reserve_operation_credits_freezes_topup_without_active_subscription(
     operation_credit_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from flaskr.service.billing.operation_credits import reserve_operation_credits
 
+    monkeypatch.setattr(
+        "flaskr.service.billing.operation_credits.now_utc",
+        lambda: datetime(2026, 1, 16, 0, 0, 0),
+    )
     creator_bid = "creator-frozen-topup"
     with operation_credit_app.app_context():
         wallet = CreditWallet(
@@ -406,9 +411,14 @@ def test_reserve_operation_credits_freezes_topup_without_active_subscription(
 
 def test_reserve_operation_credits_rejects_topup_after_consumption_window(
     operation_credit_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from flaskr.service.billing.operation_credits import reserve_operation_credits
 
+    monkeypatch.setattr(
+        "flaskr.service.billing.operation_credits.now_utc",
+        lambda: datetime(2026, 1, 16, 0, 0, 0),
+    )
     creator_bid = "creator-expired-topup-window"
     with operation_credit_app.app_context():
         wallet = CreditWallet(
