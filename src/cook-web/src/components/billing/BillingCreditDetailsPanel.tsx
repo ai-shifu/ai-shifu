@@ -45,7 +45,6 @@ type CategorySummaryRow = {
 
 const CATEGORY_ORDER: BillingBucketCategory[] = ['subscription', 'topup'];
 const SUBSCRIPTION_FREE_SOURCE_TYPES = new Set(['gift', 'manual']);
-const EMPTY_VALIDITY_LABEL = '--';
 
 function isBucketInCurrentWindow(
   bucket: BillingWalletBucket,
@@ -152,6 +151,7 @@ function CategoryValidityCell({
   category,
   effectiveTo,
   locale,
+  emptyValidityLabel,
   neverExpiresLabel,
   topupAvailabilityLabel,
   topupAvailabilityTooltip,
@@ -160,13 +160,14 @@ function CategoryValidityCell({
   category: BillingBucketCategory;
   effectiveTo: string | null;
   locale: string;
+  emptyValidityLabel: string;
   neverExpiresLabel: string;
   topupAvailabilityLabel: string;
   topupAvailabilityTooltip: string;
 }) {
   if (category !== 'topup') {
     if (availableCredits <= 0) {
-      return <>{EMPTY_VALIDITY_LABEL}</>;
+      return <>{emptyValidityLabel}</>;
     }
 
     if (effectiveTo) {
@@ -257,6 +258,7 @@ export function BillingCreditDetailsPanel({
   const totalCreditsLabel = formatBillingCreditBalance(
     overview?.wallet.available_credits || 0,
   );
+  const emptyValidityLabel = t('module.billing.details.emptyValidityLabel');
   const neverExpiresLabel = t('module.billing.ledger.neverExpires');
   const topupAvailabilityLabel = t(
     'module.billing.details.topupAvailabilityLabel',
@@ -345,6 +347,7 @@ export function BillingCreditDetailsPanel({
                     <div className='px-[var(--spacing-2,8px)] py-4 text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
                       <CategoryValidityCell
                         availableCredits={row.availableCredits}
+                        emptyValidityLabel={emptyValidityLabel}
                         category={row.category}
                         effectiveTo={row.effectiveTo}
                         locale={i18n.language}

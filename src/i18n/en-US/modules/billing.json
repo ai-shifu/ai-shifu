@@ -527,6 +527,7 @@
     "actions": {
       "upgradeNow": "Upgrade now"
     },
+    "emptyValidityLabel": "--",
     "subtitle": "Review total credits, category balances, and the effective window for each credit source.",
     "table": {
       "balance": "Balance",

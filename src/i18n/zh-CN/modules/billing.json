@@ -527,6 +527,7 @@
     "actions": {
       "upgradeNow": "立即升级"
     },
+    "emptyValidityLabel": "--",
     "subtitle": "查看当前老师空间的总积分、各类积分余额以及对应有效期。",
     "table": {
       "balance": "余额",

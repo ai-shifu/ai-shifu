@@ -9,7 +9,8 @@ import { BillingCreditDetailsPanel } from './BillingCreditDetailsPanel';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string) =>
+      key === 'module.billing.details.emptyValidityLabel' ? '--' : key,
     i18n: {
       language: 'zh-CN',
     },
