@@ -16,9 +16,6 @@ from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
 
 from .consts import (
-    BILLING_INTERVAL_DAY,
-    BILLING_INTERVAL_MONTH,
-    BILLING_INTERVAL_YEAR,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -62,6 +59,10 @@ from .credit_mutations import (
     activate_reserved_grant_credit,
     reserved_grant_state as _shared_reserved_grant_state,
 )
+from .cycle_transitions import (
+    resolve_order_effective_from as _resolve_order_effective_from,
+    resolve_order_effective_to as _resolve_order_effective_to,
+)
 from .dtos import BillingSubscriptionDTO
 from .models import (
     BillingOrder,
@@ -84,7 +85,6 @@ from .preorders import (
 )
 from .queries import (
     extract_order_metadata_datetime as _extract_order_metadata_datetime,
-    extract_resolved_order_cycle_end_at as _extract_resolved_order_cycle_end_at,
     extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
     calculate_billing_cycle_end as _calc_provider_cycle_end,
     calculate_self_managed_billing_cycle_end_after_boundary as _calc_self_managed_cycle_end_after_boundary,
@@ -2452,62 +2452,31 @@ def _resolve_credit_bucket_effective_to(
     product: BillingProduct,
     effective_from: datetime,
 ) -> datetime | None:
-    if order.order_type == BILLING_ORDER_TYPE_TOPUP:
-        return _resolve_topup_bucket_effective_to(
-            creator_bid=order.creator_bid,
-            effective_from=effective_from,
-        )
-
-    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
-    resolved_cycle_end_at = _extract_resolved_order_cycle_end_at(metadata)
-    if resolved_cycle_end_at is not None:
-        return resolved_cycle_end_at
-
-    if (
-        order.subscription_bid
-        and order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START
-    ):
-        subscription = _load_subscription_by_bid(order.subscription_bid)
-        if (
-            subscription is not None
-            and subscription.current_period_start_at == effective_from
-            and subscription.current_period_end_at is not None
-            and subscription.current_period_end_at > effective_from
-        ):
-            return subscription.current_period_end_at
-
-    interval = int(product.billing_interval or 0)
-    interval_count = max(int(product.billing_interval_count or 0), 0)
-    if interval_count <= 0:
-        return None
-    if interval == BILLING_INTERVAL_DAY:
-        if _is_self_managed_billing_order(order):
-            return _calc_self_managed_cycle_end(
-                product,
-                cycle_start_at=effective_from,
+    return _resolve_order_effective_to(
+        order=order,
+        product=product,
+        effective_from=effective_from,
+        load_subscription_by_bid=_load_subscription_by_bid,
+        resolve_topup_effective_to=lambda creator_bid, from_at: (
+            _resolve_topup_bucket_effective_to(
+                creator_bid=creator_bid,
+                effective_from=from_at,
             )
-        return effective_from + timedelta(days=interval_count)
-    if interval == BILLING_INTERVAL_MONTH:
-        if _is_self_managed_billing_order(order):
-            return _calc_self_managed_cycle_end(
-                product,
-                cycle_start_at=effective_from,
+        ),
+        is_self_managed_order=_is_self_managed_billing_order,
+        calculate_provider_cycle_end=lambda resolved_product, cycle_start_at: (
+            _calc_provider_cycle_end(
+                resolved_product,
+                cycle_start_at=cycle_start_at,
             )
-        return _calc_provider_cycle_end(
-            product,
-            cycle_start_at=effective_from,
-        )
-    if interval == BILLING_INTERVAL_YEAR:
-        if _is_self_managed_billing_order(order):
-            return _calc_self_managed_cycle_end(
-                product,
-                cycle_start_at=effective_from,
+        ),
+        calculate_self_managed_cycle_end=lambda resolved_product, cycle_start_at: (
+            _calc_self_managed_cycle_end(
+                resolved_product,
+                cycle_start_at=cycle_start_at,
             )
-        return _calc_provider_cycle_end(
-            product,
-            cycle_start_at=effective_from,
-        )
-    return None
+        ),
+    )
 
 
 def _is_self_managed_billing_order(order: BillingOrder) -> bool:
@@ -2875,20 +2844,11 @@ def _resolve_credit_bucket_effective_from(
     order: BillingOrder,
     default_effective_from: datetime,
 ) -> datetime:
-    if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
-        return default_effective_from
-    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
-    renewal_cycle_start_at = _extract_resolved_order_cycle_start_at(metadata)
-    if renewal_cycle_start_at is not None:
-        return renewal_cycle_start_at
-    subscription = _load_subscription_by_bid(order.subscription_bid)
-    if (
-        subscription is None
-        or subscription.current_period_end_at is None
-        or subscription.current_period_end_at <= default_effective_from
-    ):
-        return default_effective_from
-    return subscription.current_period_end_at
+    return _resolve_order_effective_from(
+        order=order,
+        default_effective_from=default_effective_from,
+        load_subscription_by_bid=_load_subscription_by_bid,
+    )
 
 
 def _sync_subscription_lifecycle_events(
