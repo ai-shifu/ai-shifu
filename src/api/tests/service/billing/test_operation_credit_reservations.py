@@ -9,15 +9,19 @@ import pytest
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     BILLING_METRIC_TTS_REQUEST_COUNT,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_FREE,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_LEDGER_ENTRY_TYPE_HOLD,
     CREDIT_LEDGER_ENTRY_TYPE_RELEASE,
     CREDIT_ROUNDING_MODE_CEIL,
+    CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import (
+    BillingSubscription,
     CreditLedgerEntry,
     CreditUsageRate,
     CreditWallet,
@@ -295,6 +299,79 @@ def test_reserve_operation_credits_rejects_insufficient_balance(
     assert exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"]
 
 
+def test_reserve_operation_credits_freezes_topup_without_active_subscription(
+    operation_credit_app: Flask,
+) -> None:
+    from flaskr.service.billing.operation_credits import reserve_operation_credits
+
+    creator_bid = "creator-frozen-topup"
+    with operation_credit_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid=f"wallet-{creator_bid}",
+            creator_bid=creator_bid,
+            available_credits=Decimal("15.0000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("15.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid=f"bucket-{creator_bid}",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid=f"topup-{creator_bid}",
+            priority=30,
+            original_credits=Decimal("15.0000000000"),
+            available_credits=Decimal("15.0000000000"),
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+            effective_to=datetime(2099, 1, 1, 0, 0, 0),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={},
+        )
+        subscription = BillingSubscription(
+            subscription_bid=f"subscription-{creator_bid}",
+            creator_bid=creator_bid,
+            product_bid="product-plan-expired",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            current_period_start_at=datetime(2026, 1, 1, 0, 0, 0),
+            current_period_end_at=datetime(2026, 1, 15, 0, 0, 0),
+        )
+        dao.db.session.add_all([wallet, bucket, subscription])
+        dao.db.session.commit()
+
+    with pytest.raises(AppException) as exc_info:
+        reserve_operation_credits(
+            operation_credit_app,
+            creator_bid=creator_bid,
+            amount=Decimal("1.0000000000"),
+            operation_type="voice_clone",
+            operation_bid="voice-bid-frozen-topup",
+            metadata={},
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"]
+    with operation_credit_app.app_context():
+        wallet = CreditWallet.query.filter_by(creator_bid=creator_bid).one()
+        bucket = CreditWalletBucket.query.filter_by(creator_bid=creator_bid).one()
+        assert wallet.available_credits == Decimal("15.0000000000")
+        assert wallet.reserved_credits == Decimal("0E-10")
+        assert bucket.available_credits == Decimal("15.0000000000")
+        assert bucket.reserved_credits == Decimal("0E-10")
+        assert (
+            CreditLedgerEntry.query.filter_by(
+                creator_bid=creator_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_HOLD,
+            ).count()
+            == 0
+        )
+
+
 def test_operation_credit_mutations_request_wallet_and_bucket_locks(
     operation_credit_app: Flask,
     monkeypatch,
@@ -319,15 +396,15 @@ def test_operation_credit_mutations_request_wallet_and_bucket_locks(
 
     def spy_load_wallet(creator_bid: str, *, lock: bool = False):
         wallet_lock_calls.append(lock)
-        return real_load_wallet(creator_bid)
+        return real_load_wallet(creator_bid, lock=lock)
 
     def spy_load_active_buckets(wallet, operation_at, *, lock: bool = False):
         active_bucket_lock_calls.append(lock)
-        return real_load_active_buckets(wallet, operation_at)
+        return real_load_active_buckets(wallet, operation_at, lock=lock)
 
     def spy_iter_hold_buckets(hold, *, lock: bool = False):
         hold_bucket_lock_calls.append(lock)
-        return real_iter_hold_buckets(hold)
+        return real_iter_hold_buckets(hold, lock=lock)
 
     monkeypatch.setattr(operation_credits, "_load_wallet", spy_load_wallet)
     monkeypatch.setattr(

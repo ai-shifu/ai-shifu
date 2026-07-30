@@ -93,7 +93,7 @@ function buildCategorySummary(
         bucket.status === 'active' &&
         Number(bucket.available_credits || 0) > 0 &&
         (category === 'topup'
-          ? hasActiveSubscription && hasBucketStarted(bucket, now)
+          ? hasBucketStarted(bucket, now)
           : isBucketInCurrentWindow(bucket, now) &&
             (hasActiveSubscription ||
               !bucketRequiresActiveSubscription(bucket))),

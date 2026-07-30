@@ -584,7 +584,7 @@ describe('BillingCreditDetailsPanel', () => {
     ).toBeInTheDocument();
   });
 
-  test('does not count topup buckets when there is no active subscription', () => {
+  test('shows held topup credits when there is no active subscription', () => {
     mockUseBillingOverview.mockReturnValue({
       data: {
         creator_bid: 'creator-1',
@@ -660,12 +660,11 @@ describe('BillingCreditDetailsPanel', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(topupLabel.closest('.grid') as HTMLElement).getByText('0.00'),
+      within(topupLabel.closest('.grid') as HTMLElement).getByText('1,000.00'),
     ).toBeInTheDocument();
-    expect(screen.queryByText('1,000.00')).not.toBeInTheDocument();
   });
 
-  test('does not count topup buckets when the subscription period has ended', () => {
+  test('shows held topup credits when the subscription period has ended', () => {
     const overview = mockUseBillingOverview().data;
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -704,9 +703,8 @@ describe('BillingCreditDetailsPanel', () => {
     const topupLabel = screen.getByText('module.billing.ledger.category.topup');
 
     expect(
-      within(topupLabel.closest('.grid') as HTMLElement).getByText('0.00'),
+      within(topupLabel.closest('.grid') as HTMLElement).getByText('1,000.00'),
     ).toBeInTheDocument();
-    expect(screen.queryByText('1,000.00')).not.toBeInTheDocument();
   });
 
   test('shows a tooltip for topup availability when the topup bucket has no expiry', async () => {
