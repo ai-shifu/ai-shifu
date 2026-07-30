@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 from cryptography import x509
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
-from flask import Flask
+from flask import Flask, current_app, has_app_context
 from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.datastructures import FileStorage
 
@@ -135,6 +135,7 @@ _LOGO_SQUARE_MAX_SIZE = (
     _LOGO_SQUARE_CSS_SIZE[0] * _LOGO_MAX_DEVICE_SCALE,
     _LOGO_SQUARE_CSS_SIZE[1] * _LOGO_MAX_DEVICE_SCALE,
 )
+_HOME_URL_MAX_LENGTH = 512
 
 
 @dataclass(slots=True, frozen=True)
@@ -380,9 +381,16 @@ def save_creator_branding(
                 payload.get("logo_square_url"), "logo_square_url"
             ),
         }
+        # Only touch home_url when the caller sends the key: absent means
+        # "keep as is", empty string means "clear".
+        home_url_update = (
+            _normalize_home_url(payload.get("home_url"))
+            if "home_url" in payload
+            else None
+        )
         funcs = _saas_funcs(required=False)
         if funcs is None:
-            grant_creator_manual_entitlement(
+            state = grant_creator_manual_entitlement(
                 app,
                 creator_bid,
                 branding_enabled=entitlement.branding_enabled,
@@ -390,8 +398,9 @@ def save_creator_branding(
                 custom_wechat_enabled=entitlement.custom_wechat_enabled,
                 custom_payment_enabled=entitlement.custom_payment_enabled,
                 branding=value,
+                home_url=home_url_update,
             )
-            return value
+            return {**value, "home_url": _entitlement_home_url(state)}
 
         funcs.create_or_update_saas_user_config(
             app,
@@ -403,7 +412,7 @@ def save_creator_branding(
                 remark="Course-owner brand profile",
             ),
         )
-        grant_creator_manual_entitlement(
+        state = grant_creator_manual_entitlement(
             app,
             creator_bid,
             branding_enabled=entitlement.branding_enabled,
@@ -411,8 +420,9 @@ def save_creator_branding(
             custom_wechat_enabled=entitlement.custom_wechat_enabled,
             custom_payment_enabled=entitlement.custom_payment_enabled,
             branding=value,
+            home_url=home_url_update,
         )
-        return value
+        return {**value, "home_url": _entitlement_home_url(state)}
 
 
 def save_creator_integration(
@@ -551,6 +561,8 @@ def resolve_creator_branding(creator_bid: str) -> dict[str, str]:
         "logo_square_url": str(payload.get("logo_square_url") or ""),
     }
     if resolved["logo_wide_url"] or resolved["logo_square_url"]:
+        entitlement = resolve_creator_entitlement_state(creator_bid)
+        resolved["home_url"] = _entitlement_home_url(entitlement)
         return resolved
     return _resolve_entitlement_branding(creator_bid)
 
@@ -563,6 +575,7 @@ def _resolve_entitlement_branding(creator_bid: str) -> dict[str, str]:
     return {
         "logo_wide_url": str(branding.get("logo_wide_url") or ""),
         "logo_square_url": str(branding.get("logo_square_url") or ""),
+        "home_url": _entitlement_home_url(entitlement),
     }
 
 
@@ -1063,6 +1076,35 @@ def _normalize_logo_url(value: Any, field: str) -> str:
     return raw
 
 
+def _normalize_home_url(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if len(raw) > _HOME_URL_MAX_LENGTH:
+        raise_param_error("home_url")
+    parsed = urlsplit(raw)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise_param_error("home_url")
+    return raw
+
+
+def _normalize_home_url_lenient(value: Any) -> str:
+    """Draft-side variant: drop invalid values instead of raising, so the
+    admin draft autosave never fails on a partially typed URL."""
+    try:
+        return _normalize_home_url(value)
+    except AppException:
+        return ""
+
+
+def _entitlement_home_url(entitlement_state) -> str:
+    feature_values = entitlement_state.feature_payload.to_metadata_json()
+    branding_payload = feature_values.get("branding")
+    if not isinstance(branding_payload, dict):
+        branding_payload = {}
+    return str(feature_values.get("home_url") or branding_payload.get("home_url") or "")
+
+
 def _detect_logo_content_type(content: bytes) -> str:
     if content.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
@@ -1170,7 +1212,7 @@ def _save_logo_image(image: Image.Image, *, suffix: str) -> bytes:
 
 def _saas_funcs(*, required: bool = True):
     try:
-        return import_module(
+        module = import_module(
             "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs"
         )
     except ModuleNotFoundError as exc:
@@ -1179,6 +1221,16 @@ def _saas_funcs(*, required: bool = True):
         if required:
             raise RuntimeError("SaaS config plugin is not installed") from exc
         return None
+    # The plugin ships with the image even on deployments that never
+    # configure its dedicated database. Plugin initialization then leaves
+    # SAAS_PLUGIN_ENABLED false and its DB bind points at an unreachable
+    # default host, so treat "installed but not enabled" the same as "not
+    # installed" and let callers fall back to entitlement-backed storage.
+    if has_app_context() and not current_app.config.get("SAAS_PLUGIN_ENABLED"):
+        if required:
+            raise RuntimeError("SaaS config plugin is not enabled")
+        return None
+    return module
 
 
 def _saas_model():
@@ -1249,6 +1301,7 @@ def _empty_admin_creator_customization_draft(
         "branding": {
             "logo_wide_url": "",
             "logo_square_url": "",
+            "home_url": "",
         },
         "domain": {
             "host": "",
@@ -1299,6 +1352,7 @@ def _normalize_admin_creator_customization_draft(
             )
             if branding_payload.get("logo_square_url")
             else "",
+            "home_url": _normalize_home_url_lenient(branding_payload.get("home_url")),
         }
 
     domain_payload = payload.get("domain")
