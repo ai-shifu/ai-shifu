@@ -119,8 +119,12 @@ def app():
     try:
         import_module("flaskr.plugins.ai_shifu_saas_plugin")
         app.config["SAAS_PLUGIN_ENABLED"] = True
-    except ModuleNotFoundError:
-        pass
+    except ModuleNotFoundError as exc:
+        # Only swallow "the plugin package itself is absent"; a missing
+        # transitive dependency inside an installed plugin must surface
+        # instead of silently disabling the plugin-path tests.
+        if not str(exc.name or "").startswith("flaskr.plugins.ai_shifu_saas_plugin"):
+            raise
     app.extensions.pop("sqlalchemy", None)
     dao.db.init_app(app)
 
