@@ -831,7 +831,36 @@ class TestBillingRoutes:
 
             assert overview.wallet.available_credits == 120.5
             assert overview.wallet.reserved_credits == 0
+            assert overview.credit_status == "normal"
+            assert overview.debug_allowed is True
             assert wallet.available_credits == Decimal("0")
+
+    def test_overview_limit_state_uses_current_consumable_bucket_balance(
+        self, billing_test_client
+    ) -> None:
+        app = billing_test_client.application
+        with app.app_context():
+            wallet = CreditWallet.query.filter(
+                CreditWallet.wallet_bid == "wallet-1",
+            ).one()
+            wallet.available_credits = Decimal("20.0000000000")
+            subscription = BillingSubscription.query.filter(
+                BillingSubscription.subscription_bid == "sub-1",
+            ).one()
+            subscription.current_period_end_at = datetime(2026, 4, 5, 0, 0, 0)
+            for bucket in CreditWalletBucket.query.filter(
+                CreditWalletBucket.wallet_bid == "wallet-1",
+            ).all():
+                if bucket.wallet_bucket_bid == "bucket-topup":
+                    bucket.available_credits = Decimal("20.0000000000")
+                else:
+                    bucket.available_credits = Decimal("0")
+            dao.db.session.commit()
+
+            overview = build_billing_overview(app, "creator-1")
+
+            assert overview.wallet.available_credits == 0
+            assert overview.credit_status == "hardlimit"
 
     def test_overview_marks_stale_active_subscription_expired_without_db_update(
         self, billing_test_client
@@ -1108,6 +1137,36 @@ class TestBillingRoutes:
         assert bucket_map["bucket-free"]["status"] == "expired"
         assert bucket_map["bucket-subscription"]["status"] == "expired"
         assert bucket_map["bucket-topup"]["status"] == "active"
+
+    def test_wallet_buckets_keep_owned_topup_visible_after_old_window_ends(
+        self,
+        billing_test_client,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            "flaskr.service.billing.serializers.now_utc",
+            lambda: datetime(2026, 5, 1, 12, 0, 0),
+        )
+        app = billing_test_client.application
+        with app.app_context():
+            bucket = CreditWalletBucket.query.filter(
+                CreditWalletBucket.wallet_bucket_bid == "bucket-topup",
+            ).one()
+            bucket.effective_to = datetime(2026, 4, 5, 0, 0, 0)
+            bucket.available_credits = Decimal("15.3800000000")
+            dao.db.session.commit()
+
+        payload = billing_test_client.get("/api/billing/wallet-buckets").get_json(
+            force=True
+        )
+        bucket_map = {
+            item["wallet_bucket_bid"]: item for item in payload["data"]["items"]
+        }
+
+        assert payload["code"] == 0
+        assert bucket_map["bucket-topup"]["category"] == "topup"
+        assert bucket_map["bucket-topup"]["status"] == "active"
+        assert bucket_map["bucket-topup"]["available_credits"] == 15.38
 
     def test_billing_public_builders_return_dto_instances(
         self,

@@ -52,7 +52,7 @@ from .bucket_categories import (
     build_wallet_bucket_runtime_sort_key,
     load_billing_order_type_by_bid,
 )
-from .credit_notifications import resolve_creator_limit_state
+from .credit_notifications import build_creator_limit_state_for_available_credits
 from .dtos import (
     AdminBillingDailyLedgerSummaryPageDTO,
     AdminBillingFocusTeacherDTO,
@@ -606,6 +606,7 @@ def build_billing_overview(
         subscription = _load_current_subscription(normalized_creator_bid)
 
         wallet_payload = _serialize_wallet(wallet)
+        available_credits = Decimal("0")
         if wallet is not None:
             available_credits, reserved_credits = (
                 calculate_credit_wallet_snapshot_values(
@@ -618,7 +619,7 @@ def build_billing_overview(
             )
             wallet_payload.reserved_credits = credit_decimal_to_number(reserved_credits)
         subscription_payload = _serialize_subscription(app, subscription)
-        limit_state = resolve_creator_limit_state(app, normalized_creator_bid)
+        limit_state = build_creator_limit_state_for_available_credits(available_credits)
         softlimit_threshold = limit_state.get("softlimit_threshold")
         return BillingOverviewDTO(
             creator_bid=normalized_creator_bid,

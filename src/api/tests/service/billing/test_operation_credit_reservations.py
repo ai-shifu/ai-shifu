@@ -404,6 +404,73 @@ def test_reserve_operation_credits_freezes_topup_without_active_subscription(
         )
 
 
+def test_reserve_operation_credits_rejects_topup_after_consumption_window(
+    operation_credit_app: Flask,
+) -> None:
+    from flaskr.service.billing.operation_credits import reserve_operation_credits
+
+    creator_bid = "creator-expired-topup-window"
+    with operation_credit_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid=f"wallet-{creator_bid}",
+            creator_bid=creator_bid,
+            available_credits=Decimal("15.0000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("15.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid=f"bucket-{creator_bid}",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid=f"topup-{creator_bid}",
+            priority=30,
+            original_credits=Decimal("15.0000000000"),
+            available_credits=Decimal("15.0000000000"),
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+            effective_to=datetime(2026, 1, 15, 0, 0, 0),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={},
+        )
+        subscription = BillingSubscription(
+            subscription_bid=f"subscription-{creator_bid}",
+            creator_bid=creator_bid,
+            product_bid="product-plan-active",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            current_period_start_at=datetime(2026, 1, 1, 0, 0, 0),
+            current_period_end_at=datetime(2099, 1, 1, 0, 0, 0),
+        )
+        dao.db.session.add_all([wallet, bucket, subscription])
+        dao.db.session.commit()
+
+    with pytest.raises(AppException) as exc_info:
+        reserve_operation_credits(
+            operation_credit_app,
+            creator_bid=creator_bid,
+            amount=Decimal("1.0000000000"),
+            operation_type="voice_clone",
+            operation_bid="voice-bid-expired-topup-window",
+            metadata={},
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"]
+    with operation_credit_app.app_context():
+        assert (
+            CreditLedgerEntry.query.filter_by(
+                creator_bid=creator_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_HOLD,
+            ).count()
+            == 0
+        )
+
+
 def test_operation_credit_mutations_request_wallet_and_bucket_locks(
     operation_credit_app: Flask,
     monkeypatch,
