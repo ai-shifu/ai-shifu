@@ -523,7 +523,10 @@ def test_creator_branding_reuses_unified_config(app, monkeypatch):
         )
         assert saved == customization.resolve_creator_branding("creator-brand-1")
         state = resolve_creator_entitlement_state("creator-brand-1")
-        assert state.feature_payload.to_metadata_json()["branding"] == saved
+        assert state.feature_payload.to_metadata_json()["branding"] == {
+            "logo_wide_url": saved["logo_wide_url"],
+            "logo_square_url": saved["logo_square_url"],
+        }
 
 
 def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(app, monkeypatch):
@@ -595,6 +598,7 @@ def test_unavailable_saas_plugin_keeps_optional_customization_reads_empty(
         assert customization.resolve_creator_branding("creator-without-plugin") == {
             "logo_wide_url": "",
             "logo_square_url": "",
+            "home_url": "",
         }
         assert (
             customization._active_version_bid(
@@ -604,6 +608,72 @@ def test_unavailable_saas_plugin_keeps_optional_customization_reads_empty(
             )
             == ""
         )
+
+
+def test_creator_branding_home_url_roundtrip(app, monkeypatch):
+    monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+
+    def missing_plugin(name):
+        if name.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
+            raise ModuleNotFoundError(name=name)
+        return import_module(name)
+
+    monkeypatch.setattr(customization, "import_module", missing_plugin)
+
+    with app.app_context():
+        grant_creator_manual_entitlement(
+            app,
+            "creator-home-url-1",
+            branding_enabled=True,
+        )
+        saved = customization.save_creator_branding(
+            app,
+            "creator-home-url-1",
+            {
+                "logo_wide_url": "/storage/brand/wide.png",
+                "logo_square_url": "",
+                "home_url": "https://www.example.com/",
+            },
+        )
+        assert saved["home_url"] == "https://www.example.com/"
+        assert saved == customization.resolve_creator_branding("creator-home-url-1")
+
+        state = resolve_creator_entitlement_state("creator-home-url-1")
+        assert (
+            state.feature_payload.to_metadata_json()["home_url"]
+            == "https://www.example.com/"
+        )
+
+        # Omitting the key keeps the stored home_url untouched.
+        kept = customization.save_creator_branding(
+            app,
+            "creator-home-url-1",
+            {"logo_wide_url": "/storage/brand/wide.png", "logo_square_url": ""},
+        )
+        assert kept["home_url"] == "https://www.example.com/"
+
+        # An explicit empty string clears it.
+        cleared = customization.save_creator_branding(
+            app,
+            "creator-home-url-1",
+            {
+                "logo_wide_url": "/storage/brand/wide.png",
+                "logo_square_url": "",
+                "home_url": "",
+            },
+        )
+        assert cleared["home_url"] == ""
+
+        with pytest.raises(AppException):
+            customization.save_creator_branding(
+                app,
+                "creator-home-url-1",
+                {
+                    "logo_wide_url": "",
+                    "logo_square_url": "",
+                    "home_url": "javascript:alert(1)",
+                },
+            )
 
 
 def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(app, monkeypatch):

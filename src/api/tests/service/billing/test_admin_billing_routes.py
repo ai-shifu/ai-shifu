@@ -1192,6 +1192,7 @@ class TestAdminBillingRoutes:
         assert payload["data"] == {
             "logo_wide_url": "/api/storage/courses/creator-branding/creator-1/wide.png",
             "logo_square_url": "/api/storage/courses/creator-branding/creator-1/square.png",
+            "home_url": "",
         }
 
         get_response = client.get("/api/admin/billing/customization/creator-1")
