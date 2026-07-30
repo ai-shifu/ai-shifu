@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import shutil
+from importlib import import_module
 from pathlib import Path
 import pytest
 
@@ -112,6 +113,14 @@ def app():
         "ai_shifu_saas": _test_db_uri,
         "ai_shifu_admin": _test_db_uri,
     }
+    # The binds above give the SaaS plugin a working SQLite database, so mark
+    # it enabled whenever the plugin package is importable. Runtime deployments
+    # set this flag during plugin initialization instead.
+    try:
+        import_module("flaskr.plugins.ai_shifu_saas_plugin")
+        app.config["SAAS_PLUGIN_ENABLED"] = True
+    except ModuleNotFoundError:
+        pass
     app.extensions.pop("sqlalchemy", None)
     dao.db.init_app(app)
 

@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 from cryptography import x509
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
-from flask import Flask
+from flask import Flask, current_app, has_app_context
 from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.datastructures import FileStorage
 
@@ -1170,7 +1170,7 @@ def _save_logo_image(image: Image.Image, *, suffix: str) -> bytes:
 
 def _saas_funcs(*, required: bool = True):
     try:
-        return import_module(
+        module = import_module(
             "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs"
         )
     except ModuleNotFoundError as exc:
@@ -1179,6 +1179,16 @@ def _saas_funcs(*, required: bool = True):
         if required:
             raise RuntimeError("SaaS config plugin is not installed") from exc
         return None
+    # The plugin ships with the image even on deployments that never
+    # configure its dedicated database. Plugin initialization then leaves
+    # SAAS_PLUGIN_ENABLED false and its DB bind points at an unreachable
+    # default host, so treat "installed but not enabled" the same as "not
+    # installed" and let callers fall back to entitlement-backed storage.
+    if has_app_context() and not current_app.config.get("SAAS_PLUGIN_ENABLED"):
+        if required:
+            raise RuntimeError("SaaS config plugin is not enabled")
+        return None
+    return module
 
 
 def _saas_model():
