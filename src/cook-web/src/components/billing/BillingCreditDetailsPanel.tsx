@@ -45,6 +45,7 @@ type CategorySummaryRow = {
 
 const CATEGORY_ORDER: BillingBucketCategory[] = ['subscription', 'topup'];
 const SUBSCRIPTION_FREE_SOURCE_TYPES = new Set(['gift', 'manual']);
+const EMPTY_VALIDITY_LABEL = '--';
 
 function isBucketInCurrentWindow(
   bucket: BillingWalletBucket,
@@ -86,7 +87,7 @@ function buildCategorySummary(
   const { activeSubscriptionEffectiveTo, hasActiveSubscription } = options;
   const now = options.now || new Date();
 
-  return CATEGORY_ORDER.flatMap(category => {
+  return CATEGORY_ORDER.flatMap<CategorySummaryRow>(category => {
     const activeBuckets = buckets.filter(
       bucket =>
         bucket.category === category &&
@@ -104,10 +105,7 @@ function buildCategorySummary(
         {
           category,
           availableCredits: 0,
-          effectiveTo:
-            category === 'subscription' && hasActiveSubscription
-              ? activeSubscriptionEffectiveTo
-              : null,
+          effectiveTo: null,
         },
       ];
     }
@@ -150,6 +148,7 @@ function buildCategorySummary(
 }
 
 function CategoryValidityCell({
+  availableCredits,
   category,
   effectiveTo,
   locale,
@@ -157,6 +156,7 @@ function CategoryValidityCell({
   topupAvailabilityLabel,
   topupAvailabilityTooltip,
 }: {
+  availableCredits: number;
   category: BillingBucketCategory;
   effectiveTo: string | null;
   locale: string;
@@ -165,6 +165,10 @@ function CategoryValidityCell({
   topupAvailabilityTooltip: string;
 }) {
   if (category !== 'topup') {
+    if (availableCredits <= 0) {
+      return <>{EMPTY_VALIDITY_LABEL}</>;
+    }
+
     if (effectiveTo) {
       return <>{formatBillingCompactDateTime(effectiveTo, locale)}</>;
     }
@@ -340,6 +344,7 @@ export function BillingCreditDetailsPanel({
                     </div>
                     <div className='px-[var(--spacing-2,8px)] py-4 text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
                       <CategoryValidityCell
+                        availableCredits={row.availableCredits}
                         category={row.category}
                         effectiveTo={row.effectiveTo}
                         locale={i18n.language}
