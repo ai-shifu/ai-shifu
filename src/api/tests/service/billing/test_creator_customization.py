@@ -610,6 +610,45 @@ def test_unavailable_saas_plugin_keeps_optional_customization_reads_empty(
         )
 
 
+def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch):
+    """A deployment can ship the plugin package without configuring its
+    database; SAAS_PLUGIN_ENABLED then stays false and the plugin bind points
+    at an unreachable host, so customization reads must not touch it."""
+
+    class _ExplodingModule:
+        def __getattr__(self, name):
+            raise AssertionError(
+                "SaaS plugin must not be used while SAAS_PLUGIN_ENABLED is false"
+            )
+
+    def fake_import(name):
+        if name.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
+            return _ExplodingModule()
+        return import_module(name)
+
+    monkeypatch.setattr(customization, "import_module", fake_import)
+
+    with app.app_context():
+        monkeypatch.setitem(app.config, "SAAS_PLUGIN_ENABLED", False)
+        grant_creator_manual_entitlement(
+            app,
+            "creator-disabled-plugin",
+            branding_enabled=True,
+            branding={"logo_wide_url": "/storage/brand/wide.png"},
+        )
+
+        assert customization._saas_funcs(required=False) is None
+        with pytest.raises(RuntimeError):
+            customization._saas_funcs()
+
+        resolved = customization.resolve_creator_branding("creator-disabled-plugin")
+        assert resolved["logo_wide_url"] == "/storage/brand/wide.png"
+        assert (
+            customization._active_version_bid(app, "creator-disabled-plugin", "stripe")
+            == ""
+        )
+
+
 def test_creator_branding_home_url_roundtrip(app, monkeypatch):
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
 
