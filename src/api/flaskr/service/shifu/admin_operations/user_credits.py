@@ -346,6 +346,15 @@ def get_operator_user_credits(
             CreditLedgerEntry.deleted == 0,
             CreditLedgerEntry.creator_bid == normalized_user_bid,
         )
+        bucket_credit_state_expr = db.func.lower(
+            db.func.trim(
+                db.func.coalesce(
+                    CreditLedgerEntry.metadata_json["bucket_credit_state"].as_string(),
+                    "",
+                )
+            )
+        )
+        query = query.filter(bucket_credit_state_expr.notin_(("reserved", "absorbed")))
 
         if start_time:
             query = query.filter(CreditLedgerEntry.created_at >= start_time)

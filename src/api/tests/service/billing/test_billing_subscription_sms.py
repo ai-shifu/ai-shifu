@@ -15,8 +15,10 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_TRIAL_PRODUCT_BID,
 )
 from flaskr.service.billing.checkout import sync_billing_order
@@ -636,6 +638,109 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
         ).one()
         notification = order.metadata_json["notifications"]["billing_paid_feishu"]
         assert notification["status"] == "pending"
+
+
+def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
+    billing_subscription_sms_app,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = billing_subscription_sms_app
+    _seed_creator(app)
+    paid_at = datetime(2026, 7, 31, 4, 0, 53)
+
+    class FakePingxxProvider:
+        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+            assert provider_reference == "ch_trial_upgrade_sync_pingxx_1"
+            assert reference_type == "charge"
+            return PaymentNotificationResult(
+                order_bid="",
+                status="manual_sync",
+                provider_payload={
+                    "charge": {
+                        "id": provider_reference,
+                        "order_no": "billing-trial-upgrade-sync-1",
+                        "paid": True,
+                        "time_paid": _utc_epoch(paid_at),
+                        "channel": "wx_pub_qr",
+                    }
+                },
+                charge_id=provider_reference,
+            )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.checkout.get_payment_provider",
+        lambda channel: FakePingxxProvider(),
+    )
+
+    with app.app_context():
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-trial-upgrade-sync-1",
+                creator_bid="creator-1",
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="manual",
+                current_period_start_at=paid_at - timedelta(days=1),
+                current_period_end_at=paid_at + timedelta(days=14),
+            )
+        )
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid="billing-trial-upgrade-sync-1",
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-trial-upgrade-sync-1",
+                currency="CNY",
+                payable_amount=9900,
+                paid_amount=0,
+                payment_provider="pingxx",
+                channel="wx_pub_qr",
+                provider_reference_id="ch_trial_upgrade_sync_pingxx_1",
+                status=BILLING_ORDER_STATUS_PENDING,
+                metadata_json={"checkout_type": "subscription"},
+            )
+        )
+        dao.db.session.commit()
+
+    payload = sync_billing_order(
+        app,
+        "creator-1",
+        "billing-trial-upgrade-sync-1",
+        {},
+    )
+
+    assert payload.status == "paid"
+    with app.app_context():
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-trial-upgrade-sync-1"
+        ).one()
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="billing-trial-upgrade-sync-1"
+        ).one()
+        assert order.status == BILLING_ORDER_STATUS_PAID
+        assert subscription.product_bid == "bill-product-plan-monthly"
+        assert subscription.billing_provider == "pingxx"
+        assert subscription.metadata_json["provider"] == "pingxx"
+        assert subscription.metadata_json["latest_source"] == "sync"
+        subscription.cancel_at_period_end = 1
+        subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+        dao.db.session.commit()
+
+    duplicate_payload = sync_billing_order(
+        app,
+        "creator-1",
+        "billing-trial-upgrade-sync-1",
+        {},
+    )
+
+    assert duplicate_payload.status == "paid"
+    with app.app_context():
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-trial-upgrade-sync-1"
+        ).one()
+        assert subscription.cancel_at_period_end == 1
+        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
 
 
 def test_send_billing_paid_feishu_task_marks_sent(

@@ -13,6 +13,8 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_ORDER_TYPE_TOPUP,
 )
 from flaskr.service.billing.models import (
@@ -383,6 +385,92 @@ class TestBillingPingxxCallbacks:
             assert wallet.available_credits == 20
             assert bucket.available_credits == 20
             assert ledger.amount == 20
+
+    def test_pingxx_callback_syncs_manual_trial_subscription_provider(
+        self, billing_callback_app
+    ) -> None:
+        with billing_callback_app.app_context():
+            now = datetime(2026, 4, 8, 12, 0, 0)
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-manual-trial-to-pingxx",
+                    creator_bid="creator-1",
+                    product_bid="bill-product-plan-trial",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="manual",
+                    current_period_start_at=now - timedelta(days=1),
+                    current_period_end_at=now + timedelta(days=14),
+                )
+            )
+            dao.db.session.add(
+                BillingOrder(
+                    bill_order_bid="bill-pingxx-trial-upgrade-1",
+                    creator_bid="creator-1",
+                    order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                    product_bid="bill-product-plan-monthly",
+                    subscription_bid="sub-manual-trial-to-pingxx",
+                    currency="CNY",
+                    payable_amount=9900,
+                    paid_amount=0,
+                    payment_provider="pingxx",
+                    channel="wx_pub_qr",
+                    provider_reference_id="ch_trial_upgrade_pingxx_1",
+                    status=BILLING_ORDER_STATUS_PENDING,
+                    failure_code="",
+                    failure_message="",
+                    metadata_json={"checkout_type": "subscription"},
+                )
+            )
+            dao.db.session.add(
+                _create_billing_pingxx_raw_snapshot(
+                    "bill-pingxx-trial-upgrade-1",
+                    "ch_trial_upgrade_pingxx_1",
+                )
+            )
+            dao.db.session.commit()
+
+            body = {
+                "type": "charge.succeeded",
+                "data": {
+                    "object": {
+                        "id": "ch_trial_upgrade_pingxx_1",
+                        "order_no": "bill-pingxx-trial-upgrade-1",
+                        "paid": True,
+                        "time_paid": 1785470453,
+                        "channel": "wx_pub_qr",
+                    }
+                },
+            }
+
+            payload, status_code = handle_billing_pingxx_webhook(
+                billing_callback_app, body
+            )
+
+            assert status_code == 200
+            assert payload["status"] == "paid"
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-manual-trial-to-pingxx"
+            ).one()
+            order = BillingOrder.query.filter_by(
+                bill_order_bid="bill-pingxx-trial-upgrade-1"
+            ).one()
+            assert order.status == BILLING_ORDER_STATUS_PAID
+            assert subscription.product_bid == "bill-product-plan-monthly"
+            assert subscription.billing_provider == "pingxx"
+            assert subscription.metadata_json["provider"] == "pingxx"
+            assert subscription.metadata_json["latest_source"] == "webhook"
+            subscription.cancel_at_period_end = 1
+            subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+            dao.db.session.commit()
+
+            duplicate_payload, duplicate_status = handle_billing_pingxx_webhook(
+                billing_callback_app, body
+            )
+
+            assert duplicate_status == 200
+            assert duplicate_payload["status"] == "paid"
+            assert subscription.cancel_at_period_end == 1
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
 
     def test_pingxx_callback_reports_non_billing_payload(
         self, billing_callback_app
