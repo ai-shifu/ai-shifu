@@ -49,8 +49,8 @@ from .queries import (
     calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
     extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
 )
+from .reserved_renewal_activation import IncompleteReservedGrantActivationError
 from .subscriptions import (
-    IncompleteReservedGrantActivationError,
     activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
     ensure_subscription_renewal_order,
     is_paid_referral_invitation_renewal as _is_paid_referral_invitation_renewal,
