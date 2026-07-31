@@ -929,6 +929,9 @@ class TestAdminBillingRoutes:
             assert entity is not None
             assert entity.is_creator == 1
             assert entity.state == 1102
+            # The console chains branding/domain calls right after the first
+            # grant, so the response must expose the resolved creator_bid.
+            assert payload["data"]["creator_bid"] == entity.user_bid
 
     def test_admin_billing_entitlements_can_filter_independent_configs(
         self,
@@ -1192,6 +1195,7 @@ class TestAdminBillingRoutes:
         assert payload["data"] == {
             "logo_wide_url": "/api/storage/courses/creator-branding/creator-1/wide.png",
             "logo_square_url": "/api/storage/courses/creator-branding/creator-1/square.png",
+            "favicon_url": "",
             "home_url": "",
         }
 

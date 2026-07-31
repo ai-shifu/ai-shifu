@@ -464,6 +464,8 @@
       "secretSaved": "已保存，可重新填写覆盖"
     },
     "branding": {
+      "favicon": "网站图标 Favicon",
+      "faviconHint": "浏览器标签页图标。支持 PNG/JPEG/WebP（自动转为 ICO）或直接上传 .ico；不上传时使用方形 Logo。",
       "homeUrl": "Logo 跳转地址",
       "homeUrlHint": "学习页点击 Logo 时跳转的网址，留空则使用默认地址。",
       "homeUrlPlaceholder": "例如 https://www.example.com",
@@ -473,6 +475,7 @@
       "squareLogo": "方形 Logo",
       "title": "品牌 Logo",
       "uploadFailed": "图片上传失败，请稍后重试。",
+      "uploadFavicon": "上传网站图标",
       "uploadSquare": "上传方形 Logo",
       "uploadWide": "上传横版 Logo",
       "urlPlaceholder": "也可直接填写图片地址",

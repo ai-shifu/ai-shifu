@@ -52,7 +52,12 @@ function buildCustomizationData(overrides: Record<string, unknown> = {}) {
       custom_wechat: true,
       custom_payment: true,
     },
-    branding: { logo_wide_url: '', logo_square_url: '' },
+    branding: {
+      logo_wide_url: '',
+      logo_square_url: '',
+      favicon_url: '',
+      home_url: '',
+    },
     domains: { custom_domain_enabled: false, items: [] },
     integrations: [
       {

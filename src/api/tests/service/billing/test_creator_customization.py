@@ -526,6 +526,7 @@ def test_creator_branding_reuses_unified_config(app, monkeypatch):
         assert state.feature_payload.to_metadata_json()["branding"] == {
             "logo_wide_url": saved["logo_wide_url"],
             "logo_square_url": saved["logo_square_url"],
+            "favicon_url": saved["favicon_url"],
         }
 
 
@@ -598,6 +599,7 @@ def test_unavailable_saas_plugin_keeps_optional_customization_reads_empty(
         assert customization.resolve_creator_branding("creator-without-plugin") == {
             "logo_wide_url": "",
             "logo_square_url": "",
+            "favicon_url": "",
             "home_url": "",
         }
         assert (
@@ -647,6 +649,104 @@ def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch):
             customization._active_version_bid(app, "creator-disabled-plugin", "stripe")
             == ""
         )
+
+
+def test_creator_brand_favicon_upload_converts_png_to_ico(app, monkeypatch):
+    monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+
+    uploaded = {}
+
+    def fake_upload_to_storage(_app, **kwargs):
+        uploaded.update(kwargs)
+        return SimpleNamespace(
+            url=f"https://courses-oss.example.com/{kwargs['object_key']}",
+        )
+
+    monkeypatch.setattr(customization, "upload_to_storage", fake_upload_to_storage)
+
+    with app.app_context():
+        grant_creator_manual_entitlement(
+            app,
+            "creator-favicon-1",
+            branding_enabled=True,
+        )
+        image = Image.new("RGBA", (134, 152), (30, 120, 90, 255))
+        buffer = BytesIO()
+        image.save(buffer, format="PNG")
+        buffer.seek(0)
+        favicon = FileStorage(
+            stream=buffer,
+            filename="logo.png",
+            content_type="image/png",
+        )
+        url = customization.upload_creator_brand_logo(
+            app,
+            "creator-favicon-1",
+            favicon,
+            target="favicon",
+        )
+
+        assert url.endswith(".ico")
+        assert uploaded["content_type"] == "image/x-icon"
+        assert uploaded["object_key"].endswith(".ico")
+        with Image.open(BytesIO(uploaded["file_content"].getvalue())) as converted:
+            assert converted.format == "ICO"
+
+        # A well-formed .ico upload passes through unchanged.
+        ico_buffer = BytesIO()
+        Image.new("RGBA", (32, 32), (1, 2, 3, 255)).save(ico_buffer, format="ICO")
+        ico_bytes = ico_buffer.getvalue()
+        ico_upload = FileStorage(
+            stream=BytesIO(ico_bytes),
+            filename="favicon.ico",
+            content_type="image/x-icon",
+        )
+        url = customization.upload_creator_brand_logo(
+            app,
+            "creator-favicon-1",
+            ico_upload,
+            target="favicon",
+        )
+        assert url.endswith(".ico")
+        assert uploaded["file_content"].getvalue() == ico_bytes
+
+        # Magic bytes alone are not enough — Pillow must decode the payload.
+        fake_ico = FileStorage(
+            stream=BytesIO(b"\x00\x00\x01\x00" + b"garbage-not-an-ico"),
+            filename="fake.ico",
+            content_type="image/x-icon",
+        )
+        with pytest.raises(AppException):
+            customization.upload_creator_brand_logo(
+                app,
+                "creator-favicon-1",
+                fake_ico,
+                target="favicon",
+            )
+
+
+def test_runtime_branding_falls_back_to_square_logo_for_favicon(app):
+    from flaskr.service.billing import runtime_config as runtime_config_module
+
+    with app.app_context():
+        grant_creator_manual_entitlement(
+            app,
+            "creator-favicon-fallback",
+            branding_enabled=True,
+            branding={"logo_square_url": "/storage/brand/square.png"},
+        )
+        state = resolve_creator_entitlement_state("creator-favicon-fallback")
+        branding = runtime_config_module._build_branding_payload(state)
+        assert branding.favicon_url == "/storage/brand/square.png"
+
+        grant_creator_manual_entitlement(
+            app,
+            "creator-favicon-fallback",
+            branding={"favicon_url": "/storage/brand/favicon.ico"},
+        )
+        state = resolve_creator_entitlement_state("creator-favicon-fallback")
+        branding = runtime_config_module._build_branding_payload(state)
+        assert branding.favicon_url == "/storage/brand/favicon.ico"
 
 
 def test_creator_branding_home_url_roundtrip(app, monkeypatch):

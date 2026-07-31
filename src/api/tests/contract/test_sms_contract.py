@@ -1,5 +1,7 @@
+import logging
 from types import SimpleNamespace
 
+import pytest
 from flask import Flask
 
 
@@ -177,3 +179,101 @@ def test_send_sms_ali_returns_none_when_provider_response_is_not_ok(monkeypatch)
     )
 
     assert result is None
+
+
+@pytest.mark.parametrize(
+    "provider_message",
+    [
+        "触发号码天级流控Permits:40",
+        "触发小时级流控Permits:5",
+    ],
+)
+def test_send_sms_ali_logs_recipient_throttle_as_warning(
+    monkeypatch, caplog, provider_message
+):
+    from flaskr.api.sms import aliyun as sms_aliyun
+
+    class FakeClient:
+        def __init__(self, _config):
+            pass
+
+        def send_sms_with_options(self, request, runtime):
+            del request, runtime
+            return SimpleNamespace(
+                body=SimpleNamespace(
+                    code="isv.BUSINESS_LIMIT_CONTROL",
+                    message=provider_message,
+                    request_id="req-throttle-1",
+                    biz_id=None,
+                )
+            )
+
+    monkeypatch.setattr(sms_aliyun, "Dysmsapi20170525Client", FakeClient)
+
+    app = Flask("contract-sms-recipient-throttle")
+    app.config.update(
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID="key",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET="secret",
+        ALIBABA_CLOUD_SMS_SIGN_NAME="TestSign",
+    )
+
+    with caplog.at_level(logging.WARNING):
+        result = sms_aliyun.send_sms_ali(
+            app,
+            "13800000000",
+            template_code="TPL-VERIFY-001",
+            template_params={"code": "1234"},
+        )
+
+    assert result is None
+    assert any(
+        record.levelno == logging.WARNING
+        and "isv.BUSINESS_LIMIT_CONTROL" in record.getMessage()
+        and provider_message in record.getMessage()
+        for record in caplog.records
+    )
+    assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
+
+
+def test_send_sms_ali_logs_illegal_recipient_number_as_warning(monkeypatch, caplog):
+    from flaskr.api.sms import aliyun as sms_aliyun
+
+    class FakeClient:
+        def __init__(self, _config):
+            pass
+
+        def send_sms_with_options(self, request, runtime):
+            del request, runtime
+            return SimpleNamespace(
+                body=SimpleNamespace(
+                    code="isv.MOBILE_NUMBER_ILLEGAL",
+                    message="invalid mobile number format",
+                    request_id="req-illegal-number-1",
+                    biz_id=None,
+                )
+            )
+
+    monkeypatch.setattr(sms_aliyun, "Dysmsapi20170525Client", FakeClient)
+
+    app = Flask("contract-sms-illegal-number")
+    app.config.update(
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID="key",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET="secret",
+        ALIBABA_CLOUD_SMS_SIGN_NAME="TestSign",
+    )
+
+    with caplog.at_level(logging.WARNING):
+        result = sms_aliyun.send_sms_ali(
+            app,
+            "14085986122",
+            template_code="TPL-VERIFY-001",
+            template_params={"code": "1234"},
+        )
+
+    assert result is None
+    assert any(
+        record.levelno == logging.WARNING
+        and "isv.MOBILE_NUMBER_ILLEGAL" in record.getMessage()
+        for record in caplog.records
+    )
+    assert not [record for record in caplog.records if record.levelno >= logging.ERROR]

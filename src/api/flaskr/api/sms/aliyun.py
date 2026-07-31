@@ -8,6 +8,14 @@ from alibabacloud_tea_util.client import Client as UtilClient
 from flask import Flask
 
 
+RECIPIENT_INPUT_ERROR_CODES = {
+    # The recipient number failed provider-side format validation. This is
+    # caused by user input (e.g. a foreign number that matches the local
+    # 11-digit pattern), not by a system fault, so it must not page ops.
+    "isv.MOBILE_NUMBER_ILLEGAL",
+}
+
+
 def _body_value(
     response: dysmsapi_20170525_models.SendSmsResponse | None,
     field_name: str,
@@ -70,13 +78,24 @@ def send_sms_ali(
         res = client.send_sms_with_options(send_sms_request, runtime)
         response_code = _body_value(res, "code")
         if response_code != "OK":
-            app.logger.error(
+            response_message = _body_value(res, "message")
+            log_provider_failure = app.logger.error
+            if response_code in RECIPIENT_INPUT_ERROR_CODES:
+                log_provider_failure = app.logger.warning
+            elif response_code == "isv.BUSINESS_LIMIT_CONTROL" and any(
+                throttle_message in response_message
+                for throttle_message in ("触发号码天级流控", "触发小时级流控")
+            ):
+                # These are expected provider rejections for one recipient, not
+                # application failures that should page operations.
+                log_provider_failure = app.logger.warning
+            log_provider_failure(
                 "Aliyun SMS send failed for mobile=%s template_code=%s code=%s "
                 "message=%s request_id=%s biz_id=%s",
                 mobile,
                 resolved_template_code,
                 response_code or "<empty>",
-                _body_value(res, "message") or "<empty>",
+                response_message or "<empty>",
                 _body_value(res, "request_id") or "<empty>",
                 _body_value(res, "biz_id") or "<empty>",
             )
