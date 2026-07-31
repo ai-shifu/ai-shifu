@@ -85,7 +85,11 @@ from flaskr.api.tts import (
     is_tts_configured,
     synthesize_text,
 )
-from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
+from flaskr.service.tts import (
+    has_speakable_text,
+    preprocess_for_tts,
+    resolve_tts_billable_chars,
+)
 from flaskr.service.tts.api import create_streaming_tts_processor, TTSRpmQueueTimeout
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
@@ -1362,6 +1366,12 @@ def _audio_record_matches_speakable_text(
     return record_text_length > 0 and record_text_length == expected_length
 
 
+def _has_speakable_tts_segment(text: str) -> bool:
+    """Return whether text still contains speakable content after TTS cleanup."""
+    cleaned = preprocess_for_tts(text or "")
+    return bool(cleaned and len(cleaned.strip()) >= 2 and has_speakable_text(cleaned))
+
+
 def _float_settings_match(left, right) -> bool:
     try:
         return abs(float(left) - float(right)) < 0.0001
@@ -1774,8 +1784,7 @@ def stream_generated_block_audio(
                 # Non-preview historical blocks may have generated_content but
                 # no learn_generated_elements. Fall back to synthesizing audio
                 # from the raw block text instead of failing.
-                cleaned_fallback_text = preprocess_for_tts(raw_text)
-                if not cleaned_fallback_text or len(cleaned_fallback_text.strip()) < 2:
+                if not _has_speakable_tts_segment(raw_text):
                     app.logger.info(
                         "skip listen-mode TTS for non-speakable generated block | shifu_bid=%s | generated_block_bid=%s | user_bid=%s",
                         shifu_bid,
@@ -1816,6 +1825,11 @@ def stream_generated_block_audio(
                 return
 
             expected_segment_count = len(speakable_segments)
+            speakable_positions = [
+                pos
+                for pos, segment_text in enumerate(speakable_segments)
+                if _has_speakable_tts_segment(segment_text)
+            ]
             existing_by_position: dict[int, LearnGeneratedAudio] = {}
             existing_records = (
                 LearnGeneratedAudio.query.filter(
@@ -1850,10 +1864,12 @@ def stream_generated_block_audio(
                     continue
                 existing_by_position[pos] = record
 
+            # Skipped non-speakable positions never produce audio records, so
+            # the cache fast-path must only require the speakable positions.
             if expected_segment_count and all(
-                pos in existing_by_position for pos in range(expected_segment_count)
+                pos in existing_by_position for pos in speakable_positions
             ):
-                for pos in range(expected_segment_count):
+                for pos in speakable_positions:
                     record = existing_by_position[pos]
                     yield _build_audio_complete_message(
                         outline_bid=generated_block.outline_item_bid or "",
@@ -1877,6 +1893,12 @@ def stream_generated_block_audio(
             def _generate_av_audio():
                 for position, element in enumerate(speakable_elements):
                     speakable_text = str(element.content_text or "")
+                    # Skip before the cache lookup so historical records for
+                    # non-speakable positions never replay, matching the
+                    # cache fast-path above.
+                    if position not in speakable_positions:
+                        continue
+
                     if position in existing_by_position:
                         record = existing_by_position[position]
                         yield _build_audio_complete_message(
@@ -1890,10 +1912,6 @@ def stream_generated_block_audio(
                             stream_element_type=_audio_stream_element_type(element),
                             subtitle_cues=_subtitle_cues_from_audio_record(record),
                         )
-                        continue
-
-                    cleaned_segment = preprocess_for_tts(speakable_text or "")
-                    if not cleaned_segment or len(cleaned_segment.strip()) < 2:
                         continue
 
                     yield from _yield_run_tts_audio_events(
