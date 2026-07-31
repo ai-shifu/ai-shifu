@@ -178,7 +178,7 @@ function CategoryValidityCell({
   }
 
   return (
-    <div className='flex items-center justify-center gap-1.5'>
+    <div className='flex items-center justify-end gap-1.5'>
       <span>{topupAvailabilityLabel}</span>
       <TooltipProvider delayDuration={0}>
         <Tooltip>
@@ -344,7 +344,7 @@ export function BillingCreditDetailsPanel({
                         i18n.language,
                       )}
                     </div>
-                    <div className='px-[var(--spacing-2,8px)] py-4 text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                    <div className='px-[var(--spacing-2,8px)] py-4 text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
                       <CategoryValidityCell
                         availableCredits={row.availableCredits}
                         emptyValidityLabel={emptyValidityLabel}
