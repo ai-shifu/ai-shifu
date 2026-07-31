@@ -45,7 +45,9 @@ from flaskr.service.billing.consts import (
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+    BILLING_RENEWAL_EVENT_TYPE_RECONCILE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
 )
@@ -847,6 +849,138 @@ def test_lost_claim_rolls_back_business_side_effects(
     assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
     assert event.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING
     assert event.attempt_count == 2
+
+
+def test_lost_claim_stops_before_renewal_order_or_provider_side_effects(
+    renewal_uow_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stale attempt must stop before order creation or provider sync."""
+    subscription = _seed_subscription("sub-uow-lost-before-side-effect")
+    event = _seed_event(
+        "renewal-uow-lost-before-side-effect",
+        subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    event.status = BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    event.attempt_count = 1
+    dao.db.session.commit()
+
+    old_worker_event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-lost-before-side-effect"
+    ).one()
+    renewal_event_transitions.bind_renewal_event_claim(
+        old_worker_event,
+        attempt_count=1,
+    )
+    BillingRenewalEvent.query.filter_by(id=old_worker_event.id).update(
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+            "attempt_count": 2,
+            "updated_at": now_utc(),
+        },
+        synchronize_session=False,
+    )
+    dao.db.session.commit()
+
+    monkeypatch.setattr(
+        billing_renewal,
+        "ensure_subscription_renewal_order",
+        lambda *_args, **_kwargs: pytest.fail("order creation must not run"),
+    )
+    monkeypatch.setattr(
+        billing_renewal,
+        "_sync_billing_renewal_order",
+        lambda *_args, **_kwargs: pytest.fail("provider sync must not run"),
+    )
+
+    with pytest.raises(renewal_event_transitions.RenewalEventClaimLostError):
+        billing_renewal._execute_subscription_renewal(
+            renewal_uow_app,
+            old_worker_event,
+            now=now_utc(),
+        )
+    dao.db.session.rollback()
+    dao.db.session.expire_all()
+
+    assert (
+        BillingOrder.query.filter_by(
+            subscription_bid=subscription.subscription_bid,
+        ).count()
+        == 0
+    )
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-lost-before-side-effect"
+    ).one()
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    assert event.attempt_count == 2
+
+
+@pytest.mark.parametrize(
+    "event_type",
+    [
+        BILLING_RENEWAL_EVENT_TYPE_RETRY,
+        BILLING_RENEWAL_EVENT_TYPE_RECONCILE,
+    ],
+)
+def test_retry_or_reconcile_skips_obsolete_subscription_before_provider_sync(
+    renewal_uow_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    event_type: int,
+) -> None:
+    """Recovered retry/reconcile events must not sync canceled subscriptions."""
+    now = now_utc()
+    subscription = _seed_subscription(f"sub-uow-obsolete-retry-{event_type}")
+    subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCELED
+    event = _seed_event(
+        f"renewal-uow-obsolete-retry-{event_type}",
+        subscription.subscription_bid,
+        event_type=event_type,
+    )
+    event.payload_json = {"bill_order_bid": f"bill-uow-obsolete-retry-{event_type}"}
+    order = BillingOrder(
+        bill_order_bid=f"bill-uow-obsolete-retry-{event_type}",
+        creator_bid=CREATOR_BID,
+        order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+        product_bid="bill-product-plan-monthly",
+        subscription_bid=subscription.subscription_bid,
+        currency="CNY",
+        payable_amount=990,
+        paid_amount=0,
+        payment_provider="stripe",
+        channel="subscription",
+        provider_reference_id=f"provider-sub-uow-obsolete-retry-{event_type}",
+        status=BILLING_ORDER_STATUS_PENDING,
+        paid_at=None,
+        metadata_json={"renewal_event_bid": event.renewal_event_bid},
+        created_at=now,
+        updated_at=now,
+    )
+    dao.db.session.add(order)
+    dao.db.session.commit()
+
+    monkeypatch.setattr(
+        billing_renewal,
+        "_sync_billing_renewal_order",
+        lambda *_args, **_kwargs: pytest.fail("provider sync must not run"),
+    )
+
+    payload = run_billing_renewal_event(
+        renewal_uow_app,
+        renewal_event_bid=event.renewal_event_bid,
+    )
+    dao.db.session.expire_all()
+
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid=f"renewal-uow-obsolete-retry-{event_type}"
+    ).one()
+    order = BillingOrder.query.filter_by(
+        bill_order_bid=f"bill-uow-obsolete-retry-{event_type}"
+    ).one()
+    assert payload["status"] == "already_applied"
+    assert payload["bill_order_bid"] == order.bill_order_bid
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
+    assert order.status == BILLING_ORDER_STATUS_CANCELED
 
 
 def test_upsert_recovers_when_concurrent_insert_wins(

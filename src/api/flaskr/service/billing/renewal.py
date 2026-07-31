@@ -54,6 +54,7 @@ from .queries import (
 from .reserved_renewal_activation import IncompleteReservedGrantActivationError
 from .renewal_event_transitions import (
     RenewalEventClaimLostError,
+    assert_renewal_event_claim_current as _assert_renewal_event_claim_current,
     bind_renewal_event_claim as _bind_renewal_event_claim,
     complete_renewal_event as _complete_renewal_event,
     fail_renewal_event as _fail_renewal_event,
@@ -109,6 +110,21 @@ def _load_subscription_by_bid_for_update(
         .order_by(BillingSubscription.id.desc())
         .first()
     )
+
+
+def _ensure_renewal_event_claim_current(
+    event: BillingRenewalEvent,
+    *,
+    now: datetime,
+) -> None:
+    _assert_renewal_event_claim_current(event, now=now, touch=True)
+
+
+def _is_subscription_obsolete(subscription: BillingSubscription) -> bool:
+    return int(subscription.status or 0) in {
+        BILLING_SUBSCRIPTION_STATUS_CANCELED,
+        BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+    }
 
 
 def _load_event_payload_renewal_order(
@@ -780,12 +796,10 @@ def _execute_subscription_renewal(
             _fail_renewal_event(event, now=now, error="subscription_not_found")
             return _result_from_event("failed", event)
 
-        if int(subscription.status or 0) in {
-            BILLING_SUBSCRIPTION_STATUS_CANCELED,
-            BILLING_SUBSCRIPTION_STATUS_EXPIRED,
-        }:
+        if _is_subscription_obsolete(subscription):
             return _complete_obsolete_renewal_event(event, subscription, now=now)
 
+        _ensure_renewal_event_claim_current(event, now=now)
         order = ensure_subscription_renewal_order(
             app,
             subscription,
@@ -827,7 +841,10 @@ def _execute_subscription_renewal(
 
     # Provider sync stays OUTSIDE any unit of work: it wraps a non-idempotent
     # external payment call and (see NOTE in _sync_billing_renewal_order)
-    # commits its own session.
+    # commits its own session. Confirm claim ownership immediately before the
+    # cross-transaction side effect, so stale workers stop before syncing.
+    with unit_of_work():
+        _ensure_renewal_event_claim_current(event, now=now)
     result = _sync_billing_renewal_order(app, order=order, event=event)
     sync_status = str(result.status or "")
     # The provider sync commits in its OWN session; `order` and `event` held
@@ -867,8 +884,17 @@ def _execute_retry_or_reconcile(
     now: datetime,
 ) -> RenewalEventResult:
     # The retry path ends in a non-idempotent payment-provider sync that
-    # persists its own results, so it runs OUTSIDE any unit of work here;
-    # only the terminal event transition below is this function's write.
+    # persists its own results, so confirm claim ownership and subscription
+    # lifecycle immediately before entering the cross-transaction side effect.
+    with unit_of_work():
+        _ensure_renewal_event_claim_current(event, now=now)
+        subscription = _load_subscription_by_bid_for_update(event.subscription_bid)
+        if subscription is None:
+            _fail_renewal_event(event, now=now, error="subscription_not_found")
+            return _result_from_event("failed", event)
+        if _is_subscription_obsolete(subscription):
+            return _complete_obsolete_renewal_event(event, subscription, now=now)
+
     result = retry_billing_renewal_event(
         app,
         renewal_event_bid=event.renewal_event_bid,

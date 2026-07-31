@@ -81,17 +81,33 @@ def _is_target_upsert_integrity_error(exc: IntegrityError) -> bool:
     )
 
 
+def assert_renewal_event_claim_current(
+    event: BillingRenewalEvent,
+    *,
+    now: datetime | None = None,
+    touch: bool = False,
+) -> None:
+    values: dict[str, Any] = {}
+    if touch and now is not None:
+        values["updated_at"] = now
+    _update_processing_renewal_event(event, values)
+
+
 def _update_processing_renewal_event(
     event: BillingRenewalEvent,
     values: dict[str, Any],
 ) -> None:
     expected_attempt_count = _expected_claim_attempt_count(event)
-    updated_rows = BillingRenewalEvent.query.filter(
+    query = BillingRenewalEvent.query.filter(
         BillingRenewalEvent.deleted == 0,
         BillingRenewalEvent.id == event.id,
         BillingRenewalEvent.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
         BillingRenewalEvent.attempt_count == expected_attempt_count,
-    ).update(values, synchronize_session=False)
+    )
+    if values:
+        updated_rows = query.update(values, synchronize_session=False)
+    else:
+        updated_rows = 1 if query.with_for_update().first() is not None else 0
     db.session.flush()
     db.session.expire(event)
     if updated_rows != 1:
