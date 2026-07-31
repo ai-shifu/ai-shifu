@@ -29,9 +29,12 @@ import pytest
 import flaskr.dao as dao
 from flaskr.dao import uow
 from flaskr.service.billing import renewal as billing_renewal
+from flaskr.service.billing import renewal_event_transitions
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+    BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
@@ -387,3 +390,282 @@ def test_expire_notification_fires_after_commit_and_drops_on_rollback(
         renewal_event_bid="renewal-uow-notify"
     ).one()
     assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
+
+
+def test_subscription_lifecycle_cancel_skips_processing_events(
+    renewal_uow_app: Flask,
+) -> None:
+    """Lifecycle sync must not cancel a worker that already claimed an event."""
+    subscription = _seed_subscription("sub-uow-cancel-processing")
+    pending = _seed_event(
+        "renewal-uow-cancel-pending",
+        subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    failed = _seed_event(
+        "renewal-uow-cancel-failed",
+        subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    processing = _seed_event(
+        "renewal-uow-cancel-processing",
+        subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    failed.status = BILLING_RENEWAL_EVENT_STATUS_FAILED
+    processing.status = BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    dao.db.session.commit()
+    now = now_utc()
+
+    renewal_event_transitions.cancel_subscription_renewal_events(
+        subscription.subscription_bid,
+        event_types=(BILLING_RENEWAL_EVENT_TYPE_RENEWAL,),
+    )
+    dao.db.session.commit()
+    dao.db.session.expire_all()
+
+    pending = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid=pending.renewal_event_bid
+    ).one()
+    failed = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid=failed.renewal_event_bid
+    ).one()
+    processing = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid=processing.renewal_event_bid
+    ).one()
+    assert pending.status == BILLING_RENEWAL_EVENT_STATUS_CANCELED
+    assert pending.processed_at is not None
+    assert failed.status == BILLING_RENEWAL_EVENT_STATUS_CANCELED
+    assert failed.processed_at is not None
+    assert processing.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    assert processing.processed_at is None
+    assert processing.updated_at < now
+
+
+def test_upsert_preserves_existing_processing_event(
+    renewal_uow_app: Flask,
+) -> None:
+    """Lifecycle sync must not release an event that a worker already claimed."""
+    subscription = _seed_subscription("sub-uow-upsert-processing")
+    scheduled_at = now_utc() + timedelta(days=1)
+    event = _seed_event(
+        "renewal-uow-upsert-processing",
+        subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    event.scheduled_at = scheduled_at
+    event.status = BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    event.attempt_count = 1
+    event.last_error = "worker has claimed"
+    event.payload_json = {"source": "claimed"}
+    dao.db.session.commit()
+
+    renewal_event_transitions.upsert_subscription_renewal_event(
+        renewal_uow_app,
+        subscription,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+        scheduled_at=scheduled_at,
+    )
+    dao.db.session.commit()
+    dao.db.session.expire_all()
+
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-upsert-processing"
+    ).one()
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    assert event.attempt_count == 1
+    assert event.last_error == "worker has claimed"
+    assert event.payload_json == {"source": "claimed"}
+
+
+def test_processing_event_release_does_not_overwrite_canceled_event(
+    renewal_uow_app: Flask,
+) -> None:
+    """A stale defer path cannot release a terminal event back to pending."""
+    _seed_subscription("sub-uow-stale-release")
+    event = _seed_event(
+        "renewal-uow-stale-release",
+        "sub-uow-stale-release",
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    event.status = BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    dao.db.session.commit()
+
+    loaded_by_worker = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-stale-release"
+    ).one()
+    BillingRenewalEvent.query.filter_by(
+        id=loaded_by_worker.id,
+    ).update(
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+            "processed_at": now_utc(),
+        },
+        synchronize_session=False,
+    )
+    dao.db.session.flush()
+
+    updated = renewal_event_transitions.release_renewal_event(
+        loaded_by_worker,
+        now=now_utc(),
+    )
+    dao.db.session.commit()
+    dao.db.session.expire_all()
+
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-stale-release"
+    ).one()
+    assert updated is False
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_CANCELED
+
+
+def test_processing_event_completion_does_not_overwrite_canceled_event(
+    renewal_uow_app: Flask,
+) -> None:
+    """A stale worker cannot mark an event succeeded after another transition."""
+    _seed_subscription("sub-uow-stale-complete")
+    event = _seed_event(
+        "renewal-uow-stale-complete",
+        "sub-uow-stale-complete",
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    event.status = BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    dao.db.session.commit()
+
+    loaded_by_worker = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-stale-complete"
+    ).one()
+    BillingRenewalEvent.query.filter_by(
+        id=loaded_by_worker.id,
+    ).update(
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+            "processed_at": now_utc(),
+        },
+        synchronize_session=False,
+    )
+    dao.db.session.flush()
+
+    updated = renewal_event_transitions.complete_renewal_event(
+        loaded_by_worker,
+        now=now_utc(),
+    )
+    dao.db.session.commit()
+    dao.db.session.expire_all()
+
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-stale-complete"
+    ).one()
+    assert updated is False
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_CANCELED
+
+
+def test_processing_event_failure_does_not_overwrite_succeeded_event(
+    renewal_uow_app: Flask,
+) -> None:
+    """A stale failure path cannot move a terminal event back to failed."""
+    _seed_subscription("sub-uow-stale-fail")
+    event = _seed_event(
+        "renewal-uow-stale-fail",
+        "sub-uow-stale-fail",
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    event.status = BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    dao.db.session.commit()
+
+    loaded_by_worker = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-stale-fail"
+    ).one()
+    BillingRenewalEvent.query.filter_by(
+        id=loaded_by_worker.id,
+    ).update(
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
+            "processed_at": now_utc(),
+            "last_error": "",
+        },
+        synchronize_session=False,
+    )
+    dao.db.session.flush()
+
+    updated = renewal_event_transitions.fail_renewal_event(
+        loaded_by_worker,
+        now=now_utc(),
+        error="late failure",
+    )
+    dao.db.session.commit()
+    dao.db.session.expire_all()
+
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-stale-fail"
+    ).one()
+    assert updated is False
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
+    assert event.last_error == ""
+
+
+def test_upsert_recovers_when_concurrent_insert_wins(
+    renewal_uow_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Concurrent lifecycle sync should reuse the unique-key winner."""
+    subscription = _seed_subscription("sub-uow-upsert-race")
+    scheduled_at = now_utc() + timedelta(days=1)
+    dao.db.session.commit()
+
+    original_load = renewal_event_transitions._load_subscription_renewal_event
+    calls = 0
+
+    def racing_load(subscription_bid: str, *, event_type: int, scheduled_at):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            winner = BillingRenewalEvent(
+                renewal_event_bid="renewal-uow-upsert-race-winner",
+                subscription_bid=subscription_bid,
+                creator_bid="stale-creator",
+                event_type=event_type,
+                scheduled_at=scheduled_at,
+                status=BILLING_RENEWAL_EVENT_STATUS_FAILED,
+                attempt_count=3,
+                last_error="stale failure",
+                payload_json={"source": "racing worker"},
+                processed_at=now_utc(),
+            )
+            dao.db.session.add(winner)
+            dao.db.session.flush()
+            return None
+        return original_load(
+            subscription_bid,
+            event_type=event_type,
+            scheduled_at=scheduled_at,
+        )
+
+    monkeypatch.setattr(
+        renewal_event_transitions,
+        "_load_subscription_renewal_event",
+        racing_load,
+    )
+
+    renewal_event_transitions.upsert_subscription_renewal_event(
+        renewal_uow_app,
+        subscription,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+        scheduled_at=scheduled_at,
+    )
+    dao.db.session.commit()
+    dao.db.session.expire_all()
+
+    events = BillingRenewalEvent.query.filter_by(
+        subscription_bid=subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    ).all()
+    assert len(events) == 1
+    event = events[0]
+    assert event.renewal_event_bid == "renewal-uow-upsert-race-winner"
+    assert event.creator_bid == CREATOR_BID
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+    assert event.attempt_count == 3
+    assert event.last_error == ""
+    assert event.processed_at is None
+    assert event.payload_json["subscription_bid"] == subscription.subscription_bid
