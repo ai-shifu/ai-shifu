@@ -670,6 +670,20 @@ def _execute_subscription_renewal(
             _fail_renewal_event(event, now=now, error="subscription_not_found")
             return _result_from_event("failed", event)
 
+        if int(subscription.status or 0) in {
+            BILLING_SUBSCRIPTION_STATUS_CANCELED,
+            BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+        }:
+            _complete_renewal_event(event, now=now)
+            return _result_from_event(
+                "already_applied",
+                event,
+                subscription_status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(
+                    int(subscription.status or 0),
+                    "canceled",
+                ),
+            )
+
         order = ensure_subscription_renewal_order(
             app,
             subscription,

@@ -22,9 +22,11 @@ These tests pin the new semantics:
 from __future__ import annotations
 
 from datetime import timedelta
+from pathlib import Path
 
 from flask import Flask
 import pytest
+from sqlalchemy.orm import sessionmaker
 
 import flaskr.dao as dao
 from flaskr.dao import uow
@@ -38,6 +40,7 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
+    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
@@ -65,6 +68,30 @@ def renewal_uow_app() -> Flask:
         SQLALCHEMY_BINDS={
             "ai_shifu_saas": "sqlite:///:memory:",
             "ai_shifu_admin": "sqlite:///:memory:",
+        },
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        TZ="UTC",
+    )
+    dao.db.init_app(app)
+    with app.app_context():
+        dao.db.create_all()
+        dao.db.session.add_all(build_bill_products())
+        dao.db.session.commit()
+        yield app
+        dao.db.session.remove()
+        dao.db.drop_all()
+
+
+@pytest.fixture
+def renewal_uow_file_app(tmp_path: Path) -> Flask:
+    db_path = tmp_path / "renewal-uow.sqlite"
+    app = Flask(__name__)
+    app.testing = True
+    app.config.update(
+        SQLALCHEMY_DATABASE_URI=f"sqlite:///{db_path}",
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": f"sqlite:///{tmp_path / 'saas.sqlite'}",
+            "ai_shifu_admin": f"sqlite:///{tmp_path / 'admin.sqlite'}",
         },
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         TZ="UTC",
@@ -415,7 +442,7 @@ def test_subscription_lifecycle_cancel_skips_processing_events(
     failed.status = BILLING_RENEWAL_EVENT_STATUS_FAILED
     processing.status = BILLING_RENEWAL_EVENT_STATUS_PROCESSING
     dao.db.session.commit()
-    now = now_utc()
+    processing_updated_at = processing.updated_at
 
     renewal_event_transitions.cancel_subscription_renewal_events(
         subscription.subscription_bid,
@@ -439,7 +466,7 @@ def test_subscription_lifecycle_cancel_skips_processing_events(
     assert failed.processed_at is not None
     assert processing.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING
     assert processing.processed_at is None
-    assert processing.updated_at < now
+    assert processing.updated_at == processing_updated_at
 
 
 def test_upsert_preserves_existing_processing_event(
@@ -604,6 +631,70 @@ def test_processing_event_failure_does_not_overwrite_succeeded_event(
     assert event.last_error == ""
 
 
+def test_renewal_event_skips_obsolete_canceled_subscription(
+    renewal_uow_app: Flask,
+) -> None:
+    """A stale recovered renewal event cannot charge a canceled subscription."""
+    subscription = _seed_subscription("sub-uow-obsolete-renewal")
+    subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCELED
+    event = _seed_event(
+        "renewal-uow-obsolete-renewal",
+        subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        renewal_uow_app,
+        renewal_event_bid=event.renewal_event_bid,
+    )
+    dao.db.session.expire_all()
+
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-obsolete-renewal"
+    ).one()
+    assert payload["status"] == "already_applied"
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
+    assert (
+        BillingOrder.query.filter_by(
+            subscription_bid=subscription.subscription_bid,
+        ).count()
+        == 0
+    )
+
+
+def test_renewal_event_skips_obsolete_expired_subscription(
+    renewal_uow_app: Flask,
+) -> None:
+    """A stale recovered renewal event cannot charge an expired subscription."""
+    subscription = _seed_subscription("sub-uow-expired-renewal")
+    subscription.status = BILLING_SUBSCRIPTION_STATUS_EXPIRED
+    event = _seed_event(
+        "renewal-uow-expired-renewal",
+        subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        renewal_uow_app,
+        renewal_event_bid=event.renewal_event_bid,
+    )
+    dao.db.session.expire_all()
+
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-expired-renewal"
+    ).one()
+    assert payload["status"] == "already_applied"
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
+    assert (
+        BillingOrder.query.filter_by(
+            subscription_bid=subscription.subscription_bid,
+        ).count()
+        == 0
+    )
+
+
 def test_upsert_recovers_when_concurrent_insert_wins(
     renewal_uow_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -616,7 +707,13 @@ def test_upsert_recovers_when_concurrent_insert_wins(
     original_load = renewal_event_transitions._load_subscription_renewal_event
     calls = 0
 
-    def racing_load(subscription_bid: str, *, event_type: int, scheduled_at):
+    def racing_load(
+        subscription_bid: str,
+        *,
+        event_type: int,
+        scheduled_at,
+        for_update: bool = False,
+    ):
         nonlocal calls
         calls += 1
         if calls == 1:
@@ -639,6 +736,7 @@ def test_upsert_recovers_when_concurrent_insert_wins(
             subscription_bid,
             event_type=event_type,
             scheduled_at=scheduled_at,
+            for_update=for_update,
         )
 
     monkeypatch.setattr(
@@ -666,6 +764,87 @@ def test_upsert_recovers_when_concurrent_insert_wins(
     assert event.creator_bid == CREATOR_BID
     assert event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
     assert event.attempt_count == 3
+    assert event.last_error == ""
+    assert event.processed_at is None
+    assert event.payload_json["subscription_bid"] == subscription.subscription_bid
+
+
+def test_upsert_recovers_when_cross_session_insert_wins(
+    renewal_uow_file_app: Flask,
+) -> None:
+    """Duplicate-key recovery reloads a winner committed by another session."""
+    subscription = _seed_subscription("sub-uow-upsert-cross-session")
+    scheduled_at = now_utc() + timedelta(days=1)
+    dao.db.session.commit()
+
+    original_load = renewal_event_transitions._load_subscription_renewal_event
+    calls: list[bool] = []
+
+    def racing_load(
+        subscription_bid: str,
+        *,
+        event_type: int,
+        scheduled_at,
+        for_update: bool = False,
+    ):
+        calls.append(for_update)
+        if len(calls) == 1:
+            Session = sessionmaker(bind=dao.db.engine)
+            other_session = Session()
+            try:
+                winner = BillingRenewalEvent(
+                    renewal_event_bid="renewal-uow-upsert-cross-session-winner",
+                    subscription_bid=subscription_bid,
+                    creator_bid="stale-creator",
+                    event_type=event_type,
+                    scheduled_at=scheduled_at,
+                    status=BILLING_RENEWAL_EVENT_STATUS_FAILED,
+                    attempt_count=2,
+                    last_error="stale failure",
+                    payload_json={"source": "other session"},
+                    processed_at=now_utc(),
+                )
+                other_session.add(winner)
+                other_session.commit()
+            finally:
+                other_session.close()
+            return None
+        return original_load(
+            subscription_bid,
+            event_type=event_type,
+            scheduled_at=scheduled_at,
+            for_update=for_update,
+        )
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(
+        renewal_event_transitions,
+        "_load_subscription_renewal_event",
+        racing_load,
+    )
+    try:
+        renewal_event_transitions.upsert_subscription_renewal_event(
+            renewal_uow_file_app,
+            subscription,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+            scheduled_at=scheduled_at,
+        )
+        dao.db.session.commit()
+    finally:
+        monkeypatch.undo()
+    dao.db.session.expire_all()
+
+    events = BillingRenewalEvent.query.filter_by(
+        subscription_bid=subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    ).all()
+    assert calls == [False, True]
+    assert len(events) == 1
+    event = events[0]
+    assert event.renewal_event_bid == "renewal-uow-upsert-cross-session-winner"
+    assert event.creator_bid == CREATOR_BID
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+    assert event.attempt_count == 2
     assert event.last_error == ""
     assert event.processed_at is None
     assert event.payload_json["subscription_bid"] == subscription.subscription_bid

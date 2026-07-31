@@ -120,17 +120,17 @@ def _load_subscription_renewal_event(
     *,
     event_type: int,
     scheduled_at: datetime,
+    for_update: bool = False,
 ) -> BillingRenewalEvent | None:
-    return (
-        BillingRenewalEvent.query.filter(
-            BillingRenewalEvent.deleted == 0,
-            BillingRenewalEvent.subscription_bid == subscription_bid,
-            BillingRenewalEvent.event_type == event_type,
-            BillingRenewalEvent.scheduled_at == scheduled_at,
-        )
-        .order_by(BillingRenewalEvent.id.desc())
-        .first()
+    query = BillingRenewalEvent.query.filter(
+        BillingRenewalEvent.deleted == 0,
+        BillingRenewalEvent.subscription_bid == subscription_bid,
+        BillingRenewalEvent.event_type == event_type,
+        BillingRenewalEvent.scheduled_at == scheduled_at,
     )
+    if for_update:
+        query = query.populate_existing().with_for_update()
+    return query.order_by(BillingRenewalEvent.id.desc()).first()
 
 
 def _reset_subscription_renewal_event(
@@ -203,6 +203,7 @@ def upsert_subscription_renewal_event(
                 subscription.subscription_bid,
                 event_type=event_type,
                 scheduled_at=normalized_scheduled_at,
+                for_update=True,
             )
             if event is None:
                 raise
