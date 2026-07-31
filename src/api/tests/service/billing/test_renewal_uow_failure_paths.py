@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 from flask import Flask
 import pytest
@@ -32,6 +33,7 @@ import flaskr.dao as dao
 from flaskr.dao import uow
 from flaskr.service.billing import renewal as billing_renewal
 from flaskr.service.billing import renewal_event_transitions
+from flaskr.service.billing import tasks as billing_tasks
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_PAID,
@@ -914,6 +916,51 @@ def test_lost_claim_stops_before_renewal_order_or_provider_side_effects(
     ).one()
     assert event.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING
     assert event.attempt_count == 2
+
+
+def test_provider_guard_renews_lease_before_cross_transaction_sync(
+    renewal_uow_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stale recovery cannot hand off a freshly guarded provider attempt."""
+    subscription = _seed_subscription("sub-uow-lease-before-provider")
+    event = _seed_event(
+        "renewal-uow-lease-before-provider",
+        subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    dao.db.session.commit()
+
+    recovery_counts: list[int] = []
+
+    def fake_sync(*_args, **_kwargs):
+        recovery_counts.append(
+            billing_tasks._recover_stale_processing_renewal_events(
+                stale_before=now_utc() - timedelta(minutes=30),
+            )
+        )
+        current = BillingRenewalEvent.query.filter_by(
+            renewal_event_bid="renewal-uow-lease-before-provider"
+        ).one()
+        assert current.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+        assert current.attempt_count == 1
+        return SimpleNamespace(status="pending", message="")
+
+    monkeypatch.setattr(billing_renewal, "_sync_billing_renewal_order", fake_sync)
+
+    payload = run_billing_renewal_event(
+        renewal_uow_app,
+        renewal_event_bid=event.renewal_event_bid,
+    )
+    dao.db.session.expire_all()
+
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-lease-before-provider"
+    ).one()
+    assert recovery_counts == [0]
+    assert payload["status"] == "queued_for_reconcile"
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
+    assert event.attempt_count == 1
 
 
 @pytest.mark.parametrize(

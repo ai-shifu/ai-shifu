@@ -112,12 +112,11 @@ def _load_subscription_by_bid_for_update(
     )
 
 
-def _ensure_renewal_event_claim_current(
-    event: BillingRenewalEvent,
-    *,
-    now: datetime,
-) -> None:
-    _assert_renewal_event_claim_current(event, now=now, touch=True)
+def _ensure_renewal_event_claim_current(event: BillingRenewalEvent) -> None:
+    # A PROCESSING event's updated_at is its short lease heartbeat.  Always
+    # use the check-time timestamp so stale recovery cannot immediately
+    # reclaim a long-running attempt after this guard succeeds.
+    _assert_renewal_event_claim_current(event, now=now_utc(), touch=True)
 
 
 def _is_subscription_obsolete(subscription: BillingSubscription) -> bool:
@@ -799,7 +798,7 @@ def _execute_subscription_renewal(
         if _is_subscription_obsolete(subscription):
             return _complete_obsolete_renewal_event(event, subscription, now=now)
 
-        _ensure_renewal_event_claim_current(event, now=now)
+        _ensure_renewal_event_claim_current(event)
         order = ensure_subscription_renewal_order(
             app,
             subscription,
@@ -844,7 +843,13 @@ def _execute_subscription_renewal(
     # commits its own session. Confirm claim ownership immediately before the
     # cross-transaction side effect, so stale workers stop before syncing.
     with unit_of_work():
-        _ensure_renewal_event_claim_current(event, now=now)
+        subscription = _load_subscription_by_bid_for_update(event.subscription_bid)
+        if subscription is None:
+            _fail_renewal_event(event, now=now_utc(), error="subscription_not_found")
+            return _result_from_event("failed", event, bill_order_bid=bill_order_bid)
+        if _is_subscription_obsolete(subscription):
+            return _complete_obsolete_renewal_event(event, subscription, now=now_utc())
+        _ensure_renewal_event_claim_current(event)
     result = _sync_billing_renewal_order(app, order=order, event=event)
     sync_status = str(result.status or "")
     # The provider sync commits in its OWN session; `order` and `event` held
@@ -887,13 +892,13 @@ def _execute_retry_or_reconcile(
     # persists its own results, so confirm claim ownership and subscription
     # lifecycle immediately before entering the cross-transaction side effect.
     with unit_of_work():
-        _ensure_renewal_event_claim_current(event, now=now)
         subscription = _load_subscription_by_bid_for_update(event.subscription_bid)
         if subscription is None:
             _fail_renewal_event(event, now=now, error="subscription_not_found")
             return _result_from_event("failed", event)
         if _is_subscription_obsolete(subscription):
             return _complete_obsolete_renewal_event(event, subscription, now=now)
+        _ensure_renewal_event_claim_current(event)
 
     result = retry_billing_renewal_event(
         app,
