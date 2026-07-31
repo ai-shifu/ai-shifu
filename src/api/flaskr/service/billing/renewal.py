@@ -18,6 +18,7 @@ from .credit_notifications import (
     stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
 )
 from .consts import (
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PENDING,
@@ -46,6 +47,7 @@ from .preorders import (
 )
 from .queries import (
     calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
+    extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
 )
 from .subscriptions import (
     IncompleteReservedGrantActivationError,
@@ -55,7 +57,6 @@ from .subscriptions import (
     load_billing_product_by_bid as _load_billing_product_by_bid,
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
     load_subscription_by_bid as _load_subscription_by_bid,
-    load_subscription_renewal_order_by_cycle as _load_subscription_renewal_order_by_cycle,
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
 from .models import BillingOrder, BillingRenewalEvent
@@ -548,22 +549,67 @@ def _load_paid_renewal_order_for_cycle(
     subscription_bid: str,
     boundary_at: datetime | None,
 ) -> BillingOrder | None:
+    preorder_order = _load_active_preorder_order(subscription_bid)
     if boundary_at is not None:
-        exact_order = _load_subscription_renewal_order_by_cycle(
-            subscription_bid,
-            cycle_start_at=boundary_at,
-            statuses=(BILLING_ORDER_STATUS_PAID,),
+        exact_order = _load_primary_paid_renewal_order_for_cycle(
+            subscription_bid=subscription_bid,
+            boundary_at=boundary_at,
         )
+        if (
+            preorder_order is not None
+            and int(preorder_order.status or 0) == BILLING_ORDER_STATUS_PAID
+            and (
+                exact_order is None or _is_paid_referral_invitation_renewal(exact_order)
+            )
+        ):
+            return preorder_order
         if exact_order is not None:
             return exact_order
 
-    preorder_order = _load_active_preorder_order(subscription_bid)
     if (
         preorder_order is not None
         and int(preorder_order.status or 0) == BILLING_ORDER_STATUS_PAID
     ):
         return preorder_order
     return None
+
+
+def _load_primary_paid_renewal_order_for_cycle(
+    *,
+    subscription_bid: str,
+    boundary_at: datetime,
+) -> BillingOrder | None:
+    rows = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.subscription_bid == _normalize_bid(subscription_bid),
+            BillingOrder.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+        )
+        .order_by(BillingOrder.created_at.asc(), BillingOrder.id.asc())
+        .all()
+    )
+    cycle_orders: list[BillingOrder] = []
+    for row in rows:
+        metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
+        if _extract_resolved_order_cycle_start_at(metadata) == boundary_at:
+            cycle_orders.append(row)
+    if not cycle_orders:
+        return None
+
+    cycle_orders.sort(
+        key=lambda row: (
+            0
+            if int(row.paid_amount or 0) > 0 or int(row.payable_amount or 0) > 0
+            else 1,
+            0 if _is_preorder_order(row) else 1,
+            1 if _is_paid_referral_invitation_renewal(row) else 0,
+            row.paid_at or row.created_at or datetime.min,
+            row.created_at or datetime.min,
+            row.id,
+        )
+    )
+    return cycle_orders[0]
 
 
 def _align_preorder_cycle_to_boundary(
