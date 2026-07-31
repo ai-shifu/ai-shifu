@@ -526,6 +526,7 @@ def test_creator_branding_reuses_unified_config(app, monkeypatch):
         assert state.feature_payload.to_metadata_json()["branding"] == {
             "logo_wide_url": saved["logo_wide_url"],
             "logo_square_url": saved["logo_square_url"],
+            "favicon_url": saved["favicon_url"],
         }
 
 
@@ -690,6 +691,38 @@ def test_creator_brand_favicon_upload_converts_png_to_ico(app, monkeypatch):
         assert uploaded["object_key"].endswith(".ico")
         with Image.open(BytesIO(uploaded["file_content"].getvalue())) as converted:
             assert converted.format == "ICO"
+
+        # A well-formed .ico upload passes through unchanged.
+        ico_buffer = BytesIO()
+        Image.new("RGBA", (32, 32), (1, 2, 3, 255)).save(ico_buffer, format="ICO")
+        ico_bytes = ico_buffer.getvalue()
+        ico_upload = FileStorage(
+            stream=BytesIO(ico_bytes),
+            filename="favicon.ico",
+            content_type="image/x-icon",
+        )
+        url = customization.upload_creator_brand_logo(
+            app,
+            "creator-favicon-1",
+            ico_upload,
+            target="favicon",
+        )
+        assert url.endswith(".ico")
+        assert uploaded["file_content"].getvalue() == ico_bytes
+
+        # Magic bytes alone are not enough — Pillow must decode the payload.
+        fake_ico = FileStorage(
+            stream=BytesIO(b"\x00\x00\x01\x00" + b"garbage-not-an-ico"),
+            filename="fake.ico",
+            content_type="image/x-icon",
+        )
+        with pytest.raises(AppException):
+            customization.upload_creator_brand_logo(
+                app,
+                "creator-favicon-1",
+                fake_ico,
+                target="favicon",
+            )
 
 
 def test_runtime_branding_falls_back_to_square_logo_for_favicon(app):

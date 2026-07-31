@@ -1133,7 +1133,18 @@ def _build_favicon_bytes(content: bytes) -> bytes:
             output = BytesIO()
             canvas.save(output, format="ICO", sizes=_FAVICON_SIZES)
             return output.getvalue()
-    except UnidentifiedImageError:
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError):
+        raise_param_error("file")
+
+
+def _validate_ico_bytes(content: bytes) -> None:
+    """Ensure an uploaded .ico actually decodes as an ICO before storing it."""
+    try:
+        with Image.open(BytesIO(content), formats=["ICO"]) as image:
+            if image.width * image.height > _LOGO_MAX_PIXELS:
+                raise_param_error("file")
+            image.load()
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError):
         raise_param_error("file")
 
 
@@ -1162,6 +1173,8 @@ def _read_validated_brand_image(
     if target == "favicon":
         if suffix != ".ico":
             content = _build_favicon_bytes(content)
+        else:
+            _validate_ico_bytes(content)
         return content, ".ico", "image/x-icon"
     return (
         _normalize_logo_image(content, suffix=suffix, target=target),
