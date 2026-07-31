@@ -973,7 +973,7 @@ jobs:
 
       - name: Create GitHub Release Draft
         if: env.ACT != 'true'
-        uses: softprops/action-gh-release@v2.6.1
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe  # v2.6.1
         with:
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.version.outputs.tag }}
@@ -1014,7 +1014,7 @@ jobs:
       - name: Create PR with version changes
         id: cpr
         if: env.ACT != 'true'
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8
         with:
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           commit-message: "chore: flow version to ${{ steps.version.outputs.tag }}"
