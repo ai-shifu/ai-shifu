@@ -1592,7 +1592,7 @@ def test_get_operator_user_credits_hides_reserved_grants_until_available(app):
             amount="1000.0000000000",
             balance_after="5.0000000000",
             created_at=datetime(2026, 4, 18, 9, 0, 0),
-            metadata_json={"bucket_credit_state": "reserved"},
+            metadata_json={"bucket_credit_state": " ReSeRvEd "},
         )
 
         all_result = get_operator_user_credits(
