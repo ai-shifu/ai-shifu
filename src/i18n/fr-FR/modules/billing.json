@@ -464,6 +464,8 @@
       "secretSaved": "Enregistré. Saisissez une nouvelle valeur pour le remplacer."
     },
     "branding": {
+      "favicon": "Icône du site (favicon)",
+      "faviconHint": "Icône de l’onglet du navigateur. Importez un fichier PNG/JPEG/WebP (converti automatiquement en ICO) ou un fichier .ico ; le logo carré est utilisé si vide.",
       "homeUrl": "URL du lien du logo",
       "homeUrlHint": "Adresse ouverte lorsque l’apprenant clique sur le logo. Laissez vide pour utiliser l’adresse par défaut.",
       "homeUrlPlaceholder": "ex. https://www.example.com",
@@ -473,6 +475,7 @@
       "squareLogo": "Logo carré",
       "title": "Logos de marque",
       "uploadFailed": "L’import de l’image a échoué. Réessayez plus tard.",
+      "uploadFavicon": "Importer l’icône du site",
       "uploadSquare": "Importer le logo carré",
       "uploadWide": "Importer le logo horizontal",
       "urlPlaceholder": "Ou saisissez directement l’URL de l’image",

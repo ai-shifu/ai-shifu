@@ -464,6 +464,8 @@
       "secretSaved": "Saved. Enter a new value to replace it."
     },
     "branding": {
+      "favicon": "Site icon (favicon)",
+      "faviconHint": "Browser tab icon. Upload PNG/JPEG/WebP (auto-converted to ICO) or an .ico file; the square logo is used when empty.",
       "homeUrl": "Logo link URL",
       "homeUrlHint": "Where the learner page navigates when the logo is clicked. Leave empty to use the default.",
       "homeUrlPlaceholder": "e.g. https://www.example.com",
@@ -473,6 +475,7 @@
       "squareLogo": "Square logo",
       "title": "Brand logos",
       "uploadFailed": "Image upload failed. Try again later.",
+      "uploadFavicon": "Upload site icon",
       "uploadSquare": "Upload square logo",
       "uploadWide": "Upload wide logo",
       "urlPlaceholder": "Or enter an image URL directly",
