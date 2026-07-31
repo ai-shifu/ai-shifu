@@ -79,7 +79,12 @@ _EMPTY_AUDIO_RETRY_PROVIDERS = {"", "tencent", "volcengine"}
 _EMPTY_AUDIO_RETRY_DELAY_SECONDS = 0.2
 _TTS_ERROR_TEXT_PREVIEW_CHARS = 300
 _VOLCENGINE_TIMESTAMP_PROVIDERS = {"volcengine"}
-_NON_SPEAKABLE_TTS_SKIP_PROVIDERS = {"minimax", "tencent", "volcengine"}
+_NON_SPEAKABLE_TTS_SKIP_PROVIDERS = {
+    "minimax",
+    "tencent",
+    "tencent_texttovoice",
+    "volcengine",
+}
 
 _VISUAL_SLIDE_KINDS = frozenset(
     {
