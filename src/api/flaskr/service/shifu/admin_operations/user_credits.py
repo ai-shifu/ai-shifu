@@ -354,7 +354,7 @@ def get_operator_user_credits(
                 )
             )
         )
-        query = query.filter(bucket_credit_state_expr != "reserved")
+        query = query.filter(bucket_credit_state_expr.notin_(("reserved", "absorbed")))
 
         if start_time:
             query = query.filter(CreditLedgerEntry.created_at >= start_time)

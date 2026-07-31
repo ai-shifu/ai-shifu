@@ -1439,7 +1439,24 @@ class TestBillingRoutes:
                         metadata_json={"bucket_credit_state": "reserved"},
                         created_at=datetime(2026, 4, 7, 10, 0, 0),
                         updated_at=datetime(2026, 4, 7, 10, 0, 0),
-                    )
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-absorbed-renewal",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-subscription",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                        source_bid="order-absorbed-renewal",
+                        idempotency_key="grant:order-absorbed-renewal",
+                        amount=Decimal("2000.0000000000"),
+                        balance_after=Decimal("98.0000000000"),
+                        expires_at=datetime(2026, 6, 1, 0, 0, 0),
+                        consumable_from=datetime(2026, 5, 1, 0, 0, 0),
+                        metadata_json={"bucket_credit_state": " AbSoRbEd "},
+                        created_at=datetime(2026, 4, 7, 11, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 11, 0, 0),
+                    ),
                 ]
             )
             dao.db.session.commit()

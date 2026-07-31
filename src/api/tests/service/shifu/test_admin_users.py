@@ -1594,6 +1594,19 @@ def test_get_operator_user_credits_hides_reserved_grants_until_available(app):
             created_at=datetime(2026, 4, 18, 9, 0, 0),
             metadata_json={"bucket_credit_state": " ReSeRvEd "},
         )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-reserved-grant-user",
+            wallet_bid="wallet-credits-reserved-grant-user",
+            wallet_bucket_bid="bucket-reserved-grant-user",
+            ledger_bid="ledger-absorbed-grant",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="order-absorbed-grant",
+            amount="2000.0000000000",
+            balance_after="5.0000000000",
+            created_at=datetime(2026, 4, 18, 10, 0, 0),
+            metadata_json={"bucket_credit_state": " AbSoRbEd "},
+        )
 
         all_result = get_operator_user_credits(
             app,

@@ -144,7 +144,7 @@ def _filter_out_reserved_credit_grant_ledgers(query):
             )
         )
     )
-    return query.filter(bucket_credit_state_expr != "reserved")
+    return query.filter(bucket_credit_state_expr.notin_(("reserved", "absorbed")))
 
 
 def _parse_stat_date(value: str) -> datetime.date | None:
