@@ -30,6 +30,7 @@ from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
 
 from .checkout import reconcile_billing_provider_reference
+from .credit_audit import audit_credit_state
 from .consts import (
     ALLOCATION_INTERVAL_MANUAL,
     ALLOCATION_INTERVAL_ONE_TIME,
@@ -117,6 +118,7 @@ from .wallets import (
     repair_credit_bucket_runtime_statuses,
     repair_expire_ledger_bucket_drift,
     repair_renewal_state_drift,
+    restore_wrongly_expired_credit_pack_buckets,
 )
 
 _PRODUCT_TYPE_LABELS = {
@@ -769,6 +771,50 @@ def register_billing_commands(console) -> None:
         )
         _echo_payload(payload)
 
+    @billing_group.command(name="audit-credit-state")
+    @click.option("--creator-bid", default="", help="Audit one creator.")
+    @click.option(
+        "--limit",
+        type=click.IntRange(min=1),
+        default=None,
+        help="Maximum creator candidates to scan when used with --all.",
+    )
+    @click.option(
+        "--as-of",
+        "as_of",
+        default="",
+        help="UTC timestamp used for time-sensitive diagnostics.",
+    )
+    @click.option(
+        "--all",
+        "process_all",
+        is_flag=True,
+        help="Scan all creator billing credit state.",
+    )
+    @with_appcontext
+    def audit_credit_state_command(
+        creator_bid: str,
+        limit: int | None,
+        as_of: str,
+        process_all: bool,
+    ) -> None:
+        """Run read-only billing credit invariant diagnostics."""
+
+        if not str(creator_bid or "").strip() and not process_all:
+            raise click.ClickException(
+                "Pass --creator-bid or --all for credit state audit."
+            )
+
+        try:
+            report = audit_credit_state(
+                creator_bid=creator_bid,
+                as_of=as_of or None,
+                limit=limit if process_all else None,
+            )
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
+        _echo_payload(report.to_payload())
+
     @billing_group.command(name="repair-expire-ledger-bucket-drift")
     @click.option("--creator-bid", default="", help="Repair one creator.")
     @click.option(
@@ -877,6 +923,38 @@ def register_billing_commands(console) -> None:
         payload = repair_topup_grant_expiries(
             current_app,
             creator_bid=creator_bid,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="restore-expired-topup-buckets")
+    @click.option(
+        "--bill-order-bid",
+        "bill_order_bids",
+        multiple=True,
+        help="Paid topup order bid to restore. Repeat for multiple orders.",
+    )
+    @click.option(
+        "--apply",
+        "apply_changes",
+        is_flag=True,
+        help="Persist bucket and wallet repairs. Defaults to dry-run.",
+    )
+    @with_appcontext
+    def restore_expired_topup_buckets_command(
+        bill_order_bids: tuple[str, ...],
+        apply_changes: bool,
+    ) -> None:
+        """Restore explicitly listed credit pack buckets expired by old logic."""
+
+        if not any(str(bid or "").strip() for bid in bill_order_bids):
+            raise click.ClickException(
+                "Pass at least one --bill-order-bid for expired topup bucket restore."
+            )
+
+        payload = restore_wrongly_expired_credit_pack_buckets(
+            current_app,
+            bill_order_bids=list(bill_order_bids),
+            dry_run=not apply_changes,
         )
         _echo_payload(payload)
 

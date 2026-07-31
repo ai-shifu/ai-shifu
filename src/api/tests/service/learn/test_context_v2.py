@@ -115,6 +115,7 @@ from flaskr.service.learn.context_v2 import (
     RunScriptPreviewContextV2,
     _PreviewContextStore,
 )
+from markdown_flow import MarkdownFlow, USER_ANSWER_CONTEXT_KEY
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
     ElementType,
@@ -2166,11 +2167,12 @@ class BuildContextFromBlocksTests(unittest.TestCase):
 
 
 class BuildContextNoVariableInteractionTests(unittest.TestCase):
-    """No-variable interactions carry a real learner answer, but markdown-flow
-    has no variable to recover it from and would collapse the turn into
-    {user: "ok"} + {assistant: "ok"}, dropping the answer.
-    build_context_from_blocks must reuse the value captured in
-    generated_content, and skip the turn entirely when it is empty."""
+    """No-variable interactions carry a real learner answer with no variable
+    to recover it from. build_context_from_blocks attaches the answer stored
+    in generated_content to the interaction message via the user_answer
+    extension field (markdown-flow >= 0.3.0); the library then expands it
+    into {user: answer} + {assistant: "ok"}, or skips the turn when the
+    answer is empty."""
 
     DOC = (
         "Content one.\n"
@@ -2179,6 +2181,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
         "---\n"
         "Second content."
     )
+    INTERACTION = "?[网络招聘网站 | 猎头公司 | 人才测评 | 培训业务]"
 
     def _blocks(self, selection):
         return [
@@ -2194,7 +2197,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
             ),
         ]
 
-    def test_selection_reused_instead_of_collapsing_to_ok(self):
+    def test_selection_attached_via_user_answer_field(self):
         app = Flask(__name__)
         with app.app_context():
             messages = MdflowContextV2.build_context_from_blocks(
@@ -2206,31 +2209,72 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
             [
                 {"role": "user", "content": "Content one."},
                 {"role": "assistant", "content": "reply zero"},
-                {"role": "user", "content": "猎头公司"},
-                {"role": "assistant", "content": "ok"},
+                {
+                    "role": "assistant",
+                    "content": self.INTERACTION,
+                    USER_ANSWER_CONTEXT_KEY: "猎头公司",
+                },
             ],
         )
-        # No raw ?[...] leaks and the user turn is the real choice, not "ok".
-        self.assertTrue(all("?[" not in m["content"] for m in messages))
 
-    def test_empty_selection_skips_the_interaction_turn(self):
+    def test_empty_selection_carries_empty_user_answer(self):
         app = Flask(__name__)
         with app.app_context():
             messages = MdflowContextV2.build_context_from_blocks(
                 self._blocks("   "), self.DOC, {}
             )
 
-        # Only the content block survives; the empty interaction contributes
-        # nothing rather than a fabricated {user: "ok"} pair.
+        # The empty answer travels with the message; the library skips the
+        # turn instead of fabricating a {user: "ok"} pair.
         self.assertEqual(
-            messages,
+            messages[-1],
+            {
+                "role": "assistant",
+                "content": self.INTERACTION,
+                USER_ANSWER_CONTEXT_KEY: "",
+            },
+        )
+
+    def test_library_expands_answer_and_skips_empty_turns(self):
+        """End-to-end: the context built here goes through markdown-flow's
+        message transform and comes out with the real answer, no raw ?[...]
+        syntax, and no fabricated "ok" for unanswered interactions."""
+        app = Flask(__name__)
+        with app.app_context():
+            answered = MdflowContextV2.build_context_from_blocks(
+                self._blocks("猎头公司"), self.DOC, {}
+            )
+            unanswered = MdflowContextV2.build_context_from_blocks(
+                self._blocks(""), self.DOC, {}
+            )
+
+        mdflow = MarkdownFlow(self.DOC)
+        transformed = mdflow._transform_context_messages(answered, {})
+        self.assertEqual(
+            transformed,
+            [
+                {"role": "user", "content": "Content one."},
+                {"role": "assistant", "content": "reply zero"},
+                {"role": "user", "content": "猎头公司"},
+                {"role": "assistant", "content": "ok"},
+            ],
+        )
+        self.assertTrue(all("?[" not in m["content"] for m in transformed))
+        self.assertTrue(
+            all(USER_ANSWER_CONTEXT_KEY not in m for m in transformed),
+            "extension fields must never reach the LLM",
+        )
+
+        transformed_empty = mdflow._transform_context_messages(unanswered, {})
+        self.assertEqual(
+            transformed_empty,
             [
                 {"role": "user", "content": "Content one."},
                 {"role": "assistant", "content": "reply zero"},
             ],
         )
 
-    def test_variable_free_text_input_reuses_the_learner_answer(self):
+    def test_variable_free_text_input_carries_the_learner_answer(self):
         document = "Content one.\n---\n?[...What is your name?]\n---\nSecond content."
         app = Flask(__name__)
         with app.app_context():
@@ -2239,15 +2283,16 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
             )
 
         self.assertEqual(
-            messages,
-            [
-                {"role": "user", "content": "Content one."},
-                {"role": "assistant", "content": "reply zero"},
-                {"role": "user", "content": "Alice"},
-                {"role": "assistant", "content": "ok"},
-            ],
+            messages[-1],
+            {
+                "role": "assistant",
+                "content": "?[...What is your name?]",
+                USER_ANSWER_CONTEXT_KEY: "Alice",
+            },
         )
-        self.assertTrue(all("?[" not in message["content"] for message in messages))
+        transformed = MarkdownFlow(document)._transform_context_messages(messages, {})
+        self.assertIn({"role": "user", "content": "Alice"}, transformed)
+        self.assertTrue(all("?[" not in m["content"] for m in transformed))
 
 
 if __name__ == "__main__":

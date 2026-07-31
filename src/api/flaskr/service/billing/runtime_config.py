@@ -143,12 +143,18 @@ def _build_branding_payload(
         # not make the shared runtime-config endpoint fail.
         editable_branding = {}
 
+    logo_square_url = editable_branding.get("logo_square_url") or pick(
+        "logo_square_url", "logoSquareUrl"
+    )
     return RuntimeBillingBrandingDTO(
         logo_wide_url=editable_branding.get("logo_wide_url")
         or pick("logo_wide_url", "logoWideUrl"),
-        logo_square_url=editable_branding.get("logo_square_url")
-        or pick("logo_square_url", "logoSquareUrl"),
-        favicon_url=pick("favicon_url", "faviconUrl"),
+        logo_square_url=logo_square_url,
+        # Without a dedicated favicon fall back to the square logo; browsers
+        # scale raster favicons themselves.
+        favicon_url=editable_branding.get("favicon_url")
+        or pick("favicon_url", "faviconUrl")
+        or logo_square_url,
         home_url=pick("home_url", "homeUrl"),
         contact_us_url=pick("contact_us_url", "contactUsUrl"),
     )

@@ -9,7 +9,8 @@ import { BillingCreditDetailsPanel } from './BillingCreditDetailsPanel';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string) =>
+      key === 'module.billing.details.emptyValidityLabel' ? '--' : key,
     i18n: {
       language: 'zh-CN',
     },
@@ -154,7 +155,10 @@ describe('BillingCreditDetailsPanel', () => {
     expect(screen.getByText('100.00')).toBeInTheDocument();
     expect(screen.getByText('1,000.00')).toBeInTheDocument();
     expect(screen.getByText('2026-10-13 07:59')).toBeInTheDocument();
-    expect(screen.getByText('2026-10-21 07:59')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.details.topupAvailabilityLabel'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('2026-10-21 07:59')).not.toBeInTheDocument();
 
     await user.click(
       screen.getByRole('button', {
@@ -163,6 +167,142 @@ describe('BillingCreditDetailsPanel', () => {
     );
 
     expect(onUpgrade).toHaveBeenCalledTimes(1);
+  });
+
+  test('summarizes topup buckets as no-expiration credits across eligibility windows', () => {
+    jest.setSystemTime(new Date('2026-04-15T00:00:00Z'));
+
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: {
+        items: [
+          {
+            wallet_bucket_bid: 'bucket-topup-primary',
+            category: 'topup',
+            source_type: 'topup',
+            source_bid: 'topup-1',
+            available_credits: 600,
+            effective_from: '2026-04-01T00:00:00',
+            effective_to: '2026-10-20T23:59:00',
+            priority: 30,
+            status: 'active',
+          },
+          {
+            wallet_bucket_bid: 'bucket-topup-bonus',
+            category: 'topup',
+            source_type: 'campaign_bonus',
+            source_bid: 'campaign-1',
+            available_credits: 400,
+            effective_from: '2026-04-01T00:00:00',
+            effective_to: '2026-11-20T23:59:00',
+            priority: 30,
+            status: 'active',
+          },
+          {
+            wallet_bucket_bid: 'bucket-topup-future',
+            category: 'topup',
+            source_type: 'topup',
+            source_bid: 'topup-future',
+            available_credits: 300,
+            effective_from: '2026-05-01T00:00:00',
+            effective_to: '2026-12-20T23:59:00',
+            priority: 30,
+            status: 'active',
+          },
+        ],
+      },
+      error: undefined,
+      isLoading: false,
+    });
+
+    render(<BillingCreditDetailsPanel />);
+
+    expect(
+      screen.getAllByText('module.billing.ledger.category.topup'),
+    ).toHaveLength(1);
+    const topupLabel = screen.getByText('module.billing.ledger.category.topup');
+    const topupRow = topupLabel.closest('.grid');
+
+    expect(topupRow).not.toBeNull();
+    expect(
+      within(topupRow as HTMLElement).getByText('1,000.00'),
+    ).toBeInTheDocument();
+    expect(
+      within(topupRow as HTMLElement).getByText(
+        'module.billing.details.topupAvailabilityLabel',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('2026-10-21 07:59')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-11-21 07:59')).not.toBeInTheDocument();
+    expect(screen.queryByText('1,300.00')).not.toBeInTheDocument();
+  });
+
+  test('shows no validity date when active subscription credits are empty', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        ...mockUseBillingOverview().data,
+        wallet: {
+          available_credits: 65.38,
+          reserved_credits: 0,
+          lifetime_granted_credits: 1100,
+          lifetime_consumed_credits: 1034.62,
+        },
+      },
+      error: undefined,
+      isLoading: false,
+    });
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: {
+        items: [
+          {
+            wallet_bucket_bid: 'bucket-sub-empty',
+            category: 'subscription',
+            source_type: 'subscription',
+            source_bid: 'sub-1',
+            available_credits: 0,
+            effective_from: '2026-04-01T00:00:00',
+            effective_to: '2026-10-12T23:59:00',
+            priority: 20,
+            status: 'active',
+          },
+          {
+            wallet_bucket_bid: 'bucket-topup',
+            category: 'topup',
+            source_type: 'topup',
+            source_bid: 'topup-1',
+            available_credits: 65.38,
+            effective_from: '2026-04-01T00:00:00',
+            effective_to: '2026-10-20T23:59:00',
+            priority: 30,
+            status: 'active',
+          },
+        ],
+      },
+      error: undefined,
+      isLoading: false,
+    });
+
+    render(<BillingCreditDetailsPanel />);
+
+    const subscriptionLabel = screen.getByText(
+      'module.billing.ledger.category.subscription',
+    );
+    const subscriptionRow = subscriptionLabel.closest('.grid');
+
+    expect(subscriptionRow).not.toBeNull();
+    expect(
+      within(subscriptionRow as HTMLElement).getByText('0.00'),
+    ).toBeInTheDocument();
+    expect(
+      within(subscriptionRow as HTMLElement).getByText('--'),
+    ).toBeInTheDocument();
+    expect(
+      within(subscriptionRow as HTMLElement).queryByText('2026-10-13 07:59'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(subscriptionRow as HTMLElement).queryByText(
+        'module.billing.ledger.neverExpires',
+      ),
+    ).not.toBeInTheDocument();
   });
 
   test('revalidates wallet buckets after the overview snapshot loads', async () => {
@@ -400,7 +540,7 @@ describe('BillingCreditDetailsPanel', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('excludes future and expired buckets from the current credit summary', () => {
+  test('excludes future subscription buckets but keeps credit packs independent of expiry windows', () => {
     mockUseBillingOverview.mockReturnValue({
       data: {
         creator_bid: 'creator-1',
@@ -503,14 +643,18 @@ describe('BillingCreditDetailsPanel', () => {
       within(subscriptionRow as HTMLElement).getByText('245.81'),
     ).toBeInTheDocument();
     expect(screen.queryByText('1,684.76')).not.toBeInTheDocument();
-    expect(screen.queryByText('99.00')).not.toBeInTheDocument();
     expect(topupRow).not.toBeNull();
     expect(
-      within(topupRow as HTMLElement).getByText('0.00'),
+      within(topupRow as HTMLElement).getByText('99.00'),
+    ).toBeInTheDocument();
+    expect(
+      within(topupRow as HTMLElement).getByText(
+        'module.billing.details.topupAvailabilityLabel',
+      ),
     ).toBeInTheDocument();
   });
 
-  test('does not count topup buckets when there is no active subscription', () => {
+  test('shows held topup credits when there is no active subscription', () => {
     mockUseBillingOverview.mockReturnValue({
       data: {
         creator_bid: 'creator-1',
@@ -586,9 +730,51 @@ describe('BillingCreditDetailsPanel', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(topupLabel.closest('.grid') as HTMLElement).getByText('0.00'),
+      within(topupLabel.closest('.grid') as HTMLElement).getByText('1,000.00'),
     ).toBeInTheDocument();
-    expect(screen.queryByText('1,000.00')).not.toBeInTheDocument();
+  });
+
+  test('shows held topup credits when the subscription period has ended', () => {
+    const overview = mockUseBillingOverview().data;
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        ...overview,
+        subscription: {
+          ...overview.subscription,
+          status: 'active',
+          current_period_end_at: '2026-04-14T23:59:00Z',
+        },
+      },
+      error: undefined,
+      isLoading: false,
+    });
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: {
+        items: [
+          {
+            wallet_bucket_bid: 'bucket-topup-after-period',
+            category: 'topup',
+            source_type: 'topup',
+            source_bid: 'topup-1',
+            available_credits: 1000,
+            effective_from: '2026-04-01T00:00:00Z',
+            effective_to: '2026-10-20T23:59:00Z',
+            priority: 30,
+            status: 'active',
+          },
+        ],
+      },
+      error: undefined,
+      isLoading: false,
+    });
+
+    render(<BillingCreditDetailsPanel />);
+
+    const topupLabel = screen.getByText('module.billing.ledger.category.topup');
+
+    expect(
+      within(topupLabel.closest('.grid') as HTMLElement).getByText('1,000.00'),
+    ).toBeInTheDocument();
   });
 
   test('shows a tooltip for topup availability when the topup bucket has no expiry', async () => {

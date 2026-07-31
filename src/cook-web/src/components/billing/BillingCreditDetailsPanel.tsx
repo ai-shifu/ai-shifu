@@ -59,6 +59,12 @@ function isBucketInCurrentWindow(
   );
 }
 
+function hasBucketStarted(bucket: BillingWalletBucket, now: Date): boolean {
+  const effectiveFrom = parseBillingDateValue(bucket.effective_from);
+
+  return !effectiveFrom || effectiveFrom <= now;
+}
+
 function bucketRequiresActiveSubscription(
   bucket: BillingWalletBucket,
 ): boolean {
@@ -80,14 +86,17 @@ function buildCategorySummary(
   const { activeSubscriptionEffectiveTo, hasActiveSubscription } = options;
   const now = options.now || new Date();
 
-  return CATEGORY_ORDER.flatMap(category => {
+  return CATEGORY_ORDER.flatMap<CategorySummaryRow>(category => {
     const activeBuckets = buckets.filter(
       bucket =>
         bucket.category === category &&
         bucket.status === 'active' &&
         Number(bucket.available_credits || 0) > 0 &&
-        isBucketInCurrentWindow(bucket, now) &&
-        (hasActiveSubscription || !bucketRequiresActiveSubscription(bucket)),
+        (category === 'topup'
+          ? hasBucketStarted(bucket, now)
+          : isBucketInCurrentWindow(bucket, now) &&
+            (hasActiveSubscription ||
+              !bucketRequiresActiveSubscription(bucket))),
     );
 
     if (activeBuckets.length === 0) {
@@ -95,10 +104,7 @@ function buildCategorySummary(
         {
           category,
           availableCredits: 0,
-          effectiveTo:
-            category === 'subscription' && hasActiveSubscription
-              ? activeSubscriptionEffectiveTo
-              : null,
+          effectiveTo: null,
         },
       ];
     }
@@ -127,57 +133,52 @@ function buildCategorySummary(
       ];
     }
 
-    const grouped = new Map<string, CategorySummaryRow>();
-    activeBuckets.forEach(bucket => {
-      const effectiveTo = bucket.effective_to || null;
-      const groupKey = effectiveTo || '__never_expires__';
-      const existing = grouped.get(groupKey);
-
-      if (existing) {
-        existing.availableCredits += Number(bucket.available_credits || 0);
-        return;
-      }
-
-      grouped.set(groupKey, {
+    return [
+      {
         category,
-        availableCredits: Number(bucket.available_credits || 0),
-        effectiveTo,
-      });
-    });
-
-    return Array.from(grouped.values()).sort((left, right) =>
-      String(left.effectiveTo || '9999-12-31T23:59:59').localeCompare(
-        String(right.effectiveTo || '9999-12-31T23:59:59'),
-      ),
-    );
+        availableCredits: activeBuckets.reduce(
+          (total, bucket) => total + Number(bucket.available_credits || 0),
+          0,
+        ),
+        effectiveTo: null,
+      },
+    ];
   });
 }
 
 function CategoryValidityCell({
+  availableCredits,
   category,
   effectiveTo,
   locale,
+  emptyValidityLabel,
   neverExpiresLabel,
   topupAvailabilityLabel,
   topupAvailabilityTooltip,
 }: {
+  availableCredits: number;
   category: BillingBucketCategory;
   effectiveTo: string | null;
   locale: string;
+  emptyValidityLabel: string;
   neverExpiresLabel: string;
   topupAvailabilityLabel: string;
   topupAvailabilityTooltip: string;
 }) {
-  if (effectiveTo) {
-    return <>{formatBillingCompactDateTime(effectiveTo, locale)}</>;
-  }
-
   if (category !== 'topup') {
+    if (availableCredits <= 0) {
+      return <>{emptyValidityLabel}</>;
+    }
+
+    if (effectiveTo) {
+      return <>{formatBillingCompactDateTime(effectiveTo, locale)}</>;
+    }
+
     return <>{neverExpiresLabel}</>;
   }
 
   return (
-    <div className='flex items-center justify-end gap-1.5'>
+    <div className='flex items-center justify-center gap-1.5'>
       <span>{topupAvailabilityLabel}</span>
       <TooltipProvider delayDuration={0}>
         <Tooltip>
@@ -216,9 +217,13 @@ export function BillingCreditDetailsPanel({
     isLoading: bucketsLoading,
     mutate: refreshWalletBuckets,
   } = useBillingWalletBuckets();
+  const subscriptionPeriodEnd = parseBillingDateValue(
+    overview?.subscription?.current_period_end_at,
+  );
   const hasActiveSubscription = Boolean(
     overview?.subscription &&
-    !['canceled', 'expired', 'draft'].includes(overview.subscription.status),
+    !['canceled', 'expired', 'draft'].includes(overview.subscription.status) &&
+    (!subscriptionPeriodEnd || subscriptionPeriodEnd > new Date()),
   );
   const activeSubscriptionEffectiveTo =
     hasActiveSubscription && overview?.subscription?.current_period_end_at
@@ -253,6 +258,7 @@ export function BillingCreditDetailsPanel({
   const totalCreditsLabel = formatBillingCreditBalance(
     overview?.wallet.available_credits || 0,
   );
+  const emptyValidityLabel = t('module.billing.details.emptyValidityLabel');
   const neverExpiresLabel = t('module.billing.ledger.neverExpires');
   const topupAvailabilityLabel = t(
     'module.billing.details.topupAvailabilityLabel',
@@ -311,7 +317,7 @@ export function BillingCreditDetailsPanel({
               <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[var(--spacing-2,8px)] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
                 {t('module.billing.details.table.balance')}
               </div>
-              <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[var(--spacing-2,8px)] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
+              <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-center px-[var(--spacing-2,8px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
                 {t('module.billing.details.table.validUntil')}
               </div>
             </div>
@@ -338,8 +344,10 @@ export function BillingCreditDetailsPanel({
                         i18n.language,
                       )}
                     </div>
-                    <div className='px-[var(--spacing-2,8px)] py-4 text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                    <div className='px-[var(--spacing-2,8px)] py-4 text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
                       <CategoryValidityCell
+                        availableCredits={row.availableCredits}
+                        emptyValidityLabel={emptyValidityLabel}
                         category={row.category}
                         effectiveTo={row.effectiveTo}
                         locale={i18n.language}

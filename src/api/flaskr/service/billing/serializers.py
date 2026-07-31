@@ -40,6 +40,7 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_CATEGORY_LABELS,
     CREDIT_BUCKET_STATUS_LABELS,
     CREDIT_LEDGER_ENTRY_TYPE_LABELS,
@@ -91,6 +92,7 @@ from .primitives import (
     credit_decimal_to_number,
     normalize_bid,
     normalize_json_object,
+    to_decimal,
 )
 from .queries import load_product_code_map
 
@@ -490,18 +492,24 @@ def serialize_wallet_bucket(
     app: Flask,
     row: CreditWalletBucket,
 ) -> BillingWalletBucketDTO:
-    runtime_status = CREDIT_BUCKET_STATUS_LABELS.get(row.status, "active")
-    if (
-        runtime_status == "active"
-        and row.effective_to is not None
-        and row.effective_to <= now_utc()
-    ):
-        runtime_status = "expired"
-
     category_code = resolve_wallet_bucket_runtime_category(
         row,
         load_order_type=load_billing_order_type_by_bid,
     )
+    current_at = now_utc()
+    runtime_status = CREDIT_BUCKET_STATUS_LABELS.get(row.status, "active")
+    if (
+        runtime_status == "active"
+        and row.effective_to is not None
+        and row.effective_to <= current_at
+        and not (
+            category_code == CREDIT_BUCKET_CATEGORY_TOPUP
+            and to_decimal(row.available_credits) > 0
+            and (row.effective_from is None or row.effective_from <= current_at)
+        )
+    ):
+        runtime_status = "expired"
+
     return BillingWalletBucketDTO(
         wallet_bucket_bid=row.wallet_bucket_bid,
         category=CREDIT_BUCKET_CATEGORY_LABELS.get(category_code, "subscription"),

@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/Popover';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
-import { adaptMarkdownFlowInteractionForRender } from '@/c-utils/markdown-flow-interaction';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import {
   isSystemInteractionContent,
@@ -617,7 +616,7 @@ const buildSlideElementList = ({
         fallbackSequence: sequenceNumber,
       }),
       type: 'interaction',
-      content: adaptMarkdownFlowInteractionForRender(localizedContent),
+      content: localizedContent,
       is_marker: item.is_marker ?? true,
       is_renderable: item.is_renderable ?? true,
       is_new: item.is_new ?? true,

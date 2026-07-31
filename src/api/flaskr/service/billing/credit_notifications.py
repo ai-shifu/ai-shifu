@@ -3513,26 +3513,33 @@ def resolve_creator_limit_state(app: Flask, creator_bid: str) -> dict[str, Any]:
             .first()
         )
         available = _to_decimal(getattr(wallet, "available_credits", _ZERO))
-        policy = load_credit_notification_policy()
-        softlimit = policy.get("softlimit")
-        softlimit_enabled = isinstance(softlimit, dict) and _coerce_bool(
-            softlimit.get("enabled")
-        )
-        disable_debug = isinstance(softlimit, dict) and _coerce_bool(
-            softlimit.get("disable_debug", True)
-        )
-        threshold_payload = (
-            softlimit.get("threshold") if isinstance(softlimit, dict) else {}
-        )
-        threshold = _ZERO
-        if isinstance(threshold_payload, dict):
-            threshold = _decimal_from_policy(threshold_payload.get("value"), _ZERO)
-        if available <= _ZERO:
-            state = LIMIT_STATE_HARDLIMIT
-        elif softlimit_enabled and available <= threshold:
-            state = LIMIT_STATE_SOFTLIMIT
-        else:
-            state = LIMIT_STATE_NORMAL
+        return build_creator_limit_state_for_available_credits(available)
+
+
+def build_creator_limit_state_for_available_credits(
+    available_credits: Decimal,
+) -> dict[str, Any]:
+    available = _to_decimal(available_credits)
+    policy = load_credit_notification_policy()
+    softlimit = policy.get("softlimit")
+    softlimit_enabled = isinstance(softlimit, dict) and _coerce_bool(
+        softlimit.get("enabled")
+    )
+    disable_debug = isinstance(softlimit, dict) and _coerce_bool(
+        softlimit.get("disable_debug", True)
+    )
+    threshold_payload = (
+        softlimit.get("threshold") if isinstance(softlimit, dict) else {}
+    )
+    threshold = _ZERO
+    if isinstance(threshold_payload, dict):
+        threshold = _decimal_from_policy(threshold_payload.get("value"), _ZERO)
+    if available <= _ZERO:
+        state = LIMIT_STATE_HARDLIMIT
+    elif softlimit_enabled and available <= threshold:
+        state = LIMIT_STATE_SOFTLIMIT
+    else:
+        state = LIMIT_STATE_NORMAL
     return {
         "state": state,
         "debug_allowed": not (state == LIMIT_STATE_SOFTLIMIT and disable_debug),

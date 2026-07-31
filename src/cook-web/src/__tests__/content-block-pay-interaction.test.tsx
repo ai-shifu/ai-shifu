@@ -126,7 +126,9 @@ describe('ContentBlock pay interaction overrides', () => {
     );
   });
 
-  it('adapts a variable-free ellipsis interaction into a text input', () => {
+  it('passes a variable-free ellipsis interaction through unchanged', () => {
+    // markdown-flow-ui >= 0.2.8 (remark-flow >= 1.2.0) parses variable-free
+    // text-input interactions natively; no host-side rewrite is needed.
     const onSend = jest.fn();
     render(
       <ContentBlock
@@ -148,8 +150,7 @@ describe('ContentBlock pay interaction overrides', () => {
     const contentRenderProps = mockContentRender.mock.calls[0]?.[0];
     expect(contentRenderProps).toEqual(
       expect.objectContaining({
-        content:
-          '<custom-variable placeholder="你叫什么名字"></custom-variable>',
+        content: '?[...你叫什么名字]',
         userInput: '小明',
       }),
     );
@@ -332,8 +333,7 @@ describe('ContentBlock pay interaction overrides', () => {
     expect(mockContentRender).toHaveBeenCalledTimes(initialCallCount + 1);
     expect(mockContentRender).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        content:
-          '<custom-variable placeholder="你叫什么名字"></custom-variable>',
+        content: '?[...你叫什么名字]',
       }),
     );
   });

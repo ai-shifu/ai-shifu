@@ -23,7 +23,6 @@ import {
 } from '@/c-utils/system-interaction';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
-import { adaptMarkdownFlowInteractionForRender } from '@/c-utils/markdown-flow-interaction';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -120,10 +119,6 @@ const ContentBlock = memo(
       shouldEnableTypewriter || shouldRenderExternalCustomButton
         ? (stripCustomButtonAfterContent(localizedContent) ?? '')
         : localizedContent;
-    const markdownFlowContent =
-      item.type === ChatContentItemType.INTERACTION
-        ? adaptMarkdownFlowInteractionForRender(renderedContent)
-        : renderedContent;
     const externalCustomButtonInnerHtml = shouldRenderExternalCustomButton
       ? extractCustomButtonAfterContentInnerHtml(localizedContent)
       : '';
@@ -149,7 +144,7 @@ const ContentBlock = memo(
           locale={markdownFlowLocale}
           enableTypewriter={shouldEnableTypewriter}
           typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
-          content={markdownFlowContent}
+          content={renderedContent}
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}
           userInput={resolvedUserInput}
