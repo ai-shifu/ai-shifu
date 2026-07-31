@@ -78,8 +78,6 @@ def apply_paid_subscription_cycle_state(
     subscription.current_period_start_at = effective_from
     subscription.current_period_end_at = effective_to
     subscription.last_renewed_at = effective_from
-    subscription.updated_at = now_utc()
-
     realign_active_topup_bucket_effective_to(
         creator_bid=creator_bid,
         effective_from=effective_from,
