@@ -18,6 +18,7 @@ import {
   mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
+import { debugError, debugWarn } from '@/c-utils/debugConsole';
 import {
   getAudioTrackByPosition,
   normalizeAudioCompletePayload,
@@ -32,6 +33,10 @@ import { normalizeLegacyBlockCompatList } from '@/c-utils/chatUiCompat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
+import {
+  resolveLearnerErrorMessage,
+  resolveLearnerErrorToast,
+} from '@/lib/learnerError';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 import type { ErrorWithCode } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
@@ -57,13 +62,15 @@ interface StartPreviewParams {
   shifuBid?: string;
   outlineBid?: string;
   mdflow?: string;
-  user_input?: Record<string, any>;
-  variables?: Record<string, any>;
+  user_input?: Record<string, unknown>;
+  variables?: Record<string, unknown>;
   block_index?: number;
   max_block_count?: number;
   systemVariableKeys?: string[];
   visual_mode?: boolean;
 }
+
+type PreviewSseSource = InstanceType<typeof SSE>;
 
 export const buildInteractionContinuationPreviewParams = ({
   currentParams,
@@ -141,7 +148,7 @@ const parseObjectPayload = <T extends Record<string, unknown>>(
       return parsed as T;
     }
   } catch (error) {
-    console.warn('Failed to parse preview payload object:', error);
+    debugWarn('[preview-chat] failed to parse preview payload object', error);
   }
   return null;
 };
@@ -454,8 +461,8 @@ export function usePreviewChat() {
   const currentContentIdRef = useRef<string | null>(null);
   const currentStreamingElementBidRef = useRef<string | null>(null);
   const sseParams = useRef<StartPreviewParams>({});
-  const sseRef = useRef<any>(null);
-  const ttsSseRef = useRef<Record<string, any>>({});
+  const sseRef = useRef<PreviewSseSource | null>(null);
+  const ttsSseRef = useRef<Record<string, PreviewSseSource>>({});
   const isStreamingRef = useRef(false);
   const doneTerminalStateRef = useRef<boolean | null>(null);
   const [variablesSnapshot, setVariablesSnapshot] =
@@ -571,7 +578,7 @@ export function usePreviewChat() {
           content,
         ) as InteractionParseResult;
       } catch (error) {
-        console.warn('Failed to parse interaction block', error);
+        debugWarn('[preview-chat] failed to parse interaction block', error);
         return null;
       }
     },
@@ -706,10 +713,12 @@ export function usePreviewChat() {
 
   const handlePreviewBusinessError = useCallback(
     (errorOrMessage?: string | ErrorWithCode | null, fallbackCode?: number) => {
-      const resolvedMessage =
-        typeof errorOrMessage === 'string'
-          ? errorOrMessage.trim() || t('module.preview.llmError')
-          : errorOrMessage?.message?.trim() || t('module.preview.llmError');
+      const resolvedToast = resolveLearnerErrorToast({
+        error: typeof errorOrMessage === 'string' ? undefined : errorOrMessage,
+        message:
+          typeof errorOrMessage === 'string' ? errorOrMessage : undefined,
+        fallbackMessage: t('module.preview.llmError'),
+      });
       const resolvedCode =
         typeof errorOrMessage === 'string'
           ? fallbackCode
@@ -717,11 +726,11 @@ export function usePreviewChat() {
       setTrackedContentList(prev =>
         replacePreviewLoadingWithBusinessError(
           prev,
-          resolvedMessage,
+          resolvedToast.message,
           resolvedCode,
         ),
       );
-      setError(resolvedMessage);
+      setError(resolvedToast.message);
       stopPreview();
     },
     [setTrackedContentList, stopPreview, t],
@@ -1266,7 +1275,7 @@ export function usePreviewChat() {
           }
         }
       } catch (err) {
-        console.warn('preview SSE handling error:', err);
+        debugWarn('[preview-chat] SSE handling error', err);
       }
     },
     [
@@ -1339,7 +1348,7 @@ export function usePreviewChat() {
       }
 
       if (!finalShifuBid || !finalOutlineBid) {
-        setError('Invalid preview params');
+        setError(t('module.preview.invalidParams'));
         return;
       }
 
@@ -1356,7 +1365,7 @@ export function usePreviewChat() {
       doneTerminalStateRef.current = null;
       const resolvedBaseUrl = await resolveBaseUrl();
       if (!resolvedBaseUrl) {
-        setError('Missing API base URL');
+        setError(t('module.preview.missingApiBaseUrl'));
         return;
       }
       setTrackedContentList(prev => [
@@ -1431,7 +1440,7 @@ export function usePreviewChat() {
           if (sseRef.current !== source) {
             return;
           }
-          console.error('[preview sse error]', err);
+          debugError('[preview-chat] preview SSE error', err);
           const latestActionableItem = finalizePreviewItems();
           const hasReceivedNonTerminalDone =
             doneTerminalStateRef.current === false;
@@ -1453,13 +1462,18 @@ export function usePreviewChat() {
             stopPreview();
             return;
           }
-          setError('Preview stream error');
+          setError(t('module.preview.streamError'));
           stopPreview();
         });
         source.stream();
       } catch (err) {
-        console.error('preview stream error', err);
-        handlePreviewBusinessError((err as Error)?.message || 'Preview failed');
+        debugError('[preview-chat] preview stream error', err);
+        handlePreviewBusinessError(
+          resolveLearnerErrorMessage({
+            error: err as ErrorWithCode,
+            fallbackMessage: t('module.preview.requestFailed'),
+          }),
+        );
         stopPreview();
         setIsLoading(false);
       }
@@ -1472,6 +1486,7 @@ export function usePreviewChat() {
       setTrackedContentList,
       stopPreview,
       stopPreviewAndContinueIfNeeded,
+      t,
     ],
   );
 
@@ -1988,12 +2003,12 @@ export function usePreviewChat() {
               resolve(audioComplete ?? null);
             }
           } catch (err) {
-            console.warn('preview audio stream parse error:', err);
+            debugWarn('[preview-chat] preview audio stream parse error', err);
           }
         });
 
         source.addEventListener('error', err => {
-          console.error('[preview audio sse error]', err);
+          debugError('[preview-chat] preview audio SSE error', err);
           setTrackedContentList(prevState =>
             ensureAudioItem(
               prevState.map(item => {

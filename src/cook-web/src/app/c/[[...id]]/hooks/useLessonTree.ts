@@ -11,18 +11,90 @@ import { useCourseStore } from '@/c-store/useCourseStore';
 import { useShallow } from 'zustand/react/shallow';
 import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
 
-export const checkChapterCanLearning = ({ status_value }) => {
+type LessonTreeApiLesson = {
+  bid: string;
+  title: string;
+  status: string;
+  type: string;
+  is_paid: boolean;
+  has_content_update_for_current_user?: boolean;
+};
+
+type LessonTreeApiCatalog = {
+  bid: string;
+  title: string;
+  status: string;
+  type: string;
+  is_paid: boolean;
+  children: LessonTreeApiLesson[];
+};
+
+type LessonTreeApiResponse = {
+  outline_items?: LessonTreeApiCatalog[];
+  banner_info?: unknown;
+};
+
+export type LessonTreeLesson = {
+  id: string;
+  name: string;
+  status: string;
+  type: string;
+  is_paid: boolean;
+  has_content_update_for_current_user?: boolean;
+  status_value: string;
+  canLearning: boolean;
+  user_input?: string;
+};
+
+export type LessonTreeCatalog = {
+  id: string;
+  name: string;
+  status: string;
+  is_paid: boolean;
+  status_value: string;
+  type: string;
+  lessons: LessonTreeLesson[];
+  collapse: boolean;
+};
+
+type LessonTreeData = {
+  bannerInfo?: unknown;
+  catalogs: LessonTreeCatalog[];
+};
+
+type LessonTree = LessonTreeData | null;
+
+type LessonStatusLike = {
+  status_value: string;
+};
+
+type LessonSelectionResult = {
+  catalog: LessonTreeCatalog | null;
+  lesson: LessonTreeLesson | null;
+};
+
+type ToggleCollapseParams = {
+  id: string;
+};
+
+type LessonUpdatePatch = Partial<LessonTreeLesson>;
+
+type ChapterStatusPatch = {
+  status: string;
+  status_value: string;
+};
+
+type LessonSelectTrackingParams = {
+  lessonId: string;
+};
+
+export const checkChapterCanLearning = ({ status_value }: LessonStatusLike) => {
   const canLearn =
     status_value === LESSON_STATUS_VALUE.LEARNING ||
     status_value === LESSON_STATUS_VALUE.COMPLETED ||
     status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING;
   return canLearn;
 };
-
-type LessonTree = {
-  bannerInfo?: any;
-  catalogs: any[];
-} | null;
 
 export const useLessonTree = () => {
   const [tree, setTree] = useState<LessonTree>(null);
@@ -33,7 +105,6 @@ export const useLessonTree = () => {
   }, [tree]);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const { trackEvent } = useTracking();
-  const { updateCourseId } = useEnvStore.getState();
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const previewMode = useSystemStore(state => state.previewMode);
   const { openPayModal } = useCourseStore(
@@ -42,22 +113,23 @@ export const useLessonTree = () => {
     })),
   );
 
-  const getCurrElement = useCallback(async () => {
-    if (!tree || !selectedLessonId) {
-      return { catalog: null, lesson: null };
-    }
-
-    for (const catalog of tree.catalogs) {
-      const lesson = catalog.lessons.find(v => v.id === selectedLessonId);
-      if (lesson) {
-        return { catalog, lesson };
+  const getCurrElement =
+    useCallback(async (): Promise<LessonSelectionResult> => {
+      if (!tree || !selectedLessonId) {
+        return { catalog: null, lesson: null };
       }
-    }
-    return { catalog: null, lesson: null };
-  }, [selectedLessonId, tree]);
+
+      for (const catalog of tree.catalogs) {
+        const lesson = catalog.lessons.find(v => v.id === selectedLessonId);
+        if (lesson) {
+          return { catalog, lesson };
+        }
+      }
+      return { catalog: null, lesson: null };
+    }, [selectedLessonId, tree]);
 
   const ensureLessonAccessible = useCallback(
-    (lesson, chapterId: string) => {
+    (lesson: LessonTreeLesson, chapterId: string) => {
       const needsLogin =
         (lesson.type === LEARNING_PERMISSION.TRIAL ||
           lesson.type === LEARNING_PERMISSION.NORMAL) &&
@@ -88,11 +160,14 @@ export const useLessonTree = () => {
   );
 
   const initialSelectedChapter = useCallback(
-    tree => {
-      let catalog = tree.catalogs.find(
+    (treeData: LessonTreeData | null) => {
+      if (!treeData) {
+        return;
+      }
+      let catalog = treeData.catalogs.find(
         v => v.status_value === LESSON_STATUS_VALUE.LEARNING,
       );
-      let lesson;
+      let lesson: LessonTreeLesson | undefined;
       if (catalog) {
         lesson = catalog.lessons.find(
           v =>
@@ -100,7 +175,7 @@ export const useLessonTree = () => {
             v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
         );
       } else {
-        catalog = tree.catalogs.find(
+        catalog = treeData.catalogs.find(
           v => v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
         );
         if (catalog) {
@@ -118,9 +193,9 @@ export const useLessonTree = () => {
         setSelectedLessonId(lesson.id);
       } else {
         // find the last chapter that is completed
-        let lastChapter: (typeof tree.catalogs)[number] | undefined;
-        for (let i = tree.catalogs.length - 1; i >= 0; i--) {
-          const chapter = tree.catalogs[i];
+        let lastChapter: LessonTreeCatalog | undefined;
+        for (let i = treeData.catalogs.length - 1; i >= 0; i -= 1) {
+          const chapter = treeData.catalogs[i];
           if (chapter.status_value === LESSON_STATUS_VALUE.COMPLETED) {
             lastChapter = chapter;
             break;
@@ -149,9 +224,10 @@ export const useLessonTree = () => {
     });
 
     try {
-      const resp = await getLessonTree(courseId, previewMode);
-
-      const treeData = resp;
+      const treeData = (await getLessonTree(
+        courseId,
+        previewMode,
+      )) as LessonTreeApiResponse;
       if (!treeData) {
         debugWarn('[lesson-tree] empty response', {
           courseId,
@@ -165,35 +241,36 @@ export const useLessonTree = () => {
       //   await updateCourseId(treeData.course_id);
       // }
 
-      const catalogs = (treeData.outline_items || []).map(l => {
-        const lessons = l.children.map(c => {
+      const catalogs: LessonTreeCatalog[] = (treeData.outline_items || []).map(
+        l => {
+          const lessons: LessonTreeLesson[] = l.children.map(c => {
+            return {
+              id: c.bid,
+              name: c.title,
+              status: c.status,
+              type: c.type,
+              is_paid: c.is_paid,
+              has_content_update_for_current_user:
+                c.has_content_update_for_current_user,
+              status_value: c.status, // TODO: DELETE status_value
+              canLearning: checkChapterCanLearning({ status_value: c.status }),
+            };
+          });
+
           return {
-            id: c.bid,
-            name: c.title,
-            status: c.status,
-            type: c.type,
-            is_paid: c.is_paid,
-            has_content_update_for_current_user:
-              c.has_content_update_for_current_user,
-            status_value: c.status, // TODO: DELETE status_value
-            canLearning: checkChapterCanLearning({ status_value: c.status }),
+            id: l.bid,
+            name: l.title,
+            status: l.status,
+            is_paid: l.is_paid,
+            status_value: l.status,
+            type: l.type,
+            lessons,
+            collapse: false,
           };
-        });
+        },
+      );
 
-        return {
-          id: l.bid,
-          name: l.title,
-          status: l.status,
-          is_paid: l.is_paid,
-          status_value: l.status,
-          type: l.type,
-          lessons,
-          collapse: false,
-        };
-      });
-
-      const newTree = {
-        catalogCount: catalogs.length,
+      const newTree: LessonTreeData = {
         catalogs,
         bannerInfo: treeData.banner_info,
       };
@@ -216,19 +293,23 @@ export const useLessonTree = () => {
       });
       throw error;
     }
-  }, [previewMode, updateCourseId]);
+  }, [previewMode]);
 
   const setSelectedState = useCallback(
-    (tree, chapterId, lessonId) => {
-      let chapter = tree.catalogs.find(v => v.id === chapterId);
-      let lesson = null;
+    (treeData: LessonTreeData | null, chapterId: string, lessonId?: string) => {
+      if (!treeData) {
+        return false;
+      }
+
+      let chapter = treeData.catalogs.find(v => v.id === chapterId);
+      let lesson: LessonTreeLesson | undefined;
 
       if (chapter && lessonId) {
         lesson = chapter.lessons.find(v => v.id === lessonId);
       }
 
       if (!lesson && lessonId) {
-        for (const catalog of tree.catalogs) {
+        for (const catalog of treeData.catalogs) {
           const matchedLesson = catalog.lessons.find(v => v.id === lessonId);
           if (matchedLesson) {
             chapter = catalog;
@@ -254,8 +335,7 @@ export const useLessonTree = () => {
         if (!ensureLessonAccessible(lesson, chapter.id)) {
           return false;
         }
-        const typedLesson = lesson as { id: string };
-        setSelectedLessonId(typedLesson.id);
+        setSelectedLessonId(lesson.id);
         return true;
       }
       return true;
@@ -265,7 +345,7 @@ export const useLessonTree = () => {
 
   // Reload the course tree while preserving transient state
   const reloadTree = useCallback(
-    async (chapterId = undefined, lessonId = undefined) => {
+    async (chapterId: string | undefined = undefined, lessonId = undefined) => {
       const newTree = await loadTreeInner();
       if (chapterId === undefined) {
         initialSelectedChapter(newTree);
@@ -290,7 +370,7 @@ export const useLessonTree = () => {
 
   const loadTree = useCallback(
     async (chapterId = '', lessonId = '') => {
-      let newTree: { bannerInfo?: any; catalogs: any[] } | null = null;
+      let newTree: LessonTree = null;
       if (!tree) {
         newTree = await loadTreeInner();
       } else {
@@ -307,7 +387,10 @@ export const useLessonTree = () => {
     [initialSelectedChapter, loadTreeInner, setSelectedState, tree],
   );
 
-  const updateSelectedLesson = async (lessonId, forceExpand = false) => {
+  const updateSelectedLesson = async (
+    lessonId: string,
+    forceExpand = false,
+  ) => {
     setSelectedLessonId(lessonId);
 
     setTree(old => {
@@ -329,7 +412,7 @@ export const useLessonTree = () => {
     });
   };
 
-  const setCurrCatalog = async catalogId => {
+  const setCurrCatalog = async (catalogId: string) => {
     if (!tree) {
       return;
     }
@@ -346,7 +429,7 @@ export const useLessonTree = () => {
     updateSelectedLesson(l.id);
   };
 
-  const toggleCollapse = ({ id }) => {
+  const toggleCollapse = ({ id }: ToggleCollapseParams) => {
     const nextState = produce(tree, draft => {
       if (!draft) {
         return draft;
@@ -361,7 +444,7 @@ export const useLessonTree = () => {
     setTree(nextState);
   };
 
-  const updateLesson = (id, val) => {
+  const updateLesson = (id: string, val: LessonUpdatePatch) => {
     setTree(old => {
       if (!old) {
         return null;
@@ -385,7 +468,10 @@ export const useLessonTree = () => {
     });
   };
 
-  const updateChapterStatus = (id, { status, status_value }) => {
+  const updateChapterStatus = (
+    id: string,
+    { status, status_value }: ChapterStatusPatch,
+  ) => {
     setTree(old => {
       if (!old) {
         return null;
@@ -406,15 +492,14 @@ export const useLessonTree = () => {
     });
   };
 
-  const getChapterByLesson = lessonId => {
+  const getChapterByLesson = (lessonId: string): LessonTreeCatalog | null => {
     if (!tree) {
       return null;
     }
     const chapter = tree.catalogs.find(ch => {
       return ch.lessons.find(ls => ls.id === lessonId);
     });
-
-    return chapter;
+    return chapter ?? null;
   };
 
   const getNextLessonId = useCallback(
@@ -472,7 +557,7 @@ export const useLessonTree = () => {
     [selectedLessonId, tree],
   );
 
-  const onTryLessonSelect = ({ lessonId }) => {
+  const onTryLessonSelect = ({ lessonId }: LessonSelectTrackingParams) => {
     if (!tree) {
       return;
     }

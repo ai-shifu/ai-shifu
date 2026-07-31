@@ -3,3 +3,6 @@ allowBuilds:
   es5-ext: set this to true or false
   sharp: set this to true or false
   unrs-resolver: set this to true or false
+minimumReleaseAgeExclude:
+  - markdown-flow-ui@0.2.8
+  - remark-flow@1.2.0

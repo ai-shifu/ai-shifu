@@ -9,9 +9,12 @@ const mockRefreshUserInfo = jest.fn();
 const mockUpdateCourseId = jest.fn();
 const mockLoadTree = jest.fn();
 const mockReloadTree = jest.fn();
+const mockUpdateLesson = jest.fn();
+const mockUpdateSelectedLesson = jest.fn();
 const mockUpdateLessonId = jest.fn();
 const mockUpdateChapterId = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockToast = jest.fn();
 
 interface MockChatMobileHeaderProps {
   lessonId?: string;
@@ -20,7 +23,32 @@ interface MockChatMobileHeaderProps {
 
 interface MockChatUiProps {
   lessonId?: string;
+  lessonUpdate?: (value: {
+    id: string;
+    status: string;
+    status_value: string;
+  }) => void;
 }
+
+type ResetChapterEventHandler = (
+  event: CustomEvent<{
+    chapter_id: string;
+    lesson_id: string;
+  }>,
+) => Promise<void>;
+
+const getResetChapterEventHandler = () => {
+  const { shifu: mockedShifu } = jest.requireMock('@/c-service/Shifu') as {
+    shifu: {
+      events: {
+        addEventListener: jest.Mock;
+      };
+    };
+  };
+  return mockedShifu.events.addEventListener.mock.calls.find(
+    ([eventType]) => eventType === 'RESET_CHAPTER',
+  )?.[1] as ResetChapterEventHandler | undefined;
+};
 
 const mockChatMobileHeader = jest.fn(
   ({ lessonId, lessonTitle }: MockChatMobileHeaderProps) => (
@@ -107,6 +135,10 @@ jest.mock('react-i18next', () => ({
       language: 'zh-CN',
     },
   }),
+}));
+
+jest.mock('@/hooks/useToast', () => ({
+  toast: (...args: unknown[]) => mockToast(...args),
 }));
 
 jest.mock('zustand/react/shallow', () => ({
@@ -212,10 +244,10 @@ jest.mock('./hooks/useLessonTree', () => ({
     selectedLessonId: mockSelectedLessonId,
     loadTree: mockLoadTree,
     reloadTree: mockReloadTree,
-    updateSelectedLesson: jest.fn(),
+    updateSelectedLesson: mockUpdateSelectedLesson,
     toggleCollapse: jest.fn(),
     getCurrElement: jest.fn().mockResolvedValue(null),
-    updateLesson: jest.fn(),
+    updateLesson: mockUpdateLesson,
     updateChapterStatus: jest.fn(),
     getChapterByLesson: jest.fn(() => ({
       id: 'chapter-1',
@@ -265,10 +297,12 @@ jest.mock('@/components/profile-onboarding/ProfileOnboardingModal', () => ({
     open,
     onComplete,
     onSkip,
+    errorMessage,
   }: {
     open: boolean;
     onComplete: (variables: Record<string, string>) => void;
     onSkip: () => void;
+    errorMessage?: string;
   }) =>
     open ? (
       <div data-testid='profile-onboarding-modal'>
@@ -284,6 +318,7 @@ jest.mock('@/components/profile-onboarding/ProfileOnboardingModal', () => ({
         >
           {skipOnboardingLabel}
         </button>
+        {errorMessage ? <div role='alert'>{errorMessage}</div> : null}
       </div>
     ) : null,
 }));
@@ -297,6 +332,7 @@ describe('ChatPage profile onboarding gate', () => {
     mockSystemStoreState.learningMode = 'read';
     mockUiLayoutStoreState.frameLayout = 'desktop';
     mockSelectedLessonId = 'lesson-1';
+    mockToast.mockReset();
     mockLessonTreeLessons = [
       {
         id: 'lesson-1',
@@ -319,6 +355,7 @@ describe('ChatPage profile onboarding gate', () => {
     mockCompleteProfileOnboarding.mockResolvedValue({
       completed: true,
     });
+    mockReloadTree.mockResolvedValue(null);
     mockRefreshUserInfo.mockResolvedValue(undefined);
   });
 
@@ -399,5 +436,159 @@ describe('ChatPage profile onboarding gate', () => {
 
     const chatUi = await screen.findByTestId('chat-ui');
     expect(chatUi).toHaveAttribute('data-lesson-id', 'lesson-new');
+  });
+
+  test('keeps a retaken lesson in progress after reloading its reset tree state', async () => {
+    let resolveReloadTree: (value: unknown) => void = () => {};
+    mockReloadTree.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveReloadTree = resolve;
+      }),
+    );
+
+    render(<ChatPage />);
+
+    await screen.findByTestId('chat-ui');
+
+    const resetChapterEventHandler = getResetChapterEventHandler();
+
+    expect(resetChapterEventHandler).toBeDefined();
+
+    const resetPromise = resetChapterEventHandler?.(
+      new CustomEvent('RESET_CHAPTER', {
+        detail: {
+          chapter_id: 'chapter-1',
+          lesson_id: 'lesson-1',
+        },
+      }),
+    );
+
+    expect(mockReloadTree).toHaveBeenCalledWith('chapter-1', 'lesson-1');
+    expect(mockUpdateLesson).not.toHaveBeenCalled();
+
+    resolveReloadTree(null);
+    await resetPromise;
+
+    expect(mockUpdateLesson).toHaveBeenCalledWith('lesson-1', {
+      id: 'lesson-1',
+      status: 'in_progress',
+      status_value: 'in_progress',
+    });
+    expect(mockUpdateSelectedLesson).toHaveBeenCalledWith('lesson-1', true);
+  });
+
+  test('preserves a newer lesson status received while the reset tree reloads', async () => {
+    let resolveReloadTree: (value: unknown) => void = () => {};
+    mockReloadTree.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveReloadTree = resolve;
+      }),
+    );
+
+    render(<ChatPage />);
+
+    await screen.findByTestId('chat-ui');
+
+    const resetChapterEventHandler = getResetChapterEventHandler();
+    const latestChatUiCall =
+      mockChatUi.mock.calls[mockChatUi.mock.calls.length - 1];
+    const lessonUpdate = latestChatUiCall?.[0].lessonUpdate;
+
+    expect(resetChapterEventHandler).toBeDefined();
+    expect(lessonUpdate).toBeDefined();
+
+    const resetPromise = resetChapterEventHandler?.(
+      new CustomEvent('RESET_CHAPTER', {
+        detail: {
+          chapter_id: 'chapter-1',
+          lesson_id: 'lesson-1',
+        },
+      }),
+    );
+
+    lessonUpdate?.({
+      id: 'lesson-1',
+      status: 'completed',
+      status_value: 'completed',
+    });
+
+    resolveReloadTree(null);
+    await resetPromise;
+
+    expect(mockUpdateLesson).toHaveBeenLastCalledWith('lesson-1', {
+      id: 'lesson-1',
+      status: 'completed',
+      status_value: 'completed',
+    });
+    expect(mockUpdateLesson).not.toHaveBeenCalledWith('lesson-1', {
+      id: 'lesson-1',
+      status: 'in_progress',
+      status_value: 'in_progress',
+    });
+  });
+
+  test('surfaces the backend onboarding error message when submit fails', async () => {
+    mockGetProfileOnboarding.mockResolvedValue({
+      should_show: true,
+      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
+      current_values: {},
+    });
+    mockCompleteProfileOnboarding.mockRejectedValue(
+      new Error('昵称包含风险词'),
+    );
+
+    render(<ChatPage />);
+
+    await screen.findByTestId('profile-onboarding-modal');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: completeOnboardingLabel }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('昵称包含风险词');
+    });
+    expect(screen.queryByTestId('chat-ui')).not.toBeInTheDocument();
+  });
+
+  test('shows a toast and unblocks chat when onboarding status load fails', async () => {
+    mockGetProfileOnboarding.mockRejectedValue(new Error('画像配置暂时不可用'));
+
+    render(<ChatPage />);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: '画像配置暂时不可用',
+        variant: 'destructive',
+      });
+    });
+    expect(screen.getByTestId('chat-ui')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('profile-onboarding-modal'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('shows a sync-pending toast when onboarding save succeeds but refresh lags', async () => {
+    mockGetProfileOnboarding.mockResolvedValue({
+      should_show: true,
+      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
+      current_values: {},
+    });
+    mockRefreshUserInfo.mockRejectedValue(new Error('refresh delayed'));
+
+    render(<ChatPage />);
+
+    await screen.findByTestId('profile-onboarding-modal');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: completeOnboardingLabel }),
+    );
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.profileOnboarding.refreshPending',
+      });
+    });
+    expect(screen.getByTestId('chat-ui')).toBeInTheDocument();
   });
 });

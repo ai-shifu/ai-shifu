@@ -390,6 +390,83 @@ def test_billing_repair_topup_expiry_cli_prints_helper_payload(
     assert payload["kwargs"]["creator_bid"] == "creator-cli-1"
 
 
+def test_billing_restore_expired_topup_buckets_cli_requires_order_bid(
+    billing_cli_runner,
+) -> None:
+    result = billing_cli_runner.invoke(
+        args=["console", "billing", "restore-expired-topup-buckets"]
+    )
+
+    assert result.exit_code != 0
+    assert (
+        "Pass at least one --bill-order-bid for expired topup bucket restore."
+        in result.output
+    )
+
+
+def test_billing_restore_expired_topup_buckets_cli_prints_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.restore_wrongly_expired_credit_pack_buckets",
+        lambda app, **kwargs: {
+            "status": "dry_run",
+            "repaired_bucket_count": 2,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "restore-expired-topup-buckets",
+            "--bill-order-bid",
+            "order-cli-1",
+            "--bill-order-bid",
+            "order-cli-2",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "dry_run"
+    assert payload["kwargs"]["bill_order_bids"] == ["order-cli-1", "order-cli-2"]
+    assert payload["kwargs"]["dry_run"] is True
+
+
+def test_billing_restore_expired_topup_buckets_cli_apply_persists_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.restore_wrongly_expired_credit_pack_buckets",
+        lambda app, **kwargs: {
+            "status": "repaired",
+            "repaired_bucket_count": 1,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "restore-expired-topup-buckets",
+            "--bill-order-bid",
+            "order-cli-1",
+            "--apply",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "repaired"
+    assert payload["kwargs"]["bill_order_bids"] == ["order-cli-1"]
+    assert payload["kwargs"]["dry_run"] is False
+
+
 def test_billing_repair_bucket_status_cli_requires_explicit_scope(
     billing_cli_runner,
 ) -> None:
@@ -496,6 +573,82 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_apply_persists_payload(
             "console",
             "billing",
             "repair-expire-ledger-bucket-drift",
+            "--all",
+            "--limit",
+            "10",
+            "--apply",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "repaired"
+    assert payload["kwargs"]["limit"] == 10
+    assert payload["kwargs"]["dry_run"] is False
+
+
+def test_billing_repair_renewal_state_drift_cli_requires_scope(
+    billing_cli_runner,
+) -> None:
+    result = billing_cli_runner.invoke(
+        args=["console", "billing", "repair-renewal-state-drift"]
+    )
+
+    assert result.exit_code != 0
+    assert (
+        "Pass --creator-bid or --all for renewal state drift repair." in result.output
+    )
+
+
+def test_billing_repair_renewal_state_drift_cli_prints_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.repair_renewal_state_drift",
+        lambda app, **kwargs: {
+            "status": "dry_run",
+            "creator_count": 1,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "repair-renewal-state-drift",
+            "--creator-bid",
+            "creator-cli-1",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "dry_run"
+    assert payload["kwargs"]["creator_bid"] == "creator-cli-1"
+    assert payload["kwargs"]["limit"] is None
+    assert payload["kwargs"]["dry_run"] is True
+
+
+def test_billing_repair_renewal_state_drift_cli_apply_persists_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.repair_renewal_state_drift",
+        lambda app, **kwargs: {
+            "status": "repaired",
+            "creator_count": 10,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "repair-renewal-state-drift",
             "--all",
             "--limit",
             "10",

@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 from cryptography import x509
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
-from flask import Flask
+from flask import Flask, current_app, has_app_context
 from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.datastructures import FileStorage
 
@@ -123,7 +123,10 @@ _LOGO_CONTENT_TYPES = {
 }
 _LOGO_MAX_BYTES = 2 * 1024 * 1024
 _LOGO_MAX_PIXELS = 12_000_000
-_LOGO_VARIANTS = {"wide", "square"}
+_LOGO_VARIANTS = {"wide", "square", "favicon"}
+_FAVICON_CONTENT_TYPES = {**_LOGO_CONTENT_TYPES, ".ico": "image/x-icon"}
+_FAVICON_SIZES = [(16, 16), (32, 32), (48, 48)]
+_FAVICON_CANVAS_SIZE = 48
 _LOGO_WIDE_CSS_SIZE = (220, 32)
 _LOGO_SQUARE_CSS_SIZE = (32, 32)
 _LOGO_MAX_DEVICE_SCALE = 3
@@ -135,6 +138,7 @@ _LOGO_SQUARE_MAX_SIZE = (
     _LOGO_SQUARE_CSS_SIZE[0] * _LOGO_MAX_DEVICE_SCALE,
     _LOGO_SQUARE_CSS_SIZE[1] * _LOGO_MAX_DEVICE_SCALE,
 )
+_HOME_URL_MAX_LENGTH = 512
 
 
 @dataclass(slots=True, frozen=True)
@@ -268,28 +272,14 @@ def upload_admin_creator_draft_logo(
         creator_mobile=creator_mobile,
     )
     normalized_target = _normalize_logo_target(target)
-    filename = str(file.filename or "").strip()
-    suffix = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-    expected_content_type = _LOGO_CONTENT_TYPES.get(suffix)
-    content = file.stream.read(_LOGO_MAX_BYTES + 1)
-    if (
-        expected_content_type is None
-        or not content
-        or len(content) > _LOGO_MAX_BYTES
-        or _detect_logo_content_type(content) != expected_content_type
-    ):
-        raise_param_error("file")
-
-    normalized_content = _normalize_logo_image(
-        content,
-        suffix=suffix,
-        target=normalized_target,
+    normalized_content, suffix, content_type = _read_validated_brand_image(
+        file, normalized_target
     )
     result = upload_to_storage(
         app,
         file_content=BytesIO(normalized_content),
         object_key=f"creator-branding-drafts/{owner_bid}/{generate_id(app)}{suffix}",
-        content_type=expected_content_type,
+        content_type=content_type,
         profile=OSS_PROFILE_COURSES,
         warm_up=False,
     )
@@ -329,29 +319,15 @@ def upload_creator_brand_logo(
             allow_when_customization_disabled=allow_when_customization_disabled,
         )
 
-        filename = str(file.filename or "").strip()
-        suffix = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-        expected_content_type = _LOGO_CONTENT_TYPES.get(suffix)
-        content = file.stream.read(_LOGO_MAX_BYTES + 1)
-        if (
-            expected_content_type is None
-            or not content
-            or len(content) > _LOGO_MAX_BYTES
-            or _detect_logo_content_type(content) != expected_content_type
-        ):
-            raise_param_error("file")
-
-        normalized_content = _normalize_logo_image(
-            content,
-            suffix=suffix,
-            target=normalized_target,
+        normalized_content, suffix, content_type = _read_validated_brand_image(
+            file, normalized_target
         )
 
         result = upload_to_storage(
             app,
             file_content=BytesIO(normalized_content),
             object_key=(f"creator-branding/{creator_bid}/{generate_id(app)}{suffix}"),
-            content_type=expected_content_type,
+            content_type=content_type,
             profile=OSS_PROFILE_COURSES,
             warm_up=False,
         )
@@ -379,10 +355,20 @@ def save_creator_branding(
             "logo_square_url": _normalize_logo_url(
                 payload.get("logo_square_url"), "logo_square_url"
             ),
+            "favicon_url": _normalize_logo_url(
+                payload.get("favicon_url"), "favicon_url"
+            ),
         }
+        # Only touch home_url when the caller sends the key: absent means
+        # "keep as is", empty string means "clear".
+        home_url_update = (
+            _normalize_home_url(payload.get("home_url"))
+            if "home_url" in payload
+            else None
+        )
         funcs = _saas_funcs(required=False)
         if funcs is None:
-            grant_creator_manual_entitlement(
+            state = grant_creator_manual_entitlement(
                 app,
                 creator_bid,
                 branding_enabled=entitlement.branding_enabled,
@@ -390,8 +376,9 @@ def save_creator_branding(
                 custom_wechat_enabled=entitlement.custom_wechat_enabled,
                 custom_payment_enabled=entitlement.custom_payment_enabled,
                 branding=value,
+                home_url=home_url_update,
             )
-            return value
+            return {**value, "home_url": _entitlement_home_url(state)}
 
         funcs.create_or_update_saas_user_config(
             app,
@@ -403,7 +390,7 @@ def save_creator_branding(
                 remark="Course-owner brand profile",
             ),
         )
-        grant_creator_manual_entitlement(
+        state = grant_creator_manual_entitlement(
             app,
             creator_bid,
             branding_enabled=entitlement.branding_enabled,
@@ -411,8 +398,9 @@ def save_creator_branding(
             custom_wechat_enabled=entitlement.custom_wechat_enabled,
             custom_payment_enabled=entitlement.custom_payment_enabled,
             branding=value,
+            home_url=home_url_update,
         )
-        return value
+        return {**value, "home_url": _entitlement_home_url(state)}
 
 
 def save_creator_integration(
@@ -549,20 +537,35 @@ def resolve_creator_branding(creator_bid: str) -> dict[str, str]:
     resolved = {
         "logo_wide_url": str(payload.get("logo_wide_url") or ""),
         "logo_square_url": str(payload.get("logo_square_url") or ""),
+        "favicon_url": str(payload.get("favicon_url") or ""),
     }
-    if resolved["logo_wide_url"] or resolved["logo_square_url"]:
+    if any(resolved.values()):
+        entitlement = resolve_creator_entitlement_state(creator_bid)
+        resolved["home_url"] = _entitlement_home_url(entitlement)
+        if not resolved["favicon_url"]:
+            # Favicons configured before the unified store existed live only
+            # in the entitlement branding payload.
+            resolved["favicon_url"] = str(
+                _entitlement_branding_dict(entitlement).get("favicon_url") or ""
+            )
         return resolved
     return _resolve_entitlement_branding(creator_bid)
 
 
-def _resolve_entitlement_branding(creator_bid: str) -> dict[str, str]:
-    entitlement = resolve_creator_entitlement_state(creator_bid)
+def _entitlement_branding_dict(entitlement) -> dict[str, Any]:
     feature_payload = entitlement.feature_payload.to_metadata_json()
     branding_payload = feature_payload.get("branding")
-    branding = branding_payload if isinstance(branding_payload, dict) else {}
+    return branding_payload if isinstance(branding_payload, dict) else {}
+
+
+def _resolve_entitlement_branding(creator_bid: str) -> dict[str, str]:
+    entitlement = resolve_creator_entitlement_state(creator_bid)
+    branding = _entitlement_branding_dict(entitlement)
     return {
         "logo_wide_url": str(branding.get("logo_wide_url") or ""),
         "logo_square_url": str(branding.get("logo_square_url") or ""),
+        "favicon_url": str(branding.get("favicon_url") or ""),
+        "home_url": _entitlement_home_url(entitlement),
     }
 
 
@@ -1058,9 +1061,41 @@ def _normalize_logo_url(value: Any, field: str) -> str:
     is_local_storage = not parsed.netloc and path.startswith(
         ("/storage/", "/api/storage/")
     )
-    if suffix not in _LOGO_CONTENT_TYPES or not (is_managed_host or is_local_storage):
+    allowed_suffixes = (
+        _FAVICON_CONTENT_TYPES if field == "favicon_url" else _LOGO_CONTENT_TYPES
+    )
+    if suffix not in allowed_suffixes or not (is_managed_host or is_local_storage):
         raise_param_error(field)
     return raw
+
+
+def _normalize_home_url(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if len(raw) > _HOME_URL_MAX_LENGTH:
+        raise_param_error("home_url")
+    parsed = urlsplit(raw)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise_param_error("home_url")
+    return raw
+
+
+def _normalize_home_url_lenient(value: Any) -> str:
+    """Draft-side variant: drop invalid values instead of raising, so the
+    admin draft autosave never fails on a partially typed URL."""
+    try:
+        return _normalize_home_url(value)
+    except AppException:
+        return ""
+
+
+def _entitlement_home_url(entitlement_state) -> str:
+    feature_values = entitlement_state.feature_payload.to_metadata_json()
+    branding_payload = feature_values.get("branding")
+    if not isinstance(branding_payload, dict):
+        branding_payload = {}
+    return str(feature_values.get("home_url") or branding_payload.get("home_url") or "")
 
 
 def _detect_logo_content_type(content: bytes) -> str:
@@ -1070,7 +1105,82 @@ def _detect_logo_content_type(content: bytes) -> str:
         return "image/jpeg"
     if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
         return "image/webp"
+    if content.startswith(b"\x00\x00\x01\x00"):
+        return "image/x-icon"
     return ""
+
+
+def _build_favicon_bytes(content: bytes) -> bytes:
+    """Convert an uploaded raster logo into a multi-size ICO favicon."""
+    try:
+        with Image.open(BytesIO(content)) as image:
+            if image.width * image.height > _LOGO_MAX_PIXELS:
+                raise_param_error("file")
+            normalized_image = ImageOps.exif_transpose(image).convert("RGBA")
+            side = max(normalized_image.size)
+            canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+            canvas.paste(
+                normalized_image,
+                (
+                    (side - normalized_image.width) // 2,
+                    (side - normalized_image.height) // 2,
+                ),
+            )
+            canvas = canvas.resize(
+                (_FAVICON_CANVAS_SIZE, _FAVICON_CANVAS_SIZE),
+                Image.LANCZOS,
+            )
+            output = BytesIO()
+            canvas.save(output, format="ICO", sizes=_FAVICON_SIZES)
+            return output.getvalue()
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError):
+        raise_param_error("file")
+
+
+def _validate_ico_bytes(content: bytes) -> None:
+    """Ensure an uploaded .ico actually decodes as an ICO before storing it."""
+    try:
+        with Image.open(BytesIO(content), formats=["ICO"]) as image:
+            if image.width * image.height > _LOGO_MAX_PIXELS:
+                raise_param_error("file")
+            image.load()
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError):
+        raise_param_error("file")
+
+
+def _read_validated_brand_image(
+    file: FileStorage, target: str
+) -> tuple[bytes, str, str]:
+    """Validate an uploaded brand asset and return (bytes, suffix, content type).
+
+    Favicon uploads accept the regular raster formats plus .ico; raster input
+    is converted into a real multi-size ICO so operators can upload a PNG.
+    """
+    filename = str(file.filename or "").strip()
+    suffix = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    content_types = (
+        _FAVICON_CONTENT_TYPES if target == "favicon" else _LOGO_CONTENT_TYPES
+    )
+    expected_content_type = content_types.get(suffix)
+    content = file.stream.read(_LOGO_MAX_BYTES + 1)
+    if (
+        expected_content_type is None
+        or not content
+        or len(content) > _LOGO_MAX_BYTES
+        or _detect_logo_content_type(content) != expected_content_type
+    ):
+        raise_param_error("file")
+    if target == "favicon":
+        if suffix != ".ico":
+            content = _build_favicon_bytes(content)
+        else:
+            _validate_ico_bytes(content)
+        return content, ".ico", "image/x-icon"
+    return (
+        _normalize_logo_image(content, suffix=suffix, target=target),
+        suffix,
+        expected_content_type,
+    )
 
 
 def _normalize_logo_target(value: Any) -> str:
@@ -1170,7 +1280,7 @@ def _save_logo_image(image: Image.Image, *, suffix: str) -> bytes:
 
 def _saas_funcs(*, required: bool = True):
     try:
-        return import_module(
+        module = import_module(
             "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs"
         )
     except ModuleNotFoundError as exc:
@@ -1179,6 +1289,16 @@ def _saas_funcs(*, required: bool = True):
         if required:
             raise RuntimeError("SaaS config plugin is not installed") from exc
         return None
+    # The plugin ships with the image even on deployments that never
+    # configure its dedicated database. Plugin initialization then leaves
+    # SAAS_PLUGIN_ENABLED false and its DB bind points at an unreachable
+    # default host, so treat "installed but not enabled" the same as "not
+    # installed" and let callers fall back to entitlement-backed storage.
+    if has_app_context() and not current_app.config.get("SAAS_PLUGIN_ENABLED"):
+        if required:
+            raise RuntimeError("SaaS config plugin is not enabled")
+        return None
+    return module
 
 
 def _saas_model():
@@ -1249,6 +1369,8 @@ def _empty_admin_creator_customization_draft(
         "branding": {
             "logo_wide_url": "",
             "logo_square_url": "",
+            "favicon_url": "",
+            "home_url": "",
         },
         "domain": {
             "host": "",
@@ -1299,6 +1421,12 @@ def _normalize_admin_creator_customization_draft(
             )
             if branding_payload.get("logo_square_url")
             else "",
+            "favicon_url": _normalize_logo_url(
+                branding_payload.get("favicon_url"), "favicon_url"
+            )
+            if branding_payload.get("favicon_url")
+            else "",
+            "home_url": _normalize_home_url_lenient(branding_payload.get("home_url")),
         }
 
     domain_payload = payload.get("domain")

@@ -19,7 +19,7 @@
     "notificationPolicySaveFailed": "Failed to save the credit notification policy. Please try again later.",
     "referralRewardProductMismatch": "Referral reward package configuration does not match the billing product. Contact an administrator to review the campaign setup.",
     "subscriptionCheckoutBusy": "The package purchase request is still being processed. Please try again later.",
-    "subscriptionInactive": "An active subscription is required. Credit pack credits can only be purchased or used within the subscription period.",
+    "subscriptionInactive": "Please buy a credit plan first. Credit packs can be used only while the account has an active credit plan.",
     "subscriptionPreorderAlreadyExists": "A package preorder is already pending for this subscription.",
     "subscriptionPreorderProviderUnsupported": "Package preorder is currently supported only for self-managed payment channels.",
     "subscriptionPreorderTargetInvalid": "Package preorder only supports renewing the same package or switching to a lower-tier package at the cycle boundary.",

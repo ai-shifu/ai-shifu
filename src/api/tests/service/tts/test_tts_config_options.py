@@ -337,3 +337,73 @@ def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
     )
 
     assert captured["settlement_at"] == utc_sentinel
+
+
+def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
+    """The local three-tier lineup: tencent premium first (default), then
+    tencent large-model, then volcengine seed-tts-2.0, with zh display names."""
+    import json as json_module
+
+    import flaskr.api.tts as tts_api
+    from flaskr.api.tts.tencent_texttovoice_provider import (
+        TencentTextToVoiceProvider,
+    )
+    from flaskr.i18n import clear_language, set_language
+
+    class _FakeVolcengineProvider:
+        def get_provider_config(self):
+            return base.ProviderConfig(
+                name="volcengine",
+                label="火山引擎",
+                speed=base.ParamRange(min=0.5, max=2.0, step=0.1, default=1.0),
+                pitch=base.ParamRange(min=-12, max=12, step=1, default=0),
+                supports_emotion=False,
+                models=[
+                    {"value": "seed-tts-1.0", "label": "Seed 1.0"},
+                    {"value": "seed-tts-2.0", "label": "Seed 2.0"},
+                ],
+                voices=[],
+                emotions=[],
+            )
+
+    monkeypatch.setattr(
+        tts_api,
+        "_PROVIDER_REGISTRY",
+        {
+            "volcengine": _FakeVolcengineProvider,
+            "tencent_texttovoice": TencentTextToVoiceProvider,
+        },
+    )
+    monkeypatch.setattr(
+        tts_api, "_PROVIDER_PRIORITY", ("volcengine", "tencent_texttovoice")
+    )
+    monkeypatch.setattr(
+        tts_api, "_resolve_credit_multiplier_label", lambda provider, model: None
+    )
+    monkeypatch.setenv(
+        "TTS_ALLOWED_MODELS",
+        "tencent_texttovoice/premium,tencent_texttovoice/large-model,"
+        "volcengine/seed-tts-2.0",
+    )
+    monkeypatch.setenv(
+        "TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON",
+        json_module.dumps(
+            {
+                "tencent_texttovoice/premium": {"zh-CN": "基础语音"},
+                "tencent_texttovoice/large-model": {"zh-CN": "精品语音"},
+                "volcengine/seed-tts-2.0": {"zh-CN": "旗舰语音"},
+            }
+        ),
+    )
+
+    try:
+        set_language("zh-CN")
+        config = tts_api.get_all_provider_configs()
+    finally:
+        clear_language()
+
+    assert [(item["value"], item["label"]) for item in config["model_options"]] == [
+        ("tencent_texttovoice/premium", "基础语音"),
+        ("tencent_texttovoice/large-model", "精品语音"),
+        ("volcengine/seed-tts-2.0", "旗舰语音"),
+    ]

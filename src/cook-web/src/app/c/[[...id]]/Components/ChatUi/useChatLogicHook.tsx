@@ -7,7 +7,7 @@ import {
   useMemo,
 } from 'react';
 import React from 'react';
-import { useLatest, useMountedState } from 'react-use';
+import { useLatest } from 'react-use';
 import {
   mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
@@ -20,7 +20,6 @@ import {
   StudyRecordItem,
   LikeStatus,
   AudioCompleteData,
-  type AudioSegmentData,
   type ListenSlideData,
   type ElementType,
   getRunMessage,
@@ -38,17 +37,12 @@ import {
   ELEMENT_TYPE,
 } from '@/c-api/studyV2';
 import {
-  getAudioSegmentDataListFromTracks,
   getAudioTrackByPosition,
-  mergeAudioSegmentDataList,
   normalizeAudioCompletePayload,
   normalizeAudioSegmentPayload,
-  normalizeAudioSubtitleCues,
-  sortAudioTracksByPosition,
   toAudioSegmentData,
   upsertAudioComplete,
   upsertAudioSegment,
-  type AudioTrack,
 } from '@/c-utils/audio-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
@@ -68,10 +62,7 @@ import LoadingBar from './LoadingBar';
 import { useTranslation } from 'react-i18next';
 import { show as showToast, toast } from '@/hooks/useToast';
 import { AppContext } from '../AppContext';
-import {
-  normalizeLegacyBlockCompatList,
-  stripCustomButtonAfterContent,
-} from './chatUiUtils';
+import { stripCustomButtonAfterContent } from './chatUiUtils';
 import {
   buildLessonRunContentCacheKey,
   EMPTY_LESSON_RUN_CONTENT_ENTRY,
@@ -79,255 +70,33 @@ import {
   useLessonRunContentStore,
 } from '@/c-store/useLessonRunContentStore';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
-
-interface LessonFeedbackPopupState {
-  open: boolean;
-  outlineBid: string;
-  modeKey: 'listen' | 'read' | '';
-  elementBid: string;
-  defaultScoreText: string;
-  defaultCommentText: string;
-  readonly: boolean;
-}
+import { resolveLearnerErrorToast } from '@/lib/learnerError';
+import { debugWarn } from '@/c-utils/debugConsole';
+import {
+  buildElementContentItem as buildChatElementContentItem,
+  isAskOrAnswerElementType,
+  normalizeCanonicalChatContentList,
+  normalizeOptionalNumber,
+  resolveRecordElementType,
+} from './useChatLogicHook.helpers';
+import type {
+  LessonFeedbackPopupState,
+  RequestAudioForBlockOptions,
+  SSEParams,
+  TtsStreamCancel,
+  UseChatSessionParams,
+  UseChatSessionResult,
+} from './useChatLogicHook.types';
 
 const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
 const RUN_STREAM_IDLE_TIMEOUT_MS = 15000;
 const MOBILE_RUN_STREAM_IDLE_TIMEOUT_MS = 60000;
 const TTS_BACKFILL_IDLE_TIMEOUT_MS = 120000;
 const STREAM_TIMEOUT_ITEM_BID_PREFIX = 'stream-timeout-error';
-const DEFAULT_LISTEN_AUDIO_POSITION = 0;
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
 export { ChatContentItemType };
 export type { ChatContentItem };
-
-interface SSEParams {
-  input: string | Record<string, any>;
-  input_type: SSE_INPUT_TYPE;
-  reload_generated_block_bid?: string;
-  reload_element_bid?: string;
-}
-
-interface RequestAudioForBlockOptions {
-  listen?: boolean;
-  shouldApplyResult?: () => boolean;
-  onStreamSettled?: () => void;
-}
-
-type TtsStreamCancel = (options?: { updateState?: boolean }) => void;
-
-const normalizeOptionalNumber = (value: unknown) => {
-  if (value === undefined || value === null) {
-    return undefined;
-  }
-
-  const normalized = Number(value);
-  return Number.isFinite(normalized) ? normalized : undefined;
-};
-
-const resolveStudyRecordAudioComplete = (
-  record: StudyRecordItem,
-): Partial<AudioCompleteData> | null => {
-  const audioPayload = record.payload?.audio as
-    | Record<string, unknown>
-    | undefined;
-  const audioUrl =
-    (typeof record.audio_url === 'string' && record.audio_url.trim()) ||
-    (typeof audioPayload?.audio_url === 'string' &&
-      audioPayload.audio_url.trim()) ||
-    '';
-
-  if (!audioUrl) {
-    return null;
-  }
-
-  const audioBid =
-    typeof audioPayload?.audio_bid === 'string'
-      ? audioPayload.audio_bid
-      : undefined;
-  const durationMs = normalizeOptionalNumber(audioPayload?.duration_ms);
-  const position = normalizeOptionalNumber(audioPayload?.position);
-  const slideId =
-    typeof audioPayload?.slide_id === 'string'
-      ? audioPayload.slide_id
-      : undefined;
-  const avContract =
-    audioPayload?.av_contract &&
-    typeof audioPayload.av_contract === 'object' &&
-    !Array.isArray(audioPayload.av_contract)
-      ? (audioPayload.av_contract as Record<string, unknown>)
-      : undefined;
-  const subtitleCues = normalizeAudioSubtitleCues(audioPayload?.subtitle_cues);
-
-  return {
-    audio_url: audioUrl,
-    ...(audioBid ? { audio_bid: audioBid } : {}),
-    ...(durationMs === undefined ? {} : { duration_ms: durationMs }),
-    ...(position === undefined ? {} : { position }),
-    ...(slideId ? { slide_id: slideId } : {}),
-    ...(avContract ? { av_contract: avContract } : {}),
-    ...(subtitleCues ? { subtitle_cues: subtitleCues } : {}),
-  };
-};
-
-const hydrateAudioTracksWithCompleteUrl = (
-  tracks: AudioTrack[] = [],
-  audioComplete?: Partial<AudioCompleteData> | null,
-): AudioTrack[] => {
-  if (!audioComplete?.audio_url) {
-    return tracks;
-  }
-
-  const position =
-    normalizeOptionalNumber(audioComplete.position) ??
-    DEFAULT_LISTEN_AUDIO_POSITION;
-  const targetIndex = tracks.findIndex(track => track.position === position);
-  const targetTrack =
-    targetIndex >= 0
-      ? { ...tracks[targetIndex] }
-      : {
-          position,
-          audioSegments: [],
-          isAudioStreaming: false,
-        };
-
-  const nextTrack: AudioTrack = {
-    ...targetTrack,
-    audioUrl: audioComplete.audio_url,
-    durationMs: audioComplete.duration_ms ?? targetTrack.durationMs,
-    isAudioStreaming: false,
-    slideId: audioComplete.slide_id ?? targetTrack.slideId,
-    avContract: audioComplete.av_contract ?? targetTrack.avContract,
-    subtitleCues: audioComplete.subtitle_cues ?? targetTrack.subtitleCues,
-  };
-  const nextTracks =
-    targetIndex >= 0
-      ? tracks.map((track, index) =>
-          index === targetIndex ? nextTrack : track,
-        )
-      : [...tracks, nextTrack];
-
-  return sortAudioTracksByPosition(nextTracks);
-};
-
-const normalizeCanonicalChatContentItem = (
-  item: ChatContentItem,
-): ChatContentItem => {
-  const nextContent =
-    typeof item.content === 'string'
-      ? (stripCustomButtonAfterContent(item.content) ?? '')
-      : item.content;
-  const nextAskList = Array.isArray(item.ask_list)
-    ? item.ask_list.map(normalizeCanonicalChatContentItem)
-    : item.ask_list;
-  const hasContentChanged = nextContent !== item.content;
-  const hasAskListChanged = nextAskList !== item.ask_list;
-
-  if (!hasContentChanged && !hasAskListChanged) {
-    return item;
-  }
-
-  return {
-    ...item,
-    ...(hasContentChanged ? { content: nextContent } : {}),
-    ...(hasAskListChanged ? { ask_list: nextAskList } : {}),
-  };
-};
-
-const normalizeCanonicalChatContentList = (
-  items: ChatContentItem[],
-): ChatContentItem[] =>
-  normalizeLegacyBlockCompatList(items).map(normalizeCanonicalChatContentItem);
-
-const resolvePayloadVisualContent = (
-  payload?: StudyRecordItem['payload'] | null,
-) => {
-  const previousVisuals = payload?.previous_visuals;
-  if (!Array.isArray(previousVisuals)) {
-    return '';
-  }
-
-  return previousVisuals
-    .map(item => {
-      if (!item || typeof item !== 'object') {
-        return '';
-      }
-      const content = (item as { content?: unknown }).content;
-      return typeof content === 'string' ? content.trim() : '';
-    })
-    .filter(Boolean)
-    .join('\n\n');
-};
-
-const resolveRenderableRecordContent = (record: StudyRecordItem) => {
-  const content = record.content ?? '';
-  if (content.trim()) {
-    return content;
-  }
-  return resolvePayloadVisualContent(record.payload) || content;
-};
-
-export interface UseChatSessionParams {
-  shifuBid: string;
-  outlineBid: string;
-  lessonId: string;
-  chapterId?: string;
-  previewMode?: boolean;
-  lessonHasContentUpdate?: boolean;
-  isListenMode?: boolean;
-  listenRequestEnabled?: boolean;
-  shouldPromptLessonFeedback?: boolean;
-  trackEvent: (name: string, payload?: Record<string, any>) => void;
-  trackTrailProgress: (courseId: string, elementBid: string) => void;
-  lessonUpdate?: (params: Record<string, any>) => void;
-  chapterUpdate?: (params: Record<string, any>) => void;
-  updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
-  getNextLessonId: (lessonId?: string | null) => string | null;
-  scrollToLesson: (lessonId: string) => void;
-  // scrollToBottom: (behavior?: ScrollBehavior) => void;
-  showOutputInProgressToast: () => void;
-  onPayModalOpen: () => void;
-  chatBoxBottomRef: React.RefObject<HTMLDivElement | null>;
-  onGoChapter: (lessonId: string) => void;
-}
-
-export interface UseChatSessionResult {
-  items: ChatContentItem[];
-  isLoading: boolean;
-  isOutputInProgress: boolean;
-  hasRunFailed: boolean;
-  currentStreamingElementBid: string;
-  currentTypewriterElementBid: string;
-  onSend: (content: OnSendContentParams, blockBid: string) => void;
-  onRefresh: (elementBid: string) => void;
-  toggleAskExpanded: (parentElementBid: string) => void;
-  syncAskListByParentElement: (
-    parentElementBid: string,
-    askList: ChatContentItem[],
-    options?: {
-      expand?: boolean;
-    },
-  ) => void;
-  requestAudioForBlock: (
-    elementBid: string,
-    options?: RequestAudioForBlockOptions,
-  ) => Promise<AudioCompleteData | null>;
-  reGenerateConfirm: {
-    open: boolean;
-    onConfirm: () => void;
-    onCancel: () => void;
-  };
-  lessonFeedbackPopup: {
-    open: boolean;
-    elementBid: string;
-    defaultScoreText: string;
-    defaultCommentText: string;
-    readonly: boolean;
-    onClose: () => void;
-    onSubmit: (score: number, comment: string) => void;
-  };
-  showLessonUpdateNotice: boolean;
-}
 
 /**
  * useChatLogicHook orchestrates the streaming chat lifecycle for lesson content.
@@ -344,7 +113,6 @@ function useChatLogicHook({
   listenRequestEnabled = false,
   shouldPromptLessonFeedback = true,
   trackEvent,
-  chatBoxBottomRef,
   trackTrailProgress,
   lessonUpdate,
   chapterUpdate,
@@ -355,7 +123,7 @@ function useChatLogicHook({
   showOutputInProgressToast,
   onPayModalOpen,
 }: UseChatSessionParams): UseChatSessionResult {
-  const { t, i18n, ready } = useTranslation();
+  const { t } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
   const isListenModeLatest = useLatest(isListenMode);
 
@@ -367,14 +135,12 @@ function useChatLogicHook({
   const isStreamingRef = useRef(false);
   const [isOutputInProgress, setIsOutputInProgress] = useState(false);
   const [hasRunFailed, setHasRunFailed] = useState(false);
-  const { updateResetedChapterId, updateResetedLessonId, resetedLessonId } =
-    useCourseStore(
-      useShallow(state => ({
-        resetedLessonId: state.resetedLessonId,
-        updateResetedChapterId: state.updateResetedChapterId,
-        updateResetedLessonId: state.updateResetedLessonId,
-      })),
-    );
+  const { updateResetedLessonId, resetedLessonId } = useCourseStore(
+    useShallow(state => ({
+      resetedLessonId: state.resetedLessonId,
+      updateResetedLessonId: state.updateResetedLessonId,
+    })),
+  );
 
   const effectivePreviewMode = previewMode ?? false;
   const lessonRunContentCacheKey = useMemo(
@@ -711,40 +477,6 @@ function useChatLogicHook({
     [finalizeLikeStatusByParent, isListenModeLatest],
   );
 
-  const resolveRecordUserInput = useCallback(
-    (record?: Pick<StudyRecordItem, 'user_input' | 'payload'> | null) => {
-      if (!record) {
-        return undefined;
-      }
-
-      const payloadUserInput =
-        typeof record.payload?.user_input === 'string'
-          ? record.payload.user_input
-          : undefined;
-
-      return record.user_input ?? payloadUserInput;
-    },
-    [],
-  );
-
-  const resolveRecordElementType = useCallback(
-    (record?: Pick<StudyRecordItem, 'element_type'> | null) => {
-      const rawElementType = (record as { element_type?: unknown } | null)
-        ?.element_type;
-      return typeof rawElementType === 'string' ? rawElementType : '';
-    },
-    [],
-  );
-
-  const isAskOrAnswerElementType = useCallback(
-    (elementType?: string | null) => {
-      return (
-        elementType === BLOCK_TYPE.ASK || elementType === BLOCK_TYPE.ANSWER
-      );
-    },
-    [],
-  );
-
   const resolveAskAnchorElementBid = useCallback(
     (record: StudyRecordItem, items: ChatContentItem[] = []) => {
       const payload = (record.payload ?? {}) as Record<string, unknown>;
@@ -879,60 +611,6 @@ function useChatLogicHook({
       return nextItems;
     },
     [mobileStyle],
-  );
-
-  const normalizeHistoryAudioTracks = useCallback(
-    (
-      audios: AudioSegmentData[] = [],
-      audioComplete?: Partial<AudioCompleteData> | null,
-    ): AudioTrack[] => {
-      if (!audios.length) {
-        return hydrateAudioTracksWithCompleteUrl([], audioComplete);
-      }
-
-      const trackByPosition = new Map<number, AudioTrack>();
-
-      [...audios]
-        .sort(
-          (a, b) =>
-            Number(a.position ?? 0) - Number(b.position ?? 0) ||
-            Number(a.segment_index ?? 0) - Number(b.segment_index ?? 0),
-        )
-        .forEach(audio => {
-          const position = Number(audio.position ?? 0);
-          const track = trackByPosition.get(position) ?? {
-            position,
-            audioSegments: [],
-            isAudioStreaming: false,
-          };
-
-          track.audioSegments = [
-            ...(track.audioSegments ?? []),
-            {
-              segmentIndex: Number(audio.segment_index ?? 0),
-              audioData: audio.audio_data,
-              durationMs: Number(audio.duration_ms ?? 0),
-              isFinal: Boolean(audio.is_final),
-              position,
-              elementId: audio.element_id,
-              slideId: audio.slide_id,
-              avContract: audio.av_contract ?? null,
-              subtitleCues: audio.subtitle_cues,
-            },
-          ];
-          track.isAudioStreaming = Boolean(
-            track.audioSegments?.some(segment => !segment.isFinal),
-          );
-
-          trackByPosition.set(position, track);
-        });
-
-      return hydrateAudioTracksWithCompleteUrl(
-        [...trackByPosition.values()],
-        audioComplete,
-      );
-    },
-    [],
   );
 
   const sortSlidesByTimeline = useCallback((slides: ListenSlideData[] = []) => {
@@ -1120,7 +798,7 @@ function useChatLogicHook({
     [],
   );
 
-  const buildElementContentItem = useCallback(
+  const buildContentItem = useCallback(
     (
       record: StudyRecordItem,
       options?: {
@@ -1130,104 +808,21 @@ function useChatLogicHook({
         listenSlides?: ListenSlideData[];
         previousItem?: ChatContentItem;
       },
-    ): ChatContentItem => {
-      const itemBid = resolveElementItemBid(record);
-      const previousAudioSegments = Array.isArray(
-        options?.previousItem?.audio_segments,
-      )
-        ? options?.previousItem?.audio_segments
-        : [];
-      const previousTrackAudioSegments = getAudioSegmentDataListFromTracks(
-        options?.previousItem?.audioTracks ?? [],
-      );
-      const incomingAudioSegments = Array.isArray(record.audio_segments)
-        ? record.audio_segments
-        : [];
-      const mergedAudioSegments = mergeAudioSegmentDataList(itemBid, [
-        ...previousAudioSegments,
-        ...previousTrackAudioSegments,
-        ...incomingAudioSegments,
-      ]);
-      const historyTracks = normalizeHistoryAudioTracks(
-        mergedAudioSegments,
-        resolveStudyRecordAudioComplete(record),
-      );
-      const singleTrack = historyTracks.length === 1 ? historyTracks[0] : null;
-      const isInteractionElement =
-        record.element_type === ELEMENT_TYPE.INTERACTION;
-      const generatedBlockBid = record.generated_block_bid || itemBid;
-      const identityBids = resolveListenSlideIdentityBids(
-        record,
-        itemBid,
-        generatedBlockBid,
-      );
-      const pendingListenSlides = getPendingListenSlides(identityBids);
-      const content = resolveRenderableRecordContent(record);
-
-      return {
-        ...options?.previousItem,
-        ...record,
-        element_bid: itemBid,
-        generated_block_bid: generatedBlockBid,
-        content,
-        customRenderBar: () => null,
-        user_input:
-          resolveRecordUserInput(record) ??
-          options?.previousItem?.user_input ??
-          '',
-        readonly: options?.previousItem?.readonly ?? false,
-        isHistory: options?.isHistory,
-        shouldRenderAsHistoryInReadMode:
-          options?.shouldRenderAsHistoryInReadMode ??
-          (options?.previousItem?.isHistory
-            ? false
-            : (options?.previousItem?.shouldRenderAsHistoryInReadMode ??
-              false)),
-        is_final:
-          options?.previousItem?.is_final === true
-            ? true
-            : Boolean(record.is_final),
-        shouldUseTypewriter:
-          options?.shouldUseTypewriter ??
-          options?.previousItem?.shouldUseTypewriter ??
-          false,
-        isAudioBackfillReady:
-          options?.isHistory ||
-          options?.previousItem?.isHistory ||
-          options?.previousItem?.isAudioBackfillReady ||
-          isAudioBackfillReadyForBlock(generatedBlockBid, itemBid),
-        type: isInteractionElement
-          ? ChatContentItemType.INTERACTION
-          : ChatContentItemType.CONTENT,
-        audioUrl:
-          singleTrack?.audioUrl ??
-          record.audio_url ??
-          options?.previousItem?.audioUrl,
-        audioDurationMs:
-          singleTrack?.durationMs ?? options?.previousItem?.audioDurationMs,
-        audioTracks:
-          historyTracks.length > 0
-            ? historyTracks
-            : options?.previousItem?.audioTracks,
-        audio_segments:
-          mergedAudioSegments.length > 0
-            ? mergedAudioSegments
-            : options?.previousItem?.audio_segments,
-        listenSlides: mergeListenSlides(
-          options?.previousItem?.listenSlides,
-          options?.listenSlides,
-          pendingListenSlides,
-        ),
-      };
-    },
+    ): ChatContentItem =>
+      buildChatElementContentItem(record, {
+        ...options,
+        getPendingListenSlides,
+        isAudioBackfillReadyForBlock,
+        mergeListenSlides,
+        resolveElementItemBid,
+        resolveListenSlideIdentityBids,
+      }),
     [
       getPendingListenSlides,
       isAudioBackfillReadyForBlock,
       mergeListenSlides,
-      normalizeHistoryAudioTracks,
       resolveElementItemBid,
       resolveListenSlideIdentityBids,
-      resolveRecordUserInput,
     ],
   );
 
@@ -1376,10 +971,6 @@ function useChatLogicHook({
     },
     [parseLessonFeedbackScore],
   );
-
-  // Use react-use hooks for safer state management
-  const isMounted = useMountedState();
-  const chatBoxBottomRefLatest = useLatest(chatBoxBottomRef);
 
   /**
    * Auto scroll to bottom when history records are loaded and rendered
@@ -1814,10 +1405,14 @@ function useChatLogicHook({
                   : typeof rawContent?.code === 'number'
                     ? rawContent.code
                     : undefined;
+              const resolvedErrorToast = resolveLearnerErrorToast({
+                message: errorContent,
+                fallbackMessage: t('module.chat.requestFailed'),
+              });
 
               toast({
-                title: errorContent || 'Request failed',
-                variant: 'destructive',
+                title: resolvedErrorToast.message,
+                variant: resolvedErrorToast.variant,
               });
               if (
                 effectivePreviewMode &&
@@ -1928,7 +1523,7 @@ function useChatLogicHook({
               const previousItem = contentListRef.current.find(item =>
                 itemMatchesElementCacheIdentity(item, elementCacheIdentitySet),
               );
-              const nextItem = buildElementContentItem(elementRecord, {
+              const nextItem = buildContentItem(elementRecord, {
                 previousItem,
                 shouldUseTypewriter:
                   previousItem?.shouldUseTypewriter ?? elementType === 'text',
@@ -2350,7 +1945,7 @@ function useChatLogicHook({
               }
             }
           } catch (error) {
-            console.warn('SSE handling error:', error);
+            debugWarn('[lesson-run] SSE handling error', error);
           }
         },
         error => {
@@ -2371,9 +1966,13 @@ function useChatLogicHook({
             businessError?.code === CREDIT_INSUFFICIENT_ERROR_CODE &&
             businessError?.message?.trim()
           ) {
+            const resolvedErrorToast = resolveLearnerErrorToast({
+              message: businessError.message.trim(),
+              fallbackMessage: t('module.chat.requestFailed'),
+            });
             toast({
-              title: businessError.message.trim(),
-              variant: 'destructive',
+              title: resolvedErrorToast.message,
+              variant: resolvedErrorToast.variant,
             });
             cleanupRunStreamState();
             setHasRunFailed(true);
@@ -2410,7 +2009,7 @@ function useChatLogicHook({
       });
     },
     [
-      buildElementContentItem,
+      buildContentItem,
       chapterId,
       chapterUpdate,
       effectivePreviewMode,
@@ -2423,6 +2022,8 @@ function useChatLogicHook({
       shifuBid,
       lessonId,
       mobileStyle,
+      t,
+      trackEvent,
       trackTrailProgress,
       allowTtsStreaming,
       appendRunBusinessError,
@@ -2432,7 +2033,6 @@ function useChatLogicHook({
       ensureContentItem,
       finalizeElementOutputInList,
       getPendingListenSlides,
-      isAskOrAnswerElementType,
       isAudioBackfillReadyForBlock,
       isLessonFeedbackContent,
       itemMatchesElementCacheIdentity,
@@ -2440,7 +2040,6 @@ function useChatLogicHook({
       itemMatchesListenSlideIdentity,
       lessonRunContentCacheKey,
       markLessonRunAudioBackfillReady,
-      matchItemBid,
       mergeListenSlides,
       openLessonFeedbackPopup,
       removeLikeStatusByParent,
@@ -2545,7 +2144,7 @@ function useChatLogicHook({
           return;
         }
 
-        const nextItem = buildElementContentItem(item, {
+        const nextItem = buildContentItem(item, {
           isHistory: true,
           shouldUseTypewriter: false,
         });
@@ -2584,12 +2183,10 @@ function useChatLogicHook({
       return result;
     },
     [
-      buildElementContentItem,
-      isAskOrAnswerElementType,
+      buildContentItem,
       removeLikeStatusByParent,
       resolveAskAnchorElementBid,
       resolveElementItemBid,
-      resolveRecordElementType,
       shouldAttachLikeStatusByElement,
       upsertAskMessageByParent,
       upsertLikeStatusByParent,
@@ -2715,7 +2312,7 @@ function useChatLogicHook({
       if (isCurrentRefresh()) {
         setShowLessonUpdateNotice(false);
       }
-      console.warn('refreshData error:', error);
+      debugWarn('[lesson-run] refreshData error', error);
     } finally {
       if (isCurrentRefresh()) {
         setIsLoading(false);
@@ -3190,7 +2787,10 @@ function useChatLogicHook({
           : undefined;
       runRef.current?.({
         input: {
-          [variableName as string]: values,
+          // No-variable interactions have an empty variableName; submit
+          // under the canonical "input" key (markdown-flow contract),
+          // matching the preview flow in preview-submission.ts.
+          [variableName || 'input']: values,
         },
         input_type: SSE_INPUT_TYPE.NORMAL,
         reload_element_bid: reload_generated_block_bid,

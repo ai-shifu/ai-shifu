@@ -1,4 +1,8 @@
 import type { LearningMode } from './learningModeOptions';
+import {
+  readLocalStorageItem,
+  writeLocalStorageItem,
+} from '@/c-utils/runtimeStorage';
 
 const LEARNING_MODE_STORAGE_PREFIX = 'course_learning_mode';
 
@@ -20,13 +24,11 @@ export const readLearningModeFromStorage = (
     return null;
   }
 
-  try {
-    const value = window.localStorage.getItem(key);
-    return isStoredLearningMode(value) ? value : null;
-  } catch (error) {
-    console.warn('Failed to read learning mode from storage', error);
-    return null;
-  }
+  const value = readLocalStorageItem(
+    key,
+    '[learning-mode-storage] failed to read localStorage',
+  );
+  return isStoredLearningMode(value) ? value : null;
 };
 
 export const writeLearningModeToStorage = (
@@ -42,9 +44,9 @@ export const writeLearningModeToStorage = (
     return;
   }
 
-  try {
-    window.localStorage.setItem(key, mode);
-  } catch (error) {
-    console.warn('Failed to write learning mode to storage', error);
-  }
+  writeLocalStorageItem(
+    key,
+    mode,
+    '[learning-mode-storage] failed to write localStorage',
+  );
 };

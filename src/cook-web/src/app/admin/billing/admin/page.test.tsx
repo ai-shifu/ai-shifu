@@ -142,7 +142,12 @@ describe('AdminBillingOperationsConsole', () => {
       custom_payment_enabled: false,
       config_status: 'pending',
       note: '',
-      branding: { logo_wide_url: '', logo_square_url: '' },
+      branding: {
+        logo_wide_url: '',
+        logo_square_url: '',
+        favicon_url: '',
+        home_url: '',
+      },
       domain: { host: '' },
       integrations: {
         wechat_oauth: { public_config: {}, secret_config: {} },

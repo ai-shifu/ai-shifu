@@ -464,12 +464,18 @@
       "secretSaved": "Saved. Enter a new value to replace it."
     },
     "branding": {
+      "favicon": "Site icon (favicon)",
+      "faviconHint": "Browser tab icon. Upload PNG/JPEG/WebP (auto-converted to ICO) or an .ico file; the square logo is used when empty.",
+      "homeUrl": "Logo link URL",
+      "homeUrlHint": "Where the learner page navigates when the logo is clicked. Leave empty to use the default.",
+      "homeUrlPlaceholder": "e.g. https://www.example.com",
       "invalidFile": "Use a PNG, JPEG, or WebP file no larger than 2 MB",
       "resizeNotice": "The image does not fully match the recommended size. It will still be uploaded and scaled normally after saving.",
       "squareHint": "Recommended: a 32x32px square logo. Higher-resolution variants are also supported.",
       "squareLogo": "Square logo",
       "title": "Brand logos",
       "uploadFailed": "Image upload failed. Try again later.",
+      "uploadFavicon": "Upload site icon",
       "uploadSquare": "Upload square logo",
       "uploadWide": "Upload wide logo",
       "urlPlaceholder": "Or enter an image URL directly",
@@ -524,6 +530,7 @@
     "actions": {
       "upgradeNow": "Upgrade now"
     },
+    "emptyValidityLabel": "--",
     "subtitle": "Review total credits, category balances, and the effective window for each credit source.",
     "table": {
       "balance": "Balance",
