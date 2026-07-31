@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from flask import Flask
@@ -72,6 +72,18 @@ class ReservedActivationTarget:
     ledger_bid: str
     wallet_bucket_bid: str
     amount: Decimal
+
+
+def _normalize_utc_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _datetime_sort_value(value: datetime | None) -> datetime:
+    if value is None:
+        return datetime.min
+    return _normalize_utc_datetime(value)
 
 
 def activate_reserved_renewal_grants_for_cycle(
@@ -215,10 +227,14 @@ def _load_paid_subscription_renewal_orders_for_cycle(
         .order_by(BillingOrder.created_at.asc(), BillingOrder.id.asc())
         .all()
     )
+    normalized_effective_from = _normalize_utc_datetime(effective_from)
     due_orders: list[BillingOrder] = []
     for row in rows:
         cycle_start_at = _extract_resolved_order_cycle_start_at(row.metadata_json)
-        if cycle_start_at != effective_from:
+        if (
+            cycle_start_at is None
+            or _normalize_utc_datetime(cycle_start_at) != normalized_effective_from
+        ):
             continue
         due_orders.append(row)
     return tuple(due_orders)
@@ -243,8 +259,8 @@ def _load_sorted_paid_subscription_renewal_orders_for_cycle(
                 0
                 if int(row.paid_amount or 0) > 0 or int(row.payable_amount or 0) > 0
                 else 1,
-                row.paid_at or row.created_at or datetime.min,
-                row.created_at or datetime.min,
+                _datetime_sort_value(row.paid_at or row.created_at),
+                _datetime_sort_value(row.created_at),
                 row.id,
             )
         )
@@ -521,6 +537,32 @@ def _assert_reserved_activation_targets_completed(
         targets.extend(_load_reserved_completion_targets_for_cycle_order(cycle_order))
     _assert_subscription_cycle_grant_amounts(cycle_orders, targets)
 
+    activated_by_bucket: dict[str, Decimal] = {}
+    for target in targets:
+        activated_by_bucket[target.wallet_bucket_bid] = (
+            activated_by_bucket.get(target.wallet_bucket_bid, Decimal("0"))
+            + target.amount
+        )
+    for wallet_bucket_bid, activated_amount in activated_by_bucket.items():
+        bucket = (
+            CreditWalletBucket.query.filter(
+                CreditWalletBucket.deleted == 0,
+                CreditWalletBucket.wallet_bucket_bid == wallet_bucket_bid,
+            )
+            .order_by(CreditWalletBucket.id.desc())
+            .first()
+        )
+        if bucket is None:
+            raise IncompleteReservedGrantActivationError(
+                f"missing_bucket:{wallet_bucket_bid}"
+            )
+        if _quantize_credit_amount(
+            _to_decimal(bucket.available_credits)
+        ) < _quantize_credit_amount(activated_amount):
+            raise IncompleteReservedGrantActivationError(
+                f"incomplete_bucket:{wallet_bucket_bid}"
+            )
+
 
 def _assert_subscription_cycle_grant_amounts(
     cycle_orders: list[BillingOrder],
@@ -608,8 +650,15 @@ def _activate_reserved_subscription_grant_for_order(
         return False
 
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+    normalized_effective_from = _normalize_utc_datetime(effective_from)
+    bucket_effective_from = (
+        _normalize_utc_datetime(bucket.effective_from)
+        if bucket.effective_from is not None
+        else None
+    )
     is_first_cycle_activation = (
-        bucket.effective_from is None or bucket.effective_from < effective_from
+        bucket_effective_from is None
+        or bucket_effective_from < normalized_effective_from
     )
     if is_first_cycle_activation:
         expire_bucket_balance_for_transition(
