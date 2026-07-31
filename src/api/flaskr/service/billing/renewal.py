@@ -19,8 +19,10 @@ from .credit_notifications import (
 )
 from .consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-    BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
+    BILLING_ORDER_STATUS_INIT,
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
@@ -66,7 +68,7 @@ from .subscriptions import (
     load_subscription_by_bid as _load_subscription_by_bid,
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
-from .models import BillingOrder, BillingRenewalEvent
+from .models import BillingOrder, BillingRenewalEvent, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .wallets import _expire_credit_wallet_buckets_in_session
 
@@ -82,6 +84,100 @@ _TERMINAL_EVENT_STATUSES = (
 
 # Shared session-scope guard; see flaskr/dao/uow.py for the rationale.
 _app_context_scope = app_context_scope
+
+
+_OBSOLETE_RENEWAL_ORDER_STATUSES = (
+    BILLING_ORDER_STATUS_INIT,
+    BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_STATUS_FAILED,
+)
+
+
+def _load_subscription_by_bid_for_update(
+    subscription_bid: str,
+) -> BillingSubscription | None:
+    normalized_subscription_bid = _normalize_bid(subscription_bid)
+    if not normalized_subscription_bid:
+        return None
+    return (
+        BillingSubscription.query.filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.subscription_bid == normalized_subscription_bid,
+        )
+        .populate_existing()
+        .with_for_update()
+        .order_by(BillingSubscription.id.desc())
+        .first()
+    )
+
+
+def _load_event_payload_renewal_order(
+    event: BillingRenewalEvent,
+) -> BillingOrder | None:
+    if not isinstance(event.payload_json, dict):
+        return None
+    bill_order_bid = _normalize_bid(event.payload_json.get("bill_order_bid"))
+    if not bill_order_bid:
+        return None
+    return (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.bill_order_bid == bill_order_bid,
+            BillingOrder.subscription_bid == event.subscription_bid,
+            BillingOrder.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+        )
+        .populate_existing()
+        .with_for_update()
+        .order_by(BillingOrder.id.desc())
+        .first()
+    )
+
+
+def _cancel_obsolete_renewal_order(
+    order: BillingOrder | None,
+    *,
+    now: datetime,
+    reason: str,
+) -> str | None:
+    if order is None:
+        return None
+    if int(order.status or 0) not in _OBSOLETE_RENEWAL_ORDER_STATUSES:
+        return order.bill_order_bid
+
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
+    metadata["canceled_reason"] = reason
+    metadata["canceled_at"] = now.isoformat()
+    order.status = BILLING_ORDER_STATUS_CANCELED
+    order.metadata_json = metadata
+    order.updated_at = now
+    db.session.add(order)
+    return order.bill_order_bid
+
+
+def _complete_obsolete_renewal_event(
+    event: BillingRenewalEvent,
+    subscription: BillingSubscription,
+    *,
+    now: datetime,
+) -> RenewalEventResult:
+    status_label = BILLING_SUBSCRIPTION_STATUS_LABELS.get(
+        int(subscription.status or 0),
+        "canceled",
+    )
+    bill_order_bid = _cancel_obsolete_renewal_order(
+        _load_event_payload_renewal_order(event),
+        now=now,
+        reason=f"subscription_{status_label}",
+    )
+    _complete_renewal_event(event, now=now)
+    return _result_from_event(
+        "already_applied",
+        event,
+        bill_order_bid=bill_order_bid,
+        subscription_status=status_label,
+    )
 
 
 def _fail_paid_renewal_activation_event(
@@ -679,7 +775,7 @@ def _execute_subscription_renewal(
     # this same order through the payload link (and ensure_* reloads it by
     # cycle) instead of creating a second charge context.
     with unit_of_work():
-        subscription = _load_subscription_by_bid(event.subscription_bid)
+        subscription = _load_subscription_by_bid_for_update(event.subscription_bid)
         if subscription is None:
             _fail_renewal_event(event, now=now, error="subscription_not_found")
             return _result_from_event("failed", event)
@@ -688,15 +784,7 @@ def _execute_subscription_renewal(
             BILLING_SUBSCRIPTION_STATUS_CANCELED,
             BILLING_SUBSCRIPTION_STATUS_EXPIRED,
         }:
-            _complete_renewal_event(event, now=now)
-            return _result_from_event(
-                "already_applied",
-                event,
-                subscription_status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(
-                    int(subscription.status or 0),
-                    "canceled",
-                ),
-            )
+            return _complete_obsolete_renewal_event(event, subscription, now=now)
 
         order = ensure_subscription_renewal_order(
             app,

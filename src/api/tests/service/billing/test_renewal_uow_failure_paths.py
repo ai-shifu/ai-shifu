@@ -33,7 +33,9 @@ from flaskr.dao import uow
 from flaskr.service.billing import renewal as billing_renewal
 from flaskr.service.billing import renewal_event_transitions
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
@@ -661,6 +663,57 @@ def test_renewal_event_skips_obsolete_canceled_subscription(
         ).count()
         == 0
     )
+
+
+def test_renewal_event_cancels_existing_obsolete_order_for_canceled_subscription(
+    renewal_uow_app: Flask,
+) -> None:
+    """Obsolete subscriptions must not leave retryable renewal orders pending."""
+    now = now_utc()
+    subscription = _seed_subscription("sub-uow-obsolete-order")
+    subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCELED
+    event = _seed_event(
+        "renewal-uow-obsolete-order",
+        subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    event.payload_json = {"bill_order_bid": "bill-uow-obsolete-order"}
+    order = BillingOrder(
+        bill_order_bid="bill-uow-obsolete-order",
+        creator_bid=CREATOR_BID,
+        order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+        product_bid="bill-product-plan-monthly",
+        subscription_bid=subscription.subscription_bid,
+        currency="CNY",
+        payable_amount=990,
+        paid_amount=0,
+        payment_provider="stripe",
+        channel="subscription",
+        provider_reference_id="provider-sub-uow-obsolete-order",
+        status=BILLING_ORDER_STATUS_PENDING,
+        paid_at=None,
+        metadata_json={"renewal_event_bid": event.renewal_event_bid},
+        created_at=now,
+        updated_at=now,
+    )
+    dao.db.session.add(order)
+    dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        renewal_uow_app,
+        renewal_event_bid=event.renewal_event_bid,
+    )
+    dao.db.session.expire_all()
+
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-obsolete-order"
+    ).one()
+    order = BillingOrder.query.filter_by(bill_order_bid="bill-uow-obsolete-order").one()
+    assert payload["status"] == "already_applied"
+    assert payload["bill_order_bid"] == "bill-uow-obsolete-order"
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
+    assert order.status == BILLING_ORDER_STATUS_CANCELED
+    assert order.metadata_json["canceled_reason"] == "subscription_canceled"
 
 
 def test_renewal_event_skips_obsolete_expired_subscription(
