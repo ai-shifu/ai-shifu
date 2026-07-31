@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from flask import Flask
+from sqlalchemy.exc import IntegrityError
 
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
@@ -37,25 +38,104 @@ MANAGED_RENEWAL_EVENT_TYPES = (
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
 )
 
-PENDING_RENEWAL_EVENT_STATUSES = (
+CANCELABLE_RENEWAL_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
-    BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
 )
 
+RESETTABLE_RENEWAL_EVENT_STATUSES = (
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_RENEWAL_EVENT_STATUS_FAILED,
+    BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+)
+
+_TARGET_UPSERT_UNIQUE_KEY_NAME = "uq_bill_renewal_events_subscription_event_scheduled"
+_CLAIM_ATTEMPT_ATTR = "_billing_renewal_claim_attempt_count"
+
+
+class RenewalEventClaimLostError(RuntimeError):
+    """Raised when a worker no longer owns the event processing claim."""
+
+
+def bind_renewal_event_claim(
+    event: BillingRenewalEvent,
+    *,
+    attempt_count: int,
+) -> None:
+    setattr(event, _CLAIM_ATTEMPT_ATTR, int(attempt_count or 0))
+
+
+def _expected_claim_attempt_count(event: BillingRenewalEvent) -> int:
+    bound_attempt_count = getattr(event, _CLAIM_ATTEMPT_ATTR, None)
+    if bound_attempt_count is not None:
+        return int(bound_attempt_count or 0)
+    return int(event.attempt_count or 0)
+
+
+def _is_target_upsert_integrity_error(exc: IntegrityError) -> bool:
+    message = str(getattr(exc, "orig", exc))
+    return _TARGET_UPSERT_UNIQUE_KEY_NAME in message or (
+        "subscription_bid" in message
+        and "event_type" in message
+        and "scheduled_at" in message
+    )
+
+
+def assert_renewal_event_claim_current(
+    event: BillingRenewalEvent,
+    *,
+    now: datetime | None = None,
+    touch: bool = False,
+) -> None:
+    values: dict[str, Any] = {}
+    if touch and now is not None:
+        values["updated_at"] = now
+    _update_processing_renewal_event(event, values)
+
+
+def _update_processing_renewal_event(
+    event: BillingRenewalEvent,
+    values: dict[str, Any],
+) -> None:
+    expected_attempt_count = _expected_claim_attempt_count(event)
+    query = BillingRenewalEvent.query.filter(
+        BillingRenewalEvent.deleted == 0,
+        BillingRenewalEvent.id == event.id,
+        BillingRenewalEvent.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+        BillingRenewalEvent.attempt_count == expected_attempt_count,
+    )
+    if values:
+        updated_rows = query.update(values, synchronize_session=False)
+    else:
+        updated_rows = 1 if query.with_for_update().first() is not None else 0
+    db.session.flush()
+    db.session.expire(event)
+    if updated_rows != 1:
+        raise RenewalEventClaimLostError(
+            f"renewal_event_claim_lost:{event.renewal_event_bid}"
+        )
+
 
 def release_renewal_event(event: BillingRenewalEvent, *, now: datetime) -> None:
-    event.status = BILLING_RENEWAL_EVENT_STATUS_PENDING
-    event.updated_at = now
-    db.session.add(event)
+    return _update_processing_renewal_event(
+        event,
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_PENDING,
+            "updated_at": now,
+        },
+    )
 
 
 def complete_renewal_event(event: BillingRenewalEvent, *, now: datetime) -> None:
-    event.status = BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
-    event.last_error = ""
-    event.processed_at = now
-    event.updated_at = now
-    db.session.add(event)
+    return _update_processing_renewal_event(
+        event,
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
+            "last_error": "",
+            "processed_at": now,
+            "updated_at": now,
+        },
+    )
 
 
 def fail_renewal_event(
@@ -64,11 +144,15 @@ def fail_renewal_event(
     now: datetime,
     error: str,
 ) -> None:
-    event.status = BILLING_RENEWAL_EVENT_STATUS_FAILED
-    event.last_error = str(error or "")[:255]
-    event.processed_at = now
-    event.updated_at = now
-    db.session.add(event)
+    return _update_processing_renewal_event(
+        event,
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_FAILED,
+            "last_error": str(error or "")[:255],
+            "processed_at": now,
+            "updated_at": now,
+        },
+    )
 
 
 def build_subscription_renewal_event_payload(
@@ -89,6 +173,71 @@ def build_subscription_renewal_event_payload(
     ).to_metadata_json()
 
 
+def _load_subscription_renewal_event(
+    subscription_bid: str,
+    *,
+    event_type: int,
+    scheduled_at: datetime,
+    for_update: bool = False,
+) -> BillingRenewalEvent | None:
+    query = BillingRenewalEvent.query.filter(
+        BillingRenewalEvent.deleted == 0,
+        BillingRenewalEvent.subscription_bid == subscription_bid,
+        BillingRenewalEvent.event_type == event_type,
+        BillingRenewalEvent.scheduled_at == scheduled_at,
+    )
+    if for_update:
+        query = query.populate_existing().with_for_update()
+    return query.order_by(BillingRenewalEvent.id.desc()).first()
+
+
+def _reset_subscription_renewal_event(
+    event: BillingRenewalEvent,
+    subscription: BillingSubscription,
+    *,
+    payload: dict[str, Any],
+) -> None:
+    BillingRenewalEvent.query.filter(
+        BillingRenewalEvent.deleted == 0,
+        BillingRenewalEvent.id == event.id,
+        BillingRenewalEvent.status.in_(RESETTABLE_RENEWAL_EVENT_STATUSES),
+    ).update(
+        {
+            "creator_bid": subscription.creator_bid,
+            "status": BILLING_RENEWAL_EVENT_STATUS_PENDING,
+            "last_error": "",
+            "payload_json": payload,
+            "processed_at": None,
+            "updated_at": now_utc(),
+        },
+        synchronize_session=False,
+    )
+    db.session.flush()
+    db.session.expire(event)
+
+
+def _build_subscription_renewal_event(
+    app: Flask,
+    subscription: BillingSubscription,
+    *,
+    event_type: int,
+    scheduled_at: datetime,
+    payload: dict[str, Any],
+) -> BillingRenewalEvent:
+    return BillingRenewalEvent(
+        renewal_event_bid=generate_id(app),
+        subscription_bid=subscription.subscription_bid,
+        creator_bid=subscription.creator_bid,
+        event_type=event_type,
+        scheduled_at=scheduled_at,
+        status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
+        attempt_count=0,
+        last_error="",
+        payload_json=payload,
+        processed_at=None,
+    )
+
+
 def upsert_subscription_renewal_event(
     app: Flask,
     subscription: BillingSubscription,
@@ -98,38 +247,38 @@ def upsert_subscription_renewal_event(
 ) -> None:
     normalized_scheduled_at = _normalize_mysql_datetime(scheduled_at)
     payload = build_subscription_renewal_event_payload(subscription)
-    event = (
-        BillingRenewalEvent.query.filter(
-            BillingRenewalEvent.deleted == 0,
-            BillingRenewalEvent.subscription_bid == subscription.subscription_bid,
-            BillingRenewalEvent.event_type == event_type,
-            BillingRenewalEvent.scheduled_at == normalized_scheduled_at,
-        )
-        .order_by(BillingRenewalEvent.id.desc())
-        .first()
+    event = _load_subscription_renewal_event(
+        subscription.subscription_bid,
+        event_type=event_type,
+        scheduled_at=normalized_scheduled_at,
     )
     if event is None:
-        event = BillingRenewalEvent(
-            renewal_event_bid=generate_id(app),
-            subscription_bid=subscription.subscription_bid,
-            creator_bid=subscription.creator_bid,
-            event_type=event_type,
-            scheduled_at=normalized_scheduled_at,
-            status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
-            attempt_count=0,
-            last_error="",
-            payload_json=payload,
-            processed_at=None,
-        )
+        try:
+            with db.session.begin_nested():
+                event = _build_subscription_renewal_event(
+                    app,
+                    subscription,
+                    event_type=event_type,
+                    scheduled_at=normalized_scheduled_at,
+                    payload=payload,
+                )
+                db.session.add(event)
+                db.session.flush()
+        except IntegrityError as exc:
+            if not _is_target_upsert_integrity_error(exc):
+                raise
+            event = _load_subscription_renewal_event(
+                subscription.subscription_bid,
+                event_type=event_type,
+                scheduled_at=normalized_scheduled_at,
+                for_update=True,
+            )
+            if event is None:
+                raise
+            _reset_subscription_renewal_event(event, subscription, payload=payload)
     else:
-        event.creator_bid = subscription.creator_bid
-        event.status = BILLING_RENEWAL_EVENT_STATUS_PENDING
-        event.last_error = ""
-        event.payload_json = payload
-        event.processed_at = None
-        event.updated_at = now_utc()
+        _reset_subscription_renewal_event(event, subscription, payload=payload)
 
-    db.session.add(event)
     cancel_stale_subscription_renewal_events(
         subscription.subscription_bid,
         event_type=event_type,
@@ -143,23 +292,21 @@ def cancel_stale_subscription_renewal_events(
     event_type: int,
     keep_scheduled_at: datetime,
 ) -> None:
-    rows = (
-        BillingRenewalEvent.query.filter(
-            BillingRenewalEvent.deleted == 0,
-            BillingRenewalEvent.subscription_bid == subscription_bid,
-            BillingRenewalEvent.event_type == event_type,
-            BillingRenewalEvent.status.in_(PENDING_RENEWAL_EVENT_STATUSES),
-            BillingRenewalEvent.scheduled_at != keep_scheduled_at,
-        )
-        .order_by(BillingRenewalEvent.id.desc())
-        .all()
-    )
     now = now_utc()
-    for row in rows:
-        row.status = BILLING_RENEWAL_EVENT_STATUS_CANCELED
-        row.processed_at = now
-        row.updated_at = now
-        db.session.add(row)
+    BillingRenewalEvent.query.filter(
+        BillingRenewalEvent.deleted == 0,
+        BillingRenewalEvent.subscription_bid == subscription_bid,
+        BillingRenewalEvent.event_type == event_type,
+        BillingRenewalEvent.status.in_(CANCELABLE_RENEWAL_EVENT_STATUSES),
+        BillingRenewalEvent.scheduled_at != keep_scheduled_at,
+    ).update(
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+            "processed_at": now,
+            "updated_at": now,
+        },
+        synchronize_session=False,
+    )
 
 
 def cancel_subscription_renewal_events(
@@ -167,19 +314,17 @@ def cancel_subscription_renewal_events(
     *,
     event_types: tuple[int, ...] = MANAGED_RENEWAL_EVENT_TYPES,
 ) -> None:
-    rows = (
-        BillingRenewalEvent.query.filter(
-            BillingRenewalEvent.deleted == 0,
-            BillingRenewalEvent.subscription_bid == subscription_bid,
-            BillingRenewalEvent.event_type.in_(event_types),
-            BillingRenewalEvent.status.in_(PENDING_RENEWAL_EVENT_STATUSES),
-        )
-        .order_by(BillingRenewalEvent.id.desc())
-        .all()
-    )
     now = now_utc()
-    for row in rows:
-        row.status = BILLING_RENEWAL_EVENT_STATUS_CANCELED
-        row.processed_at = now
-        row.updated_at = now
-        db.session.add(row)
+    BillingRenewalEvent.query.filter(
+        BillingRenewalEvent.deleted == 0,
+        BillingRenewalEvent.subscription_bid == subscription_bid,
+        BillingRenewalEvent.event_type.in_(event_types),
+        BillingRenewalEvent.status.in_(CANCELABLE_RENEWAL_EVENT_STATUSES),
+    ).update(
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+            "processed_at": now,
+            "updated_at": now,
+        },
+        synchronize_session=False,
+    )

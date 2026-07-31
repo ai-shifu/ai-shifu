@@ -11,7 +11,7 @@ from flask import Flask
 from flaskr.dao import db, retry_on_deadlock
 from flaskr.dao import uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
@@ -19,8 +19,10 @@ from .credit_notifications import (
 )
 from .consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-    BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
+    BILLING_ORDER_STATUS_INIT,
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
@@ -51,6 +53,9 @@ from .queries import (
 )
 from .reserved_renewal_activation import IncompleteReservedGrantActivationError
 from .renewal_event_transitions import (
+    RenewalEventClaimLostError,
+    assert_renewal_event_claim_current as _assert_renewal_event_claim_current,
+    bind_renewal_event_claim as _bind_renewal_event_claim,
     complete_renewal_event as _complete_renewal_event,
     fail_renewal_event as _fail_renewal_event,
     release_renewal_event as _release_renewal_event,
@@ -64,7 +69,7 @@ from .subscriptions import (
     load_subscription_by_bid as _load_subscription_by_bid,
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
-from .models import BillingOrder, BillingRenewalEvent
+from .models import BillingOrder, BillingRenewalEvent, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .wallets import _expire_credit_wallet_buckets_in_session
 
@@ -80,6 +85,114 @@ _TERMINAL_EVENT_STATUSES = (
 
 # Shared session-scope guard; see flaskr/dao/uow.py for the rationale.
 _app_context_scope = app_context_scope
+
+
+_OBSOLETE_RENEWAL_ORDER_STATUSES = (
+    BILLING_ORDER_STATUS_INIT,
+    BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_STATUS_FAILED,
+)
+
+
+def _load_subscription_by_bid_for_update(
+    subscription_bid: str,
+) -> BillingSubscription | None:
+    normalized_subscription_bid = _normalize_bid(subscription_bid)
+    if not normalized_subscription_bid:
+        return None
+    return (
+        BillingSubscription.query.filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.subscription_bid == normalized_subscription_bid,
+        )
+        .populate_existing()
+        .with_for_update()
+        .order_by(BillingSubscription.id.desc())
+        .first()
+    )
+
+
+def _ensure_renewal_event_claim_current(event: BillingRenewalEvent) -> None:
+    # A PROCESSING event's updated_at is its short lease heartbeat.  Always
+    # use the check-time timestamp so stale recovery cannot immediately
+    # reclaim a long-running attempt after this guard succeeds.
+    _assert_renewal_event_claim_current(event, now=now_utc(), touch=True)
+
+
+def _is_subscription_obsolete(subscription: BillingSubscription) -> bool:
+    return int(subscription.status or 0) in {
+        BILLING_SUBSCRIPTION_STATUS_CANCELED,
+        BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+    }
+
+
+def _load_event_payload_renewal_order(
+    event: BillingRenewalEvent,
+) -> BillingOrder | None:
+    if not isinstance(event.payload_json, dict):
+        return None
+    bill_order_bid = _normalize_bid(event.payload_json.get("bill_order_bid"))
+    if not bill_order_bid:
+        return None
+    return (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.bill_order_bid == bill_order_bid,
+            BillingOrder.subscription_bid == event.subscription_bid,
+            BillingOrder.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+        )
+        .populate_existing()
+        .with_for_update()
+        .order_by(BillingOrder.id.desc())
+        .first()
+    )
+
+
+def _cancel_obsolete_renewal_order(
+    order: BillingOrder | None,
+    *,
+    now: datetime,
+    reason: str,
+) -> str | None:
+    if order is None:
+        return None
+    if int(order.status or 0) not in _OBSOLETE_RENEWAL_ORDER_STATUSES:
+        return order.bill_order_bid
+
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
+    metadata["canceled_reason"] = reason
+    metadata["canceled_at"] = to_utc_iso(now)
+    order.status = BILLING_ORDER_STATUS_CANCELED
+    order.metadata_json = metadata
+    order.updated_at = now
+    db.session.add(order)
+    return order.bill_order_bid
+
+
+def _complete_obsolete_renewal_event(
+    event: BillingRenewalEvent,
+    subscription: BillingSubscription,
+    *,
+    now: datetime,
+) -> RenewalEventResult:
+    status_label = BILLING_SUBSCRIPTION_STATUS_LABELS.get(
+        int(subscription.status or 0),
+        "canceled",
+    )
+    bill_order_bid = _cancel_obsolete_renewal_order(
+        _load_event_payload_renewal_order(event),
+        now=now,
+        reason=f"subscription_{status_label}",
+    )
+    _complete_renewal_event(event, now=now)
+    return _result_from_event(
+        "already_applied",
+        event,
+        bill_order_bid=bill_order_bid,
+        subscription_status=status_label,
+    )
 
 
 def _fail_paid_renewal_activation_event(
@@ -234,36 +347,48 @@ def run_billing_renewal_event(
         if claim_status != "claimed":
             return _result_from_event(claim_status, event)
 
-        now = now_utc()
-        if event.scheduled_at and event.scheduled_at > now:
+        owns_transaction = not uow.in_unit_of_work()
+        try:
+            now = now_utc()
+            if event.scheduled_at and event.scheduled_at > now:
+                with unit_of_work():
+                    _release_renewal_event(event, now=now)
+                return _result_from_event("deferred_until_scheduled_at", event)
+
+            if (
+                int(event.event_type or 0)
+                == BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE
+            ):
+                return _execute_cancel_effective(app, event, now=now)
+            if (
+                int(event.event_type or 0)
+                == BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE
+            ):
+                return _execute_downgrade_effective(app, event, now=now)
+            if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_RENEWAL:
+                return _execute_subscription_renewal(app, event, now=now)
+            if int(event.event_type or 0) in {
+                BILLING_RENEWAL_EVENT_TYPE_RETRY,
+                BILLING_RENEWAL_EVENT_TYPE_RECONCILE,
+            }:
+                return _execute_retry_or_reconcile(app, event, now=now)
+            if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_EXPIRE:
+                return _execute_expire_subscription(app, event, now=now)
+
             with unit_of_work():
-                _release_renewal_event(event, now=now)
-            return _result_from_event("deferred_until_scheduled_at", event)
-
-        if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE:
-            return _execute_cancel_effective(app, event, now=now)
-        if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE:
-            return _execute_downgrade_effective(app, event, now=now)
-        if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_RENEWAL:
-            return _execute_subscription_renewal(app, event, now=now)
-        if int(event.event_type or 0) in {
-            BILLING_RENEWAL_EVENT_TYPE_RETRY,
-            BILLING_RENEWAL_EVENT_TYPE_RECONCILE,
-        }:
-            return _execute_retry_or_reconcile(app, event, now=now)
-        if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_EXPIRE:
-            return _execute_expire_subscription(app, event, now=now)
-
-        with unit_of_work():
-            _fail_renewal_event(
-                event,
-                now=now,
-                error=(
-                    "renewal_event_handler_not_implemented:"
-                    f"{BILLING_RENEWAL_EVENT_TYPE_LABELS.get(int(event.event_type or 0), event.event_type)}"
-                ),
-            )
-        return _result_from_event("failed", event)
+                _fail_renewal_event(
+                    event,
+                    now=now,
+                    error=(
+                        "renewal_event_handler_not_implemented:"
+                        f"{BILLING_RENEWAL_EVENT_TYPE_LABELS.get(int(event.event_type or 0), event.event_type)}"
+                    ),
+                )
+            return _result_from_event("failed", event)
+        except RenewalEventClaimLostError:
+            if not owns_transaction:
+                raise
+            return _result_from_lost_claim(event)
 
 
 def retry_billing_renewal_event(
@@ -665,11 +790,15 @@ def _execute_subscription_renewal(
     # this same order through the payload link (and ensure_* reloads it by
     # cycle) instead of creating a second charge context.
     with unit_of_work():
-        subscription = _load_subscription_by_bid(event.subscription_bid)
+        subscription = _load_subscription_by_bid_for_update(event.subscription_bid)
         if subscription is None:
             _fail_renewal_event(event, now=now, error="subscription_not_found")
             return _result_from_event("failed", event)
 
+        if _is_subscription_obsolete(subscription):
+            return _complete_obsolete_renewal_event(event, subscription, now=now)
+
+        _ensure_renewal_event_claim_current(event)
         order = ensure_subscription_renewal_order(
             app,
             subscription,
@@ -711,7 +840,16 @@ def _execute_subscription_renewal(
 
     # Provider sync stays OUTSIDE any unit of work: it wraps a non-idempotent
     # external payment call and (see NOTE in _sync_billing_renewal_order)
-    # commits its own session.
+    # commits its own session. Confirm claim ownership immediately before the
+    # cross-transaction side effect, so stale workers stop before syncing.
+    with unit_of_work():
+        subscription = _load_subscription_by_bid_for_update(event.subscription_bid)
+        if subscription is None:
+            _fail_renewal_event(event, now=now_utc(), error="subscription_not_found")
+            return _result_from_event("failed", event, bill_order_bid=bill_order_bid)
+        if _is_subscription_obsolete(subscription):
+            return _complete_obsolete_renewal_event(event, subscription, now=now_utc())
+        _ensure_renewal_event_claim_current(event)
     result = _sync_billing_renewal_order(app, order=order, event=event)
     sync_status = str(result.status or "")
     # The provider sync commits in its OWN session; `order` and `event` held
@@ -751,8 +889,17 @@ def _execute_retry_or_reconcile(
     now: datetime,
 ) -> RenewalEventResult:
     # The retry path ends in a non-idempotent payment-provider sync that
-    # persists its own results, so it runs OUTSIDE any unit of work here;
-    # only the terminal event transition below is this function's write.
+    # persists its own results, so confirm claim ownership and subscription
+    # lifecycle immediately before entering the cross-transaction side effect.
+    with unit_of_work():
+        subscription = _load_subscription_by_bid_for_update(event.subscription_bid)
+        if subscription is None:
+            _fail_renewal_event(event, now=now, error="subscription_not_found")
+            return _result_from_event("failed", event)
+        if _is_subscription_obsolete(subscription):
+            return _complete_obsolete_renewal_event(event, subscription, now=now)
+        _ensure_renewal_event_claim_current(event)
+
     result = retry_billing_renewal_event(
         app,
         renewal_event_bid=event.renewal_event_bid,
@@ -933,6 +1080,11 @@ def _claim_target_renewal_event(
         subscription_bid=subscription_bid,
         creator_bid=creator_bid,
     )
+    if claimed is not None:
+        _bind_renewal_event_claim(
+            claimed,
+            attempt_count=expected_attempt_count + 1,
+        )
     return "claimed", claimed
 
 
@@ -1021,4 +1173,27 @@ def _result_without_event(
         renewal_event_bid=_normalize_bid(renewal_event_bid) or None,
         subscription_bid=_normalize_bid(subscription_bid) or None,
         creator_bid=_normalize_bid(creator_bid) or None,
+    )
+
+
+def _result_from_lost_claim(event: BillingRenewalEvent) -> RenewalEventResult:
+    db.session.rollback()
+    db.session.expire_all()
+    current = _load_target_renewal_event(renewal_event_bid=event.renewal_event_bid)
+    if current is None:
+        return _result_without_event(
+            "event_not_found",
+            renewal_event_bid=event.renewal_event_bid,
+            subscription_bid=event.subscription_bid,
+            creator_bid=event.creator_bid,
+        )
+    status = (
+        "already_processed"
+        if int(current.status or 0) in _TERMINAL_EVENT_STATUSES
+        else "lost_claim"
+    )
+    return _result_from_event(
+        status,
+        current,
+        message="renewal_event_claim_lost",
     )
