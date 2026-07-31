@@ -527,6 +527,7 @@
     "actions": {
       "upgradeNow": "Mettre à niveau"
     },
+    "emptyValidityLabel": "--",
     "subtitle": "Consulter le total des crédits, les soldes par catégorie et la fenêtre effective de chaque source de crédits.",
     "table": {
       "balance": "Solde",
