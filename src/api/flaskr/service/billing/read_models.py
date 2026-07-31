@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import case, or_, select
+from sqlalchemy import and_, case, or_, select
 
 from flaskr.dao import db
 from flaskr.i18n import _ as translate
@@ -145,6 +145,42 @@ def _filter_out_reserved_credit_grant_ledgers(query):
         )
     )
     return query.filter(bucket_credit_state_expr.notin_(("reserved", "absorbed")))
+
+
+def _ledger_visible_at_sort_expr():
+    bucket_credit_state_expr = db.func.lower(
+        db.func.trim(
+            db.func.coalesce(
+                CreditLedgerEntry.metadata_json["bucket_credit_state"].as_string(),
+                "",
+            )
+        )
+    )
+    activated_at_expr = db.func.trim(
+        db.func.replace(
+            db.func.replace(
+                db.func.coalesce(
+                    CreditLedgerEntry.metadata_json["activated_at"].as_string(),
+                    "",
+                ),
+                "T",
+                " ",
+            ),
+            "Z",
+            "",
+        )
+    )
+    return case(
+        (
+            and_(
+                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                bucket_credit_state_expr == "available",
+                activated_at_expr != "",
+            ),
+            activated_at_expr,
+        ),
+        else_=CreditLedgerEntry.created_at,
+    )
 
 
 def _parse_stat_date(value: str) -> datetime.date | None:
@@ -701,7 +737,7 @@ def build_billing_ledger_page(
             CreditLedgerEntry.creator_bid == normalized_creator_bid,
         )
         query = _filter_out_reserved_credit_grant_ledgers(query).order_by(
-            CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
+            _ledger_visible_at_sort_expr().desc(), CreditLedgerEntry.id.desc()
         )
         total = query.order_by(None).count()
         if total == 0:

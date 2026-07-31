@@ -1437,8 +1437,8 @@ class TestBillingRoutes:
                         expires_at=datetime(2026, 6, 1, 0, 0, 0),
                         consumable_from=datetime(2026, 5, 1, 0, 0, 0),
                         metadata_json={"bucket_credit_state": "reserved"},
-                        created_at=datetime(2026, 4, 7, 10, 0, 0),
-                        updated_at=datetime(2026, 4, 7, 10, 0, 0),
+                        created_at=datetime(2026, 4, 4, 10, 0, 0),
+                        updated_at=datetime(2026, 4, 4, 10, 0, 0),
                     ),
                     CreditLedgerEntry(
                         ledger_bid="ledger-absorbed-renewal",
@@ -1473,7 +1473,10 @@ class TestBillingRoutes:
             reserved_ledger = CreditLedgerEntry.query.filter_by(
                 ledger_bid="ledger-reserved-renewal"
             ).one()
-            reserved_ledger.metadata_json = {"bucket_credit_state": "available"}
+            reserved_ledger.metadata_json = {
+                "bucket_credit_state": "available",
+                "activated_at": "2026-04-08T10:00:00Z",
+            }
             dao.db.session.commit()
 
         activated_page = build_billing_ledger_page(app, "creator-1", page_size=10)

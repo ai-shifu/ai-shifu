@@ -1591,7 +1591,7 @@ def test_get_operator_user_credits_hides_reserved_grants_until_available(app):
             source_bid="order-reserved-grant",
             amount="1000.0000000000",
             balance_after="5.0000000000",
-            created_at=datetime(2026, 4, 18, 9, 0, 0),
+            created_at=datetime(2026, 4, 17, 9, 0, 0),
             metadata_json={"bucket_credit_state": " ReSeRvEd "},
         )
         _seed_credit_ledger_entry(
@@ -1625,7 +1625,10 @@ def test_get_operator_user_credits_hides_reserved_grants_until_available(app):
         reserved_entry = CreditLedgerEntry.query.filter_by(
             ledger_bid="ledger-reserved-grant"
         ).one()
-        reserved_entry.metadata_json = {"bucket_credit_state": "available"}
+        reserved_entry.metadata_json = {
+            "bucket_credit_state": "available",
+            "activated_at": "2026-04-19T09:00:00Z",
+        }
         db.session.add(reserved_entry)
         db.session.commit()
         activated_result = get_operator_user_credits(
