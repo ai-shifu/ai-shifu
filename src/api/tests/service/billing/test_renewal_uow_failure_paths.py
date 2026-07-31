@@ -530,19 +530,19 @@ def test_processing_event_release_does_not_overwrite_canceled_event(
         },
         synchronize_session=False,
     )
-    dao.db.session.flush()
-
-    updated = renewal_event_transitions.release_renewal_event(
-        loaded_by_worker,
-        now=now_utc(),
-    )
     dao.db.session.commit()
+
+    with pytest.raises(renewal_event_transitions.RenewalEventClaimLostError):
+        renewal_event_transitions.release_renewal_event(
+            loaded_by_worker,
+            now=now_utc(),
+        )
+    dao.db.session.rollback()
     dao.db.session.expire_all()
 
     event = BillingRenewalEvent.query.filter_by(
         renewal_event_bid="renewal-uow-stale-release"
     ).one()
-    assert updated is False
     assert event.status == BILLING_RENEWAL_EVENT_STATUS_CANCELED
 
 
@@ -571,19 +571,19 @@ def test_processing_event_completion_does_not_overwrite_canceled_event(
         },
         synchronize_session=False,
     )
-    dao.db.session.flush()
-
-    updated = renewal_event_transitions.complete_renewal_event(
-        loaded_by_worker,
-        now=now_utc(),
-    )
     dao.db.session.commit()
+
+    with pytest.raises(renewal_event_transitions.RenewalEventClaimLostError):
+        renewal_event_transitions.complete_renewal_event(
+            loaded_by_worker,
+            now=now_utc(),
+        )
+    dao.db.session.rollback()
     dao.db.session.expire_all()
 
     event = BillingRenewalEvent.query.filter_by(
         renewal_event_bid="renewal-uow-stale-complete"
     ).one()
-    assert updated is False
     assert event.status == BILLING_RENEWAL_EVENT_STATUS_CANCELED
 
 
@@ -613,20 +613,20 @@ def test_processing_event_failure_does_not_overwrite_succeeded_event(
         },
         synchronize_session=False,
     )
-    dao.db.session.flush()
-
-    updated = renewal_event_transitions.fail_renewal_event(
-        loaded_by_worker,
-        now=now_utc(),
-        error="late failure",
-    )
     dao.db.session.commit()
+
+    with pytest.raises(renewal_event_transitions.RenewalEventClaimLostError):
+        renewal_event_transitions.fail_renewal_event(
+            loaded_by_worker,
+            now=now_utc(),
+            error="late failure",
+        )
+    dao.db.session.rollback()
     dao.db.session.expire_all()
 
     event = BillingRenewalEvent.query.filter_by(
         renewal_event_bid="renewal-uow-stale-fail"
     ).one()
-    assert updated is False
     assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
     assert event.last_error == ""
 
@@ -693,6 +693,107 @@ def test_renewal_event_skips_obsolete_expired_subscription(
         ).count()
         == 0
     )
+
+
+def test_old_claim_cannot_complete_new_processing_attempt(
+    renewal_uow_app: Flask,
+) -> None:
+    """Attempt-count CAS prevents an old worker from finishing a new claim."""
+    _seed_subscription("sub-uow-claim-generation")
+    event = _seed_event(
+        "renewal-uow-claim-generation",
+        "sub-uow-claim-generation",
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    event.status = BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    event.attempt_count = 1
+    dao.db.session.commit()
+
+    old_worker_event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-claim-generation"
+    ).one()
+    renewal_event_transitions.bind_renewal_event_claim(
+        old_worker_event,
+        attempt_count=1,
+    )
+    BillingRenewalEvent.query.filter_by(id=old_worker_event.id).update(
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+            "attempt_count": 2,
+            "updated_at": now_utc(),
+        },
+        synchronize_session=False,
+    )
+    dao.db.session.commit()
+
+    with pytest.raises(renewal_event_transitions.RenewalEventClaimLostError):
+        renewal_event_transitions.complete_renewal_event(
+            old_worker_event,
+            now=now_utc(),
+        )
+    dao.db.session.rollback()
+    dao.db.session.expire_all()
+
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-claim-generation"
+    ).one()
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    assert event.attempt_count == 2
+
+
+def test_lost_claim_rolls_back_business_side_effects(
+    renewal_uow_app: Flask,
+) -> None:
+    """Callers must not commit business writes when terminal CAS loses."""
+    subscription = _seed_subscription("sub-uow-lost-claim-rollback")
+    event = _seed_event(
+        "renewal-uow-lost-claim-rollback",
+        subscription.subscription_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    )
+    event.status = BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    event.attempt_count = 1
+    dao.db.session.commit()
+
+    old_worker_event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-lost-claim-rollback"
+    ).one()
+    renewal_event_transitions.bind_renewal_event_claim(
+        old_worker_event,
+        attempt_count=1,
+    )
+    BillingRenewalEvent.query.filter_by(id=old_worker_event.id).update(
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+            "attempt_count": 2,
+            "updated_at": now_utc(),
+        },
+        synchronize_session=False,
+    )
+    dao.db.session.commit()
+
+    with pytest.raises(renewal_event_transitions.RenewalEventClaimLostError):
+        with uow.unit_of_work():
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-uow-lost-claim-rollback"
+            ).one()
+            subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCELED
+            dao.db.session.add(subscription)
+            renewal_event_transitions.complete_renewal_event(
+                old_worker_event,
+                now=now_utc(),
+            )
+    dao.db.session.expire_all()
+
+    subscription = BillingSubscription.query.filter_by(
+        subscription_bid="sub-uow-lost-claim-rollback"
+    ).one()
+    event = BillingRenewalEvent.query.filter_by(
+        renewal_event_bid="renewal-uow-lost-claim-rollback"
+    ).one()
+    assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+    assert event.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+    assert event.attempt_count == 2
 
 
 def test_upsert_recovers_when_concurrent_insert_wins(

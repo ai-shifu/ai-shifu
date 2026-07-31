@@ -51,6 +51,8 @@ from .queries import (
 )
 from .reserved_renewal_activation import IncompleteReservedGrantActivationError
 from .renewal_event_transitions import (
+    RenewalEventClaimLostError,
+    bind_renewal_event_claim as _bind_renewal_event_claim,
     complete_renewal_event as _complete_renewal_event,
     fail_renewal_event as _fail_renewal_event,
     release_renewal_event as _release_renewal_event,
@@ -234,36 +236,48 @@ def run_billing_renewal_event(
         if claim_status != "claimed":
             return _result_from_event(claim_status, event)
 
-        now = now_utc()
-        if event.scheduled_at and event.scheduled_at > now:
+        owns_transaction = not uow.in_unit_of_work()
+        try:
+            now = now_utc()
+            if event.scheduled_at and event.scheduled_at > now:
+                with unit_of_work():
+                    _release_renewal_event(event, now=now)
+                return _result_from_event("deferred_until_scheduled_at", event)
+
+            if (
+                int(event.event_type or 0)
+                == BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE
+            ):
+                return _execute_cancel_effective(app, event, now=now)
+            if (
+                int(event.event_type or 0)
+                == BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE
+            ):
+                return _execute_downgrade_effective(app, event, now=now)
+            if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_RENEWAL:
+                return _execute_subscription_renewal(app, event, now=now)
+            if int(event.event_type or 0) in {
+                BILLING_RENEWAL_EVENT_TYPE_RETRY,
+                BILLING_RENEWAL_EVENT_TYPE_RECONCILE,
+            }:
+                return _execute_retry_or_reconcile(app, event, now=now)
+            if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_EXPIRE:
+                return _execute_expire_subscription(app, event, now=now)
+
             with unit_of_work():
-                _release_renewal_event(event, now=now)
-            return _result_from_event("deferred_until_scheduled_at", event)
-
-        if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE:
-            return _execute_cancel_effective(app, event, now=now)
-        if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE:
-            return _execute_downgrade_effective(app, event, now=now)
-        if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_RENEWAL:
-            return _execute_subscription_renewal(app, event, now=now)
-        if int(event.event_type or 0) in {
-            BILLING_RENEWAL_EVENT_TYPE_RETRY,
-            BILLING_RENEWAL_EVENT_TYPE_RECONCILE,
-        }:
-            return _execute_retry_or_reconcile(app, event, now=now)
-        if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_EXPIRE:
-            return _execute_expire_subscription(app, event, now=now)
-
-        with unit_of_work():
-            _fail_renewal_event(
-                event,
-                now=now,
-                error=(
-                    "renewal_event_handler_not_implemented:"
-                    f"{BILLING_RENEWAL_EVENT_TYPE_LABELS.get(int(event.event_type or 0), event.event_type)}"
-                ),
-            )
-        return _result_from_event("failed", event)
+                _fail_renewal_event(
+                    event,
+                    now=now,
+                    error=(
+                        "renewal_event_handler_not_implemented:"
+                        f"{BILLING_RENEWAL_EVENT_TYPE_LABELS.get(int(event.event_type or 0), event.event_type)}"
+                    ),
+                )
+            return _result_from_event("failed", event)
+        except RenewalEventClaimLostError:
+            if not owns_transaction:
+                raise
+            return _result_from_lost_claim(event)
 
 
 def retry_billing_renewal_event(
@@ -947,6 +961,11 @@ def _claim_target_renewal_event(
         subscription_bid=subscription_bid,
         creator_bid=creator_bid,
     )
+    if claimed is not None:
+        _bind_renewal_event_claim(
+            claimed,
+            attempt_count=expected_attempt_count + 1,
+        )
     return "claimed", claimed
 
 
@@ -1035,4 +1054,27 @@ def _result_without_event(
         renewal_event_bid=_normalize_bid(renewal_event_bid) or None,
         subscription_bid=_normalize_bid(subscription_bid) or None,
         creator_bid=_normalize_bid(creator_bid) or None,
+    )
+
+
+def _result_from_lost_claim(event: BillingRenewalEvent) -> RenewalEventResult:
+    db.session.rollback()
+    db.session.expire_all()
+    current = _load_target_renewal_event(renewal_event_bid=event.renewal_event_bid)
+    if current is None:
+        return _result_without_event(
+            "event_not_found",
+            renewal_event_bid=event.renewal_event_bid,
+            subscription_bid=event.subscription_bid,
+            creator_bid=event.creator_bid,
+        )
+    status = (
+        "already_processed"
+        if int(current.status or 0) in _TERMINAL_EVENT_STATUSES
+        else "lost_claim"
+    )
+    return _result_from_event(
+        status,
+        current,
+        message="renewal_event_claim_lost",
     )
