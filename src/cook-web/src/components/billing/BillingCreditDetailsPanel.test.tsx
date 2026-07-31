@@ -9,7 +9,8 @@ import { BillingCreditDetailsPanel } from './BillingCreditDetailsPanel';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string) =>
+      key === 'module.billing.details.emptyValidityLabel' ? '--' : key,
     i18n: {
       language: 'zh-CN',
     },
@@ -233,6 +234,75 @@ describe('BillingCreditDetailsPanel', () => {
     expect(screen.queryByText('2026-10-21 07:59')).not.toBeInTheDocument();
     expect(screen.queryByText('2026-11-21 07:59')).not.toBeInTheDocument();
     expect(screen.queryByText('1,300.00')).not.toBeInTheDocument();
+  });
+
+  test('shows no validity date when active subscription credits are empty', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        ...mockUseBillingOverview().data,
+        wallet: {
+          available_credits: 65.38,
+          reserved_credits: 0,
+          lifetime_granted_credits: 1100,
+          lifetime_consumed_credits: 1034.62,
+        },
+      },
+      error: undefined,
+      isLoading: false,
+    });
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: {
+        items: [
+          {
+            wallet_bucket_bid: 'bucket-sub-empty',
+            category: 'subscription',
+            source_type: 'subscription',
+            source_bid: 'sub-1',
+            available_credits: 0,
+            effective_from: '2026-04-01T00:00:00',
+            effective_to: '2026-10-12T23:59:00',
+            priority: 20,
+            status: 'active',
+          },
+          {
+            wallet_bucket_bid: 'bucket-topup',
+            category: 'topup',
+            source_type: 'topup',
+            source_bid: 'topup-1',
+            available_credits: 65.38,
+            effective_from: '2026-04-01T00:00:00',
+            effective_to: '2026-10-20T23:59:00',
+            priority: 30,
+            status: 'active',
+          },
+        ],
+      },
+      error: undefined,
+      isLoading: false,
+    });
+
+    render(<BillingCreditDetailsPanel />);
+
+    const subscriptionLabel = screen.getByText(
+      'module.billing.ledger.category.subscription',
+    );
+    const subscriptionRow = subscriptionLabel.closest('.grid');
+
+    expect(subscriptionRow).not.toBeNull();
+    expect(
+      within(subscriptionRow as HTMLElement).getByText('0.00'),
+    ).toBeInTheDocument();
+    expect(
+      within(subscriptionRow as HTMLElement).getByText('--'),
+    ).toBeInTheDocument();
+    expect(
+      within(subscriptionRow as HTMLElement).queryByText('2026-10-13 07:59'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(subscriptionRow as HTMLElement).queryByText(
+        'module.billing.ledger.neverExpires',
+      ),
+    ).not.toBeInTheDocument();
   });
 
   test('revalidates wallet buckets after the overview snapshot loads', async () => {
@@ -584,7 +654,7 @@ describe('BillingCreditDetailsPanel', () => {
     ).toBeInTheDocument();
   });
 
-  test('does not count topup buckets when there is no active subscription', () => {
+  test('shows held topup credits when there is no active subscription', () => {
     mockUseBillingOverview.mockReturnValue({
       data: {
         creator_bid: 'creator-1',
@@ -660,12 +730,11 @@ describe('BillingCreditDetailsPanel', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(topupLabel.closest('.grid') as HTMLElement).getByText('0.00'),
+      within(topupLabel.closest('.grid') as HTMLElement).getByText('1,000.00'),
     ).toBeInTheDocument();
-    expect(screen.queryByText('1,000.00')).not.toBeInTheDocument();
   });
 
-  test('does not count topup buckets when the subscription period has ended', () => {
+  test('shows held topup credits when the subscription period has ended', () => {
     const overview = mockUseBillingOverview().data;
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -704,9 +773,8 @@ describe('BillingCreditDetailsPanel', () => {
     const topupLabel = screen.getByText('module.billing.ledger.category.topup');
 
     expect(
-      within(topupLabel.closest('.grid') as HTMLElement).getByText('0.00'),
+      within(topupLabel.closest('.grid') as HTMLElement).getByText('1,000.00'),
     ).toBeInTheDocument();
-    expect(screen.queryByText('1,000.00')).not.toBeInTheDocument();
   });
 
   test('shows a tooltip for topup availability when the topup bucket has no expiry', async () => {

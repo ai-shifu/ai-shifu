@@ -30,6 +30,7 @@ from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
 
 from .checkout import reconcile_billing_provider_reference
+from .credit_audit import audit_credit_state
 from .consts import (
     ALLOCATION_INTERVAL_MANUAL,
     ALLOCATION_INTERVAL_ONE_TIME,
@@ -769,6 +770,50 @@ def register_billing_commands(console) -> None:
             dry_run=not apply_changes,
         )
         _echo_payload(payload)
+
+    @billing_group.command(name="audit-credit-state")
+    @click.option("--creator-bid", default="", help="Audit one creator.")
+    @click.option(
+        "--limit",
+        type=click.IntRange(min=1),
+        default=None,
+        help="Maximum creator candidates to scan when used with --all.",
+    )
+    @click.option(
+        "--as-of",
+        "as_of",
+        default="",
+        help="UTC timestamp used for time-sensitive diagnostics.",
+    )
+    @click.option(
+        "--all",
+        "process_all",
+        is_flag=True,
+        help="Scan all creator billing credit state.",
+    )
+    @with_appcontext
+    def audit_credit_state_command(
+        creator_bid: str,
+        limit: int | None,
+        as_of: str,
+        process_all: bool,
+    ) -> None:
+        """Run read-only billing credit invariant diagnostics."""
+
+        if not str(creator_bid or "").strip() and not process_all:
+            raise click.ClickException(
+                "Pass --creator-bid or --all for credit state audit."
+            )
+
+        try:
+            report = audit_credit_state(
+                creator_bid=creator_bid,
+                as_of=as_of or None,
+                limit=limit if process_all else None,
+            )
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
+        _echo_payload(report.to_payload())
 
     @billing_group.command(name="repair-expire-ledger-bucket-drift")
     @click.option("--creator-bid", default="", help="Repair one creator.")

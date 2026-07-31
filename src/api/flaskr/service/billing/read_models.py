@@ -52,7 +52,7 @@ from .bucket_categories import (
     build_wallet_bucket_runtime_sort_key,
     load_billing_order_type_by_bid,
 )
-from .credit_notifications import resolve_creator_limit_state
+from .credit_notifications import build_creator_limit_state_for_available_credits
 from .dtos import (
     AdminBillingDailyLedgerSummaryPageDTO,
     AdminBillingFocusTeacherDTO,
@@ -101,6 +101,7 @@ from .queries import (
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import credit_decimal_to_number
+from .primitives import is_billing_enabled
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 from .serializers import (
@@ -118,7 +119,10 @@ from .serializers import (
     serialize_wallet_bucket as _serialize_wallet_bucket,
 )
 from .trials import resolve_new_creator_trial_offer as _resolve_new_creator_trial_offer
-from .wallets import adjust_credit_wallet_balance
+from .wallets import (
+    adjust_credit_wallet_balance,
+    calculate_credit_wallet_snapshot_values,
+)
 
 _OPERATOR_PRODUCT_FILTER_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
@@ -603,8 +607,29 @@ def build_billing_overview(
         subscription = _load_current_subscription(normalized_creator_bid)
 
         wallet_payload = _serialize_wallet(wallet)
+        available_credits = Decimal("0")
+        if wallet is not None:
+            available_credits, reserved_credits = (
+                calculate_credit_wallet_snapshot_values(
+                    wallet,
+                    snapshot_at=now_utc(),
+                )
+            )
+            wallet_payload.available_credits = credit_decimal_to_number(
+                available_credits
+            )
+            wallet_payload.reserved_credits = credit_decimal_to_number(reserved_credits)
         subscription_payload = _serialize_subscription(app, subscription)
-        limit_state = resolve_creator_limit_state(app, normalized_creator_bid)
+        limit_state = (
+            build_creator_limit_state_for_available_credits(available_credits)
+            if is_billing_enabled()
+            else {
+                "state": "normal",
+                "debug_allowed": True,
+                "available_credits": "0",
+                "softlimit_threshold": "0",
+            }
+        )
         softlimit_threshold = limit_state.get("softlimit_threshold")
         return BillingOverviewDTO(
             creator_bid=normalized_creator_bid,

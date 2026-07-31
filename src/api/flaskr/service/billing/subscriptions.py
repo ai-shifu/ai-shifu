@@ -16,9 +16,6 @@ from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
 
 from .consts import (
-    BILLING_INTERVAL_DAY,
-    BILLING_INTERVAL_MONTH,
-    BILLING_INTERVAL_YEAR,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -53,14 +50,21 @@ from .consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
 )
 from .bucket_categories import (
-    load_billing_order_type_by_bid,
     resolve_bucket_category_from_order_type,
     resolve_credit_bucket_priority,
-    resolve_wallet_bucket_runtime_category,
 )
 from .credit_mutations import (
     activate_reserved_grant_credit,
     reserved_grant_state as _shared_reserved_grant_state,
+)
+from .cycle_transitions import (
+    resolve_order_effective_from as _resolve_order_effective_from,
+    resolve_order_effective_to as _resolve_order_effective_to,
+)
+from .cycle_state_transitions import (
+    realign_active_credit_bucket_effective_to as _realign_active_credit_bucket_effective_to,
+    realign_active_topup_bucket_effective_to as _realign_active_topup_bucket_effective_to,
+    subscription_has_effective_cycle as _subscription_has_effective_cycle,
 )
 from .dtos import BillingSubscriptionDTO
 from .models import (
@@ -84,7 +88,6 @@ from .preorders import (
 )
 from .queries import (
     extract_order_metadata_datetime as _extract_order_metadata_datetime,
-    extract_resolved_order_cycle_end_at as _extract_resolved_order_cycle_end_at,
     extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
     calculate_billing_cycle_end as _calc_provider_cycle_end,
     calculate_self_managed_billing_cycle_end_after_boundary as _calc_self_managed_cycle_end_after_boundary,
@@ -1001,107 +1004,6 @@ def _cycle_has_reserved_activation_evidence(cycle_orders: list[BillingOrder]) ->
     return False
 
 
-def _realign_active_topup_bucket_effective_to(
-    *,
-    creator_bid: str,
-    effective_from: datetime,
-    effective_to: datetime | None,
-) -> None:
-    _realign_active_credit_bucket_effective_to(
-        creator_bid=creator_bid,
-        bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-        effective_from=effective_from,
-        effective_to=effective_to,
-        include_effective_to_boundary=True,
-    )
-
-
-def _realign_active_credit_bucket_effective_to(
-    *,
-    creator_bid: str,
-    bucket_category: int,
-    effective_from: datetime,
-    effective_to: datetime | None,
-    include_effective_to_boundary: bool,
-) -> None:
-    if effective_to is None:
-        return
-
-    buckets = _load_active_credit_buckets_by_runtime_category(
-        creator_bid,
-        bucket_category=bucket_category,
-    )
-    if not buckets:
-        return
-
-    now = now_utc()
-    for bucket in buckets:
-        if bucket.effective_from is not None and bucket.effective_from > effective_from:
-            continue
-        if bucket.effective_to is not None:
-            if (
-                not include_effective_to_boundary
-                and bucket.effective_to <= effective_from
-            ):
-                continue
-        if bucket.effective_to != effective_to:
-            bucket.effective_to = effective_to
-            bucket.updated_at = now
-            db.session.add(bucket)
-
-        grant_entry_filters = [
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
-            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-        ]
-        if not include_effective_to_boundary:
-            grant_entry_filters.append(
-                (
-                    CreditLedgerEntry.expires_at.is_(None)
-                    | (CreditLedgerEntry.expires_at >= effective_from)
-                ),
-            )
-        grant_entries = (
-            CreditLedgerEntry.query.filter(*grant_entry_filters)
-            .order_by(CreditLedgerEntry.id.asc())
-            .all()
-        )
-        for entry in grant_entries:
-            entry.expires_at = effective_to
-            entry.updated_at = now
-            db.session.add(entry)
-
-
-def _load_active_credit_buckets_by_runtime_category(
-    creator_bid: str,
-    *,
-    bucket_category: int,
-) -> list[CreditWalletBucket]:
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    if not normalized_creator_bid:
-        return []
-
-    rows = (
-        CreditWalletBucket.query.filter(
-            CreditWalletBucket.deleted == 0,
-            CreditWalletBucket.creator_bid == normalized_creator_bid,
-            CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
-            CreditWalletBucket.available_credits > 0,
-        )
-        .order_by(CreditWalletBucket.created_at.asc(), CreditWalletBucket.id.asc())
-        .all()
-    )
-    return [
-        row
-        for row in rows
-        if resolve_wallet_bucket_runtime_category(
-            row,
-            load_order_type=load_billing_order_type_by_bid,
-        )
-        == bucket_category
-    ]
-
-
 def _build_bucket_metadata_from_order(order: BillingOrder) -> dict[str, Any]:
     return _normalize_json_object(
         {
@@ -1496,12 +1398,9 @@ def _repair_existing_paid_order_grant_bucket(
     if is_reserved_grant:
         subscription = _load_subscription_by_bid(order.subscription_bid)
         has_current_available_balance = _to_decimal(bucket.available_credits) > 0
-        subscription_has_current_window = (
-            subscription is not None
-            and subscription.current_period_start_at is not None
-            and subscription.current_period_end_at is not None
-            and subscription.current_period_start_at <= now
-            and subscription.current_period_end_at > now
+        subscription_has_current_window = _subscription_has_effective_cycle(
+            subscription,
+            as_of=now,
         )
         if has_current_available_balance and subscription_has_current_window:
             current_period_start = subscription.current_period_start_at
@@ -2452,62 +2351,31 @@ def _resolve_credit_bucket_effective_to(
     product: BillingProduct,
     effective_from: datetime,
 ) -> datetime | None:
-    if order.order_type == BILLING_ORDER_TYPE_TOPUP:
-        return _resolve_topup_bucket_effective_to(
-            creator_bid=order.creator_bid,
-            effective_from=effective_from,
-        )
-
-    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
-    resolved_cycle_end_at = _extract_resolved_order_cycle_end_at(metadata)
-    if resolved_cycle_end_at is not None:
-        return resolved_cycle_end_at
-
-    if (
-        order.subscription_bid
-        and order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START
-    ):
-        subscription = _load_subscription_by_bid(order.subscription_bid)
-        if (
-            subscription is not None
-            and subscription.current_period_start_at == effective_from
-            and subscription.current_period_end_at is not None
-            and subscription.current_period_end_at > effective_from
-        ):
-            return subscription.current_period_end_at
-
-    interval = int(product.billing_interval or 0)
-    interval_count = max(int(product.billing_interval_count or 0), 0)
-    if interval_count <= 0:
-        return None
-    if interval == BILLING_INTERVAL_DAY:
-        if _is_self_managed_billing_order(order):
-            return _calc_self_managed_cycle_end(
-                product,
-                cycle_start_at=effective_from,
+    return _resolve_order_effective_to(
+        order=order,
+        product=product,
+        effective_from=effective_from,
+        load_subscription_by_bid=_load_subscription_by_bid,
+        resolve_topup_effective_to=lambda creator_bid, from_at: (
+            _resolve_topup_bucket_effective_to(
+                creator_bid=creator_bid,
+                effective_from=from_at,
             )
-        return effective_from + timedelta(days=interval_count)
-    if interval == BILLING_INTERVAL_MONTH:
-        if _is_self_managed_billing_order(order):
-            return _calc_self_managed_cycle_end(
-                product,
-                cycle_start_at=effective_from,
+        ),
+        is_self_managed_order=_is_self_managed_billing_order,
+        calculate_provider_cycle_end=lambda resolved_product, cycle_start_at: (
+            _calc_provider_cycle_end(
+                resolved_product,
+                cycle_start_at=cycle_start_at,
             )
-        return _calc_provider_cycle_end(
-            product,
-            cycle_start_at=effective_from,
-        )
-    if interval == BILLING_INTERVAL_YEAR:
-        if _is_self_managed_billing_order(order):
-            return _calc_self_managed_cycle_end(
-                product,
-                cycle_start_at=effective_from,
+        ),
+        calculate_self_managed_cycle_end=lambda resolved_product, cycle_start_at: (
+            _calc_self_managed_cycle_end(
+                resolved_product,
+                cycle_start_at=cycle_start_at,
             )
-        return _calc_provider_cycle_end(
-            product,
-            cycle_start_at=effective_from,
-        )
-    return None
+        ),
+    )
 
 
 def _is_self_managed_billing_order(order: BillingOrder) -> bool:
@@ -2875,20 +2743,11 @@ def _resolve_credit_bucket_effective_from(
     order: BillingOrder,
     default_effective_from: datetime,
 ) -> datetime:
-    if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
-        return default_effective_from
-    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
-    renewal_cycle_start_at = _extract_resolved_order_cycle_start_at(metadata)
-    if renewal_cycle_start_at is not None:
-        return renewal_cycle_start_at
-    subscription = _load_subscription_by_bid(order.subscription_bid)
-    if (
-        subscription is None
-        or subscription.current_period_end_at is None
-        or subscription.current_period_end_at <= default_effective_from
-    ):
-        return default_effective_from
-    return subscription.current_period_end_at
+    return _resolve_order_effective_from(
+        order=order,
+        default_effective_from=default_effective_from,
+        load_subscription_by_bid=_load_subscription_by_bid,
+    )
 
 
 def _sync_subscription_lifecycle_events(
