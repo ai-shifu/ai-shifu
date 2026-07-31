@@ -1893,6 +1893,12 @@ def stream_generated_block_audio(
             def _generate_av_audio():
                 for position, element in enumerate(speakable_elements):
                     speakable_text = str(element.content_text or "")
+                    # Skip before the cache lookup so historical records for
+                    # non-speakable positions never replay, matching the
+                    # cache fast-path above.
+                    if position not in speakable_positions:
+                        continue
+
                     if position in existing_by_position:
                         record = existing_by_position[position]
                         yield _build_audio_complete_message(
@@ -1906,9 +1912,6 @@ def stream_generated_block_audio(
                             stream_element_type=_audio_stream_element_type(element),
                             subtitle_cues=_subtitle_cues_from_audio_record(record),
                         )
-                        continue
-
-                    if position not in speakable_positions:
                         continue
 
                     yield from _yield_run_tts_audio_events(

@@ -977,6 +977,132 @@ class TestGeneratedBlockListenTtsElementFirst:
         ] == [1, 2]
         assert events[-1].type == GeneratedType.DONE
 
+    def test_stream_generated_block_audio_listen_ignores_cached_markup_position(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+        from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED
+
+        user_bid = "user-cached-markup"
+        shifu_bid = "shifu-cached-markup"
+        generated_block_bid = "gen-cached-markup"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-cached-markup",
+                    user_bid=user_bid,
+                    block_bid="block-cached-markup",
+                    outline_item_bid="outline-cached-markup",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content=":::\n\nFirst.\n\nSecond.",
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.add_all(
+                [
+                    self.LearnGeneratedElement(
+                        element_bid=f"el-cached-markup-{index}",
+                        progress_record_bid="progress-cached-markup",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-cached-markup",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-cached-markup",
+                        run_event_seq=index + 1,
+                        event_type="element",
+                        role="teacher",
+                        element_index=index,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=index + 1,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text=text,
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    )
+                    for index, text in enumerate([":::", "First.", "Second."])
+                ]
+            )
+            # Historical audio records synthesized before markup-only skipping
+            # existed: position 0 holds symbol-only content and must not
+            # replay, while position 1 stays reusable.
+            db.session.add_all(
+                [
+                    self.LearnGeneratedAudio(
+                        audio_bid=f"audio-cached-markup-{position}",
+                        generated_block_bid=generated_block_bid,
+                        position=position,
+                        progress_record_bid="progress-cached-markup",
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        oss_url=f"https://example.com/audio-cached-markup-{position}.mp3",
+                        oss_bucket="test-bucket",
+                        oss_object_key=f"tts-audio/audio-cached-markup-{position}.mp3",
+                        duration_ms=1000,
+                        file_size=10,
+                        audio_format="mp3",
+                        sample_rate=24000,
+                        voice_id="voice",
+                        voice_settings={},
+                        model="test-model",
+                        text_length=len(text),
+                        segment_count=1,
+                        subtitle_cues=[
+                            {
+                                "text": text,
+                                "start_ms": 0,
+                                "end_ms": 1000,
+                                "segment_index": 0,
+                                "position": position,
+                            }
+                        ],
+                        status=AUDIO_STATUS_COMPLETED,
+                        deleted=0,
+                    )
+                    for position, text in ((0, ":::"), (1, "First."))
+                ]
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=True,
+            )
+        )
+
+        assert synthesized_texts == ["Second."]
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+        assert [event.content.position for event in audio_complete_events] == [1, 2]
+        assert events[-1].type == GeneratedType.DONE
+
     def test_stream_generated_block_audio_listen_finishes_markup_only_elements(
         self, monkeypatch
     ):
