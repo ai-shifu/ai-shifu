@@ -13,6 +13,7 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_ORDER_TYPE_TOPUP,
 )
@@ -450,10 +451,26 @@ class TestBillingPingxxCallbacks:
             subscription = BillingSubscription.query.filter_by(
                 subscription_bid="sub-manual-trial-to-pingxx"
             ).one()
+            order = BillingOrder.query.filter_by(
+                bill_order_bid="bill-pingxx-trial-upgrade-1"
+            ).one()
+            assert order.status == BILLING_ORDER_STATUS_PAID
             assert subscription.product_bid == "bill-product-plan-monthly"
             assert subscription.billing_provider == "pingxx"
             assert subscription.metadata_json["provider"] == "pingxx"
             assert subscription.metadata_json["latest_source"] == "webhook"
+            subscription.cancel_at_period_end = 1
+            subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+            dao.db.session.commit()
+
+            duplicate_payload, duplicate_status = handle_billing_pingxx_webhook(
+                billing_callback_app, body
+            )
+
+            assert duplicate_status == 200
+            assert duplicate_payload["status"] == "paid"
+            assert subscription.cancel_at_period_end == 1
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
 
     def test_pingxx_callback_reports_non_billing_payload(
         self, billing_callback_app

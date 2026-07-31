@@ -341,7 +341,11 @@ def handle_billing_pingxx_webhook(
             client_ip=str(charge.get("client_ip") or ""),
             extra=charge.get("extra"),
         )
-        if order.subscription_bid and target_status == BILLING_ORDER_STATUS_PAID:
+        if (
+            order_update.applied
+            and order.subscription_bid
+            and target_status == BILLING_ORDER_STATUS_PAID
+        ):
             from .subscriptions import load_subscription_by_bid
 
             subscription = load_subscription_by_bid(order.subscription_bid)

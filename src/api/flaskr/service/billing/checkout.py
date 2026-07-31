@@ -2185,7 +2185,11 @@ def _sync_pingxx_order(
         client_ip=str(charge.get("client_ip") or ""),
         extra=charge.get("extra"),
     )
-    if order.subscription_bid and target_status == BILLING_ORDER_STATUS_PAID:
+    if (
+        order_update.applied
+        and order.subscription_bid
+        and target_status == BILLING_ORDER_STATUS_PAID
+    ):
         subscription = _load_subscription_by_bid(order.subscription_bid)
         if subscription is not None:
             _apply_subscription_checkout_success(

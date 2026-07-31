@@ -18,6 +18,7 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_TRIAL_PRODUCT_BID,
 )
 from flaskr.service.billing.checkout import sync_billing_order
@@ -714,10 +715,32 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
         subscription = BillingSubscription.query.filter_by(
             subscription_bid="sub-trial-upgrade-sync-1"
         ).one()
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="billing-trial-upgrade-sync-1"
+        ).one()
+        assert order.status == BILLING_ORDER_STATUS_PAID
         assert subscription.product_bid == "bill-product-plan-monthly"
         assert subscription.billing_provider == "pingxx"
         assert subscription.metadata_json["provider"] == "pingxx"
         assert subscription.metadata_json["latest_source"] == "sync"
+        subscription.cancel_at_period_end = 1
+        subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+        dao.db.session.commit()
+
+    duplicate_payload = sync_billing_order(
+        app,
+        "creator-1",
+        "billing-trial-upgrade-sync-1",
+        {},
+    )
+
+    assert duplicate_payload.status == "paid"
+    with app.app_context():
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-trial-upgrade-sync-1"
+        ).one()
+        assert subscription.cancel_at_period_end == 1
+        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
 
 
 def test_send_billing_paid_feishu_task_marks_sent(
