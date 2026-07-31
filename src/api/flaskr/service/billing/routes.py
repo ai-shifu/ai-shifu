@@ -478,7 +478,12 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 source="billing_admin_entitlement_grant",
                 created_new_user=created_new_user,
             )
-        return make_common_response(serialize_creator_entitlements(state))
+        # The create flow only knows the creator mobile; return the resolved
+        # creator_bid so the console can chain follow-up branding/domain calls
+        # right after the first grant.
+        response_payload = serialize_creator_entitlements(state).__json__()
+        response_payload["creator_bid"] = target_creator_bid
+        return make_common_response(response_payload)
 
     @app.route(admin_path_prefix + "/entitlements/<creator_bid>", methods=["POST"])
     def admin_bill_entitlement_grant_legacy_api(creator_bid: str):
