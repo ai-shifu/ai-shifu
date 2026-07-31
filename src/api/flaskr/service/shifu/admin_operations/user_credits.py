@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from flask import Flask
-from sqlalchemy import and_, case, or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import aliased
 
 from flaskr.dao import db
@@ -100,42 +100,6 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserPackageGrantResultDTO,
     AdminOperationUserReferralRewardSummaryDTO,
 )
-
-
-def _operator_credit_ledger_visible_at_sort_expr():
-    bucket_credit_state_expr = db.func.lower(
-        db.func.trim(
-            db.func.coalesce(
-                CreditLedgerEntry.metadata_json["bucket_credit_state"].as_string(),
-                "",
-            )
-        )
-    )
-    activated_at_expr = db.func.trim(
-        db.func.replace(
-            db.func.replace(
-                db.func.coalesce(
-                    CreditLedgerEntry.metadata_json["activated_at"].as_string(),
-                    "",
-                ),
-                "T",
-                " ",
-            ),
-            "Z",
-            "",
-        )
-    )
-    return case(
-        (
-            and_(
-                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-                bucket_credit_state_expr == "available",
-                activated_at_expr != "",
-            ),
-            activated_at_expr,
-        ),
-        else_=CreditLedgerEntry.created_at,
-    )
 
 
 def grant_operator_user_credits(
@@ -531,8 +495,7 @@ def get_operator_user_credits(
                 )
 
         order_by_query = query.order_by(
-            _operator_credit_ledger_visible_at_sort_expr().desc(),
-            CreditLedgerEntry.id.desc(),
+            CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
         )
         total = query.count()
         page_offset = (safe_page_index - 1) * safe_page_size
