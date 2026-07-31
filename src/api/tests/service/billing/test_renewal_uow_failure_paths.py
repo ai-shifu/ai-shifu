@@ -718,6 +718,7 @@ def test_renewal_event_cancels_existing_obsolete_order_for_canceled_subscription
     assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
     assert order.status == BILLING_ORDER_STATUS_CANCELED
     assert order.metadata_json["canceled_reason"] == "subscription_canceled"
+    assert order.metadata_json["canceled_at"].endswith("Z")
 
 
 def test_renewal_event_skips_obsolete_expired_subscription(

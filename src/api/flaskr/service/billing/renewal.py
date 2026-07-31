@@ -11,7 +11,7 @@ from flask import Flask
 from flaskr.dao import db, retry_on_deadlock
 from flaskr.dao import uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
@@ -163,7 +163,7 @@ def _cancel_obsolete_renewal_order(
         dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
     )
     metadata["canceled_reason"] = reason
-    metadata["canceled_at"] = now.isoformat()
+    metadata["canceled_at"] = to_utc_iso(now)
     order.status = BILLING_ORDER_STATUS_CANCELED
     order.metadata_json = metadata
     order.updated_at = now
