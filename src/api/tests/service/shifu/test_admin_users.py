@@ -1550,6 +1550,92 @@ def test_get_operator_user_credits_returns_summary_and_paginated_ledger(app):
     assert result.items[0].note_code == ""
 
 
+def test_get_operator_user_credits_hides_reserved_grants_until_available(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-reserved-grant-user",
+            identify="credits-reserved-grant@example.com",
+            nickname="Reserved Grant",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "credits-reserved-grant@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="credits-reserved-grant-user",
+            wallet_bid="wallet-credits-reserved-grant-user",
+            available_credits="5.0000000000",
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-reserved-grant-user",
+            wallet_bid="wallet-credits-reserved-grant-user",
+            wallet_bucket_bid="bucket-reserved-grant-user",
+            ledger_bid="ledger-available-grant",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="order-available-grant",
+            amount="5.0000000000",
+            balance_after="5.0000000000",
+            created_at=datetime(2026, 4, 18, 8, 0, 0),
+            metadata_json={"bucket_credit_state": "available"},
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-reserved-grant-user",
+            wallet_bid="wallet-credits-reserved-grant-user",
+            wallet_bucket_bid="bucket-reserved-grant-user",
+            ledger_bid="ledger-reserved-grant",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="order-reserved-grant",
+            amount="1000.0000000000",
+            balance_after="5.0000000000",
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+            metadata_json={"bucket_credit_state": "reserved"},
+        )
+
+        all_result = get_operator_user_credits(
+            app,
+            user_bid="credits-reserved-grant-user",
+            page_index=1,
+            page_size=20,
+        )
+        grant_result = get_operator_user_credits(
+            app,
+            user_bid="credits-reserved-grant-user",
+            page_index=1,
+            page_size=20,
+            filters={"credit_type": "grant"},
+        )
+
+        reserved_entry = CreditLedgerEntry.query.filter_by(
+            ledger_bid="ledger-reserved-grant"
+        ).one()
+        reserved_entry.metadata_json = {"bucket_credit_state": "available"}
+        db.session.add(reserved_entry)
+        db.session.commit()
+        activated_result = get_operator_user_credits(
+            app,
+            user_bid="credits-reserved-grant-user",
+            page_index=1,
+            page_size=20,
+            filters={"credit_type": "grant"},
+        )
+
+    assert [item.ledger_bid for item in all_result.items] == ["ledger-available-grant"]
+    assert all_result.total == 1
+    assert [item.ledger_bid for item in grant_result.items] == [
+        "ledger-available-grant"
+    ]
+    assert grant_result.total == 1
+    assert [item.ledger_bid for item in activated_result.items] == [
+        "ledger-reserved-grant",
+        "ledger-available-grant",
+    ]
+    assert activated_result.total == 2
+
+
 def test_get_operator_user_credits_handles_invalid_source_type(app):
     with app.app_context():
         _seed_user(
