@@ -62,8 +62,8 @@ from .cycle_transitions import (
     resolve_order_effective_to as _resolve_order_effective_to,
 )
 from .cycle_state_transitions import (
+    apply_paid_subscription_cycle_state as _apply_paid_subscription_cycle_state,
     realign_active_credit_bucket_effective_to as _realign_active_credit_bucket_effective_to,
-    realign_active_topup_bucket_effective_to as _realign_active_topup_bucket_effective_to,
     subscription_has_effective_cycle as _subscription_has_effective_cycle,
 )
 from .dtos import BillingSubscriptionDTO
@@ -821,24 +821,11 @@ def _activate_subscription_for_paid_order(
                 effective_from=effective_from,
                 effective_to=effective_to,
             )
-        if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
-            subscription.product_bid = (
-                _normalize_bid(subscription.next_product_bid) or order.product_bid
-            )
-            subscription.next_product_bid = ""
-        else:
-            subscription.product_bid = order.product_bid
-            subscription.next_product_bid = ""
-        subscription.status = (
-            BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
-            if subscription.cancel_at_period_end
-            else BILLING_SUBSCRIPTION_STATUS_ACTIVE
-        )
-        subscription.current_period_start_at = effective_from
-        subscription.current_period_end_at = effective_to
-        subscription.last_renewed_at = effective_from
-        _realign_active_topup_bucket_effective_to(
+        _apply_paid_subscription_cycle_state(
+            subscription,
             creator_bid=order.creator_bid,
+            order_type=order.order_type,
+            order_product_bid=order.product_bid,
             effective_from=effective_from,
             effective_to=effective_to,
         )

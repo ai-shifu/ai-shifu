@@ -12,6 +12,9 @@ from .bucket_categories import (
     resolve_wallet_bucket_runtime_category,
 )
 from .consts import (
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -46,6 +49,39 @@ def realign_active_topup_bucket_effective_to(
         effective_from=effective_from,
         effective_to=effective_to,
         include_effective_to_boundary=True,
+    )
+
+
+def apply_paid_subscription_cycle_state(
+    subscription: BillingSubscription,
+    *,
+    creator_bid: str,
+    order_type: int,
+    order_product_bid: str,
+    effective_from: datetime,
+    effective_to: datetime | None,
+) -> None:
+    if order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+        subscription.product_bid = (
+            _normalize_bid(subscription.next_product_bid) or order_product_bid
+        )
+        subscription.next_product_bid = ""
+    else:
+        subscription.product_bid = order_product_bid
+        subscription.next_product_bid = ""
+
+    subscription.status = (
+        BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+        if subscription.cancel_at_period_end
+        else BILLING_SUBSCRIPTION_STATUS_ACTIVE
+    )
+    subscription.current_period_start_at = effective_from
+    subscription.current_period_end_at = effective_to
+    subscription.last_renewed_at = effective_from
+    realign_active_topup_bucket_effective_to(
+        creator_bid=creator_bid,
+        effective_from=effective_from,
+        effective_to=effective_to,
     )
 
 

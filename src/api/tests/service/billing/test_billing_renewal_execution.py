@@ -651,7 +651,7 @@ def test_run_billing_renewal_event_applies_downgrade_and_reschedules_renewal(
         assert renewal_event.scheduled_at == normalize_mysql_datetime(next_period_end)
 
 
-def test_run_billing_downgrade_event_applies_paid_preorder(
+def test_run_billing_downgrade_event_applies_paid_preorder_with_referral_reward(
     billing_renewal_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -703,6 +703,29 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
                 "renewal_cycle_end_at": preorder_snapshot_next_cycle_end.isoformat(),
             },
         )
+        referral_order = BillingOrder(
+            bill_order_bid="bill-referral-downgrade-1",
+            creator_bid=subscription.creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid="bill-product-plan-monthly-pro",
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=0,
+            paid_amount=0,
+            payment_provider="manual",
+            channel="referral_invitation_reward",
+            provider_reference_id="referral_reward_downgrade_1",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=current_cycle_end - timedelta(days=4),
+            metadata_json={
+                "checkout_type": "referral_invitation_reward",
+                "referral_invitation_reward": True,
+                "renewal_cycle_start_at": current_cycle_end.isoformat(),
+                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+            },
+            created_at=current_cycle_end - timedelta(days=4),
+            updated_at=current_cycle_end - timedelta(days=4),
+        )
         event = _create_renewal_event(
             "renewal-preorder-downgrade-1",
             subscription.subscription_bid,
@@ -717,6 +740,7 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
         )
         dao.db.session.add(subscription)
         dao.db.session.add(order)
+        dao.db.session.add(referral_order)
         dao.db.session.add(wallet)
         dao.db.session.add(
             CreditWalletBucket(
@@ -727,9 +751,9 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
                 source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
                 source_bid="bill-current-cycle-preorder-downgrade",
                 priority=20,
-                original_credits=Decimal("105.0000000000"),
+                original_credits=Decimal("1105.0000000000"),
                 available_credits=Decimal("3.0000000000"),
-                reserved_credits=Decimal("5.0000000000"),
+                reserved_credits=Decimal("1005.0000000000"),
                 consumed_credits=Decimal("97.0000000000"),
                 expired_credits=Decimal("0"),
                 effective_from=current_cycle_start,
@@ -767,6 +791,33 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
                 },
                 created_at=preorder_snapshot_cycle_end - timedelta(days=5),
                 updated_at=preorder_snapshot_cycle_end - timedelta(days=5),
+            )
+        )
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid="ledger-referral-downgrade-1",
+                creator_bid=subscription.creator_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid="bucket-preorder-downgrade-1",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid="bill-referral-downgrade-1",
+                idempotency_key="grant:bill-referral-downgrade-1",
+                amount=Decimal("1000.0000000000"),
+                balance_after=Decimal("3.0000000000"),
+                expires_at=next_cycle_end,
+                consumable_from=current_cycle_end,
+                metadata_json={
+                    "bill_order_bid": "bill-referral-downgrade-1",
+                    "subscription_bid": "sub-preorder-downgrade",
+                    "product_bid": "bill-product-plan-monthly-pro",
+                    "payment_provider": "manual",
+                    "grant_reason": "referral_invitation_reward",
+                    "bucket_credit_state": "reserved",
+                    "reserved_until": current_cycle_end.isoformat(),
+                },
+                created_at=current_cycle_end - timedelta(days=4),
+                updated_at=current_cycle_end - timedelta(days=4),
             )
         )
         dao.db.session.add(event)
@@ -834,6 +885,9 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
         grant_entry = CreditLedgerEntry.query.filter_by(
             ledger_bid="ledger-preorder-downgrade-1"
         ).one()
+        referral_grant_entry = CreditLedgerEntry.query.filter_by(
+            ledger_bid="ledger-referral-downgrade-1"
+        ).one()
         expire_entry = CreditLedgerEntry.query.filter_by(
             creator_bid=subscription.creator_bid,
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
@@ -854,13 +908,18 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
         )
         assert order.metadata_json["preorder_effective_at_source"] == "cycle_boundary"
         assert bucket.source_bid == "bill-preorder-downgrade-1"
-        assert bucket.available_credits == Decimal("5.0000000000")
+        assert bucket.available_credits == Decimal("1005.0000000000")
         assert bucket.reserved_credits == Decimal("0")
-        assert wallet.available_credits == Decimal("5.0000000000")
+        assert wallet.available_credits == Decimal("1005.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
         assert grant_entry.metadata_json["bucket_credit_state"] == "available"
+        assert referral_grant_entry.metadata_json["bucket_credit_state"] == "available"
         assert grant_entry.consumable_from == current_cycle_end
         assert grant_entry.expires_at == next_cycle_end
+        assert referral_grant_entry.consumable_from == current_cycle_end
+        assert referral_grant_entry.expires_at == next_cycle_end
+        assert grant_entry.balance_after == Decimal("5.0000000000")
+        assert referral_grant_entry.balance_after == Decimal("1005.0000000000")
         assert expire_entry.amount == Decimal("-3.0000000000")
     assert staged_notifications == [
         ("creator-renewal-1", "bill-preorder-downgrade-1", False, False),
