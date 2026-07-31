@@ -83,11 +83,13 @@ from .preorders import (
     preorder_state as _preorder_state,
 )
 from .reserved_renewal_activation import (
+    IncompleteReservedGrantActivationError,  # noqa: F401
     ReservedActivationTarget,
     activate_reserved_renewal_grants_for_cycle as _activate_reserved_renewal_grants_for_cycle,
     load_campaign_bonus_ledger_entry_for_order as _load_campaign_bonus_ledger_entry_for_order,
     load_grant_ledger_entry_for_order as _load_grant_ledger_entry_for_order,
     sync_activated_reserved_renewal_ledger_balances as _sync_activated_reserved_renewal_ledger_balances,
+    validate_reserved_renewal_cycle_activation,  # noqa: F401
 )
 from .queries import (
     extract_order_metadata_datetime as _extract_order_metadata_datetime,

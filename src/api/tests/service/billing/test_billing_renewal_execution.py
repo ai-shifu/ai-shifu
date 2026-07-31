@@ -1686,6 +1686,198 @@ def test_expire_event_releases_reserved_subscription_renewal_on_same_bucket(
         assert expire_entry.amount == Decimal("-3.0000000000")
 
 
+def test_expire_event_allows_shared_bucket_after_activated_grant_was_consumed(
+    billing_renewal_app: Flask,
+) -> None:
+    current_cycle_start = now_utc() - timedelta(days=30)
+    current_cycle_end = now_utc() - timedelta(minutes=1)
+    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
+
+    with billing_renewal_app.app_context():
+        subscription = BillingSubscription(
+            subscription_bid="sub-shared-bucket-consumed",
+            creator_bid="creator-shared-bucket-consumed",
+            product_bid="bill-product-plan-monthly",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="pingxx",
+            provider_subscription_id="",
+            provider_customer_id="customer-shared-bucket-consumed",
+            current_period_start_at=current_cycle_start,
+            current_period_end_at=current_cycle_end,
+            cancel_at_period_end=0,
+            next_product_bid="",
+            metadata_json={},
+            created_at=current_cycle_start,
+            updated_at=current_cycle_start,
+        )
+        activated_order = BillingOrder(
+            bill_order_bid="bill-shared-bucket-consumed-activated",
+            creator_bid=subscription.creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=9900,
+            paid_amount=9900,
+            payment_provider="pingxx",
+            channel="alipay_qr",
+            provider_reference_id="ch_shared_bucket_consumed_activated",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=current_cycle_end - timedelta(days=6),
+            metadata_json={
+                "provider_reference_type": "charge",
+                "renewal_cycle_start_at": current_cycle_end.isoformat(),
+                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+            },
+        )
+        reserved_order = BillingOrder(
+            bill_order_bid="bill-shared-bucket-consumed-reserved",
+            creator_bid=subscription.creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=9900,
+            paid_amount=9900,
+            payment_provider="pingxx",
+            channel="alipay_qr",
+            provider_reference_id="ch_shared_bucket_consumed_reserved",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=current_cycle_end - timedelta(days=5),
+            metadata_json={
+                "provider_reference_type": "charge",
+                "renewal_cycle_start_at": current_cycle_end.isoformat(),
+                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+            },
+        )
+        event = _create_renewal_event(
+            "renewal-shared-bucket-consumed",
+            subscription.subscription_bid,
+            subscription.creator_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+            scheduled_at=current_cycle_end,
+        )
+        wallet = _create_wallet(
+            subscription.creator_bid,
+            available_credits="2.0000000000",
+            lifetime_granted_credits="10.0000000000",
+            lifetime_consumed_credits="3.0000000000",
+        )
+        wallet.reserved_credits = Decimal("5.0000000000")
+        dao.db.session.add_all(
+            [subscription, activated_order, reserved_order, event, wallet]
+        )
+        dao.db.session.add(
+            CreditWalletBucket(
+                wallet_bucket_bid="bucket-shared-bucket-consumed",
+                wallet_bid=wallet.wallet_bid,
+                creator_bid=subscription.creator_bid,
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid=activated_order.bill_order_bid,
+                priority=20,
+                original_credits=Decimal("10.0000000000"),
+                available_credits=Decimal("2.0000000000"),
+                reserved_credits=Decimal("5.0000000000"),
+                consumed_credits=Decimal("3.0000000000"),
+                expired_credits=Decimal("0"),
+                effective_from=current_cycle_end,
+                effective_to=next_cycle_end,
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                metadata_json={
+                    "bill_order_bid": activated_order.bill_order_bid,
+                },
+                created_at=current_cycle_end - timedelta(days=6),
+                updated_at=current_cycle_end - timedelta(days=6),
+            )
+        )
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid="ledger-shared-bucket-consumed-activated",
+                creator_bid=subscription.creator_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid="bucket-shared-bucket-consumed",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid=activated_order.bill_order_bid,
+                idempotency_key=f"grant:{activated_order.bill_order_bid}",
+                amount=Decimal("5.0000000000"),
+                balance_after=Decimal("5.0000000000"),
+                expires_at=next_cycle_end,
+                consumable_from=current_cycle_end,
+                metadata_json={
+                    "bill_order_bid": activated_order.bill_order_bid,
+                    "subscription_bid": subscription.subscription_bid,
+                    "product_bid": subscription.product_bid,
+                    "payment_provider": "pingxx",
+                    "grant_reason": "subscription_renewal",
+                    "bucket_credit_state": "available",
+                    "activated_at": (current_cycle_end - timedelta(days=6)).isoformat(),
+                },
+                created_at=current_cycle_end - timedelta(days=6),
+                updated_at=current_cycle_end - timedelta(days=6),
+            )
+        )
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid="ledger-shared-bucket-consumed-reserved",
+                creator_bid=subscription.creator_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid="bucket-shared-bucket-consumed",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid=reserved_order.bill_order_bid,
+                idempotency_key=f"grant:{reserved_order.bill_order_bid}",
+                amount=Decimal("5.0000000000"),
+                balance_after=Decimal("2.0000000000"),
+                expires_at=next_cycle_end,
+                consumable_from=current_cycle_end,
+                metadata_json={
+                    "bill_order_bid": reserved_order.bill_order_bid,
+                    "subscription_bid": subscription.subscription_bid,
+                    "product_bid": subscription.product_bid,
+                    "payment_provider": "pingxx",
+                    "grant_reason": "subscription_renewal",
+                    "bucket_credit_state": "reserved",
+                    "reserved_until": current_cycle_end.isoformat(),
+                },
+                created_at=current_cycle_end - timedelta(days=5),
+                updated_at=current_cycle_end - timedelta(days=5),
+            )
+        )
+        dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        billing_renewal_app,
+        renewal_event_bid="renewal-shared-bucket-consumed",
+    )
+
+    assert payload["status"] == "applied"
+    assert payload["subscription_status"] == "active"
+
+    with billing_renewal_app.app_context():
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-shared-bucket-consumed"
+        ).one()
+        wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-shared-bucket-consumed"
+        ).one()
+        reserved_grant = CreditLedgerEntry.query.filter_by(
+            ledger_bid="ledger-shared-bucket-consumed-reserved"
+        ).one()
+        activated_grant = CreditLedgerEntry.query.filter_by(
+            ledger_bid="ledger-shared-bucket-consumed-activated"
+        ).one()
+
+        assert bucket.available_credits == Decimal("7.0000000000")
+        assert bucket.reserved_credits == Decimal("0")
+        assert bucket.consumed_credits == Decimal("3.0000000000")
+        assert wallet.available_credits == Decimal("7.0000000000")
+        assert wallet.reserved_credits == Decimal("0E-10")
+        assert activated_grant.metadata_json["bucket_credit_state"] == "available"
+        assert reserved_grant.metadata_json["bucket_credit_state"] == "available"
+
+
 def test_expire_event_fails_when_reserved_renewal_activation_is_incomplete(
     billing_renewal_app: Flask,
 ) -> None:

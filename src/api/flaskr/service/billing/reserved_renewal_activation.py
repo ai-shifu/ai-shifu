@@ -537,32 +537,6 @@ def _assert_reserved_activation_targets_completed(
         targets.extend(_load_reserved_completion_targets_for_cycle_order(cycle_order))
     _assert_subscription_cycle_grant_amounts(cycle_orders, targets)
 
-    activated_by_bucket: dict[str, Decimal] = {}
-    for target in targets:
-        activated_by_bucket[target.wallet_bucket_bid] = (
-            activated_by_bucket.get(target.wallet_bucket_bid, Decimal("0"))
-            + target.amount
-        )
-    for wallet_bucket_bid, activated_amount in activated_by_bucket.items():
-        bucket = (
-            CreditWalletBucket.query.filter(
-                CreditWalletBucket.deleted == 0,
-                CreditWalletBucket.wallet_bucket_bid == wallet_bucket_bid,
-            )
-            .order_by(CreditWalletBucket.id.desc())
-            .first()
-        )
-        if bucket is None:
-            raise IncompleteReservedGrantActivationError(
-                f"missing_bucket:{wallet_bucket_bid}"
-            )
-        if _quantize_credit_amount(
-            _to_decimal(bucket.available_credits)
-        ) < _quantize_credit_amount(activated_amount):
-            raise IncompleteReservedGrantActivationError(
-                f"incomplete_bucket:{wallet_bucket_bid}"
-            )
-
 
 def _assert_subscription_cycle_grant_amounts(
     cycle_orders: list[BillingOrder],
