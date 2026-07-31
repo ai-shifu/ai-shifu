@@ -135,6 +135,18 @@ _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
 )
 
 
+def _filter_out_reserved_credit_grant_ledgers(query):
+    bucket_credit_state_expr = db.func.lower(
+        db.func.trim(
+            db.func.coalesce(
+                CreditLedgerEntry.metadata_json["bucket_credit_state"].as_string(),
+                "",
+            )
+        )
+    )
+    return query.filter(bucket_credit_state_expr != "reserved")
+
+
 def _parse_stat_date(value: str) -> datetime.date | None:
     normalized_value = str(value or "").strip()
     if not normalized_value:
@@ -687,7 +699,10 @@ def build_billing_ledger_page(
         query = CreditLedgerEntry.query.filter(
             CreditLedgerEntry.deleted == 0,
             CreditLedgerEntry.creator_bid == normalized_creator_bid,
-        ).order_by(CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc())
+        )
+        query = _filter_out_reserved_credit_grant_ledgers(query).order_by(
+            CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
+        )
         total = query.order_by(None).count()
         if total == 0:
             return BillingLedgerPageDTO(

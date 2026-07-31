@@ -1415,6 +1415,55 @@ class TestBillingRoutes:
 
         assert ledger_page.items[0].created_at == datetime(2026, 4, 6, 10, 0)
 
+    def test_build_billing_ledger_page_hides_reserved_grants_until_available(
+        self, billing_test_client
+    ) -> None:
+        app = billing_test_client.application
+
+        with app.app_context():
+            dao.db.session.add_all(
+                [
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-reserved-renewal",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-subscription",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                        source_bid="order-reserved-renewal",
+                        idempotency_key="grant:order-reserved-renewal",
+                        amount=Decimal("1000.0000000000"),
+                        balance_after=Decimal("1098.0000000000"),
+                        expires_at=datetime(2026, 6, 1, 0, 0, 0),
+                        consumable_from=datetime(2026, 5, 1, 0, 0, 0),
+                        metadata_json={"bucket_credit_state": "reserved"},
+                        created_at=datetime(2026, 4, 7, 10, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 10, 0, 0),
+                    )
+                ]
+            )
+            dao.db.session.commit()
+
+        ledger_page = build_billing_ledger_page(app, "creator-1", page_size=10)
+
+        assert ledger_page.total == 2
+        assert {item.ledger_bid for item in ledger_page.items} == {
+            "ledger-consume",
+            "ledger-grant",
+        }
+
+        with app.app_context():
+            reserved_ledger = CreditLedgerEntry.query.filter_by(
+                ledger_bid="ledger-reserved-renewal"
+            ).one()
+            reserved_ledger.metadata_json = {"bucket_credit_state": "available"}
+            dao.db.session.commit()
+
+        activated_page = build_billing_ledger_page(app, "creator-1", page_size=10)
+
+        assert activated_page.total == 3
+        assert activated_page.items[0].ledger_bid == "ledger-reserved-renewal"
+
     def test_build_billing_ledger_page_uses_draft_course_name_for_non_prod_usage(
         self, billing_test_client
     ) -> None:
