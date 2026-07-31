@@ -341,6 +341,19 @@ def handle_billing_pingxx_webhook(
             client_ip=str(charge.get("client_ip") or ""),
             extra=charge.get("extra"),
         )
+        if order.subscription_bid and target_status == BILLING_ORDER_STATUS_PAID:
+            from .subscriptions import load_subscription_by_bid
+
+            subscription = load_subscription_by_bid(order.subscription_bid)
+            if subscription is not None:
+                _apply_subscription_checkout_success(
+                    app,
+                    subscription,
+                    payload=charge,
+                    provider="pingxx",
+                    event_type=event_type or "charge.succeeded",
+                )
+
         order_update.stage_after_state_changes(app, order)
         db.session.commit()
         order_update.dispatch_after_commit(app)
