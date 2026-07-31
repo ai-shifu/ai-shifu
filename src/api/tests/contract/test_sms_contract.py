@@ -233,3 +233,47 @@ def test_send_sms_ali_logs_recipient_throttle_as_warning(
         for record in caplog.records
     )
     assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
+
+
+def test_send_sms_ali_logs_illegal_recipient_number_as_warning(monkeypatch, caplog):
+    from flaskr.api.sms import aliyun as sms_aliyun
+
+    class FakeClient:
+        def __init__(self, _config):
+            pass
+
+        def send_sms_with_options(self, request, runtime):
+            del request, runtime
+            return SimpleNamespace(
+                body=SimpleNamespace(
+                    code="isv.MOBILE_NUMBER_ILLEGAL",
+                    message="invalid mobile number format",
+                    request_id="req-illegal-number-1",
+                    biz_id=None,
+                )
+            )
+
+    monkeypatch.setattr(sms_aliyun, "Dysmsapi20170525Client", FakeClient)
+
+    app = Flask("contract-sms-illegal-number")
+    app.config.update(
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID="key",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET="secret",
+        ALIBABA_CLOUD_SMS_SIGN_NAME="TestSign",
+    )
+
+    with caplog.at_level(logging.WARNING):
+        result = sms_aliyun.send_sms_ali(
+            app,
+            "14085986122",
+            template_code="TPL-VERIFY-001",
+            template_params={"code": "1234"},
+        )
+
+    assert result is None
+    assert any(
+        record.levelno == logging.WARNING
+        and "isv.MOBILE_NUMBER_ILLEGAL" in record.getMessage()
+        for record in caplog.records
+    )
+    assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
