@@ -1195,6 +1195,7 @@ class TestAdminBillingRoutes:
         assert payload["data"] == {
             "logo_wide_url": "/api/storage/courses/creator-branding/creator-1/wide.png",
             "logo_square_url": "/api/storage/courses/creator-branding/creator-1/square.png",
+            "favicon_url": "",
             "home_url": "",
         }
 

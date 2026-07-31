@@ -302,6 +302,11 @@ export function AdminBillingEntitlementDialog({
   const [draftWideLogoPreview, setDraftWideLogoPreview] = React.useState('');
   const [draftSquareLogoPreview, setDraftSquareLogoPreview] =
     React.useState('');
+  const [draftFavicon, setDraftFavicon] = React.useState('');
+  const [draftFaviconFile, setDraftFaviconFile] = React.useState<File | null>(
+    null,
+  );
+  const [draftFaviconPreview, setDraftFaviconPreview] = React.useState('');
   const [draftHomeUrl, setDraftHomeUrl] = React.useState('');
   const [persistedHomeUrl, setPersistedHomeUrl] = React.useState('');
   const [draftDomain, setDraftDomain] = React.useState('');
@@ -342,6 +347,9 @@ export function AdminBillingEntitlementDialog({
     setDraftSquareLogoFile(null);
     setDraftWideLogoPreview('');
     setDraftSquareLogoPreview('');
+    setDraftFavicon('');
+    setDraftFaviconFile(null);
+    setDraftFaviconPreview('');
     setDraftHomeUrl('');
     setPersistedHomeUrl('');
     setDraftDomain('');
@@ -384,6 +392,7 @@ export function AdminBillingEntitlementDialog({
         branding: {
           logo_wide_url: draftWideLogo,
           logo_square_url: draftSquareLogo,
+          favicon_url: draftFavicon,
           home_url: draftHomeUrl,
         },
         domain: {
@@ -399,6 +408,7 @@ export function AdminBillingEntitlementDialog({
     creatorMobile,
     draftDomain,
     draftDomainStatus,
+    draftFavicon,
     draftHomeUrl,
     draftIntegrations,
     draftSquareLogo,
@@ -456,6 +466,7 @@ export function AdminBillingEntitlementDialog({
           Boolean(draft.note?.trim()) ||
           Boolean(draft.branding?.logo_wide_url) ||
           Boolean(draft.branding?.logo_square_url) ||
+          Boolean(draft.branding?.favicon_url) ||
           Boolean(draft.branding?.home_url) ||
           Boolean(draft.domain?.host) ||
           Object.values(draft.integrations || {}).some(
@@ -489,6 +500,8 @@ export function AdminBillingEntitlementDialog({
             setDraftSquareLogoPreview(
               customization.branding.logo_square_url || '',
             );
+            setDraftFavicon(customization.branding.favicon_url || '');
+            setDraftFaviconPreview(customization.branding.favicon_url || '');
             setDraftHomeUrl(customization.branding.home_url || '');
             setPersistedHomeUrl(customization.branding.home_url || '');
             setDraftDomain(customization.domains.items[0]?.host || '');
@@ -514,6 +527,8 @@ export function AdminBillingEntitlementDialog({
         setDraftSquareLogo(draft.branding.logo_square_url || '');
         setDraftWideLogoPreview(draft.branding.logo_wide_url || '');
         setDraftSquareLogoPreview(draft.branding.logo_square_url || '');
+        setDraftFavicon(draft.branding.favicon_url || '');
+        setDraftFaviconPreview(draft.branding.favicon_url || '');
         setDraftHomeUrl(draft.branding.home_url || '');
         setDraftDomain(draft.domain.host || '');
         if (creatorBid) {
@@ -554,14 +569,17 @@ export function AdminBillingEntitlementDialog({
   }, [creatorMobile, open, resolvedItem?.creator_bid, submitting]);
 
   const handleDraftLogoSelection = React.useCallback(
-    async (target: 'wide' | 'square', file: File | null) => {
+    async (target: 'wide' | 'square' | 'favicon', file: File | null) => {
       if (!file) {
         if (target === 'wide') {
           setDraftWideLogoFile(null);
           setDraftWideLogoPreview('');
-        } else {
+        } else if (target === 'square') {
           setDraftSquareLogoFile(null);
           setDraftSquareLogoPreview('');
+        } else {
+          setDraftFaviconFile(null);
+          setDraftFaviconPreview('');
         }
         return;
       }
@@ -570,9 +588,12 @@ export function AdminBillingEntitlementDialog({
       if (target === 'wide') {
         setDraftWideLogoFile(file);
         setDraftWideLogoPreview(localPreview);
-      } else {
+      } else if (target === 'square') {
         setDraftSquareLogoFile(file);
         setDraftSquareLogoPreview(localPreview);
+      } else {
+        setDraftFaviconFile(file);
+        setDraftFaviconPreview(localPreview);
       }
     },
     [],
@@ -610,10 +631,11 @@ export function AdminBillingEntitlementDialog({
       if (nextCreatorBid) {
         let nextWideLogo = draftWideLogo;
         let nextSquareLogo = draftSquareLogo;
+        let nextFavicon = draftFavicon;
 
         if (
           values.branding_enabled &&
-          (draftWideLogoFile || draftSquareLogoFile)
+          (draftWideLogoFile || draftSquareLogoFile || draftFaviconFile)
         ) {
           const { uploadFile } = await import('@/lib/file');
           if (draftWideLogoFile) {
@@ -652,18 +674,37 @@ export function AdminBillingEntitlementDialog({
             setDraftSquareLogoPreview(nextSquareLogo);
             setDraftSquareLogoFile(null);
           }
+          if (draftFaviconFile) {
+            const response = await uploadFile(
+              draftFaviconFile,
+              `/api/admin/billing/customization/${nextCreatorBid}/branding/logo`,
+              { target: 'favicon' },
+            );
+            const payload = await response.json();
+            if (!response.ok || payload.code !== 0) {
+              throw new Error(
+                payload.message ||
+                  t('module.billing.customization.branding.uploadFailed'),
+              );
+            }
+            nextFavicon = String(payload.data || '');
+            setDraftFavicon(nextFavicon);
+            setDraftFaviconPreview(nextFavicon);
+            setDraftFaviconFile(null);
+          }
         }
 
         const nextHomeUrl = draftHomeUrl.trim();
         const homeUrlChanged = nextHomeUrl !== persistedHomeUrl.trim();
         if (
           values.branding_enabled &&
-          (nextWideLogo || nextSquareLogo || homeUrlChanged)
+          (nextWideLogo || nextSquareLogo || nextFavicon || homeUrlChanged)
         ) {
           await api.updateAdminBillingCustomizationBranding({
             creator_bid: nextCreatorBid,
             logo_wide_url: nextWideLogo,
             logo_square_url: nextSquareLogo,
+            favicon_url: nextFavicon,
             home_url: nextHomeUrl,
           });
           setPersistedHomeUrl(nextHomeUrl);
@@ -785,6 +826,21 @@ export function AdminBillingEntitlementDialog({
           draftWideLogoFile={draftWideLogoFile}
           draftWideLogoPreview={draftWideLogoPreview}
           draftWideLogo={draftWideLogo}
+          draftFaviconFile={draftFaviconFile}
+          draftFaviconPreview={draftFaviconPreview}
+          draftFavicon={draftFavicon}
+          onDraftFaviconFileChange={file => {
+            void handleDraftLogoSelection('favicon', file).catch(error => {
+              toast({
+                title:
+                  error instanceof Error
+                    ? error.message
+                    : t('module.billing.customization.branding.uploadFailed'),
+                variant: 'destructive',
+              });
+            });
+          }}
+          onDraftFaviconChange={setDraftFavicon}
           draftHomeUrl={draftHomeUrl}
           onDraftHomeUrlChange={setDraftHomeUrl}
           selectedPaymentProviders={selectedDraftPaymentProviders}
@@ -1112,6 +1168,11 @@ function CreateDraftSection({
   onDraftSquareLogoChange,
   onDraftWideLogoFileChange,
   onDraftWideLogoChange,
+  draftFavicon,
+  draftFaviconFile,
+  draftFaviconPreview,
+  onDraftFaviconFileChange,
+  onDraftFaviconChange,
   draftHomeUrl,
   onDraftHomeUrlChange,
 }: {
@@ -1147,6 +1208,11 @@ function CreateDraftSection({
   onDraftSquareLogoChange: (value: string) => void;
   onDraftWideLogoFileChange: (file: File | null) => void;
   onDraftWideLogoChange: (value: string) => void;
+  draftFavicon: string;
+  draftFaviconFile: File | null;
+  draftFaviconPreview: string;
+  onDraftFaviconFileChange: (file: File | null) => void;
+  onDraftFaviconChange: (value: string) => void;
   draftHomeUrl: string;
   onDraftHomeUrlChange: (value: string) => void;
 }) {
@@ -1176,6 +1242,18 @@ function CreateDraftSection({
           value={draftSquareLogo}
           onChange={onDraftSquareLogoChange}
           onFileChange={onDraftSquareLogoFileChange}
+        />
+        <CreateDraftLogoField
+          label={t('module.billing.customization.branding.favicon')}
+          hint={t('module.billing.customization.branding.faviconHint')}
+          uploadLabel={t('module.billing.customization.branding.uploadFavicon')}
+          previewUrl={draftFaviconPreview}
+          shape='square'
+          accept='image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon,.ico'
+          file={draftFaviconFile}
+          value={draftFavicon}
+          onChange={onDraftFaviconChange}
+          onFileChange={onDraftFaviconFileChange}
         />
         <div className='md:col-span-2'>
           <CreateDraftInput
@@ -1328,6 +1406,7 @@ function PaymentProviderSelector({
 }
 
 function CreateDraftLogoField({
+  accept = 'image/png,image/jpeg,image/webp',
   file,
   hint,
   label,
@@ -1338,6 +1417,7 @@ function CreateDraftLogoField({
   uploadLabel,
   value,
 }: {
+  accept?: string;
   file: File | null;
   hint: string;
   label: string;
@@ -1383,7 +1463,7 @@ function CreateDraftLogoField({
       <input
         ref={inputRef}
         type='file'
-        accept='image/png,image/jpeg,image/webp'
+        accept={accept}
         className='hidden'
         onChange={event => {
           const nextFile = event.target.files?.[0] || null;

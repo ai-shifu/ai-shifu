@@ -53,6 +53,7 @@ export type BillingCustomization = {
   branding: {
     logo_wide_url: string;
     logo_square_url: string;
+    favicon_url: string;
     home_url: string;
   };
   domains: {
@@ -579,6 +580,7 @@ export type AdminBillingCustomizationDraft = {
   branding: {
     logo_wide_url: string;
     logo_square_url: string;
+    favicon_url: string;
     home_url: string;
   };
   domain: {
