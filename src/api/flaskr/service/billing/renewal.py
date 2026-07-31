@@ -50,6 +50,11 @@ from .queries import (
     extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
 )
 from .reserved_renewal_activation import IncompleteReservedGrantActivationError
+from .renewal_event_transitions import (
+    complete_renewal_event as _complete_renewal_event,
+    fail_renewal_event as _fail_renewal_event,
+    release_renewal_event as _release_renewal_event,
+)
 from .subscriptions import (
     activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
     ensure_subscription_renewal_order,
@@ -929,33 +934,6 @@ def _claim_target_renewal_event(
         creator_bid=creator_bid,
     )
     return "claimed", claimed
-
-
-def _release_renewal_event(event: BillingRenewalEvent, *, now: datetime) -> None:
-    event.status = BILLING_RENEWAL_EVENT_STATUS_PENDING
-    event.updated_at = now
-    db.session.add(event)
-
-
-def _complete_renewal_event(event: BillingRenewalEvent, *, now: datetime) -> None:
-    event.status = BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
-    event.last_error = ""
-    event.processed_at = now
-    event.updated_at = now
-    db.session.add(event)
-
-
-def _fail_renewal_event(
-    event: BillingRenewalEvent,
-    *,
-    now: datetime,
-    error: str,
-) -> None:
-    event.status = BILLING_RENEWAL_EVENT_STATUS_FAILED
-    event.last_error = str(error or "")[:255]
-    event.processed_at = now
-    event.updated_at = now
-    db.session.add(event)
 
 
 def _load_target_renewal_event(

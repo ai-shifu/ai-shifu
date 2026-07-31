@@ -22,10 +22,6 @@ from .consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-    BILLING_RENEWAL_EVENT_STATUS_CANCELED,
-    BILLING_RENEWAL_EVENT_STATUS_FAILED,
-    BILLING_RENEWAL_EVENT_STATUS_PENDING,
-    BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
@@ -35,7 +31,6 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
-    BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -66,7 +61,6 @@ from .dtos import BillingSubscriptionDTO
 from .models import (
     BillingOrder,
     BillingProduct,
-    BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
@@ -91,6 +85,10 @@ from .reserved_renewal_activation import (
     sync_activated_reserved_renewal_ledger_balances as _sync_activated_reserved_renewal_ledger_balances,
     validate_reserved_renewal_cycle_activation,  # noqa: F401
 )
+from .renewal_event_transitions import (
+    cancel_subscription_renewal_events as _cancel_subscription_renewal_events,
+    upsert_subscription_renewal_event as _upsert_subscription_renewal_event,
+)
 from .queries import (
     extract_order_metadata_datetime as _extract_order_metadata_datetime,
     calculate_billing_cycle_end as _calc_provider_cycle_end,
@@ -105,7 +103,6 @@ from .queries import (
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import normalize_json_value as _normalize_json_value
-from .primitives import normalize_mysql_datetime as _normalize_mysql_datetime
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 from .serializers import serialize_subscription as _serialize_subscription
@@ -118,20 +115,6 @@ from .wallets import (
     sync_credit_bucket_status,
 )
 from .value_objects import JsonObjectMap
-
-_MANAGED_RENEWAL_EVENT_TYPES = (
-    BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
-    BILLING_RENEWAL_EVENT_TYPE_RETRY,
-    BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
-    BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
-    BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
-)
-
-_PENDING_RENEWAL_EVENT_STATUSES = (
-    BILLING_RENEWAL_EVENT_STATUS_PENDING,
-    BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
-    BILLING_RENEWAL_EVENT_STATUS_FAILED,
-)
 
 
 SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
@@ -2250,114 +2233,6 @@ def _sync_subscription_lifecycle_events(
             BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
         ),
     )
-
-
-def _upsert_subscription_renewal_event(
-    app: Flask,
-    subscription: BillingSubscription,
-    *,
-    event_type: int,
-    scheduled_at: datetime,
-) -> None:
-    normalized_scheduled_at = _normalize_mysql_datetime(scheduled_at)
-    payload = _normalize_json_object(
-        {
-            "subscription_bid": subscription.subscription_bid,
-            "creator_bid": subscription.creator_bid,
-            "product_bid": subscription.product_bid,
-            "next_product_bid": _normalize_bid(subscription.next_product_bid) or None,
-            "status": BILLING_SUBSCRIPTION_STATUS_LABELS.get(
-                subscription.status,
-                "draft",
-            ),
-            "cancel_at_period_end": bool(subscription.cancel_at_period_end),
-        }
-    )
-    event = (
-        BillingRenewalEvent.query.filter(
-            BillingRenewalEvent.deleted == 0,
-            BillingRenewalEvent.subscription_bid == subscription.subscription_bid,
-            BillingRenewalEvent.event_type == event_type,
-            BillingRenewalEvent.scheduled_at == normalized_scheduled_at,
-        )
-        .order_by(BillingRenewalEvent.id.desc())
-        .first()
-    )
-    if event is None:
-        event = BillingRenewalEvent(
-            renewal_event_bid=generate_id(app),
-            subscription_bid=subscription.subscription_bid,
-            creator_bid=subscription.creator_bid,
-            event_type=event_type,
-            scheduled_at=normalized_scheduled_at,
-            status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
-            attempt_count=0,
-            last_error="",
-            payload_json=payload.to_metadata_json(),
-            processed_at=None,
-        )
-    else:
-        event.creator_bid = subscription.creator_bid
-        event.status = BILLING_RENEWAL_EVENT_STATUS_PENDING
-        event.last_error = ""
-        event.payload_json = payload.to_metadata_json()
-        event.processed_at = None
-        event.updated_at = now_utc()
-
-    db.session.add(event)
-    _cancel_stale_subscription_renewal_events(
-        subscription.subscription_bid,
-        event_type=event_type,
-        keep_scheduled_at=normalized_scheduled_at,
-    )
-
-
-def _cancel_stale_subscription_renewal_events(
-    subscription_bid: str,
-    *,
-    event_type: int,
-    keep_scheduled_at: datetime,
-) -> None:
-    rows = (
-        BillingRenewalEvent.query.filter(
-            BillingRenewalEvent.deleted == 0,
-            BillingRenewalEvent.subscription_bid == subscription_bid,
-            BillingRenewalEvent.event_type == event_type,
-            BillingRenewalEvent.status.in_(_PENDING_RENEWAL_EVENT_STATUSES),
-            BillingRenewalEvent.scheduled_at != keep_scheduled_at,
-        )
-        .order_by(BillingRenewalEvent.id.desc())
-        .all()
-    )
-    now = now_utc()
-    for row in rows:
-        row.status = BILLING_RENEWAL_EVENT_STATUS_CANCELED
-        row.processed_at = now
-        row.updated_at = now
-        db.session.add(row)
-
-
-def _cancel_subscription_renewal_events(
-    subscription_bid: str,
-    *,
-    event_types: tuple[int, ...] = _MANAGED_RENEWAL_EVENT_TYPES,
-) -> None:
-    rows = (
-        BillingRenewalEvent.query.filter(
-            BillingRenewalEvent.deleted == 0,
-            BillingRenewalEvent.subscription_bid == subscription_bid,
-            BillingRenewalEvent.event_type.in_(event_types),
-            BillingRenewalEvent.status.in_(_PENDING_RENEWAL_EVENT_STATUSES),
-        )
-        .order_by(BillingRenewalEvent.id.desc())
-        .all()
-    )
-    now = now_utc()
-    for row in rows:
-        row.status = BILLING_RENEWAL_EVENT_STATUS_CANCELED
-        row.processed_at = now
-        row.updated_at = now
-        db.session.add(row)
 
 
 activate_subscription_for_paid_order = _activate_subscription_for_paid_order
