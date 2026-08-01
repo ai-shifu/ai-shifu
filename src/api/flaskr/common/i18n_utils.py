@@ -2,8 +2,8 @@
 
 from flaskr.i18n import get_current_language
 
-# Mapping of locale codes to unambiguous LLM-facing language names.
-# Used for MarkdownFlow output language setting.
+# Mapping of locale codes to language names in their native form
+# Used for MarkdownFlow output language setting
 LANGUAGE_NAME_MAP = {
     # Chinese
     "zh-CN": "简体中文",  # Simplified Chinese
@@ -21,7 +21,7 @@ LANGUAGE_NAME_MAP = {
     "ko-KR": "한국어",
     "ko": "한국어",
     # French
-    "fr-FR": "French",  # French (France)
+    "fr-FR": "Français",  # French (France)
     "fr-CA": "Français",  # French (Canada)
     "fr": "Français",
     # German
@@ -150,9 +150,9 @@ def get_markdownflow_output_language() -> str:
     Get the output language string for MarkdownFlow based on current user language.
 
     Returns:
-        str: The unambiguous language name used in MarkdownFlow LLM prompts.
+        str: The full language name for MarkdownFlow output in native form.
              Examples: "简体中文" for zh-CN, "English" for en-US,
-             and "French" for fr-FR.
+             and "Français" for fr-FR.
              Defaults to "English" if language not found, otherwise returns the input.
     """
     return resolve_markdownflow_output_language()
