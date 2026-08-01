@@ -341,12 +341,19 @@ export type BillingLedgerMetadata = {
   bucket_breakdown?: BillingBucketBreakdownItem[];
 };
 
+export type BillingCreditAssetKind =
+  | 'plan_credits'
+  | 'pack_credits'
+  | 'internal_legacy'
+  | 'unknown';
+
 export type BillingLedgerItem = {
   ledger_bid: string;
   wallet_bucket_bid: string;
   entry_type: BillingLedgerEntryType;
   source_type: BillingBucketSourceType;
   source_bid: string;
+  credit_asset_kind: BillingCreditAssetKind;
   idempotency_key: string;
   amount: number;
   balance_after: number;

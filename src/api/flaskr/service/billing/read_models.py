@@ -52,6 +52,7 @@ from .bucket_categories import (
     build_wallet_bucket_runtime_sort_key,
     load_billing_order_type_by_bid,
 )
+from .credit_grant_allocation_views import build_credit_grant_view
 from .credit_notifications import build_creator_limit_state_for_available_credits
 from .dtos import (
     AdminBillingDailyLedgerSummaryPageDTO,
@@ -684,6 +685,63 @@ def build_billing_wallet_buckets(
         )
 
 
+def _load_ledger_bucket_map(
+    rows: list[CreditLedgerEntry],
+    *,
+    creator_bid: str,
+) -> dict[str, CreditWalletBucket]:
+    bucket_bids = {
+        _normalize_bid(row.wallet_bucket_bid)
+        for row in rows
+        if _normalize_bid(row.wallet_bucket_bid)
+    }
+    if not bucket_bids:
+        return {}
+
+    buckets = CreditWalletBucket.query.filter(
+        CreditWalletBucket.deleted == 0,
+        CreditWalletBucket.creator_bid == _normalize_bid(creator_bid),
+        CreditWalletBucket.wallet_bucket_bid.in_(bucket_bids),
+    ).all()
+    return {_normalize_bid(bucket.wallet_bucket_bid): bucket for bucket in buckets}
+
+
+def _build_ledger_page_order_type_loader(
+    rows: list[CreditLedgerEntry],
+    *,
+    bucket_map: dict[str, CreditWalletBucket],
+):
+    order_bids = {
+        _normalize_bid(_normalize_json_object(row.metadata_json).get("bill_order_bid"))
+        for row in rows
+    }
+    order_bids.update(
+        _normalize_bid(
+            _normalize_json_object(bucket.metadata_json).get("bill_order_bid")
+        )
+        for bucket in bucket_map.values()
+    )
+    order_bids.discard("")
+
+    orders = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.bill_order_bid.in_(order_bids),
+        ).all()
+        if order_bids
+        else []
+    )
+    order_type_by_bid = {
+        _normalize_bid(order.bill_order_bid): int(order.order_type or 0)
+        for order in orders
+    }
+
+    def _load_order_type(order_bid: str) -> int | None:
+        return order_type_by_bid.get(_normalize_bid(order_bid))
+
+    return _load_order_type
+
+
 def build_billing_ledger_page(
     app: Flask,
     creator_bid: str,
@@ -718,6 +776,11 @@ def build_billing_ledger_page(
         offset = (resolved_page - 1) * safe_page_size
         rows = query.offset(offset).limit(safe_page_size).all()
         usage_metadata_map = _build_usage_metadata_map(rows)
+        bucket_map = _load_ledger_bucket_map(rows, creator_bid=normalized_creator_bid)
+        load_order_type = _build_ledger_page_order_type_loader(
+            rows,
+            bucket_map=bucket_map,
+        )
 
         items = []
         for row in rows:
@@ -737,11 +800,17 @@ def build_billing_ledger_page(
                         },
                     }
 
+            credit_view = build_credit_grant_view(
+                row,
+                bucket=bucket_map.get(_normalize_bid(row.wallet_bucket_bid)),
+                load_order_type=load_order_type,
+            )
             items.append(
                 _serialize_ledger_entry(
                     app,
                     row,
                     metadata=metadata,
+                    credit_asset_kind=credit_view.asset_kind,
                 )
             )
 
