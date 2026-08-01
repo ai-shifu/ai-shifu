@@ -45,6 +45,7 @@ import {
   buildListenMarkerSequenceKey,
   getListenMarkerIdentityKey,
   reconcileListenPlaybackStepCount,
+  resetListenPlaybackStateForSequence,
   resolveCurrentStepAudioCompletion,
   type ListenPlaybackState,
 } from './listenPlaybackState';
@@ -1683,15 +1684,9 @@ const ListenModeSlideRenderer = ({
 
   useEffect(() => {
     previousMarkerStepKeyRef.current = '';
-    setPlaybackState({
-      currentStepIndex: -1,
-      totalStepCount: markerStepCount,
-      currentStepHasAudio: false,
-      currentStepHasBlockingInteraction: false,
-      hasCompletedCurrentStepAudio: false,
-      isAudioPlaying: false,
-      isAudioWaiting: false,
-    });
+    setPlaybackState(prevState =>
+      resetListenPlaybackStateForSequence(prevState, markerStepCount),
+    );
     setHasSettledTailInteraction(false);
   }, [lessonId, markerSequenceKey, markerStepCount]);
 

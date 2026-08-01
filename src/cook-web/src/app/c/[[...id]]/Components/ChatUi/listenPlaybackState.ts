@@ -70,6 +70,33 @@ export const reconcileListenPlaybackStepCount = (
   };
 };
 
+export const resetListenPlaybackStateForSequence = (
+  state: ListenPlaybackState,
+  markerStepCount: number,
+): ListenPlaybackState => {
+  if (
+    state.currentStepIndex === -1 &&
+    state.totalStepCount === markerStepCount &&
+    !state.currentStepHasAudio &&
+    !state.currentStepHasBlockingInteraction &&
+    !state.hasCompletedCurrentStepAudio &&
+    !state.isAudioPlaying &&
+    !state.isAudioWaiting
+  ) {
+    return state;
+  }
+
+  return {
+    currentStepIndex: -1,
+    totalStepCount: markerStepCount,
+    currentStepHasAudio: false,
+    currentStepHasBlockingInteraction: false,
+    hasCompletedCurrentStepAudio: false,
+    isAudioPlaying: false,
+    isAudioWaiting: false,
+  };
+};
+
 export const resolveCurrentStepAudioCompletion = ({
   previousStepHasAudio,
   nextStepHasAudio,
