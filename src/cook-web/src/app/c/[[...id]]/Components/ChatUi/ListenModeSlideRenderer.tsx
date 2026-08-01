@@ -45,6 +45,7 @@ import {
   buildListenMarkerSequenceKey,
   getListenMarkerIdentityKey,
   reconcileListenPlaybackStepCount,
+  resetListenPlaybackStateForSequence,
   resolveCurrentStepAudioCompletion,
   type ListenPlaybackState,
 } from './listenPlaybackState';
@@ -1478,7 +1479,9 @@ const ListenModeSlideRenderer = ({
     (element: SlideElement | undefined, index: number) => {
       const blockBid = (element as ListenSlideElement | undefined)?.blockBid;
       if (blockBid && blockBid !== 'empty-ppt') {
-        setCurrentStepBlockBid(blockBid);
+        setCurrentStepBlockBid(prevBlockBid =>
+          prevBlockBid === blockBid ? prevBlockBid : blockBid,
+        );
       }
 
       setPlaybackState(prevState => {
@@ -1648,13 +1651,19 @@ const ListenModeSlideRenderer = ({
 
   useLayoutEffect(() => {
     if (!shouldDelayTailInteractionFeedbackPrompt) {
-      setHasSettledTailInteraction(true);
+      setHasSettledTailInteraction(prevSettled =>
+        prevSettled ? prevSettled : true,
+      );
       return;
     }
 
-    setHasSettledTailInteraction(false);
+    setHasSettledTailInteraction(prevSettled =>
+      prevSettled ? false : prevSettled,
+    );
     const timer = window.setTimeout(() => {
-      setHasSettledTailInteraction(true);
+      setHasSettledTailInteraction(prevSettled =>
+        prevSettled ? prevSettled : true,
+      );
     }, LESSON_FEEDBACK_TAIL_INTERACTION_SETTLE_DELAY_MS);
 
     return () => {
@@ -1683,16 +1692,12 @@ const ListenModeSlideRenderer = ({
 
   useEffect(() => {
     previousMarkerStepKeyRef.current = '';
-    setPlaybackState({
-      currentStepIndex: -1,
-      totalStepCount: markerStepCount,
-      currentStepHasAudio: false,
-      currentStepHasBlockingInteraction: false,
-      hasCompletedCurrentStepAudio: false,
-      isAudioPlaying: false,
-      isAudioWaiting: false,
-    });
-    setHasSettledTailInteraction(false);
+    setPlaybackState(prevState =>
+      resetListenPlaybackStateForSequence(prevState, markerStepCount),
+    );
+    setHasSettledTailInteraction(prevSettled =>
+      prevSettled ? false : prevSettled,
+    );
   }, [lessonId, markerSequenceKey, markerStepCount]);
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import {
   buildListenMarkerSequenceKey,
   reconcileListenPlaybackStepCount,
+  resetListenPlaybackStateForSequence,
   resolveCurrentStepAudioCompletion,
   type ListenPlaybackState,
 } from './listenPlaybackState';
@@ -111,6 +112,45 @@ describe('listenPlaybackState', () => {
 
     expect(nextState.currentStepIndex).toBe(-1);
     expect(nextState.totalStepCount).toBe(3);
+  });
+
+  it('keeps the same object when playback is already reset for the marker sequence', () => {
+    const resetState = buildPlaybackState({
+      currentStepIndex: -1,
+      totalStepCount: 3,
+      currentStepHasAudio: false,
+      currentStepHasBlockingInteraction: false,
+      hasCompletedCurrentStepAudio: false,
+      isAudioPlaying: false,
+      isAudioWaiting: false,
+    });
+
+    const nextState = resetListenPlaybackStateForSequence(resetState, 3);
+
+    expect(nextState).toBe(resetState);
+  });
+
+  it('resets playback only when marker sequence state still carries old step data', () => {
+    const nextState = resetListenPlaybackStateForSequence(
+      buildPlaybackState({
+        currentStepIndex: 1,
+        totalStepCount: 2,
+        currentStepHasAudio: true,
+        hasCompletedCurrentStepAudio: true,
+        isAudioPlaying: true,
+      }),
+      3,
+    );
+
+    expect(nextState).toEqual({
+      currentStepIndex: -1,
+      totalStepCount: 3,
+      currentStepHasAudio: false,
+      currentStepHasBlockingInteraction: false,
+      hasCompletedCurrentStepAudio: false,
+      isAudioPlaying: false,
+      isAudioWaiting: false,
+    });
   });
 
   it('resets completed audio when a marker gains audio after initially having none', () => {
