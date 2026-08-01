@@ -1479,9 +1479,7 @@ const ListenModeSlideRenderer = ({
     (element: SlideElement | undefined, index: number) => {
       const blockBid = (element as ListenSlideElement | undefined)?.blockBid;
       if (blockBid && blockBid !== 'empty-ppt') {
-        setCurrentStepBlockBid(prevBlockBid =>
-          prevBlockBid === blockBid ? prevBlockBid : blockBid,
-        );
+        setCurrentStepBlockBid(blockBid);
       }
 
       setPlaybackState(prevState => {
@@ -1651,19 +1649,13 @@ const ListenModeSlideRenderer = ({
 
   useLayoutEffect(() => {
     if (!shouldDelayTailInteractionFeedbackPrompt) {
-      setHasSettledTailInteraction(prevSettled =>
-        prevSettled ? prevSettled : true,
-      );
+      setHasSettledTailInteraction(true);
       return;
     }
 
-    setHasSettledTailInteraction(prevSettled =>
-      prevSettled ? false : prevSettled,
-    );
+    setHasSettledTailInteraction(false);
     const timer = window.setTimeout(() => {
-      setHasSettledTailInteraction(prevSettled =>
-        prevSettled ? prevSettled : true,
-      );
+      setHasSettledTailInteraction(true);
     }, LESSON_FEEDBACK_TAIL_INTERACTION_SETTLE_DELAY_MS);
 
     return () => {
@@ -1695,9 +1687,7 @@ const ListenModeSlideRenderer = ({
     setPlaybackState(prevState =>
       resetListenPlaybackStateForSequence(prevState, markerStepCount),
     );
-    setHasSettledTailInteraction(prevSettled =>
-      prevSettled ? false : prevSettled,
-    );
+    setHasSettledTailInteraction(false);
   }, [lessonId, markerSequenceKey, markerStepCount]);
 
   useEffect(() => {
