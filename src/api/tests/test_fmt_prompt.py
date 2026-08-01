@@ -42,3 +42,39 @@ def test_fmt_prompt_uses_input_when_template_empty(app, monkeypatch):
             app, "user-1", "course-1", "", input="fallback-input"
         )
         assert fmt_prompt == "fallback-input"
+
+
+def test_fmt_prompt_prefers_request_overrides_without_mutating_profiles(
+    app, monkeypatch
+):
+    from flaskr.service.learn import utils_v2
+
+    stored_profiles = {
+        "nickname": "Alice",
+        "language": "zh-CN",
+        "sys_user_language": "zh-CN",
+    }
+    monkeypatch.setattr(
+        utils_v2,
+        "get_user_profiles",
+        lambda _app, _user_id, _course_id: stored_profiles,
+    )
+
+    with app.app_context():
+        fmt_prompt = utils_v2.get_fmt_prompt(
+            app,
+            "user-1",
+            "course-1",
+            "Hello {nickname}; {language}; {sys_user_language}",
+            profile_overrides={
+                "language": "fr-FR",
+                "sys_user_language": "fr-FR",
+            },
+        )
+
+    assert fmt_prompt == "Hello Alice; fr-FR; fr-FR"
+    assert stored_profiles == {
+        "nickname": "Alice",
+        "language": "zh-CN",
+        "sys_user_language": "zh-CN",
+    }
