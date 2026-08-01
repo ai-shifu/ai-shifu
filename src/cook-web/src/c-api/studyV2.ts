@@ -291,11 +291,12 @@ export const getRunMessage = (
   const token = useUserStore.getState().getToken();
   const payload = { ...body };
   payload.listen = Boolean(body.listen);
-  const requestLanguage = String(
-    body.language || getCurrentRequestLanguage(),
-  ).trim();
+  const requestLanguage =
+    String(body.language || '').trim() || getCurrentRequestLanguage();
   if (requestLanguage) {
     payload.language = requestLanguage;
+  } else {
+    delete payload.language;
   }
 
   const baseURL = getResolvedBaseURL();

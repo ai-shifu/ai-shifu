@@ -102,4 +102,20 @@ describe('getRunMessage language snapshot', () => {
     expect(options.headers['Accept-Language']).toBe('zh-CN');
     expect(JSON.parse(options.payload).language).toBe('zh-CN');
   });
+
+  test('falls back from whitespace-only body language to one request snapshot', () => {
+    setPendingRequestLanguage('fr-FR');
+
+    getRunMessage(
+      'course-1',
+      'lesson-1',
+      false,
+      { input: {}, language: ' \t ' },
+      jest.fn(),
+    );
+
+    const [, options] = (SSE as unknown as jest.Mock).mock.calls[0];
+    expect(options.headers['Accept-Language']).toBe('fr-FR');
+    expect(JSON.parse(options.payload).language).toBe('fr-FR');
+  });
 });
