@@ -1,4 +1,5 @@
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
 from flask import Flask
 from flaskr.api.langfuse import (
@@ -6,53 +7,52 @@ from flaskr.api.langfuse import (
     update_langfuse_observation,
     update_langfuse_trace,
 )
-from flaskr.i18n import _
-from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
-
-from flaskr.service.learn.models import LearnGeneratedBlock
-from flaskr.framework.plugin.plugin_manager import extensible_generic
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
-from flaskr.service.user.repository import UserAggregate
-from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
-from langfuse.client import StatefulTraceClient
-from flaskr.service.learn.utils_v2 import (
-    init_generated_block,
-    get_fmt_prompt,
-    get_follow_up_info_v2,
+from flaskr.framework.plugin.plugin_manager import extensible_generic
+from flaskr.i18n import _, get_current_language
+from flaskr.service.learn.ask_provider_adapters.consts import (
+    ASK_PROVIDER_LLM,
+    ASK_PROVIDER_MODE_PROVIDER_ONLY,
+    ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
 )
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDASK_VALUE,
-    BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
+from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
+from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
+from flaskr.service.learn.langfuse_naming import (
+    build_langfuse_generation_name,
+    build_langfuse_span_name,
 )
 from flaskr.service.learn.learn_dtos import (
     ElementType,
     GeneratedType,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.langfuse_naming import (
-    build_langfuse_generation_name,
-    build_langfuse_span_name,
+from flaskr.service.learn.listen_element_payloads import _deserialize_payload
+from flaskr.service.learn.listen_element_queries import (
+    _load_latest_active_element_row,
+    find_follow_up_element_rows,
 )
-from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
-from flaskr.service.shifu.ask_provider_registry import get_effective_ask_provider_config
-from flaskr.service.learn.ask_provider_adapters.consts import (
-    ASK_PROVIDER_LLM,
-    ASK_PROVIDER_MODE_PROVIDER_ONLY,
-    ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
+from flaskr.service.learn.models import LearnGeneratedBlock
+from flaskr.service.learn.utils_v2 import (
+    get_fmt_prompt,
+    get_follow_up_info_v2,
+    init_generated_block,
 )
 from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
 )
-from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.service.learn.listen_element_payloads import _deserialize_payload
-from flaskr.service.learn.listen_element_queries import (
-    _load_latest_active_element_row,
-    find_follow_up_element_rows,
+from flaskr.service.shifu.ask_provider_registry import get_effective_ask_provider_config
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
 )
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.user.repository import UserAggregate
+from langfuse.client import StatefulTraceClient
 
 check_text_with_llm_response = None
 LLMSettings = None
@@ -312,7 +312,7 @@ def handle_input_ask(
         usage_scene=usage_scene,
     )
 
-    app.logger.info("follow_up_info:{}".format(follow_up_info.__json__()))
+    app.logger.info(f"follow_up_info:{follow_up_info.__json__()}")
     chapter_title = outline_item_info.title
     ask_scene = "lesson_preview_ask" if is_preview else "lesson_ask"
 
@@ -331,6 +331,15 @@ def handle_input_ask(
     input = raw_input.replace("{", "{{").replace(
         "}", "}}"
     )  # Escape braces to avoid formatting conflicts
+    use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
+    prompt_kwargs: dict[str, Any] = {}
+    if use_learner_language:
+        runtime_language = str(get_current_language() or "").strip()
+        if runtime_language:
+            prompt_kwargs["profile_overrides"] = {
+                "sys_user_language": runtime_language,
+                "language": runtime_language,
+            }
     system_prompt_template = context.get_system_prompt(outline_item_info.bid)
     base_system_prompt = (
         None
@@ -340,13 +349,13 @@ def handle_input_ask(
             user_info.user_id,
             outline_item_info.shifu_bid,
             system_prompt_template,
+            **prompt_kwargs,
         )
     )
     llm_system_prompt = follow_up_info.ask_prompt.replace(
         "{shifu_system_message}", base_system_prompt if base_system_prompt else ""
     )
     # Append language instruction if use_learner_language is enabled
-    use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
     if use_learner_language:
         output_language = get_markdownflow_output_language()
         llm_system_prompt += f"\n\nIMPORTANT: You MUST respond in {output_language}."
@@ -421,7 +430,6 @@ def handle_input_ask(
         "User question:\n"
     )
     # Append language instruction to user input if use_learner_language is enabled
-    use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
     user_content = format_constraint + input
     if use_learner_language:
         output_language = get_markdownflow_output_language()
@@ -552,8 +560,14 @@ def handle_input_ask(
     ):
         from flaskr.service.learn.ask_provider_adapters import (
             AskProviderError as ask_provider_error_cls,
+        )
+        from flaskr.service.learn.ask_provider_adapters import (
             AskProviderRuntime as ask_provider_runtime_cls,
+        )
+        from flaskr.service.learn.ask_provider_adapters import (
             AskProviderTimeoutError as ask_provider_timeout_error_cls,
+        )
+        from flaskr.service.learn.ask_provider_adapters import (
             stream_ask_provider_response as stream_provider_response_func,
         )
 
