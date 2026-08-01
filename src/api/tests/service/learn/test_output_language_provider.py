@@ -41,6 +41,18 @@ def test_french_instruction_follows_the_existing_course_system_prompt():
         "本次输出必须全部使用法语"
     )
     assert "Translate Chinese source text instead of copying it" in system_content
+    assert "FINAL RUNTIME LANGUAGE RULE — HIGHEST PRIORITY" in system_content
+    assert "course titles, headings, badges" in system_content
+    assert "Product names, proper names, course names" in system_content
+    assert "HTML/CSS syntax" in system_content
+    assert "OPC · Entreprise individuelle" in system_content
+    assert "Sun Zhigang · Fondateur" in system_content
+    assert "AI Shifu" in system_content
+    assert "display before //" in system_content
+    assert "machine value after //" in system_content
+    assert "Return zero Chinese learner-visible text" in system_content
+    assert "source text into English when French is required" in system_content
+    assert "Keep URLs, HTML/CSS, code, and identifiers unchanged" not in system_content
     assert delegate.complete_messages[-1] == original_messages[-1]
 
 
