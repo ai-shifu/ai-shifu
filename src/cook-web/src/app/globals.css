@@ -180,9 +180,10 @@ body.listen-mode-vh-fallback #root {
   }
   custom-button-after-content,
   .content-render-custom-button-after-content {
-    width: 58px;
+    width: auto;
+    min-width: 58px;
     height: 20px;
-    padding: 0;
+    padding: 0 8px;
     border: none;
     appearance: none;
     gap: 4px;
