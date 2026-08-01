@@ -110,9 +110,6 @@ from flaskr.service.learn.langfuse_naming import (
     build_langfuse_span_name,
     build_langfuse_trace_name,
 )
-from flaskr.service.learn.output_language_provider import (
-    with_runtime_output_language,
-)
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.run.emitter import RunEventEmitter
 from flaskr.service.learn.run.recorder import RunRecorder
@@ -417,19 +414,6 @@ class MdflowContextV2:
         visual_mode: bool = True,
         output_language: Optional[str] = None,
     ):
-        resolved_output_language = ""
-        if use_learner_language:
-            language = (output_language or "").strip()
-            resolved_output_language = (
-                resolve_markdownflow_output_language(language)
-                if language
-                else get_markdownflow_output_language()
-            )
-            llm_provider = with_runtime_output_language(
-                llm_provider,
-                resolved_output_language,
-            )
-
         self._mdflow = MarkdownFlow(
             document=document,
             llm_provider=llm_provider,
@@ -441,7 +425,15 @@ class MdflowContextV2:
         set_visual_mode = getattr(self._mdflow, "set_visual_mode", None)
         if callable(set_visual_mode):
             set_visual_mode(visual_mode)
-        if resolved_output_language:
+        # Language must follow the learner profile/preview variables when provided;
+        # falling back to the request-local language keeps existing callers compatible.
+        if use_learner_language:
+            language = (output_language or "").strip()
+            resolved_output_language = (
+                resolve_markdownflow_output_language(language)
+                if language
+                else get_markdownflow_output_language()
+            )
             self._mdflow = self._mdflow.set_output_language(resolved_output_language)
 
     def get_block(self, block_index: int):
