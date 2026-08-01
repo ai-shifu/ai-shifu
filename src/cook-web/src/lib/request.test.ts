@@ -1,11 +1,18 @@
 import { waitFor } from '@testing-library/react';
 import { toast } from '@/hooks/useToast';
+import i18n from 'i18next';
 import {
   Request,
   attachSseBusinessResponseFallback,
+  getCurrentLanguageHeaders,
+  getCurrentRequestLanguage,
   handleBusinessCode,
   parseBusinessResponsePayload,
 } from './request';
+import {
+  clearPendingRequestLanguage,
+  setPendingRequestLanguage,
+} from './request-language';
 import {
   buildTraceHeaders,
   TRACE_HARNESS_RUN_ID_HEADER,
@@ -32,6 +39,7 @@ class MockXhr extends EventTarget {
 describe('request SSE business fallback', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearPendingRequestLanguage();
     window.location.pathname = '/';
     window.location.search = '';
     window.sessionStorage.clear();
@@ -59,6 +67,26 @@ describe('request SSE business fallback', () => {
 
     expect(traceHeaders.requestId).toBe('generated-id');
     expect(traceHeaders.headers[TRACE_REQUEST_ID_HEADER]).toBe('generated-id');
+  });
+
+  test('uses the pending language while i18next is still switching', () => {
+    const originalLanguage = i18n.language;
+    const originalResolvedLanguage = i18n.resolvedLanguage;
+
+    try {
+      i18n.language = 'zh-CN';
+      i18n.resolvedLanguage = 'zh-CN';
+      setPendingRequestLanguage('fr-FR');
+
+      expect(getCurrentRequestLanguage()).toBe('fr-FR');
+      expect(getCurrentLanguageHeaders()).toEqual({
+        'Accept-Language': 'fr-FR',
+      });
+    } finally {
+      i18n.language = originalLanguage;
+      i18n.resolvedLanguage = originalResolvedLanguage;
+      clearPendingRequestLanguage('fr-FR');
+    }
   });
 
   test('parses a business response payload from JSON text', () => {

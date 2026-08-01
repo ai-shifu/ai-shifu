@@ -109,6 +109,7 @@ from flaskr.service.learn.context_v2 import (
     MdflowContextV2,
     PaidException,
     _find_outline_path_or_raise,
+    _resolve_runtime_language_context,
     _resolve_runtime_output_language,
     RUNLLMProvider,
     RunScriptContextV2,
@@ -1215,6 +1216,48 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
             )
 
         self.assertEqual(output_language, "zh-CN")
+
+    def test_runtime_language_overlays_stale_production_prompt_variables(self):
+        stored_profile = {
+            "sys_user_language": "zh-CN",
+            "language": "zh-CN",
+            "sys_user_nickname": "Learner",
+        }
+
+        with patch(
+            "flaskr.service.learn.context_v2.get_current_language",
+            return_value="fr-FR",
+        ):
+            runtime_profile, output_language = _resolve_runtime_language_context(
+                stored_profile,
+                use_learner_language=True,
+            )
+
+        self.assertEqual(output_language, "fr-FR")
+        self.assertEqual(runtime_profile["sys_user_language"], "fr-FR")
+        self.assertEqual(runtime_profile["language"], "fr-FR")
+        self.assertEqual(runtime_profile["sys_user_nickname"], "Learner")
+        self.assertEqual(stored_profile["sys_user_language"], "zh-CN")
+        self.assertEqual(stored_profile["language"], "zh-CN")
+
+    def test_runtime_language_keeps_profile_variables_when_feature_is_disabled(self):
+        stored_profile = {
+            "sys_user_language": "zh-CN",
+            "language": "zh-CN",
+        }
+
+        with patch(
+            "flaskr.service.learn.context_v2.get_current_language",
+            return_value="fr-FR",
+        ):
+            runtime_profile, output_language = _resolve_runtime_language_context(
+                stored_profile,
+                use_learner_language=False,
+            )
+
+        self.assertEqual(output_language, "fr-FR")
+        self.assertEqual(runtime_profile, stored_profile)
+        self.assertIsNot(runtime_profile, stored_profile)
 
 
 class PreviewResolveLlmSettingsTests(unittest.TestCase):

@@ -323,6 +323,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     input_type:
                         type: string
                         required: false
+                    language:
+                        type: string
+                        required: false
+                        description: Current learner interface language for this generation
                     listen:
                         type: boolean
                         required: false

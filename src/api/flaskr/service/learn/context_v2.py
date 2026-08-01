@@ -223,6 +223,20 @@ def _resolve_runtime_output_language(user_profile: dict | None) -> str:
     return str(runtime_language or profile_language or "")
 
 
+def _resolve_runtime_language_context(
+    user_profile: dict | None,
+    *,
+    use_learner_language: bool,
+) -> tuple[dict, str]:
+    """Keep runtime prompt variables aligned with the per-request language."""
+    resolved_profile = dict(user_profile or {})
+    output_language = _resolve_runtime_output_language(resolved_profile)
+    if use_learner_language and output_language:
+        resolved_profile[SYS_USER_LANGUAGE] = output_language
+        resolved_profile["language"] = output_language
+    return resolved_profile, output_language
+
+
 class RUNLLMProvider(LLMProvider):
     app: Flask
     llm_settings: LLMSettings
@@ -2344,8 +2358,12 @@ class RunScriptContextV2:
             usage_context,
             usage_scene,
         )
-        user_profile = get_user_profiles(
+        stored_user_profile = get_user_profiles(
             app, self._user_info.user_id, self._outline_item_info.shifu_bid
+        )
+        user_profile, runtime_output_language = _resolve_runtime_language_context(
+            stored_user_profile,
+            use_learner_language=bool(self._shifu_info.use_learner_language),
         )
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
@@ -2353,7 +2371,7 @@ class RunScriptContextV2:
             llm_provider=llm_provider,
             use_learner_language=self._shifu_info.use_learner_language,
             visual_mode=True,
-            output_language=_resolve_runtime_output_language(user_profile),
+            output_language=runtime_output_language,
         )
         block_list = mdflow_context.get_all_blocks()
         message_list = MdflowContextV2.build_context_from_blocks(
