@@ -1,3 +1,4 @@
+import importlib
 import sys
 import types
 
@@ -66,8 +67,10 @@ def _install_openai_responses_stub() -> None:
 _install_litellm_stub()
 _install_openai_responses_stub()
 
-from flaskr.service.learn.ask_provider_adapters import AskProviderError
-from flaskr.service.learn.learn_dtos import GeneratedType
+AskProviderError = importlib.import_module(
+    "flaskr.service.learn.ask_provider_adapters"
+).AskProviderError
+GeneratedType = importlib.import_module("flaskr.service.learn.learn_dtos").GeneratedType
 
 
 class _DummyColumn:
