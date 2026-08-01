@@ -104,7 +104,9 @@ i18n.changeLanguage = (async (...args: Parameters<ChangeLanguage>) => {
     console.error('Failed to change language', error);
     throw error;
   } finally {
-    clearPendingRequestLanguage(requestedLanguage);
+    if (requestedLanguage) {
+      clearPendingRequestLanguage(requestedLanguage);
+    }
     setI18nLoading(false);
   }
 }) as ChangeLanguage;
