@@ -289,6 +289,96 @@ class TestStreamingSynthesisRetries:
         assert result.word_count == 4
         mock_record_usage.assert_called_once()
 
+    @patch("flaskr.service.tts.streaming_tts.time.sleep")
+    @patch("flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage")
+    @patch("flaskr.service.tts.streaming_tts.synthesize_text")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_tencent_texttovoice_empty_audio_segment_retries_once(
+        self,
+        mock_is_configured,
+        mock_synthesize_text,
+        mock_record_usage,
+        mock_sleep,
+        mock_app,
+    ):
+        mock_is_configured.return_value = True
+        mock_synthesize_text.side_effect = [
+            ValueError("No audio data received from Tencent TextToVoice"),
+            TTSResult(
+                audio_data=b"audio",
+                duration_ms=321,
+                sample_rate=16000,
+                format="mp3",
+                word_count=4,
+            ),
+        ]
+        app_context = MagicMock()
+        app_context.__enter__.return_value = None
+        app_context.__exit__.return_value = False
+        mock_app.app_context.return_value = app_context
+
+        processor = create_test_processor(mock_app, tts_provider="tencent_texttovoice")
+        segment = TTSSegment(index=4, text="腾讯精品音色重试这一句。")
+
+        result = processor._synthesize_in_thread(
+            segment,
+            processor.voice_settings,
+            processor.audio_settings,
+            processor.tts_provider,
+            processor.tts_model,
+        )
+
+        assert mock_synthesize_text.call_count == 2
+        mock_sleep.assert_called_once()
+        assert result.error is None
+        assert result.audio_data == b"audio"
+        mock_record_usage.assert_called_once()
+
+    @patch("flaskr.service.tts.streaming_tts.time.sleep")
+    @patch("flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage")
+    @patch("flaskr.service.tts.streaming_tts.synthesize_text")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_tencent_temp_file_failure_retries_once(
+        self,
+        mock_is_configured,
+        mock_synthesize_text,
+        mock_record_usage,
+        mock_sleep,
+        mock_app,
+    ):
+        mock_is_configured.return_value = True
+        mock_synthesize_text.side_effect = [
+            FileNotFoundError(2, "No such file or directory", "/tmp/tmpmissing"),
+            TTSResult(
+                audio_data=b"audio",
+                duration_ms=321,
+                sample_rate=16000,
+                format="mp3",
+                word_count=4,
+            ),
+        ]
+        app_context = MagicMock()
+        app_context.__enter__.return_value = None
+        app_context.__exit__.return_value = False
+        mock_app.app_context.return_value = app_context
+
+        processor = create_test_processor(mock_app, tts_provider="tencent")
+        segment = TTSSegment(index=5, text="腾讯临时文件失败后重试。")
+
+        result = processor._synthesize_in_thread(
+            segment,
+            processor.voice_settings,
+            processor.audio_settings,
+            processor.tts_provider,
+            processor.tts_model,
+        )
+
+        assert mock_synthesize_text.call_count == 2
+        mock_sleep.assert_called_once()
+        assert result.error is None
+        assert result.audio_data == b"audio"
+        mock_record_usage.assert_called_once()
+
     @patch("flaskr.service.tts.streaming_tts.logger")
     @patch("flaskr.service.tts.streaming_tts.time.sleep")
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
