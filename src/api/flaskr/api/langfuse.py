@@ -304,6 +304,12 @@ class LangfuseObservationHandle:
         child = self._delegate.start_generation(**payload)
         return LangfuseObservationHandle(child, self.trace_id)
 
+    def event(self, **kwargs) -> "LangfuseObservationHandle":
+        payload = _map_observation_kwargs(kwargs, _OBSERVATION_KEYS)
+        payload.setdefault("name", "event")
+        child = self._delegate.create_event(**payload)
+        return LangfuseObservationHandle(child, self.trace_id)
+
     def update(self, **kwargs) -> "LangfuseObservationHandle":
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         if payload:
