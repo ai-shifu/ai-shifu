@@ -318,10 +318,14 @@ class LangfuseObservationHandle:
 
     def end(self, **kwargs) -> "LangfuseObservationHandle":
         # SDK v3 end() only accepts end_time; flush attribute updates first.
+        end_time = kwargs.pop("end_time", None)
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         if payload:
             self._delegate.update(**payload)
-        self._delegate.end()
+        if end_time is not None:
+            self._delegate.end(end_time=end_time)
+        else:
+            self._delegate.end()
         return self
 
     def update_trace(self, **kwargs) -> "LangfuseObservationHandle":
