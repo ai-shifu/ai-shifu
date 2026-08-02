@@ -16,10 +16,8 @@ os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 
 import litellm  # noqa: E402
 from flask import Flask, current_app
-from langfuse.client import StatefulSpanClient
-from langfuse.model import ModelUsage
-
 from flaskr.api.langfuse import (
+    LangfuseObservationHandle,
     build_langfuse_observation_link,
     get_request_id,
     resolve_langfuse_trace_id,
@@ -707,7 +705,7 @@ def get_litellm_params_and_model(model: str):
 def invoke_llm(
     app: Flask,
     user_id: str,
-    span: StatefulSpanClient,
+    span: LangfuseObservationHandle,
     model: str,
     message: str,
     system: str = None,
@@ -800,12 +798,11 @@ def invoke_llm(
             res_usage = getattr(res, "usage", None)
             if res_usage:
                 input_cache_tokens = _extract_input_cache(res_usage)
-                usage = ModelUsage(
-                    unit="TOKENS",
-                    input=res_usage.prompt_tokens,
-                    output=res_usage.completion_tokens,
-                    total=res_usage.total_tokens,
-                )
+                usage = {
+                    "input": res_usage.prompt_tokens,
+                    "output": res_usage.completion_tokens,
+                    "total": res_usage.total_tokens,
+                }
     else:
         raise_error_with_args(
             "server.llm.modelNotSupported",
@@ -886,7 +883,7 @@ def invoke_llm(
 def chat_llm(
     app: Flask,
     user_id: str,
-    span: StatefulSpanClient,
+    span: LangfuseObservationHandle,
     model: str,
     messages: list,
     json: bool = False,
@@ -970,12 +967,11 @@ def chat_llm(
                 res_usage = getattr(res, "usage", None)
                 if res_usage:
                     input_cache_tokens = _extract_input_cache(res_usage)
-                    usage = ModelUsage(
-                        unit="TOKENS",
-                        input=res_usage.prompt_tokens,
-                        output=res_usage.completion_tokens,
-                        total=res_usage.total_tokens,
-                    )
+                    usage = {
+                        "input": res_usage.prompt_tokens,
+                        "output": res_usage.completion_tokens,
+                        "total": res_usage.total_tokens,
+                    }
         except Exception as exc:
             if not (_is_litellm_repeated_stream_chunk_error(exc) and response_text):
                 raise

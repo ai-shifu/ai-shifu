@@ -1,5 +1,6 @@
 import ast
 import json
+import re
 import uuid
 from typing import Any
 
@@ -7,6 +8,45 @@ from flask import Flask, request
 from langfuse import Langfuse
 
 from flaskr.common.log import thread_local
+
+# Langfuse SDK v3 is OTel based: trace ids must be 32 lowercase hex chars and
+# parent/child links are derived from the span object hierarchy instead of the
+# explicit trace_id/parent_observation_id kwargs the v2 SDK accepted. The
+# handle classes below keep the v2-style call surface (trace.span(),
+# span.generation(), generation.end(output=...)) so call sites stay unchanged.
+
+_TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+
+_OBSERVATION_KEYS = {
+    "name",
+    "input",
+    "output",
+    "metadata",
+    "version",
+    "level",
+    "status_message",
+}
+_GENERATION_KEYS = _OBSERVATION_KEYS | {
+    "completion_start_time",
+    "model",
+    "model_parameters",
+    "usage_details",
+    "cost_details",
+    "prompt",
+}
+_TRACE_KEYS = {
+    "name",
+    "user_id",
+    "session_id",
+    "version",
+    "input",
+    "output",
+    "metadata",
+    "tags",
+    "public",
+}
+# v2-era link kwargs that no longer exist in SDK v3; parenthood is implicit.
+_LINK_KEYS = {"trace_id", "parent_observation_id", "id"}
 
 
 class MockClient:
@@ -40,8 +80,19 @@ def get_request_id() -> str:
     return request_id
 
 
+def coerce_langfuse_trace_id(raw: str | None = None) -> str:
+    # SDK v3 only accepts W3C trace ids (32 lowercase hex). Non-conforming
+    # request ids are mapped deterministically via create_trace_id(seed=...)
+    # so the same request always lands on the same Langfuse trace.
+    if isinstance(raw, str) and _TRACE_ID_RE.match(raw):
+        return raw
+    if isinstance(raw, str) and raw:
+        return Langfuse.create_trace_id(seed=raw)
+    return Langfuse.create_trace_id()
+
+
 def get_request_trace_id() -> str:
-    return get_request_id() or uuid.uuid4().hex
+    return coerce_langfuse_trace_id(get_request_id() or uuid.uuid4().hex)
 
 
 def resolve_langfuse_trace_id(observation: Any, trace_id: str | None = None) -> str:
@@ -61,6 +112,8 @@ def resolve_langfuse_trace_id(observation: Any, trace_id: str | None = None) -> 
 def build_langfuse_observation_link(
     observation: Any, trace_id: str | None = None
 ) -> dict[str, str]:
+    # Kept for logging/correlation. The handle classes drop these keys before
+    # calling into SDK v3, where the span hierarchy already encodes the link.
     observation_link: dict[str, str] = {}
     resolved_trace_id = resolve_langfuse_trace_id(observation, trace_id)
     parent_observation_id = (
@@ -70,7 +123,7 @@ def build_langfuse_observation_link(
     )
     if resolved_trace_id:
         observation_link["trace_id"] = resolved_trace_id
-    if parent_observation_id:
+    if isinstance(parent_observation_id, str) and parent_observation_id:
         observation_link["parent_observation_id"] = parent_observation_id
     return observation_link
 
@@ -190,15 +243,116 @@ def compact_langfuse_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
     return {key: value for key, value in payload.items() if _has_langfuse_value(value)}
 
 
+def _usage_to_details(usage: Any) -> dict[str, int] | None:
+    if usage is None:
+        return None
+    if isinstance(usage, dict):
+        details = {
+            key: int(usage[key])
+            for key in ("input", "output", "total")
+            if usage.get(key) is not None
+        }
+        return details or None
+    details = {}
+    for key in ("input", "output", "total"):
+        value = getattr(usage, key, None)
+        if value is not None:
+            details[key] = int(value)
+    return details or None
+
+
+def _map_observation_kwargs(
+    kwargs: dict[str, Any], allowed: set[str]
+) -> dict[str, Any]:
+    mapped = dict(kwargs)
+    for key in _LINK_KEYS:
+        mapped.pop(key, None)
+    usage = mapped.pop("usage", None)
+    if usage is not None and "usage_details" not in mapped:
+        usage_details = _usage_to_details(usage)
+        if usage_details:
+            mapped["usage_details"] = usage_details
+    return compact_langfuse_payload(
+        {key: value for key, value in mapped.items() if key in allowed}
+    )
+
+
+class LangfuseObservationHandle:
+    """v2-style facade over a Langfuse SDK v3 span or generation."""
+
+    def __init__(self, delegate: Any, trace_id: str = ""):
+        self._delegate = delegate
+        delegate_trace_id = getattr(delegate, "trace_id", "")
+        self.trace_id = trace_id or (
+            delegate_trace_id if isinstance(delegate_trace_id, str) else ""
+        )
+
+    @property
+    def id(self) -> str:
+        delegate_id = getattr(self._delegate, "id", "")
+        return delegate_id if isinstance(delegate_id, str) else ""
+
+    def span(self, **kwargs) -> "LangfuseObservationHandle":
+        payload = _map_observation_kwargs(kwargs, _OBSERVATION_KEYS)
+        payload.setdefault("name", "span")
+        child = self._delegate.start_span(**payload)
+        return LangfuseObservationHandle(child, self.trace_id)
+
+    def generation(self, **kwargs) -> "LangfuseObservationHandle":
+        payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
+        payload.setdefault("name", "generation")
+        child = self._delegate.start_generation(**payload)
+        return LangfuseObservationHandle(child, self.trace_id)
+
+    def update(self, **kwargs) -> "LangfuseObservationHandle":
+        payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
+        if payload:
+            self._delegate.update(**payload)
+        return self
+
+    def end(self, **kwargs) -> "LangfuseObservationHandle":
+        # SDK v3 end() only accepts end_time; flush attribute updates first.
+        payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
+        if payload:
+            self._delegate.update(**payload)
+        self._delegate.end()
+        return self
+
+    def update_trace(self, **kwargs) -> "LangfuseObservationHandle":
+        payload = _map_observation_kwargs(kwargs, _TRACE_KEYS)
+        if payload:
+            self._delegate.update_trace(**payload)
+        return self
+
+
+class LangfuseTraceHandle(LangfuseObservationHandle):
+    """v2-style trace facade; trace attributes live on the root span in v3."""
+
+    def update(self, **kwargs) -> "LangfuseTraceHandle":
+        self.update_trace(**kwargs)
+        return self
+
+
 def create_trace_with_root_span(
     *,
     client: Any,
     trace_payload: dict[str, Any],
     root_span_payload: dict[str, Any],
 ):
-    trace = client.trace(**compact_langfuse_payload(trace_payload))
-    root_span = trace.span(**compact_langfuse_payload(root_span_payload))
-    return trace, root_span
+    trace_payload = compact_langfuse_payload(trace_payload)
+    root_payload = _map_observation_kwargs(root_span_payload, _OBSERVATION_KEYS)
+    raw_trace_id = trace_payload.pop("id", None)
+    trace_id = coerce_langfuse_trace_id(
+        raw_trace_id if isinstance(raw_trace_id, str) else None
+    )
+    root_payload.setdefault("name", trace_payload.get("name") or "trace")
+    root_span = client.start_span(
+        trace_context={"trace_id": trace_id},
+        **root_payload,
+    )
+    trace = LangfuseTraceHandle(root_span, trace_id)
+    trace.update(**trace_payload)
+    return trace, LangfuseObservationHandle(root_span, trace_id)
 
 
 def update_langfuse_trace(trace: Any, payload: dict[str, Any] | None = None, **kwargs):
@@ -226,7 +380,9 @@ def finalize_langfuse_trace(
     trace_payload: dict[str, Any] | None = None,
     root_span_payload: dict[str, Any] | None = None,
 ):
+    # Update trace attributes before ending the root span: in SDK v3 trace
+    # attributes are written through the (still open) root span.
+    update_langfuse_trace(trace, payload=trace_payload)
     if root_span is not None:
         root_span.end(**compact_langfuse_payload(root_span_payload))
-    update_langfuse_trace(trace, payload=trace_payload)
     return trace

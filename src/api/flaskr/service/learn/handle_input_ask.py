@@ -3,6 +3,7 @@ from typing import Any
 
 from flask import Flask
 from flaskr.api.langfuse import (
+    LangfuseTraceHandle,
     normalize_langfuse_input_value,
     update_langfuse_observation,
     update_langfuse_trace,
@@ -52,7 +53,6 @@ from flaskr.service.shifu.consts import (
 )
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.user.repository import UserAggregate
-from langfuse.client import StatefulTraceClient
 
 check_text_with_llm_response = None
 LLMSettings = None
@@ -258,7 +258,7 @@ def _append_context_langfuse_output(context: Any, value: str) -> None:
 def _finalize_ask_trace(
     *,
     context: Any,
-    trace: StatefulTraceClient,
+    trace: LangfuseTraceHandle,
     parent_observation: Any | None,
     span: Any,
     trace_args: dict,
@@ -287,7 +287,7 @@ def handle_input_ask(
     input: str,
     outline_item_info: ShifuOutlineItemDto,
     trace_args: dict,
-    trace: StatefulTraceClient,
+    trace: LangfuseTraceHandle,
     is_preview: bool = False,
     last_position: int = -1,
     anchor_element_bid: str = "",

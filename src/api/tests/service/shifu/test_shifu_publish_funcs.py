@@ -89,37 +89,60 @@ _install_litellm_stub()
 _install_openai_responses_stub()
 
 
-class _FakeSpan:
-    def __init__(self, **kwargs):
+class _FakeObservation:
+    """Mimics a Langfuse SDK v3 span/generation object."""
+
+    def __init__(self, kind: str = "span", **kwargs):
+        self.kind = kind
         self.kwargs = kwargs
-        self.end_kwargs = {}
+        self.updates = []
+        self.trace_updates = []
+        self.ended = False
+        self.trace_id = "f" * 32
+        self.id = f"fake-{kind}-id"
+        self.generations = []
 
-    def end(self, **kwargs):
-        self.end_kwargs = kwargs
+    def start_span(self, **kwargs):
+        return _FakeObservation("span", **kwargs)
 
-
-class _FakeTrace:
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-        self.updated = {}
-        self.last_span = None
-
-    def span(self, **kwargs):
-        self.last_span = _FakeSpan(**kwargs)
-        return self.last_span
+    def start_generation(self, **kwargs):
+        child = _FakeObservation("generation", **kwargs)
+        self.generations.append(child)
+        return child
 
     def update(self, **kwargs):
-        self.updated = kwargs
+        self.updates.append(kwargs)
+
+    def update_trace(self, **kwargs):
+        self.trace_updates.append(kwargs)
+
+    def end(self):
+        self.ended = True
+
+    @property
+    def end_kwargs(self):
+        merged = {}
+        for item in self.updates:
+            merged.update(item)
+        return merged
+
+    @property
+    def updated(self):
+        merged = {}
+        for item in self.trace_updates:
+            merged.update(item)
+        return merged
 
 
 class _FakeLangfuseClient:
     def __init__(self):
         self.traces = []
 
-    def trace(self, **kwargs):
-        trace = _FakeTrace(**kwargs)
-        self.traces.append(trace)
-        return trace
+    def start_span(self, trace_context=None, **kwargs):
+        root = _FakeObservation("span", **kwargs)
+        root.trace_context = trace_context or {}
+        self.traces.append(root)
+        return root
 
 
 def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders():
@@ -181,9 +204,9 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch):
     trace = fake_langfuse.traces[0]
     assert trace.kwargs["name"] == "shifu_summary"
     assert trace.kwargs["input"] == "Summarize this lesson"
-    assert trace.last_span is not None
-    assert trace.last_span.kwargs["input"] == "Summarize this lesson"
-    assert trace.last_span.end_kwargs["output"] == "summary result"
+    # With SDK v3 the root span carries both span and trace attributes.
+    assert trace.end_kwargs["output"] == "summary result"
+    assert trace.ended
     assert trace.updated["output"] == "summary result"
 
 
