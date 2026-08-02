@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import contextlib
 import json
 
 from flaskr.dao import db
 from sqlalchemy import bindparam, text
+from sqlalchemy.exc import ResourceClosedError
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -130,7 +132,8 @@ class ListenElementRunPersistenceMixin:
         # avoids the ORM query/result path that triggered the listen-mode
         # ResourceClosedError / Command Out of Sync failure while still seeing
         # rows flushed earlier in the same transaction.
-        result = db.session.connection().execute(
+        connection = db.session.connection()
+        result = connection.execute(
             self._ACTIVE_ELEMENT_ROW_ID_SQL,
             {
                 "run_session_bid": self.run_session_bid,
@@ -142,8 +145,19 @@ class ListenElementRunPersistenceMixin:
             return [
                 int(row_id) for (row_id,) in result.fetchall() if row_id is not None
             ]
+        except ResourceClosedError:
+            # A rowless result for this SELECT means the connection's protocol
+            # stream is desynced (the query consumed a stale response packet
+            # left over from an interrupted operation). Invalidate the raw
+            # DBAPI connection so the poisoned connection is dropped from the
+            # pool instead of failing every later request that checks it out;
+            # the caller's rollback then completes on session state alone.
+            with contextlib.suppress(Exception):
+                connection.invalidate()
+            raise
         finally:
-            result.close()
+            with contextlib.suppress(Exception):
+                result.close()
 
     def _deactivate_active_element_rows(
         self,

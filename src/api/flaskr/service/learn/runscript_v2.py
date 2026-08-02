@@ -4,10 +4,13 @@ import queue
 import threading
 import time
 import traceback
+import uuid
 from datetime import datetime
 from typing import Any, Generator, Optional
 
 from flask import Flask
+from sqlalchemy import text as sa_text
+from sqlalchemy.exc import InterfaceError, OperationalError, ResourceClosedError
 
 from flaskr.service.common.models import AppException, raise_error
 from flaskr.service.user.repository import load_user_aggregate
@@ -57,6 +60,62 @@ def _remove_db_session_safely(app: Flask, *, source: str) -> None:
         db.session.remove()
     except Exception:
         app.logger.warning("%s db session cleanup failed", source, exc_info=True)
+
+
+# Number of connection checkouts to probe before giving up: the pool may hold
+# more than one poisoned connection, so retry a couple of fresh checkouts.
+_CONNECTION_PROBE_ATTEMPTS = 3
+
+
+def _ensure_healthy_db_connection(app: Flask) -> None:
+    """Drop pooled connections whose MySQL protocol stream is desynced.
+
+    A streaming run interrupted mid-IO can return a connection to the pool
+    with an unread response packet still buffered. pool_pre_ping cannot catch
+    this: the ping reads the stale packet and "succeeds", leaving every later
+    query on that connection off by one response, which surfaces as
+    ResourceClosedError on SELECTs and pymysql 2014 "Command Out of Sync" on
+    rollback. Probe with a nonce echo before the run touches business tables;
+    on any mismatch invalidate the connection and retry on a fresh checkout.
+    The probe leaves the session transaction open so the run keeps using the
+    verified connection.
+    """
+    last_error: Exception | None = None
+    for attempt in range(1, _CONNECTION_PROBE_ATTEMPTS + 1):
+        nonce = uuid.uuid4().hex
+        try:
+            echoed = db.session.execute(
+                sa_text("SELECT :nonce"), {"nonce": nonce}
+            ).scalar()
+            if echoed == nonce:
+                return
+            last_error = None
+            app.logger.warning(
+                "db connection probe echoed %r instead of the nonce "
+                "(attempt %d/%d); invalidating desynced connection",
+                echoed,
+                attempt,
+                _CONNECTION_PROBE_ATTEMPTS,
+            )
+        except (ResourceClosedError, OperationalError, InterfaceError) as exc:
+            last_error = exc
+            app.logger.warning(
+                "db connection probe failed (attempt %d/%d); "
+                "invalidating desynced connection: %s",
+                attempt,
+                _CONNECTION_PROBE_ATTEMPTS,
+                exc,
+            )
+        with contextlib.suppress(Exception):
+            db.session.connection().invalidate()
+        with contextlib.suppress(Exception):
+            db.session.rollback()
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(
+        "db connection probe kept returning mismatched results; "
+        "no healthy connection available"
+    )
 
 
 def _get_max_parallel_ask_count(app: Flask) -> int:
@@ -251,6 +310,7 @@ def run_script_inner(
         run_script_context: RunScriptContextV2 | None = None
         resolved_shifu_bid = shifu_bid
         try:
+            _ensure_healthy_db_connection(app)
             user_info = load_user_aggregate(user_bid)
             if not user_info:
                 raise_error("USER.USER_NOT_FOUND")

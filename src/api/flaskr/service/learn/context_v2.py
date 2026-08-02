@@ -1789,6 +1789,10 @@ class RunScriptContextV2:
         parent_language = get_current_language()
         parent_shifu_context = get_shifu_context_snapshot()
         poll_timeout = max(float(idle_poll_interval or 0.0), 0.01)
+        # Consumer-side stop signal: without it a producer that outlives the
+        # 1s join below keeps streaming until the LLM response ends, holding
+        # its DB session and connection long after the caller moved on.
+        consumer_stopped = threading.Event()
 
         def _produce() -> None:
             with self.app.app_context():
@@ -1796,7 +1800,7 @@ class RunScriptContextV2:
                 apply_shifu_context_snapshot(parent_shifu_context)
                 try:
                     for item in stream_result:
-                        if self._stop_requested():
+                        if consumer_stopped.is_set() or self._stop_requested():
                             break
                         result_queue.put(("item", item))
                 except Exception as exc:
@@ -1835,10 +1839,12 @@ class RunScriptContextV2:
                     raise payload
                 break
         finally:
-            producer_thread.join(timeout=1.0)
+            consumer_stopped.set()
+            producer_thread.join(timeout=5.0)
             if producer_thread.is_alive():
                 self.app.logger.warning(
-                    "mdflow stream producer thread did not stop in time"
+                    "mdflow stream producer thread did not stop in time; "
+                    "it will exit at the next stream chunk boundary"
                 )
 
     def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
