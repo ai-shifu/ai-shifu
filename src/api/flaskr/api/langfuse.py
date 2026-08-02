@@ -301,7 +301,9 @@ class LangfuseObservationHandle:
     def generation(self, **kwargs) -> "LangfuseObservationHandle":
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         payload.setdefault("name", "generation")
-        child = self._delegate.start_generation(**payload)
+        # start_generation() is deprecated in SDK v3; start_observation() is
+        # the v4-compatible replacement.
+        child = self._delegate.start_observation(as_type="generation", **payload)
         return LangfuseObservationHandle(child, self.trace_id)
 
     def event(self, **kwargs) -> "LangfuseObservationHandle":

@@ -105,9 +105,10 @@ class _FakeObservation:
     def start_span(self, **kwargs):
         return _FakeObservation("span", **kwargs)
 
-    def start_generation(self, **kwargs):
-        child = _FakeObservation("generation", **kwargs)
-        self.generations.append(child)
+    def start_observation(self, as_type="span", **kwargs):
+        child = _FakeObservation(as_type, **kwargs)
+        if as_type == "generation":
+            self.generations.append(child)
         return child
 
     def update(self, **kwargs):

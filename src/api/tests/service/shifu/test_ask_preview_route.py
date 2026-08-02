@@ -26,9 +26,10 @@ class _FakeObservation:
         self.last_span = child
         return child
 
-    def start_generation(self, **kwargs):
-        child = _FakeObservation("generation", **kwargs)
-        self.generations.append(child)
+    def start_observation(self, as_type="span", **kwargs):
+        child = _FakeObservation(as_type, **kwargs)
+        if as_type == "generation":
+            self.generations.append(child)
         return child
 
     def update(self, **kwargs):
