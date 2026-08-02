@@ -57,8 +57,8 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from langfuse.client import StatefulTraceClient
 from ...api.langfuse import (
+    LangfuseTraceHandle,
     MockClient,
     create_trace_with_root_span,
     finalize_langfuse_trace,
@@ -240,7 +240,7 @@ def _resolve_runtime_language_context(
 class RUNLLMProvider(LLMProvider):
     app: Flask
     llm_settings: LLMSettings
-    trace: StatefulTraceClient
+    trace: LangfuseTraceHandle
     parent_observation: Any
     trace_args: dict
     usage_context: UsageContext
@@ -250,7 +250,7 @@ class RUNLLMProvider(LLMProvider):
         self,
         app: Flask,
         llm_settings: LLMSettings,
-        trace: StatefulTraceClient,
+        trace: LangfuseTraceHandle,
         parent_observation: Any,
         trace_args: dict,
         usage_context: UsageContext,
@@ -1503,7 +1503,7 @@ class RunScriptContextV2:
     _trace_args: dict
     _trace_id: str
     _shifu_info: ShifuInfoDto
-    _trace: Union[StatefulTraceClient, MockClient]
+    _trace: Union[LangfuseTraceHandle, MockClient]
     _trace_root_span: Any
     _input_type: str
     _input: str
