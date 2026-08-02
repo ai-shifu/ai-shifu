@@ -1,4 +1,8 @@
+import pytest
+from sqlalchemy.exc import ResourceClosedError
+
 from flaskr.dao import db
+from flaskr.service.learn import listen_element_run_persistence
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.models import LearnGeneratedElement
 
@@ -94,6 +98,59 @@ def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(ap
         assert len(row_ids) == 1
         assert row_ids[0] == LearnGeneratedElement.query.first().id
         db.session.rollback()
+
+
+def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkeypatch):
+    class _DesyncedResult:
+        def fetchall(self):
+            raise ResourceClosedError(
+                "This result object does not return rows. "
+                "It has been closed automatically."
+            )
+
+        def close(self):
+            pass
+
+    class _FakeConnection:
+        def __init__(self):
+            self.invalidated = 0
+
+        def execute(self, *_args, **_kwargs):
+            return _DesyncedResult()
+
+        def invalidate(self):
+            self.invalidated += 1
+
+    class _FakeSession:
+        def __init__(self, connection):
+            self._connection = connection
+
+        def connection(self):
+            return self._connection
+
+    fake_connection = _FakeConnection()
+
+    class _FakeDb:
+        session = _FakeSession(fake_connection)
+
+    monkeypatch.setattr(listen_element_run_persistence, "db", _FakeDb)
+
+    with app.app_context():
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid="shifu-a",
+            outline_bid="outline-a",
+            user_bid="user-a",
+            run_session_bid="run-a",
+        )
+
+        with pytest.raises(ResourceClosedError):
+            adapter._find_active_element_row_ids(
+                generated_block_bid="block-a",
+                element_bids=["element-a"],
+            )
+
+    assert fake_connection.invalidated == 1
 
 
 def test_deactivate_active_element_rows_retires_rows_without_touching_others(app):

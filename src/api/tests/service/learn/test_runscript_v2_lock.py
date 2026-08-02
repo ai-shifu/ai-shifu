@@ -16,6 +16,16 @@ from flaskr.service.learn.learn_dtos import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _skip_connection_probe(monkeypatch):
+    # These tests exercise run-script locking and orchestration with minimal
+    # fake sessions; the connection health probe has its own dedicated tests
+    # in test_runscript_v2_connection_probe.py.
+    monkeypatch.setattr(
+        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
+    )
+
+
 class FakeLock:
     def __init__(self, acquire_results: list[bool]):
         self._acquire_results = list(acquire_results)
