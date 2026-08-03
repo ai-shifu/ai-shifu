@@ -50,9 +50,10 @@ from .consts import (
 from .campaigns import resolve_catalog_campaign_payload
 from .bucket_categories import (
     OrderTypeLoader,
-    build_wallet_bucket_runtime_sort_key,
+    resolve_credit_bucket_priority,
 )
 from .credit_grant_allocation_views import (
+    CreditAllocationView,
     build_credit_allocation_view,
     build_credit_grant_view,
 )
@@ -681,18 +682,21 @@ def build_billing_wallet_buckets(
             rows,
             creator_bid=normalized_creator_bid,
         )
-        rows.sort(
-            key=lambda row: build_wallet_bucket_runtime_sort_key(
+        bucket_views = [
+            (
                 row,
-                load_order_type=load_order_type,
+                build_credit_allocation_view(
+                    row,
+                    load_order_type=load_order_type,
+                ),
             )
+            for row in rows
+        ]
+        bucket_views.sort(
+            key=lambda pair: _wallet_bucket_view_sort_key(pair[0], pair[1])
         )
         items = []
-        for row in rows:
-            allocation_view = build_credit_allocation_view(
-                row,
-                load_order_type=load_order_type,
-            )
+        for row, allocation_view in bucket_views:
             items.append(
                 _serialize_wallet_bucket(
                     app,
@@ -702,6 +706,19 @@ def build_billing_wallet_buckets(
                 )
             )
         return BillingWalletBucketListDTO(items=items)
+
+
+def _wallet_bucket_view_sort_key(
+    row: CreditWalletBucket,
+    allocation_view: CreditAllocationView,
+) -> tuple[int, bool, datetime, datetime, int]:
+    return (
+        resolve_credit_bucket_priority(allocation_view.runtime_bucket_category),
+        row.effective_to is None,
+        row.effective_to or datetime.max,
+        row.created_at or datetime.min,
+        int(row.id or 0),
+    )
 
 
 def _build_wallet_bucket_order_type_loader(

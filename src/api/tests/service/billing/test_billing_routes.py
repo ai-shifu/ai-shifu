@@ -1209,6 +1209,105 @@ class TestBillingRoutes:
         assert bucket_map["bucket-topup"]["status"] == "active"
         assert bucket_map["bucket-topup"]["available_credits"] == 15.38
 
+    def test_wallet_bucket_order_lookup_is_page_scoped(
+        self, billing_test_client
+    ) -> None:
+        app = billing_test_client.application
+
+        with app.app_context():
+            order_select_count = 0
+
+            def _count_order_selects(_conn, _cursor, statement, *_args):
+                nonlocal order_select_count
+                if "bill_orders" in statement.lower():
+                    order_select_count += 1
+
+            event.listen(dao.db.engine, "before_cursor_execute", _count_order_selects)
+            try:
+                bucket_list = build_billing_wallet_buckets(app, "creator-1")
+            finally:
+                event.remove(
+                    dao.db.engine,
+                    "before_cursor_execute",
+                    _count_order_selects,
+                )
+
+            assert order_select_count == 0
+            assert len(bucket_list.items) == 3
+
+            dao.db.session.add(
+                BillingOrder(
+                    bill_order_bid="order-shared-topup",
+                    creator_bid="creator-1",
+                    order_type=BILLING_ORDER_TYPE_TOPUP,
+                    product_bid="bill-product-topup-100",
+                    status=BILLING_ORDER_STATUS_PAID,
+                    paid_at=datetime(2026, 4, 7, 9, 0, 0),
+                )
+            )
+            dao.db.session.add_all(
+                [
+                    CreditWalletBucket(
+                        wallet_bucket_bid="bucket-shared-order-1",
+                        wallet_bid="wallet-1",
+                        creator_bid="creator-1",
+                        bucket_category=0,
+                        source_type=CREDIT_SOURCE_TYPE_GIFT,
+                        source_bid="gift-shared-order-1",
+                        priority=4,
+                        original_credits=Decimal("3.0000000000"),
+                        available_credits=Decimal("3.0000000000"),
+                        reserved_credits=Decimal("0"),
+                        consumed_credits=Decimal("0"),
+                        expired_credits=Decimal("0"),
+                        effective_from=datetime(2026, 4, 7, 9, 0, 0),
+                        effective_to=None,
+                        status=CREDIT_BUCKET_STATUS_ACTIVE,
+                        metadata_json={"bill_order_bid": "order-shared-topup"},
+                        created_at=datetime(2026, 4, 7, 9, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 9, 0, 0),
+                    ),
+                    CreditWalletBucket(
+                        wallet_bucket_bid="bucket-shared-order-2",
+                        wallet_bid="wallet-1",
+                        creator_bid="creator-1",
+                        bucket_category=0,
+                        source_type=CREDIT_SOURCE_TYPE_GIFT,
+                        source_bid="gift-shared-order-2",
+                        priority=5,
+                        original_credits=Decimal("4.0000000000"),
+                        available_credits=Decimal("4.0000000000"),
+                        reserved_credits=Decimal("0"),
+                        consumed_credits=Decimal("0"),
+                        expired_credits=Decimal("0"),
+                        effective_from=datetime(2026, 4, 7, 10, 0, 0),
+                        effective_to=None,
+                        status=CREDIT_BUCKET_STATUS_ACTIVE,
+                        metadata_json={"bill_order_bid": "order-shared-topup"},
+                        created_at=datetime(2026, 4, 7, 10, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 10, 0, 0),
+                    ),
+                ]
+            )
+            dao.db.session.commit()
+
+            order_select_count = 0
+            event.listen(dao.db.engine, "before_cursor_execute", _count_order_selects)
+            try:
+                bucket_list = build_billing_wallet_buckets(app, "creator-1")
+            finally:
+                event.remove(
+                    dao.db.engine,
+                    "before_cursor_execute",
+                    _count_order_selects,
+                )
+
+        bucket_map = {item.wallet_bucket_bid: item for item in bucket_list.items}
+
+        assert order_select_count == 1
+        assert bucket_map["bucket-shared-order-1"].credit_asset_kind == "pack_credits"
+        assert bucket_map["bucket-shared-order-2"].credit_asset_kind == "pack_credits"
+
     def test_billing_public_builders_return_dto_instances(
         self,
         billing_test_client,
