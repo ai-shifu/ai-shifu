@@ -9,8 +9,14 @@ import pytest
 import flaskr.dao as dao
 from flaskr.service.billing import subscriptions as subscriptions_mod
 from flaskr.service.billing.consts import (
+    ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_INTERVAL_MONTH,
+    BILLING_MODE_RECURRING,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_PRODUCT_TYPE_PLAN,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -28,10 +34,14 @@ from flaskr.service.billing.cycle_state_transitions import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWalletBucket,
 )
+
+
+_UNSET = object()
 
 
 def _build_app() -> Flask:
@@ -48,6 +58,30 @@ def _build_app() -> Flask:
     )
     dao.db.init_app(app)
     return app
+
+
+def _renewal_order(
+    *,
+    metadata_json: dict | None = None,
+    payment_provider: str = "pingxx",
+    paid_at: datetime | None | object = _UNSET,
+    order_type: int = BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+) -> BillingOrder:
+    return BillingOrder(
+        bill_order_bid="order-renewal-activation-boundary",
+        creator_bid="creator-renewal-activation-boundary",
+        order_type=order_type,
+        product_bid="bill-product-renewal-boundary",
+        subscription_bid="subscription-renewal-activation-boundary",
+        currency="CNY",
+        payable_amount=0,
+        paid_amount=0,
+        payment_provider=payment_provider,
+        channel="manual",
+        status=BILLING_ORDER_STATUS_PAID,
+        paid_at=(datetime(2026, 4, 10, 0, 0, 0) if paid_at is _UNSET else paid_at),
+        metadata_json=metadata_json or {},
+    )
 
 
 def test_subscription_has_effective_cycle_uses_current_period_window() -> None:
@@ -140,6 +174,199 @@ def test_resolve_effective_subscription_cycle_window_rejects_invalid_windows() -
         resolve_effective_subscription_cycle_window(subscription, as_of=current_at)
         is None
     )
+
+
+def test_pingxx_renewal_activation_defers_before_cycle_start() -> None:
+    paid_at = datetime(2026, 4, 10, 0, 0, 0)
+    renewal_cycle_start = datetime(2026, 5, 1, 0, 0, 0)
+    order = _renewal_order(
+        paid_at=paid_at,
+        metadata_json={"renewal_cycle_start_at": renewal_cycle_start.isoformat()},
+    )
+
+    assert subscriptions_mod._should_defer_pingxx_renewal_activation(order) is True
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        _renewal_order(
+            metadata_json={
+                "applied_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat(),
+                "renewal_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat(),
+            },
+        ),
+        _renewal_order(
+            payment_provider="stripe",
+            metadata_json={
+                "renewal_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat(),
+            },
+        ),
+        _renewal_order(
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            metadata_json={
+                "renewal_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat(),
+            },
+        ),
+        _renewal_order(
+            paid_at=None,
+            metadata_json={
+                "renewal_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat(),
+            },
+        ),
+    ],
+    ids=("applied", "non_pingxx", "non_renewal", "unpaid"),
+)
+def test_pingxx_renewal_activation_does_not_defer_when_guard_fails(
+    order: BillingOrder,
+) -> None:
+    assert subscriptions_mod._should_defer_pingxx_renewal_activation(order) is False
+
+
+@pytest.mark.parametrize(
+    ("metadata_json", "payment_provider"),
+    [
+        (
+            {"renewal_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat()},
+            "pingxx",
+        ),
+        (
+            {
+                "checkout_type": "subscription_preorder",
+                "preorder_state": "pending_effective",
+            },
+            "pingxx",
+        ),
+        (
+            {
+                "checkout_type": "referral_invitation_reward",
+                "referral_invitation_reward": True,
+            },
+            "manual",
+        ),
+    ],
+    ids=("pingxx", "preorder", "referral"),
+)
+def test_subscription_renewal_activation_defers_future_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+    metadata_json: dict,
+    payment_provider: str,
+) -> None:
+    current_at = datetime(2026, 4, 10, 0, 0, 0)
+    effective_from = datetime(2026, 5, 1, 0, 0, 0)
+    monkeypatch.setattr(subscriptions_mod, "now_utc", lambda: current_at)
+    order = _renewal_order(
+        paid_at=current_at,
+        payment_provider=payment_provider,
+        metadata_json=metadata_json,
+    )
+
+    assert (
+        subscriptions_mod._should_defer_subscription_renewal_activation(
+            order,
+            effective_from=effective_from,
+        )
+        is True
+    )
+
+
+@pytest.mark.parametrize(
+    ("metadata_json", "effective_from"),
+    [
+        (
+            {
+                "checkout_type": "referral_invitation_reward",
+                "referral_invitation_reward": True,
+            },
+            datetime(2026, 4, 10, 0, 0, 0),
+        ),
+        (
+            {
+                "applied_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat(),
+                "checkout_type": "referral_invitation_reward",
+                "referral_invitation_reward": True,
+            },
+            datetime(2026, 5, 1, 0, 0, 0),
+        ),
+    ],
+    ids=("effective_now", "applied_cycle"),
+)
+def test_subscription_renewal_activation_does_not_defer_when_guard_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    metadata_json: dict,
+    effective_from: datetime,
+) -> None:
+    current_at = datetime(2026, 4, 10, 0, 0, 0)
+    monkeypatch.setattr(subscriptions_mod, "now_utc", lambda: current_at)
+    order = _renewal_order(
+        payment_provider="manual",
+        metadata_json=metadata_json,
+    )
+
+    assert (
+        subscriptions_mod._should_defer_subscription_renewal_activation(
+            order,
+            effective_from=effective_from,
+        )
+        is False
+    )
+
+
+def test_force_activation_advances_future_deferred_renewal() -> None:
+    app = _build_app()
+    current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
+    current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
+    next_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+
+    with app.app_context():
+        dao.db.create_all()
+        product = BillingProduct(
+            product_bid="bill-product-renewal-boundary",
+            product_code="renewal-boundary",
+            product_type=BILLING_PRODUCT_TYPE_PLAN,
+            billing_mode=BILLING_MODE_RECURRING,
+            billing_interval=BILLING_INTERVAL_MONTH,
+            billing_interval_count=1,
+            display_name_i18n_key="billing.product.renewal_boundary",
+            description_i18n_key="billing.product.renewal_boundary.description",
+            currency="CNY",
+            price_amount=0,
+            credit_amount=Decimal("1000.0000000000"),
+            allocation_interval=ALLOCATION_INTERVAL_PER_CYCLE,
+            auto_renew_enabled=1,
+            status=BILLING_PRODUCT_STATUS_ACTIVE,
+        )
+        subscription = BillingSubscription(
+            subscription_bid="subscription-renewal-activation-boundary",
+            creator_bid="creator-renewal-activation-boundary",
+            product_bid=product.product_bid,
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="manual",
+            current_period_start_at=current_cycle_start,
+            current_period_end_at=current_cycle_end,
+        )
+        order = _renewal_order(
+            payment_provider="manual",
+            metadata_json={
+                "checkout_type": "referral_invitation_reward",
+                "referral_invitation_reward": True,
+                "renewal_cycle_start_at": current_cycle_end.isoformat(),
+                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+            },
+        )
+        dao.db.session.add_all([product, subscription, order])
+        dao.db.session.commit()
+
+        activated = subscriptions_mod._activate_subscription_for_paid_order(
+            app,
+            order,
+            force=True,
+        )
+        dao.db.session.flush()
+
+    assert activated is True
+    assert subscription.current_period_start_at == current_cycle_end
+    assert subscription.current_period_end_at == next_cycle_end
 
 
 @pytest.mark.parametrize(
