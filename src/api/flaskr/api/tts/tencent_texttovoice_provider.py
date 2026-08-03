@@ -12,7 +12,7 @@ TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON; note the mapping is easy to mix up):
     internal model  | voice types      | sample rate | UI display name (zh-CN)
     --------------- | ---------------- | ----------- | -----------------------
     premium         | 101xxx (精品音色) | 16000       | 基础语音
-    large-model     | 501xxx/601xxx    | 24000       | 精品语音
+    large-model     | 501xxx/601xxx    | 24000       | 标准语音
                       (大模型音色)
 
 Credentials: TENCENT_TTS_SECRET_ID / TENCENT_TTS_SECRET_KEY (shared with the

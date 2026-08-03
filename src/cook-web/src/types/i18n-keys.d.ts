@@ -3293,6 +3293,7 @@ export type I18nKey =
   | 'module.shifuSetting.ttsPreview'
   | 'module.shifuSetting.ttsPreviewLoading'
   | 'module.shifuSetting.ttsPreviewStop'
+  | 'module.shifuSetting.ttsPromoBadge'
   | 'module.shifuSetting.ttsProvider'
   | 'module.shifuSetting.ttsProviderHint'
   | 'module.shifuSetting.ttsProviderRequiredDesc'

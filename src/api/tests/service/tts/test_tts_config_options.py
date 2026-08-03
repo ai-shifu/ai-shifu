@@ -390,7 +390,7 @@ def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
         json_module.dumps(
             {
                 "tencent_texttovoice/premium": {"zh-CN": "基础语音"},
-                "tencent_texttovoice/large-model": {"zh-CN": "精品语音"},
+                "tencent_texttovoice/large-model": {"zh-CN": "标准语音"},
                 "volcengine/seed-tts-2.0": {"zh-CN": "旗舰语音"},
             }
         ),
@@ -404,6 +404,6 @@ def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
 
     assert [(item["value"], item["label"]) for item in config["model_options"]] == [
         ("tencent_texttovoice/premium", "基础语音"),
-        ("tencent_texttovoice/large-model", "精品语音"),
+        ("tencent_texttovoice/large-model", "标准语音"),
         ("volcengine/seed-tts-2.0", "旗舰语音"),
     ]

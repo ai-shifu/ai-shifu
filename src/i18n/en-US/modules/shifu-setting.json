@@ -248,6 +248,7 @@
   "ttsPreview": "Preview current voice",
   "ttsPreviewLoading": "Generating preview...",
   "ttsPreviewStop": "Stop",
+  "ttsPromoBadge": "Limited-time 95% off",
   "ttsProvider": "Provider",
   "ttsProviderHint": "Choose the provider used to generate lesson narration",
   "ttsProviderRequiredDesc": "Please choose a voice provider before enabling listen mode.",

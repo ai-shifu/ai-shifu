@@ -248,6 +248,7 @@
   "ttsPreview": "试听当前选择",
   "ttsPreviewLoading": "正在生成试听...",
   "ttsPreviewStop": "停止",
+  "ttsPromoBadge": "限时0.5折",
   "ttsProvider": "服务商",
   "ttsProviderHint": "选择用来生成讲课语音的服务商",
   "ttsProviderRequiredDesc": "开启听课模式后，请先选择语音服务商。",

@@ -105,6 +105,10 @@ import {
   ONBOARDING_TARGET_IDS,
 } from '@/lib/onboardingTargets';
 
+// Temporary display-only promo tag on TTS model options; remove when the
+// campaign ends. Credit multipliers stay admin-configured and untouched.
+const TTS_PROMO_MODEL_VALUES = new Set(['minimax/speech-2.8-turbo']);
+
 interface Shifu {
   description: string;
   bid: string;
@@ -564,8 +568,16 @@ export default function ShifuSettingDialog({
     ttsConfig?.providers[0];
 
   const ttsModelOptions = useMemo(
-    () => ttsConfig?.model_options || [],
-    [ttsConfig?.model_options],
+    () =>
+      (ttsConfig?.model_options || []).map(option =>
+        TTS_PROMO_MODEL_VALUES.has(option.value)
+          ? {
+              ...option,
+              promoLabel: t('module.shifuSetting.ttsPromoBadge'),
+            }
+          : option,
+      ),
+    [t, ttsConfig?.model_options],
   );
   const ttsModelSelectValue = buildTtsModelOptionValue(
     resolvedProvider,

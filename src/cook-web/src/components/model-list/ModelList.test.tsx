@@ -169,6 +169,45 @@ describe('ModelList', () => {
     ).toBeNull();
   });
 
+  test('renders promo badge only for options that carry a promoLabel', () => {
+    render(
+      <ModelList
+        value='minimax/speech-2.8-turbo'
+        onChange={() => undefined}
+        showDefaultOption={false}
+        options={[
+          {
+            value: 'minimax/speech-2.8-turbo',
+            label: 'Premium Voice',
+            creditMultiplierLabel: '22x',
+            promoLabel: 'Limited-time 90% off',
+          },
+          {
+            value: 'tencent_texttovoice/premium',
+            label: 'Basic Voice',
+            creditMultiplierLabel: '2x',
+          },
+        ]}
+      />,
+    );
+
+    // Promo badge shows in both the trigger and the dropdown option, next to
+    // the untouched multiplier badge.
+    expect(screen.getAllByText('Limited-time 90% off')).toHaveLength(2);
+    expect(screen.getAllByText('22x')).toHaveLength(2);
+
+    const basicOption = screen
+      .getByText('Basic Voice')
+      .closest('[role="option"]');
+    expect(basicOption).toBeTruthy();
+    expect(
+      within(basicOption as HTMLElement).queryByText('Limited-time 90% off'),
+    ).toBeNull();
+    expect(
+      within(basicOption as HTMLElement).getByText('2x'),
+    ).toBeInTheDocument();
+  });
+
   test('refreshes model options on open with a short ttl', () => {
     const initialNow = Date.now() + 1_000_000;
     const nowSpy = jest.spyOn(Date, 'now');
