@@ -78,6 +78,7 @@ jobs:
           targets: set[str] = set()
           full_run = False
           skip_run = False
+          api_root = pathlib.Path("src/api")
 
           def normalize(path: str) -> str:
               prefix = "src/api/"
@@ -85,7 +86,7 @@ jobs:
 
           def add_target(path: str) -> None:
               candidate = normalize(path)
-              if pathlib.Path(candidate).exists():
+              if (api_root / candidate).exists():
                   targets.add(candidate)
 
           def is_control_plane_backend_path(path: str) -> bool:
@@ -121,7 +122,7 @@ jobs:
                   if len(parts) > 4:
                       module = parts[4]
                       test_dir = pathlib.Path("tests/service") / module
-                      if test_dir.exists():
+                      if (api_root / test_dir).exists():
                           targets.add(str(test_dir))
                       else:
                           full_run = True
