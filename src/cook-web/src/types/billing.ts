@@ -288,6 +288,7 @@ export type BillingSubscription = {
 export type BillingWalletBucket = {
   wallet_bucket_bid: string;
   category: BillingBucketCategory;
+  credit_asset_kind: BillingCreditAssetKind;
   source_type: BillingBucketSourceType;
   source_bid: string;
   available_credits: number;

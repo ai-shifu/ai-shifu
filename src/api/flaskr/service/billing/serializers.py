@@ -491,10 +491,17 @@ def build_billing_alerts(
 def serialize_wallet_bucket(
     app: Flask,
     row: CreditWalletBucket,
+    *,
+    category_code: int | None = None,
+    credit_asset_kind: str = "unknown",
 ) -> BillingWalletBucketDTO:
-    category_code = resolve_wallet_bucket_runtime_category(
-        row,
-        load_order_type=load_billing_order_type_by_bid,
+    runtime_category_code = (
+        resolve_wallet_bucket_runtime_category(
+            row,
+            load_order_type=load_billing_order_type_by_bid,
+        )
+        if category_code is None
+        else int(category_code)
     )
     current_at = now_utc()
     runtime_status = CREDIT_BUCKET_STATUS_LABELS.get(row.status, "active")
@@ -503,7 +510,7 @@ def serialize_wallet_bucket(
         and row.effective_to is not None
         and row.effective_to <= current_at
         and not (
-            category_code == CREDIT_BUCKET_CATEGORY_TOPUP
+            runtime_category_code == CREDIT_BUCKET_CATEGORY_TOPUP
             and to_decimal(row.available_credits) > 0
             and (row.effective_from is None or row.effective_from <= current_at)
         )
@@ -512,13 +519,16 @@ def serialize_wallet_bucket(
 
     return BillingWalletBucketDTO(
         wallet_bucket_bid=row.wallet_bucket_bid,
-        category=CREDIT_BUCKET_CATEGORY_LABELS.get(category_code, "subscription"),
+        category=CREDIT_BUCKET_CATEGORY_LABELS.get(
+            runtime_category_code, "subscription"
+        ),
+        credit_asset_kind=str(credit_asset_kind or "unknown"),
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         source_bid=row.source_bid,
         available_credits=credit_decimal_to_number(row.available_credits),
         effective_from=row.effective_from,
         effective_to=row.effective_to,
-        priority=resolve_credit_bucket_priority(category_code),
+        priority=resolve_credit_bucket_priority(runtime_category_code),
         status=runtime_status,
     )
 
