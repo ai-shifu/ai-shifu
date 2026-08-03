@@ -1418,6 +1418,14 @@ class TestBillingRoutes:
                         status=BILLING_ORDER_STATUS_PAID,
                         paid_at=datetime(2026, 4, 7, 9, 30, 0),
                     ),
+                    BillingOrder(
+                        bill_order_bid="order-other-creator-topup",
+                        creator_bid="creator-2",
+                        order_type=BILLING_ORDER_TYPE_TOPUP,
+                        product_bid="bill-product-topup-100",
+                        status=BILLING_ORDER_STATUS_PAID,
+                        paid_at=datetime(2026, 4, 7, 9, 45, 0),
+                    ),
                 ]
             )
             dao.db.session.add(
@@ -1533,6 +1541,40 @@ class TestBillingRoutes:
                         created_at=datetime(2026, 4, 7, 13, 0, 0),
                         updated_at=datetime(2026, 4, 7, 13, 0, 0),
                     ),
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-internal-legacy",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                        source_bid="manual-adjustment",
+                        idempotency_key="manual-adjustment-1",
+                        amount=Decimal("1.0000000000"),
+                        balance_after=Decimal("133.5000000000"),
+                        expires_at=None,
+                        consumable_from=datetime(2026, 4, 7, 14, 0, 0),
+                        metadata_json={},
+                        created_at=datetime(2026, 4, 7, 14, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 14, 0, 0),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-cross-creator-order",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
+                        source_bid="campaign-cross-creator",
+                        idempotency_key="campaign-cross-creator-1",
+                        amount=Decimal("2.0000000000"),
+                        balance_after=Decimal("135.5000000000"),
+                        expires_at=None,
+                        consumable_from=datetime(2026, 4, 7, 15, 0, 0),
+                        metadata_json={"bill_order_bid": "order-other-creator-topup"},
+                        created_at=datetime(2026, 4, 7, 15, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 15, 0, 0),
+                    ),
                 ]
             )
             dao.db.session.commit()
@@ -1566,6 +1608,8 @@ class TestBillingRoutes:
         assert asset_kind_by_bid["ledger-topup-grant"] == "pack_credits"
         assert asset_kind_by_bid["ledger-grant"] == "plan_credits"
         assert asset_kind_by_bid["ledger-consume"] == "plan_credits"
+        assert asset_kind_by_bid["ledger-internal-legacy"] == "internal_legacy"
+        assert asset_kind_by_bid["ledger-cross-creator-order"] == "unknown"
 
     def test_ledger_emits_utc_ignoring_request_timezone(
         self, billing_test_client

@@ -49,6 +49,7 @@ from .consts import (
 )
 from .campaigns import resolve_catalog_campaign_payload
 from .bucket_categories import (
+    OrderTypeLoader,
     build_wallet_bucket_runtime_sort_key,
     load_billing_order_type_by_bid,
 )
@@ -709,8 +710,9 @@ def _load_ledger_bucket_map(
 def _build_ledger_page_order_type_loader(
     rows: list[CreditLedgerEntry],
     *,
+    creator_bid: str,
     bucket_map: dict[str, CreditWalletBucket],
-):
+) -> OrderTypeLoader:
     order_bids = {
         _normalize_bid(_normalize_json_object(row.metadata_json).get("bill_order_bid"))
         for row in rows
@@ -726,6 +728,7 @@ def _build_ledger_page_order_type_loader(
     orders = (
         BillingOrder.query.filter(
             BillingOrder.deleted == 0,
+            BillingOrder.creator_bid == _normalize_bid(creator_bid),
             BillingOrder.bill_order_bid.in_(order_bids),
         ).all()
         if order_bids
@@ -779,6 +782,7 @@ def build_billing_ledger_page(
         bucket_map = _load_ledger_bucket_map(rows, creator_bid=normalized_creator_bid)
         load_order_type = _build_ledger_page_order_type_loader(
             rows,
+            creator_bid=normalized_creator_bid,
             bucket_map=bucket_map,
         )
 
