@@ -322,6 +322,7 @@ describe('resolveBillingLedgerReasonLabel', () => {
       entry_type: 'consume',
       source_type: 'usage',
       source_bid: `usage-${usageScene}`,
+      credit_asset_kind: 'plan_credits',
       idempotency_key: `usage-${usageScene}-bucket-free`,
       amount: -1,
       balance_after: 99,

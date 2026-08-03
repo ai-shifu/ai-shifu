@@ -528,6 +528,7 @@ def serialize_ledger_entry(
     row: CreditLedgerEntry,
     *,
     metadata: Any | None = None,
+    credit_asset_kind: str = "unknown",
 ) -> BillingLedgerItemDTO:
     return BillingLedgerItemDTO(
         ledger_bid=row.ledger_bid,
@@ -535,6 +536,7 @@ def serialize_ledger_entry(
         entry_type=CREDIT_LEDGER_ENTRY_TYPE_LABELS.get(row.entry_type, "grant"),
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         source_bid=row.source_bid,
+        credit_asset_kind=str(credit_asset_kind or "unknown"),
         idempotency_key=row.idempotency_key,
         amount=credit_decimal_to_number(row.amount),
         balance_after=credit_decimal_to_number(row.balance_after),
