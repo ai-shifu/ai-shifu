@@ -219,6 +219,6 @@ def test_repair_paid_reserved_grant_handles_cycle_window_boundaries(
         )
         dao.db.session.refresh(bucket)
 
-    assert changed is expected_changed
-    assert bucket.effective_from == expected_bucket_start
-    assert bucket.effective_to == expected_bucket_end
+        assert changed is expected_changed
+        assert bucket.effective_from == expected_bucket_start
+        assert bucket.effective_to == expected_bucket_end

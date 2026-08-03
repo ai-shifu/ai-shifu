@@ -8,18 +8,12 @@ import pytest
 import flaskr.dao as dao
 from flaskr.service.billing import subscriptions as subscriptions_mod
 from flaskr.service.billing.consts import (
-    ALLOCATION_INTERVAL_PER_CYCLE,
-    BILLING_INTERVAL_MONTH,
-    BILLING_MODE_RECURRING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-    BILLING_PRODUCT_STATUS_ACTIVE,
-    BILLING_PRODUCT_TYPE_PLAN,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
-    BillingProduct,
     BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
@@ -46,38 +40,40 @@ def test_pingxx_renewal_activation_defers_before_cycle_start() -> None:
 
 
 @pytest.mark.parametrize(
-    "order",
+    "order_kwargs",
     [
-        _renewal_order(
-            metadata_json={
+        {
+            "metadata_json": {
                 "applied_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat(),
                 "renewal_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat(),
             },
-        ),
-        _renewal_order(
-            payment_provider="stripe",
-            metadata_json={
+        },
+        {
+            "payment_provider": "stripe",
+            "metadata_json": {
                 "renewal_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat(),
             },
-        ),
-        _renewal_order(
-            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-            metadata_json={
+        },
+        {
+            "order_type": BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            "metadata_json": {
                 "renewal_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat(),
             },
-        ),
-        _renewal_order(
-            paid_at=None,
-            metadata_json={
+        },
+        {
+            "paid_at": None,
+            "metadata_json": {
                 "renewal_cycle_start_at": datetime(2026, 5, 1, 0, 0, 0).isoformat(),
             },
-        ),
+        },
     ],
     ids=("applied", "non_pingxx", "non_renewal", "unpaid"),
 )
 def test_pingxx_renewal_activation_does_not_defer_when_guard_fails(
-    order: BillingOrder,
+    order_kwargs: dict,
 ) -> None:
+    order = _renewal_order(**order_kwargs)
+
     assert subscriptions_mod._should_defer_pingxx_renewal_activation(order) is False
 
 
@@ -182,22 +178,7 @@ def test_force_activation_advances_future_deferred_renewal(
 
     with app.app_context():
         dao.db.create_all()
-        product = BillingProduct(
-            product_bid="bill-product-renewal-boundary",
-            product_code="renewal-boundary",
-            product_type=BILLING_PRODUCT_TYPE_PLAN,
-            billing_mode=BILLING_MODE_RECURRING,
-            billing_interval=BILLING_INTERVAL_MONTH,
-            billing_interval_count=1,
-            display_name_i18n_key="billing.product.renewal_boundary",
-            description_i18n_key="billing.product.renewal_boundary.description",
-            currency="CNY",
-            price_amount=0,
-            credit_amount=Decimal("1000.0000000000"),
-            allocation_interval=ALLOCATION_INTERVAL_PER_CYCLE,
-            auto_renew_enabled=1,
-            status=BILLING_PRODUCT_STATUS_ACTIVE,
-        )
+        product = _renewal_product()
         subscription = BillingSubscription(
             subscription_bid="subscription-renewal-activation-boundary",
             creator_bid="creator-renewal-activation-boundary",
@@ -250,12 +231,12 @@ def test_force_activation_advances_future_deferred_renewal(
         )
         dao.db.session.flush()
 
-    assert deferred is False
-    assert activated is True
-    assert subscription.current_period_start_at == current_cycle_start
-    assert subscription.current_period_end_at == current_cycle_end
-    assert forced_subscription.current_period_start_at == current_cycle_end
-    assert forced_subscription.current_period_end_at == next_cycle_end
+        assert deferred is False
+        assert activated is True
+        assert subscription.current_period_start_at == current_cycle_start
+        assert subscription.current_period_end_at == current_cycle_end
+        assert forced_subscription.current_period_start_at == current_cycle_end
+        assert forced_subscription.current_period_end_at == next_cycle_end
 
 
 def test_pingxx_renewal_activation_applies_at_exact_cycle_start(
@@ -270,22 +251,7 @@ def test_pingxx_renewal_activation_applies_at_exact_cycle_start(
 
     with app.app_context():
         dao.db.create_all()
-        product = BillingProduct(
-            product_bid="bill-product-renewal-boundary",
-            product_code="renewal-boundary",
-            product_type=BILLING_PRODUCT_TYPE_PLAN,
-            billing_mode=BILLING_MODE_RECURRING,
-            billing_interval=BILLING_INTERVAL_MONTH,
-            billing_interval_count=1,
-            display_name_i18n_key="billing.product.renewal_boundary",
-            description_i18n_key="billing.product.renewal_boundary.description",
-            currency="CNY",
-            price_amount=0,
-            credit_amount=Decimal("1000.0000000000"),
-            allocation_interval=ALLOCATION_INTERVAL_PER_CYCLE,
-            auto_renew_enabled=1,
-            status=BILLING_PRODUCT_STATUS_ACTIVE,
-        )
+        product = _renewal_product()
         subscription = BillingSubscription(
             subscription_bid="subscription-renewal-activation-boundary",
             creator_bid="creator-renewal-activation-boundary",
@@ -312,9 +278,9 @@ def test_pingxx_renewal_activation_applies_at_exact_cycle_start(
         )
         dao.db.session.flush()
 
-    assert activated is True
-    assert subscription.current_period_start_at == current_cycle_end
-    assert subscription.current_period_end_at == next_cycle_end
+        assert activated is True
+        assert subscription.current_period_start_at == current_cycle_end
+        assert subscription.current_period_end_at == next_cycle_end
 
 
 def test_force_activation_does_not_bypass_preorder_state_guard(
