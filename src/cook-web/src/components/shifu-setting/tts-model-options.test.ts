@@ -1,6 +1,7 @@
 import {
   buildTtsModelOptionValue,
   filterTtsVoicesForModel,
+  getDefaultTtsModelOption,
   normalizeTtsModelOptions,
   parseTtsModelOptionValue,
 } from './tts-model-options';
@@ -79,5 +80,72 @@ describe('tts-model-options', () => {
     expect(filterTtsVoicesForModel(annotatedVoices, '')).toEqual(
       annotatedVoices,
     );
+  });
+
+  test('normalizes the backend is_default marker', () => {
+    const options = normalizeTtsModelOptions([
+      {
+        value: 'tencent_texttovoice/premium',
+        label: 'Basic Voice',
+        provider: 'tencent_texttovoice',
+        model: 'premium',
+        is_default: false,
+      },
+      {
+        value: 'tencent_texttovoice/large-model',
+        label: 'Standard Voice',
+        provider: 'tencent_texttovoice',
+        model: 'large-model',
+        is_default: true,
+      },
+    ]);
+
+    expect(options.map(option => option.isDefault)).toEqual([false, true]);
+  });
+
+  test('selects the default option with first-option fallback', () => {
+    const options = normalizeTtsModelOptions([
+      {
+        value: 'tencent_texttovoice/premium',
+        label: 'Basic Voice',
+        provider: 'tencent_texttovoice',
+        model: 'premium',
+      },
+      {
+        value: 'tencent_texttovoice/large-model',
+        label: 'Standard Voice',
+        provider: 'tencent_texttovoice',
+        model: 'large-model',
+        is_default: true,
+      },
+    ]);
+
+    // The declared default wins even when it is not the first option, so the
+    // dropdown order stays untouched.
+    expect(getDefaultTtsModelOption(options)?.value).toBe(
+      'tencent_texttovoice/large-model',
+    );
+
+    // Without a declared default (older backend payloads), fall back to the
+    // first option to preserve the legacy behavior.
+    const legacyOptions = normalizeTtsModelOptions([
+      {
+        value: 'tencent_texttovoice/premium',
+        label: 'Basic Voice',
+        provider: 'tencent_texttovoice',
+        model: 'premium',
+      },
+      {
+        value: 'minimax/speech-2.8-turbo',
+        label: 'Premium Voice',
+        provider: 'minimax',
+        model: 'speech-2.8-turbo',
+      },
+    ]);
+    expect(getDefaultTtsModelOption(legacyOptions)?.value).toBe(
+      'tencent_texttovoice/premium',
+    );
+
+    expect(getDefaultTtsModelOption([])).toBeUndefined();
   });
 });

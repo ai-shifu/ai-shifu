@@ -249,6 +249,17 @@ def _parse_allowed_tts_model_keys() -> list[str]:
     return keys
 
 
+def _parse_default_tts_model_key() -> str:
+    value = str(get_config("TTS_DEFAULT_MODEL") or "").strip()
+    if not value:
+        return ""
+    if "/" not in value:
+        logger.warning("Ignoring invalid TTS_DEFAULT_MODEL: %s", value)
+        return ""
+    provider, model = value.split("/", 1)
+    return _normalize_tts_model_key(provider, model)
+
+
 def _parse_tts_display_names() -> dict:
     configured = get_config("TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON")
     if isinstance(configured, dict):
@@ -480,15 +491,26 @@ def _build_tts_model_options(provider_payloads: list[tuple[str, dict]]) -> list[
             options.append(option)
 
     allowed_keys = _parse_allowed_tts_model_keys()
-    if not allowed_keys:
-        return options
+    if allowed_keys:
+        option_map = {option["value"]: option for option in options}
+        filtered = [option_map[key] for key in allowed_keys if key in option_map]
+        missing = [key for key in allowed_keys if key not in option_map]
+        if missing:
+            logger.warning(
+                "Ignoring unavailable TTS_ALLOWED_MODELS entries: %s", missing
+            )
+        options = filtered
 
-    option_map = {option["value"]: option for option in options}
-    filtered = [option_map[key] for key in allowed_keys if key in option_map]
-    missing = [key for key in allowed_keys if key not in option_map]
-    if missing:
-        logger.warning("Ignoring unavailable TTS_ALLOWED_MODELS entries: %s", missing)
-    return filtered
+    default_key = _parse_default_tts_model_key()
+    if default_key and default_key not in {option["value"] for option in options}:
+        logger.warning(
+            "Ignoring TTS_DEFAULT_MODEL not in available model options: %s",
+            default_key,
+        )
+        default_key = ""
+    for option in options:
+        option["is_default"] = option["value"] == default_key
+    return options
 
 
 def get_all_provider_configs() -> dict:
