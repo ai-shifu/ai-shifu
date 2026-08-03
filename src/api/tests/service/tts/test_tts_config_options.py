@@ -70,6 +70,9 @@ def test_tts_config_model_options_follow_allowlist_and_localized_names(
             }
         ),
     )
+    # Keep the is_default assertions hermetic even when the surrounding
+    # environment configures a default model.
+    monkeypatch.delenv("TTS_DEFAULT_MODEL", raising=False)
 
     try:
         set_language("zh-CN")
