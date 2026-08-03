@@ -432,3 +432,38 @@ def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
     assert resp.status_code == 200
     assert resp.mimetype == "text/event-stream"
     assert '"event_type":"done"' in body
+
+
+def test_run_route_uses_payload_language_as_generation_snapshot(
+    monkeypatch, test_client
+):
+    _mock_user(monkeypatch, "user-run-language")
+    captured = {}
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.routes.is_builtin_demo_shifu",
+        lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
+    )
+
+    def _fake_run_script(*_args, **kwargs):
+        captured.update(kwargs)
+        yield 'data: {"type":"done","event_type":"done","content":""}\n\n'
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.routes.run_script",
+        _fake_run_script,
+    )
+
+    resp = test_client.put(
+        "/api/learn/shifu/builtin-demo-1/run/outline-1",
+        json={"input": "hello", "language": "fr-FR"},
+        headers={
+            "Token": "test-token",
+            "Accept-Language": "zh-CN",
+        },
+    )
+    body = resp.data.decode("utf-8")
+
+    assert resp.status_code == 200
+    assert '"event_type":"done"' in body
+    assert captured["language"] == "fr-FR"

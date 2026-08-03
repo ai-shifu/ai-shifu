@@ -16,11 +16,14 @@
 .ask-button {
   background: #55575e;
   color: rgba(255, 255, 255, var(--tw-text-opacity, 1));
-  width: 54px;
+  width: auto;
+  min-width: 54px;
   height: 22px;
+  padding: 0 8px;
   gap: 4px;
   font-size: 10px;
   line-height: 1;
+  white-space: nowrap;
   border-radius: 24px;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   margin-right: 3px;
@@ -36,7 +39,7 @@
 
 .ask-button--content {
   background: var(--primary);
-  width: 58px;
+  min-width: 58px;
   height: 20px;
   font-size: 12px;
   font-weight: 500;

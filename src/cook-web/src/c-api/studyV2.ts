@@ -2,6 +2,7 @@ import { SSE } from 'sse.js';
 import request, {
   attachSseBusinessResponseFallback,
   getCurrentLanguageHeaders,
+  getCurrentRequestLanguage,
 } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
@@ -280,6 +281,7 @@ export const getRunMessage = (
   preview_mode: boolean,
   body: {
     input: Record<string, any> | string;
+    language?: string;
     listen?: boolean;
     [key: string]: any;
   },
@@ -289,6 +291,13 @@ export const getRunMessage = (
   const token = useUserStore.getState().getToken();
   const payload = { ...body };
   payload.listen = Boolean(body.listen);
+  const requestLanguage =
+    String(body.language || '').trim() || getCurrentRequestLanguage();
+  if (requestLanguage) {
+    payload.language = requestLanguage;
+  } else {
+    delete payload.language;
+  }
 
   const baseURL = getResolvedBaseURL();
 
@@ -337,7 +346,7 @@ export const getRunMessage = (
   const url = `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`;
   const traceHeaders = buildTraceHeaders({
     'Content-Type': 'application/json',
-    ...getCurrentLanguageHeaders(),
+    ...getCurrentLanguageHeaders(requestLanguage),
     ...(token
       ? {
           Authorization: `Bearer ${token}`,

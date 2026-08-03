@@ -1,4 +1,4 @@
-# ruff: noqa: E402
+import importlib
 import sys
 import types
 
@@ -51,21 +51,9 @@ def _install_openai_responses_stub() -> None:
 
     response_function_tool_call = type("ResponseFunctionToolCall", (), {})
     response_text_config = type("ResponseTextConfigParam", (), {})
-    setattr(
-        response_function_mod,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
-    setattr(
-        response_text_mod,
-        "ResponseTextConfigParam",
-        response_text_config,
-    )
-    setattr(
-        responses_pkg,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
+    response_function_mod.ResponseFunctionToolCall = response_function_tool_call
+    response_text_mod.ResponseTextConfigParam = response_text_config
+    responses_pkg.ResponseFunctionToolCall = response_function_tool_call
 
     sys.modules["openai.types.responses"] = responses_pkg
     sys.modules["openai.types.responses.response"] = response_mod
@@ -79,8 +67,10 @@ def _install_openai_responses_stub() -> None:
 _install_litellm_stub()
 _install_openai_responses_stub()
 
-from flaskr.service.learn.ask_provider_adapters import AskProviderError
-from flaskr.service.learn.learn_dtos import GeneratedType
+AskProviderError = importlib.import_module(
+    "flaskr.service.learn.ask_provider_adapters"
+).AskProviderError
+GeneratedType = importlib.import_module("flaskr.service.learn.learn_dtos").GeneratedType
 
 
 class _DummyColumn:
@@ -628,6 +618,86 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
     user_content = captured["messages"][1]["content"]
     assert user_content.endswith("hello")
     assert "plain text or standard Markdown" in user_content
+
+
+def test_handle_input_ask_formats_provider_prompt_with_request_language(
+    app, monkeypatch
+):
+    from flaskr.service.learn import handle_input_ask as module
+
+    ask_provider_config = {
+        "provider": "dify",
+        "mode": "provider_then_llm",
+        "config": {"base_url": "https://dify.example.com", "api_key": "key"},
+    }
+    _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config)
+
+    context = _Context()
+    context._shifu_info.use_learner_language = 1
+    context.get_system_prompt = lambda _outline_bid: (
+        "Course language: {language}; learner language: {sys_user_language}"
+    )
+    captured = {"messages": None, "profile_overrides": None}
+
+    def _fake_get_fmt_prompt(
+        _app,
+        _user_id,
+        _course_id,
+        template,
+        *,
+        profile_overrides=None,
+    ):
+        captured["profile_overrides"] = profile_overrides
+        profiles = {
+            "language": "zh-CN",
+            "sys_user_language": "zh-CN",
+            **(profile_overrides or {}),
+        }
+        return template.format(**profiles)
+
+    def _fake_stream_ask_provider_response(**kwargs):
+        captured["messages"] = kwargs.get("messages")
+        return iter([types.SimpleNamespace(content="provider-answer")])
+
+    monkeypatch.setattr(module, "get_fmt_prompt", _fake_get_fmt_prompt)
+    monkeypatch.setattr(module, "get_current_language", lambda: "fr-FR")
+    monkeypatch.setattr(module, "get_markdownflow_output_language", lambda: "Français")
+    monkeypatch.setattr(
+        module,
+        "stream_ask_provider_response",
+        _fake_stream_ask_provider_response,
+    )
+    monkeypatch.setattr(module, "chat_llm", lambda *_args, **_kwargs: iter([]))
+
+    list(
+        module.handle_input_ask(
+            app=app,
+            context=context,
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            input="hello",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="shifu-1",
+                bid="outline-1",
+                title="Outline",
+                position=1,
+            ),
+            trace_args={"output": ""},
+            trace=_DummyTrace(),
+        )
+    )
+
+    assert captured["profile_overrides"] == {
+        "language": "fr-FR",
+        "sys_user_language": "fr-FR",
+    }
+    assert captured["messages"][0] == {
+        "role": "system",
+        "content": "Course language: fr-FR; learner language: fr-FR",
+    }
+    assert captured["messages"][1]["content"].endswith(
+        "(IMPORTANT: You MUST respond in Français.)"
+    )
 
 
 # ---------------------------------------------------------------------------

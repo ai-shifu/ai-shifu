@@ -6,6 +6,10 @@ import { initReactI18next } from 'react-i18next';
 
 import UnifiedI18nBackend from '@/lib/unified-i18n-backend';
 import { defaultLocale, localeCodes, namespaces } from '@/lib/i18n-locales';
+import {
+  clearPendingRequestLanguage,
+  setPendingRequestLanguage,
+} from '@/lib/request-language';
 import { setI18nLoading } from '@/store/useI18nLoadingStore';
 
 const fileNamespaces = namespaces.length ? namespaces : ['common'];
@@ -89,6 +93,10 @@ type ChangeLanguage = typeof i18n.changeLanguage;
 const originalChangeLanguage = i18n.changeLanguage.bind(i18n) as ChangeLanguage;
 
 i18n.changeLanguage = (async (...args: Parameters<ChangeLanguage>) => {
+  const requestedLanguage = String(args[0] || '').trim();
+  if (requestedLanguage) {
+    setPendingRequestLanguage(requestedLanguage);
+  }
   setI18nLoading(true);
   try {
     return await originalChangeLanguage(...args);
@@ -96,6 +104,9 @@ i18n.changeLanguage = (async (...args: Parameters<ChangeLanguage>) => {
     console.error('Failed to change language', error);
     throw error;
   } finally {
+    if (requestedLanguage) {
+      clearPendingRequestLanguage(requestedLanguage);
+    }
     setI18nLoading(false);
   }
 }) as ChangeLanguage;

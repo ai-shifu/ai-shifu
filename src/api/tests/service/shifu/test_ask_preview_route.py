@@ -5,53 +5,66 @@ from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.learn.ask_provider_adapters import AskProviderError
 
 
-class _FakeGeneration:
-    def __init__(self, **kwargs):
+class _FakeObservation:
+    """Mimics a Langfuse SDK v3 span/generation object."""
+
+    def __init__(self, kind: str = "span", **kwargs):
+        self.kind = kind
         self.kwargs = kwargs
-        self.end_kwargs = {}
-
-    def end(self, **kwargs):
-        self.end_kwargs = kwargs
-
-
-class _FakeSpan:
-    def __init__(self):
+        self.updates = []
+        self.trace_updates = []
+        self.ended = False
+        self.trace_id = "f" * 32
+        self.id = f"fake-{kind}-id"
         self.generations = []
-        self.end_kwargs = {}
-
-    def generation(self, **kwargs):
-        generation = _FakeGeneration(**kwargs)
-        self.generations.append(generation)
-        return generation
-
-    def end(self, **kwargs):
-        self.end_kwargs = kwargs
-
-
-class _FakeTrace:
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-        self.updated = {}
         self.span_calls = []
         self.last_span = None
 
-    def span(self, **kwargs):
+    def start_span(self, **kwargs):
         self.span_calls.append(kwargs)
-        self.last_span = _FakeSpan()
-        return self.last_span
+        child = _FakeObservation("span", **kwargs)
+        self.last_span = child
+        return child
+
+    def start_observation(self, as_type="span", **kwargs):
+        child = _FakeObservation(as_type, **kwargs)
+        if as_type == "generation":
+            self.generations.append(child)
+        return child
 
     def update(self, **kwargs):
-        self.updated = kwargs
+        self.updates.append(kwargs)
+
+    def update_trace(self, **kwargs):
+        self.trace_updates.append(kwargs)
+
+    def end(self):
+        self.ended = True
+
+    @property
+    def end_kwargs(self):
+        merged = {}
+        for item in self.updates:
+            merged.update(item)
+        return merged
+
+    @property
+    def updated(self):
+        merged = {}
+        for item in self.trace_updates:
+            merged.update(item)
+        return merged
 
 
 class _FakeLangfuseClient:
     def __init__(self):
         self.traces = []
 
-    def trace(self, **kwargs):
-        trace = _FakeTrace(**kwargs)
-        self.traces.append(trace)
-        return trace
+    def start_span(self, trace_context=None, **kwargs):
+        root = _FakeObservation("span", **kwargs)
+        root.trace_context = trace_context or {}
+        self.traces.append(root)
+        return root
 
 
 def _mock_authenticated_user(
@@ -126,15 +139,16 @@ def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
     assert len(fake_langfuse.traces) == 1
     trace = fake_langfuse.traces[0]
     assert trace.kwargs["input"] == "hello"
-    assert trace.last_span is not None
-    assert len(trace.last_span.generations) == 1
-    generation = trace.last_span.generations[0]
+    # With SDK v3 the generation hangs directly off the root span.
+    assert len(trace.generations) == 1
+    generation = trace.generations[0]
     assert generation.kwargs["model"] == "dify"
     assert generation.end_kwargs["metadata"]["provider_config"]["config"][
         "api_key"
     ] == ("[REDACTED]")
     assert generation.end_kwargs["output"] == "provider result"
-    assert trace.last_span.end_kwargs["output"] == "provider result"
+    assert generation.ended
+    assert trace.end_kwargs["output"] == "provider result"
     assert trace.updated["output"] == "provider result"
 
 

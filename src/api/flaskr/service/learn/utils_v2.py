@@ -1,15 +1,20 @@
-from flask import Flask
-from flaskr.util.uuid import generate_id
-from flaskr.service.learn.models import LearnGeneratedBlock
-from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct, HistoryItem
-from flaskr.service.shifu.models import PublishedOutlineItem, DraftOutlineItem
-from flaskr.service.shifu.models import PublishedShifu, DraftShifu
-from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
-from flaskr.service.shifu.shifu_draft_funcs import normalize_ask_provider_config
-from ...service.profile.funcs import get_user_profiles
 import re
-from typing import Union
+
+from flask import Flask
+from flaskr.service.learn.models import LearnGeneratedBlock
+from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.shifu.shifu_draft_funcs import normalize_ask_provider_config
+from flaskr.service.shifu.shifu_struct_manager import HistoryItem, get_shifu_struct
 from flaskr.service.shifu.struct_utils import find_node_with_parents
+from flaskr.util.uuid import generate_id
+
+from ...service.profile.funcs import get_user_profiles
 
 
 class FollowUpInfo:
@@ -76,12 +81,11 @@ def safe_format_template(template: str, variables: dict) -> str:
     pattern = re.compile(r"(\{{1,2})([^{}]+)(\}{1,2})")
 
     def replacer(match):
-        left, var, right = match.groups()
+        _, var, _ = match.groups()
         var_name = var.strip()
         # Only process variable names with letters, digits, underscore, hyphen
-        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", var_name):
-            if var_name in variables:
-                return str(variables[var_name])
+        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", var_name) and var_name in variables:
+            return str(variables[var_name])
         # Otherwise, keep the original
         return match.group(0)
 
@@ -118,7 +122,9 @@ def get_fmt_prompt(
     user_id: str,
     course_id: str,
     profile_tmplate: str,
-    input: str = None,
+    input: str | None = None,
+    *,
+    profile_overrides: dict | None = None,
 ) -> str:
     """
     Get fmt prompt
@@ -128,6 +134,7 @@ def get_fmt_prompt(
         course_id: Course id
         profile_tmplate: Profile template
         input: Input
+        profile_overrides: Request-local profile values that take precedence
     Returns:
         str: Fmt prompt
     """
@@ -135,7 +142,9 @@ def get_fmt_prompt(
     propmpt_keys = []
     profiles = {}
 
-    profiles = get_user_profiles(app, user_id, course_id)
+    profiles = dict(get_user_profiles(app, user_id, course_id) or {})
+    if profile_overrides:
+        profiles.update(profile_overrides)
     propmpt_keys = list(profiles.keys())
     if input:
         profiles["sys_user_input"] = input
@@ -154,7 +163,7 @@ def get_fmt_prompt(
         prompt = input if not profile_tmplate else profile_tmplate
     else:
         prompt = safe_format_template(profile_tmplate, fmt_keys)
-    app.logger.info("fomat input:{}".format(prompt))
+    app.logger.info(f"fomat input:{prompt}")
     return prompt
 
 
@@ -197,16 +206,16 @@ def get_follow_up_info_v2(
     outline_ids = [p.id for p in path]
     outline_model = PublishedOutlineItem if not is_preview else DraftOutlineItem
     shifu_model = PublishedShifu if not is_preview else DraftShifu
-    outline_infos: list[Union[PublishedOutlineItem, DraftOutlineItem]] = (
+    outline_infos: list[PublishedOutlineItem | DraftOutlineItem] = (
         outline_model.query.filter(
             outline_model.id.in_(outline_ids),
         ).all()
     )
-    outline_infos_map: dict[str, Union[PublishedOutlineItem, DraftOutlineItem]] = {
+    outline_infos_map: dict[str, PublishedOutlineItem | DraftOutlineItem] = {
         o.outline_item_bid: o for o in outline_infos
     }
 
-    shifu_info: Union[PublishedShifu, DraftShifu] = (
+    shifu_info: PublishedShifu | DraftShifu = (
         shifu_model.query.filter(
             shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
         )
