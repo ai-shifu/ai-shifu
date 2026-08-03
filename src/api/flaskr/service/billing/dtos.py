@@ -201,6 +201,7 @@ class BillingEntitlementsDTO(BillingBaseDTO):
 class BillingWalletBucketDTO(BillingBaseDTO):
     wallet_bucket_bid: str
     category: str
+    credit_asset_kind: str = "unknown"
     source_type: str
     source_bid: str
     available_credits: int | float

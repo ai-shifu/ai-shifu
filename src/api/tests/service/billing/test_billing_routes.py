@@ -814,7 +814,10 @@ class TestBillingRoutes:
             "bucket-topup",
         ]
         assert bucket_payload["data"]["items"][0]["category"] == "subscription"
+        assert bucket_payload["data"]["items"][0]["credit_asset_kind"] == "plan_credits"
         assert bucket_payload["data"]["items"][0]["priority"] == 20
+        assert bucket_payload["data"]["items"][1]["credit_asset_kind"] == "plan_credits"
+        assert bucket_payload["data"]["items"][2]["credit_asset_kind"] == "pack_credits"
         assert bucket_payload["data"]["items"][2]["source_bid"] == "topup-1"
 
     def test_overview_recalculates_wallet_snapshot_for_current_balance(

@@ -51,9 +51,11 @@ from .campaigns import resolve_catalog_campaign_payload
 from .bucket_categories import (
     OrderTypeLoader,
     build_wallet_bucket_runtime_sort_key,
-    load_billing_order_type_by_bid,
 )
-from .credit_grant_allocation_views import build_credit_grant_view
+from .credit_grant_allocation_views import (
+    build_credit_allocation_view,
+    build_credit_grant_view,
+)
 from .credit_notifications import build_creator_limit_state_for_available_credits
 from .dtos import (
     AdminBillingDailyLedgerSummaryPageDTO,
@@ -675,15 +677,73 @@ def build_billing_wallet_buckets(
             .order_by(CreditWalletBucket.id.asc())
             .all()
         )
+        load_order_type = _build_wallet_bucket_order_type_loader(
+            rows,
+            creator_bid=normalized_creator_bid,
+        )
         rows.sort(
             key=lambda row: build_wallet_bucket_runtime_sort_key(
                 row,
-                load_order_type=load_billing_order_type_by_bid,
+                load_order_type=load_order_type,
             )
         )
-        return BillingWalletBucketListDTO(
-            items=[_serialize_wallet_bucket(app, row) for row in rows]
-        )
+        items = []
+        for row in rows:
+            allocation_view = build_credit_allocation_view(
+                row,
+                load_order_type=load_order_type,
+            )
+            items.append(
+                _serialize_wallet_bucket(
+                    app,
+                    row,
+                    category_code=allocation_view.runtime_bucket_category,
+                    credit_asset_kind=allocation_view.asset_kind,
+                )
+            )
+        return BillingWalletBucketListDTO(items=items)
+
+
+def _build_wallet_bucket_order_type_loader(
+    rows: list[CreditWalletBucket],
+    *,
+    creator_bid: str,
+) -> OrderTypeLoader:
+    order_bids = {
+        _normalize_bid(_normalize_json_object(row.metadata_json).get("bill_order_bid"))
+        for row in rows
+    }
+    order_bids.discard("")
+
+    return _build_creator_order_type_loader(order_bids, creator_bid=creator_bid)
+
+
+def _build_creator_order_type_loader(
+    order_bids: set[str],
+    *,
+    creator_bid: str,
+) -> OrderTypeLoader:
+    safe_order_bids = {_normalize_bid(order_bid) for order_bid in order_bids}
+    safe_order_bids.discard("")
+
+    orders = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.creator_bid == _normalize_bid(creator_bid),
+            BillingOrder.bill_order_bid.in_(safe_order_bids),
+        ).all()
+        if safe_order_bids
+        else []
+    )
+    order_type_by_bid = {
+        _normalize_bid(order.bill_order_bid): int(order.order_type or 0)
+        for order in orders
+    }
+
+    def _load_order_type(order_bid: str) -> int | None:
+        return order_type_by_bid.get(_normalize_bid(order_bid))
+
+    return _load_order_type
 
 
 def _load_ledger_bucket_map(
@@ -725,24 +785,7 @@ def _build_ledger_page_order_type_loader(
     )
     order_bids.discard("")
 
-    orders = (
-        BillingOrder.query.filter(
-            BillingOrder.deleted == 0,
-            BillingOrder.creator_bid == _normalize_bid(creator_bid),
-            BillingOrder.bill_order_bid.in_(order_bids),
-        ).all()
-        if order_bids
-        else []
-    )
-    order_type_by_bid = {
-        _normalize_bid(order.bill_order_bid): int(order.order_type or 0)
-        for order in orders
-    }
-
-    def _load_order_type(order_bid: str) -> int | None:
-        return order_type_by_bid.get(_normalize_bid(order_bid))
-
-    return _load_order_type
+    return _build_creator_order_type_loader(order_bids, creator_bid=creator_bid)
 
 
 def build_billing_ledger_page(
