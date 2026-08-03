@@ -34,3 +34,28 @@ def post_fork(server, worker):
                 engine.dispose(close=False)
     except Exception:  # pragma: no cover - defensive: never kill a booting worker
         worker.log.exception("post_fork engine dispose failed")
+
+    # Langfuse SDK v3 keeps per-public-key ResourceManager singletons and
+    # registers a global OpenTelemetry TracerProvider during master preload.
+    # Both carry live httpx/TLS connections and a batch-export worker that
+    # were created in the master; inherited across fork they are shared by
+    # every worker, interleaving TLS records on the exporter connection
+    # (observed as "SSL: DECRYPTION_FAILED_OR_BAD_RECORD_MAC") and leaving
+    # stale IO watchers behind. Drop the inherited singletons WITHOUT
+    # flushing (a flush would write to the shared connection, which is the
+    # exact failure being prevented), reset the OTel global so a fresh
+    # provider can be registered, then rebuild the client in this worker.
+    try:
+        from langfuse._client.resource_manager import LangfuseResourceManager
+        from opentelemetry import trace as otel_trace_api
+        from opentelemetry.util._once import Once
+
+        from flaskr.api.langfuse import init_langfuse
+
+        LangfuseResourceManager._instances.clear()
+        otel_trace_api._TRACER_PROVIDER = None
+        otel_trace_api._TRACER_PROVIDER_SET_ONCE = Once()
+
+        init_langfuse(flask_app)
+    except Exception:  # pragma: no cover - defensive: never kill a booting worker
+        worker.log.exception("post_fork langfuse reinit failed")
