@@ -888,7 +888,7 @@ class PlaygroundPreviewRequest(BaseModel):
     content: Optional[str] = Field(
         default=None, description="Markdown-Flow document content"
     )
-    block_index: int = Field(..., description="Block index to preview")
+    block_index: int = Field(..., ge=0, description="Block index to preview")
     context: Optional[List[Dict[str, str]]] = Field(
         default=None, description="Conversation context messages"
     )
