@@ -85,10 +85,16 @@ export const normalizeTtsModelOptions = (list: any): TtsModelOption[] => {
         model,
         creditMultiplier,
         creditMultiplierLabel,
+        isDefault: Boolean(item.is_default ?? item.isDefault),
       };
     })
     .filter((item): item is TtsModelOption => Boolean(item));
 };
+
+export const getDefaultTtsModelOption = (
+  options: TtsModelOption[],
+): TtsModelOption | undefined =>
+  options.find(option => option.isDefault) || options[0];
 
 export const filterTtsVoicesForModel = (
   voices: TtsVoiceOption[],

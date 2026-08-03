@@ -1535,6 +1535,22 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="tts",
         required=False,
     ),
+    "TTS_DEFAULT_MODEL": EnvVar(
+        name="TTS_DEFAULT_MODEL",
+        default="",
+        description=(
+            "Default TTS model preselected by editor UI and CLI when the "
+            "creator has not explicitly chosen one. Use provider/model format, "
+            "e.g. tencent_texttovoice/large-model; use provider/default for "
+            "providers without model selection. Must be one of the exposed "
+            "model options (TTS_ALLOWED_MODELS when set); empty or invalid "
+            "values fall back to the first option. Only marks is_default in "
+            "the TTS config payload; it does not relax strict runtime TTS "
+            "validation."
+        ),
+        group="tts",
+        required=False,
+    ),
     "TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON": EnvVar(
         name="TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON",
         default="",

@@ -87,12 +87,14 @@ def test_tts_config_model_options_follow_allowlist_and_localized_names(
         "provider": "minimax",
         "model": "speech-01-turbo",
         "credit_multiplier_label": "2x",
+        "is_default": False,
     }
     assert config["model_options"][1] == {
         "value": "baidu/default",
         "label": "Baidu Default",
         "provider": "baidu",
         "model": "",
+        "is_default": False,
     }
 
 
@@ -340,8 +342,9 @@ def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
 
 
 def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
-    """The local three-tier lineup: tencent premium first (default), then
-    tencent large-model, then volcengine seed-tts-2.0, with zh display names."""
+    """The local three-tier lineup: tencent premium first, then tencent
+    large-model (configured default), then volcengine seed-tts-2.0, with zh
+    display names. The default marker must not reorder the allowlist."""
     import json as json_module
 
     import flaskr.api.tts as tts_api
@@ -395,6 +398,7 @@ def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
             }
         ),
     )
+    monkeypatch.setenv("TTS_DEFAULT_MODEL", "tencent_texttovoice/large-model")
 
     try:
         set_language("zh-CN")
@@ -407,3 +411,101 @@ def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
         ("tencent_texttovoice/large-model", "标准语音"),
         ("volcengine/seed-tts-2.0", "旗舰语音"),
     ]
+    assert [item["is_default"] for item in config["model_options"]] == [
+        False,
+        True,
+        False,
+    ]
+
+
+def _patch_two_provider_registry(monkeypatch, tts_api):
+    monkeypatch.setattr(
+        tts_api,
+        "_PROVIDER_REGISTRY",
+        {"minimax": _FakeMinimaxProvider, "baidu": _FakeBaiduProvider},
+    )
+    monkeypatch.setattr(tts_api, "_PROVIDER_PRIORITY", ("minimax", "baidu"))
+    monkeypatch.setattr(
+        tts_api, "_resolve_credit_multiplier_label", lambda provider, model: None
+    )
+
+
+def test_tts_default_model_marks_provider_only_option(monkeypatch):
+    import flaskr.api.tts as tts_api
+
+    _patch_two_provider_registry(monkeypatch, tts_api)
+    monkeypatch.setenv("TTS_ALLOWED_MODELS", "minimax/speech-01-turbo,baidu/default")
+    monkeypatch.setenv("TTS_DEFAULT_MODEL", "baidu/default")
+
+    config = tts_api.get_all_provider_configs()
+
+    assert [
+        (item["value"], item["is_default"]) for item in config["model_options"]
+    ] == [
+        ("minimax/speech-01-turbo", False),
+        ("baidu/default", True),
+    ]
+
+
+def test_tts_default_model_applies_without_allowlist(monkeypatch):
+    import flaskr.api.tts as tts_api
+
+    _patch_two_provider_registry(monkeypatch, tts_api)
+    monkeypatch.delenv("TTS_ALLOWED_MODELS", raising=False)
+    monkeypatch.setenv("TTS_DEFAULT_MODEL", "minimax/speech-01-hd")
+
+    config = tts_api.get_all_provider_configs()
+
+    assert [
+        (item["value"], item["is_default"]) for item in config["model_options"]
+    ] == [
+        ("minimax/speech-01-turbo", False),
+        ("minimax/speech-01-hd", True),
+        ("baidu/default", False),
+    ]
+
+
+def test_tts_default_model_invalid_format_falls_back(monkeypatch, caplog):
+    import logging
+
+    import flaskr.api.tts as tts_api
+
+    _patch_two_provider_registry(monkeypatch, tts_api)
+    monkeypatch.setenv("TTS_ALLOWED_MODELS", "minimax/speech-01-turbo")
+    monkeypatch.setenv("TTS_DEFAULT_MODEL", "speech-01-turbo")
+
+    with caplog.at_level(logging.WARNING):
+        config = tts_api.get_all_provider_configs()
+
+    assert [item["is_default"] for item in config["model_options"]] == [False]
+    assert "Ignoring invalid TTS_DEFAULT_MODEL" in caplog.text
+
+
+def test_tts_default_model_outside_allowlist_falls_back(monkeypatch, caplog):
+    import logging
+
+    import flaskr.api.tts as tts_api
+
+    _patch_two_provider_registry(monkeypatch, tts_api)
+    monkeypatch.setenv("TTS_ALLOWED_MODELS", "minimax/speech-01-turbo,baidu/default")
+    # Exposed by the provider but excluded from the allowlist, so it must not
+    # be marked as default.
+    monkeypatch.setenv("TTS_DEFAULT_MODEL", "minimax/speech-01-hd")
+
+    with caplog.at_level(logging.WARNING):
+        config = tts_api.get_all_provider_configs()
+
+    assert [item["is_default"] for item in config["model_options"]] == [False, False]
+    assert "TTS_DEFAULT_MODEL not in available model options" in caplog.text
+
+
+def test_tts_default_model_unset_leaves_all_options_non_default(monkeypatch):
+    import flaskr.api.tts as tts_api
+
+    _patch_two_provider_registry(monkeypatch, tts_api)
+    monkeypatch.setenv("TTS_ALLOWED_MODELS", "minimax/speech-01-turbo,baidu/default")
+    monkeypatch.delenv("TTS_DEFAULT_MODEL", raising=False)
+
+    config = tts_api.get_all_provider_configs()
+
+    assert [item["is_default"] for item in config["model_options"]] == [False, False]
