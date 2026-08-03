@@ -9,7 +9,6 @@ from types import SimpleNamespace
 
 from flask import Flask, jsonify, request
 
-import pytest
 
 import flaskr.common.config as common_config
 
