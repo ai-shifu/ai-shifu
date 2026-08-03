@@ -143,16 +143,17 @@ def test_resolve_effective_subscription_cycle_window_rejects_invalid_windows() -
 
 
 @pytest.mark.parametrize(
-    ("current_period_start_at", "current_period_end_at"),
+    ("case_id", "current_period_start_at", "current_period_end_at"),
     [
-        (datetime(2026, 4, 1, 0, 0, 0), None),
-        (datetime(2026, 4, 10, 0, 0, 0), datetime(2026, 4, 10, 0, 0, 0)),
-        (datetime(2026, 4, 11, 0, 0, 0), datetime(2026, 4, 10, 0, 0, 0)),
+        ("noend", datetime(2026, 4, 1, 0, 0, 0), None),
+        ("zero", datetime(2026, 4, 10, 0, 0, 0), datetime(2026, 4, 10, 0, 0, 0)),
+        ("rev", datetime(2026, 4, 11, 0, 0, 0), datetime(2026, 4, 10, 0, 0, 0)),
     ],
     ids=("missing_end", "zero_length", "reversed"),
 )
 def test_repair_paid_reserved_grant_keeps_bucket_when_cycle_window_invalid(
     monkeypatch: pytest.MonkeyPatch,
+    case_id: str,
     current_period_start_at: datetime,
     current_period_end_at: datetime | None,
 ) -> None:
@@ -162,7 +163,7 @@ def test_repair_paid_reserved_grant_keeps_bucket_when_cycle_window_invalid(
     original_bucket_end = datetime(2026, 5, 1, 0, 0, 0)
     creator_bid = "creator-invalid-cycle-caller"
     subscription_bid = "subscription-invalid-cycle-caller"
-    order_bid = f"order-invalid-cycle-caller-{current_period_end_at or 'none'}"
+    order_bid = f"order-inv-cycle-{case_id}"
 
     monkeypatch.setattr(subscriptions_mod, "now_utc", lambda: repair_at)
 
@@ -192,7 +193,7 @@ def test_repair_paid_reserved_grant_keeps_bucket_when_cycle_window_invalid(
             metadata_json={},
         )
         bucket = CreditWalletBucket(
-            wallet_bucket_bid=f"bucket-{order_bid}",
+            wallet_bucket_bid=f"bucket-inv-cycle-{case_id}",
             wallet_bid="wallet-invalid-cycle-caller",
             creator_bid=creator_bid,
             bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -209,7 +210,7 @@ def test_repair_paid_reserved_grant_keeps_bucket_when_cycle_window_invalid(
             status=CREDIT_BUCKET_STATUS_ACTIVE,
         )
         ledger = CreditLedgerEntry(
-            ledger_bid=f"ledger-{order_bid}",
+            ledger_bid=f"ledger-inv-cycle-{case_id}",
             creator_bid=creator_bid,
             wallet_bid=bucket.wallet_bid,
             wallet_bucket_bid=bucket.wallet_bucket_bid,
