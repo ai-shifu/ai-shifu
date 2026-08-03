@@ -39,10 +39,27 @@ def _socket_has_unread_data(dbapi_connection) -> bool:
         return False
     try:
         readable, _, _ = select_module.select([sock], [], [], 0)
-    except (OSError, ValueError):
-        # Closed or detached socket; pre_ping handles plain disconnects.
+    except (OSError, ValueError, TypeError):
+        # Closed, detached, or fd-less socket object; pre_ping handles plain
+        # disconnects, and event dispatch must never fail on the probe.
         return False
     return bool(readable)
+
+
+def _pool_diagnostics_logger():
+    """Log through the app logger when available.
+
+    The app logger carries the RequestFormatter (request-id / trace context)
+    and the alerting handlers; the bare module logger only reaches stderr.
+    Pool events usually fire inside an app context, but engine use outside
+    one (scripts, tests) must not break on logging.
+    """
+    try:
+        from flask import current_app
+
+        return current_app.logger
+    except Exception:  # noqa: BLE001 - outside app context
+        return logger
 
 
 @event.listens_for(sa_pool.Pool, "checkin")
@@ -52,7 +69,7 @@ def _invalidate_desynced_connection_on_checkin(dbapi_connection, connection_reco
     if _socket_has_unread_data(dbapi_connection):
         # stack_info identifies the code path that returned the poisoned
         # connection - i.e. the request that interrupted a protocol exchange.
-        logger.error(
+        _pool_diagnostics_logger().error(
             "DB connection returned to pool with unread protocol data; "
             "invalidating it. The stack below is the checkin path of the "
             "request that desynced this connection.",
@@ -66,7 +83,7 @@ def _reject_desynced_connection_on_checkout(
     dbapi_connection, connection_record, connection_proxy
 ):
     if _socket_has_unread_data(dbapi_connection):
-        logger.warning(
+        _pool_diagnostics_logger().warning(
             "Rejecting pooled DB connection with unread protocol data at "
             "checkout; the pool will retry with a fresh connection."
         )

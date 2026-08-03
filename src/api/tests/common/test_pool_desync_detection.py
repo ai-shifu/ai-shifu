@@ -54,6 +54,14 @@ def test_connection_without_socket_is_ignored():
     assert dao._socket_has_unread_data(_NoSock()) is False
 
 
+def test_unusable_socket_object_is_ignored():
+    class _BadSock:
+        # No fileno(): select.select raises TypeError for such objects.
+        _sock = object()
+
+    assert dao._socket_has_unread_data(_BadSock()) is False
+
+
 def test_pool_discards_connection_desynced_during_use(sock_pair):
     left, right = sock_pair
     dirty_conn = _FakePyMySQLConnection(left)
@@ -114,6 +122,7 @@ def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair):
         fairy2 = pool.connect()
         assert fairy2.dbapi_connection is not dirty_conn
         fairy2.close()
+        assert dirty_conn.closed is True
     finally:
         pool.dispose()
         clean_sock_b.close()
