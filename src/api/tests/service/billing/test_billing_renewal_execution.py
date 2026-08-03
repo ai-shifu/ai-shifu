@@ -1187,6 +1187,86 @@ def test_run_billing_renewal_event_releases_future_event_back_to_pending(
         assert event.processed_at is None
 
 
+def test_run_billing_renewal_event_executes_at_exact_scheduled_time(
+    billing_renewal_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
+    current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
+    next_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+    monkeypatch.setattr(billing_renewal, "now_utc", lambda: current_cycle_end)
+
+    with billing_renewal_app.app_context():
+        subscription = BillingSubscription(
+            subscription_bid="sub-scheduled-equal-paid",
+            creator_bid="creator-renewal-1",
+            product_bid="bill-product-plan-monthly",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="pingxx",
+            provider_subscription_id="",
+            provider_customer_id="customer-sub-scheduled-equal-paid",
+            current_period_start_at=current_cycle_start,
+            current_period_end_at=current_cycle_end,
+            cancel_at_period_end=0,
+            next_product_bid="",
+            metadata_json={},
+            created_at=current_cycle_start,
+            updated_at=current_cycle_start,
+        )
+        order = BillingOrder(
+            bill_order_bid="bill-scheduled-equal-paid-1",
+            creator_bid=subscription.creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=9900,
+            paid_amount=9900,
+            payment_provider="pingxx",
+            channel="alipay_qr",
+            provider_reference_id="ch_scheduled_equal_paid_1",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=current_cycle_end - timedelta(days=5),
+            metadata_json={
+                "provider_reference_type": "charge",
+                "renewal_cycle_start_at": current_cycle_end.isoformat(),
+                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+            },
+        )
+        event = _create_renewal_event(
+            "renewal-scheduled-equal-paid-1",
+            subscription.subscription_bid,
+            subscription.creator_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+            scheduled_at=current_cycle_end,
+        )
+        dao.db.session.add_all([subscription, order, event])
+        dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        billing_renewal_app,
+        renewal_event_bid="renewal-scheduled-equal-paid-1",
+    )
+
+    assert payload["status"] == "applied"
+    assert payload["subscription_status"] == "active"
+    assert payload["event_status"] == "succeeded"
+    assert payload["bill_order_bid"] == "bill-scheduled-equal-paid-1"
+
+    with billing_renewal_app.app_context():
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-scheduled-equal-paid"
+        ).one()
+        event = BillingRenewalEvent.query.filter_by(
+            renewal_event_bid="renewal-scheduled-equal-paid-1"
+        ).one()
+        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+        assert subscription.current_period_start_at == current_cycle_end
+        assert subscription.current_period_end_at == next_cycle_end
+        assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
+        assert event.processed_at is not None
+
+
 def test_run_billing_renewal_event_queues_subscription_renewal_order(
     billing_renewal_app: Flask,
     monkeypatch: pytest.MonkeyPatch,

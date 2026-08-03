@@ -62,17 +62,20 @@ def _build_app() -> Flask:
 
 def _renewal_order(
     *,
+    bill_order_bid: str = "order-renewal-activation-boundary",
+    subscription_bid: str = "subscription-renewal-activation-boundary",
+    creator_bid: str = "creator-renewal-activation-boundary",
     metadata_json: dict | None = None,
     payment_provider: str = "pingxx",
     paid_at: datetime | None | object = _UNSET,
     order_type: int = BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
 ) -> BillingOrder:
     return BillingOrder(
-        bill_order_bid="order-renewal-activation-boundary",
-        creator_bid="creator-renewal-activation-boundary",
+        bill_order_bid=bill_order_bid,
+        creator_bid=creator_bid,
         order_type=order_type,
         product_bid="bill-product-renewal-boundary",
-        subscription_bid="subscription-renewal-activation-boundary",
+        subscription_bid=subscription_bid,
         currency="CNY",
         payable_amount=0,
         paid_amount=0,
@@ -312,11 +315,15 @@ def test_subscription_renewal_activation_does_not_defer_when_guard_fails(
     )
 
 
-def test_force_activation_advances_future_deferred_renewal() -> None:
+def test_force_activation_advances_future_deferred_renewal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app = _build_app()
+    current_at = datetime(2026, 4, 10, 0, 0, 0)
     current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
     current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
     next_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+    monkeypatch.setattr(subscriptions_mod, "now_utc", lambda: current_at)
 
     with app.app_context():
         dao.db.create_all()
@@ -345,11 +352,96 @@ def test_force_activation_advances_future_deferred_renewal() -> None:
             current_period_start_at=current_cycle_start,
             current_period_end_at=current_cycle_end,
         )
-        order = _renewal_order(
+        forced_subscription = BillingSubscription(
+            subscription_bid="subscription-renewal-activation-force",
+            creator_bid="creator-renewal-activation-boundary",
+            product_bid=product.product_bid,
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="manual",
+            current_period_start_at=current_cycle_start,
+            current_period_end_at=current_cycle_end,
+        )
+        order_metadata = {
+            "checkout_type": "referral_invitation_reward",
+            "referral_invitation_reward": True,
+            "renewal_cycle_start_at": current_cycle_end.isoformat(),
+            "renewal_cycle_end_at": next_cycle_end.isoformat(),
+        }
+        deferred_order = _renewal_order(
+            bill_order_bid="order-renewal-activation-defer",
             payment_provider="manual",
+            metadata_json=order_metadata.copy(),
+        )
+        forced_order = _renewal_order(
+            bill_order_bid="order-renewal-activation-force",
+            subscription_bid=forced_subscription.subscription_bid,
+            payment_provider="manual",
+            metadata_json=order_metadata.copy(),
+        )
+        dao.db.session.add_all(
+            [product, subscription, forced_subscription, deferred_order, forced_order]
+        )
+        dao.db.session.commit()
+
+        deferred = subscriptions_mod._activate_subscription_for_paid_order(
+            app,
+            deferred_order,
+            force=False,
+        )
+        activated = subscriptions_mod._activate_subscription_for_paid_order(
+            app,
+            forced_order,
+            force=True,
+        )
+        dao.db.session.flush()
+
+    assert deferred is False
+    assert activated is True
+    assert subscription.current_period_start_at == current_cycle_start
+    assert subscription.current_period_end_at == current_cycle_end
+    assert forced_subscription.current_period_start_at == current_cycle_end
+    assert forced_subscription.current_period_end_at == next_cycle_end
+
+
+def test_pingxx_renewal_activation_applies_at_exact_cycle_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _build_app()
+    current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
+    current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
+    next_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+    monkeypatch.setattr(subscriptions_mod, "now_utc", lambda: current_cycle_end)
+
+    with app.app_context():
+        dao.db.create_all()
+        product = BillingProduct(
+            product_bid="bill-product-renewal-boundary",
+            product_code="renewal-boundary",
+            product_type=BILLING_PRODUCT_TYPE_PLAN,
+            billing_mode=BILLING_MODE_RECURRING,
+            billing_interval=BILLING_INTERVAL_MONTH,
+            billing_interval_count=1,
+            display_name_i18n_key="billing.product.renewal_boundary",
+            description_i18n_key="billing.product.renewal_boundary.description",
+            currency="CNY",
+            price_amount=0,
+            credit_amount=Decimal("1000.0000000000"),
+            allocation_interval=ALLOCATION_INTERVAL_PER_CYCLE,
+            auto_renew_enabled=1,
+            status=BILLING_PRODUCT_STATUS_ACTIVE,
+        )
+        subscription = BillingSubscription(
+            subscription_bid="subscription-renewal-activation-boundary",
+            creator_bid="creator-renewal-activation-boundary",
+            product_bid=product.product_bid,
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="pingxx",
+            current_period_start_at=current_cycle_start,
+            current_period_end_at=current_cycle_end,
+        )
+        order = _renewal_order(
+            paid_at=current_cycle_end,
             metadata_json={
-                "checkout_type": "referral_invitation_reward",
-                "referral_invitation_reward": True,
                 "renewal_cycle_start_at": current_cycle_end.isoformat(),
                 "renewal_cycle_end_at": next_cycle_end.isoformat(),
             },
@@ -360,7 +452,7 @@ def test_force_activation_advances_future_deferred_renewal() -> None:
         activated = subscriptions_mod._activate_subscription_for_paid_order(
             app,
             order,
-            force=True,
+            force=False,
         )
         dao.db.session.flush()
 
