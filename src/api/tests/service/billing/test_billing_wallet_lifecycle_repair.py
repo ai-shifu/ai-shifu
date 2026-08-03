@@ -314,8 +314,8 @@ def test_repair_renewal_state_drift_dry_run_reports_overdue_reserved_paid_grant(
             status=BILLING_ORDER_STATUS_PAID,
             paid_at=datetime(2026, 4, 7, 0, 0, 0),
             metadata_json={
-                "renewal_cycle_start_at": boundary_at.isoformat(),
-                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+                "renewal_cycle_start_at": to_utc_iso(boundary_at),
+                "renewal_cycle_end_at": to_utc_iso(next_cycle_end),
             },
         )
         bucket = CreditWalletBucket(
@@ -496,8 +496,8 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
             status=BILLING_ORDER_STATUS_PAID,
             paid_at=datetime(2026, 4, 7, 0, 0, 0),
             metadata_json={
-                "renewal_cycle_start_at": boundary_at.isoformat(),
-                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+                "renewal_cycle_start_at": to_utc_iso(boundary_at),
+                "renewal_cycle_end_at": to_utc_iso(next_cycle_end),
             },
         )
         bucket = CreditWalletBucket(
