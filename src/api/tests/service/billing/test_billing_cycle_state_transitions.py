@@ -407,10 +407,11 @@ def test_pingxx_renewal_activation_applies_at_exact_cycle_start(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = _build_app()
+    current_at = datetime(2026, 4, 10, 0, 0, 0)
     current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
     current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
     next_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
-    monkeypatch.setattr(subscriptions_mod, "now_utc", lambda: current_cycle_end)
+    monkeypatch.setattr(subscriptions_mod, "now_utc", lambda: current_at)
 
     with app.app_context():
         dao.db.create_all()

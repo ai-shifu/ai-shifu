@@ -246,6 +246,119 @@ def _create_bucket(
     )
 
 
+def _add_paid_renewal_with_reserved_grant(
+    *,
+    suffix: str,
+    current_cycle_start: datetime,
+    current_cycle_end: datetime,
+    next_cycle_end: datetime,
+    scheduled_at: datetime,
+    paid_at: datetime,
+) -> tuple[str, str, str, str, str]:
+    subscription_bid = f"sub-scheduled-paid-{suffix}"
+    order_bid = f"bill-scheduled-paid-{suffix}"
+    event_bid = f"renewal-scheduled-paid-{suffix}"
+    bucket_bid = f"bucket-scheduled-paid-{suffix}"
+    ledger_bid = f"ledger-scheduled-paid-{suffix}"
+    creator_bid = "creator-renewal-1"
+
+    subscription = BillingSubscription(
+        subscription_bid=subscription_bid,
+        creator_bid=creator_bid,
+        product_bid="bill-product-plan-monthly",
+        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        billing_provider="pingxx",
+        provider_subscription_id="",
+        provider_customer_id=f"customer-{subscription_bid}",
+        current_period_start_at=current_cycle_start,
+        current_period_end_at=current_cycle_end,
+        cancel_at_period_end=0,
+        next_product_bid="",
+        metadata_json={},
+        created_at=current_cycle_start,
+        updated_at=current_cycle_start,
+    )
+    order = BillingOrder(
+        bill_order_bid=order_bid,
+        creator_bid=creator_bid,
+        order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+        product_bid=subscription.product_bid,
+        subscription_bid=subscription.subscription_bid,
+        currency="CNY",
+        payable_amount=9900,
+        paid_amount=9900,
+        payment_provider="pingxx",
+        channel="alipay_qr",
+        provider_reference_id=f"ch_{suffix}",
+        status=BILLING_ORDER_STATUS_PAID,
+        paid_at=paid_at,
+        metadata_json={
+            "provider_reference_type": "charge",
+            "renewal_cycle_start_at": current_cycle_end.isoformat(),
+            "renewal_cycle_end_at": next_cycle_end.isoformat(),
+        },
+    )
+    event = _create_renewal_event(
+        event_bid,
+        subscription.subscription_bid,
+        subscription.creator_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+        scheduled_at=scheduled_at,
+    )
+    wallet = _create_wallet(
+        subscription.creator_bid,
+        available_credits="3.0000000000",
+        lifetime_granted_credits="8.0000000000",
+    )
+    bucket = CreditWalletBucket(
+        wallet_bucket_bid=bucket_bid,
+        wallet_bid=wallet.wallet_bid,
+        creator_bid=subscription.creator_bid,
+        bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+        source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+        source_bid=f"bill-current-{suffix}",
+        priority=20,
+        original_credits=Decimal("8.0000000000"),
+        available_credits=Decimal("3.0000000000"),
+        reserved_credits=Decimal("5.0000000000"),
+        consumed_credits=Decimal("0"),
+        expired_credits=Decimal("0"),
+        effective_from=current_cycle_start,
+        effective_to=current_cycle_end,
+        status=CREDIT_BUCKET_STATUS_ACTIVE,
+        metadata_json={"bill_order_bid": f"bill-current-{suffix}"},
+        created_at=current_cycle_start,
+        updated_at=current_cycle_start,
+    )
+    grant_entry = CreditLedgerEntry(
+        ledger_bid=ledger_bid,
+        creator_bid=subscription.creator_bid,
+        wallet_bid=wallet.wallet_bid,
+        wallet_bucket_bid=bucket.wallet_bucket_bid,
+        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+        source_bid=order.bill_order_bid,
+        idempotency_key=f"grant:{order.bill_order_bid}",
+        amount=Decimal("5.0000000000"),
+        balance_after=Decimal("3.0000000000"),
+        expires_at=next_cycle_end,
+        consumable_from=current_cycle_end,
+        metadata_json={
+            "bill_order_bid": order.bill_order_bid,
+            "subscription_bid": subscription.subscription_bid,
+            "product_bid": subscription.product_bid,
+            "payment_provider": "pingxx",
+            "grant_reason": "subscription_renewal",
+            "bucket_credit_state": "reserved",
+            "reserved_until": current_cycle_end.isoformat(),
+        },
+        created_at=paid_at,
+        updated_at=paid_at,
+    )
+    dao.db.session.add_all([subscription, order, event, wallet, bucket, grant_entry])
+    return subscription_bid, order_bid, event_bid, bucket_bid, ledger_bid
+
+
 def test_claim_billing_renewal_event_persists_processing_state(
     billing_renewal_app: Flask,
 ) -> None:
@@ -1187,6 +1300,57 @@ def test_run_billing_renewal_event_releases_future_event_back_to_pending(
         assert event.processed_at is None
 
 
+def test_run_billing_renewal_event_does_not_advance_future_paid_renewal(
+    billing_renewal_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current_at = datetime(2026, 4, 10, 0, 0, 0)
+    current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
+    current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
+    next_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+    monkeypatch.setattr(billing_renewal, "now_utc", lambda: current_at)
+
+    with billing_renewal_app.app_context():
+        subscription_bid, order_bid, event_bid, bucket_bid, ledger_bid = (
+            _add_paid_renewal_with_reserved_grant(
+                suffix="future",
+                current_cycle_start=current_cycle_start,
+                current_cycle_end=current_cycle_end,
+                next_cycle_end=next_cycle_end,
+                scheduled_at=current_cycle_end,
+                paid_at=current_at - timedelta(days=1),
+            )
+        )
+        dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        billing_renewal_app,
+        renewal_event_bid=event_bid,
+    )
+
+    assert payload["status"] == "deferred_until_scheduled_at"
+    assert payload["event_status"] == "pending"
+
+    with billing_renewal_app.app_context():
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid=subscription_bid
+        ).one()
+        order = BillingOrder.query.filter_by(bill_order_bid=order_bid).one()
+        event = BillingRenewalEvent.query.filter_by(renewal_event_bid=event_bid).one()
+        bucket = CreditWalletBucket.query.filter_by(wallet_bucket_bid=bucket_bid).one()
+        grant_entry = CreditLedgerEntry.query.filter_by(ledger_bid=ledger_bid).one()
+
+        assert event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+        assert event.processed_at is None
+        assert subscription.current_period_start_at == current_cycle_start
+        assert subscription.current_period_end_at == current_cycle_end
+        assert "applied_cycle_start_at" not in order.metadata_json
+        assert "applied_cycle_end_at" not in order.metadata_json
+        assert bucket.available_credits == Decimal("3.0000000000")
+        assert bucket.reserved_credits == Decimal("5.0000000000")
+        assert grant_entry.metadata_json["bucket_credit_state"] == "reserved"
+
+
 def test_run_billing_renewal_event_executes_at_exact_scheduled_time(
     billing_renewal_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -1197,74 +1361,47 @@ def test_run_billing_renewal_event_executes_at_exact_scheduled_time(
     monkeypatch.setattr(billing_renewal, "now_utc", lambda: current_cycle_end)
 
     with billing_renewal_app.app_context():
-        subscription = BillingSubscription(
-            subscription_bid="sub-scheduled-equal-paid",
-            creator_bid="creator-renewal-1",
-            product_bid="bill-product-plan-monthly",
-            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-            billing_provider="pingxx",
-            provider_subscription_id="",
-            provider_customer_id="customer-sub-scheduled-equal-paid",
-            current_period_start_at=current_cycle_start,
-            current_period_end_at=current_cycle_end,
-            cancel_at_period_end=0,
-            next_product_bid="",
-            metadata_json={},
-            created_at=current_cycle_start,
-            updated_at=current_cycle_start,
+        subscription_bid, order_bid, event_bid, bucket_bid, ledger_bid = (
+            _add_paid_renewal_with_reserved_grant(
+                suffix="equal",
+                current_cycle_start=current_cycle_start,
+                current_cycle_end=current_cycle_end,
+                next_cycle_end=next_cycle_end,
+                paid_at=current_cycle_end - timedelta(days=5),
+                scheduled_at=current_cycle_end,
+            )
         )
-        order = BillingOrder(
-            bill_order_bid="bill-scheduled-equal-paid-1",
-            creator_bid=subscription.creator_bid,
-            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-            product_bid=subscription.product_bid,
-            subscription_bid=subscription.subscription_bid,
-            currency="CNY",
-            payable_amount=9900,
-            paid_amount=9900,
-            payment_provider="pingxx",
-            channel="alipay_qr",
-            provider_reference_id="ch_scheduled_equal_paid_1",
-            status=BILLING_ORDER_STATUS_PAID,
-            paid_at=current_cycle_end - timedelta(days=5),
-            metadata_json={
-                "provider_reference_type": "charge",
-                "renewal_cycle_start_at": current_cycle_end.isoformat(),
-                "renewal_cycle_end_at": next_cycle_end.isoformat(),
-            },
-        )
-        event = _create_renewal_event(
-            "renewal-scheduled-equal-paid-1",
-            subscription.subscription_bid,
-            subscription.creator_bid,
-            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
-            scheduled_at=current_cycle_end,
-        )
-        dao.db.session.add_all([subscription, order, event])
         dao.db.session.commit()
 
     payload = run_billing_renewal_event(
         billing_renewal_app,
-        renewal_event_bid="renewal-scheduled-equal-paid-1",
+        renewal_event_bid=event_bid,
     )
 
     assert payload["status"] == "applied"
     assert payload["subscription_status"] == "active"
     assert payload["event_status"] == "succeeded"
-    assert payload["bill_order_bid"] == "bill-scheduled-equal-paid-1"
+    assert payload["bill_order_bid"] == order_bid
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription.query.filter_by(
-            subscription_bid="sub-scheduled-equal-paid"
+            subscription_bid=subscription_bid
         ).one()
-        event = BillingRenewalEvent.query.filter_by(
-            renewal_event_bid="renewal-scheduled-equal-paid-1"
-        ).one()
+        event = BillingRenewalEvent.query.filter_by(renewal_event_bid=event_bid).one()
+        bucket = CreditWalletBucket.query.filter_by(wallet_bucket_bid=bucket_bid).one()
+        grant_entry = CreditLedgerEntry.query.filter_by(ledger_bid=ledger_bid).one()
+
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
         assert subscription.current_period_start_at == current_cycle_end
         assert subscription.current_period_end_at == next_cycle_end
         assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
         assert event.processed_at is not None
+        assert bucket.source_bid == order_bid
+        assert bucket.available_credits == Decimal("5.0000000000")
+        assert bucket.reserved_credits == Decimal("0")
+        assert grant_entry.consumable_from == current_cycle_end
+        assert grant_entry.expires_at == next_cycle_end
+        assert grant_entry.metadata_json["bucket_credit_state"] == "available"
 
 
 def test_run_billing_renewal_event_queues_subscription_renewal_order(
