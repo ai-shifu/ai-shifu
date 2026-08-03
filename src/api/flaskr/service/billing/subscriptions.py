@@ -55,7 +55,7 @@ from .cycle_transitions import (
 from .cycle_state_transitions import (
     apply_paid_subscription_cycle_state as _apply_paid_subscription_cycle_state,
     realign_active_credit_bucket_effective_to as _realign_active_credit_bucket_effective_to,
-    subscription_has_effective_cycle as _subscription_has_effective_cycle,
+    resolve_effective_subscription_cycle_window as _resolve_effective_subscription_cycle_window,
 )
 from .dtos import BillingSubscriptionDTO
 from .models import (
@@ -883,18 +883,19 @@ def _repair_existing_paid_order_grant_bucket(
     if is_reserved_grant:
         subscription = _load_subscription_by_bid(order.subscription_bid)
         has_current_available_balance = _to_decimal(bucket.available_credits) > 0
-        subscription_has_current_window = _subscription_has_effective_cycle(
+        current_cycle_window = _resolve_effective_subscription_cycle_window(
             subscription,
             as_of=now,
         )
-        if has_current_available_balance and subscription_has_current_window:
-            current_period_start = subscription.current_period_start_at
-            current_period_end = subscription.current_period_end_at
+        if has_current_available_balance and current_cycle_window is not None:
             if bucket.effective_from is None or bucket.effective_from > now:
-                bucket.effective_from = current_period_start
+                bucket.effective_from = current_cycle_window.start_at
                 changed = True
-            if bucket.effective_to is None or bucket.effective_to > current_period_end:
-                bucket.effective_to = current_period_end
+            if (
+                bucket.effective_to is None
+                or bucket.effective_to > current_cycle_window.end_at
+            ):
+                bucket.effective_to = current_cycle_window.end_at
                 changed = True
     else:
         if effective_from is not None and bucket.effective_from != effective_from:
