@@ -4,9 +4,12 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from flask import Flask
+import pytest
 
 import flaskr.dao as dao
+from flaskr.service.billing import subscriptions as subscriptions_mod
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
@@ -24,6 +27,7 @@ from flaskr.service.billing.cycle_state_transitions import (
     subscription_has_effective_cycle,
 )
 from flaskr.service.billing.models import (
+    BillingOrder,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWalletBucket,
@@ -136,6 +140,106 @@ def test_resolve_effective_subscription_cycle_window_rejects_invalid_windows() -
         resolve_effective_subscription_cycle_window(subscription, as_of=current_at)
         is None
     )
+
+
+@pytest.mark.parametrize(
+    ("current_period_start_at", "current_period_end_at"),
+    [
+        (datetime(2026, 4, 1, 0, 0, 0), None),
+        (datetime(2026, 4, 10, 0, 0, 0), datetime(2026, 4, 10, 0, 0, 0)),
+        (datetime(2026, 4, 11, 0, 0, 0), datetime(2026, 4, 10, 0, 0, 0)),
+    ],
+    ids=("missing_end", "zero_length", "reversed"),
+)
+def test_repair_paid_reserved_grant_keeps_bucket_when_cycle_window_invalid(
+    monkeypatch: pytest.MonkeyPatch,
+    current_period_start_at: datetime,
+    current_period_end_at: datetime | None,
+) -> None:
+    app = _build_app()
+    repair_at = datetime(2026, 4, 10, 0, 0, 0)
+    original_bucket_start = datetime(2026, 3, 1, 0, 0, 0)
+    original_bucket_end = datetime(2026, 5, 1, 0, 0, 0)
+    creator_bid = "creator-invalid-cycle-caller"
+    subscription_bid = "subscription-invalid-cycle-caller"
+    order_bid = f"order-invalid-cycle-caller-{current_period_end_at or 'none'}"
+
+    monkeypatch.setattr(subscriptions_mod, "now_utc", lambda: repair_at)
+
+    with app.app_context():
+        dao.db.create_all()
+        subscription = BillingSubscription(
+            subscription_bid=subscription_bid,
+            creator_bid=creator_bid,
+            product_bid="bill-product-invalid-cycle-caller",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            current_period_start_at=current_period_start_at,
+            current_period_end_at=current_period_end_at,
+        )
+        order = BillingOrder(
+            bill_order_bid=order_bid,
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=0,
+            paid_amount=0,
+            payment_provider="manual",
+            channel="manual",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=repair_at - timedelta(days=1),
+            metadata_json={},
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid=f"bucket-{order_bid}",
+            wallet_bid="wallet-invalid-cycle-caller",
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order.bill_order_bid,
+            priority=20,
+            original_credits=Decimal("1000.0000000000"),
+            available_credits=Decimal("1000.0000000000"),
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=original_bucket_start,
+            effective_to=original_bucket_end,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+        )
+        ledger = CreditLedgerEntry(
+            ledger_bid=f"ledger-{order_bid}",
+            creator_bid=creator_bid,
+            wallet_bid=bucket.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order.bill_order_bid,
+            idempotency_key=f"grant:{order.bill_order_bid}",
+            amount=Decimal("1000.0000000000"),
+            balance_after=Decimal("1000.0000000000"),
+            expires_at=datetime(2026, 6, 1, 0, 0, 0),
+            consumable_from=repair_at,
+            metadata_json={
+                "bill_order_bid": order.bill_order_bid,
+                "subscription_bid": subscription.subscription_bid,
+                "bucket_credit_state": "reserved",
+            },
+        )
+        dao.db.session.add_all([subscription, order, bucket, ledger])
+        dao.db.session.commit()
+
+        changed = subscriptions_mod._repair_existing_paid_order_grant_bucket(
+            app,
+            order=order,
+            grant_entry=ledger,
+        )
+        dao.db.session.refresh(bucket)
+
+    assert changed is False
+    assert bucket.effective_from == original_bucket_start
+    assert bucket.effective_to == original_bucket_end
 
 
 def test_realign_active_topup_bucket_effective_to_updates_bucket_and_grant_ledgers() -> (
