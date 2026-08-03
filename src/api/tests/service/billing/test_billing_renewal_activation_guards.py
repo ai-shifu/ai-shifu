@@ -378,7 +378,7 @@ def test_force_activation_is_idempotent_for_reserved_renewal_grant(
                 "renewal_cycle_end_at": next_cycle_end.isoformat(),
             },
         )
-        wallet, bucket, grant_entry = _add_reserved_renewal_activation_state(
+        _add_reserved_renewal_activation_state(
             product=product,
             subscription=subscription,
             order=order,
