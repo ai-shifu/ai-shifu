@@ -267,6 +267,7 @@ class BillingLedgerItemDTO(BillingBaseDTO):
     entry_type: str
     source_type: str
     source_bid: str
+    credit_asset_kind: str = "unknown"
     idempotency_key: str
     amount: int | float
     balance_after: int | float

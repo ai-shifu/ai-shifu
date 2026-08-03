@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from flask import Flask, jsonify, request
 import pytest
+from sqlalchemy import event
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
@@ -31,7 +32,9 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
     CREDIT_SOURCE_TYPE_GIFT,
+    CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_SOURCE_TYPE_USAGE,
@@ -1389,6 +1392,224 @@ class TestBillingRoutes:
             ]
             == 2.5
         )
+        assert ledger_payload["data"]["items"][0]["credit_asset_kind"] == "plan_credits"
+
+    def test_billing_ledger_page_exposes_canonical_credit_asset_kind(
+        self, billing_test_client
+    ) -> None:
+        app = billing_test_client.application
+
+        with app.app_context():
+            dao.db.session.add_all(
+                [
+                    BillingOrder(
+                        bill_order_bid="order-campaign-topup",
+                        creator_bid="creator-1",
+                        order_type=BILLING_ORDER_TYPE_TOPUP,
+                        product_bid="bill-product-topup-100",
+                        status=BILLING_ORDER_STATUS_PAID,
+                        paid_at=datetime(2026, 4, 7, 9, 0, 0),
+                    ),
+                    BillingOrder(
+                        bill_order_bid="order-bucket-plan",
+                        creator_bid="creator-1",
+                        order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                        product_bid="bill-product-plan-monthly",
+                        status=BILLING_ORDER_STATUS_PAID,
+                        paid_at=datetime(2026, 4, 7, 9, 30, 0),
+                    ),
+                    BillingOrder(
+                        bill_order_bid="order-other-creator-topup",
+                        creator_bid="creator-2",
+                        order_type=BILLING_ORDER_TYPE_TOPUP,
+                        product_bid="bill-product-topup-100",
+                        status=BILLING_ORDER_STATUS_PAID,
+                        paid_at=datetime(2026, 4, 7, 9, 45, 0),
+                    ),
+                ]
+            )
+            dao.db.session.add(
+                CreditWalletBucket(
+                    wallet_bucket_bid="bucket-gift-order-backed",
+                    wallet_bid="wallet-1",
+                    creator_bid="creator-1",
+                    bucket_category=0,
+                    source_type=CREDIT_SOURCE_TYPE_GIFT,
+                    source_bid="gift-order-backed",
+                    priority=4,
+                    original_credits=Decimal("6.0000000000"),
+                    available_credits=Decimal("6.0000000000"),
+                    reserved_credits=Decimal("0"),
+                    consumed_credits=Decimal("0"),
+                    expired_credits=Decimal("0"),
+                    effective_from=datetime(2026, 4, 7, 9, 30, 0),
+                    effective_to=datetime(2026, 5, 7, 9, 30, 0),
+                    status=CREDIT_BUCKET_STATUS_ACTIVE,
+                    metadata_json={"bill_order_bid": "order-bucket-plan"},
+                    created_at=datetime(2026, 4, 7, 9, 30, 0),
+                    updated_at=datetime(2026, 4, 7, 9, 30, 0),
+                )
+            )
+            dao.db.session.add_all(
+                [
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-topup-grant",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-topup",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                        source_bid="topup-1",
+                        idempotency_key="grant-topup-1",
+                        amount=Decimal("20.0000000000"),
+                        balance_after=Decimal("120.5000000000"),
+                        expires_at=None,
+                        consumable_from=datetime(2026, 4, 3, 0, 0, 0),
+                        metadata_json={"bucket_credit_state": "available"},
+                        created_at=datetime(2026, 4, 7, 10, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 10, 0, 0),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-bucket-order-backed",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-gift-order-backed",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_GIFT,
+                        source_bid="gift-order-backed",
+                        idempotency_key="grant-gift-order-backed",
+                        amount=Decimal("6.0000000000"),
+                        balance_after=Decimal("126.5000000000"),
+                        expires_at=datetime(2026, 5, 7, 9, 30, 0),
+                        consumable_from=datetime(2026, 4, 7, 9, 30, 0),
+                        metadata_json={"bucket_credit_state": "available"},
+                        created_at=datetime(2026, 4, 7, 9, 30, 0),
+                        updated_at=datetime(2026, 4, 7, 9, 30, 0),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-referral-reward",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-subscription",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                        source_bid="referral_reward",
+                        idempotency_key="operator_referral_reward:1",
+                        amount=Decimal("5.0000000000"),
+                        balance_after=Decimal("125.5000000000"),
+                        expires_at=datetime(2026, 5, 1, 0, 0, 0),
+                        consumable_from=datetime(2026, 4, 7, 11, 0, 0),
+                        metadata_json={
+                            "grant_type": "referral_reward",
+                            "reward_scene": "referral",
+                            "reward_program": "referral_reward",
+                        },
+                        created_at=datetime(2026, 4, 7, 11, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 11, 0, 0),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-campaign-bonus-1",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
+                        source_bid="campaign-1",
+                        idempotency_key="campaign-bonus-1",
+                        amount=Decimal("3.0000000000"),
+                        balance_after=Decimal("128.5000000000"),
+                        expires_at=None,
+                        consumable_from=datetime(2026, 4, 7, 12, 0, 0),
+                        metadata_json={"bill_order_bid": "order-campaign-topup"},
+                        created_at=datetime(2026, 4, 7, 12, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 12, 0, 0),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-campaign-bonus-2",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
+                        source_bid="campaign-1",
+                        idempotency_key="campaign-bonus-2",
+                        amount=Decimal("4.0000000000"),
+                        balance_after=Decimal("132.5000000000"),
+                        expires_at=None,
+                        consumable_from=datetime(2026, 4, 7, 13, 0, 0),
+                        metadata_json={"bill_order_bid": "order-campaign-topup"},
+                        created_at=datetime(2026, 4, 7, 13, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 13, 0, 0),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-internal-legacy",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                        source_bid="manual-adjustment",
+                        idempotency_key="manual-adjustment-1",
+                        amount=Decimal("1.0000000000"),
+                        balance_after=Decimal("133.5000000000"),
+                        expires_at=None,
+                        consumable_from=datetime(2026, 4, 7, 14, 0, 0),
+                        metadata_json={},
+                        created_at=datetime(2026, 4, 7, 14, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 14, 0, 0),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-cross-creator-order",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
+                        source_bid="campaign-cross-creator",
+                        idempotency_key="campaign-cross-creator-1",
+                        amount=Decimal("2.0000000000"),
+                        balance_after=Decimal("135.5000000000"),
+                        expires_at=None,
+                        consumable_from=datetime(2026, 4, 7, 15, 0, 0),
+                        metadata_json={"bill_order_bid": "order-other-creator-topup"},
+                        created_at=datetime(2026, 4, 7, 15, 0, 0),
+                        updated_at=datetime(2026, 4, 7, 15, 0, 0),
+                    ),
+                ]
+            )
+            dao.db.session.commit()
+
+        order_select_count = 0
+
+        def _count_order_selects(_conn, _cursor, statement, *_args):
+            nonlocal order_select_count
+            if "bill_orders" in statement.lower():
+                order_select_count += 1
+
+        with app.app_context():
+            event.listen(dao.db.engine, "before_cursor_execute", _count_order_selects)
+            try:
+                ledger_page = build_billing_ledger_page(app, "creator-1", page_size=10)
+            finally:
+                event.remove(
+                    dao.db.engine,
+                    "before_cursor_execute",
+                    _count_order_selects,
+                )
+        asset_kind_by_bid = {
+            item.ledger_bid: item.credit_asset_kind for item in ledger_page.items
+        }
+
+        assert order_select_count == 1
+        assert asset_kind_by_bid["ledger-bucket-order-backed"] == "plan_credits"
+        assert asset_kind_by_bid["ledger-campaign-bonus-1"] == "pack_credits"
+        assert asset_kind_by_bid["ledger-campaign-bonus-2"] == "pack_credits"
+        assert asset_kind_by_bid["ledger-referral-reward"] == "plan_credits"
+        assert asset_kind_by_bid["ledger-topup-grant"] == "pack_credits"
+        assert asset_kind_by_bid["ledger-grant"] == "plan_credits"
+        assert asset_kind_by_bid["ledger-consume"] == "plan_credits"
+        assert asset_kind_by_bid["ledger-internal-legacy"] == "internal_legacy"
+        assert asset_kind_by_bid["ledger-cross-creator-order"] == "unknown"
 
     def test_ledger_emits_utc_ignoring_request_timezone(
         self, billing_test_client
