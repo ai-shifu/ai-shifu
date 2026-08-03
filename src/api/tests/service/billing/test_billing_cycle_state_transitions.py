@@ -22,6 +22,7 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
@@ -37,6 +38,7 @@ from flaskr.service.billing.models import (
     BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
+    CreditWallet,
     CreditWalletBucket,
 )
 
@@ -84,6 +86,25 @@ def _renewal_order(
         status=BILLING_ORDER_STATUS_PAID,
         paid_at=(datetime(2026, 4, 10, 0, 0, 0) if paid_at is _UNSET else paid_at),
         metadata_json=metadata_json or {},
+    )
+
+
+def _renewal_product() -> BillingProduct:
+    return BillingProduct(
+        product_bid="bill-product-renewal-boundary",
+        product_code="renewal-boundary",
+        product_type=BILLING_PRODUCT_TYPE_PLAN,
+        billing_mode=BILLING_MODE_RECURRING,
+        billing_interval=BILLING_INTERVAL_MONTH,
+        billing_interval_count=1,
+        display_name_i18n_key="billing.product.renewal_boundary",
+        description_i18n_key="billing.product.renewal_boundary.description",
+        currency="CNY",
+        price_amount=0,
+        credit_amount=Decimal("1000.0000000000"),
+        allocation_interval=ALLOCATION_INTERVAL_PER_CYCLE,
+        auto_renew_enabled=1,
+        status=BILLING_PRODUCT_STATUS_ACTIVE,
     )
 
 
@@ -460,6 +481,169 @@ def test_pingxx_renewal_activation_applies_at_exact_cycle_start(
     assert activated is True
     assert subscription.current_period_start_at == current_cycle_end
     assert subscription.current_period_end_at == next_cycle_end
+
+
+def test_force_activation_does_not_bypass_preorder_state_guard() -> None:
+    app = _build_app()
+    current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
+    current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
+    next_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+
+    with app.app_context():
+        dao.db.create_all()
+        product = _renewal_product()
+        subscription = BillingSubscription(
+            subscription_bid="subscription-renewal-activation-boundary",
+            creator_bid="creator-renewal-activation-boundary",
+            product_bid=product.product_bid,
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="pingxx",
+            current_period_start_at=current_cycle_start,
+            current_period_end_at=current_cycle_end,
+        )
+        order = _renewal_order(
+            metadata_json={
+                "checkout_type": "subscription_preorder",
+                "preorder_state": "effective_applied",
+                "renewal_cycle_start_at": current_cycle_end.isoformat(),
+                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+            },
+        )
+        dao.db.session.add_all([product, subscription, order])
+        dao.db.session.commit()
+
+        activated = subscriptions_mod._activate_subscription_for_paid_order(
+            app,
+            order,
+            force=True,
+        )
+        dao.db.session.flush()
+
+        assert activated is False
+        assert subscription.current_period_start_at == current_cycle_start
+        assert subscription.current_period_end_at == current_cycle_end
+        assert order.metadata_json["preorder_state"] == "effective_applied"
+
+
+def test_force_activation_is_idempotent_for_reserved_renewal_grant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = _build_app()
+    current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
+    current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
+    next_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+    monkeypatch.setattr(subscriptions_mod, "now_utc", lambda: current_cycle_end)
+
+    with app.app_context():
+        dao.db.create_all()
+        product = _renewal_product()
+        subscription = BillingSubscription(
+            subscription_bid="subscription-renewal-activation-boundary",
+            creator_bid="creator-renewal-activation-boundary",
+            product_bid=product.product_bid,
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="pingxx",
+            current_period_start_at=current_cycle_start,
+            current_period_end_at=current_cycle_end,
+        )
+        order = _renewal_order(
+            metadata_json={
+                "renewal_cycle_start_at": current_cycle_end.isoformat(),
+                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+            },
+        )
+        wallet = CreditWallet(
+            wallet_bid="wallet-renewal-activation-boundary",
+            creator_bid=order.creator_bid,
+            available_credits=Decimal("3.0000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("1003.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-renewal-activation-boundary",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=order.creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="order-current-cycle",
+            priority=20,
+            original_credits=Decimal("1003.0000000000"),
+            available_credits=Decimal("3.0000000000"),
+            reserved_credits=Decimal("1000.0000000000"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=current_cycle_start,
+            effective_to=current_cycle_end,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={"bill_order_bid": "order-current-cycle"},
+            created_at=current_cycle_start,
+            updated_at=current_cycle_start,
+        )
+        grant_entry = CreditLedgerEntry(
+            ledger_bid="ledger-renewal-activation-boundary",
+            creator_bid=order.creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order.bill_order_bid,
+            idempotency_key=f"grant:{order.bill_order_bid}",
+            amount=Decimal("1000.0000000000"),
+            balance_after=Decimal("3.0000000000"),
+            expires_at=next_cycle_end,
+            consumable_from=current_cycle_end,
+            metadata_json={
+                "bill_order_bid": order.bill_order_bid,
+                "subscription_bid": subscription.subscription_bid,
+                "product_bid": product.product_bid,
+                "payment_provider": "pingxx",
+                "grant_reason": "subscription_renewal",
+                "bucket_credit_state": "reserved",
+                "reserved_until": current_cycle_end.isoformat(),
+            },
+            created_at=current_cycle_end - timedelta(days=5),
+            updated_at=current_cycle_end - timedelta(days=5),
+        )
+        dao.db.session.add_all(
+            [product, subscription, order, wallet, bucket, grant_entry]
+        )
+        dao.db.session.commit()
+
+        first_activated = subscriptions_mod._activate_subscription_for_paid_order(
+            app,
+            order,
+            force=True,
+        )
+        dao.db.session.flush()
+        second_activated = subscriptions_mod._activate_subscription_for_paid_order(
+            app,
+            order,
+            force=True,
+        )
+        dao.db.session.flush()
+
+        expire_entries = CreditLedgerEntry.query.filter_by(
+            creator_bid=order.creator_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+            source_bid=order.bill_order_bid,
+        ).all()
+
+    assert first_activated is True
+    assert second_activated is True
+    assert subscription.current_period_start_at == current_cycle_end
+    assert subscription.current_period_end_at == next_cycle_end
+    assert bucket.source_bid == order.bill_order_bid
+    assert bucket.available_credits == Decimal("1000.0000000000")
+    assert bucket.reserved_credits == Decimal("0")
+    assert bucket.expired_credits == Decimal("3.0000000000")
+    assert grant_entry.metadata_json["bucket_credit_state"] == "available"
+    assert grant_entry.consumable_from == current_cycle_end
+    assert grant_entry.expires_at == next_cycle_end
+    assert len(expire_entries) == 1
+    assert expire_entries[0].amount == Decimal("-3.0000000000")
 
 
 @pytest.mark.parametrize(
