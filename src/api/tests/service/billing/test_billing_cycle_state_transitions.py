@@ -143,24 +143,122 @@ def test_resolve_effective_subscription_cycle_window_rejects_invalid_windows() -
 
 
 @pytest.mark.parametrize(
-    ("case_id", "current_period_start_at", "current_period_end_at"),
+    (
+        "case_id",
+        "current_period_start_at",
+        "current_period_end_at",
+        "initial_bucket_start",
+        "initial_bucket_end",
+        "expected_changed",
+        "expected_bucket_start",
+        "expected_bucket_end",
+    ),
     [
-        ("noend", datetime(2026, 4, 1, 0, 0, 0), None),
-        ("zero", datetime(2026, 4, 10, 0, 0, 0), datetime(2026, 4, 10, 0, 0, 0)),
-        ("rev", datetime(2026, 4, 11, 0, 0, 0), datetime(2026, 4, 10, 0, 0, 0)),
+        (
+            "nostart",
+            None,
+            datetime(2026, 5, 10, 0, 0, 0),
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+            False,
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+        ),
+        (
+            "noend",
+            datetime(2026, 4, 1, 0, 0, 0),
+            None,
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+            False,
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+        ),
+        (
+            "zero",
+            datetime(2026, 4, 10, 0, 0, 0),
+            datetime(2026, 4, 10, 0, 0, 0),
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+            False,
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+        ),
+        (
+            "rev",
+            datetime(2026, 4, 11, 0, 0, 0),
+            datetime(2026, 4, 10, 0, 0, 0),
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+            False,
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+        ),
+        (
+            "expired",
+            datetime(2026, 4, 1, 0, 0, 0),
+            datetime(2026, 4, 9, 0, 0, 0),
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+            False,
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+        ),
+        (
+            "future",
+            datetime(2026, 4, 11, 0, 0, 0),
+            datetime(2026, 5, 11, 0, 0, 0),
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+            False,
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+        ),
+        (
+            "endat",
+            datetime(2026, 4, 1, 0, 0, 0),
+            datetime(2026, 4, 10, 0, 0, 0),
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+            False,
+            datetime(2026, 3, 1, 0, 0, 0),
+            datetime(2026, 5, 1, 0, 0, 0),
+        ),
+        (
+            "startat",
+            datetime(2026, 4, 10, 0, 0, 0),
+            datetime(2026, 5, 10, 0, 0, 0),
+            datetime(2026, 4, 11, 0, 0, 0),
+            datetime(2026, 6, 1, 0, 0, 0),
+            True,
+            datetime(2026, 4, 10, 0, 0, 0),
+            datetime(2026, 5, 10, 0, 0, 0),
+        ),
     ],
-    ids=("missing_end", "zero_length", "reversed"),
+    ids=(
+        "missing_start",
+        "missing_end",
+        "zero_length",
+        "reversed",
+        "expired",
+        "future",
+        "end_at_as_of",
+        "start_at_as_of",
+    ),
 )
-def test_repair_paid_reserved_grant_keeps_bucket_when_cycle_window_invalid(
+def test_repair_paid_reserved_grant_handles_cycle_window_boundaries(
     monkeypatch: pytest.MonkeyPatch,
     case_id: str,
-    current_period_start_at: datetime,
+    current_period_start_at: datetime | None,
     current_period_end_at: datetime | None,
+    initial_bucket_start: datetime,
+    initial_bucket_end: datetime,
+    expected_changed: bool,
+    expected_bucket_start: datetime,
+    expected_bucket_end: datetime,
 ) -> None:
     app = _build_app()
     repair_at = datetime(2026, 4, 10, 0, 0, 0)
-    original_bucket_start = datetime(2026, 3, 1, 0, 0, 0)
-    original_bucket_end = datetime(2026, 5, 1, 0, 0, 0)
     creator_bid = "creator-invalid-cycle-caller"
     subscription_bid = "subscription-invalid-cycle-caller"
     order_bid = f"order-inv-cycle-{case_id}"
@@ -205,8 +303,8 @@ def test_repair_paid_reserved_grant_keeps_bucket_when_cycle_window_invalid(
             reserved_credits=Decimal("0"),
             consumed_credits=Decimal("0"),
             expired_credits=Decimal("0"),
-            effective_from=original_bucket_start,
-            effective_to=original_bucket_end,
+            effective_from=initial_bucket_start,
+            effective_to=initial_bucket_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
         )
         ledger = CreditLedgerEntry(
@@ -238,9 +336,9 @@ def test_repair_paid_reserved_grant_keeps_bucket_when_cycle_window_invalid(
         )
         dao.db.session.refresh(bucket)
 
-    assert changed is False
-    assert bucket.effective_from == original_bucket_start
-    assert bucket.effective_to == original_bucket_end
+    assert changed is expected_changed
+    assert bucket.effective_from == expected_bucket_start
+    assert bucket.effective_to == expected_bucket_end
 
 
 def test_realign_active_topup_bucket_effective_to_updates_bucket_and_grant_ledgers() -> (
