@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 
 from flaskr.dao import db
@@ -23,17 +24,42 @@ from .models import BillingSubscription, CreditLedgerEntry, CreditWalletBucket
 from .primitives import normalize_bid as _normalize_bid
 
 
+@dataclass(frozen=True)
+class SubscriptionCycleWindow:
+    start_at: datetime
+    end_at: datetime
+
+
+def resolve_effective_subscription_cycle_window(
+    subscription: BillingSubscription | None,
+    *,
+    as_of: datetime,
+) -> SubscriptionCycleWindow | None:
+    """Return the time-valid current cycle window, without business advancement rules.
+
+    "Effective" only means start <= as_of < end. This helper does not validate
+    subscription status, parse order metadata, or decide whether a cycle may advance.
+    """
+    if subscription is None:
+        return None
+
+    start_at = subscription.current_period_start_at
+    end_at = subscription.current_period_end_at
+    if start_at is None or end_at is None:
+        return None
+    if start_at > as_of or end_at <= as_of:
+        return None
+    return SubscriptionCycleWindow(start_at=start_at, end_at=end_at)
+
+
 def subscription_has_effective_cycle(
     subscription: BillingSubscription | None,
     *,
     as_of: datetime,
 ) -> bool:
     return (
-        subscription is not None
-        and subscription.current_period_start_at is not None
-        and subscription.current_period_end_at is not None
-        and subscription.current_period_start_at <= as_of
-        and subscription.current_period_end_at > as_of
+        resolve_effective_subscription_cycle_window(subscription, as_of=as_of)
+        is not None
     )
 
 
