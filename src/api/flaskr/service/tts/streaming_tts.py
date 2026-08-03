@@ -78,7 +78,7 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 _tts_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="tts_")
 
 _EMPTY_AUDIO_ERROR_MESSAGE = "No audio data received"
-_EMPTY_AUDIO_RETRY_PROVIDERS = {"", "tencent", "volcengine"}
+_EMPTY_AUDIO_RETRY_PROVIDERS = {"", "tencent", "tencent_texttovoice", "volcengine"}
 _EMPTY_AUDIO_RETRY_DELAY_SECONDS = 0.2
 _TTS_ERROR_TEXT_PREVIEW_CHARS = 300
 _VOLCENGINE_TIMESTAMP_PROVIDERS = {"volcengine"}
