@@ -248,6 +248,7 @@
   "ttsPreview": "Prévisualiser la voix actuelle",
   "ttsPreviewLoading": "Génération de l’aperçu…",
   "ttsPreviewStop": "Arrêter",
+  "ttsPromoBadge": "-95 % durée limitée",
   "ttsProvider": "Fournisseur",
   "ttsProviderHint": "Choisir le fournisseur utilisé pour générer la narration",
   "ttsProviderRequiredDesc": "Veuillez choisir un fournisseur vocal avant d’activer le mode écoute.",
