@@ -78,7 +78,13 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 _tts_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="tts_")
 
 _EMPTY_AUDIO_ERROR_MESSAGE = "No audio data received"
-_EMPTY_AUDIO_RETRY_PROVIDERS = {"", "tencent", "volcengine"}
+_EMPTY_AUDIO_RETRY_PROVIDERS = {
+    "",
+    "tencent",
+    "tencent_texttovoice",
+    "volcengine",
+}
+_TRANSIENT_FILE_RETRY_PROVIDERS = {"tencent", "tencent_texttovoice"}
 _EMPTY_AUDIO_RETRY_DELAY_SECONDS = 0.2
 _TTS_ERROR_TEXT_PREVIEW_CHARS = 300
 _VOLCENGINE_TIMESTAMP_PROVIDERS = {"volcengine"}
@@ -104,11 +110,15 @@ _VISUAL_SLIDE_KINDS = frozenset(
 )
 
 
-def _is_retryable_empty_audio_error(error: Exception, provider_name: str) -> bool:
+def _is_retryable_tts_error(error: Exception, provider_name: str) -> bool:
     normalized_provider = (provider_name or "").strip().lower()
-    return (
+    if (
         normalized_provider in _EMPTY_AUDIO_RETRY_PROVIDERS
         and _EMPTY_AUDIO_ERROR_MESSAGE in str(error)
+    ):
+        return True
+    return normalized_provider in _TRANSIENT_FILE_RETRY_PROVIDERS and isinstance(
+        error, FileNotFoundError
     )
 
 
@@ -496,11 +506,9 @@ class StreamingTTSProcessor:
                 )
                 break
             except Exception as e:
-                if attempt < max_attempts and _is_retryable_empty_audio_error(
-                    e, tts_provider
-                ):
+                if attempt < max_attempts and _is_retryable_tts_error(e, tts_provider):
                     logger.warning(
-                        "TTS segment %s returned no audio; retrying once: "
+                        "TTS segment %s failed transiently; retrying once: "
                         "provider=%s model=%s text_len=%s text_preview=%r",
                         segment_index if segment_index is not None else "request",
                         tts_provider or "(auto)",
