@@ -35,6 +35,11 @@ def resolve_effective_subscription_cycle_window(
     *,
     as_of: datetime,
 ) -> SubscriptionCycleWindow | None:
+    """Return the time-valid current cycle window, without business advancement rules.
+
+    "Effective" only means start <= as_of < end. This helper does not validate
+    subscription status, parse order metadata, or decide whether a cycle may advance.
+    """
     if subscription is None:
         return None
 

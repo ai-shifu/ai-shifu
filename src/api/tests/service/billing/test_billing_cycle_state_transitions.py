@@ -102,7 +102,29 @@ def test_resolve_effective_subscription_cycle_window_rejects_invalid_windows() -
         is None
     )
 
+    subscription.current_period_start_at = current_at - timedelta(days=1)
+    subscription.current_period_end_at = None
+    assert (
+        resolve_effective_subscription_cycle_window(subscription, as_of=current_at)
+        is None
+    )
+
+    subscription.current_period_start_at = current_at
+    subscription.current_period_end_at = current_at
+    assert (
+        resolve_effective_subscription_cycle_window(subscription, as_of=current_at)
+        is None
+    )
+
+    subscription.current_period_start_at = current_at + timedelta(days=1)
+    subscription.current_period_end_at = current_at
+    assert (
+        resolve_effective_subscription_cycle_window(subscription, as_of=current_at)
+        is None
+    )
+
     subscription.current_period_start_at = current_at + timedelta(seconds=1)
+    subscription.current_period_end_at = current_at + timedelta(days=1)
     assert (
         resolve_effective_subscription_cycle_window(subscription, as_of=current_at)
         is None
