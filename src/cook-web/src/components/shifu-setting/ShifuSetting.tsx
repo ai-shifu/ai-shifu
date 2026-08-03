@@ -108,7 +108,12 @@ import {
 
 // Temporary display-only promo tag on TTS model options; remove when the
 // campaign ends. Credit multipliers stay admin-configured and untouched.
-const TTS_PROMO_MODEL_VALUES = new Set(['minimax/speech-2.8-turbo']);
+// originalMultiplierLabel is the struck-through pre-promo rate, shown so the
+// promo reads as "44x discounted to the current rate" rather than "current
+// rate with a further discount".
+const TTS_PROMO_MODELS: Record<string, { originalMultiplierLabel: string }> = {
+  'minimax/speech-2.8-turbo': { originalMultiplierLabel: '44x' },
+};
 
 interface Shifu {
   description: string;
@@ -570,14 +575,16 @@ export default function ShifuSettingDialog({
 
   const ttsModelOptions = useMemo(
     () =>
-      (ttsConfig?.model_options || []).map(option =>
-        TTS_PROMO_MODEL_VALUES.has(option.value)
+      (ttsConfig?.model_options || []).map(option => {
+        const promo = TTS_PROMO_MODELS[option.value];
+        return promo
           ? {
               ...option,
               promoLabel: t('module.shifuSetting.ttsPromoBadge'),
+              promoOriginalLabel: promo.originalMultiplierLabel,
             }
-          : option,
-      ),
+          : option;
+      }),
     [t, ttsConfig?.model_options],
   );
   const ttsModelSelectValue = buildTtsModelOptionValue(

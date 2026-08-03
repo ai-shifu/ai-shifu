@@ -20,11 +20,13 @@ function ModelOptionLabel({
   creditMultiplier,
   creditMultiplierLabel,
   promoLabel,
+  promoOriginalLabel,
 }: {
   label: string;
   creditMultiplier?: number | null;
   creditMultiplierLabel?: string;
   promoLabel?: string;
+  promoOriginalLabel?: string;
 }) {
   const multiplierLabel =
     creditMultiplierLabel || (creditMultiplier ? `${creditMultiplier}x` : '');
@@ -32,7 +34,12 @@ function ModelOptionLabel({
     <span className='flex w-full min-w-0 items-center'>
       <span className='min-w-0 flex-1 truncate text-left'>{label}</span>
       {promoLabel ? (
-        <span className='ml-2 shrink-0 rounded-full border border-destructive/20 bg-destructive/10 px-2 py-0.5 text-xs font-medium leading-none text-destructive'>
+        <span className='ml-2 flex shrink-0 items-center gap-1 rounded-full border border-destructive/20 bg-destructive/10 px-2 py-0.5 text-xs font-medium leading-none text-destructive'>
+          {promoOriginalLabel ? (
+            <span className='line-through opacity-60'>
+              {promoOriginalLabel}
+            </span>
+          ) : null}
           {promoLabel}
         </span>
       ) : null}
@@ -136,6 +143,7 @@ export default function ModelList({
                 creditMultiplier={selectedOption.creditMultiplier}
                 creditMultiplierLabel={selectedOption.creditMultiplierLabel}
                 promoLabel={selectedOption.promoLabel}
+                promoOriginalLabel={selectedOption.promoOriginalLabel}
               />
             ) : (
               t('common.core.selectModel')
@@ -172,6 +180,7 @@ export default function ModelList({
                 creditMultiplier={item.creditMultiplier}
                 creditMultiplierLabel={item.creditMultiplierLabel}
                 promoLabel={item.promoLabel}
+                promoOriginalLabel={item.promoOriginalLabel}
               />
             </SelectItem>
           );
