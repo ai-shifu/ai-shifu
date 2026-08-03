@@ -2,9 +2,11 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from redis import Redis
 from sqlalchemy import event
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import pool as sa_pool
+from sqlalchemy.exc import DisconnectionError, OperationalError
 import functools
 import random
+import select as select_module
 import sqlparse
 import logging
 import time
@@ -16,6 +18,64 @@ logger = logging.getLogger(__name__)
 # create a global db object
 db = None
 redis_client = None
+
+
+def _socket_has_unread_data(dbapi_connection) -> bool:
+    """Return True when the DBAPI connection's socket has readable bytes.
+
+    A healthy pooled MySQL connection is silent between transactions: every
+    response has been consumed and the server never pushes unsolicited data.
+    Readable bytes therefore mean either an unread response left behind by an
+    interrupted operation (the protocol stream is desynced - the next query
+    on this connection would read the stale packet and fail with
+    ResourceClosedError / pymysql 2014 "Command Out of Sync") or a
+    server-initiated shutdown packet. Both make the connection unusable.
+
+    Only pymysql exposes the socket as ``_sock``; other drivers (e.g. SQLite
+    in tests) return False and are left to pool_pre_ping.
+    """
+    sock = getattr(dbapi_connection, "_sock", None)
+    if sock is None:
+        return False
+    try:
+        readable, _, _ = select_module.select([sock], [], [], 0)
+    except (OSError, ValueError):
+        # Closed or detached socket; pre_ping handles plain disconnects.
+        return False
+    return bool(readable)
+
+
+@event.listens_for(sa_pool.Pool, "checkin")
+def _invalidate_desynced_connection_on_checkin(dbapi_connection, connection_record):
+    if dbapi_connection is None:
+        return
+    if _socket_has_unread_data(dbapi_connection):
+        # stack_info identifies the code path that returned the poisoned
+        # connection - i.e. the request that interrupted a protocol exchange.
+        logger.error(
+            "DB connection returned to pool with unread protocol data; "
+            "invalidating it. The stack below is the checkin path of the "
+            "request that desynced this connection.",
+            stack_info=True,
+        )
+        connection_record.invalidate()
+
+
+@event.listens_for(sa_pool.Pool, "checkout")
+def _reject_desynced_connection_on_checkout(
+    dbapi_connection, connection_record, connection_proxy
+):
+    if _socket_has_unread_data(dbapi_connection):
+        logger.warning(
+            "Rejecting pooled DB connection with unread protocol data at "
+            "checkout; the pool will retry with a fresh connection."
+        )
+        # DisconnectionError makes the pool discard this connection and
+        # transparently retry the checkout with another one.
+        raise DisconnectionError(
+            "pooled connection has unread protocol data (desynced stream)"
+        )
+
 
 # MySQL error codes that indicate a transient locking conflict; the current
 # transaction is already rolled back by the server, so re-running it is the
