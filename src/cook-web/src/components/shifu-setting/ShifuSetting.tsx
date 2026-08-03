@@ -96,6 +96,7 @@ import {
 import {
   buildTtsModelOptionValue,
   filterTtsVoicesForModel,
+  getDefaultTtsModelOption,
   normalizeTtsModelOptions,
   parseTtsModelOptionValue,
   type TtsModelOption,
@@ -537,7 +538,7 @@ export default function ShifuSettingDialog({
   const resolvedProvider = (() => {
     const provider = (ttsProvider || '').trim();
     const fallbackProvider =
-      ttsConfig?.model_options?.[0]?.provider ||
+      getDefaultTtsModelOption(ttsConfig?.model_options || [])?.provider ||
       ttsConfig?.providers?.[0]?.name ||
       '';
     if (!provider) {
@@ -557,7 +558,7 @@ export default function ShifuSettingDialog({
     if (currentValue && options.some(option => option.value === currentValue)) {
       return;
     }
-    const fallback = options[0];
+    const fallback = getDefaultTtsModelOption(options)!;
     setTtsProvider(fallback.provider);
     setTtsModel(fallback.model);
   }, [resolvedProvider, ttsEnabled, ttsModel, ttsConfig]);
@@ -903,7 +904,7 @@ export default function ShifuSettingDialog({
     if (ttsModelOptions.length > 0) {
       const currentValue = buildTtsModelOptionValue(resolvedProvider, ttsModel);
       const modelValues = new Set(ttsModelOptions.map(option => option.value));
-      const fallbackModel = ttsModelOptions[0];
+      const fallbackModel = getDefaultTtsModelOption(ttsModelOptions)!;
       if (ttsEnabled) {
         if (!currentValue || !modelValues.has(currentValue)) {
           setTtsProvider(fallbackModel.provider);
@@ -1091,7 +1092,7 @@ export default function ShifuSettingDialog({
       try {
         const providerForSubmit =
           resolvedProvider ||
-          ttsConfig?.model_options?.[0]?.provider ||
+          getDefaultTtsModelOption(ttsConfig?.model_options || [])?.provider ||
           ttsConfig?.providers?.[0]?.name ||
           '';
         const askProviderForSubmit =
