@@ -126,14 +126,14 @@ def test_grant_manual_credit_wallet_balance_returns_existing_ledger_payload(
             idempotency_key="manual-grant-idempotent-1",
         ).one()
 
-    assert first["status"] == "granted"
-    assert second["status"] == "noop_existing"
-    assert second["ledger_bid"] == first["ledger_bid"]
-    assert second["amount"] == 2.5
-    assert second["expires_at"] == datetime(2026, 4, 9, 12, 0, 0)
-    assert second["metadata_json"]["grant_source"] == "reward"
-    assert second["metadata_json"]["validity_preset"] == "1d"
-    assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
+        assert first["status"] == "granted"
+        assert second["status"] == "noop_existing"
+        assert second["ledger_bid"] == first["ledger_bid"]
+        assert second["amount"] == 2.5
+        assert second["expires_at"] == datetime(2026, 4, 9, 12, 0, 0)
+        assert second["metadata_json"]["grant_source"] == "reward"
+        assert second["metadata_json"]["validity_preset"] == "1d"
+        assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
 
 
 def test_grant_manual_credit_wallet_balance_returns_noop_existing_after_integrity_error(
