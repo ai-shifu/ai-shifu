@@ -41,6 +41,52 @@ def test_resolve_order_effective_from_prefers_order_cycle_metadata() -> None:
     assert effective_from == cycle_start_at
 
 
+def test_resolve_order_effective_from_prefers_metadata_over_subscription_and_default() -> (
+    None
+):
+    default_effective_from = datetime(2026, 7, 1, 0, 0, 0)
+    subscription_boundary = datetime(2026, 7, 15, 0, 0, 0)
+    metadata_cycle_start = datetime(2026, 7, 31, 0, 0, 0)
+    order = SimpleNamespace(
+        order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+        subscription_bid="subscription-cycle",
+        metadata_json={"renewal_cycle_start_at": metadata_cycle_start.isoformat()},
+    )
+    subscription = SimpleNamespace(current_period_end_at=subscription_boundary)
+
+    effective_from = resolve_order_effective_from(
+        order=order,
+        default_effective_from=default_effective_from,
+        load_subscription_by_bid=lambda _: subscription,
+    )
+
+    assert effective_from == metadata_cycle_start
+
+
+def test_resolve_order_effective_from_prefers_applied_cycle_over_renewal_cycle() -> (
+    None
+):
+    default_effective_from = datetime(2026, 7, 1, 0, 0, 0)
+    applied_cycle_start = datetime(2026, 7, 10, 0, 0, 0)
+    renewal_cycle_start = datetime(2026, 7, 31, 0, 0, 0)
+    order = SimpleNamespace(
+        order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+        subscription_bid="subscription-cycle",
+        metadata_json={
+            "applied_cycle_start_at": applied_cycle_start.isoformat(),
+            "renewal_cycle_start_at": renewal_cycle_start.isoformat(),
+        },
+    )
+
+    effective_from = resolve_order_effective_from(
+        order=order,
+        default_effective_from=default_effective_from,
+        load_subscription_by_bid=_raise_unexpected_call,
+    )
+
+    assert effective_from == applied_cycle_start
+
+
 def test_resolve_order_effective_from_ignores_metadata_for_non_renewal_orders() -> None:
     default_effective_from = datetime(2026, 7, 1, 0, 0, 0)
     cycle_start_at = datetime(2026, 7, 31, 0, 0, 0)
@@ -148,6 +194,35 @@ def test_resolve_order_effective_to_uses_topup_subscription_window() -> None:
     assert resolved == effective_to
 
 
+def test_resolve_order_effective_to_prefers_topup_window_over_order_metadata() -> None:
+    effective_from = datetime(2026, 7, 1, 0, 0, 0)
+    topup_effective_to = datetime(2026, 7, 31, 0, 0, 0)
+    metadata_effective_to = datetime(2026, 8, 31, 0, 0, 0)
+    order = SimpleNamespace(
+        order_type=BILLING_ORDER_TYPE_TOPUP,
+        creator_bid="creator-cycle",
+        subscription_bid="",
+        metadata_json={"renewal_cycle_end_at": metadata_effective_to.isoformat()},
+    )
+    product = SimpleNamespace(
+        billing_interval=BILLING_INTERVAL_MONTH,
+        billing_interval_count=1,
+    )
+
+    resolved = resolve_order_effective_to(
+        order=order,
+        product=product,
+        effective_from=effective_from,
+        load_subscription_by_bid=_raise_unexpected_call,
+        resolve_topup_effective_to=lambda creator_bid, from_at: topup_effective_to,
+        is_self_managed_order=_raise_unexpected_call,
+        calculate_provider_cycle_end=_raise_unexpected_call,
+        calculate_self_managed_cycle_end=_raise_unexpected_call,
+    )
+
+    assert resolved == topup_effective_to
+
+
 def test_resolve_order_effective_to_prefers_order_cycle_metadata() -> None:
     effective_from = datetime(2026, 7, 1, 0, 0, 0)
     metadata_effective_to = datetime(2026, 7, 31, 0, 0, 0)
@@ -174,6 +249,38 @@ def test_resolve_order_effective_to_prefers_order_cycle_metadata() -> None:
     )
 
     assert resolved == metadata_effective_to
+
+
+def test_resolve_order_effective_to_prefers_applied_cycle_over_renewal_cycle() -> None:
+    effective_from = datetime(2026, 7, 1, 0, 0, 0)
+    applied_cycle_end = datetime(2026, 7, 31, 0, 0, 0)
+    renewal_cycle_end = datetime(2026, 8, 31, 0, 0, 0)
+    order = SimpleNamespace(
+        order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+        creator_bid="creator-cycle",
+        subscription_bid="subscription-cycle",
+        metadata_json={
+            "applied_cycle_end_at": applied_cycle_end.isoformat(),
+            "renewal_cycle_end_at": renewal_cycle_end.isoformat(),
+        },
+    )
+    product = SimpleNamespace(
+        billing_interval=BILLING_INTERVAL_MONTH,
+        billing_interval_count=1,
+    )
+
+    resolved = resolve_order_effective_to(
+        order=order,
+        product=product,
+        effective_from=effective_from,
+        load_subscription_by_bid=_raise_unexpected_call,
+        resolve_topup_effective_to=_raise_unexpected_call,
+        is_self_managed_order=lambda _: False,
+        calculate_provider_cycle_end=_raise_unexpected_call,
+        calculate_self_managed_cycle_end=_raise_unexpected_call,
+    )
+
+    assert resolved == applied_cycle_end
 
 
 def test_resolve_order_effective_to_prefers_existing_subscription_start_window() -> (
