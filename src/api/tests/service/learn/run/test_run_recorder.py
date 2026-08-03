@@ -249,6 +249,45 @@ def test_disconnect_mid_stream_resumes_from_last_finalized_block(recorder_app):
     )
 
 
+def test_finalize_persists_generation_prompt(recorder_app):
+    """finalize_streamed_block stores the exact sent user message so context
+    rebuilds can replay it verbatim; omitting it defaults to empty string."""
+    attend = _seed_attend()
+    recorder = RunRecorder(recorder_app)
+
+    with_prompt = _build_block("gb-prompt-0001", 3)
+    dao.db.session.add(with_prompt)
+    dao.db.session.flush()
+    recorder.finalize_streamed_block(
+        with_prompt,
+        "block content",
+        attend,
+        status=LEARN_STATUS_IN_PROGRESS,
+        block_position=4,
+        generation_prompt="Sent user message with next-interaction suffix",
+    )
+
+    without_prompt = _build_block("gb-prompt-0002", 4)
+    dao.db.session.add(without_prompt)
+    dao.db.session.flush()
+    recorder.finalize_streamed_block(
+        without_prompt,
+        "next content",
+        attend,
+        status=LEARN_STATUS_IN_PROGRESS,
+        block_position=5,
+    )
+
+    stored = LearnGeneratedBlock.query.filter(
+        LearnGeneratedBlock.generated_block_bid == "gb-prompt-0001"
+    ).one()
+    assert stored.generation_prompt == "Sent user message with next-interaction suffix"
+    stored_default = LearnGeneratedBlock.query.filter(
+        LearnGeneratedBlock.generated_block_bid == "gb-prompt-0002"
+    ).one()
+    assert stored_default.generation_prompt == ""
+
+
 def test_commit_pending_step_makes_collaborator_writes_durable(recorder_app):
     """The transitional ask-path step commits rows staged elsewhere."""
     recorder = RunRecorder(recorder_app)

@@ -152,6 +152,12 @@ class LearnGeneratedBlock(db.Model):
         default="",
         comment="Block content config(used for re-generate)",
     )
+    generation_prompt = Column(
+        Text,
+        nullable=False,
+        default="",
+        comment="Exact user message sent to the LLM when this block was generated",
+    )
     liked = Column(
         Integer,
         nullable=False,
