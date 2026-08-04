@@ -118,13 +118,15 @@ def test_mid_stream_close_discards_staged_block_and_rerun_resumes(
         generator = _open_run_generator(app, user_bid, golden_shifu, input_type="start")
         _consume_until_streaming(generator)
         # Production trigger: run_script's producer finally block calls
-        # res.close(); GeneratorExit -> rollback in run_script_inner.
+        # res.close(); GeneratorExit -> session invalidate in
+        # run_script_inner (connection discarded, transaction implicitly
+        # rolled back by the close).
         generator.close()
 
     blocks_after_close, records_after_close = _load_rows(app, user_bid)
 
     # The staged streamed-block row (generated_content == "") must have been
-    # discarded by the GeneratorExit rollback: no durable empty block.
+    # discarded when the invalidated connection closed: no durable empty block.
     assert all(block["content"] != "" for block in blocks_after_close), (
         f"durable empty generated block leaked: {blocks_after_close}"
     )

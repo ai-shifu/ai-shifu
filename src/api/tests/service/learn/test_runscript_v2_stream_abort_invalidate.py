@@ -178,3 +178,63 @@ def test_desync_error_classifier_covers_symptom_family():
     wrapped_deadlock = OperationalError("UPDATE ...", {}, Exception())
     wrapped_deadlock.orig.args = (1213, "Deadlock found")
     assert not _is_protocol_desync_error(wrapped_deadlock)
+
+
+def test_stop_event_cancellation_invalidates_instead_of_rollback(app, monkeypatch):
+    import threading
+
+    session = _patch_run_dependencies(monkeypatch, ["chunk-1"])
+
+    class _TwoRoundContext(_StubRunContext):
+        # Two has_next rounds so the stop_event check at the loop boundary
+        # fires between them.
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            # Each loop round consumes TWO steps: the while condition and the
+            # has_next() call inside the log line.
+            self._steps = iter([True, True, True, True, False])
+
+    monkeypatch.setattr(runscript_v2, "RunScriptContextV2", _TwoRoundContext)
+    stop_event = threading.Event()
+
+    with app.app_context():
+        generator = run_script_inner(
+            app=app,
+            user_bid="user-1",
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            manage_app_context=False,
+            stop_event=stop_event,
+        )
+        assert next(generator) == "chunk-1"
+        # Cancellation between events: semantically a client walk-away.
+        stop_event.set()
+        with pytest.raises(StopIteration):
+            next(generator)
+
+    assert session.invalidations == 1
+    assert session.rollbacks == 0
+
+
+def test_natural_exhaustion_never_invalidates(app, monkeypatch):
+    session = _patch_run_dependencies(monkeypatch, ["chunk-1", "chunk-2"])
+
+    with app.app_context():
+        generator = _start_stream(app)
+        remaining = list(generator)
+
+    assert remaining == ["chunk-2"]
+    assert session.invalidations == 0
+    assert session.rollbacks == 0
+    assert session.commits >= 1
+
+
+def test_discard_helper_works_on_real_scoped_session(app, caplog):
+    import logging
+
+    from flaskr.service.learn.runscript_v2 import _discard_session_connection
+
+    with app.app_context():
+        with caplog.at_level(logging.WARNING):
+            _discard_session_connection(app, source="real session smoke")
+    assert "invalidate failed" not in caplog.text

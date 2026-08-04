@@ -98,3 +98,58 @@ def test_rolls_back_session_on_non_retryable_error(monkeypatch):
     with pytest.raises(OperationalError):
         other_error()
     assert fake_db.session.rollback.call_count == 1
+
+
+def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch):
+    import flaskr.dao as dao
+
+    invalidations = []
+    monkeypatch.setattr(
+        dao,
+        "invalidate_session",
+        lambda *, source, session=None: invalidations.append(source) or True,
+    )
+    calls = {"n": 0}
+
+    @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
+    def desynced():
+        calls["n"] += 1
+        raise _operational_error(2014)
+
+    with pytest.raises(OperationalError):
+        desynced()
+
+    assert calls["n"] == 1  # no retry on a desynced stream
+    assert invalidations == ["retry_on_deadlock protocol interrupt"]
+
+
+def test_rollback_db_failure_escalates_and_stops_retrying(monkeypatch):
+    import flaskr.dao as dao
+
+    invalidations = []
+    monkeypatch.setattr(
+        dao,
+        "invalidate_session",
+        lambda *, source, session=None: invalidations.append(source) or True,
+    )
+
+    class _BrokenSession:
+        def rollback(self):
+            raise OperationalError("ROLLBACK", {}, Exception())
+
+    class _FakeDb:
+        session = _BrokenSession()
+
+    monkeypatch.setattr(dao, "db", _FakeDb)
+    calls = {"n": 0}
+
+    @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
+    def deadlocked():
+        calls["n"] += 1
+        raise _operational_error(1213)
+
+    with pytest.raises(OperationalError):
+        deadlocked()
+
+    assert calls["n"] == 1  # rollback failure aborts the retry loop
+    assert invalidations == ["retry_on_deadlock rollback failure"]

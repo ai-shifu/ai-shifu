@@ -201,10 +201,11 @@ def test_failed_finalize_leaves_staged_block_state_uncorrupted(
 
 def test_disconnect_mid_stream_resumes_from_last_finalized_block(recorder_app):
     """Session-level model of a mid-stream disconnect: block N finalized
-    (durable step), block N+1 staged when the session rolls back — the same
-    add/flush/rollback sequence the producer's GeneratorExit handler in
-    ``runscript_v2`` performs, exercised here directly against the recorder
-    session rather than through the generator chain. The re-run must see
+    (durable step), block N+1 staged when the session's connection is
+    invalidated — the same add/flush/invalidate sequence the producer's
+    GeneratorExit handler in ``runscript_v2`` performs, exercised here
+    directly against the recorder session rather than through the generator
+    chain. The re-run must see
     block N and the advanced cursor, and no trace of block N+1. An
     end-to-end test driving the real generator ``.close()`` through
     ``run_script_inner`` is a PR3 follow-up (see the B6 ExecPlan)."""
@@ -223,8 +224,11 @@ def test_disconnect_mid_stream_resumes_from_last_finalized_block(recorder_app):
         block_position=4,
     )
 
-    # Block 4 starts streaming: staged only, then the client disconnects and
-    # the producer rolls the session back.
+    # Block 4 starts streaming: staged only, then the client disconnects.
+    # Production performs Session.invalidate() (connection discarded; the
+    # staged transaction dies with it); on this fixture's in-memory SQLite an
+    # invalidate would destroy the whole database, so model the same
+    # staged-rows-vanish effect with a rollback.
     staged = _build_block("gb-staged-0004", 4)
     dao.db.session.add(staged)
     dao.db.session.flush()
