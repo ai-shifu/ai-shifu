@@ -201,8 +201,9 @@ describe('ModelList', () => {
     expect(originalRates).toHaveLength(2);
     originalRates.forEach(node => {
       expect(node).toHaveClass('line-through');
-      expect(node.parentElement).toHaveTextContent('2x');
-      expect(node.parentElement).not.toHaveTextContent('Limited-time 95% off');
+      // Exact textContent locks both co-location and order: the struck-through
+      // pre-promo rate first, the current rate right after.
+      expect(node.parentElement?.textContent).toBe('44x2x');
     });
 
     const basicOption = screen
