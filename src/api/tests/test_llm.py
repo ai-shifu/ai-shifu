@@ -1550,6 +1550,19 @@ def test_langfuse_reasoning_output_keeps_empty_content_key():
             ),
             "provider",
         ),
+        (
+            SimpleNamespace(
+                reasoning_content=None,
+                thinking_blocks=[
+                    {
+                        "type": "thinking",
+                        "thinking": "accumulated snapshot",
+                        "signature": "signed",
+                    }
+                ],
+            ),
+            "",
+        ),
     ],
 )
 def test_extract_reasoning_delta_supports_litellm_fallback_fields(delta, expected):
@@ -1604,6 +1617,20 @@ def _stream_chunk(content):
     return SimpleNamespace(
         choices=[
             SimpleNamespace(delta=SimpleNamespace(content=content), finish_reason=None)
+        ],
+        usage=None,
+    )
+
+
+def _reasoning_stream_chunk(reasoning_content):
+    return SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                delta=SimpleNamespace(
+                    content=None, reasoning_content=reasoning_content
+                ),
+                finish_reason=None,
+            )
         ],
         usage=None,
     )
@@ -1671,6 +1698,33 @@ def test_stream_retries_connection_error_before_first_content(
     chunks = _collect_retry_stream(app)
 
     assert [c.choices[0].delta.content for c in chunks] == ["hello", " world"]
+    assert calls["count"] == 2
+
+
+def test_stream_retry_discards_reasoning_from_failed_attempt(monkeypatch, app):
+    _patch_retryable_stream_errors(monkeypatch)
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [
+            [
+                _reasoning_stream_chunk("stale reasoning"),
+                _FakeAPIConnectionError("bad record mac"),
+            ],
+            [
+                _reasoning_stream_chunk("fresh reasoning"),
+                _stream_chunk("answer"),
+            ],
+        ],
+    )
+
+    chunks = _collect_retry_stream(app)
+
+    assert [
+        llm._extract_reasoning_delta(chunk.choices[0].delta)
+        for chunk in chunks
+        if llm._extract_reasoning_delta(chunk.choices[0].delta)
+    ] == ["fresh reasoning"]
+    assert [chunk.choices[0].delta.content for chunk in chunks] == [None, "answer"]
     assert calls["count"] == 2
 
 

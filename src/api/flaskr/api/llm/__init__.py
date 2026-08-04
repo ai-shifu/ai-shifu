@@ -201,11 +201,16 @@ def _extract_reasoning_delta(delta: Any) -> str:
     ]
     thinking_blocks = _get(delta, "thinking_blocks")
     if isinstance(thinking_blocks, list):
-        block_reasoning = [
-            normalized
-            for block in thinking_blocks
-            if (normalized := _normalize(_get(block, "thinking")))
-        ]
+        block_reasoning = []
+        for block in thinking_blocks:
+            # Anthropic emits the full accumulated thinking again alongside
+            # the signature. Incremental reasoning was already delivered in
+            # earlier chunks, so recording the signed snapshot duplicates it.
+            if _normalize(_get(block, "signature")):
+                continue
+            normalized = _normalize(_get(block, "thinking"))
+            if normalized:
+                block_reasoning.append(normalized)
         if block_reasoning:
             candidates.append("\n".join(block_reasoning))
     provider_fields = _get(delta, "provider_specific_fields")
@@ -511,8 +516,10 @@ def _iter_stream_with_precontent_retry(
     established stream that dies mid-read (transient network corruption,
     provider LB reset) surfaces as an exception from the chunk iterator and
     kills the whole run. Re-issuing is only safe while no content has been
-    seen: nothing user-visible can be duplicated. Once content flowed, the
-    error is re-raised unchanged.
+    seen: nothing user-visible can be duplicated. Hidden reasoning chunks are
+    buffered until the attempt produces content or completes, so reasoning
+    from an abandoned attempt does not leak into Langfuse. Once content
+    flowed, the error is re-raised unchanged.
     """
     attempts = 0
     while True:
@@ -525,11 +532,24 @@ def _iter_stream_with_precontent_retry(
             kwargs,
         )
         saw_content = False
+        pending_reasoning_chunks = []
         try:
             for res in response:
-                if len(res.choices) and res.choices[0].delta.content:
+                has_choices = bool(len(res.choices))
+                has_content = bool(has_choices and res.choices[0].delta.content)
+                has_reasoning = bool(
+                    has_choices and _extract_reasoning_delta(res.choices[0].delta)
+                )
+                if has_content:
                     saw_content = True
-                yield res
+                    yield from pending_reasoning_chunks
+                    pending_reasoning_chunks.clear()
+                    yield res
+                elif not saw_content and has_reasoning:
+                    pending_reasoning_chunks.append(res)
+                else:
+                    yield res
+            yield from pending_reasoning_chunks
             return
         except Exception as exc:
             attempts += 1
