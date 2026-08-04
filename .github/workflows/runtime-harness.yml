@@ -74,7 +74,16 @@ jobs:
 
       - name: Start dev stack
         working-directory: docker
-        run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker-compose.dev.yml up -d --build
+        run: |
+          for attempt in 1 2 3; do
+            if docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker-compose.dev.yml up -d --build; then
+              exit 0
+            fi
+            echo "Docker compose start failed on attempt ${attempt}."
+            docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker-compose.dev.yml down -v || true
+            sleep 15
+          done
+          exit 1
 
       - name: Wait for API and observability health
         run: |
