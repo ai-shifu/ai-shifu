@@ -247,3 +247,42 @@ def test_desync_forensics_survives_missing_raw_connection():
 
     described = _describe_desynced_connection(_FakeResult(), _FakeConnection())
     assert "raw_connection=unavailable" in described
+
+
+def test_desync_forensics_logs_only_packet_header_not_payload():
+    import socket as socket_module
+
+    from flaskr.service.learn.listen_element_run_persistence import (
+        _describe_desynced_connection,
+    )
+
+    left, right = socket_module.socketpair()
+    try:
+        # 4-byte MySQL packet header + payload containing sensitive text.
+        right.sendall(bytes.fromhex("2a000005") + b"\xfeSENSITIVE-LEARNER-CONTENT")
+
+        class _FakeRaw:
+            _next_seq_id = 3
+            _result = None
+            _sock = left
+
+            def thread_id(self):
+                return 1
+
+        class _FakeConnection:
+            class connection:
+                dbapi_connection = None
+
+        _FakeConnection.connection.dbapi_connection = _FakeRaw()
+
+        class _FakeResult:
+            cursor = None
+
+        described = _describe_desynced_connection(_FakeResult(), _FakeConnection())
+
+        assert "socket_pending_header_hex=2a000005fe" in described
+        assert "SENSITIVE" not in described
+        assert "socket_pending_len>=" in described
+    finally:
+        left.close()
+        right.close()

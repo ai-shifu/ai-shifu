@@ -89,7 +89,14 @@ def _describe_desynced_connection(result, connection) -> str:
             readable, _, _ = select_module.select([sock], [], [], 0)
             if readable:
                 pending = sock.recv(64, socket_module.MSG_PEEK)
-                parts.append(f"socket_pending_hex={pending.hex()}")
+                # Log only the MySQL packet header (3-byte length, 1-byte
+                # sequence) plus the first payload byte that identifies the
+                # packet type (0x00 OK / 0xff ERR / 0xfe EOF / other =
+                # column-count or row data). That is enough to classify the
+                # stale response without serializing row payloads - which
+                # could contain learner content - into the log.
+                parts.append(f"socket_pending_len>={len(pending)}")
+                parts.append(f"socket_pending_header_hex={pending[:5].hex()}")
             else:
                 parts.append("socket_pending=none")
         except Exception as probe_error:  # noqa: BLE001 - forensics only
