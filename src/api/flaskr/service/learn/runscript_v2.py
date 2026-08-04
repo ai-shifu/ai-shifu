@@ -62,6 +62,49 @@ def _remove_db_session_safely(app: Flask, *, source: str) -> None:
         app.logger.warning("%s db session cleanup failed", source, exc_info=True)
 
 
+# MySQL client error codes that mean the connection's protocol stream is no
+# longer trustworthy: 2013 "Lost connection during query" leaves a response
+# half-read; 2014 "Command Out of Sync" means a response was consumed out of
+# order (the off-by-one desync this module's probes exist for).
+_DESYNC_MYSQL_ERRNOS = frozenset({2013, 2014})
+
+
+def _is_protocol_desync_error(exc: BaseException) -> bool:
+    """Return True when ``exc`` implies the DB protocol stream is desynced.
+
+    ResourceClosedError on a SELECT is the canonical victim symptom of an
+    off-by-one response stream. For DBAPI errors, inspect the MySQL errno on
+    the original driver exception (SQLAlchemy wraps it) as well as on the
+    exception itself (raw pymysql errors escape unwrapped from low-level
+    paths such as rollback).
+    """
+    if isinstance(exc, ResourceClosedError):
+        return True
+    for candidate in (exc, getattr(exc, "orig", None)):
+        args = getattr(candidate, "args", ())
+        if args and isinstance(args[0], int) and args[0] in _DESYNC_MYSQL_ERRNOS:
+            return True
+    return False
+
+
+def _discard_session_connection(app: Flask, *, source: str) -> None:
+    """Drop the session's DB connection instead of returning it to the pool.
+
+    Used when the streaming generator terminates abnormally: the close (or a
+    protocol error) can leave an unconsumed response owed on the wire, and
+    rolling back on such a connection consumes stale packets and returns a
+    poisoned connection to the pool. ``Session.invalidate()`` rolls back the
+    session state without emitting anything on the connection and discards
+    the raw DBAPI connection. The pool-level probes in ``flaskr/dao`` only
+    see stale bytes that have already arrived at the socket; discarding the
+    connection deterministically closes that arrival race.
+    """
+    try:
+        db.session.invalidate()
+    except Exception:
+        app.logger.warning("%s session invalidate failed", source, exc_info=True)
+
+
 # Number of connection checkouts to probe before giving up: the pool may hold
 # more than one poisoned connection, so retry a couple of fresh checkouts.
 _CONNECTION_PROBE_ATTEMPTS = 3
@@ -462,11 +505,20 @@ def run_script_inner(
             db.session.commit()
             app.logger.info("BreakException")
         except GeneratorExit:
-            db.session.rollback()
+            # The close lands at an arbitrary yield point (client disconnect),
+            # so the connection's protocol state is unknowable: this is the
+            # exact checkin path the pool-level desync detector caught in
+            # production. Discard the connection instead of rolling back on it.
+            _discard_session_connection(app, source="run_script_inner GeneratorExit")
             app.logger.info("GeneratorExit")
-        except Exception:
+        except Exception as exc:
             _finalize_langfuse_if_available(run_script_context)
-            db.session.rollback()
+            if _is_protocol_desync_error(exc):
+                # Rolling back on a desynced connection consumes stale packets
+                # ("Command Out of Sync") and re-pools the poisoned stream.
+                _discard_session_connection(app, source="run_script_inner stream error")
+            else:
+                db.session.rollback()
             raise
         finally:
             _remove_db_session_safely(app, source="run_script_inner")
