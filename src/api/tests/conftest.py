@@ -26,6 +26,10 @@ for _key in list(ENV_VARS.keys()):
     os.environ.pop(_key, None)
 
 # Force SQLite for tests unless explicitly overridden.
+# NOTE: this MUST stay a file-backed database (not :memory:). The
+# session-termination principle invalidates connections on abnormal
+# stream terminations; on an in-memory SQLite (StaticPool) an
+# invalidate would destroy the entire database mid-test.
 _test_db_uri = os.environ.get("TEST_SQLALCHEMY_DATABASE_URI")
 _test_db_dir = None
 if not _test_db_uri:

@@ -29,7 +29,11 @@ class _FakeSession:
         self._behaviours = list(behaviours)
         self.executed = 0
         self.rollbacks = 0
+        self.invalidations = 0
         self._connection = _FakeConnection()
+
+    def invalidate(self):
+        self.invalidations += 1
 
     def execute(self, _statement, params):
         self.executed += 1
@@ -73,8 +77,8 @@ def test_probe_invalidates_desynced_connection_and_retries(app, monkeypatch):
     _ensure_healthy_db_connection(app)
 
     assert session.executed == 2
-    assert session._connection.invalidated == 1
-    assert session.rollbacks == 1
+    assert session.invalidations == 1
+    assert session.rollbacks == 0
 
 
 def test_probe_detects_mismatched_echo_and_retries(app, monkeypatch):
@@ -83,7 +87,7 @@ def test_probe_detects_mismatched_echo_and_retries(app, monkeypatch):
     _ensure_healthy_db_connection(app)
 
     assert session.executed == 2
-    assert session._connection.invalidated == 1
+    assert session.invalidations == 1
 
 
 def test_probe_raises_after_exhausting_attempts(app, monkeypatch):
@@ -93,7 +97,8 @@ def test_probe_raises_after_exhausting_attempts(app, monkeypatch):
         _ensure_healthy_db_connection(app)
 
     assert session.executed == 3
-    assert session._connection.invalidated == 3
+    assert session.invalidations == 3
+    assert session.rollbacks == 0
 
 
 def test_probe_raises_on_persistent_echo_mismatch(app, monkeypatch):

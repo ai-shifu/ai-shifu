@@ -5,7 +5,7 @@ from flask import Flask, Response, request, stream_with_context
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from flaskr.dao import db
+from flaskr.dao import db, invalidate_session, is_protocol_interrupt_error
 from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import get_current_language
 from flaskr.route.common import make_common_response, bypass_token_validation
@@ -97,6 +97,10 @@ def _stream_sse_response(
                 yield _to_sse_data_line(message)
         except GeneratorExit:
             app.logger.info(close_log)
+            # The close may have interrupted a DB exchange mid-stream:
+            # discard the connection so the finally's remove does not send a
+            # ROLLBACK on a possibly desynced stream.
+            invalidate_session(source="learn stream_sse_response close")
             raise
         except AppException as exc:
             app.logger.warning("%s: %s (code: %s)", error_log, exc, exc.code)
@@ -107,6 +111,8 @@ def _stream_sse_response(
                 yield _to_sse_data_line(terminal_event_factory())
         except Exception as exc:
             app.logger.error(error_log, exc_info=True)
+            if is_protocol_interrupt_error(exc):
+                invalidate_session(source="learn stream_sse_response desync")
             if error_event_factory is None:
                 raise
             yield _to_sse_data_line(error_event_factory(exc))
@@ -135,15 +141,21 @@ def _stream_passthrough_response(
             yield from message_iter_factory()
         except GeneratorExit:
             app.logger.info(close_log)
+            invalidate_session(source="learn stream_passthrough_response close")
             raise
         except RuntimeError as exc:
             if _is_generator_close_error(exc):
+                # RuntimeError("generator ignored GeneratorExit") is the close
+                # in disguise: same interrupted-exchange risk as GeneratorExit.
                 app.logger.info(close_log)
+                invalidate_session(source="learn stream_passthrough_response close")
                 return
             app.logger.error(error_log, exc_info=True)
             raise
-        except Exception:
+        except Exception as exc:
             app.logger.error(error_log, exc_info=True)
+            if is_protocol_interrupt_error(exc):
+                invalidate_session(source="learn stream_passthrough_response desync")
             raise
         finally:
             _release_db_session(app, source="learn stream_passthrough_response")
