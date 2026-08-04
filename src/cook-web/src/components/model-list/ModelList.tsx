@@ -34,17 +34,17 @@ function ModelOptionLabel({
     <span className='flex w-full min-w-0 items-center'>
       <span className='min-w-0 flex-1 truncate text-left'>{label}</span>
       {promoLabel ? (
-        <span className='ml-2 flex shrink-0 items-center gap-1 rounded-full border border-destructive/20 bg-destructive/10 px-2 py-0.5 text-xs font-medium leading-none text-destructive'>
-          {promoOriginalLabel ? (
-            <span className='line-through opacity-60'>
-              {promoOriginalLabel}
-            </span>
-          ) : null}
+        <span className='ml-2 shrink-0 rounded-full border border-destructive/20 bg-destructive/10 px-2 py-0.5 text-xs font-medium leading-none text-destructive'>
           {promoLabel}
         </span>
       ) : null}
       {multiplierLabel ? (
         <span className='ml-2 shrink-0 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-medium leading-none text-primary'>
+          {promoOriginalLabel ? (
+            <span className='mr-1 line-through opacity-60'>
+              {promoOriginalLabel}
+            </span>
+          ) : null}
           {multiplierLabel}
         </span>
       ) : null}

@@ -192,14 +192,17 @@ describe('ModelList', () => {
       />,
     );
 
-    // Promo badge shows in both the trigger and the dropdown option, next to
-    // the untouched multiplier badge, with the pre-promo rate struck through.
+    // Promo badge shows in both the trigger and the dropdown option; the
+    // struck-through pre-promo rate sits inside the multiplier badge, right
+    // before the current rate.
     expect(screen.getAllByText('Limited-time 95% off')).toHaveLength(2);
     expect(screen.getAllByText('2x')).toHaveLength(2);
     const originalRates = screen.getAllByText('44x');
     expect(originalRates).toHaveLength(2);
     originalRates.forEach(node => {
       expect(node).toHaveClass('line-through');
+      expect(node.parentElement).toHaveTextContent('2x');
+      expect(node.parentElement).not.toHaveTextContent('Limited-time 95% off');
     });
 
     const basicOption = screen
