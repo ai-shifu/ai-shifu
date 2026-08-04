@@ -190,13 +190,24 @@ def _extract_reasoning_delta(delta: Any) -> str:
             return value.get(key)
         return getattr(value, key, None)
 
+    def _normalize(value: Any) -> str | None:
+        if isinstance(value, str) and value.strip():
+            return value
+        return normalize_langfuse_output_value(value)
+
     candidates: list[Any] = [
         _get(delta, "reasoning_content"),
         _get(delta, "reasoning"),
     ]
     thinking_blocks = _get(delta, "thinking_blocks")
     if isinstance(thinking_blocks, list):
-        candidates.extend(_get(block, "thinking") for block in thinking_blocks)
+        block_reasoning = [
+            normalized
+            for block in thinking_blocks
+            if (normalized := _normalize(_get(block, "thinking")))
+        ]
+        if block_reasoning:
+            candidates.append("\n".join(block_reasoning))
     provider_fields = _get(delta, "provider_specific_fields")
     if provider_fields:
         candidates.extend(
@@ -207,11 +218,7 @@ def _extract_reasoning_delta(delta: Any) -> str:
         )
 
     for candidate in candidates:
-        normalized = (
-            candidate
-            if isinstance(candidate, str) and candidate.strip()
-            else normalize_langfuse_output_value(candidate)
-        )
+        normalized = _normalize(candidate)
         if normalized:
             return normalized
     return ""
@@ -223,11 +230,10 @@ def _build_langfuse_llm_output(
 ) -> str | dict[str, str]:
     if not reasoning_text:
         return response_text
-    output: dict[str, str] = {}
-    if response_text:
-        output["content"] = response_text
-    output["reasoning_content"] = reasoning_text
-    return output
+    return {
+        "content": response_text,
+        "reasoning_content": reasoning_text,
+    }
 
 
 def _normalize_model_config(value: Any) -> list[str]:

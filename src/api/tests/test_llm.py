@@ -1522,15 +1522,25 @@ def test_llm_sends_reasoning_output_to_langfuse_without_streaming_it(
     }
 
 
+def test_langfuse_reasoning_output_keeps_empty_content_key():
+    assert llm._build_langfuse_llm_output("", "Think carefully.") == {
+        "content": "",
+        "reasoning_content": "Think carefully.",
+    }
+
+
 @pytest.mark.parametrize(
     ("delta", "expected"),
     [
         (
             SimpleNamespace(
                 reasoning_content=None,
-                thinking_blocks=[{"type": "thinking", "thinking": "block"}],
+                thinking_blocks=[
+                    {"type": "thinking", "thinking": "first block"},
+                    {"type": "thinking", "thinking": "second block"},
+                ],
             ),
-            "block",
+            "first block\nsecond block",
         ),
         (
             SimpleNamespace(
