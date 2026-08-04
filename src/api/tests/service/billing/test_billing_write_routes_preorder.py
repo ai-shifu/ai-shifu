@@ -27,7 +27,7 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     CreditWalletBucket,
     Decimal,
     ERROR_CODE,
-    _self_managed_cycle_end_after_boundary,
+    self_managed_cycle_end_after_boundary,
     billing_checkout_module,
     billing_subscriptions_module,
     calculate_self_managed_billing_cycle_end,
@@ -552,7 +552,7 @@ class TestBillingWriteRoutesPreorder:
             assert wallet.reserved_credits == Decimal("5.0000000000")
             assert grant_ledger.metadata_json["bucket_credit_state"] == "reserved"
             assert grant_ledger.consumable_from == current_period_end
-            assert grant_ledger.expires_at == _self_managed_cycle_end_after_boundary(
+            assert grant_ledger.expires_at == self_managed_cycle_end_after_boundary(
                 product,
                 current_period_end,
             )
@@ -826,7 +826,7 @@ class TestBillingWriteRoutesPreorder:
                 subscription_bid="sub-preorder-same-plan-sync",
                 event_type=BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
             ).first()
-            expected_cycle_end = _self_managed_cycle_end_after_boundary(
+            expected_cycle_end = self_managed_cycle_end_after_boundary(
                 product,
                 current_period_end,
             )

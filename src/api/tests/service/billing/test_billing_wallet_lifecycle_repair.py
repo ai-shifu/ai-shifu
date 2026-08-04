@@ -45,7 +45,7 @@ from flaskr.service.billing.wallets import (
 from flaskr.util.datetime import to_utc_iso
 
 from tests.service.billing.wallet_lifecycle_test_helpers import (
-    _create_monthly_plan_product,
+    create_monthly_plan_product,
 )
 
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
@@ -298,7 +298,7 @@ def test_repair_renewal_state_drift_dry_run_reports_overdue_reserved_paid_grant(
             current_period_start_at=datetime(2026, 3, 8, 0, 0, 0),
             current_period_end_at=boundary_at,
         )
-        product = _create_monthly_plan_product(subscription.product_bid)
+        product = create_monthly_plan_product(subscription.product_bid)
         order = BillingOrder(
             bill_order_bid=order_bid,
             creator_bid=wallet.creator_bid,
@@ -685,7 +685,7 @@ def test_repair_renewal_state_drift_all_scope_includes_reserved_only_creator(
             current_period_start_at=datetime(2026, 4, 1, 0, 0, 0),
             current_period_end_at=datetime(2026, 5, 1, 0, 0, 0),
         )
-        product = _create_monthly_plan_product(subscription.product_bid)
+        product = create_monthly_plan_product(subscription.product_bid)
         order = BillingOrder(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
@@ -788,7 +788,7 @@ def test_repair_renewal_state_drift_counts_only_successful_activations(
             current_period_start_at=datetime(2026, 3, 8, 0, 0, 0),
             current_period_end_at=boundary_at,
         )
-        product = _create_monthly_plan_product(subscription.product_bid)
+        product = create_monthly_plan_product(subscription.product_bid)
         order = BillingOrder(
             bill_order_bid=order_bid,
             creator_bid=creator_bid,
@@ -991,7 +991,7 @@ def test_repair_renewal_state_drift_blocks_cycle_when_subscription_grant_missing
             [
                 wallet,
                 subscription,
-                _create_monthly_plan_product(product_bid),
+                create_monthly_plan_product(product_bid),
                 first_order,
                 missing_order,
                 bucket,
@@ -1100,7 +1100,7 @@ def test_repair_renewal_state_drift_blocks_unknown_subscription_grant_state(
             [
                 wallet,
                 subscription,
-                _create_monthly_plan_product(subscription.product_bid),
+                create_monthly_plan_product(subscription.product_bid),
                 order,
                 bucket,
                 ledger,
@@ -1225,7 +1225,7 @@ def test_repair_renewal_state_drift_blocks_short_subscription_grant_amount(
             [
                 wallet,
                 subscription,
-                _create_monthly_plan_product(subscription.product_bid),
+                create_monthly_plan_product(subscription.product_bid),
                 order,
                 bucket,
                 ledger,
@@ -1350,7 +1350,7 @@ def test_repair_renewal_state_drift_ignores_legacy_missing_state_without_reserve
             [
                 wallet,
                 subscription,
-                _create_monthly_plan_product(subscription.product_bid),
+                create_monthly_plan_product(subscription.product_bid),
                 order,
                 bucket,
                 ledger,
@@ -1459,7 +1459,7 @@ def test_repair_renewal_state_drift_keeps_missing_state_with_matching_reserved_b
             [
                 wallet,
                 subscription,
-                _create_monthly_plan_product(subscription.product_bid),
+                create_monthly_plan_product(subscription.product_bid),
                 order,
                 bucket,
                 ledger,
@@ -1568,7 +1568,7 @@ def test_repair_renewal_state_drift_keeps_missing_state_from_seeded_creator_scan
             [
                 wallet,
                 subscription,
-                _create_monthly_plan_product(subscription.product_bid),
+                create_monthly_plan_product(subscription.product_bid),
                 order,
                 bucket,
                 ledger,
@@ -1719,7 +1719,7 @@ def test_repair_renewal_state_drift_ignores_shared_bucket_legacy_missing_state(
             [
                 wallet,
                 subscription,
-                _create_monthly_plan_product(subscription.product_bid),
+                create_monthly_plan_product(subscription.product_bid),
                 old_order,
                 current_order,
                 bucket,
@@ -1829,7 +1829,7 @@ def test_repair_renewal_state_drift_all_scope_falls_back_to_source_bid(
             [
                 wallet,
                 subscription,
-                _create_monthly_plan_product(subscription.product_bid),
+                create_monthly_plan_product(subscription.product_bid),
                 order,
                 bucket,
                 ledger,
@@ -1938,7 +1938,7 @@ def test_repair_renewal_state_drift_blocks_when_campaign_bonus_grant_missing(
             [
                 wallet,
                 subscription,
-                _create_monthly_plan_product(subscription.product_bid),
+                create_monthly_plan_product(subscription.product_bid),
                 order,
                 bucket,
                 ledger,

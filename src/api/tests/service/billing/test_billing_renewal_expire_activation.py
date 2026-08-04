@@ -37,10 +37,10 @@ from flaskr.util.datetime import now_utc, to_utc_iso
 
 
 from tests.service.billing.renewal_execution_test_helpers import (
-    _create_bucket,
-    _create_renewal_event,
-    _create_wallet,
-    _self_managed_cycle_end_after_boundary,
+    create_credit_bucket,
+    create_renewal_event,
+    create_credit_wallet,
+    self_managed_cycle_end_after_boundary,
 )
 
 
@@ -52,7 +52,7 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
 ) -> None:
     current_cycle_start = now_utc() - timedelta(days=30)
     current_cycle_end = now_utc() - timedelta(minutes=1)
-    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
+    next_cycle_end = self_managed_cycle_end_after_boundary(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(
@@ -91,14 +91,14 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
                 "renewal_cycle_end_at": next_cycle_end.isoformat(),
             },
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-expire-paid-1",
             subscription.subscription_bid,
             subscription.creator_bid,
             event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
             scheduled_at=current_cycle_end,
         )
-        wallet = _create_wallet(
+        wallet = create_credit_wallet(
             subscription.creator_bid,
             available_credits="6.0000000000",
         )
@@ -106,7 +106,7 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
         dao.db.session.add(order)
         dao.db.session.add(wallet)
         dao.db.session.add(
-            _create_bucket(
+            create_credit_bucket(
                 wallet.wallet_bid,
                 subscription.creator_bid,
                 "bucket-pingxx-expire-paid-1",
@@ -120,7 +120,7 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
             )
         )
         dao.db.session.add(
-            _create_bucket(
+            create_credit_bucket(
                 wallet.wallet_bid,
                 subscription.creator_bid,
                 "bucket-pingxx-expire-paid-bonus-1",
@@ -226,7 +226,7 @@ def test_expire_event_releases_reserved_subscription_renewal_on_same_bucket(
 ) -> None:
     current_cycle_start = now_utc() - timedelta(days=30)
     current_cycle_end = now_utc() - timedelta(minutes=1)
-    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
+    next_cycle_end = self_managed_cycle_end_after_boundary(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(
@@ -265,14 +265,14 @@ def test_expire_event_releases_reserved_subscription_renewal_on_same_bucket(
                 "renewal_cycle_end_at": next_cycle_end.isoformat(),
             },
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-expire-reserved-1",
             subscription.subscription_bid,
             subscription.creator_bid,
             event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
             scheduled_at=current_cycle_end,
         )
-        wallet = _create_wallet(
+        wallet = create_credit_wallet(
             subscription.creator_bid,
             available_credits="3.0000000000",
             lifetime_granted_credits="8.0000000000",
@@ -390,7 +390,7 @@ def test_expire_event_allows_shared_bucket_after_activated_grant_was_consumed(
 ) -> None:
     current_cycle_start = now_utc() - timedelta(days=30)
     current_cycle_end = now_utc() - timedelta(minutes=1)
-    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
+    next_cycle_end = self_managed_cycle_end_after_boundary(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(
@@ -449,14 +449,14 @@ def test_expire_event_allows_shared_bucket_after_activated_grant_was_consumed(
                 "renewal_cycle_end_at": next_cycle_end.isoformat(),
             },
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-shared-bucket-consumed",
             subscription.subscription_bid,
             subscription.creator_bid,
             event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
             scheduled_at=current_cycle_end,
         )
-        wallet = _create_wallet(
+        wallet = create_credit_wallet(
             subscription.creator_bid,
             available_credits="2.0000000000",
             lifetime_granted_credits="10.0000000000",
@@ -582,7 +582,7 @@ def test_expire_event_fails_when_reserved_renewal_activation_is_incomplete(
 ) -> None:
     current_cycle_start = now_utc() - timedelta(days=30)
     current_cycle_end = now_utc() - timedelta(minutes=1)
-    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
+    next_cycle_end = self_managed_cycle_end_after_boundary(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(
@@ -621,14 +621,14 @@ def test_expire_event_fails_when_reserved_renewal_activation_is_incomplete(
                 "renewal_cycle_end_at": to_utc_iso(next_cycle_end),
             },
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-expire-reserved-fail-1",
             subscription.subscription_bid,
             subscription.creator_bid,
             event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
             scheduled_at=current_cycle_end,
         )
-        wallet = _create_wallet(
+        wallet = create_credit_wallet(
             subscription.creator_bid,
             available_credits="3.0000000000",
             lifetime_granted_credits="8.0000000000",

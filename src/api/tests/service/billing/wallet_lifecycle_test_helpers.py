@@ -4,8 +4,10 @@ from decimal import Decimal
 
 from flaskr.service.billing.models import BillingProduct
 
+__all__ = ["create_monthly_plan_product"]
 
-def _create_monthly_plan_product(
+
+def create_monthly_plan_product(
     product_bid: str,
     *,
     credit_amount: Decimal = Decimal("1000.0000000000"),

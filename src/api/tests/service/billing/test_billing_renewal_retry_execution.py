@@ -24,8 +24,8 @@ from flaskr.util.datetime import now_utc
 
 
 from tests.service.billing.renewal_execution_test_helpers import (
-    _create_renewal_event,
-    _create_subscription,
+    create_renewal_event,
+    create_renewal_subscription,
 )
 
 
@@ -48,7 +48,7 @@ def test_run_billing_renewal_event_retries_latest_failed_renewal_order(
     cycle_start = now_utc()
     cycle_end = cycle_start + timedelta(days=30)
     with billing_renewal_app.app_context():
-        subscription = _create_subscription(
+        subscription = create_renewal_subscription(
             "sub-retry-1",
             current_period_end_at=cycle_start,
         )
@@ -72,7 +72,7 @@ def test_run_billing_renewal_event_retries_latest_failed_renewal_order(
                 "renewal_cycle_end_at": cycle_end.isoformat(),
             },
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-retry-1",
             subscription.subscription_bid,
             subscription.creator_bid,
