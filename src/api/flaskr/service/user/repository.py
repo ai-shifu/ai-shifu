@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask
 
-from flaskr.dao import db
+from flaskr.dao import db, cleanup_session_after
 from flaskr.service.common.dtos import UserInfo
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
@@ -837,6 +837,8 @@ def transactional_session():
     try:
         with db.session.begin_nested():
             yield
-    except Exception:
-        db.session.rollback()
+    except Exception as exc:
+        # Classified: interrupted exchanges discard the connection instead
+        # of emitting a ROLLBACK on a possibly desynced stream.
+        cleanup_session_after(exc, source="transactional_session")
         raise
