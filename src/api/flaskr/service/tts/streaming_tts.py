@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, Future
 
 from flask import Flask
 
+from flaskr.dao import cleanup_session_after
 from flaskr.api.tts import (
     synthesize_text,
     is_tts_configured,
@@ -1378,6 +1379,10 @@ class StreamingTTSProcessor:
             )
         except Exception as e:
             logger.error(f"Failed to finalize TTS: {e}\n{traceback.format_exc()}")
+            # The swallowed error may be a desync surfaced by the audio
+            # record write; classify so an interrupted exchange discards the
+            # connection instead of leaving it for the next statement.
+            cleanup_session_after(e, source="streaming tts finalize")
 
     def _synthesize_minimax_complete_fallback(
         self,

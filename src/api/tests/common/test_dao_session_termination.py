@@ -183,3 +183,91 @@ def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
             raise ValueError("business")
 
     assert invalidations == []
+
+
+def test_release_session_classified_invalidates_during_propagating_interrupt(
+    app, monkeypatch
+):
+    import flaskr.dao as dao
+
+    order = []
+    monkeypatch.setattr(
+        dao,
+        "invalidate_session",
+        lambda *, source, session=None: order.append("invalidate") or True,
+    )
+    original_remove = db.session.remove
+    monkeypatch.setattr(
+        db.session,
+        "remove",
+        lambda: order.append("remove") or original_remove(),
+    )
+
+    class _Interrupt(BaseException):
+        pass
+
+    with app.app_context():
+        try:
+            raise _Interrupt()
+        except _Interrupt:
+            pass
+        # No in-flight exception here: plain removal, no invalidate.
+        dao.release_session_classified(source="t-clean")
+        assert order == ["remove"]
+        order.clear()
+
+        try:
+            try:
+                raise _Interrupt()
+            finally:
+                # In-flight BaseException visible via sys.exc_info in finally:
+                # invalidate must run BEFORE removal, otherwise remove() emits
+                # a ROLLBACK on the desynced stream.
+                dao.release_session_classified(source="t-interrupt")
+        except _Interrupt:
+            pass
+
+        # Assert inside the context: the context exit's own teardown removes
+        # would otherwise append extra entries.
+        assert order == ["invalidate", "remove"]
+
+
+def test_release_session_classified_ignores_ordinary_exceptions(app, monkeypatch):
+    import flaskr.dao as dao
+
+    invalidations = []
+    monkeypatch.setattr(
+        dao,
+        "invalidate_session",
+        lambda *, source, session=None: invalidations.append(source) or True,
+    )
+
+    with app.app_context():
+        try:
+            try:
+                raise ValueError("business")
+            finally:
+                dao.release_session_classified(source="t-ordinary")
+        except ValueError:
+            pass
+
+    assert invalidations == []
+
+
+def test_classifier_covers_driver_interface_and_socket_errors():
+    class _DriverInterfaceError(Exception):
+        pass
+
+    _DriverInterfaceError.__name__ = "InterfaceError"
+
+    from sqlalchemy.exc import InterfaceError as SAInterfaceError
+
+    assert (
+        is_protocol_interrupt_error(SAInterfaceError("stmt", {}, Exception())) is True
+    )
+    assert is_protocol_interrupt_error(_DriverInterfaceError()) is True
+    assert is_protocol_interrupt_error(BrokenPipeError(32, "broken pipe")) is True
+    assert is_protocol_interrupt_error(ConnectionResetError(104, "reset")) is True
+    wrapped = OperationalError("stmt", {}, BrokenPipeError(32, "broken pipe"))
+    assert is_protocol_interrupt_error(wrapped) is True
+    assert is_protocol_interrupt_error(ValueError("business")) is False
