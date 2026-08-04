@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 
 from flask import Flask
 
-from flaskr.dao import db
+from flaskr.dao import cleanup_session_after, db, invalidate_session
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.util.uuid import generate_id
 
@@ -53,23 +53,32 @@ def _resolve_billable(app: Flask, *, context: UsageContext, usage_scene: int) ->
 
 def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
     """Persist raw usage only; async settlement owns later credit mutations."""
-    try:
-        with app.app_context():
+    with app.app_context():
+        try:
             db.session.add(record)
             db.session.commit()
-        return True
-    except Exception as exc:
-        try:
-            app.logger.error("Usage metering persist failed: %s", exc, exc_info=True)
-        except Exception:
-            # Ignore logging failures to avoid masking the original persistence error.
-            pass
-        try:
-            db.session.rollback()
-        except Exception:
-            # Ignore rollback failures; session may already be invalidated.
-            pass
-        return False
+            return True
+        except Exception as exc:
+            try:
+                app.logger.error(
+                    "Usage metering persist failed: %s", exc, exc_info=True
+                )
+            except Exception:
+                # Never mask the persistence failure with a logging failure.
+                pass
+            # Clean up INSIDE the pushed context so it targets the session
+            # that actually failed - the previous cleanup ran after the
+            # context pop and rolled back the CALLER's session instead.
+            # Classified: stream-interrupting failures discard the
+            # connection, ordinary errors roll back as before.
+            cleanup_session_after(exc, source="usage metering persist")
+            return False
+        except BaseException:
+            # A GreenletExit landing inside commit's network IO leaves an
+            # unread response owed on the wire; discard the connection
+            # before the context teardown would roll back on it.
+            invalidate_session(source="usage metering persist interrupt")
+            raise
 
 
 def _should_enqueue_usage_settlement(

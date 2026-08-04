@@ -131,6 +131,18 @@ def app():
             raise
     app.extensions.pop("sqlalchemy", None)
     dao.db.init_app(app)
+    # The second init_app above registered another Flask-SQLAlchemy teardown
+    # AFTER dao's interrupt guard; teardowns run LIFO, so move the guard back
+    # to the end to preserve guard-before-session-removal ordering. This
+    # matches production, where init_app runs exactly once inside init_db.
+    _teardown_funcs = app.teardown_appcontext_funcs
+    for _func in list(_teardown_funcs):
+        if (
+            getattr(_func, "__name__", "")
+            == "_invalidate_session_on_interrupted_teardown"
+        ):
+            _teardown_funcs.remove(_func)
+            _teardown_funcs.append(_func)
 
     with app.app_context():
         # Allow skipping DB migrations in CI/unit-only runs

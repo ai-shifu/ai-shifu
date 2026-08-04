@@ -136,3 +136,50 @@ def test_cleanup_escalates_to_invalidate_when_rollback_fails():
     outcome = cleanup_session_after(ValueError("business"), source="t", session=_Fake())
     assert outcome == "invalidated"
     assert events == ["rollback", "invalidate"]
+
+
+def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch):
+    """The global teardown guard must fire on abnormal context exits and run
+    BEFORE Flask-SQLAlchemy's remove (reverse registration order)."""
+    import flaskr.dao as dao
+
+    order = []
+    monkeypatch.setattr(
+        dao,
+        "invalidate_session",
+        lambda *, source, session=None: order.append(f"invalidate:{source}") or True,
+    )
+    original_remove = db.session.remove
+
+    def _tracking_remove():
+        order.append("remove")
+        return original_remove()
+
+    monkeypatch.setattr(db.session, "remove", _tracking_remove)
+
+    class _Interrupt(BaseException):
+        pass
+
+    with pytest.raises(_Interrupt):
+        with app.app_context():
+            raise _Interrupt()
+
+    assert order[0] == "invalidate:appcontext teardown interrupt"
+    assert "remove" in order
+
+
+def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
+    import flaskr.dao as dao
+
+    invalidations = []
+    monkeypatch.setattr(
+        dao,
+        "invalidate_session",
+        lambda *, source, session=None: invalidations.append(source) or True,
+    )
+
+    with pytest.raises(ValueError):
+        with app.app_context():
+            raise ValueError("business")
+
+    assert invalidations == []

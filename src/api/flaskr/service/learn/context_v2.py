@@ -36,7 +36,7 @@ from flaskr.common.i18n_utils import (
     resolve_markdownflow_output_language,
 )
 from flaskr.common.cache_provider import cache as cache_provider
-from flaskr.dao import db
+from flaskr.dao import db, invalidate_session
 from flaskr.service.shifu.shifu_struct_manager import (
     ShifuOutlineItemDto,
     ShifuInfoDto,
@@ -1820,16 +1820,36 @@ class RunScriptContextV2:
             with self.app.app_context():
                 set_language(parent_language)
                 apply_shifu_context_snapshot(parent_shifu_context)
+                produce_exc: BaseException | None = None
+                exhausted = False
                 try:
                     for item in stream_result:
                         if consumer_stopped.is_set() or self._stop_requested():
                             break
                         result_queue.put(("item", item))
+                    else:
+                        # for/else: only natural exhaustion reaches here.
+                        exhausted = True
                 except Exception as exc:
+                    produce_exc = exc
                     result_queue.put(("error", exc))
+                except BaseException as exc:  # noqa: BLE001 - GreenletExit etc.
+                    produce_exc = exc
+                    raise
                 finally:
                     with contextlib.suppress(Exception):
                         stream_result.close()
+                    if not exhausted or produce_exc is not None:
+                        # The close above (or the interruption itself) may
+                        # have landed mid-DB-exchange in this thread's own
+                        # session; discard its connection rather than letting
+                        # remove() roll back on a possibly desynced stream.
+                        # NOTE: consumer_stopped is deliberately NOT part of
+                        # this predicate - the consumer's finally sets it
+                        # unconditionally, and a natural completion racing
+                        # that set must not discard a healthy connection
+                        # (exhausted stays True in that case).
+                        invalidate_session(source="mdflow stream producer abort")
                     with contextlib.suppress(Exception):
                         db.session.remove()
                     result_queue.put(("done", None))

@@ -334,3 +334,68 @@ def test_record_tts_usage_marks_builtin_demo_course_non_billable(
     assert record is not None
     assert record.billable == 0
     assert captured == []
+
+
+def test_persist_cleanup_targets_failed_session_inside_context(app, monkeypatch):
+    """Cleanup must run inside the pushed context (targeting the session that
+    failed) and classify the failure: ordinary errors roll back, protocol
+    interrupts invalidate."""
+    from flask import current_app
+    from sqlalchemy.exc import ResourceClosedError
+
+    from flaskr.service.metering import recorder as recorder_module
+
+    events = []
+
+    def _fake_cleanup(exc, *, source, session=None):
+        # Must be called while the pushed app context is active.
+        events.append((type(exc).__name__, current_app._get_current_object() is app))
+        return "cleaned"
+
+    monkeypatch.setattr(recorder_module, "cleanup_session_after", _fake_cleanup)
+
+    class _FailingSession:
+        def add(self, _record):
+            pass
+
+        def commit(self):
+            raise ResourceClosedError("desynced")
+
+    monkeypatch.setattr(
+        recorder_module, "db", type("D", (), {"session": _FailingSession()})
+    )
+
+    ok = recorder_module._persist_usage_record(app, object())
+
+    assert ok is False
+    assert events == [("ResourceClosedError", True)]
+
+
+def test_persist_invalidates_on_base_exception_interrupt(app, monkeypatch):
+    from flaskr.service.metering import recorder as recorder_module
+
+    invalidations = []
+    monkeypatch.setattr(
+        recorder_module,
+        "invalidate_session",
+        lambda *, source, session=None: invalidations.append(source) or True,
+    )
+
+    class _Interrupt(BaseException):
+        pass
+
+    class _InterruptedSession:
+        def add(self, _record):
+            pass
+
+        def commit(self):
+            raise _Interrupt()
+
+    monkeypatch.setattr(
+        recorder_module, "db", type("D", (), {"session": _InterruptedSession()})
+    )
+
+    with pytest.raises(_Interrupt):
+        recorder_module._persist_usage_record(app, object())
+
+    assert invalidations == ["usage metering persist interrupt"]
