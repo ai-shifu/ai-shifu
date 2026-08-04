@@ -1,4 +1,5 @@
 # ruff: noqa: E402
+import importlib.metadata
 import json
 import os
 import subprocess
@@ -958,6 +959,25 @@ def test_provider_thinking_policy_preserves_caller_extra_body_fields():
     }
 
 
+LITELLM_CONTRACT_VERSION = "1.95.0"
+
+
+def _installed_litellm_version() -> str | None:
+    try:
+        return importlib.metadata.version("litellm")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+@pytest.mark.skipif(
+    _installed_litellm_version() != LITELLM_CONTRACT_VERSION,
+    reason=(
+        "contract test targets litellm=="
+        f"{LITELLM_CONTRACT_VERSION}, found "
+        f"{_installed_litellm_version() or 'no litellm distribution'}; "
+        "install requirements.txt to run it"
+    ),
+)
 def test_litellm_195_native_adapter_contracts():
     script = textwrap.dedent(
         """
