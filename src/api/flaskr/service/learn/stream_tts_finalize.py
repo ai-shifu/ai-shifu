@@ -4,6 +4,7 @@ import queue
 import threading
 from typing import Any, Generator
 
+from flaskr.dao import cleanup_session_after, invalidate_session
 from flaskr.common.shifu_context import (
     apply_shifu_context_snapshot,
     get_shifu_context_snapshot,
@@ -52,7 +53,16 @@ class StreamTTSFinalizeDrainer:
                     for event in processor.finalize(commit=True):
                         event_queue.put(("event", event))
                 except Exception as exc:
+                    # Classify before reporting: a desync surfaced by the
+                    # finalize commit must discard this worker's connection,
+                    # otherwise the app-context teardown pops with exc=None
+                    # (we swallowed it) and remove() would emit a ROLLBACK on
+                    # the desynced stream.
+                    cleanup_session_after(exc, source="stream tts finalize worker")
                     event_queue.put(("error", exc))
+                except BaseException:
+                    invalidate_session(source="stream tts finalize interrupt")
+                    raise
                 finally:
                     event_queue.put(
                         (

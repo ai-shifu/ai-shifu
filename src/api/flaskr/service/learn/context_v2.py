@@ -36,7 +36,7 @@ from flaskr.common.i18n_utils import (
     resolve_markdownflow_output_language,
 )
 from flaskr.common.cache_provider import cache as cache_provider
-from flaskr.dao import db, invalidate_session
+from flaskr.dao import cleanup_session_after, db, invalidate_session
 from flaskr.service.shifu.shifu_struct_manager import (
     ShifuOutlineItemDto,
     ShifuInfoDto,
@@ -1755,6 +1755,7 @@ class RunScriptContextV2:
             self.app.logger.warning(
                 "Create TTS processor failed: %s", exc, exc_info=True
             )
+            cleanup_session_after(exc, source="create tts processor")
             return None
 
     def _finalize_stream_tts_processor(
@@ -1773,6 +1774,7 @@ class RunScriptContextV2:
             )
         except Exception as exc:
             self.app.logger.warning("%s: %s", log_prefix, exc, exc_info=True)
+            cleanup_session_after(exc, source="finalize stream tts processor")
 
     def _teardown_stream_tts_state(
         self,
@@ -1793,6 +1795,7 @@ class RunScriptContextV2:
                     exc,
                     exc_info=True,
                 )
+                cleanup_session_after(exc, source="flush streaming content cache")
         if tts_processor:
             yield from self._finalize_stream_tts_processor(
                 tts_processor,
