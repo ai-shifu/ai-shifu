@@ -20,6 +20,7 @@ from flaskr.api.langfuse import (
     LangfuseObservationHandle,
     build_langfuse_observation_link,
     get_request_id,
+    normalize_langfuse_output_value,
     resolve_langfuse_trace_id,
 )
 from flaskr.common.config import (
@@ -179,6 +180,54 @@ def _attach_usage_output_text(
         :_USAGE_OUTPUT_TEXT_MAX_LENGTH
     ]
     return next_metadata
+
+
+def _extract_reasoning_delta(delta: Any) -> str:
+    """Return provider reasoning from a normalized LiteLLM stream delta."""
+
+    def _get(value: Any, key: str) -> Any:
+        if isinstance(value, dict):
+            return value.get(key)
+        return getattr(value, key, None)
+
+    candidates: list[Any] = [
+        _get(delta, "reasoning_content"),
+        _get(delta, "reasoning"),
+    ]
+    thinking_blocks = _get(delta, "thinking_blocks")
+    if isinstance(thinking_blocks, list):
+        candidates.extend(_get(block, "thinking") for block in thinking_blocks)
+    provider_fields = _get(delta, "provider_specific_fields")
+    if provider_fields:
+        candidates.extend(
+            [
+                _get(provider_fields, "reasoning_content"),
+                _get(provider_fields, "reasoning"),
+            ]
+        )
+
+    for candidate in candidates:
+        normalized = (
+            candidate
+            if isinstance(candidate, str) and candidate.strip()
+            else normalize_langfuse_output_value(candidate)
+        )
+        if normalized:
+            return normalized
+    return ""
+
+
+def _build_langfuse_llm_output(
+    response_text: str,
+    reasoning_text: str,
+) -> str | dict[str, str]:
+    if not reasoning_text:
+        return response_text
+    output: dict[str, str] = {}
+    if response_text:
+        output["content"] = response_text
+    output["reasoning_content"] = reasoning_text
+    return output
 
 
 def _normalize_model_config(value: Any) -> list[str]:
@@ -952,6 +1001,7 @@ def invoke_llm(
         model,
     )
     response_text = ""
+    reasoning_text = ""
     usage = None
     input_cache_tokens = 0
     provider_name = ""
@@ -991,6 +1041,8 @@ def invoke_llm(
         for res in response:
             if start_completion_time is None:
                 start_completion_time = datetime.now()
+            if len(res.choices):
+                reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
             if len(res.choices) and res.choices[0].delta.content:
                 response_text += res.choices[0].delta.content
                 yield LLMStreamResponse(
@@ -1078,7 +1130,7 @@ def invoke_llm(
         )
     generation.end(
         input=generation_input,
-        output=response_text,
+        output=_build_langfuse_llm_output(response_text, reasoning_text),
         usage=usage,
         metadata=kwargs,
         completion_start_time=start_completion_time,
@@ -1130,6 +1182,7 @@ def chat_llm(
         model,
     )
     response_text = ""
+    reasoning_text = ""
     usage = None
     input_cache_tokens = 0
     provider_name = ""
@@ -1163,6 +1216,8 @@ def chat_llm(
             for res in response:
                 if start_completion_time is None:
                     start_completion_time = datetime.now()
+                if len(res.choices):
+                    reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
                 if len(res.choices) and res.choices[0].delta.content:
                     response_text += res.choices[0].delta.content
                     yield LLMStreamResponse(
@@ -1259,7 +1314,7 @@ def chat_llm(
         )
     generation.end(
         input=generation_input,
-        output=response_text,
+        output=_build_langfuse_llm_output(response_text, reasoning_text),
         usage=usage,
         metadata=kwargs,
         completion_start_time=start_completion_time,

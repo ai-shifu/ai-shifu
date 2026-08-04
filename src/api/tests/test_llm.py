@@ -140,9 +140,19 @@ class DummySpan:
 
 
 class FakeResponse:
-    def __init__(self, chunk_id, content=None, finish_reason=None, usage=None):
+    def __init__(
+        self,
+        chunk_id,
+        content=None,
+        finish_reason=None,
+        usage=None,
+        reasoning_content=None,
+    ):
         self.id = chunk_id
-        delta = SimpleNamespace(content=content)
+        delta = SimpleNamespace(
+            content=content,
+            reasoning_content=reasoning_content,
+        )
         self.choices = [SimpleNamespace(delta=delta, finish_reason=finish_reason)]
         self.usage = usage
 
@@ -1452,7 +1462,88 @@ def test_chat_llm_streams(monkeypatch, app):
     assert captured_usage["input"] == 3
     assert captured_usage["output"] == 2
     assert captured_usage["total"] == 5
+    assert span.end_args["output"] == "Hi there"
     assert captured_usage["extra"]["output_text"] == "Hi there"
+
+
+@pytest.mark.parametrize("llm_method", ["invoke_llm", "chat_llm"])
+def test_llm_sends_reasoning_output_to_langfuse_without_streaming_it(
+    monkeypatch, app, llm_method
+):
+    def fake_completion(*args, **kwargs):
+        _ = args, kwargs
+        return iter(
+            [
+                FakeResponse("chunk-1", reasoning_content="Think "),
+                FakeResponse(
+                    "chunk-2",
+                    content="The answer",
+                    reasoning_content="carefully.",
+                    finish_reason="stop",
+                ),
+            ]
+        )
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(llm, "record_llm_usage", lambda *args, **kwargs: None)
+    provider_state = llm.ProviderState(
+        enabled=True,
+        params={"api_key": "test-key", "api_base": "https://example.com"},
+        models=["gpt-test"],
+        prefix="",
+        wildcard_prefixes=("gpt",),
+    )
+    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
+    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
+    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+
+    span = DummySpan()
+    common_kwargs = {
+        "app": app,
+        "user_id": "user-1",
+        "span": span,
+        "model": "gpt-test",
+        "generation_name": "reasoning-test",
+    }
+    if llm_method == "invoke_llm":
+        responses = list(llm.invoke_llm(message="hello", **common_kwargs))
+    else:
+        responses = list(
+            llm.chat_llm(
+                messages=[{"role": "user", "content": "hello"}],
+                **common_kwargs,
+            )
+        )
+
+    assert [response.result for response in responses] == ["The answer"]
+    assert span.end_args["output"] == {
+        "content": "The answer",
+        "reasoning_content": "Think carefully.",
+    }
+
+
+@pytest.mark.parametrize(
+    ("delta", "expected"),
+    [
+        (
+            SimpleNamespace(
+                reasoning_content=None,
+                thinking_blocks=[{"type": "thinking", "thinking": "block"}],
+            ),
+            "block",
+        ),
+        (
+            SimpleNamespace(
+                reasoning_content=None,
+                thinking_blocks=None,
+                provider_specific_fields={"reasoning": "provider"},
+            ),
+            "provider",
+        ),
+    ],
+)
+def test_extract_reasoning_delta_supports_litellm_fallback_fields(delta, expected):
+    assert llm._extract_reasoning_delta(delta) == expected
 
 
 def test_chat_llm_falls_back_to_request_trace_id(monkeypatch, app):
