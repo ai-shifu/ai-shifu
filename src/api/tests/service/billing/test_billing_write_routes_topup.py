@@ -30,7 +30,6 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     _add_trial_subscription_state,
     _seed_creator_user,
     dao,
-    datetime,
     now_utc,
     repair_topup_grant_expiries,
     timedelta,
@@ -453,7 +452,7 @@ class TestBillingWriteRoutesTopup:
         self, billing_write_client
     ) -> None:
         app = billing_write_client["app"]
-        now = datetime(2026, 4, 17, 12, 0, 0)
+        now = now_utc()
         trial_end = now + timedelta(days=15)
         paid_end = now + timedelta(days=1)
         topup_paid_at = now + timedelta(minutes=5)
@@ -626,6 +625,7 @@ class TestBillingWriteRoutesTopup:
         _add_active_subscription(app, subscription_bid="sub-topup-rebuild-1")
 
         with app.app_context():
+            existing_free_credit_created_at = now_utc()
             dao.db.session.add(
                 CreditWallet(
                     wallet_bid="wallet-creator-1",
@@ -636,8 +636,8 @@ class TestBillingWriteRoutesTopup:
                     lifetime_consumed_credits=Decimal("0"),
                     last_settled_usage_id=0,
                     version=0,
-                    created_at=datetime(2026, 4, 1, 0, 0, 0),
-                    updated_at=datetime(2026, 4, 1, 0, 0, 0),
+                    created_at=existing_free_credit_created_at,
+                    updated_at=existing_free_credit_created_at,
                 )
             )
             dao.db.session.add(
@@ -654,12 +654,12 @@ class TestBillingWriteRoutesTopup:
                     reserved_credits=Decimal("0"),
                     consumed_credits=Decimal("0"),
                     expired_credits=Decimal("0"),
-                    effective_from=datetime(2026, 4, 1, 0, 0, 0),
+                    effective_from=existing_free_credit_created_at,
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
                     metadata_json={},
-                    created_at=datetime(2026, 4, 1, 0, 0, 0),
-                    updated_at=datetime(2026, 4, 1, 0, 0, 0),
+                    created_at=existing_free_credit_created_at,
+                    updated_at=existing_free_credit_created_at,
                 )
             )
             dao.db.session.commit()

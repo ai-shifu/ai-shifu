@@ -457,12 +457,14 @@ def billing_write_client(monkeypatch):
             return FakePingxxProvider()
         raise AssertionError(f"Unexpected provider: {channel}")
 
-    monkeypatch.setattr(
-        "flaskr.service.billing.checkout.get_payment_provider",
+    monkeypatch.setitem(
+        billing_write_routes_module.create_billing_order_checkout.__globals__,
+        "get_payment_provider",
         _fake_get_payment_provider,
     )
-    monkeypatch.setattr(
-        "flaskr.service.billing.subscriptions.get_payment_provider",
+    monkeypatch.setitem(
+        billing_write_routes_module.cancel_billing_subscription.__globals__,
+        "get_payment_provider",
         _fake_get_payment_provider,
     )
     monkeypatch.setattr(

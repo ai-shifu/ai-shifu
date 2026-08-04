@@ -407,7 +407,7 @@ Focused backend tests should cover:
 Recommended checks:
 
 ```bash
-cd src/api && pytest tests/service/billing/test_billing_write_routes_*.py tests/service/billing/test_billing_renewal_execution.py -q
+(cd src/api && pytest tests/service/billing/test_billing_write_routes_*.py tests/service/billing/test_billing_renewal_execution.py -q)
 python scripts/check_repo_harness.py
 ```
 
