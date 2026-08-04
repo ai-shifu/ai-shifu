@@ -22,7 +22,7 @@ from flaskr.service.billing.models import (
     CreditLedgerEntry,
     CreditWalletBucket,
 )
-from tests.service.billing.cycle_state_test_helpers import _build_app
+from tests.service.billing.cycle_state_test_helpers import build_cycle_state_app
 
 
 @pytest.mark.parametrize(
@@ -140,7 +140,7 @@ def test_repair_paid_reserved_grant_handles_cycle_window_boundaries(
     expected_bucket_start: datetime,
     expected_bucket_end: datetime,
 ) -> None:
-    app = _build_app()
+    app = build_cycle_state_app()
     repair_at = datetime(2026, 4, 10, 0, 0, 0)
     creator_bid = "creator-invalid-cycle-caller"
     subscription_bid = "subscription-invalid-cycle-caller"

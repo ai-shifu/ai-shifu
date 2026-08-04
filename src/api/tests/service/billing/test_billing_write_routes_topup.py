@@ -26,9 +26,9 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     Decimal,
     PingxxOrder,
     StripeOrder,
-    _add_active_subscription,
-    _add_trial_subscription_state,
-    _seed_creator_user,
+    add_active_subscription,
+    add_trial_subscription_state,
+    seed_creator_user,
     dao,
     now_utc,
     repair_topup_grant_expiries,
@@ -47,7 +47,7 @@ class TestBillingWriteRoutesTopup:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        _add_active_subscription(app, subscription_bid="sub-topup-paid-1")
+        add_active_subscription(app, subscription_bid="sub-topup-paid-1")
 
         checkout = client.post(
             "/api/billing/topups/checkout",
@@ -113,7 +113,7 @@ class TestBillingWriteRoutesTopup:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        _add_active_subscription(app, subscription_bid="sub-topup-stripe-1")
+        add_active_subscription(app, subscription_bid="sub-topup-stripe-1")
 
         checkout = client.post(
             "/api/billing/topups/checkout",
@@ -140,7 +140,7 @@ class TestBillingWriteRoutesTopup:
         now = now_utc()
         current_period_start_at = now - timedelta(days=3)
         current_period_end_at = now + timedelta(days=27)
-        _add_active_subscription(
+        add_active_subscription(
             app,
             subscription_bid="sub-topup-active-1",
             current_period_start_at=current_period_start_at,
@@ -181,7 +181,7 @@ class TestBillingWriteRoutesTopup:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
         current_period_end_at = now_utc() + timedelta(days=30)
-        _add_active_subscription(
+        add_active_subscription(
             app,
             subscription_bid="sub-topup-repeat-1",
             current_period_end_at=current_period_end_at,
@@ -249,8 +249,8 @@ class TestBillingWriteRoutesTopup:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
 
-        _seed_creator_user(app, creator_bid="creator-1")
-        _add_trial_subscription_state(
+        seed_creator_user(app, creator_bid="creator-1")
+        add_trial_subscription_state(
             app,
             subscription_bid="sub-trial-paid-then-topup",
             bill_order_bid="bill-trial-paid-then-topup",
@@ -344,8 +344,8 @@ class TestBillingWriteRoutesTopup:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
 
-        _seed_creator_user(app, creator_bid="creator-1")
-        _add_trial_subscription_state(
+        seed_creator_user(app, creator_bid="creator-1")
+        add_trial_subscription_state(
             app,
             subscription_bid="sub-trial-topup-then-paid",
             bill_order_bid="bill-trial-topup-then-paid",
@@ -590,7 +590,7 @@ class TestBillingWriteRoutesTopup:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        _add_active_subscription(app, subscription_bid="sub-topup-default-provider-1")
+        add_active_subscription(app, subscription_bid="sub-topup-default-provider-1")
 
         def fake_get_config(key, default=None):
             if key == "PAYMENT_CHANNELS_ENABLED":
@@ -622,7 +622,7 @@ class TestBillingWriteRoutesTopup:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        _add_active_subscription(app, subscription_bid="sub-topup-rebuild-1")
+        add_active_subscription(app, subscription_bid="sub-topup-rebuild-1")
 
         with app.app_context():
             existing_free_credit_created_at = now_utc()

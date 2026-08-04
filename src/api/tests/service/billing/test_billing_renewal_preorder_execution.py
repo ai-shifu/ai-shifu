@@ -41,10 +41,10 @@ from flaskr.util.datetime import now_utc
 
 
 from tests.service.billing.renewal_execution_test_helpers import (
-    _create_renewal_event,
-    _create_subscription,
-    _create_wallet,
-    _self_managed_cycle_end_after_boundary,
+    create_renewal_event,
+    create_renewal_subscription,
+    create_credit_wallet,
+    self_managed_cycle_end_after_boundary,
 )
 
 
@@ -56,13 +56,13 @@ def test_run_billing_renewal_event_applies_downgrade_and_reschedules_renewal(
 ) -> None:
     next_period_end = now_utc() + timedelta(days=30)
     with billing_renewal_app.app_context():
-        subscription = _create_subscription(
+        subscription = create_renewal_subscription(
             "sub-downgrade-1",
             product_bid="bill-product-plan-yearly",
             next_product_bid="bill-product-plan-monthly",
             current_period_end_at=next_period_end,
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-downgrade-1",
             subscription.subscription_bid,
             subscription.creator_bid,
@@ -102,10 +102,10 @@ def test_run_billing_downgrade_event_applies_paid_preorder_with_referral_reward(
     current_cycle_start = now_utc() - timedelta(days=35)
     preorder_snapshot_cycle_end = now_utc() - timedelta(days=5)
     current_cycle_end = now_utc() - timedelta(minutes=1)
-    preorder_snapshot_next_cycle_end = _self_managed_cycle_end_after_boundary(
+    preorder_snapshot_next_cycle_end = self_managed_cycle_end_after_boundary(
         preorder_snapshot_cycle_end
     )
-    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
+    next_cycle_end = self_managed_cycle_end_after_boundary(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(
@@ -170,14 +170,14 @@ def test_run_billing_downgrade_event_applies_paid_preorder_with_referral_reward(
             created_at=current_cycle_end - timedelta(days=4),
             updated_at=current_cycle_end - timedelta(days=4),
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-preorder-downgrade-1",
             subscription.subscription_bid,
             subscription.creator_bid,
             event_type=BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
             scheduled_at=current_cycle_end,
         )
-        wallet = _create_wallet(
+        wallet = create_credit_wallet(
             subscription.creator_bid,
             available_credits="3.0000000000",
             lifetime_granted_credits="105.0000000000",
@@ -376,7 +376,7 @@ def test_run_billing_same_plan_preorder_starts_new_cycle_at_boundary(
 ) -> None:
     current_cycle_start = now_utc() - timedelta(days=35)
     current_cycle_end = now_utc() - timedelta(minutes=1)
-    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
+    next_cycle_end = self_managed_cycle_end_after_boundary(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(
@@ -420,14 +420,14 @@ def test_run_billing_same_plan_preorder_starts_new_cycle_at_boundary(
                 "renewal_cycle_end_at": next_cycle_end.isoformat(),
             },
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-preorder-same-plan-1",
             subscription.subscription_bid,
             subscription.creator_bid,
             event_type=BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
             scheduled_at=current_cycle_end,
         )
-        wallet = _create_wallet(
+        wallet = create_credit_wallet(
             subscription.creator_bid,
             available_credits="3.0000000000",
             lifetime_granted_credits="10.0000000000",
@@ -533,7 +533,7 @@ def test_ensure_subscription_renewal_order_preserves_preorder_metadata(
 ) -> None:
     current_cycle_start = now_utc() - timedelta(days=30)
     current_cycle_end = now_utc() + timedelta(days=1)
-    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
+    next_cycle_end = self_managed_cycle_end_after_boundary(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(

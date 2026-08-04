@@ -32,8 +32,18 @@ from flaskr.service.billing.queries import (
 )
 from flaskr.util.datetime import now_utc
 
+__all__ = [
+    "add_paid_renewal_with_reserved_grant",
+    "create_credit_bucket",
+    "create_credit_wallet",
+    "create_renewal_event",
+    "create_renewal_subscription",
+    "self_managed_cycle_end",
+    "self_managed_cycle_end_after_boundary",
+]
 
-def _self_managed_cycle_end(
+
+def self_managed_cycle_end(
     cycle_start_at: datetime,
     *,
     interval: int = BILLING_INTERVAL_MONTH,
@@ -50,7 +60,7 @@ def _self_managed_cycle_end(
     return cycle_end_at
 
 
-def _self_managed_cycle_end_after_boundary(
+def self_managed_cycle_end_after_boundary(
     cycle_boundary_at: datetime,
     *,
     interval: int = BILLING_INTERVAL_MONTH,
@@ -67,7 +77,7 @@ def _self_managed_cycle_end_after_boundary(
     return cycle_end_at
 
 
-def _create_subscription(
+def create_renewal_subscription(
     subscription_bid: str,
     *,
     creator_bid: str = "creator-renewal-1",
@@ -99,7 +109,7 @@ def _create_subscription(
     )
 
 
-def _create_renewal_event(
+def create_renewal_event(
     renewal_event_bid: str,
     subscription_bid: str,
     creator_bid: str,
@@ -122,7 +132,7 @@ def _create_renewal_event(
     )
 
 
-def _create_wallet(
+def create_credit_wallet(
     creator_bid: str,
     *,
     available_credits: str,
@@ -143,7 +153,7 @@ def _create_wallet(
     )
 
 
-def _create_bucket(
+def create_credit_bucket(
     wallet_bid: str,
     creator_bid: str,
     bucket_bid: str,
@@ -188,7 +198,7 @@ def _create_bucket(
     )
 
 
-def _add_paid_renewal_with_reserved_grant(
+def add_paid_renewal_with_reserved_grant(
     *,
     suffix: str,
     current_cycle_start: datetime,
@@ -240,14 +250,14 @@ def _add_paid_renewal_with_reserved_grant(
             "renewal_cycle_end_at": next_cycle_end.isoformat(),
         },
     )
-    event = _create_renewal_event(
+    event = create_renewal_event(
         event_bid,
         subscription.subscription_bid,
         subscription.creator_bid,
         event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
         scheduled_at=scheduled_at,
     )
-    wallet = _create_wallet(
+    wallet = create_credit_wallet(
         subscription.creator_bid,
         available_credits="3.0000000000",
         lifetime_granted_credits="8.0000000000",
