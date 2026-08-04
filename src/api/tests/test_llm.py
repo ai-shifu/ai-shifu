@@ -849,6 +849,112 @@ def test_provider_thinking_policy_removes_caller_conflicts():
     }
 
 
+@pytest.mark.parametrize(
+    ("generation_config_key", "thinking_config_key", "top_k_key"),
+    [
+        ("generationConfig", "thinkingConfig", "topK"),
+        ("generation_config", "thinking_config", "top_k"),
+    ],
+)
+def test_gemini_thinking_policy_removes_nested_caller_override(
+    generation_config_key,
+    thinking_config_key,
+    top_k_key,
+):
+    kwargs = {
+        "extra_body": {
+            generation_config_key: {
+                thinking_config_key: {"thinkingLevel": "high"},
+                top_k_key: 8,
+            },
+            "custom_field": "keep",
+        },
+    }
+
+    llm._apply_provider_params(
+        kwargs,
+        llm._reload_gemini_params("gemini-3.6-flash", 0.4),
+    )
+
+    assert kwargs == {
+        "temperature": 0.4,
+        "reasoning_effort": "none",
+        "allowed_openai_params": ["reasoning_effort"],
+        "extra_body": {
+            "generationConfig": {top_k_key: 8},
+            "custom_field": "keep",
+        },
+    }
+
+
+@pytest.mark.parametrize("generation_config_key", llm._GEMINI_GENERATION_CONFIG_KEYS)
+def test_gemini_thinking_policy_removes_invalid_native_config(
+    generation_config_key,
+):
+    kwargs = {
+        "extra_body": {
+            generation_config_key: None,
+            "custom_field": "keep",
+        },
+    }
+
+    llm._apply_provider_params(
+        kwargs,
+        llm._reload_gemini_params("gemini-3.6-flash", 0.4),
+    )
+
+    assert kwargs["extra_body"] == {"custom_field": "keep"}
+
+
+def test_gemini_thinking_policy_normalizes_generation_config_aliases():
+    kwargs = {
+        "extra_body": {
+            "generation_config": {
+                "thinking_config": {"thinking_level": "high"},
+                "top_k": 4,
+            },
+            "generationConfig": {
+                "thinkingConfig": {"thinkingLevel": "high"},
+                "topK": 8,
+            },
+        },
+    }
+
+    llm._apply_provider_params(
+        kwargs,
+        llm._reload_gemini_params("gemini-3.6-flash", 0.4),
+    )
+
+    assert kwargs["extra_body"] == {
+        "generationConfig": {
+            "top_k": 4,
+            "topK": 8,
+        },
+    }
+
+
+def test_provider_thinking_policy_preserves_caller_extra_body_fields():
+    kwargs = {
+        "extra_body": {
+            "enable_thinking": True,
+            "custom_field": "keep",
+        },
+    }
+
+    llm._apply_provider_params(
+        kwargs,
+        llm._reload_qwen_params("qwen-max", 0.4),
+    )
+
+    assert kwargs == {
+        "temperature": 0.4,
+        "extra_body": {
+            "enable_thinking": False,
+            "custom_field": "keep",
+        },
+    }
+
+
 def test_litellm_195_native_adapter_contracts():
     script = textwrap.dedent(
         """

@@ -686,7 +686,15 @@ def _reload_deepseek_params(model_id: str, temperature: float) -> Dict[str, Any]
 
 
 _GLM_THINKING_MODEL_PREFIXES = ("glm-4.5", "glm-4.6", "glm-4.7", "glm-5")
-_THINKING_CONTROL_KEYS = ("reasoning_effort", "thinking", "enable_thinking")
+_THINKING_CONTROL_KEYS = (
+    "reasoning_effort",
+    "thinking",
+    "enable_thinking",
+    "thinkingConfig",
+    "thinking_config",
+)
+_GEMINI_GENERATION_CONFIG_KEYS = ("generation_config", "generationConfig")
+_GEMINI_THINKING_CONFIG_KEYS = ("thinkingConfig", "thinking_config")
 
 
 def _reload_glm_params(model_id: str, temperature: float) -> dict[str, Any]:
@@ -726,11 +734,38 @@ def _apply_provider_params(
                 for key, value in caller_extra_body.items()
                 if key not in _THINKING_CONTROL_KEYS
             }
+            # Gemini merges these native blocks after mapping reasoning_effort,
+            # so a caller-supplied thinking config would otherwise win.
+            normalized_generation_config: dict[str, Any] = {}
+            for generation_config_key in _GEMINI_GENERATION_CONFIG_KEYS:
+                generation_config = sanitized_extra_body.pop(
+                    generation_config_key,
+                    None,
+                )
+                if not isinstance(generation_config, dict):
+                    continue
+                normalized_generation_config.update(
+                    {
+                        key: value
+                        for key, value in generation_config.items()
+                        if key not in _GEMINI_THINKING_CONFIG_KEYS
+                    }
+                )
+            if normalized_generation_config:
+                sanitized_extra_body["generationConfig"] = normalized_generation_config
             if sanitized_extra_body:
                 kwargs["extra_body"] = sanitized_extra_body
             else:
                 kwargs.pop("extra_body", None)
-    kwargs.update(provider_params)
+
+    applied_params = dict(provider_params)
+    if isinstance(provider_extra_body, dict):
+        caller_extra_body = kwargs.get("extra_body")
+        applied_params["extra_body"] = {
+            **(caller_extra_body if isinstance(caller_extra_body, dict) else {}),
+            **provider_extra_body,
+        }
+    kwargs.update(applied_params)
 
 
 LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
