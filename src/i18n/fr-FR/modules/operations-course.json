@@ -145,6 +145,18 @@
       "title": "Consommation de crédits"
     },
     "creditUsageTab": "Consommation de crédits",
+    "estimatedCreditCost": {
+      "classroom": "Classe",
+      "creditUnit": "crédits",
+      "description": "Estimation en temps réel à partir du contenu du cours, des modèles configurés et des multiplicateurs de crédits. La consommation réelle reste celle du détail des crédits.",
+      "disabled": "Non activé",
+      "listen": "Écoute",
+      "llm": "LLM",
+      "read": "Lecture",
+      "title": "Coût estimé du cours complet",
+      "tts": "TTS",
+      "unknownModel": "Modèle inconnu"
+    },
     "fields": {
       "courseId": "ID du cours",
       "courseName": "Nom du cours",

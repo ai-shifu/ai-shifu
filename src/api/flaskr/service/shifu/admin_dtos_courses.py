@@ -241,6 +241,96 @@ class AdminOperationCourseDetailMetricsDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AdminOperationEstimatedCreditComponentDTO(BaseModel):
+    """Estimated credit range for one billable component."""
+
+    model_config = ConfigDict(protected_namespaces=())
+
+    min: int | float = Field(..., description="Estimated minimum credits")
+    max: int | float = Field(..., description="Estimated maximum credits")
+    model: str = Field(default="", description="Raw model identifier", required=False)
+    model_label: str = Field(
+        default="", description="Display name from model options", required=False
+    )
+    multiplier: str | None = Field(
+        default=None, description="Credit multiplier label", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationEstimatedCreditModeDTO(BaseModel):
+    """Estimated full-course credit cost for one learning mode."""
+
+    min: int | float = Field(..., description="Estimated minimum credits")
+    max: int | float = Field(..., description="Estimated maximum credits")
+    llm: AdminOperationEstimatedCreditComponentDTO = Field(
+        ..., description="LLM credit estimate", required=False
+    )
+    tts: AdminOperationEstimatedCreditComponentDTO | None = Field(
+        default=None, description="TTS credit estimate", required=False
+    )
+    enabled: bool | None = Field(
+        default=None, description="Whether the course currently enables this mode"
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        payload = self.model_dump(exclude={"llm", "tts"})
+        payload["llm"] = self.llm.__json__()
+        payload["tts"] = self.tts.__json__() if self.tts is not None else None
+        return payload
+
+
+@register_schema_to_swagger
+class AdminOperationEstimatedCreditAssumptionsDTO(BaseModel):
+    """Inputs used to calculate estimated full-course credit cost."""
+
+    visible_lesson_count: int = Field(
+        default=0, description="Visible leaf lesson count", required=False
+    )
+    prompt_char_count: int = Field(
+        default=0, description="Prompt characters counted per lesson", required=False
+    )
+    content_char_count: int = Field(
+        default=0, description="MarkdownFlow content characters", required=False
+    )
+    calculated_at: datetime | None = Field(
+        default=None, description="Calculation timestamp", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationEstimatedCreditCostDTO(BaseModel):
+    """Estimated full-course credit cost by learning mode."""
+
+    read: AdminOperationEstimatedCreditModeDTO = Field(
+        ..., description="Read mode estimate", required=False
+    )
+    listen: AdminOperationEstimatedCreditModeDTO = Field(
+        ..., description="Listen mode estimate", required=False
+    )
+    classroom: AdminOperationEstimatedCreditModeDTO = Field(
+        ..., description="Classroom mode estimate", required=False
+    )
+    assumptions: AdminOperationEstimatedCreditAssumptionsDTO = Field(
+        ..., description="Estimation assumptions", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "read": self.read.__json__(),
+            "listen": self.listen.__json__(),
+            "classroom": self.classroom.__json__(),
+            "assumptions": self.assumptions.__json__(),
+        }
+
+
+@register_schema_to_swagger
 class AdminOperationCourseDetailChapterDTO(BaseModel):
     """Operator-facing course chapter tree node."""
 
@@ -374,6 +464,9 @@ class AdminOperationCourseDetailDTO(BaseModel):
     metrics: AdminOperationCourseDetailMetricsDTO = Field(
         ..., description="Course metrics", required=False
     )
+    estimated_credit_cost: AdminOperationEstimatedCreditCostDTO = Field(
+        ..., description="Estimated full-course credit cost", required=False
+    )
     chapters: list[AdminOperationCourseDetailChapterDTO] = Field(
         default_factory=list,
         description="Course chapter tree",
@@ -384,6 +477,7 @@ class AdminOperationCourseDetailDTO(BaseModel):
         return {
             "basic_info": self.basic_info.__json__(),
             "metrics": self.metrics.__json__(),
+            "estimated_credit_cost": self.estimated_credit_cost.__json__(),
             "chapters": [chapter.__json__() for chapter in self.chapters],
         }
 

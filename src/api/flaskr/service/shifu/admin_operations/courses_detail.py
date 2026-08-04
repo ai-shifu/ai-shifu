@@ -47,6 +47,9 @@ from flaskr.service.shifu.models import (
 from flaskr.service.shifu.admin_operations.courses_credit_usage import (
     _build_operator_course_credit_metrics,
 )
+from flaskr.service.shifu.admin_operations.courses_credit_estimate import (
+    build_operator_course_estimated_credit_cost,
+)
 from flaskr.service.shifu.admin_operations.courses_shared import (
     PROMPT_SOURCE_CHAPTER,
     PROMPT_SOURCE_COURSE,
@@ -329,6 +332,11 @@ def get_operator_course_detail(
             normalized_shifu_bid,
             visible_leaf_outline_bids,
         )
+        estimated_credit_cost = build_operator_course_estimated_credit_cost(
+            app,
+            course=course,
+            outline_items=outline_items,
+        )
 
         return AdminOperationCourseDetailDTO(
             basic_info=AdminOperationCourseDetailBasicInfoDTO(
@@ -359,6 +367,7 @@ def get_operator_course_detail(
                 ],
                 completed_user_avg_credits=credit_metrics["completed_user_avg_credits"],
             ),
+            estimated_credit_cost=estimated_credit_cost,
             chapters=_build_chapter_tree(
                 outline_items,
                 detail_user_map,

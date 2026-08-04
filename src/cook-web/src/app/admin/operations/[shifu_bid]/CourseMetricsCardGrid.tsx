@@ -16,6 +16,7 @@ type CourseMetricsCardGridProps = {
   title: string;
   cards: MetricCard[];
   gridClassName?: string;
+  size?: 'default' | 'compact';
 };
 
 const splitTrailingParenthetical = (label: string) => {
@@ -38,17 +39,18 @@ export default function CourseMetricsCardGrid({
   title,
   cards,
   gridClassName,
+  size = 'default',
 }: CourseMetricsCardGridProps) {
   const emptyValue = '--';
 
   return (
     <Card>
-      <CardHeader className='pb-4'>
+      <CardHeader className={size === 'compact' ? 'p-5 pb-3' : 'pb-4'}>
         <CardTitle className='text-base font-semibold tracking-normal'>
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className={size === 'compact' ? 'p-5 pt-0' : undefined}>
         <div
           className={cn(
             'grid gap-3 sm:grid-cols-2 xl:grid-cols-5',
@@ -89,6 +91,7 @@ export default function CourseMetricsCardGrid({
                     value={card.value}
                     className='h-full transition-colors group-hover:border-primary/30'
                     valueClassName='transition-colors group-hover:text-primary'
+                    size={size}
                   />
                 </button>
               );
@@ -100,6 +103,7 @@ export default function CourseMetricsCardGrid({
                 title={cardTitle}
                 value={card.value}
                 className='h-full text-left'
+                size={size}
               />
             );
           })}
