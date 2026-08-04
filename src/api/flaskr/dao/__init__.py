@@ -514,6 +514,10 @@ def init_db(app: Flask):
     # back to the pool (see _reject_desynced_connection_on_checkout, which
     # performs a protected ping instead). Callers can still opt back in by
     # pre-setting SQLALCHEMY_ENGINE_OPTIONS["pool_pre_ping"] = True.
+    # NOTE: the protected checkout ping relies on the DBAPI connection
+    # exposing ``ping`` (pymysql does). If this deployment ever switches to
+    # a driver without it, re-enable pool_pre_ping explicitly or liveness
+    # checking at checkout is silently lost.
     existing_options.setdefault("pool_pre_ping", False)
 
     # Force every MySQL connection to use the UTC session time zone so that

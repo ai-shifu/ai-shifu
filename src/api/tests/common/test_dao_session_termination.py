@@ -196,6 +196,12 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
         "invalidate_session",
         lambda *, source, session=None: order.append("invalidate") or True,
     )
+    original_remove = db.session.remove
+    monkeypatch.setattr(
+        db.session,
+        "remove",
+        lambda: order.append("remove") or original_remove(),
+    )
 
     class _Interrupt(BaseException):
         pass
@@ -207,19 +213,23 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
             pass
         # No in-flight exception here: plain removal, no invalidate.
         dao.release_session_classified(source="t-clean")
-        assert order == []
+        assert order == ["remove"]
+        order.clear()
 
         try:
             try:
                 raise _Interrupt()
             finally:
                 # In-flight BaseException visible via sys.exc_info in finally:
-                # invalidate must run before removal.
+                # invalidate must run BEFORE removal, otherwise remove() emits
+                # a ROLLBACK on the desynced stream.
                 dao.release_session_classified(source="t-interrupt")
         except _Interrupt:
             pass
 
-    assert order == ["invalidate"]
+        # Assert inside the context: the context exit's own teardown removes
+        # would otherwise append extra entries.
+        assert order == ["invalidate", "remove"]
 
 
 def test_release_session_classified_ignores_ordinary_exceptions(app, monkeypatch):

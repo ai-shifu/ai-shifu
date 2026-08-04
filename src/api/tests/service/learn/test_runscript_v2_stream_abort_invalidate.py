@@ -143,10 +143,11 @@ def test_desync_error_invalidates_connection_instead_of_rollback(app, monkeypatc
         with pytest.raises(ResourceClosedError):
             next(generator)
 
-    # Both the except branch and the classified finally-release invalidate
-    # (idempotent defense in depth); the essential contract is: at least one
-    # invalidate, zero rollbacks on the desynced stream.
-    assert session.invalidations >= 1
+    # Exactly two invalidations - one from the desync except branch, one
+    # from the classified finally-release (idempotent defense in depth). A
+    # drop to one means one of the two layers regressed; zero rollbacks on
+    # the desynced stream is the hard contract.
+    assert session.invalidations == 2
     assert session.rollbacks == 0
     assert session.removed == 1
 
