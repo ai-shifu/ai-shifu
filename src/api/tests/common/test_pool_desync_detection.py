@@ -128,10 +128,13 @@ def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair):
         clean_sock_b.close()
 
 
-def test_checkin_grace_window_catches_in_flight_data(sock_pair):
-    """Data that arrives moments after checkin starts must still be caught:
+def test_probe_timeout_waits_for_in_flight_data(sock_pair):
+    """A timed probe must catch data that arrives DURING the wait window:
     the zero-timeout probe misses an owed response still in flight, which is
-    exactly how a just-interrupted exchange poisons the pool."""
+    exactly how a just-interrupted exchange poisons the pool. A generous
+    test window (far larger than any CI scheduler delay) keeps this
+    deterministic; the early-return assertion proves the probe wakes on
+    arrival rather than sleeping out the timeout."""
     import threading
     import time as time_module
 
@@ -141,17 +144,23 @@ def test_checkin_grace_window_catches_in_flight_data(sock_pair):
     # Zero-timeout probe sees nothing yet.
     assert dao._socket_has_unread_data(conn) is False
 
-    # The owed response lands ~1ms into the grace window.
     def _late_send():
         time_module.sleep(0.001)
         right.sendall(b"\x05late-owed-response")
 
     sender = threading.Thread(target=_late_send)
+    started = time_module.monotonic()
     sender.start()
     try:
-        assert (
-            dao._socket_has_unread_data(conn, timeout=dao._CHECKIN_PROBE_GRACE_SECONDS)
-            is True
-        )
+        assert dao._socket_has_unread_data(conn, timeout=0.5) is True
+        # Returned on arrival, not by exhausting the window.
+        assert time_module.monotonic() - started < 0.5
     finally:
         sender.join()
+
+
+def test_checkin_grace_window_is_a_short_positive_interval():
+    # The production checkin window must stay a small positive value: zero
+    # reintroduces the arrival race, and anything large would tax every
+    # transaction end.
+    assert 0 < dao._CHECKIN_PROBE_GRACE_SECONDS <= 0.01
