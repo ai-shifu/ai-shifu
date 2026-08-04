@@ -36,10 +36,10 @@ from flaskr.util.datetime import now_utc
 
 
 from tests.service.billing.renewal_execution_test_helpers import (
-    _add_paid_renewal_with_reserved_grant,
-    _create_renewal_event,
-    _create_subscription,
-    _self_managed_cycle_end_after_boundary,
+    add_paid_renewal_with_reserved_grant,
+    create_renewal_event,
+    create_renewal_subscription,
+    self_managed_cycle_end_after_boundary,
 )
 
 
@@ -50,8 +50,8 @@ def test_run_billing_renewal_event_releases_future_event_back_to_pending(
     billing_renewal_app: Flask,
 ) -> None:
     with billing_renewal_app.app_context():
-        subscription = _create_subscription("sub-future-1")
-        event = _create_renewal_event(
+        subscription = create_renewal_subscription("sub-future-1")
+        event = create_renewal_event(
             "renewal-future-1",
             subscription.subscription_bid,
             subscription.creator_bid,
@@ -92,7 +92,7 @@ def test_run_billing_renewal_event_does_not_advance_future_paid_renewal(
 
     with billing_renewal_app.app_context():
         subscription_bid, order_bid, event_bid, bucket_bid, ledger_bid = (
-            _add_paid_renewal_with_reserved_grant(
+            add_paid_renewal_with_reserved_grant(
                 suffix="future",
                 current_cycle_start=current_cycle_start,
                 current_cycle_end=current_cycle_end,
@@ -142,7 +142,7 @@ def test_run_billing_renewal_event_executes_at_exact_scheduled_time(
 
     with billing_renewal_app.app_context():
         subscription_bid, order_bid, event_bid, bucket_bid, ledger_bid = (
-            _add_paid_renewal_with_reserved_grant(
+            add_paid_renewal_with_reserved_grant(
                 suffix="equal",
                 current_cycle_start=current_cycle_start,
                 current_cycle_end=current_cycle_end,
@@ -198,10 +198,10 @@ def test_run_billing_renewal_event_queues_subscription_renewal_order(
     )
 
     with billing_renewal_app.app_context():
-        subscription = _create_subscription("sub-unsupported-1")
+        subscription = create_renewal_subscription("sub-unsupported-1")
         subscription.provider_subscription_id = "sub_provider_unsupported_1"
         subscription_bid = subscription.subscription_bid
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-unsupported-1",
             subscription.subscription_bid,
             subscription.creator_bid,
@@ -238,13 +238,13 @@ def test_run_billing_renewal_event_queues_pingxx_order_without_provider_sync(
 ) -> None:
     cycle_end = now_utc() - timedelta(hours=1)
     with billing_renewal_app.app_context():
-        subscription = _create_subscription(
+        subscription = create_renewal_subscription(
             "sub-pingxx-renewal-1",
             current_period_end_at=cycle_end,
             billing_provider="pingxx",
             provider_subscription_id="",
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-pingxx-1",
             subscription.subscription_bid,
             subscription.creator_bid,
@@ -277,7 +277,7 @@ def test_run_billing_renewal_event_writes_daily_cycle_metadata(
     billing_renewal_app: Flask,
 ) -> None:
     cycle_end = now_utc() - timedelta(hours=1)
-    expected_cycle_end = _self_managed_cycle_end_after_boundary(
+    expected_cycle_end = self_managed_cycle_end_after_boundary(
         cycle_end,
         interval=BILLING_INTERVAL_DAY,
         interval_count=7,
@@ -309,14 +309,14 @@ def test_run_billing_renewal_event_writes_daily_cycle_metadata(
                 sort_order=15,
             )
         )
-        subscription = _create_subscription(
+        subscription = create_renewal_subscription(
             "sub-daily-renewal-1",
             product_bid="bill-product-plan-daily",
             current_period_end_at=cycle_end,
             billing_provider="pingxx",
             provider_subscription_id="",
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-daily-1",
             subscription.subscription_bid,
             subscription.creator_bid,

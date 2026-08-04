@@ -18,7 +18,7 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     CreditWallet,
     CreditWalletBucket,
     StripeOrder,
-    _add_active_subscription,
+    add_active_subscription,
 )
 
 
@@ -33,7 +33,7 @@ class TestBillingWriteRoutesRefundAuth:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        _add_active_subscription(app, subscription_bid="sub-topup-refund-stripe-1")
+        add_active_subscription(app, subscription_bid="sub-topup-refund-stripe-1")
 
         checkout = client.post(
             "/api/billing/topups/checkout",
@@ -108,7 +108,7 @@ class TestBillingWriteRoutesRefundAuth:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        _add_active_subscription(app, subscription_bid="sub-topup-refund-pingxx-1")
+        add_active_subscription(app, subscription_bid="sub-topup-refund-pingxx-1")
 
         checkout = client.post(
             "/api/billing/topups/checkout",
