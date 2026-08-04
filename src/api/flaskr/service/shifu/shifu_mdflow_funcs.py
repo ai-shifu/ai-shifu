@@ -12,6 +12,7 @@ from flaskr.service.shifu.shifu_history_manager import (
     save_outline_history,
     get_shifu_draft_meta,
     get_shifu_draft_revision,
+    iter_outline_item_versions_desc,
     mask_contact_identifier,
 )
 from flaskr.service.profile.profile_manage import (
@@ -89,7 +90,7 @@ def cleanup_outline_history_versions(
     latest_id = int(latest_version.id)
     latest_content = latest_version.content or ""
     content_anchor_version = latest_version
-    for version in _query_outline_versions(shifu_bid, outline_bid):
+    for version in iter_outline_item_versions_desc(shifu_bid, outline_bid):
         if version.id == latest_version.id:
             continue
         if (version.content or "") != latest_content:
@@ -294,18 +295,6 @@ def parse_shifu_mdflow(
         return MdflowDTOParseResult(variables=dedup_vars, blocks_count=len(blocks))
 
 
-def _query_outline_versions(shifu_bid: str, outline_bid: str):
-    return (
-        DraftOutlineItem.query.filter(
-            DraftOutlineItem.shifu_bid == shifu_bid,
-            DraftOutlineItem.outline_item_bid == outline_bid,
-            DraftOutlineItem.deleted == 0,
-        )
-        .order_by(DraftOutlineItem.id.desc())
-        .yield_per(200)
-    )
-
-
 def get_shifu_mdflow_history(
     app: Flask,
     shifu_bid: str,
@@ -322,7 +311,7 @@ def get_shifu_mdflow_history(
         segment_content: str | None = None
         segment_oldest: DraftOutlineItem | None = None
 
-        for version in _query_outline_versions(shifu_bid, outline_bid):
+        for version in iter_outline_item_versions_desc(shifu_bid, outline_bid):
             current_content = version.content or ""
             if segment_content is None:
                 segment_content = current_content
