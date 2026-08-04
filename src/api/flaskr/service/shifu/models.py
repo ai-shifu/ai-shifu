@@ -88,6 +88,14 @@ class AiCourseAuth(db.Model):
     """
 
     __tablename__ = "ai_course_auth"
+    __table_args__ = (
+        Index(
+            "ix_ai_course_auth_user_status_course",
+            "user_id",
+            "status",
+            "course_id",
+        ),
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     course_auth_id = Column(
         String(36),
@@ -173,6 +181,20 @@ class DraftShifu(db.Model):
     """
 
     __tablename__ = "shifu_draft_shifus"
+    __table_args__ = (
+        Index(
+            "ix_shifu_draft_shifus_creator_deleted_bid",
+            "created_user_bid",
+            "deleted",
+            "shifu_bid",
+        ),
+        Index(
+            "ix_shifu_draft_shifus_bid_deleted_id",
+            "shifu_bid",
+            "deleted",
+            "id",
+        ),
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
         String(32),
@@ -386,6 +408,13 @@ class DraftShifu(db.Model):
 class DraftOutlineItem(db.Model):
     __tablename__ = "shifu_draft_outline_items"
     __table_args__ = (
+        Index(
+            "ix_shifu_draft_outline_items_shifu_deleted_updated_id",
+            "shifu_bid",
+            "deleted",
+            "updated_at",
+            "id",
+        ),
         Index(
             "ix_shifu_draft_outline_items_shifu_outline_deleted_id",
             "shifu_bid",
@@ -620,6 +649,20 @@ class LogDraftStruct(db.Model):
 # published shifu's model
 class PublishedShifu(db.Model):
     __tablename__ = "shifu_published_shifus"
+    __table_args__ = (
+        Index(
+            "ix_shifu_published_shifus_creator_deleted_bid",
+            "created_user_bid",
+            "deleted",
+            "shifu_bid",
+        ),
+        Index(
+            "ix_shifu_published_shifus_bid_deleted_id",
+            "shifu_bid",
+            "deleted",
+            "id",
+        ),
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
         String(32),
@@ -756,6 +799,15 @@ class PublishedShifu(db.Model):
 
 class PublishedOutlineItem(db.Model):
     __tablename__ = "shifu_published_outline_items"
+    __table_args__ = (
+        Index(
+            "ix_shifu_published_outline_items_shifu_deleted_updated_id",
+            "shifu_bid",
+            "deleted",
+            "updated_at",
+            "id",
+        ),
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
         String(32),
