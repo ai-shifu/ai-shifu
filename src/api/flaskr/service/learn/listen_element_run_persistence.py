@@ -6,7 +6,7 @@ import select as select_module
 import socket as socket_module
 
 from flask import current_app
-from flaskr.dao import db
+from flaskr.dao import db, invalidate_session
 from sqlalchemy import bindparam, text
 from sqlalchemy.exc import ResourceClosedError
 
@@ -225,8 +225,12 @@ class ListenElementRunPersistenceMixin:
                     "Listen element SELECT hit a desynced connection; forensics: %s",
                     _describe_desynced_connection(result, connection),
                 )
-            with contextlib.suppress(Exception):
-                connection.invalidate()
+            # Session-level invalidate: this connection IS the session's
+            # transaction connection, so Session.invalidate() discards it AND
+            # resets the session state without emitting SQL - even a caller
+            # that swallows this exception can no longer commit/rollback on
+            # the desynced stream.
+            invalidate_session(source="listen element select desync")
             raise
         finally:
             with contextlib.suppress(Exception):

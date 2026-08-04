@@ -455,6 +455,17 @@ def init_db(app: Flask):
         db = SQLAlchemy(session_options={"scopefunc": _unique_app_ctx_scope})
     db.init_app(app)
 
+    # Global last-resort guard: any interrupted path not covered by an
+    # explicit termination handler still funnels through the app-context
+    # teardown, where Flask-SQLAlchemy's remove() would roll back on the
+    # possibly desynced connection. Flask runs teardown callbacks in
+    # REVERSE registration order, so registering AFTER db.init_app makes
+    # this run BEFORE the extension's session removal.
+    @app.teardown_appcontext
+    def _invalidate_session_on_interrupted_teardown(exc):
+        if exc is not None and is_abnormal_stream_termination(exc):
+            invalidate_session(source="appcontext teardown interrupt")
+
     # Enable formatted SQL output in the development environment
     if app.debug:
 

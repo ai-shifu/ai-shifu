@@ -144,13 +144,24 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkey
             run_session_bid="run-a",
         )
 
+        invalidations = []
+        monkeypatch.setattr(
+            listen_element_run_persistence,
+            "invalidate_session",
+            lambda *, source, session=None: invalidations.append(source) or True,
+        )
+
         with pytest.raises(ResourceClosedError):
             adapter._find_active_element_row_ids(
                 generated_block_bid="block-a",
                 element_bids=["element-a"],
             )
 
-    assert fake_connection.invalidated == 1
+    # Session-level invalidate replaces the old connection-level call: it
+    # discards the same transaction connection AND resets session state
+    # without emitting SQL.
+    assert invalidations == ["listen element select desync"]
+    assert fake_connection.invalidated == 0
 
 
 def test_deactivate_active_element_rows_retires_rows_without_touching_others(app):
