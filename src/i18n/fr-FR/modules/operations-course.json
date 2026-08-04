@@ -148,7 +148,7 @@
     "estimatedCreditCost": {
       "classroom": "Classe",
       "creditUnit": "crédits",
-      "description": "Estimation en temps réel à partir du contenu du cours, des modèles configurés et des multiplicateurs de crédits. La consommation réelle reste celle du détail des crédits.",
+      "description": "Estimation basée sur le contenu, les modèles et les multiplicateurs actuels. Les reprises, suivis et régénérations sont exclus ; le détail des crédits fait foi.",
       "disabled": "Non activé",
       "listen": "Écoute",
       "llm": "LLM",

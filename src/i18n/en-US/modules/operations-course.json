@@ -148,7 +148,7 @@
     "estimatedCreditCost": {
       "classroom": "Classroom",
       "creditUnit": "credits",
-      "description": "Estimated from the current course content, configured models, and credit multipliers. Actual consumption follows credit usage details.",
+      "description": "Estimated from current content, models, and multipliers. Reset, Ask, and regeneration are excluded; actual usage follows credit details.",
       "disabled": "Disabled",
       "listen": "Listen",
       "llm": "LLM",

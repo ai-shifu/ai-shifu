@@ -148,7 +148,7 @@
     "estimatedCreditCost": {
       "classroom": "课堂",
       "creditUnit": "积分",
-      "description": "根据当前课程内容、课程设置模型和积分倍率实时估算，实际消耗以积分明细为准。",
+      "description": "按当前内容、模型和倍率估算；不含重修、追问或重新生成等额外消耗，实际以积分明细为准。",
       "disabled": "未开启",
       "listen": "听课",
       "llm": "LLM",
