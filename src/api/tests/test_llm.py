@@ -854,8 +854,12 @@ def test_chat_llm_falls_back_to_request_trace_id(monkeypatch, app):
     assert span.generation_args["parent_observation_id"] == "span-2"
 
 
-class _RetryableStreamError(Exception):
-    """Stands in for litellm APIConnectionError/MidStreamFallbackError."""
+class _FakeAPIConnectionError(Exception):
+    """Stands in for litellm.exceptions.APIConnectionError."""
+
+
+class _FakeMidStreamFallbackError(Exception):
+    """Stands in for litellm.exceptions.MidStreamFallbackError."""
 
 
 def _stream_chunk(content):
@@ -868,12 +872,15 @@ def _stream_chunk(content):
 
 
 def _patch_retryable_stream_errors(monkeypatch):
+    # Distinct classes per exception name: a resolver that silently drops one
+    # of the names fails that class's parametrized retry test instead of
+    # being masked by a shared class.
     monkeypatch.setattr(
         llm.litellm,
         "exceptions",
         SimpleNamespace(
-            APIConnectionError=_RetryableStreamError,
-            MidStreamFallbackError=_RetryableStreamError,
+            APIConnectionError=_FakeAPIConnectionError,
+            MidStreamFallbackError=_FakeMidStreamFallbackError,
         ),
         raising=False,
     )
@@ -908,12 +915,17 @@ def _collect_retry_stream(app):
     )
 
 
-def test_stream_retries_connection_error_before_first_content(monkeypatch, app):
+@pytest.mark.parametrize(
+    "error_type", [_FakeAPIConnectionError, _FakeMidStreamFallbackError]
+)
+def test_stream_retries_connection_error_before_first_content(
+    monkeypatch, app, error_type
+):
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(
         monkeypatch,
         [
-            [_RetryableStreamError("bad record mac")],
+            [error_type("bad record mac")],
             [_stream_chunk("hello"), _stream_chunk(" world")],
         ],
     )
@@ -928,10 +940,10 @@ def test_stream_error_after_content_is_not_retried(monkeypatch, app):
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(
         monkeypatch,
-        [[_stream_chunk("partial"), _RetryableStreamError("mid-stream death")]],
+        [[_stream_chunk("partial"), _FakeMidStreamFallbackError("mid-stream death")]],
     )
 
-    with pytest.raises(_RetryableStreamError):
+    with pytest.raises(_FakeMidStreamFallbackError):
         _collect_retry_stream(app)
 
     assert calls["count"] == 1
@@ -942,12 +954,12 @@ def test_stream_retry_attempts_are_bounded(monkeypatch, app):
     calls = _patch_scripted_streams(
         monkeypatch,
         [
-            [_RetryableStreamError("first failure")],
-            [_RetryableStreamError("second failure")],
+            [_FakeAPIConnectionError("first failure")],
+            [_FakeMidStreamFallbackError("second failure")],
         ],
     )
 
-    with pytest.raises(_RetryableStreamError):
+    with pytest.raises(_FakeMidStreamFallbackError):
         _collect_retry_stream(app)
 
     assert calls["count"] == 2
@@ -968,10 +980,10 @@ def test_stream_retry_noop_when_exception_types_unavailable(monkeypatch, app):
     degrade to raising instead of crashing on type resolution."""
     monkeypatch.delattr(llm.litellm, "exceptions", raising=False)
     calls = _patch_scripted_streams(
-        monkeypatch, [[_RetryableStreamError("connection died")]]
+        monkeypatch, [[_FakeAPIConnectionError("connection died")]]
     )
 
-    with pytest.raises(_RetryableStreamError):
+    with pytest.raises(_FakeAPIConnectionError):
         _collect_retry_stream(app)
 
     assert calls["count"] == 1
