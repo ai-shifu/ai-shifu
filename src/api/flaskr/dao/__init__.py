@@ -59,7 +59,7 @@ def _unique_app_ctx_scope() -> int:
     return token
 
 
-def _socket_has_unread_data(dbapi_connection) -> bool:
+def _socket_has_unread_data(dbapi_connection, timeout: float = 0) -> bool:
     """Return True when the DBAPI connection's socket has readable bytes.
 
     A healthy pooled MySQL connection is silent between transactions: every
@@ -70,6 +70,13 @@ def _socket_has_unread_data(dbapi_connection) -> bool:
     ResourceClosedError / pymysql 2014 "Command Out of Sync") or a
     server-initiated shutdown packet. Both make the connection unusable.
 
+    ``timeout`` trades latency for arrival-race coverage: the zero-timeout
+    probe misses a response that was owed but is still in flight from the
+    server. Checkin uses a small grace window so a connection returned right
+    after its exchange was interrupted is caught - with the culprit's checkin
+    stack - instead of poisoning the pool; the per-statement pre-execute
+    probe stays at zero to add no latency.
+
     Only pymysql exposes the socket as ``_sock``; other drivers (e.g. SQLite
     in tests) return False and are left to pool_pre_ping.
     """
@@ -77,12 +84,19 @@ def _socket_has_unread_data(dbapi_connection) -> bool:
     if sock is None:
         return False
     try:
-        readable, _, _ = select_module.select([sock], [], [], 0)
+        readable, _, _ = select_module.select([sock], [], [], timeout)
     except (OSError, ValueError, TypeError):
         # Closed, detached, or fd-less socket object; pre_ping handles plain
         # disconnects, and event dispatch must never fail on the probe.
         return False
     return bool(readable)
+
+
+# Grace window for the checkin probe: intra-VPC RDS round trips complete in
+# well under a millisecond, so 2ms catches an in-flight owed response from an
+# exchange interrupted just before the connection was returned, while adding
+# at most 2ms to checkins (which happen per transaction, not per statement).
+_CHECKIN_PROBE_GRACE_SECONDS = 0.002
 
 
 def _server_thread_id(dbapi_connection):
@@ -113,7 +127,7 @@ def _pool_diagnostics_logger():
 def _invalidate_desynced_connection_on_checkin(dbapi_connection, connection_record):
     if dbapi_connection is None:
         return
-    if _socket_has_unread_data(dbapi_connection):
+    if _socket_has_unread_data(dbapi_connection, timeout=_CHECKIN_PROBE_GRACE_SECONDS):
         # stack_info identifies the code path that returned the poisoned
         # connection - i.e. the request that interrupted a protocol exchange.
         _pool_diagnostics_logger().error(
