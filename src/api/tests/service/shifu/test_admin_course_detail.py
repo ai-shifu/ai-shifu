@@ -1091,7 +1091,13 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.admin_operations.courses_credit_estimate.get_current_models",
-        lambda _app: [{"model": "gpt-test", "display_name": "GPT Test"}],
+        lambda _app: [
+            {
+                "model": "gpt-test",
+                "display_name": "GPT Test",
+                "credit_multiplier_label": "3x",
+            }
+        ],
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.admin_operations.courses_credit_estimate.get_all_provider_configs",
@@ -1234,7 +1240,7 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             provider="minimax",
             model="speech-test",
             billing_metric=BILLING_METRIC_TTS_REQUEST_COUNT,
-            credits_per_unit="5",
+            credits_per_unit="0",
             effective_from=datetime(2026, 1, 1, 0, 0, 0),
         )
         _seed_credit_usage_rate(
@@ -1262,18 +1268,18 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
     assert estimate["classroom"]["min"] == 46
     assert estimate["classroom"]["max"] == 82
     assert estimate["listen"]["enabled"] is False
-    assert estimate["listen"]["min"] == 56
-    assert estimate["listen"]["max"] == 92
+    assert estimate["listen"]["min"] == 73
+    assert estimate["listen"]["max"] == 115
     assert estimate["listen"]["llm"] == {
         "min": 46,
         "max": 82,
         "model": "gpt-test",
         "model_label": "GPT Test",
-        "multiplier": "1x-2x",
+        "multiplier": "3x",
     }
     assert estimate["listen"]["tts"] == {
-        "min": 10,
-        "max": 10,
+        "min": 27,
+        "max": 33,
         "model": "speech-test",
         "model_label": "MiniMax Speech Test",
         "multiplier": "3x",

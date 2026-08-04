@@ -83,6 +83,12 @@ class _LessonCreditInputs:
     tts_char_count: int
 
 
+@dataclass(frozen=True)
+class _LlmModelDisplay:
+    label: str
+    multiplier: str | None
+
+
 def _ceil_decimal(value: Decimal) -> int:
     return int(value.to_integral_value(rounding=ROUND_CEILING))
 
@@ -107,19 +113,27 @@ def _format_model_label_fallback(value: str) -> str:
     )
 
 
-def _resolve_llm_model_label(app: Flask, model: str) -> str:
+def _resolve_llm_model_display(app: Flask, model: str) -> _LlmModelDisplay:
     normalized = str(model or "").strip()
     if not normalized:
-        return ""
+        return _LlmModelDisplay(label="", multiplier=None)
     try:
         for option in get_current_models(app):
             if str(option.get("model", "") or "").strip() == normalized:
                 label = str(option.get("display_name", "") or "").strip()
-                if label:
-                    return label
+                multiplier = str(
+                    option.get("credit_multiplier_label", "") or ""
+                ).strip()
+                return _LlmModelDisplay(
+                    label=label or _format_model_label_fallback(normalized),
+                    multiplier=multiplier or None,
+                )
     except Exception:
         pass
-    return _format_model_label_fallback(normalized)
+    return _LlmModelDisplay(
+        label=_format_model_label_fallback(normalized),
+        multiplier=None,
+    )
 
 
 def _resolve_tts_model_label(provider: str, model: str) -> str:
@@ -258,8 +272,12 @@ def _estimate_llm_cost(
     content_char_count: int,
     calculated_at: datetime,
     rate_cache: dict | None = None,
+    model_display: _LlmModelDisplay | None = None,
 ) -> _LlmEstimate:
     normalized_model = str(model or "").strip()
+    resolved_model_display = model_display or _resolve_llm_model_display(
+        app, normalized_model
+    )
     input_tokens = _ceil_decimal(
         Decimal(str(prompt_char_count + content_char_count)) / Decimal("2")
     )
@@ -295,8 +313,9 @@ def _estimate_llm_cost(
     return _LlmEstimate(
         range=_CreditRange(low, high),
         model=normalized_model,
-        model_label=_resolve_llm_model_label(app, normalized_model),
-        multiplier=resolve_credit_multiplier_label(
+        model_label=resolved_model_display.label,
+        multiplier=resolved_model_display.multiplier
+        or resolve_credit_multiplier_label(
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="",
             model=normalized_model,
@@ -315,6 +334,18 @@ def _sum_llm_cost(
     rate_cache: dict | None = None,
 ) -> _LlmEstimate:
     normalized_model = str(model or "").strip()
+    model_display = _resolve_llm_model_display(app, normalized_model)
+    model_multiplier = model_display.multiplier or resolve_credit_multiplier_label(
+        usage_type=BILL_USAGE_TYPE_LLM,
+        provider="",
+        model=normalized_model,
+        settlement_at=calculated_at,
+        rate_cache=rate_cache,
+    )
+    resolved_model_display = _LlmModelDisplay(
+        label=model_display.label,
+        multiplier=model_multiplier,
+    )
     total = _CreditRange(_ZERO, _ZERO)
     for item in lesson_inputs:
         estimate = _estimate_llm_cost(
@@ -324,6 +355,7 @@ def _sum_llm_cost(
             content_char_count=item.content_char_count,
             calculated_at=calculated_at,
             rate_cache=rate_cache,
+            model_display=resolved_model_display,
         )
         total = _CreditRange(
             total.minimum + estimate.range.minimum,
@@ -332,14 +364,8 @@ def _sum_llm_cost(
     return _LlmEstimate(
         range=total,
         model=normalized_model,
-        model_label=_resolve_llm_model_label(app, normalized_model),
-        multiplier=resolve_credit_multiplier_label(
-            usage_type=BILL_USAGE_TYPE_LLM,
-            provider="",
-            model=normalized_model,
-            settlement_at=calculated_at,
-            rate_cache=rate_cache,
-        ),
+        model_label=resolved_model_display.label,
+        multiplier=resolved_model_display.multiplier,
     )
 
 
@@ -408,7 +434,7 @@ def _estimate_tts_credits_with_metric_priority(
             calculated_at=calculated_at,
             rate_cache=rate_cache,
         )
-        if consumed is not None:
+        if consumed is not None and consumed > _ZERO:
             return consumed
     return _ZERO
 
