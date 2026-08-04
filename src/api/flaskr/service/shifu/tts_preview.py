@@ -8,6 +8,8 @@ from typing import Any
 
 from flask import Response, current_app, stream_with_context
 
+from flaskr.dao import cleanup_session_after, invalidate_session
+
 from flaskr.api.tts import (
     get_default_audio_settings,
     get_default_voice_settings,
@@ -200,9 +202,14 @@ def build_tts_preview_response(
             yield "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
         except GeneratorExit:
             current_app.logger.info("client closed tts preview stream early")
+            # The close may have interrupted a DB write (usage metering runs
+            # on this stream); discard the connection so the request teardown
+            # does not roll back on a possibly desynced stream.
+            invalidate_session(source="tts preview stream close")
             raise
-        except Exception:
+        except Exception as exc:
             current_app.logger.error("TTS preview stream failed", exc_info=True)
+            cleanup_session_after(exc, source="tts preview stream error")
             raise
 
     return Response(
