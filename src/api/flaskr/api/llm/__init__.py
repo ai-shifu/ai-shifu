@@ -661,6 +661,9 @@ def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
     return {
         "temperature": temperature,
         "thinking": {"type": "disabled"},
+        # The follow-up flow relies on JSON mode, but LiteLLM 1.95 omits this
+        # supported Volcengine parameter from its adapter metadata.
+        "allowed_openai_params": ["response_format"],
     }
 
 

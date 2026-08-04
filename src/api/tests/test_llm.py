@@ -823,6 +823,9 @@ def test_provider_specific_thinking_params_remain_compatible():
     assert llm._reload_ark_params("doubao-seed", 0.4)["thinking"] == {
         "type": "disabled"
     }
+    assert llm._reload_ark_params("doubao-seed", 0.4)["allowed_openai_params"] == [
+        "response_format"
+    ]
 
 
 def test_provider_thinking_policy_removes_caller_conflicts():
@@ -1098,7 +1101,11 @@ def test_litellm_195_native_adapter_contracts():
                 "volcengine",
                 "doubao-seed-2-0-lite-260428",
                 "https://ark.cn-beijing.volces.com/api/v3",
-                {"thinking": {"type": "disabled"}},
+                {
+                    "thinking": {"type": "disabled"},
+                    "allowed_openai_params": ["response_format"],
+                    "response_format": {"type": "json_object"},
+                },
             ),
             "zai": adapter_contract(
                 "zai",
@@ -1180,6 +1187,7 @@ def test_litellm_195_native_adapter_contracts():
     assert contracts["deepseek"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["dashscope"]["body"]["enable_thinking"] is False
     assert contracts["volcengine"]["body"]["thinking"] == {"type": "disabled"}
+    assert contracts["volcengine"]["body"]["response_format"] == {"type": "json_object"}
     assert contracts["zai"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["zai"]["body"]["response_format"] == {"type": "json_object"}
 
