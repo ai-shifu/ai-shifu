@@ -2,19 +2,14 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
 import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
-import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import AdminRowActions from '@/app/admin/components/AdminRowActions';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
-  formatAdminUtcDateTime,
 } from '@/app/admin/lib/dateTime';
 import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
@@ -32,8 +27,6 @@ import type {
 import useOperatorGuard from '@/app/admin/operations/useOperatorGuard';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
-import ErrorDisplay from '@/components/ErrorDisplay';
-import { Button } from '@/components/ui/Button';
 import {
   Select,
   SelectContent,
@@ -42,16 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/Table';
 import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
-import { cn } from '@/lib/utils';
 import {
   PackageCampaignDialog,
   PromotionCampaignDialog,
@@ -64,6 +48,7 @@ import {
   PromotionCouponCodesDialog,
   PromotionCouponUsageDialog,
 } from './PromotionRecordDialogs';
+import PackageCampaignsTab from './PackageCampaignsTab';
 import PromotionCampaignsTab from './PromotionCampaignsTab';
 import PromotionCouponsTab from './PromotionCouponsTab';
 import ReferralCampaignsTab from './ReferralCampaignsTab';
@@ -106,19 +91,6 @@ import {
   type ReferralCampaignFormState,
   type PromotionStatusChangeTarget,
   type PromotionTab,
-  renderPromotionStatusBadge,
-  renderTimeRange,
-  renderTooltipText,
-  resolvePackageCampaignBenefitTypeLabel,
-  resolvePackageCampaignProductSummary,
-  resolvePackageCampaignProductTypeLabel,
-  resolvePackageCampaignRuleLabel,
-  SectionCard,
-  shouldShowPackageCampaignStatusToggle,
-  TABLE_ACTION_CELL_CLASS,
-  TABLE_ACTION_HEAD_CLASS,
-  TABLE_CELL_CLASS,
-  TABLE_HEAD_CLASS,
   SINGLE_SELECT_ITEM_CLASS,
   downloadExcelCompatibleCodesFile,
   canEditCampaignStrategyFields,
@@ -1846,290 +1818,44 @@ export default function AdminOperationPromotionsPage() {
           value='packageCampaigns'
           className='mt-6 space-y-6'
         >
-          <SectionCard
-            title=''
-            action={
-              <Button
-                size='sm'
-                variant='outline'
-                onClick={async () => {
-                  if (!packageCampaignProductOptions) {
-                    try {
-                      await fetchPackageCampaignProductOptions();
-                    } catch (error) {
-                      showErrorToast(
-                        (error as Error).message ||
-                          tPromotion(
-                            'messages.loadPackageCampaignProductsFailed',
-                          ),
-                      );
-                      return;
-                    }
-                  }
-                  setPackageCampaignCreateOpen(true);
-                }}
-              >
-                <Plus className='mr-1 h-4 w-4' />
-                {tPromotion('actions.createPackageCampaign')}
-              </Button>
-            }
-          >
-            <AdminFilter
-              items={packageCampaignFilterItems}
-              expanded={packageCampaignFiltersExpanded}
-              onExpandedChange={setPackageCampaignFiltersExpanded}
-              onReset={handlePackageCampaignReset}
-              onSearch={handlePackageCampaignSearch}
-              resetLabel={t('module.order.filters.reset')}
-              searchLabel={t('module.order.filters.search')}
-              expandLabel={t('common.core.expand')}
-              collapseLabel={t('common.core.collapse')}
-              collapsedCount={4}
-              className='bg-transparent'
-              contentClassName='min-w-0'
-              labelClassName='w-24 text-right'
-              collapsedGridClassName='gap-x-5 xl:grid-cols-4'
-              expandedGridClassName='gap-x-5 xl:grid-cols-3'
-              labelColon
-            />
-          </SectionCard>
-          {packageCampaignError ? (
-            <ErrorDisplay
-              errorMessage={packageCampaignError.message}
-              errorCode={0}
-            />
-          ) : null}
-          <AdminTableShell
+          <PackageCampaignsTab
+            t={t}
+            tPromotion={tPromotion}
+            filterItems={packageCampaignFilterItems}
+            filtersExpanded={packageCampaignFiltersExpanded}
+            onFiltersExpandedChange={setPackageCampaignFiltersExpanded}
+            onReset={handlePackageCampaignReset}
+            onSearch={handlePackageCampaignSearch}
+            onCreate={async () => {
+              if (!packageCampaignProductOptions) {
+                try {
+                  await fetchPackageCampaignProductOptions();
+                } catch (error) {
+                  showErrorToast(
+                    (error as Error).message ||
+                      tPromotion('messages.loadPackageCampaignProductsFailed'),
+                  );
+                  return;
+                }
+              }
+              setPackageCampaignCreateOpen(true);
+            }}
+            error={packageCampaignError}
             loading={packageCampaignLoading}
-            isEmpty={!packageCampaigns.length}
-            emptyContent={tPromotion('messages.emptyPackageCampaigns')}
-            stickyActionEmpty={{
-              contentColSpan:
-                Object.keys(PACKAGE_CAMPAIGN_DEFAULT_COLUMN_WIDTHS).length - 1,
-              actionClassName: TABLE_ACTION_CELL_CLASS,
-              actionStyle: getPackageCampaignColumnStyle('action'),
+            campaigns={packageCampaigns}
+            page={packageCampaignPage}
+            pageCount={packageCampaignPageCount}
+            filters={packageCampaignFilters}
+            fetchCampaigns={fetchPackageCampaigns}
+            getColumnStyle={getPackageCampaignColumnStyle}
+            renderResizeHandle={renderPackageCampaignResizeHandle}
+            onOpenProductDetails={item => {
+              setSelectedPackageCampaignBid(item.campaign_bid);
+              setSelectedPackageCampaignName(item.name || item.campaign_bid);
+              setPackageCampaignProductDetailsOpen(true);
             }}
-            withTooltipProvider
-            tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
-            table={emptyRow => (
-              <Table containerClassName='overflow-visible max-h-none'>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getPackageCampaignColumnStyle('name')}
-                    >
-                      {tPromotion('packageCampaign.name')}
-                      {renderPackageCampaignResizeHandle('name')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getPackageCampaignColumnStyle('status')}
-                    >
-                      {tPromotion('table.status')}
-                      {renderPackageCampaignResizeHandle('status')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getPackageCampaignColumnStyle('products')}
-                    >
-                      {tPromotion('packageCampaign.products')}
-                      {renderPackageCampaignResizeHandle('products')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getPackageCampaignColumnStyle('rule')}
-                    >
-                      {tPromotion('packageCampaign.rule')}
-                      {renderPackageCampaignResizeHandle('rule')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getPackageCampaignColumnStyle('campaignTime')}
-                    >
-                      {tPromotion('filters.campaignTime')}
-                      {renderPackageCampaignResizeHandle('campaignTime')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getPackageCampaignColumnStyle('benefitType')}
-                    >
-                      {tPromotion('packageCampaign.benefitType')}
-                      {renderPackageCampaignResizeHandle('benefitType')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getPackageCampaignColumnStyle('productType')}
-                    >
-                      {tPromotion('packageCampaign.productType')}
-                      {renderPackageCampaignResizeHandle('productType')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getPackageCampaignColumnStyle('hitOrderCount')}
-                    >
-                      {tPromotion('packageCampaign.hitOrderCount')}
-                      {renderPackageCampaignResizeHandle('hitOrderCount')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getPackageCampaignColumnStyle('updatedAt')}
-                    >
-                      {tPromotion('table.updatedAt')}
-                      {renderPackageCampaignResizeHandle('updatedAt')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_ACTION_HEAD_CLASS}
-                      style={getPackageCampaignColumnStyle('action')}
-                    >
-                      {tPromotion('table.actions')}
-                      {renderPackageCampaignResizeHandle('action')}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {emptyRow}
-                  {packageCampaigns.map(item => (
-                    <TableRow key={item.campaign_bid}>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getPackageCampaignColumnStyle('name')}
-                      >
-                        {renderTooltipText(item.name)}
-                      </TableCell>
-                      <TableCell
-                        className={cn(TABLE_CELL_CLASS, 'whitespace-normal')}
-                        style={getPackageCampaignColumnStyle('status')}
-                      >
-                        <div className='flex flex-wrap items-center justify-center gap-1'>
-                          {renderPromotionStatusBadge({
-                            tPromotion,
-                            status: item.computed_status,
-                          })}
-                        </div>
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getPackageCampaignColumnStyle('products')}
-                      >
-                        <Button
-                          type='button'
-                          variant='link'
-                          className='h-auto max-w-full justify-start p-0 text-left font-normal'
-                          onClick={() => {
-                            setSelectedPackageCampaignBid(item.campaign_bid);
-                            setSelectedPackageCampaignName(
-                              item.name || item.campaign_bid,
-                            );
-                            setPackageCampaignProductDetailsOpen(true);
-                          }}
-                        >
-                          {renderTooltipText(
-                            resolvePackageCampaignProductSummary(
-                              tPromotion,
-                              item,
-                            ),
-                          )}
-                        </Button>
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getPackageCampaignColumnStyle('rule')}
-                      >
-                        {renderTooltipText(
-                          resolvePackageCampaignRuleLabel(t, item),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getPackageCampaignColumnStyle('campaignTime')}
-                      >
-                        {renderTooltipText(
-                          renderTimeRange(item.start_at, item.end_at),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getPackageCampaignColumnStyle('benefitType')}
-                      >
-                        {renderTooltipText(
-                          resolvePackageCampaignBenefitTypeLabel(
-                            tPromotion,
-                            item.benefit_type,
-                          ),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getPackageCampaignColumnStyle('productType')}
-                      >
-                        {renderTooltipText(
-                          resolvePackageCampaignProductTypeLabel(
-                            tPromotion,
-                            item.product_types[0],
-                          ),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getPackageCampaignColumnStyle('hitOrderCount')}
-                      >
-                        {renderTooltipText(String(item.hit_order_count || 0))}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getPackageCampaignColumnStyle('updatedAt')}
-                      >
-                        {renderTooltipText(
-                          formatAdminUtcDateTime(item.updated_at),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_ACTION_CELL_CLASS}
-                        style={getPackageCampaignColumnStyle('action')}
-                      >
-                        <div className='flex justify-center'>
-                          <AdminRowActions
-                            label={t('common.core.more')}
-                            actions={[
-                              {
-                                key: 'edit',
-                                label: tPromotion('actions.edit'),
-                                onClick: () =>
-                                  void handleStartPackageCampaignEdit(item),
-                              },
-                              {
-                                key: 'toggle-status',
-                                label:
-                                  item.computed_status === 'inactive'
-                                    ? tPromotion('actions.enable')
-                                    : tPromotion('actions.disable'),
-                                hidden:
-                                  !shouldShowPackageCampaignStatusToggle(item),
-                                onClick: () =>
-                                  void handlePackageCampaignStatusToggle(item),
-                              },
-                            ]}
-                          />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-            pagination={{
-              pageIndex: packageCampaignPage,
-              pageCount: packageCampaignPageCount,
-              onPageChange: page =>
-                void fetchPackageCampaigns(page, packageCampaignFilters),
-              prevLabel: t('module.order.paginationPrev'),
-              nextLabel: t('module.order.paginationNext'),
-              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
-              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
-              hideWhenSinglePage: true,
-            }}
-            footerClassName='mt-3'
+            onEdit={handleStartPackageCampaignEdit}
+            onToggleStatus={handlePackageCampaignStatusToggle}
           />
         </TabsContent>
 
