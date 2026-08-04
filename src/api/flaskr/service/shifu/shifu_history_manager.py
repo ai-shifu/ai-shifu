@@ -88,6 +88,49 @@ def _get_latest_draft_log(shifu_bid: str, for_update: bool = False):
     return query.first()
 
 
+def iter_outline_item_versions_desc(
+    shifu_bid: str,
+    outline_bid: str,
+    *,
+    batch_size: int = 200,
+    max_rows: int | None = None,
+):
+    """Yield draft outline versions newest-first in buffered keyset batches.
+
+    Replaces yield_per/stream_results for these scans: a server-side cursor
+    left unexhausted by an early ``break`` keeps unread rows on the wire, and
+    draining them later is a long, interruptible IO that can return a
+    half-read connection to the pool (protocol desync - the ResourceClosedError
+    / 2014 Command Out of Sync family seen in production). Buffered
+    LIMIT batches are fully consumed per round-trip, so callers may stop
+    iterating at any point without leaving connection state behind. Keyset
+    pagination (id < last seen) keeps deep pages as cheap as the first one.
+    """
+    last_id: int | None = None
+    yielded = 0
+    while True:
+        query = DraftOutlineItem.query.filter(
+            DraftOutlineItem.shifu_bid == shifu_bid,
+            DraftOutlineItem.outline_item_bid == outline_bid,
+            DraftOutlineItem.deleted == 0,
+        )
+        if last_id is not None:
+            query = query.filter(DraftOutlineItem.id < last_id)
+        limit = batch_size
+        if max_rows is not None:
+            limit = min(batch_size, max_rows - yielded)
+            if limit <= 0:
+                return
+        batch = query.order_by(DraftOutlineItem.id.desc()).limit(limit).all()
+        if not batch:
+            return
+        yield from batch
+        yielded += len(batch)
+        if len(batch) < limit:
+            return
+        last_id = int(batch[-1].id)
+
+
 def _get_latest_outline_content_log(shifu_bid: str, outline_bid: str):
     latest_version = (
         DraftOutlineItem.query.filter(
@@ -107,15 +150,10 @@ def _get_latest_outline_content_log(shifu_bid: str, outline_bid: str):
 
     latest_content = latest_version.content or ""
     latest_content_revision = latest_version
-    recent_active_versions = (
-        DraftOutlineItem.query.filter(
-            DraftOutlineItem.shifu_bid == shifu_bid,
-            DraftOutlineItem.outline_item_bid == outline_bid,
-            DraftOutlineItem.deleted == 0,
-        )
-        .order_by(DraftOutlineItem.id.desc())
-        .limit(OUTLINE_CONTENT_LOOKBACK_LIMIT)
-        .yield_per(200)
+    recent_active_versions = iter_outline_item_versions_desc(
+        shifu_bid,
+        outline_bid,
+        max_rows=OUTLINE_CONTENT_LOOKBACK_LIMIT,
     )
     for version in recent_active_versions:
         if version.id == latest_version.id:
