@@ -556,12 +556,18 @@ class MdflowContextV2:
                 continue
             block = block_list[generated_block.position]
             if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
+                # Prefer the persisted exact user message sent to the LLM at
+                # generation time: replaying it verbatim keeps the rebuilt
+                # history byte-identical to previously sent requests so
+                # provider-side prefix caching keeps matching. Legacy rows
+                # without it fall back to re-rendering the block source with
+                # the current variables (one-time cache break, then stable).
+                stored_prompt = getattr(generated_block, "generation_prompt", "") or ""
                 message_list.append(
                     {
                         "role": "user",
-                        "content": replace_variables_in_text(
-                            block.content or "", variables
-                        )
+                        "content": stored_prompt
+                        or replace_variables_in_text(block.content or "", variables)
                         or "",
                     }
                 )
@@ -887,6 +893,10 @@ class RunScriptPreviewContextV2:
 
         content_chunks: list[str] = []
         langfuse_output_chunks: list[str] = []
+        # Holder for the exact user message markdown-flow sent to the LLM
+        # (LLMResult.prompt); the preview context stores it verbatim so the
+        # rebuilt history stays byte-identical to the sent request.
+        sent_prompt_chunks: list[str] = []
         preview_trace_input: str | None = None
         try:
             final_payload = preview_request.model_dump()
@@ -995,6 +1005,7 @@ class RunScriptPreviewContextV2:
                     is_user_input_validation=is_user_input_validation,
                     content_chunks=content_chunks,
                     langfuse_output_chunks=langfuse_output_chunks,
+                    sent_prompt_chunks=sent_prompt_chunks,
                 )
             )
             self._update_preview_context(
@@ -1003,6 +1014,7 @@ class RunScriptPreviewContextV2:
                 preview_request,
                 content_chunks,
                 current_block_content,
+                sent_prompt=(sent_prompt_chunks[0] if sent_prompt_chunks else ""),
             )
         finally:
             finalize_langfuse_trace(
@@ -1028,13 +1040,18 @@ class RunScriptPreviewContextV2:
         preview_request: PlaygroundPreviewRequest,
         content_chunks: list[str],
         current_block_content: str,
+        *,
+        sent_prompt: str = "",
     ) -> None:
         user_input_text = MdflowContextV2.flatten_user_input_map(
             preview_request.user_input
         )
         content_text = "".join(content_chunks).strip()
         if content_text:
-            user_message = user_input_text or current_block_content
+            # Prefer the exact prompt sent to the LLM over the locally
+            # re-rendered block content so the stored history replays the
+            # sent bytes verbatim (prefix-cache stable).
+            user_message = user_input_text or sent_prompt or current_block_content
         else:
             user_message = user_input_text
         assistant_message = content_text or None
@@ -1091,11 +1108,16 @@ class RunScriptPreviewContextV2:
         is_user_input_validation: bool,
         content_chunks: list[str],
         langfuse_output_chunks: list[str],
+        sent_prompt_chunks: list[str] | None = None,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         generated_block_bid = str(block_index)
         emitted_interaction = False
         raw_items = result if inspect.isgenerator(result) else [result]
         for llm_result in raw_items:
+            if sent_prompt_chunks is not None and not sent_prompt_chunks:
+                prompt_value = getattr(llm_result, "prompt", None)
+                if prompt_value:
+                    sent_prompt_chunks.append(str(prompt_value))
             for event in self._preview_events_from_result(
                 llm_result=llm_result,
                 outline_bid=outline_bid,
@@ -3222,6 +3244,10 @@ class RunScriptContextV2:
             generated_block.generated_block_bid
         )
         generated_content = ""
+        # Exact user message markdown-flow sent to the LLM for this block
+        # (LLMResult.prompt); persisted so context rebuilds replay the sent
+        # bytes verbatim and provider-side prefix caching keeps matching.
+        sent_prompt = ""
         tts_processor = None
         tts_enabled = bool(self._should_stream_tts())
         current_tts_stream_key: tuple[str, int] | None = None
@@ -3392,6 +3418,7 @@ class RunScriptContextV2:
                     if source == "idle":
                         yield payload
                         continue
+                    sent_prompt = getattr(payload, "prompt", None) or sent_prompt
                     for (
                         chunk_content,
                         stream_element_type,
@@ -3405,6 +3432,7 @@ class RunScriptContextV2:
             else:
                 # markdown-flow still returns a single LLMResult for some
                 # STREAM edge cases, such as preserved content.
+                sent_prompt = getattr(stream_result, "prompt", None) or sent_prompt
                 for (
                     chunk_content,
                     stream_element_type,
@@ -3442,6 +3470,14 @@ class RunScriptContextV2:
         # Continue the same run across subsequent blocks until we hit
         # an interaction block or reach outline completion.
         self._can_continue = next_block_position < len(block_list)
+        # Preserved-content blocks stream without an LLM prompt
+        # (LLMResult.prompt is unset); freeze today's rebuild rendering at
+        # generation time so future rebuilds stay byte-stable even after
+        # the referenced variables change.
+        if not sent_prompt:
+            sent_prompt = (
+                replace_variables_in_text(state.block.content or "", user_profile) or ""
+            )
         # Block-finalize step: streamed content + cursor advance
         # commit atomically once the stream has fully completed
         # (pending TTS/listen-element sidecar rows ride along).
@@ -3451,6 +3487,7 @@ class RunScriptContextV2:
             self._current_attend,
             status=LEARN_STATUS_IN_PROGRESS,
             block_position=next_block_position,
+            generation_prompt=sent_prompt,
         )
 
     def _phase_completion_tail(self) -> Generator[RunMarkdownFlowDTO, None, None]:

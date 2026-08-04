@@ -102,6 +102,7 @@ class RunRecorder:
         *,
         status: int,
         block_position: int,
+        generation_prompt: str = "",
     ) -> None:
         """Post-stream finalize: block content + progress cursor, atomically.
 
@@ -110,9 +111,14 @@ class RunRecorder:
         no reader can observe a streamed block without its position flip or
         vice versa; a failure here rolls both back, leaving the pre-stream
         state for the producer-level rollback/replay path.
+
+        ``generation_prompt`` is the exact user message sent to the LLM for
+        this block; persisting it lets context rebuilds replay the sent bytes
+        verbatim so provider-side prefix caching keeps matching.
         """
         with unit_of_work():
             generated_block.generated_content = generated_content
+            generated_block.generation_prompt = generation_prompt or ""
             if not getattr(generated_block, "id", None):
                 db.session.add(generated_block)
             attend.status = status
