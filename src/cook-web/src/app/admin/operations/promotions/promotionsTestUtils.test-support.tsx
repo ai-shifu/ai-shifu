@@ -354,6 +354,8 @@ export const mockGetCouponUsages =
   api.getAdminOperationPromotionCouponUsages as jest.Mock;
 export const mockUpdateCouponStatus =
   api.updateAdminOperationPromotionCouponStatus as jest.Mock;
+export const mockCreateCampaign =
+  api.createAdminOperationPromotionCampaign as jest.Mock;
 export const mockUpdateCampaign =
   api.updateAdminOperationPromotionCampaign as jest.Mock;
 export const mockGetCampaignDetail =
@@ -399,6 +401,7 @@ beforeEach(() => {
   mockGetCouponCodes.mockReset();
   mockGetCouponUsages.mockReset();
   mockUpdateCouponStatus.mockReset();
+  mockCreateCampaign.mockReset();
   mockUpdateCampaign.mockReset();
   mockGetCampaignDetail.mockReset();
   mockGetCampaignRedemptions.mockReset();
@@ -418,6 +421,7 @@ beforeEach(() => {
   mockUpdatePackageCampaignStatus.mockReset();
   mockCreateCoupon.mockResolvedValue({ coupon_bid: 'created-coupon' });
   mockUpdateCoupon.mockResolvedValue({ coupon_bid: 'coupon-1' });
+  mockCreateCampaign.mockResolvedValue({ promo_bid: 'created-campaign' });
   mockGetCouponDetail.mockResolvedValue({
     coupon: {
       coupon_bid: 'coupon-1',

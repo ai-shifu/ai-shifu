@@ -1,12 +1,11 @@
-import './promotionsTestUtils.test-support';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import AdminOperationPromotionsPage from './page';
 import {
   mockGetCampaigns,
   mockGetCoupons,
   mockUpdateCampaignStatus,
   mockUpdateCouponStatus,
 } from './promotionsTestUtils.test-support';
+import AdminOperationPromotionsPage from './page';
 
 describe('AdminOperationPromotionsPage list and pagination', () => {
   test('loads coupon tab by default', async () => {

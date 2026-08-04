@@ -1,4 +1,3 @@
-import './promotionsTestUtils.test-support';
 import {
   fireEvent,
   render,
@@ -6,7 +5,6 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import AdminOperationPromotionsPage from './page';
 import {
   resolvePackageCampaignProductSummary,
   resolvePromotionStatusBadgeClassName,
@@ -20,6 +18,7 @@ import {
   mockToast,
   mockUpdatePackageCampaignStatus,
 } from './promotionsTestUtils.test-support';
+import AdminOperationPromotionsPage from './page';
 
 describe('AdminOperationPromotionsPage package campaigns', () => {
   test('switches to package campaign tab and loads package campaigns', async () => {

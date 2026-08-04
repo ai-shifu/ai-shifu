@@ -1,4 +1,3 @@
-import './promotionsTestUtils.test-support';
 import {
   fireEvent,
   render,
@@ -6,7 +5,6 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import AdminOperationPromotionsPage from './page';
 import {
   MOCK_DIALOG_CLOSE_LABEL,
   mockCreateReferralCampaign,
@@ -18,6 +16,7 @@ import {
   mockGetReferralCampaigns,
   mockUpdateReferralCampaignStatus,
 } from './promotionsTestUtils.test-support';
+import AdminOperationPromotionsPage from './page';
 
 describe('AdminOperationPromotionsPage referral campaigns', () => {
   test('switches to referral campaign tab and loads referral campaigns', async () => {
