@@ -161,6 +161,8 @@ def test_probe_timeout_waits_for_in_flight_data(sock_pair):
 
 def test_checkin_grace_window_is_a_short_positive_interval():
     # The production checkin window must stay a small positive value: zero
-    # reintroduces the arrival race, and anything large would tax every
-    # transaction end.
-    assert 0 < dao._CHECKIN_PROBE_GRACE_SECONDS <= 0.01
+    # reintroduces the arrival race, and anything larger taxes every
+    # transaction end. The bound is pinned to the current 2ms on purpose -
+    # enlarging the window must be an explicit two-place change backed by a
+    # latency budget, not a silent constant bump.
+    assert 0 < dao._CHECKIN_PROBE_GRACE_SECONDS <= 0.002
