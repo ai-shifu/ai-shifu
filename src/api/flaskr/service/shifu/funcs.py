@@ -25,6 +25,27 @@ from flaskr.service.common.storage import upload_to_storage
 from .utils import get_shifu_creator_bid
 
 
+IMAGE_DOWNLOAD_TIMEOUTS = (10, 20, 30)
+
+
+def _download_image_from_url(url: str, headers: dict):
+    """Download an image URL with short retries for transient upstream slowness."""
+    last_error = None
+    for timeout in IMAGE_DOWNLOAD_TIMEOUTS:
+        try:
+            response = requests.get(url, headers=headers, timeout=timeout)
+            response.raise_for_status()
+            return response
+        except (requests.Timeout, requests.ConnectionError) as e:
+            last_error = e
+            continue
+        except requests.RequestException:
+            raise
+    if last_error is not None:
+        raise last_error
+    raise requests.RequestException("failed to download image")
+
+
 def mark_favorite_shifu(app, user_id: str, shifu_id: str):
     """
     Mark a shifu as favorite for a user.
@@ -194,8 +215,7 @@ def upload_url(app, user_id: str, url: str) -> str:
             }
 
             app.logger.info(f"Downloading image from URL: {clean_url}")
-            response = requests.get(clean_url, headers=headers, timeout=10)
-            response.raise_for_status()
+            response = _download_image_from_url(clean_url, headers=headers)
 
             content_type = response.headers.get("Content-Type", "")
             if not content_type.startswith("image/"):
