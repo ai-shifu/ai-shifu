@@ -21,17 +21,17 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from tests.service.billing.cycle_state_test_helpers import (
-    _add_reserved_renewal_activation_state,
-    _build_app,
-    _renewal_order,
-    _renewal_product,
+    add_reserved_renewal_activation_state,
+    build_cycle_state_app,
+    create_cycle_state_renewal_order,
+    create_cycle_state_renewal_product,
 )
 
 
 def test_pingxx_renewal_activation_defers_before_cycle_start() -> None:
     paid_at = datetime(2026, 4, 10, 0, 0, 0)
     renewal_cycle_start = datetime(2026, 5, 1, 0, 0, 0)
-    order = _renewal_order(
+    order = create_cycle_state_renewal_order(
         paid_at=paid_at,
         metadata_json={"renewal_cycle_start_at": renewal_cycle_start.isoformat()},
     )
@@ -72,7 +72,7 @@ def test_pingxx_renewal_activation_defers_before_cycle_start() -> None:
 def test_pingxx_renewal_activation_does_not_defer_when_guard_fails(
     order_kwargs: dict,
 ) -> None:
-    order = _renewal_order(**order_kwargs)
+    order = create_cycle_state_renewal_order(**order_kwargs)
 
     assert subscriptions_mod._should_defer_pingxx_renewal_activation(order) is False
 
@@ -109,7 +109,7 @@ def test_subscription_renewal_activation_defers_future_boundary(
     current_at = datetime(2026, 4, 10, 0, 0, 0)
     effective_from = datetime(2026, 5, 1, 0, 0, 0)
     monkeypatch.setattr(subscriptions_mod, "now_utc", lambda: current_at)
-    order = _renewal_order(
+    order = create_cycle_state_renewal_order(
         paid_at=current_at,
         payment_provider=payment_provider,
         metadata_json=metadata_json,
@@ -152,7 +152,7 @@ def test_subscription_renewal_activation_does_not_defer_when_guard_fails(
 ) -> None:
     current_at = datetime(2026, 4, 10, 0, 0, 0)
     monkeypatch.setattr(subscriptions_mod, "now_utc", lambda: current_at)
-    order = _renewal_order(
+    order = create_cycle_state_renewal_order(
         payment_provider="manual",
         metadata_json=metadata_json,
     )
@@ -169,7 +169,7 @@ def test_subscription_renewal_activation_does_not_defer_when_guard_fails(
 def test_force_activation_advances_future_deferred_renewal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = _build_app()
+    app = build_cycle_state_app()
     current_at = datetime(2026, 4, 10, 0, 0, 0)
     current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
     current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
@@ -178,7 +178,7 @@ def test_force_activation_advances_future_deferred_renewal(
 
     with app.app_context():
         dao.db.create_all()
-        product = _renewal_product()
+        product = create_cycle_state_renewal_product()
         subscription = BillingSubscription(
             subscription_bid="subscription-renewal-activation-boundary",
             creator_bid="creator-renewal-activation-boundary",
@@ -203,12 +203,12 @@ def test_force_activation_advances_future_deferred_renewal(
             "renewal_cycle_start_at": current_cycle_end.isoformat(),
             "renewal_cycle_end_at": next_cycle_end.isoformat(),
         }
-        deferred_order = _renewal_order(
+        deferred_order = create_cycle_state_renewal_order(
             bill_order_bid="order-renewal-activation-defer",
             payment_provider="manual",
             metadata_json=order_metadata.copy(),
         )
-        forced_order = _renewal_order(
+        forced_order = create_cycle_state_renewal_order(
             bill_order_bid="order-renewal-activation-force",
             subscription_bid=forced_subscription.subscription_bid,
             payment_provider="manual",
@@ -242,7 +242,7 @@ def test_force_activation_advances_future_deferred_renewal(
 def test_pingxx_renewal_activation_applies_at_exact_cycle_start(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = _build_app()
+    app = build_cycle_state_app()
     current_at = datetime(2026, 4, 10, 0, 0, 0)
     current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
     current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
@@ -251,7 +251,7 @@ def test_pingxx_renewal_activation_applies_at_exact_cycle_start(
 
     with app.app_context():
         dao.db.create_all()
-        product = _renewal_product()
+        product = create_cycle_state_renewal_product()
         subscription = BillingSubscription(
             subscription_bid="subscription-renewal-activation-boundary",
             creator_bid="creator-renewal-activation-boundary",
@@ -261,7 +261,7 @@ def test_pingxx_renewal_activation_applies_at_exact_cycle_start(
             current_period_start_at=current_cycle_start,
             current_period_end_at=current_cycle_end,
         )
-        order = _renewal_order(
+        order = create_cycle_state_renewal_order(
             paid_at=current_cycle_end,
             metadata_json={
                 "renewal_cycle_start_at": current_cycle_end.isoformat(),
@@ -286,7 +286,7 @@ def test_pingxx_renewal_activation_applies_at_exact_cycle_start(
 def test_force_activation_does_not_bypass_preorder_state_guard(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = _build_app()
+    app = build_cycle_state_app()
     current_at = datetime(2026, 5, 1, 0, 0, 0)
     current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
     current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
@@ -295,7 +295,7 @@ def test_force_activation_does_not_bypass_preorder_state_guard(
 
     with app.app_context():
         dao.db.create_all()
-        product = _renewal_product()
+        product = create_cycle_state_renewal_product()
         subscription = BillingSubscription(
             subscription_bid="subscription-renewal-activation-boundary",
             creator_bid="creator-renewal-activation-boundary",
@@ -305,7 +305,7 @@ def test_force_activation_does_not_bypass_preorder_state_guard(
             current_period_start_at=current_cycle_start,
             current_period_end_at=current_cycle_end,
         )
-        order = _renewal_order(
+        order = create_cycle_state_renewal_order(
             metadata_json={
                 "checkout_type": "subscription_preorder",
                 "preorder_state": "effective_applied",
@@ -313,7 +313,7 @@ def test_force_activation_does_not_bypass_preorder_state_guard(
                 "renewal_cycle_end_at": next_cycle_end.isoformat(),
             },
         )
-        wallet, bucket, grant_entry = _add_reserved_renewal_activation_state(
+        wallet, bucket, grant_entry = add_reserved_renewal_activation_state(
             product=product,
             subscription=subscription,
             order=order,
@@ -353,7 +353,7 @@ def test_force_activation_does_not_bypass_preorder_state_guard(
 def test_force_activation_is_idempotent_for_reserved_renewal_grant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = _build_app()
+    app = build_cycle_state_app()
     current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
     current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
     next_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
@@ -361,7 +361,7 @@ def test_force_activation_is_idempotent_for_reserved_renewal_grant(
 
     with app.app_context():
         dao.db.create_all()
-        product = _renewal_product()
+        product = create_cycle_state_renewal_product()
         subscription = BillingSubscription(
             subscription_bid="subscription-renewal-activation-boundary",
             creator_bid="creator-renewal-activation-boundary",
@@ -371,14 +371,14 @@ def test_force_activation_is_idempotent_for_reserved_renewal_grant(
             current_period_start_at=current_cycle_start,
             current_period_end_at=current_cycle_end,
         )
-        order = _renewal_order(
+        order = create_cycle_state_renewal_order(
             bill_order_bid="order-renewal-activation-idempotent",
             metadata_json={
                 "renewal_cycle_start_at": current_cycle_end.isoformat(),
                 "renewal_cycle_end_at": next_cycle_end.isoformat(),
             },
         )
-        _add_reserved_renewal_activation_state(
+        add_reserved_renewal_activation_state(
             product=product,
             subscription=subscription,
             order=order,

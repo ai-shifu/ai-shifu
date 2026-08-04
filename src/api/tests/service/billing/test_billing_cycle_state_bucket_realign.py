@@ -24,13 +24,13 @@ from flaskr.service.billing.models import (
     CreditLedgerEntry,
     CreditWalletBucket,
 )
-from tests.service.billing.cycle_state_test_helpers import _build_app
+from tests.service.billing.cycle_state_test_helpers import build_cycle_state_app
 
 
 def test_realign_active_topup_bucket_effective_to_updates_bucket_and_grant_ledgers() -> (
     None
 ):
-    app = _build_app()
+    app = build_cycle_state_app()
     creator_bid = "creator-cycle-state-topup"
     cycle_start = datetime(2026, 4, 10, 0, 0, 0)
     cycle_end = datetime(2026, 5, 10, 0, 0, 0)
@@ -145,7 +145,7 @@ def test_realign_active_topup_bucket_effective_to_updates_bucket_and_grant_ledge
 def test_apply_paid_subscription_cycle_state_advances_renewal_and_realigns_topup() -> (
     None
 ):
-    app = _build_app()
+    app = build_cycle_state_app()
     creator_bid = "creator-cycle-state-renewal"
     cycle_start = datetime(2026, 6, 1, 0, 0, 0)
     cycle_end = datetime(2026, 7, 1, 0, 0, 0)

@@ -31,8 +31,15 @@ from flaskr.service.billing.models import (
 
 _UNSET = object()
 
+__all__ = [
+    "add_reserved_renewal_activation_state",
+    "build_cycle_state_app",
+    "create_cycle_state_renewal_order",
+    "create_cycle_state_renewal_product",
+]
 
-def _build_app() -> Flask:
+
+def build_cycle_state_app() -> Flask:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -48,7 +55,7 @@ def _build_app() -> Flask:
     return app
 
 
-def _renewal_order(
+def create_cycle_state_renewal_order(
     *,
     bill_order_bid: str = "order-renewal-activation-boundary",
     subscription_bid: str = "subscription-renewal-activation-boundary",
@@ -75,7 +82,7 @@ def _renewal_order(
     )
 
 
-def _renewal_product() -> BillingProduct:
+def create_cycle_state_renewal_product() -> BillingProduct:
     return BillingProduct(
         product_bid="bill-product-renewal-boundary",
         product_code="renewal-boundary",
@@ -94,7 +101,7 @@ def _renewal_product() -> BillingProduct:
     )
 
 
-def _add_reserved_renewal_activation_state(
+def add_reserved_renewal_activation_state(
     *,
     product: BillingProduct,
     subscription: BillingSubscription,

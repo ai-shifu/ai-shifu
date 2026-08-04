@@ -45,10 +45,10 @@ from flaskr.util.datetime import now_utc
 
 
 from tests.service.billing.renewal_execution_test_helpers import (
-    _create_bucket,
-    _create_renewal_event,
-    _create_subscription,
-    _create_wallet,
+    create_credit_bucket,
+    create_renewal_event,
+    create_renewal_subscription,
+    create_credit_wallet,
 )
 
 
@@ -59,8 +59,8 @@ def test_claim_billing_renewal_event_persists_processing_state(
     billing_renewal_app: Flask,
 ) -> None:
     with billing_renewal_app.app_context():
-        subscription = _create_subscription("sub-claim-1")
-        event = _create_renewal_event(
+        subscription = create_renewal_subscription("sub-claim-1")
+        event = create_renewal_event(
             "renewal-claim-1",
             subscription.subscription_bid,
             subscription.creator_bid,
@@ -91,9 +91,9 @@ def test_run_billing_renewal_event_applies_cancel_effective(
     billing_renewal_app: Flask,
 ) -> None:
     with billing_renewal_app.app_context():
-        subscription = _create_subscription("sub-cancel-1")
+        subscription = create_renewal_subscription("sub-cancel-1")
         subscription.cancel_at_period_end = 1
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-cancel-1",
             subscription.subscription_bid,
             subscription.creator_bid,
@@ -129,15 +129,15 @@ def test_run_billing_renewal_event_applies_expire(
 ) -> None:
     period_end_at = now_utc() - timedelta(minutes=1)
     with billing_renewal_app.app_context():
-        subscription = _create_subscription(
+        subscription = create_renewal_subscription(
             "sub-expire-1",
             current_period_end_at=period_end_at,
         )
-        wallet = _create_wallet(
+        wallet = create_credit_wallet(
             subscription.creator_bid,
             available_credits="7.5000000000",
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-expire-1",
             subscription.subscription_bid,
             subscription.creator_bid,
@@ -148,7 +148,7 @@ def test_run_billing_renewal_event_applies_expire(
         dao.db.session.add(wallet)
         dao.db.session.add_all(
             [
-                _create_bucket(
+                create_credit_bucket(
                     wallet.wallet_bid,
                     subscription.creator_bid,
                     "bucket-expire-subscription-1",
@@ -160,7 +160,7 @@ def test_run_billing_renewal_event_applies_expire(
                     effective_to=period_end_at,
                     created_at=period_end_at - timedelta(days=30),
                 ),
-                _create_bucket(
+                create_credit_bucket(
                     wallet.wallet_bid,
                     subscription.creator_bid,
                     "bucket-expire-topup-1",
@@ -242,15 +242,15 @@ def test_run_billing_renewal_event_does_not_duplicate_expire_ledger_when_replaye
 ) -> None:
     period_end_at = now_utc() - timedelta(minutes=1)
     with billing_renewal_app.app_context():
-        subscription = _create_subscription(
+        subscription = create_renewal_subscription(
             "sub-expire-replay-1",
             current_period_end_at=period_end_at,
         )
-        wallet = _create_wallet(
+        wallet = create_credit_wallet(
             subscription.creator_bid,
             available_credits="3.0000000000",
         )
-        event = _create_renewal_event(
+        event = create_renewal_event(
             "renewal-expire-replay-1",
             subscription.subscription_bid,
             subscription.creator_bid,
@@ -260,7 +260,7 @@ def test_run_billing_renewal_event_does_not_duplicate_expire_ledger_when_replaye
         dao.db.session.add(subscription)
         dao.db.session.add(wallet)
         dao.db.session.add(
-            _create_bucket(
+            create_credit_bucket(
                 wallet.wallet_bid,
                 subscription.creator_bid,
                 "bucket-expire-replay-1",
@@ -302,14 +302,14 @@ def test_manual_trial_subscription_schedules_and_applies_expire(
 ) -> None:
     period_end_at = normalize_mysql_datetime(now_utc() - timedelta(minutes=1))
     with billing_renewal_app.app_context():
-        subscription = _create_subscription(
+        subscription = create_renewal_subscription(
             "sub-trial-expire-1",
             product_bid=BILLING_TRIAL_PRODUCT_BID,
             billing_provider="manual",
             provider_subscription_id="",
             current_period_end_at=period_end_at,
         )
-        wallet = _create_wallet(
+        wallet = create_credit_wallet(
             subscription.creator_bid,
             available_credits="100.0000000000",
         )
@@ -317,7 +317,7 @@ def test_manual_trial_subscription_schedules_and_applies_expire(
         dao.db.session.add(wallet)
         dao.db.session.flush()
         dao.db.session.add(
-            _create_bucket(
+            create_credit_bucket(
                 wallet.wallet_bid,
                 subscription.creator_bid,
                 "bucket-trial-expire-1",
@@ -382,14 +382,14 @@ def test_trial_expire_event_sync_reuses_second_precision_scheduled_at(
         period_end_at.replace(microsecond=499999)
     ) == period_end_at.replace(microsecond=0)
     with billing_renewal_app.app_context():
-        subscription = _create_subscription(
+        subscription = create_renewal_subscription(
             "sub-trial-expire-precision",
             product_bid=BILLING_TRIAL_PRODUCT_BID,
             billing_provider="manual",
             provider_subscription_id="",
             current_period_end_at=period_end_at,
         )
-        stale_event = _create_renewal_event(
+        stale_event = create_renewal_event(
             "renewal-trial-expire-precision",
             subscription.subscription_bid,
             subscription.creator_bid,
