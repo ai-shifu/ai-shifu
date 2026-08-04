@@ -76,6 +76,34 @@ export type AdminOperationCourseDetailMetrics = {
   completed_user_avg_credits: number | null;
 };
 
+export type AdminOperationEstimatedCreditComponent = {
+  min: number;
+  max: number;
+  model: string;
+  model_label: string;
+  multiplier: string | null;
+};
+
+export type AdminOperationEstimatedCreditMode = {
+  min: number;
+  max: number;
+  llm: AdminOperationEstimatedCreditComponent;
+  tts: AdminOperationEstimatedCreditComponent | null;
+  enabled: boolean | null;
+};
+
+export type AdminOperationEstimatedCreditCost = {
+  read: AdminOperationEstimatedCreditMode;
+  listen: AdminOperationEstimatedCreditMode;
+  classroom: AdminOperationEstimatedCreditMode;
+  assumptions: {
+    visible_lesson_count: number;
+    prompt_char_count: number;
+    content_char_count: number;
+    calculated_at: string;
+  };
+};
+
 export type AdminOperationCourseDetailChapter = {
   outline_item_bid: string;
   title: string;
@@ -107,6 +135,7 @@ export type AdminOperationCourseChapterDetailResponse = {
 export type AdminOperationCourseDetailResponse = {
   basic_info: AdminOperationCourseDetailBasicInfo;
   metrics: AdminOperationCourseDetailMetrics;
+  estimated_credit_cost: AdminOperationEstimatedCreditCost;
   chapters: AdminOperationCourseDetailChapter[];
 };
 

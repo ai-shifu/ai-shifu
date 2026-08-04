@@ -145,6 +145,18 @@
       "title": "Credit Usage"
     },
     "creditUsageTab": "Credit Usage",
+    "estimatedCreditCost": {
+      "classroom": "Classroom",
+      "creditUnit": "credits",
+      "description": "Estimated from the current course content, configured models, and credit multipliers. Actual consumption follows credit usage details.",
+      "disabled": "Disabled",
+      "listen": "Listen",
+      "llm": "LLM",
+      "read": "Read",
+      "title": "Estimated Full-course Cost",
+      "tts": "TTS",
+      "unknownModel": "Unknown model"
+    },
     "fields": {
       "courseId": "Course ID",
       "courseName": "Course Name",
