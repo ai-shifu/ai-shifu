@@ -179,32 +179,43 @@ describe('ModelList', () => {
           {
             value: 'minimax/speech-2.8-turbo',
             label: 'Premium Voice',
-            creditMultiplierLabel: '22x',
-            promoLabel: 'Limited-time 90% off',
+            creditMultiplierLabel: '2x',
+            promoLabel: 'Limited-time 95% off',
+            promoOriginalLabel: '44x',
           },
           {
             value: 'tencent_texttovoice/premium',
             label: 'Basic Voice',
-            creditMultiplierLabel: '2x',
+            creditMultiplierLabel: '3x',
           },
         ]}
       />,
     );
 
-    // Promo badge shows in both the trigger and the dropdown option, next to
-    // the untouched multiplier badge.
-    expect(screen.getAllByText('Limited-time 90% off')).toHaveLength(2);
-    expect(screen.getAllByText('22x')).toHaveLength(2);
+    // Promo badge shows in both the trigger and the dropdown option; the
+    // struck-through pre-promo rate sits inside the multiplier badge, right
+    // before the current rate.
+    expect(screen.getAllByText('Limited-time 95% off')).toHaveLength(2);
+    expect(screen.getAllByText('2x')).toHaveLength(2);
+    const originalRates = screen.getAllByText('44x');
+    expect(originalRates).toHaveLength(2);
+    originalRates.forEach(node => {
+      expect(node).toHaveClass('line-through');
+      // Exact textContent locks both co-location and order: the struck-through
+      // pre-promo rate first, the current rate right after.
+      expect(node.parentElement?.textContent).toBe('44x2x');
+    });
 
     const basicOption = screen
       .getByText('Basic Voice')
       .closest('[role="option"]');
     expect(basicOption).toBeTruthy();
     expect(
-      within(basicOption as HTMLElement).queryByText('Limited-time 90% off'),
+      within(basicOption as HTMLElement).queryByText('Limited-time 95% off'),
     ).toBeNull();
+    expect(within(basicOption as HTMLElement).queryByText('44x')).toBeNull();
     expect(
-      within(basicOption as HTMLElement).getByText('2x'),
+      within(basicOption as HTMLElement).getByText('3x'),
     ).toBeInTheDocument();
   });
 
