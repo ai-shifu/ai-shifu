@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import contextlib
 import json
+import select as select_module
+import socket as socket_module
 
-from flaskr.dao import db
+from flask import current_app
+from flaskr.dao import db, invalidate_session
 from sqlalchemy import bindparam, text
 from sqlalchemy.exc import ResourceClosedError
+
+
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -36,6 +41,67 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
 )
 from flaskr.service.learn.type_state_machine import TypeInput
+
+
+def _describe_desynced_connection(result, connection) -> str:
+    """Collect protocol-level forensics after a desynced SELECT.
+
+    When this SELECT consumes a stale response packet, the DBAPI cursor holds
+    the fingerprint of the response it actually read: an OK packet from an
+    interleaved INSERT/UPDATE shows up as rowcount/lastrowid with a None
+    description. Together with the server-side connection id (joinable
+    against performance_schema on RDS), the pymysql protocol sequence number,
+    and a peek at any bytes still pending on the socket, this identifies what
+    the desynced exchange was - without guessing.
+    """
+    parts = []
+    cursor = getattr(result, "cursor", None)
+    if cursor is not None:
+        parts.append(f"cursor.rowcount={getattr(cursor, 'rowcount', None)}")
+        parts.append(f"cursor.lastrowid={getattr(cursor, 'lastrowid', None)}")
+        parts.append(
+            f"cursor.description={'set' if getattr(cursor, 'description', None) else None}"
+        )
+    raw = None
+    with contextlib.suppress(Exception):
+        raw = connection.connection.dbapi_connection
+    if raw is None:
+        parts.append("raw_connection=unavailable")
+        return " ".join(parts)
+    with contextlib.suppress(Exception):
+        parts.append(f"server_thread_id={raw.thread_id()}")
+    parts.append(f"next_seq_id={getattr(raw, '_next_seq_id', None)}")
+    prev = getattr(raw, "_result", None)
+    if prev is not None:
+        parts.append(
+            "last_result(affected_rows={}, insert_id={}, server_status={}, "
+            "unbuffered_active={}, field_count={})".format(
+                getattr(prev, "affected_rows", None),
+                getattr(prev, "insert_id", None),
+                getattr(prev, "server_status", None),
+                getattr(prev, "unbuffered_active", None),
+                getattr(prev, "field_count", None),
+            )
+        )
+    sock = getattr(raw, "_sock", None)
+    if sock is not None:
+        try:
+            readable, _, _ = select_module.select([sock], [], [], 0)
+            if readable:
+                pending = sock.recv(64, socket_module.MSG_PEEK)
+                # Log only the MySQL packet header (3-byte length, 1-byte
+                # sequence) plus the first payload byte that identifies the
+                # packet type (0x00 OK / 0xff ERR / 0xfe EOF / other =
+                # column-count or row data). That is enough to classify the
+                # stale response without serializing row payloads - which
+                # could contain learner content - into the log.
+                parts.append(f"socket_pending_len>={len(pending)}")
+                parts.append(f"socket_pending_header_hex={pending[:5].hex()}")
+            else:
+                parts.append("socket_pending=none")
+        except Exception as probe_error:  # noqa: BLE001 - forensics only
+            parts.append(f"socket_probe_error={probe_error!r}")
+    return " ".join(parts)
 
 
 class ListenElementRunPersistenceMixin:
@@ -148,12 +214,23 @@ class ListenElementRunPersistenceMixin:
         except ResourceClosedError:
             # A rowless result for this SELECT means the connection's protocol
             # stream is desynced (the query consumed a stale response packet
-            # left over from an interrupted operation). Invalidate the raw
-            # DBAPI connection so the poisoned connection is dropped from the
-            # pool instead of failing every later request that checks it out;
-            # the caller's rollback then completes on session state alone.
+            # left over from an interrupted operation). Capture the protocol
+            # fingerprint of what the SELECT actually read BEFORE invalidating,
+            # then invalidate the raw DBAPI connection so the poisoned
+            # connection is dropped from the pool instead of failing every
+            # later request that checks it out; the caller's rollback then
+            # completes on session state alone.
             with contextlib.suppress(Exception):
-                connection.invalidate()
+                current_app.logger.error(
+                    "Listen element SELECT hit a desynced connection; forensics: %s",
+                    _describe_desynced_connection(result, connection),
+                )
+            # Session-level invalidate: this connection IS the session's
+            # transaction connection, so Session.invalidate() discards it AND
+            # resets the session state without emitting SQL - even a caller
+            # that swallows this exception can no longer commit/rollback on
+            # the desynced stream.
+            invalidate_session(source="listen element select desync")
             raise
         finally:
             with contextlib.suppress(Exception):

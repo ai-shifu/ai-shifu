@@ -117,6 +117,7 @@ from flaskr.service.learn.context_v2 import (
     _PreviewContextStore,
 )
 from markdown_flow import MarkdownFlow, USER_ANSWER_CONTEXT_KEY
+from markdown_flow.llm import LLMResult
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
     ElementType,
@@ -1955,6 +1956,71 @@ def _make_preview_store(
     return store, cache, doc
 
 
+class PreviewSentPromptCaptureTests(unittest.TestCase):
+    """The preview flow stores the exact user message markdown-flow sent to
+    the LLM (LLMResult.prompt) instead of a locally re-rendered block, so the
+    replayed preview context stays byte-identical to the sent request."""
+
+    def test_iter_preview_generated_events_captures_prompt(self):
+        app = Flask("preview-prompt-capture")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        sent_prompt_chunks: list[str] = []
+
+        list(
+            preview_ctx._iter_preview_generated_events(
+                result=(
+                    chunk
+                    for chunk in [
+                        LLMResult(
+                            content="Hello preview",
+                            type="text",
+                            number=0,
+                            prompt="P-PREVIEW",
+                        )
+                    ]
+                ),
+                outline_bid="outline-1",
+                block_index=0,
+                current_block=types.SimpleNamespace(block_type="content"),
+                is_user_input_validation=False,
+                content_chunks=[],
+                langfuse_output_chunks=[],
+                sent_prompt_chunks=sent_prompt_chunks,
+            )
+        )
+
+        self.assertEqual(sent_prompt_chunks, ["P-PREVIEW"])
+
+    def test_update_preview_context_prefers_sent_prompt(self):
+        app = Flask("preview-prompt-store")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        appended: list[tuple] = []
+        store = types.SimpleNamespace(
+            append_context=lambda *args: appended.append(args)
+        )
+        request = PlaygroundPreviewRequest(block_index=0)
+
+        preview_ctx._update_preview_context(
+            store,
+            "doc",
+            request,
+            ["generated "],
+            "re-rendered block",
+            sent_prompt="P-PREVIEW",
+        )
+        preview_ctx._update_preview_context(
+            store,
+            "doc",
+            request,
+            ["generated "],
+            "re-rendered block",
+        )
+
+        self.assertEqual(appended[0][2], "P-PREVIEW")
+        # Without a captured prompt the legacy rendering still applies.
+        self.assertEqual(appended[1][2], "re-rendered block")
+
+
 class PreviewContextStoreTruncationTests(unittest.TestCase):
     def _populate(self, store, doc, indices):
         for idx in indices:
@@ -2207,6 +2273,166 @@ class BuildContextFromBlocksTests(unittest.TestCase):
                 prev == "user" and cur == "user",
                 f"adjacent user messages in {roles}",
             )
+
+
+class BuildContextGenerationPromptReplayTests(unittest.TestCase):
+    """Content blocks replay the persisted generation_prompt verbatim so the
+    rebuilt history stays byte-identical to the request previously sent to
+    the LLM (keeping provider-side prefix caching effective); legacy rows
+    without it fall back to re-rendering the block source with the current
+    variables."""
+
+    DOC = (
+        "Content one {{nickname}}.\n"
+        "---\n"
+        "?[%{{nickname}} ...What is your name?]\n"
+        "---\n"
+        "Second content."
+    )
+
+    STORED_PROMPT = (
+        'Content one """UNKNOWN""".\n\n'
+        "The next interaction will appear immediately after this content."
+    )
+
+    def test_stored_prompt_replayed_verbatim_ignoring_current_variables(self):
+        blocks = [
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                position=0,
+                generated_content="reply zero",
+                generation_prompt=self.STORED_PROMPT,
+            ),
+        ]
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                blocks, self.DOC, {"nickname": "Alice"}
+            )
+
+        # The stored prompt wins even though nickname now resolves to Alice.
+        self.assertEqual(messages[0]["role"], "user")
+        self.assertEqual(messages[0]["content"], self.STORED_PROMPT)
+
+    def test_missing_or_empty_prompt_falls_back_to_current_rendering(self):
+        blocks = [
+            # Legacy row persisted before the column existed.
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                position=0,
+                generated_content="reply zero",
+            ),
+            # Row persisted with an empty prompt.
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                position=2,
+                generated_content="reply two",
+                generation_prompt="",
+            ),
+        ]
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                blocks, self.DOC, {"nickname": "Alice"}
+            )
+
+        user_messages = [m for m in messages if m["role"] == "user"]
+        self.assertEqual(len(user_messages), 2)
+        self.assertIn("Alice", user_messages[0]["content"])
+        self.assertEqual(user_messages[1]["content"], "Second content.")
+
+
+class StreamContentBlockPromptCaptureTests(unittest.TestCase):
+    """_phase_stream_content_block captures LLMResult.prompt (the exact user
+    message markdown-flow sent to the LLM) and hands it to the recorder;
+    prompt-less streams (preserved content) freeze the variables-rendered
+    block source instead."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = Flask("stream-prompt-capture-tests")
+        cls.app.config.update(
+            SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={
+                "ai_shifu_saas": "sqlite:///:memory:",
+                "ai_shifu_admin": "sqlite:///:memory:",
+            },
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        )
+        dao.db.init_app(cls.app)
+        with cls.app.app_context():
+            dao.db.create_all()
+
+    def _run_stream_phase(self, stream_items):
+        ctx = _make_context()
+        ctx.app = self.app
+        ctx._input_type = "normal"
+        ctx._preview_mode = False
+        ctx._listen = False
+        ctx._current_attend = types.SimpleNamespace(
+            progress_record_bid="progress-prompt-1",
+            shifu_bid="shifu-prompt-1",
+        )
+        # _recorder is a lazy read-only property backed by __dict__.
+        ctx.__dict__["_run_recorder"] = MagicMock()
+
+        def fake_stream():
+            yield from stream_items
+
+        mdflow_context = types.SimpleNamespace(process=lambda **kwargs: fake_stream())
+        attend = types.SimpleNamespace(shifu_bid="shifu-prompt-1")
+        state = types.SimpleNamespace(
+            run_script_info=types.SimpleNamespace(
+                attend=attend,
+                outline_bid="outline-prompt-1",
+                block_position=0,
+                mdflow="",
+            ),
+            block_list=[object(), object()],
+            user_profile={"nickname": "Alice"},
+            message_list=[],
+            llm_provider=MagicMock(),
+            mdflow_context=mdflow_context,
+            block=types.SimpleNamespace(content="Preserved {{nickname}} text."),
+        )
+        generated_block = LearnGeneratedBlock(
+            generated_block_bid="gb-prompt-capture-1",
+            progress_record_bid="progress-prompt-1",
+            user_bid="user-prompt-1",
+            outline_item_bid="outline-prompt-1",
+            shifu_bid="shifu-prompt-1",
+            position=0,
+            generated_content="",
+            block_content_conf="",
+            status=1,
+        )
+        with self.app.app_context():
+            events = list(
+                ctx._phase_stream_content_block(self.app, state, generated_block)
+            )
+            dao.db.session.rollback()
+        return ctx, events
+
+    def test_llm_prompt_captured_and_passed_to_finalize(self):
+        ctx, _events = self._run_stream_phase(
+            [
+                LLMResult(content="Hello ", type="text", number=0, prompt="P-EXACT"),
+                LLMResult(content="world", type="text", number=0, prompt="P-EXACT"),
+            ]
+        )
+        finalize_call = ctx._recorder.finalize_streamed_block.call_args
+        self.assertEqual(finalize_call.kwargs["generation_prompt"], "P-EXACT")
+        self.assertEqual(finalize_call.args[1], "Hello world")
+
+    def test_promptless_stream_falls_back_to_rendered_block_source(self):
+        ctx, _events = self._run_stream_phase(
+            [LLMResult(content="Preserved Alice text.", type="text", number=0)]
+        )
+        finalize_call = ctx._recorder.finalize_streamed_block.call_args
+        self.assertEqual(
+            finalize_call.kwargs["generation_prompt"],
+            'Preserved """Alice""" text.',
+        )
 
 
 class BuildContextNoVariableInteractionTests(unittest.TestCase):

@@ -66,7 +66,7 @@ mistune==3.2.1
 mpmath==1.3.0
 mypy-extensions==1.0.0
 nodeenv==1.9.1
-litellm==1.84.8
+litellm==1.95.0
 openpyxl==3.1.5
 opentelemetry-api==1.36.0
 opentelemetry-exporter-otlp-proto-http==1.36.0
@@ -125,4 +125,4 @@ zope.event==5.0
 zope.interface==7.1.1
 bcrypt==4.2.1
 --extra-index-url https://pypi.org/simple/
-markdown-flow==0.3.0
+markdown-flow==0.3.1

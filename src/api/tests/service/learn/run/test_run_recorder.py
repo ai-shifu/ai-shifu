@@ -201,10 +201,11 @@ def test_failed_finalize_leaves_staged_block_state_uncorrupted(
 
 def test_disconnect_mid_stream_resumes_from_last_finalized_block(recorder_app):
     """Session-level model of a mid-stream disconnect: block N finalized
-    (durable step), block N+1 staged when the session rolls back — the same
-    add/flush/rollback sequence the producer's GeneratorExit handler in
-    ``runscript_v2`` performs, exercised here directly against the recorder
-    session rather than through the generator chain. The re-run must see
+    (durable step), block N+1 staged when the session's connection is
+    invalidated — the same add/flush/invalidate sequence the producer's
+    GeneratorExit handler in ``runscript_v2`` performs, exercised here
+    directly against the recorder session rather than through the generator
+    chain. The re-run must see
     block N and the advanced cursor, and no trace of block N+1. An
     end-to-end test driving the real generator ``.close()`` through
     ``run_script_inner`` is a PR3 follow-up (see the B6 ExecPlan)."""
@@ -223,8 +224,11 @@ def test_disconnect_mid_stream_resumes_from_last_finalized_block(recorder_app):
         block_position=4,
     )
 
-    # Block 4 starts streaming: staged only, then the client disconnects and
-    # the producer rolls the session back.
+    # Block 4 starts streaming: staged only, then the client disconnects.
+    # Production performs Session.invalidate() (connection discarded; the
+    # staged transaction dies with it); on this fixture's in-memory SQLite an
+    # invalidate would destroy the whole database, so model the same
+    # staged-rows-vanish effect with a rollback.
     staged = _build_block("gb-staged-0004", 4)
     dao.db.session.add(staged)
     dao.db.session.flush()
@@ -247,6 +251,45 @@ def test_disconnect_mid_stream_resumes_from_last_finalized_block(recorder_app):
         ).count()
         == 0
     )
+
+
+def test_finalize_persists_generation_prompt(recorder_app):
+    """finalize_streamed_block stores the exact sent user message so context
+    rebuilds can replay it verbatim; omitting it defaults to empty string."""
+    attend = _seed_attend()
+    recorder = RunRecorder(recorder_app)
+
+    with_prompt = _build_block("gb-prompt-0001", 3)
+    dao.db.session.add(with_prompt)
+    dao.db.session.flush()
+    recorder.finalize_streamed_block(
+        with_prompt,
+        "block content",
+        attend,
+        status=LEARN_STATUS_IN_PROGRESS,
+        block_position=4,
+        generation_prompt="Sent user message with next-interaction suffix",
+    )
+
+    without_prompt = _build_block("gb-prompt-0002", 4)
+    dao.db.session.add(without_prompt)
+    dao.db.session.flush()
+    recorder.finalize_streamed_block(
+        without_prompt,
+        "next content",
+        attend,
+        status=LEARN_STATUS_IN_PROGRESS,
+        block_position=5,
+    )
+
+    stored = LearnGeneratedBlock.query.filter(
+        LearnGeneratedBlock.generated_block_bid == "gb-prompt-0001"
+    ).one()
+    assert stored.generation_prompt == "Sent user message with next-interaction suffix"
+    stored_default = LearnGeneratedBlock.query.filter(
+        LearnGeneratedBlock.generated_block_bid == "gb-prompt-0002"
+    ).one()
+    assert stored_default.generation_prompt == ""
 
 
 def test_commit_pending_step_makes_collaborator_writes_durable(recorder_app):

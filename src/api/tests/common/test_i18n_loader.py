@@ -1,9 +1,15 @@
-import os
 from pathlib import Path
 
+import pytest
 from flask import Flask
 
-from flaskr.i18n import _translations, load_translations, set_language, _ as t
+from flaskr.i18n import (
+    _translations,
+    clear_language,
+    load_translations,
+    set_language,
+    _ as t,
+)
 
 
 def _shared_i18n_root() -> Path:
@@ -11,8 +17,17 @@ def _shared_i18n_root() -> Path:
     return Path(__file__).resolve().parents[3] / "i18n"
 
 
+@pytest.fixture(autouse=True)
+def _isolate_i18n_state(monkeypatch):
+    # SHARED_I18N_ROOT is restored by monkeypatch; the thread-local language
+    # set via set_language() must be cleared so later tests (e.g. ask provider
+    # adapters asserting en-US messages) are not affected by test order.
+    monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
+    yield
+    clear_language()
+
+
 def test_load_and_translate_basic():
-    os.environ["SHARED_I18N_ROOT"] = str(_shared_i18n_root())
     app = Flask(__name__)
 
     # Load translations from shared JSON
@@ -28,7 +43,6 @@ def test_load_and_translate_basic():
 
 
 def test_french_language_loads_shared_translations():
-    os.environ["SHARED_I18N_ROOT"] = str(_shared_i18n_root())
     app = Flask(__name__)
 
     load_translations(app)
@@ -39,7 +53,6 @@ def test_french_language_loads_shared_translations():
 
 
 def test_language_fallback_to_default():
-    os.environ["SHARED_I18N_ROOT"] = str(_shared_i18n_root())
     app = Flask(__name__)
 
     load_translations(app)
@@ -50,7 +63,6 @@ def test_language_fallback_to_default():
 
 
 def test_existing_language_missing_key_falls_back_to_default():
-    os.environ["SHARED_I18N_ROOT"] = str(_shared_i18n_root())
     app = Flask(__name__)
 
     load_translations(app)
@@ -68,7 +80,6 @@ def test_existing_language_missing_key_falls_back_to_default():
 
 
 def test_flat_section_namespace_loading():
-    os.environ["SHARED_I18N_ROOT"] = str(_shared_i18n_root())
     app = Flask(__name__)
 
     load_translations(app)

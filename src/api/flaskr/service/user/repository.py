@@ -11,7 +11,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask
 
-from flaskr.dao import db
+from flaskr.dao import (
+    cleanup_session_after,
+    db,
+    invalidate_session,
+    is_abnormal_stream_termination,
+)
 from flaskr.service.common.dtos import UserInfo
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
@@ -834,9 +839,29 @@ def upsert_wechat_credentials(
 
 @contextmanager
 def transactional_session():
+    # Managed manually instead of ``with begin_nested()``: the context
+    # manager's __exit__ would emit ROLLBACK TO SAVEPOINT on the wire BEFORE
+    # any classification could run, which is exactly what must not happen on
+    # a connection whose exchange was interrupted.
+    nested = db.session.begin_nested()
     try:
-        with db.session.begin_nested():
-            yield
-    except Exception:
-        db.session.rollback()
+        yield
+    except Exception as exc:
+        if is_abnormal_stream_termination(exc):
+            invalidate_session(source="transactional_session desync")
+        else:
+            try:
+                nested.rollback()
+            except Exception:  # noqa: BLE001 - savepoint already broken
+                invalidate_session(source="transactional_session rollback failure")
+            # Preserve the legacy contract: a failure rolls back the whole
+            # session transaction, not only the savepoint.
+            cleanup_session_after(exc, source="transactional_session")
         raise
+    except BaseException:
+        # GreenletExit landing inside the body's DB IO: discard before any
+        # cleanup could touch the wire.
+        invalidate_session(source="transactional_session interrupt")
+        raise
+    else:
+        nested.commit()

@@ -111,12 +111,20 @@ def unit_of_work():
             callbacks = _post_commit.get()
             dao.db.session.commit()
             _run_post_commit(callbacks)
-    except Exception:
+    except Exception as exc:
         if depth == 0:
-            try:
-                dao.db.session.rollback()
-            except Exception as rollback_exc:  # noqa: BLE001 - best-effort cleanup
-                logger.warning("unit_of_work rollback failed: %s", rollback_exc)
+            # Classified cleanup: stream-interrupting failures (desync
+            # errors surfaced by the commit) discard the connection, other
+            # errors roll back; a rollback that itself fails escalates to
+            # invalidate. Never emit a ROLLBACK on a desynced stream.
+            dao.cleanup_session_after(exc, source="unit_of_work")
+        raise
+    except BaseException:
+        if depth == 0:
+            # GreenletExit landing inside the COMMIT's network IO leaves an
+            # unread response owed on the wire; discard the connection
+            # before any later cleanup could roll back on it.
+            dao.invalidate_session(source="unit_of_work interrupt")
         raise
     finally:
         _depth.reset(token)
