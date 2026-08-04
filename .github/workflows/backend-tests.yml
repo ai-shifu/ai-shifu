@@ -78,6 +78,7 @@ jobs:
           targets: set[str] = set()
           full_run = False
           skip_run = False
+          run_migration_contract_tests = False
           api_root = pathlib.Path("src/api")
 
           def normalize(path: str) -> str:
@@ -112,9 +113,12 @@ jobs:
               if is_control_plane_backend_path(path):
                   continue
               if path.startswith("src/api/migrations/"):
+                  run_migration_contract_tests = True
                   full_run = True
                   break
               if path.startswith("src/api/tests/"):
+                  if path.startswith("src/api/tests/migrations/"):
+                      run_migration_contract_tests = True
                   add_target(path)
                   continue
               if path.startswith("src/api/flaskr/service/"):
@@ -148,6 +152,10 @@ jobs:
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
               env_file.write(f"SKIP_BACKEND_TESTS={'1' if skip_run else '0'}\n")
               env_file.write(f"TEST_TARGETS={targets_list}\n")
+              env_file.write(
+                  "RUN_MIGRATION_CONTRACT_TESTS="
+                  f"{'1' if run_migration_contract_tests else '0'}\n"
+              )
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
               summary.write("### Backend test targets (PR)\n")
               if skip_run:
@@ -167,6 +175,12 @@ jobs:
         working-directory: src/api
         run: |
           python -m pytest --testmon $TEST_TARGETS
+
+      - name: Run migration contract tests (PR)
+        if: github.event_name == 'pull_request' && env.RUN_MIGRATION_CONTRACT_TESTS == '1'
+        working-directory: src/api
+        run: |
+          python -m pytest tests/migrations -q
 
       - name: Run tests with coverage (main/full)
         if: github.event_name != 'pull_request'
