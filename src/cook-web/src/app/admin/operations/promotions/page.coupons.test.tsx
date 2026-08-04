@@ -1,4 +1,4 @@
-import './promotionsTestUtils';
+import './promotionsTestUtils.test-support';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import AdminOperationPromotionsPage from './page';
 import {
@@ -9,7 +9,7 @@ import {
   mockGetCoupons,
   mockToast,
   mockUpdateCouponStatus,
-} from './promotionsTestUtils';
+} from './promotionsTestUtils.test-support';
 
 describe('AdminOperationPromotionsPage coupons', () => {
   test('shows specific success toast when coupon is disabled', async () => {

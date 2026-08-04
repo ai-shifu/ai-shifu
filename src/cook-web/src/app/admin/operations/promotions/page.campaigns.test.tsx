@@ -1,4 +1,4 @@
-import './promotionsTestUtils';
+import './promotionsTestUtils.test-support';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import AdminOperationPromotionsPage from './page';
 import {
@@ -8,7 +8,7 @@ import {
   mockGetCoupons,
   mockToast,
   mockUpdateCampaignStatus,
-} from './promotionsTestUtils';
+} from './promotionsTestUtils.test-support';
 
 describe('AdminOperationPromotionsPage campaigns', () => {
   test('shows operator-focused campaign columns and opens order list dialog from applied order count', async () => {

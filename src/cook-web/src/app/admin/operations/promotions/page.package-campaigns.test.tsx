@@ -1,4 +1,4 @@
-import './promotionsTestUtils';
+import './promotionsTestUtils.test-support';
 import {
   fireEvent,
   render,
@@ -19,7 +19,7 @@ import {
   mockGetPackageCampaigns,
   mockToast,
   mockUpdatePackageCampaignStatus,
-} from './promotionsTestUtils';
+} from './promotionsTestUtils.test-support';
 
 describe('AdminOperationPromotionsPage package campaigns', () => {
   test('switches to package campaign tab and loads package campaigns', async () => {

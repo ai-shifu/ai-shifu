@@ -1,4 +1,4 @@
-import './promotionsTestUtils';
+import './promotionsTestUtils.test-support';
 import {
   fireEvent,
   render,
@@ -17,7 +17,7 @@ import {
   mockGetReferralCampaignRelations,
   mockGetReferralCampaigns,
   mockUpdateReferralCampaignStatus,
-} from './promotionsTestUtils';
+} from './promotionsTestUtils.test-support';
 
 describe('AdminOperationPromotionsPage referral campaigns', () => {
   test('switches to referral campaign tab and loads referral campaigns', async () => {
