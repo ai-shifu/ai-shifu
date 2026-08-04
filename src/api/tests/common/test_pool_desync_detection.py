@@ -126,3 +126,32 @@ def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair):
     finally:
         pool.dispose()
         clean_sock_b.close()
+
+
+def test_checkin_grace_window_catches_in_flight_data(sock_pair):
+    """Data that arrives moments after checkin starts must still be caught:
+    the zero-timeout probe misses an owed response still in flight, which is
+    exactly how a just-interrupted exchange poisons the pool."""
+    import threading
+    import time as time_module
+
+    left, right = sock_pair
+    conn = _FakePyMySQLConnection(left)
+
+    # Zero-timeout probe sees nothing yet.
+    assert dao._socket_has_unread_data(conn) is False
+
+    # The owed response lands ~1ms into the grace window.
+    def _late_send():
+        time_module.sleep(0.001)
+        right.sendall(b"\x05late-owed-response")
+
+    sender = threading.Thread(target=_late_send)
+    sender.start()
+    try:
+        assert (
+            dao._socket_has_unread_data(conn, timeout=dao._CHECKIN_PROBE_GRACE_SECONDS)
+            is True
+        )
+    finally:
+        sender.join()
