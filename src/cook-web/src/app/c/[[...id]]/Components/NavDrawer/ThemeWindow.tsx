@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 export const ThemeWindow = ({ open, onClose, style, className }) => {
   const { t } = useTranslation();
   return (
-    // @ts-expect-error EXPECT
     <PopupModal
       open={open}
       onClose={onClose}

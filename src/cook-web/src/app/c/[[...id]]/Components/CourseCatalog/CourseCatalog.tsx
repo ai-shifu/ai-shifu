@@ -1,4 +1,5 @@
 import { memo, useContext, useCallback } from 'react';
+import type { LessonTreeLesson } from '../../hooks/useLessonTree';
 
 import { AppContext } from '../AppContext';
 import CourseSection from './CourseSection';
@@ -14,19 +15,30 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+type CourseCatalogProps = {
+  id?: string;
+  name?: string;
+  status?: string;
+  lessons?: LessonTreeLesson[];
+  collapse?: boolean;
+  selectedLessonId?: string;
+  onCollapse?: (id: string) => void;
+  onLessonSelect?: (params: { id: string }) => void;
+  onTrySelect?: (params: { chapterId: string; lessonId: string }) => void;
+};
+
 export const CourseCatalog = ({
-  id = 0,
+  id = '',
   name = '',
-  status,
   lessons = [],
   collapse = false,
   selectedLessonId = '',
   onCollapse,
   onLessonSelect = () => {},
   onTrySelect,
-}) => {
+}: CourseCatalogProps) => {
   const _onTrySelect = useCallback(
-    ({ id: lessonId }) => {
+    ({ id: lessonId }: { id: string }) => {
       onTrySelect?.({ chapterId: id, lessonId });
     },
     [id, onTrySelect],
@@ -76,23 +88,13 @@ export const CourseCatalog = ({
         {lessons.map(e => {
           return (
             <CourseSection
-              // @ts-expect-error EXPECT
               key={e.id}
-              // @ts-expect-error EXPECT
               id={e.id}
-              // @ts-expect-error EXPECT
               name={e.name}
-              // @ts-expect-error EXPECT
-              status={e.status}
-              // @ts-expect-error EXPECT
               status_value={e.status_value}
-              // @ts-expect-error EXPECT
               selected={e.id === selectedLessonId}
-              // @ts-expect-error EXPECT
               type={e.type}
-              // @ts-expect-error EXPECT
               is_paid={e.is_paid}
-              // @ts-expect-error EXPECT
               canLearning={e.canLearning}
               chapterId={id}
               onSelect={onLessonSelect}
