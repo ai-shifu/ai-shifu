@@ -134,12 +134,12 @@ export default function CourseEstimatedCreditCostCard({
           {modes.map(({ key, label, mode, showBreakdown }) => {
             const llmLabel = t('detail.estimatedCreditCost.llm');
             const ttsLabel = t('detail.estimatedCreditCost.tts');
-            const llmBreakdown = `${llmLabel}：${formatAdminCredits(
+            const llmBreakdown = `${llmLabel}: ${formatAdminCredits(
               mode.llm.min,
               locale,
             )} - ${formatAdminCredits(mode.llm.max, locale)}`;
             const ttsBreakdown = mode.tts
-              ? `${ttsLabel}：${formatAdminCredits(mode.tts.min, locale)} - ${formatAdminCredits(
+              ? `${ttsLabel}: ${formatAdminCredits(mode.tts.min, locale)} - ${formatAdminCredits(
                   mode.tts.max,
                   locale,
                 )}`

@@ -336,6 +336,7 @@ def get_operator_course_detail(
             app,
             course=course,
             outline_items=outline_items,
+            visible_leaf_outline_bids=visible_leaf_outline_bids,
         )
 
         return AdminOperationCourseDetailDTO(

@@ -14,6 +14,7 @@ from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_METRIC_TTS_OUTPUT_CHARS,
+    BILLING_METRIC_TTS_REQUEST_COUNT,
     CREDIT_ROUNDING_MODE_CEIL,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -1165,6 +1166,28 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             content="this hidden content is ignored",
             llm_system_prompt="hidden",
         )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-hidden-only",
+            title="Hidden-only Chapter",
+            position="2",
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="this visible chapter content is ignored",
+            llm_system_prompt="visible chapter prompt ignored",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="hidden-only-child",
+            title="Hidden-only Child",
+            parent_bid="chapter-hidden-only",
+            position="2.1",
+            hidden=1,
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="hidden child content is ignored",
+            llm_system_prompt="hidden child prompt ignored",
+        )
         for billing_metric in (
             BILLING_METRIC_LLM_INPUT_TOKENS,
             BILLING_METRIC_LLM_OUTPUT_TOKENS,
@@ -1206,6 +1229,15 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
             effective_from=datetime(2026, 1, 1, 0, 0, 0),
         )
         _seed_credit_usage_rate(
+            rate_bid="rate-tts-minimax-request",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider="minimax",
+            model="speech-test",
+            billing_metric=BILLING_METRIC_TTS_REQUEST_COUNT,
+            credits_per_unit="5",
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        )
+        _seed_credit_usage_rate(
             rate_bid="rate-tts-minimax-output",
             usage_type=BILL_USAGE_TYPE_TTS,
             provider="minimax",
@@ -1225,23 +1257,23 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
     assert response.status_code == 200
     assert payload["code"] == 0
     estimate = payload["data"]["estimated_credit_cost"]
-    assert estimate["read"]["min"] == 44
-    assert estimate["read"]["max"] == 80
-    assert estimate["classroom"]["min"] == 44
-    assert estimate["classroom"]["max"] == 80
+    assert estimate["read"]["min"] == 46
+    assert estimate["read"]["max"] == 82
+    assert estimate["classroom"]["min"] == 46
+    assert estimate["classroom"]["max"] == 82
     assert estimate["listen"]["enabled"] is False
-    assert estimate["listen"]["min"] == 71
-    assert estimate["listen"]["max"] == 113
+    assert estimate["listen"]["min"] == 56
+    assert estimate["listen"]["max"] == 92
     assert estimate["listen"]["llm"] == {
-        "min": 44,
-        "max": 80,
+        "min": 46,
+        "max": 82,
         "model": "gpt-test",
         "model_label": "GPT Test",
         "multiplier": "1x-2x",
     }
     assert estimate["listen"]["tts"] == {
-        "min": 27,
-        "max": 33,
+        "min": 10,
+        "max": 10,
         "model": "speech-test",
         "model_label": "MiniMax Speech Test",
         "multiplier": "3x",

@@ -19,7 +19,9 @@ from flaskr.service.billing.api import (
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    BILLING_METRIC_TTS_INPUT_CHARS,
     BILLING_METRIC_TTS_OUTPUT_CHARS,
+    BILLING_METRIC_TTS_REQUEST_COUNT,
 )
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
@@ -72,6 +74,13 @@ class _TtsEstimate:
     model: str
     model_label: str
     multiplier: str | None
+
+
+@dataclass(frozen=True)
+class _LessonCreditInputs:
+    prompt_char_count: int
+    content_char_count: int
+    tts_char_count: int
 
 
 def _ceil_decimal(value: Decimal) -> int:
@@ -151,7 +160,10 @@ def _resolve_tts_model_label(provider: str, model: str) -> str:
 
 
 def _resolve_tts_model_multiplier_label(
-    provider: str, model: str, calculated_at: datetime
+    provider: str,
+    model: str,
+    calculated_at: datetime,
+    rate_cache: dict | None = None,
 ) -> str | None:
     normalized_provider = str(provider or "").strip().lower()
     normalized_model = str(model or "").strip()
@@ -177,7 +189,12 @@ def _resolve_tts_model_multiplier_label(
         provider=normalized_provider,
         model=normalized_model,
         settlement_at=calculated_at,
-        billing_metrics=(BILLING_METRIC_TTS_OUTPUT_CHARS,),
+        billing_metrics=(
+            BILLING_METRIC_TTS_REQUEST_COUNT,
+            BILLING_METRIC_TTS_OUTPUT_CHARS,
+            BILLING_METRIC_TTS_INPUT_CHARS,
+        ),
+        rate_cache=rate_cache,
     )
 
 
@@ -189,9 +206,32 @@ def _estimate_metric_credits(
     billing_metric: int,
     raw_amount: int,
     calculated_at: datetime,
+    rate_cache: dict | None = None,
 ) -> Decimal:
+    consumed = _estimate_metric_credits_optional(
+        usage_type=usage_type,
+        provider=provider,
+        model=model,
+        billing_metric=billing_metric,
+        raw_amount=raw_amount,
+        calculated_at=calculated_at,
+        rate_cache=rate_cache,
+    )
+    return consumed if consumed is not None else _ZERO
+
+
+def _estimate_metric_credits_optional(
+    *,
+    usage_type: int,
+    provider: str,
+    model: str,
+    billing_metric: int,
+    raw_amount: int,
+    calculated_at: datetime,
+    rate_cache: dict | None = None,
+) -> Decimal | None:
     if raw_amount <= 0:
-        return _ZERO
+        return None
     usage = BillUsageRecord(
         usage_type=usage_type,
         provider=provider,
@@ -203,8 +243,11 @@ def _estimate_metric_credits(
         billing_metric=billing_metric,
         raw_amount=raw_amount,
         settlement_at=calculated_at,
+        rate_cache=rate_cache,
     )
-    return Decimal(str(charge.consumed_credits if charge is not None else 0))
+    if charge is None:
+        return None
+    return Decimal(str(charge.consumed_credits))
 
 
 def _estimate_llm_cost(
@@ -214,13 +257,11 @@ def _estimate_llm_cost(
     prompt_char_count: int,
     content_char_count: int,
     calculated_at: datetime,
+    rate_cache: dict | None = None,
 ) -> _LlmEstimate:
     normalized_model = str(model or "").strip()
-    input_tokens = max(
-        _ceil_decimal(
-            Decimal(str(prompt_char_count + content_char_count)) / Decimal("2")
-        ),
-        0,
+    input_tokens = _ceil_decimal(
+        Decimal(str(prompt_char_count + content_char_count)) / Decimal("2")
     )
     output_low = _ceil_decimal(Decimal(str(input_tokens)) * Decimal("0.6"))
     output_high = _ceil_decimal(Decimal(str(input_tokens)) * Decimal("1.5"))
@@ -231,6 +272,7 @@ def _estimate_llm_cost(
         billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
         raw_amount=input_tokens,
         calculated_at=calculated_at,
+        rate_cache=rate_cache,
     )
     low = input_cost + _estimate_metric_credits(
         usage_type=BILL_USAGE_TYPE_LLM,
@@ -239,6 +281,7 @@ def _estimate_llm_cost(
         billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
         raw_amount=output_low,
         calculated_at=calculated_at,
+        rate_cache=rate_cache,
     )
     high = input_cost + _estimate_metric_credits(
         usage_type=BILL_USAGE_TYPE_LLM,
@@ -247,6 +290,7 @@ def _estimate_llm_cost(
         billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
         raw_amount=output_high,
         calculated_at=calculated_at,
+        rate_cache=rate_cache,
     )
     return _LlmEstimate(
         range=_CreditRange(low, high),
@@ -257,6 +301,44 @@ def _estimate_llm_cost(
             provider="",
             model=normalized_model,
             settlement_at=calculated_at,
+            rate_cache=rate_cache,
+        ),
+    )
+
+
+def _sum_llm_cost(
+    *,
+    app: Flask,
+    model: str,
+    lesson_inputs: list[_LessonCreditInputs],
+    calculated_at: datetime,
+    rate_cache: dict | None = None,
+) -> _LlmEstimate:
+    normalized_model = str(model or "").strip()
+    total = _CreditRange(_ZERO, _ZERO)
+    for item in lesson_inputs:
+        estimate = _estimate_llm_cost(
+            app=app,
+            model=normalized_model,
+            prompt_char_count=item.prompt_char_count,
+            content_char_count=item.content_char_count,
+            calculated_at=calculated_at,
+            rate_cache=rate_cache,
+        )
+        total = _CreditRange(
+            total.minimum + estimate.range.minimum,
+            total.maximum + estimate.range.maximum,
+        )
+    return _LlmEstimate(
+        range=total,
+        model=normalized_model,
+        model_label=_resolve_llm_model_label(app, normalized_model),
+        multiplier=resolve_credit_multiplier_label(
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="",
+            model=normalized_model,
+            settlement_at=calculated_at,
+            rate_cache=rate_cache,
         ),
     )
 
@@ -267,26 +349,29 @@ def _estimate_tts_cost(
     model: str,
     tts_char_count: int,
     calculated_at: datetime,
+    rate_cache: dict | None = None,
 ) -> _TtsEstimate:
     normalized_provider = str(provider or "").strip().lower()
     normalized_model = str(model or "").strip()
     low_chars = _ceil_decimal(Decimal(str(tts_char_count)) * Decimal("0.9"))
     high_chars = _ceil_decimal(Decimal(str(tts_char_count)) * Decimal("1.1"))
-    low = _estimate_metric_credits(
-        usage_type=BILL_USAGE_TYPE_TTS,
+    low = _estimate_tts_credits_with_metric_priority(
         provider=normalized_provider,
         model=normalized_model,
-        billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
-        raw_amount=low_chars,
+        request_count=1,
+        input_chars=tts_char_count,
+        output_chars=low_chars,
         calculated_at=calculated_at,
+        rate_cache=rate_cache,
     )
-    high = _estimate_metric_credits(
-        usage_type=BILL_USAGE_TYPE_TTS,
+    high = _estimate_tts_credits_with_metric_priority(
         provider=normalized_provider,
         model=normalized_model,
-        billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
-        raw_amount=high_chars,
+        request_count=1,
+        input_chars=tts_char_count,
+        output_chars=high_chars,
         calculated_at=calculated_at,
+        rate_cache=rate_cache,
     )
     return _TtsEstimate(
         range=_CreditRange(low, high),
@@ -294,7 +379,70 @@ def _estimate_tts_cost(
         model=normalized_model,
         model_label=_resolve_tts_model_label(normalized_provider, normalized_model),
         multiplier=_resolve_tts_model_multiplier_label(
-            normalized_provider, normalized_model, calculated_at
+            normalized_provider, normalized_model, calculated_at, rate_cache
+        ),
+    )
+
+
+def _estimate_tts_credits_with_metric_priority(
+    *,
+    provider: str,
+    model: str,
+    request_count: int,
+    input_chars: int,
+    output_chars: int,
+    calculated_at: datetime,
+    rate_cache: dict | None = None,
+) -> Decimal:
+    for billing_metric, raw_amount in (
+        (BILLING_METRIC_TTS_REQUEST_COUNT, request_count),
+        (BILLING_METRIC_TTS_OUTPUT_CHARS, output_chars),
+        (BILLING_METRIC_TTS_INPUT_CHARS, input_chars),
+    ):
+        consumed = _estimate_metric_credits_optional(
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider=provider,
+            model=model,
+            billing_metric=billing_metric,
+            raw_amount=raw_amount,
+            calculated_at=calculated_at,
+            rate_cache=rate_cache,
+        )
+        if consumed is not None:
+            return consumed
+    return _ZERO
+
+
+def _sum_tts_cost(
+    *,
+    provider: str,
+    model: str,
+    lesson_inputs: list[_LessonCreditInputs],
+    calculated_at: datetime,
+    rate_cache: dict | None = None,
+) -> _TtsEstimate:
+    normalized_provider = str(provider or "").strip().lower()
+    normalized_model = str(model or "").strip()
+    total = _CreditRange(_ZERO, _ZERO)
+    for item in lesson_inputs:
+        estimate = _estimate_tts_cost(
+            provider=normalized_provider,
+            model=normalized_model,
+            tts_char_count=item.tts_char_count,
+            calculated_at=calculated_at,
+            rate_cache=rate_cache,
+        )
+        total = _CreditRange(
+            total.minimum + estimate.range.minimum,
+            total.maximum + estimate.range.maximum,
+        )
+    return _TtsEstimate(
+        range=total,
+        provider=normalized_provider,
+        model=normalized_model,
+        model_label=_resolve_tts_model_label(normalized_provider, normalized_model),
+        multiplier=_resolve_tts_model_multiplier_label(
+            normalized_provider, normalized_model, calculated_at, rate_cache
         ),
     )
 
@@ -335,33 +483,31 @@ def build_operator_course_estimated_credit_cost(
     *,
     course,
     outline_items: list[DraftOutlineItem | PublishedOutlineItem],
+    visible_leaf_outline_bids: list[str] | set[str],
 ) -> AdminOperationEstimatedCreditCostDTO:
     calculated_at = now_utc()
+    rate_cache: dict = {}
     item_map = {
         str(getattr(item, "outline_item_bid", "") or "").strip(): item
         for item in outline_items
         if str(getattr(item, "outline_item_bid", "") or "").strip()
     }
-    visible_item_bids = {
-        str(getattr(item, "outline_item_bid", "") or "").strip()
-        for item in outline_items
-        if str(getattr(item, "outline_item_bid", "") or "").strip()
-        and not bool(getattr(item, "hidden", 0))
-    }
-    visible_parent_bids = {
-        str(getattr(item, "parent_bid", "") or "").strip()
-        for item in outline_items
-        if str(getattr(item, "parent_bid", "") or "").strip()
-        and not bool(getattr(item, "hidden", 0))
-    }
     visible_leaf_items = [
-        item_map[bid] for bid in sorted(visible_item_bids - visible_parent_bids)
+        item_map[bid]
+        for bid in sorted(
+            {
+                str(outline_item_bid or "").strip()
+                for outline_item_bid in visible_leaf_outline_bids
+            }
+        )
+        if bid in item_map
     ]
 
     course_prompt = str(getattr(course, "llm_system_prompt", "") or "").strip()
     prompt_char_count = 0
     content_char_count = 0
     tts_char_count = 0
+    lesson_inputs: list[_LessonCreditInputs] = []
     for item in visible_leaf_items:
         prompt = str(getattr(item, "llm_system_prompt", "") or "").strip()
         parent_bid = str(getattr(item, "parent_bid", "") or "").strip()
@@ -376,26 +522,37 @@ def build_operator_course_estimated_credit_cost(
         if not prompt:
             prompt = course_prompt
         content = str(getattr(item, "content", "") or "")
-        prompt_char_count += len(prompt)
-        content_char_count += len(content)
-        tts_char_count += len(_strip_markdown_for_tts(content))
+        item_prompt_char_count = len(prompt)
+        item_content_char_count = len(content)
+        item_tts_char_count = len(_strip_markdown_for_tts(content))
+        prompt_char_count += item_prompt_char_count
+        content_char_count += item_content_char_count
+        tts_char_count += item_tts_char_count
+        lesson_inputs.append(
+            _LessonCreditInputs(
+                prompt_char_count=item_prompt_char_count,
+                content_char_count=item_content_char_count,
+                tts_char_count=item_tts_char_count,
+            )
+        )
 
     llm_model = str(getattr(course, "llm", "") or "").strip()
     if not llm_model:
         llm_model = str(app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()
-    llm = _estimate_llm_cost(
+    llm = _sum_llm_cost(
         app=app,
         model=llm_model,
-        prompt_char_count=prompt_char_count,
-        content_char_count=content_char_count,
+        lesson_inputs=lesson_inputs,
         calculated_at=calculated_at,
+        rate_cache=rate_cache,
     )
 
-    tts = _estimate_tts_cost(
+    tts = _sum_tts_cost(
         provider=str(getattr(course, "tts_provider", "") or "").strip(),
         model=str(getattr(course, "tts_model", "") or "").strip(),
-        tts_char_count=tts_char_count,
+        lesson_inputs=lesson_inputs,
         calculated_at=calculated_at,
+        rate_cache=rate_cache,
     )
 
     return AdminOperationEstimatedCreditCostDTO(
