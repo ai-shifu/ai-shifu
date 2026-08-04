@@ -223,7 +223,7 @@ def test_natural_exhaustion_never_invalidates(app, monkeypatch):
         generator = _start_stream(app)
         remaining = list(generator)
 
-    assert remaining[-1] == "chunk-2" if remaining else True
+    assert remaining == ["chunk-2"]
     assert session.invalidations == 0
     assert session.rollbacks == 0
     assert session.commits >= 1
