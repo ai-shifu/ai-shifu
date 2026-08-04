@@ -11,6 +11,7 @@ from sqlalchemy import pool as sa_pool
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import (
     DisconnectionError,
+    InterfaceError,
     OperationalError,
     ResourceClosedError,
     SQLAlchemyError,
@@ -18,6 +19,7 @@ from sqlalchemy.exc import (
 import functools
 import random
 import select as select_module
+import sys
 import sqlparse
 import logging
 import time
@@ -83,6 +85,14 @@ def _socket_has_unread_data(dbapi_connection) -> bool:
     return bool(readable)
 
 
+def _server_thread_id(dbapi_connection):
+    """Best-effort MySQL server-side connection id for log correlation."""
+    try:
+        return dbapi_connection.thread_id()
+    except Exception:  # noqa: BLE001 - diagnostics only
+        return None
+
+
 def _pool_diagnostics_logger():
     """Log through the app logger when available.
 
@@ -108,8 +118,11 @@ def _invalidate_desynced_connection_on_checkin(dbapi_connection, connection_reco
         # connection - i.e. the request that interrupted a protocol exchange.
         _pool_diagnostics_logger().error(
             "DB connection returned to pool with unread protocol data; "
-            "invalidating it. The stack below is the checkin path of the "
-            "request that desynced this connection.",
+            "invalidating it (pid=%s server_thread_id=%s). The stack below "
+            "is the checkin path of the request that desynced this "
+            "connection.",
+            os.getpid(),
+            _server_thread_id(dbapi_connection),
             stack_info=True,
         )
         connection_record.invalidate()
@@ -122,13 +135,39 @@ def _reject_desynced_connection_on_checkout(
     if _socket_has_unread_data(dbapi_connection):
         _pool_diagnostics_logger().warning(
             "Rejecting pooled DB connection with unread protocol data at "
-            "checkout; the pool will retry with a fresh connection."
+            "checkout (pid=%s); the pool will retry with a fresh connection.",
+            os.getpid(),
         )
         # DisconnectionError makes the pool discard this connection and
         # transparently retry the checkout with another one.
         raise DisconnectionError(
             "pooled connection has unread protocol data (desynced stream)"
         )
+    # Protected liveness ping, replacing pool_pre_ping. The stock pre_ping
+    # path is the one wire operation with NO BaseException protection: a
+    # GreenletExit landing in COM_PING's recv escapes every layer, leaks the
+    # checkout, and the leaked fairy's GC finalizer later emits a ROLLBACK
+    # that consumes the stale PING OK - leaving the connection permanently
+    # off by one response. Pinging here keeps dead-connection detection while
+    # invalidating BEFORE any interruption propagates, so the GC finalizer
+    # sees an already-invalidated record and never touches the wire.
+    ping = getattr(dbapi_connection, "ping", None)
+    if ping is None:
+        return
+    try:
+        ping(False)
+    except BaseException as ping_exc:
+        connection_record.invalidate(
+            e=ping_exc if isinstance(ping_exc, Exception) else None
+        )
+        if isinstance(ping_exc, Exception):
+            # Dead connection: let the pool retry with a fresh one.
+            raise DisconnectionError(
+                "pooled connection failed the checkout liveness ping"
+            ) from ping_exc
+        # GreenletExit and friends propagate; the record is already
+        # invalidated so nothing dirty can reach the pool.
+        raise
 
 
 # Ring buffer of recent statements per DBAPI connection, plus a pre-execute
@@ -165,9 +204,11 @@ def _intercept_desync_before_execute(
         journal = list(_statement_journal(conn))
         _pool_diagnostics_logger().error(
             "DB connection has an unread response before executing a new "
-            "statement (off-by-one protocol desync). The LAST journal entry "
-            "is the statement whose exchange was interrupted. journal=%s "
-            "next_statement=%r",
+            "statement (off-by-one protocol desync, pid=%s "
+            "server_thread_id=%s). The LAST journal entry is the statement "
+            "whose exchange was interrupted. journal=%s next_statement=%r",
+            os.getpid(),
+            _server_thread_id(dbapi_connection),
             journal,
             statement[:_STATEMENT_SNIPPET_CHARS],
         )
@@ -230,7 +271,17 @@ def is_protocol_interrupt_error(exc: BaseException) -> bool:
     """
     if isinstance(exc, (ResourceClosedError, DisconnectionError)):
         return True
+    # gevent interruptions frequently surface as driver interface or raw
+    # socket errors rather than clean MySQL errnos; all of them mean the
+    # exchange on this connection did not complete.
     for candidate in (exc, getattr(exc, "orig", None)):
+        if isinstance(candidate, (InterfaceError, OSError)):
+            # OSError covers BrokenPipeError / ConnectionResetError / timeouts.
+            return True
+        if type(candidate).__name__ == "InterfaceError":
+            # pymysql.err.InterfaceError is not SQLAlchemy's InterfaceError;
+            # match the driver-level one by name to avoid a driver import.
+            return True
         args = getattr(candidate, "args", ())
         if args and isinstance(args[0], int) and args[0] in _PROTOCOL_INTERRUPT_ERRNOS:
             return True
@@ -314,6 +365,28 @@ def cleanup_session_after(
         )
         invalidate_session(source=source, session=session)
         return "invalidated"
+
+
+def release_session_classified(*, source: str) -> None:
+    """Remove the scoped session, discarding the connection first when a
+    stream-interrupting exception is propagating.
+
+    Designed for ``finally`` blocks: ``sys.exc_info()`` still sees the
+    in-flight exception there - including BaseExceptions like GreenletExit
+    that never hit an ``except GeneratorExit`` handler because they were
+    injected into IO deep inside the generator's own frame. Without this,
+    the closing ``remove()`` emits a ROLLBACK on a possibly desynced
+    connection (and runs BEFORE the app-context teardown guard could act).
+    """
+    exc = sys.exc_info()[1]
+    if exc is not None and is_abnormal_stream_termination(exc):
+        invalidate_session(source=source)
+    try:
+        db.session.remove()
+    except Exception:  # noqa: BLE001 - cleanup must not mask the original
+        _pool_diagnostics_logger().warning(
+            "%s db session cleanup failed", source, exc_info=True
+        )
 
 
 def _rollback_quietly() -> bool:
@@ -435,9 +508,17 @@ def init_db(app: Flask):
             if opt not in existing_options:
                 existing_options[opt] = _coerce_int(cfg, default)
 
-    # pool_pre_ping is default-on; callers can opt out by pre-setting
-    # SQLALCHEMY_ENGINE_OPTIONS["pool_pre_ping"] = False.
-    existing_options.setdefault("pool_pre_ping", True)
+    # pool_pre_ping is OFF by default: the stock pre-ping runs before the
+    # checkout event with no BaseException protection, so a gevent
+    # interruption inside COM_PING leaks a permanently desynced connection
+    # back to the pool (see _reject_desynced_connection_on_checkout, which
+    # performs a protected ping instead). Callers can still opt back in by
+    # pre-setting SQLALCHEMY_ENGINE_OPTIONS["pool_pre_ping"] = True.
+    # NOTE: the protected checkout ping relies on the DBAPI connection
+    # exposing ``ping`` (pymysql does). If this deployment ever switches to
+    # a driver without it, re-enable pool_pre_ping explicitly or liveness
+    # checking at checkout is silently lost.
+    existing_options.setdefault("pool_pre_ping", False)
 
     # Force every MySQL connection to use the UTC session time zone so that
     # DB-side time evaluation (func.now()/CURRENT_TIMESTAMP/NOW()) stores UTC,

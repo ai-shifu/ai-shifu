@@ -1,6 +1,7 @@
 import contextlib
 import json
 import queue
+import sys
 import threading
 import time
 import traceback
@@ -24,7 +25,12 @@ from flaskr.service.learn.learn_dtos import (
     RunStatusDTO,
 )
 from flaskr.common.cache_provider import cache as cache_provider
-from flaskr.dao import db, invalidate_session, is_protocol_interrupt_error
+from flaskr.dao import (
+    db,
+    invalidate_session,
+    is_abnormal_stream_termination,
+    is_protocol_interrupt_error,
+)
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_dto,
@@ -56,6 +62,15 @@ DEFAULT_MAX_PARALLEL_ASK_COUNT = 3
 
 
 def _remove_db_session_safely(app: Flask, *, source: str) -> None:
+    # In finally blocks sys.exc_info still sees a propagating
+    # GreenletExit/GeneratorExit that never reached an except handler
+    # (injected into IO inside the generator frame); discard the connection
+    # before removal in that case instead of letting remove() emit a
+    # ROLLBACK on a possibly desynced stream. Uses this module's ``db`` so
+    # tests that monkeypatch runscript_v2.db keep working.
+    exc = sys.exc_info()[1]
+    if exc is not None and is_abnormal_stream_termination(exc):
+        invalidate_session(source=source, session=db.session)
     try:
         db.session.remove()
     except Exception:

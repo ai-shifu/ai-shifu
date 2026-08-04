@@ -1,11 +1,17 @@
 import json
+import sys
 import uuid
 
 from flask import Flask, Response, request, stream_with_context
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from flaskr.dao import db, invalidate_session, is_protocol_interrupt_error
+from flaskr.dao import (
+    db,
+    invalidate_session,
+    is_abnormal_stream_termination,
+    is_protocol_interrupt_error,
+)
 from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import get_current_language
 from flaskr.route.common import make_common_response, bypass_token_validation
@@ -76,6 +82,13 @@ def _is_generator_close_error(exc: RuntimeError) -> bool:
 
 
 def _release_db_session(app: Flask, *, source: str) -> None:
+    # sys.exc_info in finally blocks sees propagating BaseExceptions like
+    # GreenletExit injected into IO deep inside the generator frame; discard
+    # the connection before removal on stream-interrupting exits. Uses this
+    # module's ``db`` so tests that monkeypatch routes.db keep working.
+    exc = sys.exc_info()[1]
+    if exc is not None and is_abnormal_stream_termination(exc):
+        invalidate_session(source=source, session=db.session)
     try:
         db.session.remove()
     except Exception:
