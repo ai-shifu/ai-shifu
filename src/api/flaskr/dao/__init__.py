@@ -1,4 +1,7 @@
+import itertools
+
 from flask import Flask
+from flask.globals import app_ctx
 from flask_sqlalchemy import SQLAlchemy
 from redis import Redis
 from sqlalchemy import event
@@ -18,6 +21,32 @@ logger = logging.getLogger(__name__)
 # create a global db object
 db = None
 redis_client = None
+
+# Session scope tokens must never repeat. Flask-SQLAlchemy's stock scope
+# function keys the scoped-session registry on id(app_ctx) - a CPython memory
+# address that is recycled as soon as a context is garbage collected. With
+# high-frequency context churn (streaming requests plus nested app contexts
+# in hot paths), a new context can be allocated at the address of a dead one;
+# if the dead context's session ever escaped teardown (an interrupted
+# cleanup under gevent), the new context SILENTLY ADOPTS the leftover session
+# and its checked-out connection. Two greenlets then interleave commands on
+# one MySQL connection - observed in production as paired failures in the
+# same second: an INSERT losing its OK packet (FlushError: NULL identity
+# key) while another context's SELECT consumed it (ResourceClosedError),
+# followed by 2014 Command Out of Sync. A monotonically increasing token
+# stamped on each context makes scope keys unique for the process lifetime:
+# a leaked session can no longer be adopted, only leak - which pool
+# recycling and the desync probes already handle.
+_app_ctx_scope_counter = itertools.count(1)
+
+
+def _unique_app_ctx_scope() -> int:
+    ctx = app_ctx._get_current_object()
+    token = ctx.__dict__.get("_dao_session_scope_token")
+    if token is None:
+        token = next(_app_ctx_scope_counter)
+        ctx.__dict__["_dao_session_scope_token"] = token
+    return token
 
 
 def _socket_has_unread_data(dbapi_connection) -> bool:
@@ -226,7 +255,7 @@ def init_db(app: Flask):
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = existing_options
 
     if db is None:
-        db = SQLAlchemy()
+        db = SQLAlchemy(session_options={"scopefunc": _unique_app_ctx_scope})
     db.init_app(app)
 
     # Enable formatted SQL output in the development environment
