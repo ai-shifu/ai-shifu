@@ -579,12 +579,12 @@ describe('AdminOperationCourseDetailPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'module.operationsCourse.detail.estimatedCreditCost.llm：80 - 120',
+        'module.operationsCourse.detail.estimatedCreditCost.llm: 80 - 120',
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'module.operationsCourse.detail.estimatedCreditCost.tts：40 - 60',
+        'module.operationsCourse.detail.estimatedCreditCost.tts: 40 - 60',
       ),
     ).toBeInTheDocument();
     expect(
