@@ -417,6 +417,82 @@ def _stream_litellm_completion(
         )
 
 
+# How many times to re-issue a streaming request whose connection died before
+# the first content token arrived.
+_STREAM_PRECONTENT_RETRY_ATTEMPTS = 1
+
+
+def _retryable_stream_error_types() -> tuple:
+    """Connection-level litellm stream errors that are safe to retry.
+
+    Resolved lazily via getattr because tests stub the litellm module without
+    an ``exceptions`` submodule. APIConnectionError covers connections that
+    die before the response starts; MidStreamFallbackError is litellm's
+    wrapper for an established stream dying mid-read (observed in production
+    as TLS record corruption on the provider path: DECRYPTION_FAILED_OR_
+    BAD_RECORD_MAC).
+    """
+    exceptions_mod = getattr(litellm, "exceptions", None)
+    resolved = []
+    for name in ("APIConnectionError", "MidStreamFallbackError"):
+        exc_type = getattr(exceptions_mod, name, None)
+        if isinstance(exc_type, type):
+            resolved.append(exc_type)
+    return tuple(resolved)
+
+
+def _iter_stream_with_precontent_retry(
+    app: Flask,
+    requested_model: str,
+    invoke_model: str,
+    messages: list,
+    params: dict,
+    kwargs: dict,
+):
+    """Yield litellm stream chunks, re-issuing the request when the stream
+    dies on a connection-level error before any content token arrived.
+
+    The built-in openai/litellm retries only cover request setup; an
+    established stream that dies mid-read (transient network corruption,
+    provider LB reset) surfaces as an exception from the chunk iterator and
+    kills the whole run. Re-issuing is only safe while no content has been
+    seen: nothing user-visible can be duplicated. Once content flowed, the
+    error is re-raised unchanged.
+    """
+    attempts = 0
+    while True:
+        response = _stream_litellm_completion(
+            app,
+            requested_model,
+            invoke_model,
+            messages,
+            params,
+            kwargs,
+        )
+        saw_content = False
+        try:
+            for res in response:
+                if len(res.choices) and res.choices[0].delta.content:
+                    saw_content = True
+                yield res
+            return
+        except Exception as exc:
+            attempts += 1
+            retryable = _retryable_stream_error_types()
+            if (
+                saw_content
+                or attempts > _STREAM_PRECONTENT_RETRY_ATTEMPTS
+                or not retryable
+                or not isinstance(exc, retryable)
+            ):
+                raise
+            _log_warning(
+                f"LLM stream for {invoke_model} failed before first content "
+                f"(attempt {attempts}/{_STREAM_PRECONTENT_RETRY_ATTEMPTS + 1}); "
+                f"reissuing request: {exc}"
+            )
+
+
 def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
     alias = MODEL_ALIAS_MAP.get(model)
     if alias:
@@ -773,7 +849,7 @@ def invoke_llm(
                     "temperature": float(kwargs.get("temperature", 0.3)),
                 }
             )
-        response = _stream_litellm_completion(
+        response = _iter_stream_with_precontent_retry(
             app,
             model,
             invoke_model,
@@ -942,7 +1018,7 @@ def chat_llm(
                 }
             )
         kwargs["stream_options"] = {"include_usage": True}
-        response = _stream_litellm_completion(
+        response = _iter_stream_with_precontent_retry(
             app,
             model,
             invoke_model,
