@@ -1,7 +1,10 @@
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
+
 from flaskr.dao import db
+from flaskr.service.common.models import AppException
 from flaskr.service.order.consts import ORDER_STATUS_INIT
 from flaskr.service.order.funs import BuyRecordDTO, generate_charge
 from flaskr.service.order.models import Order
@@ -57,3 +60,40 @@ def test_generate_charge_uses_pingxx_channel(app, monkeypatch):
     assert result.channel == "wx_wap"
     assert result.payment_channel == "pingxx"
     assert captured["channel"] == "wx_wap"
+
+
+def test_pingxx_wx_pub_requires_wechat_open_id(app, monkeypatch):
+    from flaskr.service.order import funs as order_funs
+
+    class FakeProvider:
+        def create_payment(self, *, request, app):
+            raise AssertionError("Ping++ must not be called without a WeChat OpenID")
+
+    monkeypatch.setattr(
+        order_funs, "get_payment_provider", lambda _name: FakeProvider()
+    )
+    monkeypatch.setattr(order_funs, "get_config", lambda _key: "app-test")
+    monkeypatch.setattr(
+        order_funs,
+        "load_user_aggregate",
+        lambda _user_bid: SimpleNamespace(wechat_open_id=""),
+    )
+
+    with pytest.raises(AppException) as exc_info:
+        order_funs._generate_pingxx_charge(
+            app=app,
+            buy_record=SimpleNamespace(
+                user_bid="user-without-open-id",
+                shifu_bid="course-1",
+                order_bid="order-1",
+            ),
+            course=SimpleNamespace(bid="course-1", title="Course"),
+            channel="wx_pub",
+            client_ip="127.0.0.1",
+            amount=100,
+            subject="Course",
+            body="Course",
+            order_no="order-1",
+        )
+
+    assert exc_info.value.code == 5002
