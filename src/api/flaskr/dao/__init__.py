@@ -9,6 +9,7 @@ from redis import Redis
 from sqlalchemy import event
 from sqlalchemy import pool as sa_pool
 from sqlalchemy.engine import Engine
+from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.exc import (
     DisconnectionError,
     InterfaceError,
@@ -129,12 +130,15 @@ def _invalidate_desynced_connection_on_checkin(dbapi_connection, connection_reco
         return
     if _socket_has_unread_data(dbapi_connection, timeout=_CHECKIN_PROBE_GRACE_SECONDS):
         # stack_info identifies the code path that returned the poisoned
-        # connection - i.e. the request that interrupted a protocol exchange.
+        # connection. That path is not necessarily the origin: a poisoned
+        # connection that slipped past earlier gates can be checked out and
+        # returned by an innocent request, which is then merely the carrier.
         _pool_diagnostics_logger().error(
             "DB connection returned to pool with unread protocol data; "
             "invalidating it (pid=%s server_thread_id=%s). The stack below "
-            "is the checkin path of the request that desynced this "
-            "connection.",
+            "is the checkin path that RETURNED this connection - either the "
+            "request that desynced it or a carrier that checked out an "
+            "already-poisoned connection.",
             os.getpid(),
             _server_thread_id(dbapi_connection),
             stack_info=True,
@@ -306,6 +310,10 @@ def is_protocol_interrupt_error(exc: BaseException) -> bool:
     off-by-one.
     """
     if isinstance(exc, (ResourceClosedError, DisconnectionError)):
+        return True
+    if isinstance(exc, FlushError) and "NULL identity key" in str(exc):
+        # An INSERT that flushed "successfully" but yielded no autoincrement
+        # id read some other statement's response: the stream is off by one.
         return True
     # gevent interruptions frequently surface as driver interface or raw
     # socket errors rather than clean MySQL errnos; all of them mean the
