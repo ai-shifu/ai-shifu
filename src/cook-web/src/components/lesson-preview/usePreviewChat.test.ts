@@ -272,6 +272,24 @@ describe('usePreviewChat helpers and business error rendering', () => {
       type: ChatContentItemType.ERROR,
       business_code: 500,
     });
+
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'late-block',
+          content: 'late content should be ignored',
+        }),
+      });
+    });
+
+    expect(result.current.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          generated_block_bid: 'late-block',
+        }),
+      ]),
+    );
   });
 
   test('shows friendly content when preview SSE error exposes Langfuse details', async () => {
@@ -312,6 +330,24 @@ describe('usePreviewChat helpers and business error rendering', () => {
         variant: 'destructive',
         duration: 8000,
       }),
+    );
+
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'late-langfuse-block',
+          content: 'late content should be ignored',
+        }),
+      });
+    });
+
+    expect(result.current.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          generated_block_bid: 'late-langfuse-block',
+        }),
+      ]),
     );
   });
 

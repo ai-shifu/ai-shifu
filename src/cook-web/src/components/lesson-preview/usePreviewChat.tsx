@@ -465,6 +465,7 @@ export function usePreviewChat() {
   const sseRef = useRef<PreviewSseSource | null>(null);
   const ttsSseRef = useRef<Record<string, PreviewSseSource>>({});
   const isStreamingRef = useRef(false);
+  const previewFailedRef = useRef(false);
   const doneTerminalStateRef = useRef<boolean | null>(null);
   const [variablesSnapshot, setVariablesSnapshot] =
     useState<PreviewVariablesMap>({});
@@ -726,6 +727,7 @@ export function usePreviewChat() {
 
   const handlePreviewBusinessError = useCallback(
     (errorOrMessage?: string | ErrorWithCode | null, fallbackCode?: number) => {
+      previewFailedRef.current = true;
       const resolvedToast = resolveLearnerErrorToast({
         error: typeof errorOrMessage === 'string' ? undefined : errorOrMessage,
         message:
@@ -754,6 +756,7 @@ export function usePreviewChat() {
   );
 
   const resetPreview = useCallback(() => {
+    previewFailedRef.current = false;
     stopPreview();
     setTrackedContentList([]);
     setError(null);
@@ -1249,6 +1252,7 @@ export function usePreviewChat() {
           currentStreamingElementBidRef.current = null;
           stopPreviewAndContinueIfNeeded(latestActionableItem);
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.ERROR) {
+          previewFailedRef.current = true;
           const errorMessage =
             resolveResponseStringPayload(response) ||
             t('module.preview.llmError');
@@ -1358,6 +1362,7 @@ export function usePreviewChat() {
         max_block_count: finalMaxBlockCount,
         visual_mode: finalVisualMode = false,
       } = mergedParams;
+      previewFailedRef.current = false;
       sseParams.current = mergedParams;
       setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
       if (!normalizedUserInput) {
@@ -1446,6 +1451,9 @@ export function usePreviewChat() {
           },
         });
         source.addEventListener('message', event => {
+          if (previewFailedRef.current || sseRef.current !== source) {
+            return;
+          }
           const raw = event?.data;
           if (!raw) return;
           const payload = String(raw).trim();
@@ -1480,11 +1488,13 @@ export function usePreviewChat() {
             stopPreview();
             return;
           }
+          previewFailedRef.current = true;
           setError(t('module.preview.streamError'));
           stopPreview();
         });
         source.stream();
       } catch (err) {
+        previewFailedRef.current = true;
         debugError('[preview-chat] preview stream error', err);
         handlePreviewBusinessError(
           resolveLearnerErrorMessage({
@@ -1510,6 +1520,9 @@ export function usePreviewChat() {
 
   const continuePreviewFromLatestState = useCallback(
     (latestActionableItem?: ChatContentItem) => {
+      if (previewFailedRef.current) {
+        return false;
+      }
       if (!shouldContinueFromLatestActionableItem(latestActionableItem)) {
         return false;
       }
@@ -1811,6 +1824,9 @@ export function usePreviewChat() {
 
   const tryAutoSubmitInteraction = useCallback(
     (blockId: string, content?: string | null) => {
+      if (previewFailedRef.current) {
+        return;
+      }
       if (!content || autoSubmittedBlocksRef.current.has(blockId)) {
         return;
       }
@@ -1832,6 +1848,9 @@ export function usePreviewChat() {
       autoSubmittedBlocksRef.current.add(blockId);
       const delay = parsedInfo?.isMultiSelect ? 1000 : 600;
       setTimeout(() => {
+        if (previewFailedRef.current) {
+          return;
+        }
         performSend(sendParams, blockId, {
           skipStreamCheck: true,
           skipConfirm: true,
@@ -1979,6 +1998,12 @@ export function usePreviewChat() {
         });
 
         source.addEventListener('message', event => {
+          if (
+            previewFailedRef.current ||
+            ttsSseRef.current[blockId] !== source
+          ) {
+            return;
+          }
           const raw = event?.data;
           if (!raw) return;
           const payload = String(raw).trim();
