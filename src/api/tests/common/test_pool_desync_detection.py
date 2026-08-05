@@ -126,3 +126,43 @@ def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair):
     finally:
         pool.dispose()
         clean_sock_b.close()
+
+
+def test_probe_timeout_waits_for_in_flight_data(sock_pair):
+    """A timed probe must catch data that arrives DURING the wait window:
+    the zero-timeout probe misses an owed response still in flight, which is
+    exactly how a just-interrupted exchange poisons the pool. A generous
+    test window (far larger than any CI scheduler delay) keeps this
+    deterministic; the early-return assertion proves the probe wakes on
+    arrival rather than sleeping out the timeout."""
+    import threading
+    import time as time_module
+
+    left, right = sock_pair
+    conn = _FakePyMySQLConnection(left)
+
+    # Zero-timeout probe sees nothing yet.
+    assert dao._socket_has_unread_data(conn) is False
+
+    def _late_send():
+        time_module.sleep(0.001)
+        right.sendall(b"\x05late-owed-response")
+
+    sender = threading.Thread(target=_late_send)
+    started = time_module.monotonic()
+    sender.start()
+    try:
+        assert dao._socket_has_unread_data(conn, timeout=0.5) is True
+        # Returned on arrival, not by exhausting the window.
+        assert time_module.monotonic() - started < 0.5
+    finally:
+        sender.join()
+
+
+def test_checkin_grace_window_is_a_short_positive_interval():
+    # The production checkin window must stay a small positive value: zero
+    # reintroduces the arrival race, and anything larger taxes every
+    # transaction end. The bound is pinned to the current 2ms on purpose -
+    # enlarging the window must be an explicit two-place change backed by a
+    # latency budget, not a silent constant bump.
+    assert 0 < dao._CHECKIN_PROBE_GRACE_SECONDS <= 0.002
