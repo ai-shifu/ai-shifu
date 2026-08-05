@@ -45,6 +45,19 @@ def post_fork(server, worker):
     # flushing (a flush would write to the shared connection, which is the
     # exact failure being prevented), reset the OTel global so a fresh
     # provider can be registered, then rebuild the client in this worker.
+    # Hub-level callback crashes (e.g. AssertionError in
+    # AbstractLinkable._notify_links) are printed to stderr by gevent and
+    # bypass every application except-block, yet they can break a greenlet
+    # wakeup and silently interrupt an in-flight DB exchange (observed as
+    # off-by-one protocol desync). Mirror them into the app logger with the
+    # failing context object named so the culprit primitive is attributable.
+    try:
+        from flaskr.common.gevent_hub_observer import install_hub_error_observer
+
+        install_hub_error_observer(flask_app.logger)
+    except Exception:  # pragma: no cover - defensive: never kill a booting worker
+        worker.log.exception("post_fork hub observer install failed")
+
     try:
         from langfuse._client.resource_manager import LangfuseResourceManager
         from opentelemetry import trace as otel_trace_api
