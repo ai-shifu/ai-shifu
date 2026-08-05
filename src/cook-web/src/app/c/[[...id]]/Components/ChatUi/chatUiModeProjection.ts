@@ -16,6 +16,7 @@ interface ProjectReadModeItemsParams {
 interface ProjectListenModeItemsParams {
   items: ChatContentItem[];
   askButtonMarkup: string;
+  askListByAnchorElementBid?: Record<string, ProjectAskMessage[]>;
   variant?: 'listen' | 'classroom';
 }
 
@@ -191,8 +192,9 @@ const stripClassroomContentAudio = (item: ChatContentItem) => {
 const projectListenAnswerFeedbackItems = (
   item: ChatContentItem,
   itemByElementBid: Map<string, ChatContentItem>,
+  askListByAnchorElementBid: Record<string, ProjectAskMessage[]> = {},
 ) => {
-  if (item.type !== ChatContentItemType.ASK || !Array.isArray(item.ask_list)) {
+  if (item.type !== ChatContentItemType.ASK) {
     return [];
   }
 
@@ -201,7 +203,16 @@ const projectListenAnswerFeedbackItems = (
     return [];
   }
 
-  return item.ask_list
+  const askList =
+    Array.isArray(item.ask_list) && item.ask_list.length
+      ? item.ask_list
+      : askListByAnchorElementBid[item.parent_element_bid || ''];
+
+  if (!Array.isArray(askList)) {
+    return [];
+  }
+
+  return askList
     .filter(
       message => message?.type === 'answer' && Boolean(message.content?.trim()),
     )
@@ -346,6 +357,7 @@ export const projectReadModeItems = ({
 export const projectListenModeItems = ({
   items,
   askButtonMarkup,
+  askListByAnchorElementBid,
   variant = 'listen',
 }: ProjectListenModeItemsParams) => {
   const hiddenContentElementBids = getHiddenContentElementBids(items);
@@ -364,7 +376,11 @@ export const projectListenModeItems = ({
     if (item.type !== ChatContentItemType.CONTENT) {
       const answerFeedbackItems =
         variant === 'listen'
-          ? projectListenAnswerFeedbackItems(item, itemByElementBid)
+          ? projectListenAnswerFeedbackItems(
+              item,
+              itemByElementBid,
+              askListByAnchorElementBid,
+            )
           : [];
       if (answerFeedbackItems.length > 0) {
         hasChanges = true;

@@ -195,6 +195,51 @@ describe('chatUiModeProjection', () => {
     );
   });
 
+  it('projects stored live interaction answer feedback as listen-mode narration', () => {
+    const items: ChatContentItem[] = [
+      {
+        type: ChatContentItemType.INTERACTION,
+        element_bid: 'interaction-1',
+        content: '?[%{{choice}} A | B]',
+        is_renderable: false,
+      },
+      {
+        type: ChatContentItemType.ASK,
+        element_bid: '',
+        parent_element_bid: 'interaction-1',
+        content: '',
+        ask_list: [],
+      },
+    ];
+
+    const projectedItems = projectListenModeItems({
+      items,
+      askButtonMarkup,
+      askListByAnchorElementBid: {
+        'interaction-1': [
+          {
+            type: ChatContentItemType.ASK,
+            element_bid: 'learner-answer-1',
+            generated_block_bid: 'learner-answer-generated-1',
+            content: 'A',
+          },
+          {
+            type: 'answer',
+            element_bid: 'feedback-answer-1',
+            generated_block_bid: 'feedback-generated-1',
+            content: '答对了，继续看下一个坑。',
+          },
+        ],
+      },
+    });
+
+    expect(projectedItems.map(item => item.element_bid)).toEqual([
+      'interaction-1',
+      '',
+      'feedback-answer-1',
+    ]);
+  });
+
   it('does not project regular follow-up answers as listen-mode narration', () => {
     const items: ChatContentItem[] = [
       {
