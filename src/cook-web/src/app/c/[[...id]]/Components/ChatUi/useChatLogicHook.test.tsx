@@ -1625,7 +1625,7 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
-  it('uses the deduped friendly toast for preview AI service transport errors', async () => {
+  it('uses the deduped friendly toast for preview credit errors with AI-service details', async () => {
     renderHook(
       () =>
         useChatLogicHook({
@@ -1643,7 +1643,7 @@ describe('useChatLogicHook stream cleanup', () => {
       activeRun?.onError({
         detail: {
           code: 7101,
-          message: 'Model deepseek is not supported',
+          message: '模型 deepseek 调用失败：provider unavailable',
         },
       });
     });
