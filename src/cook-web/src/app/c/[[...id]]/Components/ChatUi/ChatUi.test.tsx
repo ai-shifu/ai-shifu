@@ -8,6 +8,7 @@ import {
 } from '@/c-constants/uiConstants';
 
 let mockFrameLayout = FRAME_LAYOUT_PC;
+let mockPreviewMode = false;
 let mockShowLearningModeToggle = false;
 let mockChatComponentProps: Record<string, any> = {};
 
@@ -44,7 +45,7 @@ jest.mock('@/c-store/useSystemStore', () => ({
   useSystemStore: (selector: (state: any) => unknown) =>
     selector({
       learningMode: 'read',
-      previewMode: false,
+      previewMode: mockPreviewMode,
       showLearningModeToggle: mockShowLearningModeToggle,
       skip: false,
       updateSkip: jest.fn(),
@@ -80,8 +81,14 @@ jest.mock(
 jest.mock(
   '../PreviewHeaderBanner',
   () =>
-    function MockPreviewHeaderBanner() {
-      return <div />;
+    function MockPreviewHeaderBanner({ courseId, lessonId }: any) {
+      return (
+        <div
+          data-testid='preview-header-banner'
+          data-course-id={courseId}
+          data-lesson-id={lessonId}
+        />
+      );
     },
 );
 jest.mock(
@@ -108,6 +115,7 @@ const pdfAction = {
 
 const createChatUi = (lessonId = 'lesson-1') => (
   <ChatUi
+    courseId='course-1'
     chapterId='chapter-1'
     chapterUpdate={jest.fn()}
     getNextLessonId={jest.fn()}
@@ -128,6 +136,7 @@ describe('ChatUi lesson PDF action', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFrameLayout = FRAME_LAYOUT_PC;
+    mockPreviewMode = false;
     mockShowLearningModeToggle = false;
     mockChatComponentProps = {};
   });
@@ -228,6 +237,39 @@ describe('ChatUi lesson PDF action', () => {
     expect(screen.getByTestId('learning-mode-switch')).toHaveAttribute(
       'data-size',
       'mobile',
+    );
+  });
+});
+
+describe('ChatUi preview banner', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFrameLayout = FRAME_LAYOUT_PC;
+    mockPreviewMode = false;
+    mockShowLearningModeToggle = false;
+    mockChatComponentProps = {};
+  });
+
+  it('does not render outside preview mode', () => {
+    renderChatUi();
+
+    expect(
+      screen.queryByTestId('preview-header-banner'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('passes the current course and lesson to the preview banner', () => {
+    mockPreviewMode = true;
+
+    renderChatUi('lesson-2');
+
+    expect(screen.getByTestId('preview-header-banner')).toHaveAttribute(
+      'data-course-id',
+      'course-1',
+    );
+    expect(screen.getByTestId('preview-header-banner')).toHaveAttribute(
+      'data-lesson-id',
+      'lesson-2',
     );
   });
 });

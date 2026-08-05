@@ -5,7 +5,7 @@
   "llmError": "Erreur d’appel LLM",
   "missingApiBaseUrl": "L’environnement actuel est mal configuré. Veuillez réessayer plus tard.",
   "previewAll": "Prévisualiser le brouillon",
-  "previewModeBanner": "Ce lien est un lien de prévisualisation visible uniquement par l’éditeur du cours",
+  "previewModeBanner": "Aperçu du brouillon du cours. Les élèves ne verront les mises à jour qu’après publication. <editLink>Modifier le cours</editLink>",
   "requestFailed": "La prévisualisation a échoué. Veuillez réessayer plus tard.",
   "streamError": "La connexion de prévisualisation a été interrompue. Veuillez réessayer."
 }
