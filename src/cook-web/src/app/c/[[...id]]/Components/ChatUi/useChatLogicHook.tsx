@@ -311,6 +311,7 @@ function useChatLogicHook({
   const contentListRef = useRef<ChatContentItem[]>([]);
   const currentContentRef = useRef<string>('');
   const currentBlockIdRef = useRef<string | null>(null);
+  const pendingInteractionAnchorBidRef = useRef('');
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
   const sseRef = useRef<any>(null);
   const sseRunSerialRef = useRef(0);
@@ -611,19 +612,32 @@ function useChatLogicHook({
         typeof payload.ask_element_bid === 'string'
           ? payload.ask_element_bid
           : '';
-      if (!payloadAskElementBid) {
+      if (payloadAskElementBid) {
+        const matchedAskBlock = items.find(
+          item =>
+            item.type === ChatContentItemType.ASK &&
+            Array.isArray(item.ask_list) &&
+            item.ask_list.some(
+              askMessage => askMessage.element_bid === payloadAskElementBid,
+            ),
+        );
+        if (matchedAskBlock?.parent_element_bid) {
+          return matchedAskBlock.parent_element_bid;
+        }
+      }
+
+      const pendingInteractionAnchorBid =
+        pendingInteractionAnchorBidRef.current;
+      if (!pendingInteractionAnchorBid) {
         return '';
       }
 
-      const matchedAskBlock = items.find(
+      const pendingInteraction = items.find(
         item =>
-          item.type === ChatContentItemType.ASK &&
-          Array.isArray(item.ask_list) &&
-          item.ask_list.some(
-            askMessage => askMessage.element_bid === payloadAskElementBid,
-          ),
+          item.element_bid === pendingInteractionAnchorBid &&
+          item.type === ChatContentItemType.INTERACTION,
       );
-      return matchedAskBlock?.parent_element_bid || '';
+      return pendingInteraction?.element_bid || '';
     },
     [],
   );
@@ -2930,6 +2944,10 @@ function useChatLogicHook({
         setTrackedContentList(newList);
       }
 
+      pendingInteractionAnchorBidRef.current =
+        currentInteractionItem?.type === ChatContentItemType.INTERACTION
+          ? blockBid
+          : '';
       isTypeFinishedRef.current = false;
 
       const { values } = resolveInteractionSubmission(content);
