@@ -492,7 +492,11 @@ export const NewChatComponents = ({
   );
 
   const requestListenAudioBackfillForBlock = useCallback(
-    (blockBid: string, lessonIdAtRequest: string) => {
+    (
+      blockBid: string,
+      lessonIdAtRequest: string,
+      options: { listen?: boolean } = {},
+    ) => {
       const existingPromise = listenAudioBackfillInFlightRef.current[blockBid];
       if (existingPromise) {
         return existingPromise;
@@ -511,7 +515,7 @@ export const NewChatComponents = ({
       };
 
       trackedPromise = requestAudioForBlock(blockBid, {
-        listen: true,
+        listen: options.listen ?? true,
         shouldApplyResult: () =>
           listenAudioBackfillLessonIdRef.current === lessonIdAtRequest,
         onStreamSettled: clearTrackedRequest,
@@ -858,7 +862,16 @@ export const NewChatComponents = ({
       prioritizedBlockBids,
       LISTEN_AUDIO_BACKFILL_CONCURRENCY,
       blockBid =>
-        requestListenAudioBackfillForBlock(blockBid, lessonIdAtRequest)
+        requestListenAudioBackfillForBlock(blockBid, lessonIdAtRequest, {
+          listen:
+            readyBackfillCandidateItems.find(
+              item =>
+                item.generated_block_bid === blockBid ||
+                item.element_bid === blockBid,
+            )?.listenAudioBackfillMode === 'block'
+              ? false
+              : true,
+        })
           .then(result => {
             if (listenAudioBackfillLessonIdRef.current !== lessonIdAtRequest) {
               return null;
