@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import ChatPage from './page';
 
 const mockGetProfileOnboarding = jest.fn();
@@ -90,12 +96,31 @@ let mockLessonTreeLessons = [
   },
 ];
 
-const mockUserStoreState = {
+type MockUserInfo = {
+  user_id: string;
+  name: string;
+  email: string;
+  language: string;
+};
+
+type MockUserStoreState = {
+  userInfo: MockUserInfo | null;
+  isLoggedIn: boolean;
+  isInitialized: boolean;
+  refreshUserInfo: typeof mockRefreshUserInfo;
+  getToken: () => string;
+};
+
+const defaultMockUserInfo: MockUserInfo = {
+  user_id: 'user-1',
+  name: 'Old name',
+  email: 'user@example.com',
+  language: 'zh-CN',
+};
+
+const mockUserStoreState: MockUserStoreState = {
   userInfo: {
-    user_id: 'user-1',
-    name: 'Old name',
-    email: 'user@example.com',
-    language: 'zh-CN',
+    ...defaultMockUserInfo,
   },
   isLoggedIn: true,
   isInitialized: true,
@@ -351,6 +376,10 @@ jest.mock('@/components/profile-onboarding/ProfileOnboardingModal', () => ({
 describe('ChatPage profile onboarding gate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUserStoreState.userInfo = { ...defaultMockUserInfo };
+    mockUserStoreState.isLoggedIn = true;
+    mockUserStoreState.isInitialized = true;
+    mockUserStoreState.getToken = () => 'token-1';
     mockCourseStoreState.lessonId = 'lesson-1';
     mockCourseStoreState.chapterId = 'chapter-1';
     mockSystemStoreState.previewMode = false;
@@ -409,6 +438,63 @@ describe('ChatPage profile onboarding gate', () => {
     await waitFor(() => {
       expect(screen.getByTestId('chat-ui')).toBeInTheDocument();
     });
+  });
+
+  test('resets onboarding and ignores stale status when the auth scope changes', async () => {
+    let resolveFirstStatus: (value: unknown) => void = () => undefined;
+    mockGetProfileOnboarding
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveFirstStatus = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(
+        profileV2Status({
+          should_show: false,
+          presentation: 'hidden',
+        }),
+      );
+
+    const { rerender } = render(<ChatPage />);
+    await waitFor(() =>
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1),
+    );
+
+    mockUserStoreState.userInfo = null;
+    mockUserStoreState.isLoggedIn = false;
+    mockUserStoreState.getToken = () => 'guest-token';
+    rerender(<ChatPage />);
+
+    expect(await screen.findByTestId('chat-ui')).toBeInTheDocument();
+    await act(async () => {
+      resolveFirstStatus(
+        profileV2Status({
+          should_show: true,
+          presentation: 'blocking',
+        }),
+      );
+    });
+    expect(
+      screen.queryByTestId('profile-onboarding-modal'),
+    ).not.toBeInTheDocument();
+
+    mockUserStoreState.userInfo = {
+      ...defaultMockUserInfo,
+      user_id: 'user-2',
+      email: 'second@example.com',
+    };
+    mockUserStoreState.isLoggedIn = true;
+    mockUserStoreState.getToken = () => 'token-2';
+    rerender(<ChatPage />);
+
+    await waitFor(() =>
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(2),
+    );
+    expect(await screen.findByTestId('chat-ui')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('profile-onboarding-modal'),
+    ).not.toBeInTheDocument();
   });
 
   test('fails open without showing v2 onboarding when an old backend omits the contract version', async () => {

@@ -135,6 +135,7 @@ export default function ChatPage() {
   const attemptedCourseVisitKeyRef = useRef<string | null>(null);
   const pendingCourseVisitKeyRef = useRef<string | null>(null);
   const profileOnboardingRequestedRef = useRef(false);
+  const profileOnboardingScopeGenerationRef = useRef(0);
   const initialCourseVisitEntryTypeRef = useRef<'catalog' | 'deep_link' | null>(
     null,
   );
@@ -147,6 +148,11 @@ export default function ChatPage() {
   const isUserInitialized = useUserStore(state => state.isInitialized);
   const refreshUserInfo = useUserStore(state => state.refreshUserInfo);
   const initialized = isUserInitialized;
+  const profileOnboardingAuthScope = isLoggedIn
+    ? `user:${userInfo?.user_id || 'pending'}`
+    : 'guest';
+  const profileOnboardingAuthScopeRef = useRef(profileOnboardingAuthScope);
+  profileOnboardingAuthScopeRef.current = profileOnboardingAuthScope;
 
   const { wechatCode, previewMode, learningMode } = useSystemStore(
     useShallow(state => ({
@@ -452,6 +458,18 @@ export default function ChatPage() {
   }, [t]);
 
   useEffect(() => {
+    profileOnboardingScopeGenerationRef.current += 1;
+    profileOnboardingRequestedRef.current = false;
+    setProfileOnboardingStatus(null);
+    setProfileOnboardingOpen(false);
+    setProfileOnboardingSubmitting(false);
+    setProfileOnboardingError('');
+    setProfileOnboardingRuntimeReady(
+      initialized && (!isLoggedIn || previewMode),
+    );
+  }, [initialized, isLoggedIn, previewMode, profileOnboardingAuthScope]);
+
+  useEffect(() => {
     if (!initialized) {
       setProfileOnboardingRuntimeReady(false);
       return;
@@ -472,8 +490,16 @@ export default function ChatPage() {
 
     setProfileOnboardingRuntimeReady(false);
     profileOnboardingRequestedRef.current = true;
+    const requestAuthScope = profileOnboardingAuthScope;
+    const requestScopeGeneration = profileOnboardingScopeGenerationRef.current;
+    const isCurrentRequest = () =>
+      requestAuthScope === profileOnboardingAuthScopeRef.current &&
+      requestScopeGeneration === profileOnboardingScopeGenerationRef.current;
     void getProfileOnboarding()
       .then(status => {
+        if (!isCurrentRequest()) {
+          return;
+        }
         if (!isProfileOnboardingV2Status(status)) {
           debugWarn('[profile-onboarding] incompatible status contract', {
             contractVersion: status?.contract_version || 'legacy',
@@ -493,6 +519,9 @@ export default function ChatPage() {
         setProfileOnboardingRuntimeReady(true);
       })
       .catch(error => {
+        if (!isCurrentRequest()) {
+          return;
+        }
         debugWarn('[profile-onboarding] failed to load status', error);
         notifyProfileOnboardingLoadFailure(error);
         setProfileOnboardingRuntimeReady(true);
@@ -502,6 +531,7 @@ export default function ChatPage() {
     initialized,
     isLoggedIn,
     notifyProfileOnboardingLoadFailure,
+    profileOnboardingAuthScope,
     previewMode,
   ]);
 
@@ -511,6 +541,13 @@ export default function ChatPage() {
       triggerSource: 'guided' | 'pasted',
       sessionId?: string,
     ) => {
+      const submissionAuthScope = profileOnboardingAuthScopeRef.current;
+      const submissionScopeGeneration =
+        profileOnboardingScopeGenerationRef.current;
+      const isCurrentSubmission = () =>
+        submissionAuthScope === profileOnboardingAuthScopeRef.current &&
+        submissionScopeGeneration ===
+          profileOnboardingScopeGenerationRef.current;
       setProfileOnboardingSubmitting(true);
       setProfileOnboardingError('');
       try {
@@ -519,18 +556,31 @@ export default function ChatPage() {
           trigger_source: triggerSource,
           ...(sessionId ? { session_id: sessionId } : {}),
         });
+        if (!isCurrentSubmission()) {
+          return false;
+        }
         await refreshUserInfo().catch(error => {
+          if (!isCurrentSubmission()) {
+            return;
+          }
           debugWarn('[profile-onboarding] failed to refresh user info', error);
           notifyProfileOnboardingRefreshDelay();
         });
+        if (!isCurrentSubmission()) {
+          return false;
+        }
         closeProfileOnboarding();
         setProfileOnboardingRuntimeReady(true);
         return true;
       } catch (error) {
-        setProfileOnboardingError(resolveProfileOnboardingError(error));
+        if (isCurrentSubmission()) {
+          setProfileOnboardingError(resolveProfileOnboardingError(error));
+        }
         return false;
       } finally {
-        setProfileOnboardingSubmitting(false);
+        if (isCurrentSubmission()) {
+          setProfileOnboardingSubmitting(false);
+        }
       }
     },
     [
@@ -543,18 +593,32 @@ export default function ChatPage() {
 
   const handleProfileOnboardingSkip = useCallback(
     async (sessionId?: string) => {
+      const submissionAuthScope = profileOnboardingAuthScopeRef.current;
+      const submissionScopeGeneration =
+        profileOnboardingScopeGenerationRef.current;
+      const isCurrentSubmission = () =>
+        submissionAuthScope === profileOnboardingAuthScopeRef.current &&
+        submissionScopeGeneration ===
+          profileOnboardingScopeGenerationRef.current;
       setProfileOnboardingSubmitting(true);
       setProfileOnboardingError('');
       try {
         await skipProfileOnboarding(sessionId);
+        if (!isCurrentSubmission()) {
+          return false;
+        }
         closeProfileOnboarding();
         setProfileOnboardingRuntimeReady(true);
         return true;
       } catch (error) {
-        setProfileOnboardingError(resolveProfileOnboardingError(error));
+        if (isCurrentSubmission()) {
+          setProfileOnboardingError(resolveProfileOnboardingError(error));
+        }
         return false;
       } finally {
-        setProfileOnboardingSubmitting(false);
+        if (isCurrentSubmission()) {
+          setProfileOnboardingSubmitting(false);
+        }
       }
     },
     [closeProfileOnboarding, resolveProfileOnboardingError],
