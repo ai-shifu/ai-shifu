@@ -18,14 +18,19 @@ class _RecordingLangfuse:
         _RecordingLangfuse.instances.append(kwargs)
 
 
-def _configure(app):
+def _configure(app, monkeypatch):
     app.config["LANGFUSE_PUBLIC_KEY"] = "pk"
     app.config["LANGFUSE_SECRET_KEY"] = "sk"
     app.config["LANGFUSE_HOST"] = "https://langfuse.example"
+    # init_langfuse rebinds the module-global client; snapshot the current
+    # value so monkeypatch restores it and later tests keep the real mock.
+    monkeypatch.setattr(
+        langfuse_module, "langfuse_client", langfuse_module.langfuse_client
+    )
 
 
 def test_preload_master_defers_real_client(app, monkeypatch):
-    _configure(app)
+    _configure(app, monkeypatch)
     monkeypatch.setattr(langfuse_module, "Langfuse", _RecordingLangfuse)
     monkeypatch.setattr(_RecordingLangfuse, "instances", [])
     monkeypatch.setenv(langfuse_module.PRELOAD_MASTER_ENV, "1")
@@ -37,7 +42,7 @@ def test_preload_master_defers_real_client(app, monkeypatch):
 
 
 def test_worker_builds_real_client_after_flag_cleared(app, monkeypatch):
-    _configure(app)
+    _configure(app, monkeypatch)
     monkeypatch.setattr(langfuse_module, "Langfuse", _RecordingLangfuse)
     monkeypatch.setattr(_RecordingLangfuse, "instances", [])
     monkeypatch.delenv(langfuse_module.PRELOAD_MASTER_ENV, raising=False)

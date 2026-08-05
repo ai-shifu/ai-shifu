@@ -30,6 +30,12 @@ def test_worker_class_detection():
     assert detect(["gunicorn", "--worker-class", "gevent"]) is True
     assert detect(["gunicorn", "--worker-class=gevent"]) is True
     assert detect(["gunicorn", "-kgevent"]) is True
+    assert detect(["gunicorn", "-k", "gunicorn.workers.ggevent.GeventWorker"]) is True
+    assert (
+        detect(["gunicorn", "--worker-class=gunicorn.workers.ggevent.GeventWorker"])
+        is True
+    )
+    assert detect(["gunicorn", "-k", "egg:gunicorn#gevent"]) is True
 
     # The production command line - MUST NOT patch.
     assert (

@@ -19,14 +19,22 @@ def _gevent_worker_requested(argv) -> bool:
     patched HERE (the preload master) because with preload_app the app is
     imported before the worker's own patching would run.
     """
+
+    def _is_gevent(value: str) -> bool:
+        # Accept every gunicorn spelling of the bundled gevent worker: the
+        # alias, the import path (module gunicorn.workers.ggevent), and the
+        # legacy egg form.
+        value = value.strip()
+        return value == "gevent" or value.endswith("#gevent") or "ggevent" in value
+
     for index, arg in enumerate(argv):
         if arg in ("-k", "--worker-class"):
             if index + 1 < len(argv):
-                return argv[index + 1] == "gevent"
+                return _is_gevent(argv[index + 1])
         elif arg.startswith("--worker-class="):
-            return arg.split("=", 1)[1] == "gevent"
+            return _is_gevent(arg.split("=", 1)[1])
         elif arg.startswith("-k") and len(arg) > 2:
-            return arg[2:] == "gevent"
+            return _is_gevent(arg[2:])
     return False
 
 
