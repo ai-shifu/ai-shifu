@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
+import { buildAbsoluteUrlWithLessonId } from '@/c-utils/urlUtils';
 
 type PreviewSettingsModalProps = {
   targetId?: string;
@@ -15,7 +16,7 @@ type PreviewSettingsModalProps = {
 
 const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
   const { t } = useTranslation();
-  const { currentShifu, actions } = useShifu();
+  const { currentNode, currentShifu, actions } = useShifu();
   const { trackEvent } = useTracking();
   const [loading, setLoading] = useState(false);
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
@@ -42,7 +43,12 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
         variables: {},
       });
       if (result) {
-        window.open(result, '_blank');
+        const currentLessonId =
+          (currentNode?.depth ?? 0) > 0 ? currentNode?.bid : undefined;
+        window.open(
+          buildAbsoluteUrlWithLessonId(result, currentLessonId),
+          '_blank',
+        );
       }
     } catch (error) {
       console.error('Preview failed:', error);

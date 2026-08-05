@@ -26,6 +26,10 @@ jest.mock('@/c-store', () => ({
 
 jest.mock('@/store', () => ({
   useShifu: () => ({
+    currentNode: {
+      bid: 'lesson-1',
+      depth: 1,
+    },
     currentShifu: {
       bid: 'shifu-1',
       readonly: false,
@@ -96,7 +100,7 @@ describe('PreviewSettingsModal', () => {
       },
     });
     (api.previewShifu as jest.Mock).mockResolvedValue(
-      'https://example.com/preview',
+      'https://example.com/c/shifu-1?preview=true',
     );
     const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
 
@@ -112,6 +116,10 @@ describe('PreviewSettingsModal', () => {
     await waitFor(() => {
       expect(mockSaveMdflow).toHaveBeenCalled();
       expect(api.previewShifu).toHaveBeenCalled();
+      expect(openSpy).toHaveBeenCalledWith(
+        'https://example.com/c/shifu-1?preview=true&lessonid=lesson-1',
+        '_blank',
+      );
     });
 
     openSpy.mockRestore();

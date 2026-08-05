@@ -72,6 +72,25 @@ export const buildUrlWithLessonId = (
   return buildUrlWithQueryParam(url, LESSON_ID_QUERY_KEY, lessonId);
 };
 
+export const buildAbsoluteUrlWithLessonId = (
+  url: string,
+  lessonId: string | null | undefined,
+  origin = typeof window !== 'undefined'
+    ? window.location.origin
+    : FALLBACK_URL_ORIGIN,
+) => {
+  const urlObj = new URL(url, origin);
+  const trimmedLessonId = lessonId?.trim() || '';
+
+  if (trimmedLessonId) {
+    urlObj.searchParams.set(LESSON_ID_QUERY_KEY, trimmedLessonId);
+  } else {
+    urlObj.searchParams.delete(LESSON_ID_QUERY_KEY);
+  }
+
+  return urlObj.toString();
+};
+
 export const replaceCurrentUrlWithLessonId = (
   lessonId: string | null | undefined,
 ) => {
