@@ -252,9 +252,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.error).toBe(
-        'module.chat.contentGenerationUnavailable',
-      );
+      expect(result.current.error).toBe('module.preview.aiDebugUnavailable');
     });
     expect(toast).not.toHaveBeenCalledWith(
       expect.objectContaining({
@@ -264,13 +262,13 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(toastOnce).toHaveBeenCalledWith(
       expect.objectContaining({
         dedupeKey: 'ai-service-unavailable',
-        title: 'module.chat.contentGenerationUnavailable',
+        title: 'module.preview.aiDebugUnavailable',
         variant: 'destructive',
         duration: 8000,
       }),
     );
     expect(result.current.items.at(-1)).toMatchObject({
-      content: 'module.chat.contentGenerationUnavailable',
+      content: 'module.preview.aiDebugUnavailable',
       type: ChatContentItemType.ERROR,
       business_code: 500,
     });
@@ -300,9 +298,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.error).toBe(
-        'module.chat.contentGenerationUnavailable',
-      );
+      expect(result.current.error).toBe('module.preview.aiDebugUnavailable');
     });
     expect(toast).not.toHaveBeenCalledWith(
       expect.objectContaining({
@@ -312,7 +308,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(toastOnce).toHaveBeenCalledWith(
       expect.objectContaining({
         dedupeKey: 'ai-service-unavailable',
-        title: 'module.chat.contentGenerationUnavailable',
+        title: 'module.preview.aiDebugUnavailable',
         variant: 'destructive',
         duration: 8000,
       }),

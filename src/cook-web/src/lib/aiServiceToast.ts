@@ -10,15 +10,18 @@ export const showAiServiceErrorToast = ({
   message,
   fallbackMessage,
   includeUnknown = false,
+  unavailableMessage,
 }: {
   message?: string | null;
   fallbackMessage: string;
   includeUnknown?: boolean;
+  unavailableMessage?: string;
 }) => {
   const displayErrorToast = resolveAiServiceErrorToast({
     message,
     fallbackMessage,
     includeUnknown,
+    unavailableMessage,
   });
 
   if (displayErrorToast.isAiServiceUnavailable) {

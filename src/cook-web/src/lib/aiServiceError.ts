@@ -72,15 +72,19 @@ export const resolveAiServiceErrorToast = ({
   message,
   fallbackMessage,
   includeUnknown = false,
+  unavailableMessage,
 }: {
   message?: string | null;
   fallbackMessage: string;
   includeUnknown?: boolean;
+  unavailableMessage?: string;
 }) => {
   const normalizedMessage = normalizeErrorMessage(message);
   if (isAiServiceUnavailableMessage(normalizedMessage, { includeUnknown })) {
     return {
-      message: i18n.t('module.chat.contentGenerationUnavailable'),
+      message:
+        unavailableMessage ||
+        i18n.t('module.chat.contentGenerationUnavailable'),
       isAiServiceUnavailable: true,
     };
   }

@@ -501,9 +501,10 @@ export function usePreviewChat() {
         message,
         fallbackMessage,
         includeUnknown: true,
+        unavailableMessage: t('module.preview.aiDebugUnavailable'),
       }).message;
     },
-    [],
+    [t],
   );
 
   const removeAutoSubmittedBlocks = useCallback((blockIds: string[]) => {

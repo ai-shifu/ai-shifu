@@ -1632,6 +1632,7 @@ export default function ShifuSettingDialog({
         message: error instanceof Error ? error.message : '',
         fallbackMessage: t('common.core.unknownError'),
         includeUnknown: true,
+        unavailableMessage: t('module.preview.aiDebugUnavailable'),
       });
       setAskPreviewResult('');
       setAskPreviewMeta(null);
