@@ -24,6 +24,7 @@ import { uploadFile } from '@/lib/file';
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
+import { debugError, debugWarn } from '@/c-utils/debugConsole';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
 import {
   type AudioSegment,
@@ -407,7 +408,7 @@ export default function ShifuSettingDialog({
         setTtsPreviewPlaying(true);
         ttsPreviewIsPlayingRef.current = true;
       } catch (error) {
-        console.error('Failed to play TTS preview segment:', error);
+        debugError('[shifu-setting] failed to play TTS preview segment', error);
         if (
           ttsPreviewSessionRef.current === sessionId &&
           ttsPreviewIsPlayingRef.current
@@ -504,7 +505,7 @@ export default function ShifuSettingDialog({
           providers: normalizeAskProviders(askConfigResponse?.providers),
         });
       } catch (error) {
-        console.error('Failed to fetch config:', error);
+        debugError('[shifu-setting] failed to fetch config', error);
       }
     };
     fetchConfig();
@@ -534,8 +535,8 @@ export default function ShifuSettingDialog({
       setMinimaxCloneCost(result.cloneCost);
     }
     if (result.errors.length > 0) {
-      console.error(
-        'Failed to refresh MiniMax voice clone data:',
+      debugError(
+        '[shifu-setting] failed to refresh MiniMax voice clone data',
         result.errors,
       );
     }
@@ -1082,7 +1083,7 @@ export default function ShifuSettingDialog({
         }
         setUploadedImageUrl(res.data); // Assuming the API returns the image URL in a 'url' field
       } catch (error) {
-        console.error('Upload error:', error);
+        debugError('[shifu-setting] upload error', error);
         setImageError(t('module.shifuSetting.uploadFailed'));
       } finally {
         setIsUploading(false);
@@ -1419,7 +1420,7 @@ export default function ShifuSettingDialog({
             }
           }
         } catch (error) {
-          console.warn('TTS preview stream parse error:', error);
+          debugWarn('[shifu-setting] TTS preview stream parse error', error);
         }
       });
 
@@ -1427,7 +1428,7 @@ export default function ShifuSettingDialog({
         if (ttsPreviewSessionRef.current !== sessionId) {
           return;
         }
-        console.error('TTS preview stream failed:', error);
+        debugError('[shifu-setting] TTS preview stream failed', error);
         stopTtsPreview();
       });
 
