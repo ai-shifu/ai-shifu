@@ -409,13 +409,6 @@ class DraftOutlineItem(db.Model):
     __tablename__ = "shifu_draft_outline_items"
     __table_args__ = (
         Index(
-            "ix_shifu_draft_outline_items_shifu_deleted_updated_id",
-            "shifu_bid",
-            "deleted",
-            "updated_at",
-            "id",
-        ),
-        Index(
             "ix_shifu_draft_outline_items_shifu_outline_deleted_id",
             "shifu_bid",
             "outline_item_bid",
@@ -801,10 +794,9 @@ class PublishedOutlineItem(db.Model):
     __tablename__ = "shifu_published_outline_items"
     __table_args__ = (
         Index(
-            "ix_shifu_published_outline_items_shifu_deleted_updated_id",
+            "ix_shifu_published_outline_items_shifu_outline_id",
             "shifu_bid",
-            "deleted",
-            "updated_at",
+            "outline_item_bid",
             "id",
         ),
     )

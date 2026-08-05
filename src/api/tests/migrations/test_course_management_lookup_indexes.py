@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 MIGRATION_MODULE = (
     "migrations.versions.c4f6a8b0d2e3_add_course_management_lookup_indexes"
 )
+CallRecord = tuple[str, str, tuple[str, ...], bool | None]
 
 
 def _migration():
@@ -14,7 +15,7 @@ def _migration():
 
 
 class _BatchRecorder:
-    def __init__(self, table_name: str, calls: list[tuple[str, str, tuple[str, ...]]]):
+    def __init__(self, table_name: str, calls: list[CallRecord]):
         self._table_name = table_name
         self._calls = calls
 
@@ -25,15 +26,15 @@ class _BatchRecorder:
         return False
 
     def create_index(self, index_name, columns, unique=False):
-        self._calls.append(("create", index_name, tuple(columns)))
+        self._calls.append(("create", index_name, tuple(columns), unique))
 
     def drop_index(self, index_name):
-        self._calls.append(("drop", index_name, (self._table_name,)))
+        self._calls.append(("drop", index_name, (self._table_name,), None))
 
 
 def test_upgrade_creates_all_course_management_indexes(monkeypatch):
     migration = _migration()
-    calls: list[tuple[str, str, tuple[str, ...]]] = []
+    calls: list[CallRecord] = []
 
     monkeypatch.setattr(migration, "_table_exists", lambda _table_name: True)
     monkeypatch.setattr(
@@ -48,14 +49,14 @@ def test_upgrade_creates_all_course_management_indexes(monkeypatch):
     migration.upgrade()
 
     assert calls == [
-        ("create", index_name, tuple(columns))
+        ("create", index_name, tuple(columns), False)
         for _table_name, index_name, columns in migration.INDEXES
     ]
 
 
 def test_upgrade_is_idempotent_when_indexes_already_exist(monkeypatch):
     migration = _migration()
-    calls: list[tuple[str, str, tuple[str, ...]]] = []
+    calls: list[CallRecord] = []
 
     monkeypatch.setattr(migration, "_table_exists", lambda _table_name: True)
     monkeypatch.setattr(
@@ -74,7 +75,7 @@ def test_upgrade_is_idempotent_when_indexes_already_exist(monkeypatch):
 
 def test_downgrade_drops_all_course_management_indexes(monkeypatch):
     migration = _migration()
-    calls: list[tuple[str, str, tuple[str, ...]]] = []
+    calls: list[CallRecord] = []
 
     monkeypatch.setattr(migration, "_table_exists", lambda _table_name: True)
     monkeypatch.setattr(
@@ -89,14 +90,14 @@ def test_downgrade_drops_all_course_management_indexes(monkeypatch):
     migration.downgrade()
 
     assert calls == [
-        ("drop", index_name, (table_name,))
+        ("drop", index_name, (table_name,), None)
         for table_name, index_name, _columns in reversed(migration.INDEXES)
     ]
 
 
 def test_downgrade_is_idempotent_when_indexes_are_absent(monkeypatch):
     migration = _migration()
-    calls: list[tuple[str, str, tuple[str, ...]]] = []
+    calls: list[CallRecord] = []
 
     monkeypatch.setattr(migration, "_table_exists", lambda _table_name: True)
     monkeypatch.setattr(

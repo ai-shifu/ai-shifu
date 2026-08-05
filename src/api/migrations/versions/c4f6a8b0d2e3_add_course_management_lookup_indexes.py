@@ -44,14 +44,9 @@ INDEXES = (
         ["shifu_bid", "deleted", "id"],
     ),
     (
-        "shifu_draft_outline_items",
-        "ix_shifu_draft_outline_items_shifu_deleted_updated_id",
-        ["shifu_bid", "deleted", "updated_at", "id"],
-    ),
-    (
         "shifu_published_outline_items",
-        "ix_shifu_published_outline_items_shifu_deleted_updated_id",
-        ["shifu_bid", "deleted", "updated_at", "id"],
+        "ix_shifu_published_outline_items_shifu_outline_id",
+        ["shifu_bid", "outline_item_bid", "id"],
     ),
 )
 

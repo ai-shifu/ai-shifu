@@ -21,6 +21,18 @@ jobs:
     name: Run backend tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -78,7 +90,11 @@ jobs:
           targets: set[str] = set()
           full_run = False
           skip_run = False
-          run_migration_contract_tests = False
+          run_migration_contract_tests = any(
+              path.startswith("src/api/migrations/")
+              or path.startswith("src/api/tests/migrations/")
+              for path in changed
+          )
           api_root = pathlib.Path("src/api")
 
           def normalize(path: str) -> str:
@@ -113,12 +129,9 @@ jobs:
               if is_control_plane_backend_path(path):
                   continue
               if path.startswith("src/api/migrations/"):
-                  run_migration_contract_tests = True
                   full_run = True
                   break
               if path.startswith("src/api/tests/"):
-                  if path.startswith("src/api/tests/migrations/"):
-                      run_migration_contract_tests = True
                   add_target(path)
                   continue
               if path.startswith("src/api/flaskr/service/"):
@@ -179,6 +192,9 @@ jobs:
       - name: Run migration contract tests (PR)
         if: github.event_name == 'pull_request' && env.RUN_MIGRATION_CONTRACT_TESTS == '1'
         working-directory: src/api
+        env:
+          RUN_MYSQL_MIGRATION_SMOKE: "1"
+          TEST_SQLALCHEMY_DATABASE_URI: mysql+pymysql://root:root@127.0.0.1:3306/mysql
         run: |
           python -m pytest tests/migrations -q
 
