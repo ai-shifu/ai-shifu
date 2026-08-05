@@ -48,6 +48,7 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
         window.open(
           buildAbsoluteUrlWithLessonId(result, currentLessonId),
           '_blank',
+          'noopener,noreferrer',
         );
       }
     } catch (error) {

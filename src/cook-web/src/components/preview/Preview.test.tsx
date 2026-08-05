@@ -119,6 +119,7 @@ describe('PreviewSettingsModal', () => {
       expect(openSpy).toHaveBeenCalledWith(
         'https://example.com/c/shifu-1?preview=true&lessonid=lesson-1',
         '_blank',
+        'noopener,noreferrer',
       );
     });
 
