@@ -47,7 +47,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
 }));
 
 describe('ProfileOnboardingConversation', () => {
-  test('uses official renderer submissions and returns the server profile draft', async () => {
+  test('submits without ES2023 array methods and returns the server profile draft', async () => {
     const onDraftReady = jest.fn();
     const runSession = jest
       .fn()
@@ -91,9 +91,28 @@ describe('ProfileOnboardingConversation', () => {
 
     await screen.findByText('?[%{{profile_goal}}...你的学习目标是什么？]');
     expect(onDraftReady).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+    const findLastIndexDescriptor = Object.getOwnPropertyDescriptor(
+      Array.prototype,
+      'findLastIndex',
     );
+    if (!findLastIndexDescriptor) {
+      throw new Error('Expected the Jest runtime to provide findLastIndex');
+    }
+    Object.defineProperty(Array.prototype, 'findLastIndex', {
+      ...findLastIndexDescriptor,
+      value: undefined,
+    });
+    try {
+      fireEvent.click(
+        screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+      );
+    } finally {
+      Object.defineProperty(
+        Array.prototype,
+        'findLastIndex',
+        findLastIndexDescriptor,
+      );
+    }
 
     await waitFor(() => {
       expect(runSession).toHaveBeenLastCalledWith(

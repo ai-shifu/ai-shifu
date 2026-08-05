@@ -440,9 +440,14 @@ export default function ProfileOnboardingConversation({
     }
     const variableName = content.variableName?.trim() || 'input';
     setItems(current => {
-      const lastInteractionIndex = current.findLastIndex(
-        item => item.interaction && !item.finished,
-      );
+      let lastInteractionIndex = -1;
+      for (let index = current.length - 1; index >= 0; index -= 1) {
+        const item = current[index];
+        if (item.interaction && !item.finished) {
+          lastInteractionIndex = index;
+          break;
+        }
+      }
       if (lastInteractionIndex < 0) {
         return current;
       }
