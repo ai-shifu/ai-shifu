@@ -212,6 +212,30 @@ def _resolve_supported_runtime_language(raw_language: str | None) -> str | None:
     return normalized_language
 
 
+def _resolve_profile_onboarding_runtime_language(user, raw_language: str | None) -> str:
+    """Resolve profile research to a bounded application-supported locale."""
+
+    supported_languages = (
+        tuple(_translations.keys()) or _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES
+    )
+    if raw_language is not None:
+        resolved_language = _resolve_supported_runtime_language(raw_language)
+        if resolved_language in supported_languages:
+            return resolved_language
+        raise_param_error("language")
+
+    request_language = _extract_request_language({})
+    for candidate in (
+        request_language,
+        getattr(user, "language", None),
+        "en-US",
+    ):
+        resolved_language = _resolve_supported_runtime_language(candidate)
+        if resolved_language in supported_languages:
+            return resolved_language
+    return supported_languages[0]
+
+
 def _extract_request_language(payload: dict | None = None) -> str | None:
     raw_language = None
     if isinstance(payload, dict):
@@ -526,9 +550,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 document_prompt=str(config.get("document_prompt") or "").strip(),
                 purpose=PROFILE_ONBOARDING_PURPOSE,
                 config_revision=int(config.get("revision") or 0),
-                output_language=_resolve_runtime_language(
+                output_language=_resolve_profile_onboarding_runtime_language(
                     request.user,
-                    {"language": language} if language else {},
+                    language,
                 ),
             )
         except ProfileResearchSessionBusy:

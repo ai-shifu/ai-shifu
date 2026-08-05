@@ -269,6 +269,44 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
     ]
 
 
+@pytest.mark.parametrize("language", ["unsupported", "x" * 10_000])
+def test_profile_onboarding_session_start_rejects_unsupported_language(
+    monkeypatch, test_client, language
+):
+    _authenticate(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.route.user.get_profile_onboarding_config",
+        lambda: {
+            "enabled": True,
+            "markdownflow": "?[continue]",
+            "document_prompt": "",
+            "revision": 1,
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.get_profile_onboarding_state",
+        lambda user_id: {
+            "handled": False,
+            "should_show": True,
+            "has_learner_profile": False,
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.api.start_profile_research_session",
+        lambda app, **kwargs: calls.append(kwargs) or {"session_id": "session-1"},
+    )
+
+    response = test_client.post(
+        "/api/user/profile-onboarding/session",
+        headers={"Token": "token"},
+        json={"language": language, "intent": "onboarding"},
+    )
+
+    assert response.get_json(force=True)["code"] != 0
+    assert calls == []
+
+
 def test_profile_onboarding_session_start_respects_collection_kill_switch(
     monkeypatch, test_client
 ):
