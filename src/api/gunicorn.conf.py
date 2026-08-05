@@ -6,9 +6,20 @@
 # so gevent's monkey-patching must happen here, in the master, before any of
 # the app's imports touch socket/ssl. The gevent worker class re-patches in
 # the child, which is a no-op.
+import os
+
 from gevent import monkey
 
 monkey.patch_all()
+
+# Mark the preload master so import-time initializers skip anything that
+# would start background threads here (e.g. the Langfuse/OTel batch
+# exporter). A thread started in the master registers an at-fork restart
+# hook; after fork each worker revives the orphaned processor's thread,
+# whose gevent threading bookkeeping crashes the hub (KeyError in
+# AbstractLinkable._notify_links) and can interrupt unrelated in-flight DB
+# exchanges. post_fork clears the flag and re-runs the deferred inits.
+os.environ["AI_SHIFU_PRELOAD_MASTER"] = "1"
 
 # Import the app once in the master and share its read-only memory (imports,
 # model tables, litellm's cost map, ...) with every worker via copy-on-write.
@@ -25,6 +36,8 @@ def post_fork(server, worker):
     pool without closing the parent's file descriptors. redis-py connection
     pools are fork-safe already (pid check on checkout) and need no handling.
     """
+    os.environ.pop("AI_SHIFU_PRELOAD_MASTER", None)
+
     try:
         from app import app as flask_app
         from flaskr.dao import db
