@@ -262,11 +262,9 @@ export const SidebarContent = ({
       </div>
       <NavFooter
         ref={footerRef}
-        // @ts-expect-error EXPECT
         onClick={onFooterClick}
         isMenuOpen={userMenuOpen}
       />
-      {/* @ts-expect-error EXPECT */}
       <MainMenuModal
         open={userMenuOpen}
         onClose={onUserMenuClose}

@@ -1,11 +1,22 @@
 import styles from './TrialNodeBottomArea.module.scss';
 import { memo, useEffect, useRef, useCallback, useState } from 'react';
 import { shifu } from '@/c-service/Shifu';
+import { useTranslation } from 'react-i18next';
 
 export const TRAIL_NODE_POSITION = {
   NORMAL: 'normal',
   STICK_TOP: 'stickTop',
   STICK_BOTTOM: 'stickBottom',
+} as const;
+
+export type TrialNodePosition =
+  (typeof TRAIL_NODE_POSITION)[keyof typeof TRAIL_NODE_POSITION];
+
+type TrialNodeBottomAreaProps = {
+  containerScrollTop?: number;
+  containerHeight?: number;
+  payload: unknown;
+  onNodePositionChange?: (position: TrialNodePosition) => void;
 };
 
 const TrialNodeBottomArea = ({
@@ -13,17 +24,24 @@ const TrialNodeBottomArea = ({
   containerHeight = 0,
   payload,
   onNodePositionChange,
-}) => {
+}: TrialNodeBottomAreaProps) => {
+  const { t } = useTranslation();
   const [offsetToScroller, setOffsetToScroller] = useState(0);
-  const normalAreaRef = useRef(null);
+  const normalAreaRef = useRef<HTMLDivElement | null>(null);
   const [currHeight, setCurrHeight] = useState(0);
-  const [nodePosition, setNodePosition] = useState(TRAIL_NODE_POSITION.NORMAL);
+  const [nodePosition, setNodePosition] = useState<TrialNodePosition>(
+    TRAIL_NODE_POSITION.NORMAL,
+  );
 
   const getTrialNodeAreaControl = useCallback(() => {
     const Control = shifu.getControl(shifu.ControlTypes.TRIAL_NODE_BOTTOM_AREA);
 
-    return Control ? <Control payload={payload} /> : <>non</>;
-  }, [payload]);
+    return Control ? (
+      <Control payload={payload} />
+    ) : (
+      <>{t('common.core.none')}</>
+    );
+  }, [payload, t]);
 
   const isStickTop = useCallback(() => {
     return containerHeight > 0 && containerScrollTop > offsetToScroller;
@@ -45,10 +63,8 @@ const TrialNodeBottomArea = ({
 
   useEffect(() => {
     if (normalAreaRef.current) {
-      let position = TRAIL_NODE_POSITION.NORMAL;
-      // @ts-expect-error EXPECT
+      let position: TrialNodePosition = TRAIL_NODE_POSITION.NORMAL;
       setOffsetToScroller(normalAreaRef.current.offsetTop);
-      // @ts-expect-error EXPECT
       setCurrHeight(normalAreaRef.current.clientHeight);
 
       if (isStickTop()) {

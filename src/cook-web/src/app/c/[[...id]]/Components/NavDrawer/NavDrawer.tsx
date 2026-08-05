@@ -9,13 +9,15 @@ import {
   memo,
   useCallback,
   useEffect,
+  type UIEvent,
+  type MouseEvent as ReactMouseEvent,
 } from 'react';
 import clsx from 'clsx';
 
 import { AppContext } from '../AppContext';
 import NavHeader from './NavHeader';
 import NavBody from './NavBody';
-import NavFooter from './NavFooter';
+import NavFooter, { type NavFooterHandle } from './NavFooter';
 import CourseCatalogList from '../CourseCatalog/CourseCatalogList';
 
 import FeedbackModal from '../FeedbackModal/FeedbackModal';
@@ -30,6 +32,7 @@ import MainMenuModal from './MainMenuModal';
 
 import { useUserStore } from '@/store';
 import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
+import type { LessonTree } from '../../hooks/useLessonTree';
 /**
  * Navigation display modes
  * 0: Default, rendered in-flow
@@ -49,7 +52,7 @@ export const POPUP_WINDOW_STATE_FILING = 1;
 const NAV_DRAWER_MAX_WIDTH = '280px';
 const NAV_DRAWER_COLLAPSE_WIDTH = '64px';
 
-const calcNavWidth = frameLayout => {
+const calcNavWidth = (frameLayout: number) => {
   if (frameLayout === FRAME_LAYOUT_MOBILE) {
     return '100%';
   }
@@ -64,6 +67,19 @@ const calcNavWidth = frameLayout => {
 
 const COLLAPSE_WIDTH = NAV_DRAWER_COLLAPSE_WIDTH;
 
+type NavDrawerProps = {
+  courseName?: string;
+  courseAvatar?: string;
+  onLoginClick?: () => void;
+  lessonTree?: LessonTree;
+  selectedLessonId?: string;
+  onChapterCollapse?: (id: string) => void;
+  onLessonSelect?: (params: { id: string }) => void;
+  onTryLessonSelect?: (params: { chapterId: string; lessonId: string }) => void;
+  onBasicInfoClick?: () => void;
+  onPersonalInfoClick?: () => void;
+};
+
 const NavDrawer = ({
   // showType = NAV_SHOW_TYPE_NORMAL,
   courseName = '',
@@ -76,7 +92,7 @@ const NavDrawer = ({
   onTryLessonSelect,
   onBasicInfoClick,
   onPersonalInfoClick,
-}) => {
+}: NavDrawerProps) => {
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const [delayedIsLoggedIn, setDelayedIsLoggedIn] = useState(isLoggedIn);
 
@@ -91,8 +107,8 @@ const NavDrawer = ({
 
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   // const alwaysShowLessonTree = getBoolEnv('alwaysShowLessonTree');
-  const footerRef = useRef(null);
-  const bodyRef = useRef(null);
+  const footerRef = useRef<NavFooterHandle | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
 
   const {
     open: mainModalOpen,
@@ -100,22 +116,24 @@ const NavDrawer = ({
     onClose: onMainModalClose,
   } = useDisclosure();
 
-  const onBodyScroll = e => {
-    setBodyScrollTop(e.target.scrollTop);
+  const onBodyScroll = (e: UIEvent<HTMLDivElement>) => {
+    setBodyScrollTop(e.currentTarget.scrollTop);
   };
 
-  const onHeaderToggleClick = useCallback(({ isCollapse }) => {
-    setIsCollapse(isCollapse);
-  }, []);
+  const onHeaderToggleClick = useCallback(
+    ({ isCollapse }: { isCollapse: boolean }) => {
+      setIsCollapse(isCollapse);
+    },
+    [],
+  );
 
   const popupWindowClassname = useCallback(() => {
     return isCollapse ? styles.popUpWindowCollapse : styles.popUpWindowExpand;
   }, [isCollapse]);
 
   const mainModalCloseHandler = useCallback(
-    e => {
-      // @ts-expect-error EXPECT
-      if (footerRef.current && footerRef.current.containElement(e.target)) {
+    (e: MouseEvent | ReactMouseEvent) => {
+      if (footerRef.current?.containElement(e.target)) {
         return;
       }
       onMainModalClose();
@@ -173,15 +191,11 @@ const NavDrawer = ({
                   hideCourseHeader
                   selectedLessonId={selectedLessonId}
                   catalogs={lessonTree?.catalogs || []}
-                  // @ts-expect-error EXPECT
-                  catalogCount={lessonTree?.catalogCount || 0}
                   onChapterCollapse={onChapterCollapse}
                   onLessonSelect={onLessonSelect}
                   onTryLessonSelect={onTryLessonSelect}
                   containerScrollTop={bodyScrollTop}
-                  // @ts-expect-error EXPECT
                   containerHeight={bodyRef.current?.clientHeight || 0}
-                  bannerInfo={lessonTree?.bannerInfo}
                 />
               ) : (
                 <NavBody onLoginClick={onLoginClick} />
@@ -190,14 +204,12 @@ const NavDrawer = ({
         </div>
         <NavFooter
           ref={footerRef}
-          // @ts-expect-error EXPECT
           isCollapse={isCollapse}
           onClick={onFooterClick}
           isMenuOpen={mainModalOpen}
         />
         <MainMenuModal
           open={mainModalOpen}
-          // @ts-expect-error EXPECT
           onClose={mainModalCloseHandler}
           className={popupWindowClassname()}
           mobileStyle={frameLayout === FRAME_LAYOUT_MOBILE}

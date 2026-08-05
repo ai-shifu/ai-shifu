@@ -1,17 +1,12 @@
 import classNames from 'classnames';
 import styles from './CourseSection.module.scss';
-import { useCallback, useContext } from 'react';
+import { useCallback, useContext, type MouseEvent } from 'react';
 import { memo } from 'react';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import ResetChapterButton from './ResetChapterButton';
 import { AppContext } from '../AppContext';
-import Image from 'next/image';
-import imgLearningSelected from '@/c-assets/newchat/light/icon16-learning-selected.png';
-import imgLearning from '@/c-assets/newchat/light/icon16-learning.png';
 import { CircleCheck, CircleDotDashed } from 'lucide-react';
-import imgLearningCompletedSelected from '@/c-assets/newchat/light/icon16-learning-completed-selected.png';
-import imgLearningCompleted from '@/c-assets/newchat/light/icon16-learning-completed.png';
-import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import { LEARNING_PERMISSION, type LearningPermission } from '@/c-api/studyV2';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -24,6 +19,19 @@ import {
 } from '@/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
 import { useSystemStore } from '@/c-store/useSystemStore';
+
+type CourseSectionProps = {
+  id: string;
+  name?: string;
+  type?: LearningPermission | string;
+  is_paid?: boolean;
+  status_value?: string;
+  selected?: boolean;
+  canLearning?: boolean;
+  chapterId: string;
+  onSelect?: (params: { id: string }) => void;
+  onTrySelect?: (params: { id: string }) => void;
+};
 
 const getCourseTitleLang = (title: string) => {
   const trimmed = title.trim();
@@ -46,7 +54,7 @@ export const CourseSection = ({
   chapterId,
   onSelect,
   onTrySelect,
-}) => {
+}: CourseSectionProps) => {
   const { t } = useTranslation();
   const courseTitleLang = getCourseTitleLang(name);
   const { mobileStyle } = useContext(AppContext);
@@ -59,8 +67,6 @@ export const CourseSection = ({
   );
   const genIconClassName = () => {
     switch (status_value) {
-      // @ts-expect-error EXPECT
-      case LESSON_STATUS_VALUE.NOT_START:
       case LESSON_STATUS_VALUE.LOCKED:
         return styles.small;
       case LESSON_STATUS_VALUE.PREPARE_LEARNING:
@@ -113,7 +119,7 @@ export const CourseSection = ({
     chapterId,
   ]);
 
-  const onResetButtonClick = useCallback(e => {
+  const onResetButtonClick = useCallback((e: MouseEvent) => {
     e.stopPropagation();
   }, []);
 
@@ -189,7 +195,6 @@ export const CourseSection = ({
         <div className={styles.rightSection}>
           {(status_value === LESSON_STATUS_VALUE.LEARNING ||
             status_value === LESSON_STATUS_VALUE.COMPLETED) && (
-            // @ts-expect-error EXPECT
             <ResetChapterButton
               onClick={onResetButtonClick}
               chapterId={chapterId}

@@ -1,12 +1,31 @@
 // Course catalog
 import { memo, useState, useEffect } from 'react';
+import type { LessonTreeCatalog } from '../../hooks/useLessonTree';
 import styles from './CourseCatalogList.module.scss';
 import { cn } from '@/lib/utils';
 import TrialNodeBottomArea from './TrialNodeBottomArea';
 import CourseCatalog from './CourseCatalog';
-import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
+import {
+  TRAIL_NODE_POSITION,
+  type TrialNodePosition,
+} from './TrialNodeBottomArea';
 import TrialNodeOuter from './TrialNodeOuter';
 import CourseHeaderSummary from '../CourseHeaderSummary';
+type CourseCatalogListCatalog = LessonTreeCatalog & { bannerInfo?: unknown };
+
+type CourseCatalogListProps = {
+  courseName?: string;
+  courseAvatar?: string;
+  catalogs?: CourseCatalogListCatalog[];
+  containerScrollTop?: number;
+  containerHeight?: number;
+  onChapterCollapse?: (id: string) => void;
+  onLessonSelect?: (params: { id: string }) => void;
+  onTryLessonSelect?: (params: { chapterId: string; lessonId: string }) => void;
+  selectedLessonId?: string;
+  hideCourseHeader?: boolean;
+};
+
 export const CourseCatalogList = ({
   courseName = '',
   courseAvatar = '',
@@ -18,20 +37,17 @@ export const CourseCatalogList = ({
   onTryLessonSelect,
   selectedLessonId = '',
   hideCourseHeader = false,
-}) => {
-  const [trialNodePosition, setTrialNodePosition] = useState(
+}: CourseCatalogListProps) => {
+  const [trialNodePosition, setTrialNodePosition] = useState<TrialNodePosition>(
     TRAIL_NODE_POSITION.NORMAL,
   );
-  const [trialNodePayload, setTrialNodePayload] = useState(null);
+  const [trialNodePayload, setTrialNodePayload] = useState<unknown>(null);
 
   useEffect(() => {
-    setTrialNodePayload(
-      // @ts-expect-error EXPECT
-      catalogs.find(c => !!c.bannerInfo)?.bannerInfo || null,
-    );
+    setTrialNodePayload(catalogs.find(c => !!c.bannerInfo)?.bannerInfo || null);
   }, [catalogs]);
 
-  const onNodePositionChange = position => {
+  const onNodePositionChange = (position: TrialNodePosition) => {
     setTrialNodePosition(position);
   };
 
@@ -55,32 +71,23 @@ export const CourseCatalogList = ({
         >
           {catalogs.map(catalog => {
             return (
-              // @ts-expect-error EXPECT
               <div key={catalog.id}>
                 <CourseCatalog
-                  // @ts-expect-error EXPECT
                   key={catalog.id}
-                  // @ts-expect-error EXPECT
                   id={catalog.id}
-                  // @ts-expect-error EXPECT
                   name={catalog.name}
-                  // @ts-expect-error EXPECT
                   status={catalog.status_value}
                   selectedLessonId={selectedLessonId}
-                  // @ts-expect-error EXPECT
                   lessons={catalog.lessons}
-                  // @ts-expect-error EXPECT
                   collapse={catalog.collapse}
                   onCollapse={onChapterCollapse}
                   onLessonSelect={onLessonSelect}
                   onTrySelect={onTryLessonSelect}
                 />
-                {/* @ts-expect-error EXPECT */}
-                {catalog.bannerInfo && (
+                {Boolean(catalog.bannerInfo) && (
                   <TrialNodeBottomArea
                     containerHeight={containerHeight}
                     containerScrollTop={containerScrollTop}
-                    // @ts-expect-error EXPECT
                     payload={catalog.bannerInfo}
                     onNodePositionChange={onNodePositionChange}
                   />
@@ -94,8 +101,6 @@ export const CourseCatalogList = ({
         <TrialNodeOuter
           nodePosition={trialNodePosition}
           payload={trialNodePayload}
-          // @ts-expect-error EXPECT
-          containerScrollTop={containerScrollTop}
         />
       )}
     </>

@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState, type MouseEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,15 @@ import {
 import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 
+type ResetChapterButtonProps = {
+  className?: string;
+  chapterId: string;
+  chapterName?: string;
+  lessonId?: string;
+  onClick?: (event: MouseEvent) => void;
+  onConfirm?: () => void;
+};
+
 export const ResetChapterButton = ({
   className,
   chapterId,
@@ -29,7 +38,7 @@ export const ResetChapterButton = ({
   lessonId,
   onClick,
   onConfirm,
-}) => {
+}: ResetChapterButtonProps) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
 
@@ -47,7 +56,7 @@ export const ResetChapterButton = ({
     Boolean(lessonId) && resettingLessonId === lessonId;
 
   const onButtonClick = useCallback(
-    e => {
+    (e: MouseEvent) => {
       onClick?.(e);
 
       const now = Date.now();
