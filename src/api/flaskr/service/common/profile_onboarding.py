@@ -14,6 +14,7 @@ PROFILE_ONBOARDING_CONFIG_KEY = "PROFILE_ONBOARDING_FLOW"
 PROFILE_ONBOARDING_STATE_KEY = "_sys_profile_onboarding_state"
 PROFILE_ONBOARDING_SCENE_KEY = "profile_onboarding"
 PROFILE_ONBOARDING_VERSION = "profile-v2"
+PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS = 10_000
 
 
 def _now_iso() -> str:
@@ -133,6 +134,8 @@ def update_profile_onboarding_config(
         raise_param_error("document_prompt")
     markdownflow = raw_markdownflow.strip()
     document_prompt = raw_document_prompt.strip()
+    if len(document_prompt) > PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS:
+        raise_param_error("document_prompt")
     if markdownflow:
         validate_profile_onboarding_markdownflow(markdownflow)
     elif payload.get("enabled", False):
