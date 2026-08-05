@@ -482,6 +482,10 @@ export function usePreviewChat() {
   const sseParams = useRef<StartPreviewParams>({});
   const sseRef = useRef<PreviewSseSource | null>(null);
   const ttsSseRef = useRef<Record<string, PreviewSseSource>>({});
+  const previewRunIdRef = useRef(0);
+  const autoSubmitTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(
+    new Set(),
+  );
   const isStreamingRef = useRef(false);
   const previewFailedRef = useRef(false);
   const doneTerminalStateRef = useRef<boolean | null>(null);
@@ -732,7 +736,26 @@ export function usePreviewChat() {
     ttsSseRef.current = {};
   }, []);
 
+  const invalidatePreviewRun = useCallback(() => {
+    previewRunIdRef.current += 1;
+    return previewRunIdRef.current;
+  }, []);
+
+  const isCurrentPreviewRun = useCallback(
+    (runId: number) => previewRunIdRef.current === runId,
+    [],
+  );
+
+  const clearAutoSubmitTimers = useCallback(() => {
+    autoSubmitTimeoutsRef.current.forEach(timeoutId => {
+      clearTimeout(timeoutId);
+    });
+    autoSubmitTimeoutsRef.current.clear();
+  }, []);
+
   const stopPreview = useCallback(() => {
+    invalidatePreviewRun();
+    clearAutoSubmitTimers();
     if (sseRef.current) {
       sseRef.current.close();
       sseRef.current = null;
@@ -741,7 +764,7 @@ export function usePreviewChat() {
     isStreamingRef.current = false;
     currentStreamingElementBidRef.current = null;
     setIsLoading(false);
-  }, [closeAllTtsStreams]);
+  }, [clearAutoSubmitTimers, closeAllTtsStreams, invalidatePreviewRun]);
 
   const handlePreviewBusinessError = useCallback(
     (errorOrMessage?: string | ErrorWithCode | null, fallbackCode?: number) => {
@@ -1395,6 +1418,7 @@ export function usePreviewChat() {
       }
 
       stopPreview();
+      const previewRunId = invalidatePreviewRun();
       doneTerminalStateRef.current = null;
       const resolvedBaseUrl = await resolveBaseUrl();
       if (!resolvedBaseUrl) {
@@ -1462,7 +1486,11 @@ export function usePreviewChat() {
           },
         });
         source.addEventListener('message', event => {
-          if (previewFailedRef.current || sseRef.current !== source) {
+          if (
+            !isCurrentPreviewRun(previewRunId) ||
+            previewFailedRef.current ||
+            sseRef.current !== source
+          ) {
             return;
           }
           const raw = event?.data;
@@ -1474,7 +1502,7 @@ export function usePreviewChat() {
           }
         });
         source.addEventListener('error', err => {
-          if (sseRef.current !== source) {
+          if (!isCurrentPreviewRun(previewRunId) || sseRef.current !== source) {
             return;
           }
           debugError('[preview-chat] preview SSE error', err);
@@ -1527,6 +1555,8 @@ export function usePreviewChat() {
       finalizePreviewItems,
       handlePreviewBusinessError,
       handlePayload,
+      invalidatePreviewRun,
+      isCurrentPreviewRun,
       resolveBaseUrl,
       setTrackedContentList,
       stopPreview,
@@ -1857,10 +1887,12 @@ export function usePreviewChat() {
       if (!sendParams) {
         return;
       }
+      const previewRunId = previewRunIdRef.current;
       autoSubmittedBlocksRef.current.add(blockId);
       const delay = parsedInfo?.isMultiSelect ? 1000 : 600;
-      setTimeout(() => {
-        if (previewFailedRef.current) {
+      const timeoutId = setTimeout(() => {
+        autoSubmitTimeoutsRef.current.delete(timeoutId);
+        if (!isCurrentPreviewRun(previewRunId) || previewFailedRef.current) {
           return;
         }
         performSend(sendParams, blockId, {
@@ -1868,8 +1900,14 @@ export function usePreviewChat() {
           skipConfirm: true,
         });
       }, delay);
+      autoSubmitTimeoutsRef.current.add(timeoutId);
     },
-    [buildAutoSendParams, parseInteractionBlock, performSend],
+    [
+      buildAutoSendParams,
+      isCurrentPreviewRun,
+      parseInteractionBlock,
+      performSend,
+    ],
   );
 
   useEffect(() => {
@@ -1917,6 +1955,7 @@ export function usePreviewChat() {
       if (!shifuBid || !blockId) {
         return null;
       }
+      const previewRunId = previewRunIdRef.current;
 
       const existingItem = contentListRef.current.find(item =>
         matchPreviewItemBid(item, blockId),
@@ -1961,6 +2000,9 @@ export function usePreviewChat() {
       );
 
       const resolvedBaseUrl = await resolveBaseUrl();
+      if (!isCurrentPreviewRun(previewRunId)) {
+        return null;
+      }
       const tokenValue = useUserStore.getState().getToken();
       const traceHeaders = buildTraceHeaders({
         'Content-Type': 'application/json',
@@ -1990,6 +2032,12 @@ export function usePreviewChat() {
             harnessRunId: traceHeaders.harnessRunId,
           },
           onHandled: error => {
+            if (
+              !isCurrentPreviewRun(previewRunId) ||
+              ttsSseRef.current[blockId] !== source
+            ) {
+              return;
+            }
             setTrackedContentList(prevState =>
               ensureAudioItem(
                 prevState.map(item => {
@@ -2011,6 +2059,7 @@ export function usePreviewChat() {
 
         source.addEventListener('message', event => {
           if (
+            !isCurrentPreviewRun(previewRunId) ||
             previewFailedRef.current ||
             ttsSseRef.current[blockId] !== source
           ) {
@@ -2063,6 +2112,12 @@ export function usePreviewChat() {
         });
 
         source.addEventListener('error', err => {
+          if (
+            !isCurrentPreviewRun(previewRunId) ||
+            ttsSseRef.current[blockId] !== source
+          ) {
+            return;
+          }
           debugError('[preview-chat] preview audio SSE error', err);
           setTrackedContentList(prevState =>
             ensureAudioItem(
@@ -2085,7 +2140,13 @@ export function usePreviewChat() {
         source.stream();
       });
     },
-    [closeTtsStream, ensureAudioItem, resolveBaseUrl, setTrackedContentList],
+    [
+      closeTtsStream,
+      ensureAudioItem,
+      isCurrentPreviewRun,
+      resolveBaseUrl,
+      setTrackedContentList,
+    ],
   );
 
   return {

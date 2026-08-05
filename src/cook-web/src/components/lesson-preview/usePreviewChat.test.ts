@@ -10,13 +10,15 @@ import {
   usePreviewChat,
 } from './usePreviewChat';
 
+const mockParseToRemarkFormat = jest.fn();
+
 jest.mock('sse.js', () => ({
   SSE: jest.fn(),
 }));
 
 jest.mock('remark-flow', () => ({
   createInteractionParser: () => ({
-    parseToRemarkFormat: jest.fn(),
+    parseToRemarkFormat: mockParseToRemarkFormat,
   }),
 }));
 
@@ -109,6 +111,10 @@ jest.mock('react-i18next', () => ({
 describe('usePreviewChat helpers and business error rendering', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
   test('builds interaction continuation preview params with latest mdflow', () => {
     expect(
@@ -462,6 +468,159 @@ describe('usePreviewChat helpers and business error rendering', () => {
         }),
       ]),
     );
+  });
+
+  test('ignores stale interaction auto-submit after preview reset', async () => {
+    jest.useFakeTimers();
+    mockParseToRemarkFormat.mockReturnValue({
+      variableName: 'answer',
+      placeholder: 'Type your answer',
+    });
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockReturnValueOnce(source);
+
+    const { result } = renderHook(() => usePreviewChat());
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'prompt',
+        variables: { answer: 'saved answer' },
+      });
+    });
+
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({
+          type: 'interaction',
+          generated_block_bid: 'old-interaction',
+          content: '?[answer]',
+        }),
+      });
+    });
+
+    act(() => {
+      result.current.resetPreview();
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(SSE).toHaveBeenCalledTimes(1);
+    expect(result.current.items).toEqual([]);
+  });
+
+  test('ignores stale interaction auto-submit after a new preview starts', async () => {
+    jest.useFakeTimers();
+    mockParseToRemarkFormat.mockReturnValue({
+      variableName: 'answer',
+      placeholder: 'Type your answer',
+    });
+    const oldSource = buildMockSseSource();
+    const newSource = buildMockSseSource();
+    (SSE as jest.Mock)
+      .mockReturnValueOnce(oldSource)
+      .mockReturnValueOnce(newSource);
+
+    const { result } = renderHook(() => usePreviewChat());
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'old prompt',
+        variables: { answer: 'saved answer' },
+      });
+    });
+
+    act(() => {
+      oldSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'interaction',
+          generated_block_bid: 'old-interaction',
+          content: '?[answer]',
+        }),
+      });
+    });
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'new prompt',
+        variables: {},
+      });
+    });
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(SSE).toHaveBeenCalledTimes(2);
+    expect(newSource.stream).toHaveBeenCalledTimes(1);
+  });
+
+  test('ignores stale preview audio callbacks after preview reset', async () => {
+    const previewSource = buildMockSseSource();
+    const ttsSource = buildMockSseSource();
+    (SSE as jest.Mock)
+      .mockReturnValueOnce(previewSource)
+      .mockReturnValueOnce(ttsSource);
+
+    const { result } = renderHook(() => usePreviewChat());
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'prompt',
+      });
+    });
+
+    act(() => {
+      previewSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'audio-block',
+          content: 'Audio text.',
+        }),
+      });
+    });
+
+    act(() => {
+      void result.current.requestAudioForBlock({
+        shifuBid: 'shifu-1',
+        blockId: 'audio-block',
+        text: 'Audio text.',
+      });
+    });
+
+    await waitFor(() => {
+      expect(ttsSource.stream).toHaveBeenCalled();
+    });
+    expect(result.current.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          generated_block_bid: 'audio-block',
+          isAudioStreaming: true,
+        }),
+      ]),
+    );
+
+    act(() => {
+      result.current.resetPreview();
+      ttsSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'audio_complete',
+          content: {
+            audio_url: 'https://example.com/stale.mp3',
+            duration_ms: 1000,
+          },
+        }),
+      });
+      ttsSource.listeners.error?.({});
+    });
+
+    expect(result.current.items).toEqual([]);
+    expect(result.current.error).toBeNull();
   });
 
   test('drops the loading placeholder without appending an empty error row', () => {
