@@ -57,6 +57,8 @@ const LearnerProfileSettingsSection = React.forwardRef<
   const [rerunOpen, setRerunOpen] = React.useState(false);
   const [collectionEnabled, setCollectionEnabled] = React.useState(false);
   const [guidedAvailable, setGuidedAvailable] = React.useState(false);
+  const [settingsSessionEligible, setSettingsSessionEligible] =
+    React.useState(false);
   const loadSequenceRef = React.useRef(0);
   const scopeRef = React.useRef(draftStorageScope);
   scopeRef.current = draftStorageScope;
@@ -87,6 +89,13 @@ const LearnerProfileSettingsSection = React.forwardRef<
         : null;
       setCollectionEnabled(Boolean(compatibleStatus?.enabled));
       setGuidedAvailable(Boolean(compatibleStatus?.guided_available));
+      setSettingsSessionEligible(
+        Boolean(
+          compatibleStatus &&
+          (!compatibleStatus.should_show ||
+            compatibleStatus.has_learner_profile),
+        ),
+      );
       setError('');
       return true;
     } catch (caughtError) {
@@ -116,6 +125,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
     setRerunOpen(false);
     setCollectionEnabled(false);
     setGuidedAvailable(false);
+    setSettingsSessionEligible(false);
     void loadProfile();
     return () => {
       loadSequenceRef.current += 1;
@@ -142,6 +152,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
       setSavedProfile(response.learner_profile);
       setUpdatedAt(response.learner_profile_updated_at || null);
       setMaxLength(response.max_length || maxLength);
+      setSettingsSessionEligible(true);
       toast({ title: t('module.profileOnboarding.settings.saveSuccess') });
       void trackEvent(PROFILE_ONBOARDING_EVENTS.SETTINGS_SAVED);
       return true;
@@ -189,6 +200,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
       setProfile('');
       setSavedProfile('');
       setUpdatedAt(response.learner_profile_updated_at || null);
+      setSettingsSessionEligible(true);
       setClearOpen(false);
       toast({ title: t('module.profileOnboarding.settings.clearSuccess') });
       void trackEvent(PROFILE_ONBOARDING_EVENTS.SETTINGS_CLEARED);
@@ -272,7 +284,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
             >
               {t('module.profileOnboarding.settings.save')}
             </Button>
-            {collectionEnabled ? (
+            {collectionEnabled && settingsSessionEligible ? (
               <Button
                 type='button'
                 size='sm'

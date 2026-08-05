@@ -160,6 +160,8 @@ describe('LearnerProfileSettingsSection', () => {
     mockGetOnboarding.mockResolvedValue(
       profileV2Status({
         enabled: true,
+        should_show: false,
+        has_learner_profile: false,
         guided_available: true,
       }),
     );
@@ -173,6 +175,53 @@ describe('LearnerProfileSettingsSection', () => {
       'data-session-intent',
       'settings',
     );
+  });
+
+  test('hides rerun until a first-time settings user saves a profile', async () => {
+    mockGetLearnerProfile.mockResolvedValue({
+      learner_profile: '',
+      learner_profile_updated_at: null,
+      max_length: 1000,
+    });
+    mockGetOnboarding.mockResolvedValue(
+      profileV2Status({
+        enabled: true,
+        should_show: true,
+        has_learner_profile: false,
+        guided_available: true,
+      }),
+    );
+    mockUpdateLearnerProfile.mockResolvedValue({
+      learner_profile: '首次保存的学习画像',
+      learner_profile_updated_at: null,
+      max_length: 1000,
+    });
+
+    render(<LearnerProfileSettingsSection />);
+
+    const editor = await screen.findByLabelText(
+      'module.profileOnboarding.profileLabel',
+    );
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(editor, {
+      target: { value: '首次保存的学习画像' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.save',
+      }),
+    );
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    ).toBeInTheDocument();
   });
 
   test('reloads for a new account scope and ignores the previous response', async () => {
