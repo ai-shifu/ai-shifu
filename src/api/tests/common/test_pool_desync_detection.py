@@ -166,3 +166,32 @@ def test_checkin_grace_window_is_a_short_positive_interval():
     # enlarging the window must be an explicit two-place change backed by a
     # latency budget, not a silent constant bump.
     assert 0 < dao._CHECKIN_PROBE_GRACE_SECONDS <= 0.002
+
+
+def test_checkout_appends_a_journal_boundary_marker():
+    clean_a, clean_b = socket.socketpair()
+    conn = _FakePyMySQLConnection(clean_a)
+
+    pool = QueuePool(lambda: conn, pool_size=1, max_overflow=0, reset_on_return=None)
+    try:
+        fairy = pool.connect()
+        journal = list(fairy.info.get(dao._STATEMENT_JOURNAL_KEY, ()))
+        # The journal survives checkin/checkout, so without boundary markers
+        # one dump can silently mix statements from different requests.
+        assert any(
+            str(entry[0]).startswith(dao._CHECKOUT_BOUNDARY_MARKER) for entry in journal
+        ), journal
+        fairy.close()
+
+        fairy2 = pool.connect()
+        journal2 = list(fairy2.info.get(dao._STATEMENT_JOURNAL_KEY, ()))
+        markers = [
+            entry
+            for entry in journal2
+            if str(entry[0]).startswith(dao._CHECKOUT_BOUNDARY_MARKER)
+        ]
+        assert len(markers) == 2
+        fairy2.close()
+    finally:
+        pool.dispose()
+        clean_b.close()
