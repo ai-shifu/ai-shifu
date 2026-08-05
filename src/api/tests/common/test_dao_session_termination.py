@@ -18,6 +18,7 @@ from sqlalchemy.exc import (
     OperationalError,
     ResourceClosedError,
 )
+from sqlalchemy.orm.exc import FlushError
 
 from flaskr.dao import (
     cleanup_session_after,
@@ -47,6 +48,10 @@ def _operational(errno: int) -> OperationalError:
         (DisconnectionError("desynced"), True),
         (_operational(2013), True),
         (_operational(2014), True),
+        # An INSERT that "succeeds" without an autoincrement id read some
+        # other statement's response: off-by-one evidence, must invalidate.
+        (FlushError("Instance <X> has a NULL identity key."), True),
+        (FlushError("New instance with identity key already present"), False),
         (Exception(2014, "raw pymysql Command Out of Sync"), True),
         (None, False),
         (ValueError("business"), False),
