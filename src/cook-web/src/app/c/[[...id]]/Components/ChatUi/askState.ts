@@ -13,6 +13,7 @@ export interface AskMessage {
   audioDurationMs?: number;
   isAudioStreaming?: boolean;
   isAudioBackfillReady?: boolean;
+  listenAudioBackfillMode?: 'listen' | 'block';
 }
 
 interface AskAnchorLike {
@@ -56,7 +57,8 @@ export const areAskMessageListsEqual = (
       item.audioTracks === nextItem?.audioTracks &&
       item.audioDurationMs === nextItem?.audioDurationMs &&
       item.isAudioStreaming === nextItem?.isAudioStreaming &&
-      item.isAudioBackfillReady === nextItem?.isAudioBackfillReady
+      item.isAudioBackfillReady === nextItem?.isAudioBackfillReady &&
+      item.listenAudioBackfillMode === nextItem?.listenAudioBackfillMode
     );
   });
 };

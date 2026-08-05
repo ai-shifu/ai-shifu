@@ -235,6 +235,7 @@ const projectListenAnswerFeedbackItems = (
         is_marker: true,
         isAudioBackfillReady:
           message.isAudioBackfillReady ?? item.isAudioBackfillReady ?? true,
+        listenAudioBackfillMode: 'block',
         readonly: true,
         customRenderBar: () => null,
         user_input: '',

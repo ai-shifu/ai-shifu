@@ -191,6 +191,7 @@ describe('chatUiModeProjection', () => {
         generated_block_bid: 'feedback-generated-1',
         content: '答对了，继续看下一个坑。',
         is_speakable: true,
+        listenAudioBackfillMode: 'block',
       }),
     );
   });
@@ -238,6 +239,11 @@ describe('chatUiModeProjection', () => {
       '',
       'feedback-answer-1',
     ]);
+    expect(projectedItems[2]).toEqual(
+      expect.objectContaining({
+        listenAudioBackfillMode: 'block',
+      }),
+    );
   });
 
   it('does not project regular follow-up answers as listen-mode narration', () => {
