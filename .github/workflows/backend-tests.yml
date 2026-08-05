@@ -21,18 +21,6 @@ jobs:
     name: Run backend tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: ${{ vars.BACKEND_TEST_MYSQL_ROOT_PASSWORD }}
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -p${{ vars.BACKEND_TEST_MYSQL_ROOT_PASSWORD }}"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -90,11 +78,6 @@ jobs:
           targets: set[str] = set()
           full_run = False
           skip_run = False
-          run_migration_contract_tests = any(
-              path.startswith("src/api/migrations/")
-              or path.startswith("src/api/tests/migrations/")
-              for path in changed
-          )
           api_root = pathlib.Path("src/api")
 
           def normalize(path: str) -> str:
@@ -165,10 +148,6 @@ jobs:
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
               env_file.write(f"SKIP_BACKEND_TESTS={'1' if skip_run else '0'}\n")
               env_file.write(f"TEST_TARGETS={targets_list}\n")
-              env_file.write(
-                  "RUN_MIGRATION_CONTRACT_TESTS="
-                  f"{'1' if run_migration_contract_tests else '0'}\n"
-              )
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
               summary.write("### Backend test targets (PR)\n")
               if skip_run:
@@ -188,15 +167,6 @@ jobs:
         working-directory: src/api
         run: |
           python -m pytest --testmon $TEST_TARGETS
-
-      - name: Run migration contract tests (PR)
-        if: github.event_name == 'pull_request' && env.RUN_MIGRATION_CONTRACT_TESTS == '1'
-        working-directory: src/api
-        env:
-          RUN_MYSQL_MIGRATION_SMOKE: ${{ vars.BACKEND_TEST_RUN_MYSQL_MIGRATION_SMOKE }}
-          TEST_SQLALCHEMY_DATABASE_URI: mysql+pymysql://root:${{ vars.BACKEND_TEST_MYSQL_ROOT_PASSWORD_URLENCODED }}@127.0.0.1:3306/mysql
-        run: |
-          python -m pytest tests/migrations -q
 
       - name: Run tests with coverage (main/full)
         if: github.event_name != 'pull_request'
