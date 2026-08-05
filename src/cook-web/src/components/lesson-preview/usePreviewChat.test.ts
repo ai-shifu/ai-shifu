@@ -400,6 +400,70 @@ describe('usePreviewChat helpers and business error rendering', () => {
     });
   });
 
+  test('keeps successful final content when preview closes before done', async () => {
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockReturnValueOnce(source);
+
+    const { result } = renderHook(() => usePreviewChat());
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'prompt',
+        max_block_count: 1,
+      });
+    });
+
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'final-block',
+          content: 'Final preview content.',
+        }),
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            generated_block_bid: 'final-block',
+            content: 'Final preview content.',
+            type: ChatContentItemType.CONTENT,
+          }),
+        ]),
+      );
+    });
+
+    act(() => {
+      source.listeners.error?.({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.items).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: ChatContentItemType.ERROR,
+          }),
+        ]),
+      );
+    });
+    expect(result.current.error).toBeNull();
+    expect(toast).not.toHaveBeenCalled();
+    expect(toastOnce).not.toHaveBeenCalled();
+    expect(result.current.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          generated_block_bid: 'final-block',
+          content: 'Final preview content.',
+          is_final: true,
+        }),
+      ]),
+    );
+  });
+
   test('drops the loading placeholder without appending an empty error row', () => {
     const items: ChatContentItem[] = [
       {

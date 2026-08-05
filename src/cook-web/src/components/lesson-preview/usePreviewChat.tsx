@@ -328,6 +328,24 @@ const getPreviewItemGeneratedBlockBid = (
   return item.generated_block_bid || item.element_bid || '';
 };
 
+const hasRemainingPreviewBlocks = (params: StartPreviewParams) => {
+  const nextIndex = (params?.block_index || 0) + 1;
+  const totalBlocks = params?.max_block_count;
+  return !(
+    typeof totalBlocks === 'number' &&
+    totalBlocks >= 0 &&
+    nextIndex >= totalBlocks
+  );
+};
+
+const isCompletedFinalPreviewContentAfterAbruptClose = (
+  item?: ChatContentItem,
+  params: StartPreviewParams = {},
+) =>
+  item?.type === ChatContentItemType.CONTENT &&
+  Boolean(item.content?.trim()) &&
+  !hasRemainingPreviewBlocks(params);
+
 const isPreviewActionableItem = (
   item?: Pick<
     ChatContentItem,
@@ -1303,8 +1321,6 @@ export function usePreviewChat() {
       parseInteractionBlock,
       stopPreviewAndContinueIfNeeded,
       setTrackedContentList,
-      stopPreview,
-      showPreviewErrorToast,
       t,
       upsertElementPreviewItem,
     ],
@@ -1481,6 +1497,15 @@ export function usePreviewChat() {
             if (didContinue) {
               return;
             }
+            if (
+              isCompletedFinalPreviewContentAfterAbruptClose(
+                latestActionableItem,
+                sseParams.current,
+              )
+            ) {
+              stopPreview();
+              return;
+            }
           }
           handlePreviewBusinessError(t('module.preview.streamError'));
         });
@@ -1519,12 +1544,7 @@ export function usePreviewChat() {
         return false;
       }
       const nextIndex = (sseParams.current?.block_index || 0) + 1;
-      const totalBlocks = sseParams.current?.max_block_count;
-      if (
-        typeof totalBlocks === 'number' &&
-        totalBlocks >= 0 &&
-        nextIndex >= totalBlocks
-      ) {
+      if (!hasRemainingPreviewBlocks(sseParams.current)) {
         return false;
       }
       startPreview({
