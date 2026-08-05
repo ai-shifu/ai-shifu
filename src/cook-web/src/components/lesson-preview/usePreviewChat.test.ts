@@ -217,7 +217,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
 
   test('shows one friendly toast when preview business fallback reports an AI service error', async () => {
     const source = buildMockSseSource();
-    (SSE as jest.Mock).mockImplementationOnce(() => source);
+    (SSE as jest.Mock).mockReturnValueOnce(source);
     let handledError:
       | ((error: { message: string; code: number }) => void)
       | undefined;
@@ -294,7 +294,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
 
   test('shows friendly content when preview SSE error exposes Langfuse details', async () => {
     const source = buildMockSseSource();
-    (SSE as jest.Mock).mockImplementationOnce(() => source);
+    (SSE as jest.Mock).mockReturnValueOnce(source);
 
     const { result } = renderHook(() => usePreviewChat());
 
@@ -331,6 +331,17 @@ describe('usePreviewChat helpers and business error rendering', () => {
         duration: 8000,
       }),
     );
+    expect(result.current.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          generated_block_bid: 'loading',
+        }),
+      ]),
+    );
+    expect(result.current.items.at(-1)).toMatchObject({
+      content: 'module.preview.aiDebugUnavailable',
+      type: ChatContentItemType.ERROR,
+    });
 
     act(() => {
       source.listeners.message?.({
@@ -349,6 +360,44 @@ describe('usePreviewChat helpers and business error rendering', () => {
         }),
       ]),
     );
+  });
+
+  test('replaces the loading placeholder when preview closes before content', async () => {
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockReturnValueOnce(source);
+
+    const { result } = renderHook(() => usePreviewChat());
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'prompt',
+      });
+    });
+
+    expect(result.current.items.at(-1)).toMatchObject({
+      generated_block_bid: 'loading',
+    });
+
+    act(() => {
+      source.listeners.error?.({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('module.preview.streamError');
+    });
+    expect(result.current.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          generated_block_bid: 'loading',
+        }),
+      ]),
+    );
+    expect(result.current.items.at(-1)).toMatchObject({
+      content: 'module.preview.streamError',
+      type: ChatContentItemType.ERROR,
+    });
   });
 
   test('drops the loading placeholder without appending an empty error row', () => {

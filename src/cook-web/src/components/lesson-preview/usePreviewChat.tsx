@@ -1252,16 +1252,10 @@ export function usePreviewChat() {
           currentStreamingElementBidRef.current = null;
           stopPreviewAndContinueIfNeeded(latestActionableItem);
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.ERROR) {
-          previewFailedRef.current = true;
           const errorMessage =
             resolveResponseStringPayload(response) ||
             t('module.preview.llmError');
-          const displayMessage = showPreviewErrorToast(
-            errorMessage,
-            t('module.preview.llmError'),
-          );
-          setError(displayMessage);
-          stopPreview();
+          handlePreviewBusinessError(errorMessage);
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
           const audioSegment = normalizeAudioSegmentPayload(
             resolveResponsePayload(response),
@@ -1305,6 +1299,7 @@ export function usePreviewChat() {
       ensureContentItem,
       finalizePreviewElementOutputInList,
       finalizePreviewItems,
+      handlePreviewBusinessError,
       parseInteractionBlock,
       stopPreviewAndContinueIfNeeded,
       setTrackedContentList,
@@ -1478,6 +1473,7 @@ export function usePreviewChat() {
           // Interaction submissions must receive the block-level done marker first.
           const shouldContinuePreviewOnAbruptClose =
             doneTerminalStateRef.current === null &&
+            Boolean(latestActionableItem) &&
             latestActionableItem?.type !== ChatContentItemType.INTERACTION;
           if (shouldContinuePreviewOnAbruptClose) {
             const didContinue =
@@ -1485,12 +1481,8 @@ export function usePreviewChat() {
             if (didContinue) {
               return;
             }
-            stopPreview();
-            return;
           }
-          previewFailedRef.current = true;
-          setError(t('module.preview.streamError'));
-          stopPreview();
+          handlePreviewBusinessError(t('module.preview.streamError'));
         });
         source.stream();
       } catch (err) {
