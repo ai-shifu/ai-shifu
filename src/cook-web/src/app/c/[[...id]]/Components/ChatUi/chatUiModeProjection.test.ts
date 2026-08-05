@@ -246,6 +246,58 @@ describe('chatUiModeProjection', () => {
     );
   });
 
+  it('prefers hydrated interaction feedback when embedded ask list is stale', () => {
+    const items: ChatContentItem[] = [
+      {
+        type: ChatContentItemType.INTERACTION,
+        element_bid: 'interaction-1',
+        content: '?[%{{choice}} A | B]',
+        is_renderable: false,
+      },
+      {
+        type: ChatContentItemType.ASK,
+        element_bid: '',
+        parent_element_bid: 'interaction-1',
+        content: '',
+        ask_list: [
+          {
+            type: 'answer',
+            element_bid: 'feedback-answer-1',
+            generated_block_bid: 'feedback-generated-1',
+            content: '答对了，继续看下一个坑。',
+          },
+        ],
+      },
+    ];
+
+    const projectedItems = projectListenModeItems({
+      items,
+      askButtonMarkup,
+      askListByAnchorElementBid: {
+        'interaction-1': [
+          {
+            type: 'answer',
+            element_bid: 'feedback-answer-1',
+            generated_block_bid: 'feedback-generated-1',
+            content: '答对了，继续看下一个坑。',
+            audioUrl: '/feedback.mp3',
+            isAudioBackfillReady: false,
+            listenAudioBackfillMode: 'block',
+          },
+        ],
+      },
+    });
+
+    expect(projectedItems[2]).toEqual(
+      expect.objectContaining({
+        element_bid: 'feedback-answer-1',
+        audioUrl: '/feedback.mp3',
+        isAudioBackfillReady: false,
+        listenAudioBackfillMode: 'block',
+      }),
+    );
+  });
+
   it('does not project regular follow-up answers as listen-mode narration', () => {
     const items: ChatContentItem[] = [
       {
