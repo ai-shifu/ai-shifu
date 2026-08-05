@@ -39,8 +39,13 @@ def install_hub_error_observer(logger, hub=None) -> bool:
     """
     if hub is None:
         try:
-            from gevent import get_hub
+            from gevent import get_hub, monkey
         except ImportError:
+            return False
+        if not monkey.is_module_patched("socket"):
+            # Without monkey-patching there is no gevent scheduling to
+            # observe, and get_hub() would needlessly CREATE a hub in a
+            # plain-threaded process (e.g. gthread workers).
             return False
         hub = get_hub()
 

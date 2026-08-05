@@ -2,15 +2,38 @@
 # gunicorn from /app (this file's directory); command-line flags from the
 # deployment entrypoint (e.g. -w) still take precedence over values here.
 
-# With preload_app the master imports the application BEFORE forking workers,
-# so gevent's monkey-patching must happen here, in the master, before any of
-# the app's imports touch socket/ssl. The gevent worker class re-patches in
-# the child, which is a no-op.
 import os
+import sys
 
-from gevent import monkey
 
-monkey.patch_all()
+def _gevent_worker_requested(argv) -> bool:
+    """True when the command line selects the gevent worker class.
+
+    Monkey-patching must match the worker class. The production deployment
+    runs ``-k gthread``; patching gevent onto gthread workers turns their
+    request threads into hub-scheduled greenlets and swaps subprocess for
+    gevent's fork implementation - a hybrid that produced hub crashes
+    (AbstractLinkable._notify_links) which silently interrupted in-flight
+    DB exchanges (MySQL off-by-one protocol desync) and corrupted shared
+    TLS records. Only a real gevent worker gets patched, and it must be
+    patched HERE (the preload master) because with preload_app the app is
+    imported before the worker's own patching would run.
+    """
+    for index, arg in enumerate(argv):
+        if arg in ("-k", "--worker-class"):
+            if index + 1 < len(argv):
+                return argv[index + 1] == "gevent"
+        elif arg.startswith("--worker-class="):
+            return arg.split("=", 1)[1] == "gevent"
+        elif arg.startswith("-k") and len(arg) > 2:
+            return arg[2:] == "gevent"
+    return False
+
+
+if _gevent_worker_requested(sys.argv):
+    from gevent import monkey
+
+    monkey.patch_all()
 
 # Mark the preload master so import-time initializers skip anything that
 # would start background threads here (e.g. the Langfuse/OTel batch
