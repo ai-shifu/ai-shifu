@@ -1,8 +1,7 @@
 import styles from './TrialNodeBottomArea.module.scss';
 import { memo, useEffect, useRef, useCallback, useState } from 'react';
 import { shifu } from '@/c-service/Shifu';
-
-const EMPTY_TRIAL_NODE_FALLBACK = 'non';
+import { useTranslation } from 'react-i18next';
 
 export const TRAIL_NODE_POSITION = {
   NORMAL: 'normal',
@@ -26,6 +25,7 @@ const TrialNodeBottomArea = ({
   payload,
   onNodePositionChange,
 }: TrialNodeBottomAreaProps) => {
+  const { t } = useTranslation();
   const [offsetToScroller, setOffsetToScroller] = useState(0);
   const normalAreaRef = useRef<HTMLDivElement | null>(null);
   const [currHeight, setCurrHeight] = useState(0);
@@ -39,9 +39,9 @@ const TrialNodeBottomArea = ({
     return Control ? (
       <Control payload={payload} />
     ) : (
-      <>{EMPTY_TRIAL_NODE_FALLBACK}</>
+      <>{t('common.core.none')}</>
     );
-  }, [payload]);
+  }, [payload, t]);
 
   const isStickTop = useCallback(() => {
     return containerHeight > 0 && containerScrollTop > offsetToScroller;
