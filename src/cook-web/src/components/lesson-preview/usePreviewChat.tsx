@@ -37,6 +37,7 @@ import {
   resolveLearnerErrorMessage,
   resolveLearnerErrorToast,
 } from '@/lib/learnerError';
+import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 import type { ErrorWithCode } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
@@ -494,6 +495,17 @@ export function usePreviewChat() {
     });
   }, [t]);
 
+  const showPreviewErrorToast = useCallback(
+    (message: string, fallbackMessage: string) => {
+      return showAiServiceErrorToast({
+        message,
+        fallbackMessage,
+        includeUnknown: true,
+      }).message;
+    },
+    [],
+  );
+
   const removeAutoSubmittedBlocks = useCallback((blockIds: string[]) => {
     if (!blockIds?.length) {
       return;
@@ -723,17 +735,21 @@ export function usePreviewChat() {
         typeof errorOrMessage === 'string'
           ? fallbackCode
           : (errorOrMessage?.code ?? fallbackCode);
+      const displayMessage = showPreviewErrorToast(
+        resolvedToast.message,
+        t('module.preview.llmError'),
+      );
       setTrackedContentList(prev =>
         replacePreviewLoadingWithBusinessError(
           prev,
-          resolvedToast.message,
+          displayMessage,
           resolvedCode,
         ),
       );
-      setError(resolvedToast.message);
+      setError(displayMessage);
       stopPreview();
     },
-    [setTrackedContentList, stopPreview, t],
+    [setTrackedContentList, showPreviewErrorToast, stopPreview, t],
   );
 
   const resetPreview = useCallback(() => {
@@ -1235,12 +1251,11 @@ export function usePreviewChat() {
           const errorMessage =
             resolveResponseStringPayload(response) ||
             t('module.preview.llmError');
-          toast({
-            title: t('module.preview.llmError'),
-            description: errorMessage,
-            variant: 'destructive',
-          });
-          setError(errorMessage);
+          const displayMessage = showPreviewErrorToast(
+            errorMessage,
+            t('module.preview.llmError'),
+          );
+          setError(displayMessage);
           stopPreview();
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
           const audioSegment = normalizeAudioSegmentPayload(
@@ -1289,6 +1304,7 @@ export function usePreviewChat() {
       stopPreviewAndContinueIfNeeded,
       setTrackedContentList,
       stopPreview,
+      showPreviewErrorToast,
       t,
       upsertElementPreviewItem,
     ],
@@ -1419,6 +1435,7 @@ export function usePreviewChat() {
             requestToken: tokenValue || '',
             requestId: traceHeaders.requestId,
             harnessRunId: traceHeaders.harnessRunId,
+            skipErrorToast: true,
           },
           onHandled: error => {
             if (sseRef.current !== source) {

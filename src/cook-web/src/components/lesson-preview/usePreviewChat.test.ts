@@ -1,8 +1,13 @@
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { SSE } from 'sse.js';
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { toast, toastOnce } from '@/hooks/useToast';
+import { attachSseBusinessResponseFallback } from '@/lib/request';
 import {
   buildInteractionContinuationPreviewParams,
   buildPreviewBusinessErrorItem,
   replacePreviewLoadingWithBusinessError,
+  usePreviewChat,
 } from './usePreviewChat';
 
 jest.mock('sse.js', () => ({
@@ -46,6 +51,7 @@ jest.mock('@/store', () => {
 
 jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
+  toastOnce: jest.fn(),
 }));
 
 jest.mock('@/lib/request', () => ({
@@ -68,6 +74,27 @@ jest.mock('@/c-utils/envUtils', () => ({
   getStringEnv: jest.fn(() => ''),
 }));
 
+type MockSseSource = {
+  addEventListener: jest.Mock;
+  stream: jest.Mock;
+  close: jest.Mock;
+  listeners: Record<string, (event: { data?: string }) => void>;
+};
+
+const buildMockSseSource = (): MockSseSource => {
+  const listeners: Record<string, (event: { data?: string }) => void> = {};
+  return {
+    listeners,
+    addEventListener: jest.fn(
+      (type: string, listener: (event: { data?: string }) => void) => {
+        listeners[type] = listener;
+      },
+    ),
+    stream: jest.fn(),
+    close: jest.fn(),
+  };
+};
+
 jest.mock('@/c-utils/markdownUtils', () => ({
   mergeStreamingMarkdownText: jest.fn((_prev: string, next: string) => next),
   maskIncompleteMermaidBlock: jest.fn((content: string) => content),
@@ -80,6 +107,9 @@ jest.mock('react-i18next', () => ({
 }));
 
 describe('usePreviewChat helpers and business error rendering', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
   test('builds interaction continuation preview params with latest mdflow', () => {
     expect(
       buildInteractionContinuationPreviewParams({
@@ -182,6 +212,67 @@ describe('usePreviewChat helpers and business error rendering', () => {
       content: '积分不足，请稍后重试',
       type: ChatContentItemType.ERROR,
       business_code: 7101,
+    });
+  });
+
+  test('shows one friendly toast when preview business fallback reports an AI service error', async () => {
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockImplementationOnce(() => source);
+    let handledError:
+      | ((error: { message: string; code: number }) => void)
+      | undefined;
+    (attachSseBusinessResponseFallback as jest.Mock).mockImplementationOnce(
+      (_source, options) => {
+        handledError = options.onHandled;
+      },
+    );
+
+    const { result } = renderHook(() => usePreviewChat());
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'prompt',
+      });
+    });
+
+    expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
+      source,
+      expect.objectContaining({
+        meta: expect.objectContaining({ skipErrorToast: true }),
+      }),
+    );
+
+    act(() => {
+      handledError?.({
+        code: 500,
+        message: '模型 deepseek 调用失败：provider unavailable',
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe(
+        'module.chat.contentGenerationUnavailable',
+      );
+    });
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringContaining('deepseek'),
+      }),
+    );
+    expect(toastOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dedupeKey: 'ai-service-unavailable',
+        title: 'module.chat.contentGenerationUnavailable',
+        variant: 'destructive',
+        duration: 8000,
+      }),
+    );
+    expect(result.current.items.at(-1)).toMatchObject({
+      content: 'module.chat.contentGenerationUnavailable',
+      type: ChatContentItemType.ERROR,
+      business_code: 500,
     });
   });
 
