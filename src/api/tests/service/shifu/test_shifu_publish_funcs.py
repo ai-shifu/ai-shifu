@@ -172,8 +172,15 @@ def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders():
 
 def test_get_summary_updates_trace_and_span_output(monkeypatch):
     from flaskr.service.shifu import shifu_publish_funcs as module
+    from flaskr.api import langfuse as langfuse_module
 
     fake_langfuse = _FakeLangfuseClient()
+    monkeypatch.setattr(
+        langfuse_module.Langfuse,
+        "create_trace_id",
+        lambda seed=None: "a" * 32,
+        raising=False,
+    )
     monkeypatch.setattr(
         module,
         "get_langfuse_client",
@@ -264,6 +271,18 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
     from flaskr.service.shifu import shifu_publish_funcs as module
 
     monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *args: None)
+    original_load_existing_outline_items = module.load_existing_outline_items
+    outline_load_calls = []
+
+    def _record_outline_load(*args, **kwargs):
+        outline_load_calls.append((args, kwargs))
+        return original_load_existing_outline_items(*args, **kwargs)
+
+    monkeypatch.setattr(
+        module,
+        "load_existing_outline_items",
+        _record_outline_load,
+    )
 
     draft_updated_at = datetime(2026, 6, 30, 10, 0, 0)
     with app.app_context():
@@ -307,3 +326,6 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
 
     assert published_outline is not None
     assert published_outline.updated_at == draft_updated_at
+    assert outline_load_calls == [
+        (("publish-preserve-outline-updated-at",), {"include_content": True})
+    ]

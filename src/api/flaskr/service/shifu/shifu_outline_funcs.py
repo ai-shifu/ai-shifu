@@ -36,6 +36,7 @@ from .shifu_history_manager import (
 from .shifu_mdflow_funcs import cleanup_outline_history_versions
 from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
+from sqlalchemy.orm import load_only
 
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 
@@ -68,7 +69,9 @@ def convert_outline_to_reorder_outline_item_dto(
     return result
 
 
-def __get_existing_outline_items(shifu_bid: str) -> list[DraftOutlineItem]:
+def load_existing_outline_items(
+    shifu_bid: str, *, include_content: bool = True
+) -> list[DraftOutlineItem]:
     """
     Get existing outline items
     internal function
@@ -84,7 +87,21 @@ def __get_existing_outline_items(shifu_bid: str) -> list[DraftOutlineItem]:
         )
         .group_by(DraftOutlineItem.outline_item_bid)
     )
-    outline_items = DraftOutlineItem.query.filter(
+    query = DraftOutlineItem.query
+    if not include_content:
+        query = query.options(
+            load_only(
+                DraftOutlineItem.id,
+                DraftOutlineItem.outline_item_bid,
+                DraftOutlineItem.shifu_bid,
+                DraftOutlineItem.title,
+                DraftOutlineItem.type,
+                DraftOutlineItem.hidden,
+                DraftOutlineItem.parent_bid,
+                DraftOutlineItem.position,
+            )
+        )
+    outline_items = query.filter(
         DraftOutlineItem.id.in_(sub_query),
         DraftOutlineItem.deleted == 0,
     ).all()
@@ -92,16 +109,9 @@ def __get_existing_outline_items(shifu_bid: str) -> list[DraftOutlineItem]:
     return sorted(outline_items, key=lambda x: (len(x.position), x.position))
 
 
-def build_outline_tree(app, shifu_bid: str) -> list[ShifuOutlineTreeNode]:
-    """
-    Build outline tree
-    Args:
-        app: Flask application instance
-        shifu_bid: Shifu bid
-    Returns:
-        list[ShifuOutlineTreeNode]: Outline tree
-    """
-    outline_items = __get_existing_outline_items(shifu_bid)
+def build_outline_tree_from_items(
+    app, outline_items: list[DraftOutlineItem]
+) -> list[ShifuOutlineTreeNode]:
     sorted_items = sorted(outline_items, key=lambda x: (len(x.position), x.position))
     outline_tree = []
 
@@ -148,7 +158,26 @@ def build_outline_tree(app, shifu_bid: str) -> list[ShifuOutlineTreeNode]:
     return outline_tree
 
 
-def assert_outline_tree_publishable(app, shifu_bid: str) -> None:
+def build_outline_tree(
+    app, shifu_bid: str, *, include_content: bool = True
+) -> list[ShifuOutlineTreeNode]:
+    """
+    Build outline tree
+    Args:
+        app: Flask application instance
+        shifu_bid: Shifu bid
+    Returns:
+        list[ShifuOutlineTreeNode]: Outline tree
+    """
+    outline_items = load_existing_outline_items(
+        shifu_bid, include_content=include_content
+    )
+    return build_outline_tree_from_items(app, outline_items)
+
+
+def assert_outline_items_publishable(
+    app, shifu_bid: str, outline_items: list[DraftOutlineItem]
+) -> None:
     """
     Validate that the outline structure can be published without silent data
     loss. Orphaned nodes are tolerated (build_outline_tree self-heals them by
@@ -165,9 +194,8 @@ def assert_outline_tree_publishable(app, shifu_bid: str) -> None:
     Raises:
         AppException: server.shifu.outlineStructureBroken when positions collide
     """
-    existing_items = __get_existing_outline_items(shifu_bid)
     positions: dict[str, list[str]] = {}
-    for item in existing_items:
+    for item in outline_items:
         positions.setdefault(item.position, []).append(item.outline_item_bid)
 
     collisions = {pos: bids for pos, bids in positions.items() if len(bids) > 1}
@@ -176,6 +204,15 @@ def assert_outline_tree_publishable(app, shifu_bid: str) -> None:
             f"Outline position collisions for shifu {shifu_bid}: {collisions}"
         )
         raise_error("server.shifu.outlineStructureBroken")
+
+
+def assert_outline_tree_publishable(app, shifu_bid: str) -> None:
+    """
+    Validate that the outline structure can be published without silent data
+    loss.
+    """
+    existing_items = load_existing_outline_items(shifu_bid, include_content=False)
+    assert_outline_items_publishable(app, shifu_bid, existing_items)
 
 
 def get_outline_tree_dto(
@@ -230,7 +267,7 @@ def get_outline_tree(app, user_id: str, shifu_bid: str) -> list[SimpleOutlineDto
     """
     app.logger.info(f"get outline tree, user_id: {user_id}, shifu_bid: {shifu_bid}")
     with app.app_context():
-        outline_tree = build_outline_tree(app, shifu_bid)
+        outline_tree = build_outline_tree(app, shifu_bid, include_content=False)
         # return result
         return get_outline_tree_dto(outline_tree)
 
@@ -302,7 +339,7 @@ def __insert_outline_locked(
     outline_name = __normalize_outline_name(outline_name)
 
     # determine position
-    existing_items = __get_existing_outline_items(shifu_id)
+    existing_items = load_existing_outline_items(shifu_id)
     if parent_id:
         # child outline
         parent_item = next(
@@ -470,7 +507,7 @@ def create_default_outlines_for_new_shifu(
         lesson_bid,
         persist_history=False,
     )
-    outline_items = __get_existing_outline_items(shifu_id)
+    outline_items = load_existing_outline_items(shifu_id)
     history_tree = _build_outline_history_tree(outline_items)
     save_outline_tree_history(
         app=app,
@@ -630,7 +667,7 @@ def reorder_outline_tree(
         __lock_shifu_for_outline_write(shifu_id)
 
         # get existing outlines
-        existing_items = __get_existing_outline_items(shifu_id)
+        existing_items = load_existing_outline_items(shifu_id)
         existing_items_map = {item.outline_item_bid: item for item in existing_items}
         changed_outline_bids = set()
 
@@ -870,7 +907,7 @@ def delete_unit(app, user_id: str, unit_id: str):
         # the tree. A tree-based cascade would then miss the shadowed sibling
         # and leave it orphaned after its parent is deleted. parent_bid gives a
         # deterministic closure that is immune to position collisions.
-        existing_items = __get_existing_outline_items(unit_to_delete.shifu_bid)
+        existing_items = load_existing_outline_items(unit_to_delete.shifu_bid)
         children_by_parent: dict[str, list[str]] = {}
         for item in existing_items:
             children_by_parent.setdefault(item.parent_bid, []).append(
