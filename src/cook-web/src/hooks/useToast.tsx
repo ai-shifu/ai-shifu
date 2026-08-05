@@ -149,6 +149,11 @@ type ToastOnceOptions = Toast & {
 
 const toastDedupeState = new Map<string, { id: string; shownAt: number }>();
 
+const isToastVisible = (toastId: string) =>
+  memoryState.toasts.some(
+    toast => toast.id === toastId && toast.open !== false,
+  );
+
 function toast({ duration = 2000, ...props }: Toast) {
   const id = genId();
 
@@ -189,7 +194,11 @@ function toastOnce({
 }: ToastOnceOptions) {
   const now = Date.now();
   const previous = toastDedupeState.get(dedupeKey);
-  if (previous && now - previous.shownAt < dedupeWindowMs) {
+  if (
+    previous &&
+    now - previous.shownAt < dedupeWindowMs &&
+    isToastVisible(previous.id)
+  ) {
     return {
       id: previous.id,
       dismiss: () => dispatch({ type: 'DISMISS_TOAST', toastId: previous.id }),
