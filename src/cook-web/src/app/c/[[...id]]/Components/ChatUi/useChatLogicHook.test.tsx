@@ -3263,6 +3263,70 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(result.current.reGenerateConfirm.open).toBe(false);
   });
 
+  it('updates the submitted variable-free interaction by block id', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          block_type: 'content',
+          element_type: 'content',
+          content: 'intro',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          block_type: 'interaction',
+          element_type: 'interaction',
+          content: '?[概念还含糊 | 会算但老错 | 几乎空白]',
+          generated_block_bid: 'interaction-1',
+          element_bid: 'interaction-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          block_type: 'interaction',
+          element_type: 'interaction',
+          content: '?[1945 年 | 1946 年 | 1947 年]',
+          generated_block_bid: 'interaction-2',
+          element_bid: 'interaction-2',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.onSend(
+        {
+          variableName: '',
+          selectedValues: ['1946 年'],
+        },
+        'interaction-2',
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(item => item.element_bid === 'interaction-2')
+          ?.user_input,
+      ).toBe('1946 年'),
+    );
+    expect(
+      result.current.items.find(item => item.element_bid === 'interaction-1')
+        ?.user_input,
+    ).toBe('');
+  });
+
   it('drops orphan history follow-ups whose anchor element is absent from records', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',

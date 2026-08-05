@@ -2590,19 +2590,24 @@ function useChatLogicHook({
       options?: { truncateFollowingItems?: boolean },
     ): { newList: ChatContentItem[]; needChangeItemIndex: number } => {
       const newList = [...contentListRef.current];
-      // first find the item with the same variable value
-      let needChangeItemIndex = newList.findIndex(item =>
-        item.content?.includes(params.variableName || ''),
+      let needChangeItemIndex = newList.findIndex(
+        item => item.element_bid === blockBid,
       );
-      // if has multiple items with the same variable value, we need to find the item with the same blockBid
-      const sameVariableValueItems =
-        newList.filter(item =>
-          item.content?.includes(params.variableName || ''),
-        ) || [];
-      if (sameVariableValueItems.length > 1) {
-        needChangeItemIndex = newList.findIndex(
-          item => item.element_bid === blockBid,
+      const variableName = params.variableName;
+      if (variableName) {
+        // first find the item with the same variable value
+        const variableMatchIndex = newList.findIndex(item =>
+          item.content?.includes(variableName),
         );
+        // if has multiple items with the same variable value, we need to find the item with the same blockBid
+        const sameVariableValueItems =
+          newList.filter(item => item.content?.includes(variableName)) || [];
+        needChangeItemIndex =
+          sameVariableValueItems.length > 1
+            ? needChangeItemIndex
+            : variableMatchIndex >= 0
+              ? variableMatchIndex
+              : needChangeItemIndex;
       }
       if (needChangeItemIndex !== -1) {
         newList[needChangeItemIndex] = {
