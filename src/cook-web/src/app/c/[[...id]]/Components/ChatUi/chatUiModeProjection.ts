@@ -188,6 +188,49 @@ const stripClassroomContentAudio = (item: ChatContentItem) => {
   return nextItem;
 };
 
+const projectListenAnswerFeedbackItems = (
+  item: ChatContentItem,
+  itemByElementBid: Map<string, ChatContentItem>,
+) => {
+  if (item.type !== ChatContentItemType.ASK || !Array.isArray(item.ask_list)) {
+    return [];
+  }
+
+  const parentItem = itemByElementBid.get(item.parent_element_bid || '');
+  if (parentItem?.type !== ChatContentItemType.INTERACTION) {
+    return [];
+  }
+
+  return item.ask_list
+    .filter(
+      message => message?.type === 'answer' && Boolean(message.content?.trim()),
+    )
+    .map((message, index) => {
+      const fallbackElementBid = `answer-${item.parent_element_bid || 'feedback'}-${index}`;
+      const elementBid =
+        message.element_bid ||
+        message.generated_block_bid ||
+        fallbackElementBid;
+
+      return {
+        ...message,
+        element_bid: elementBid,
+        generated_block_bid: message.generated_block_bid || elementBid,
+        parent_element_bid: item.parent_element_bid,
+        type: ChatContentItemType.CONTENT,
+        element_type: 'text',
+        is_speakable: true,
+        is_renderable: true,
+        is_marker: true,
+        isAudioBackfillReady:
+          message.isAudioBackfillReady ?? item.isAudioBackfillReady ?? true,
+        readonly: true,
+        customRenderBar: () => null,
+        user_input: '',
+      } satisfies ChatContentItem;
+    });
+};
+
 export const projectReadModeItems = ({
   items,
   askListByAnchorElementBid,
@@ -306,19 +349,31 @@ export const projectListenModeItems = ({
   variant = 'listen',
 }: ProjectListenModeItemsParams) => {
   const hiddenContentElementBids = getHiddenContentElementBids(items);
+  const itemByElementBid = new Map(
+    items
+      .filter(item => item.element_bid)
+      .map(item => [item.element_bid, item] as const),
+  );
   const projectableItems = items.filter(item =>
     variant === 'classroom'
       ? shouldProjectClassroomModeItem(item, hiddenContentElementBids)
       : shouldProjectModeItem(item, hiddenContentElementBids),
   );
   let hasChanges = projectableItems.length !== items.length;
-  const nextItems = projectableItems.map(item => {
+  const nextItems = projectableItems.flatMap(item => {
     if (item.type !== ChatContentItemType.CONTENT) {
-      return item;
+      const answerFeedbackItems =
+        variant === 'listen'
+          ? projectListenAnswerFeedbackItems(item, itemByElementBid)
+          : [];
+      if (answerFeedbackItems.length > 0) {
+        hasChanges = true;
+      }
+      return [item, ...answerFeedbackItems];
     }
     if (variant === 'classroom') {
       hasChanges = true;
-      return stripClassroomContentAudio(item);
+      return [stripClassroomContentAudio(item)];
     }
     const sanitizedContent = syncCustomButtonAfterContent({
       content: item.content,
@@ -326,13 +381,15 @@ export const projectListenModeItems = ({
       shouldShowButton: false,
     });
     if (sanitizedContent === (item.content ?? '')) {
-      return item;
+      return [item];
     }
     hasChanges = true;
-    return {
-      ...item,
-      content: sanitizedContent,
-    };
+    return [
+      {
+        ...item,
+        content: sanitizedContent,
+      },
+    ];
   });
 
   return hasChanges ? nextItems : items;

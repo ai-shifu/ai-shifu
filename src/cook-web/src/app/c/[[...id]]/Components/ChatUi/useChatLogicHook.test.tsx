@@ -755,6 +755,101 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(onStreamSettled).toHaveBeenCalledTimes(1);
   });
 
+  it('writes listen backfill audio to nested interaction answer feedback', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'interaction',
+          content: '?[A | B]',
+          generated_block_bid: 'interaction-block-1',
+          element_bid: 'interaction-1',
+          like_status: 'none',
+          user_input: '',
+          is_renderable: false,
+        },
+        {
+          element_type: 'ask',
+          content: 'A',
+          generated_block_bid: 'learner-answer-generated-1',
+          element_bid: 'learner-answer-1',
+          payload: {
+            anchor_element_bid: 'interaction-1',
+          },
+        },
+        {
+          element_type: 'answer',
+          content: '答对了，继续看下一个坑。',
+          generated_block_bid: 'feedback-generated-1',
+          element_bid: 'feedback-answer-1',
+          payload: {
+            anchor_element_bid: 'interaction-1',
+            ask_element_bid: 'learner-answer-1',
+          },
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    let ttsRequest:
+      | {
+          onMessage: (response: unknown) => void;
+        }
+      | undefined;
+    mockStreamGeneratedBlockAudio.mockImplementation(params => {
+      ttsRequest = params;
+      return {
+        close: jest.fn(),
+      };
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      void result.current.requestAudioForBlock('feedback-generated-1', {
+        listen: true,
+      });
+    });
+
+    expect(mockStreamGeneratedBlockAudio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generated_block_bid: 'feedback-generated-1',
+        listen: true,
+      }),
+    );
+
+    await act(async () => {
+      ttsRequest?.onMessage({
+        type: SSE_OUTPUT_TYPE.AUDIO_COMPLETE,
+        content: {
+          audio_url: 'https://example.com/feedback.mp3',
+          audio_bid: 'feedback-audio-1',
+          duration_ms: 1234,
+        },
+      });
+    });
+
+    await waitFor(() => {
+      const askBlock = result.current.items.find(
+        item =>
+          item.type === ChatContentItemType.ASK &&
+          item.parent_element_bid === 'interaction-1',
+      );
+      const feedbackMessage = askBlock?.ask_list?.find(
+        message => message.element_bid === 'feedback-answer-1',
+      );
+
+      expect(feedbackMessage?.audioUrl).toBe(
+        'https://example.com/feedback.mp3',
+      );
+    });
+  });
+
   it('closes non-listen generated-block audio after the first complete event', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',
