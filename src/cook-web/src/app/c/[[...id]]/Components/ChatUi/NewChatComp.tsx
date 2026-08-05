@@ -554,6 +554,15 @@ export const NewChatComponents = ({
       }),
     [askButtonMarkup, items, mobileStyle, scopedAskListByAnchorElementBid],
   );
+  const slideModeItems = useMemo(
+    () =>
+      projectListenModeItems({
+        items,
+        askButtonMarkup,
+        variant: isClassroomMode ? 'classroom' : 'listen',
+      }),
+    [askButtonMarkup, isClassroomMode, items],
+  );
   const visibleReadModeItems = useMemo(
     () => buildVisibleReadModeItems(readModeItems, readModeTypewriterCache),
     [readModeItems, readModeTypewriterCache],
@@ -765,7 +774,7 @@ export const NewChatComponents = ({
       return;
     }
 
-    const contentItems = items.filter(isContentItemWithElementBid);
+    const contentItems = slideModeItems.filter(isContentItemWithElementBid);
 
     if (!contentItems.length) {
       return;
@@ -871,10 +880,10 @@ export const NewChatComponents = ({
     isListenModeActive,
     isListenModeAvailable,
     isOutputInProgress,
-    items,
     previewMode,
     requestListenAudioBackfillForBlock,
     resolvedLessonId,
+    slideModeItems,
     t,
     updateLearningMode,
   ]);
@@ -932,16 +941,6 @@ export const NewChatComponents = ({
     promptContextKey,
     resolveScrollPresentation,
   ]);
-
-  const slideModeItems = useMemo(
-    () =>
-      projectListenModeItems({
-        items,
-        askButtonMarkup,
-        variant: isClassroomMode ? 'classroom' : 'listen',
-      }),
-    [askButtonMarkup, isClassroomMode, items],
-  );
 
   const itemByGeneratedBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
