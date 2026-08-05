@@ -53,6 +53,18 @@ describe('aiServiceError', () => {
     expect(isAiServiceUnavailableMessage('payment canceled')).toBe(false);
   });
 
+  it('maps Langfuse instrumentation failures to the friendly copy', () => {
+    expect(
+      resolveAiServiceErrorToast({
+        message: "'Langfuse' object has no attribute 'start_span'",
+        fallbackMessage: 'fallback',
+      }),
+    ).toEqual({
+      message: 'i18n:module.chat.contentGenerationUnavailable',
+      isAiServiceUnavailable: true,
+    });
+  });
+
   it('does not classify generic unsupported business errors', () => {
     expect(isAiServiceUnavailableMessage('This action is not supported')).toBe(
       false,

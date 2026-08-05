@@ -1,5 +1,6 @@
 {
   "__namespace__": "module.preview",
+  "aiDebugUnavailable": "AI debugging is temporarily unavailable. Please try again later; if it keeps failing, check the model configuration.",
   "debugDisabledBySoftLimit": "Credit balance is below the reminder threshold. Preview debugging is disabled.",
   "invalidParams": "Preview parameters are incomplete. Please refresh and try again.",
   "llmError": "LLM Invocation Error",

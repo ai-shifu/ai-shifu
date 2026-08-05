@@ -37,6 +37,7 @@ import {
   resolveLearnerErrorMessage,
   resolveLearnerErrorToast,
 } from '@/lib/learnerError';
+import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 import type { ErrorWithCode } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
@@ -327,6 +328,24 @@ const getPreviewItemGeneratedBlockBid = (
   return item.generated_block_bid || item.element_bid || '';
 };
 
+const hasRemainingPreviewBlocks = (params: StartPreviewParams) => {
+  const nextIndex = (params?.block_index || 0) + 1;
+  const totalBlocks = params?.max_block_count;
+  return !(
+    typeof totalBlocks === 'number' &&
+    totalBlocks >= 0 &&
+    nextIndex >= totalBlocks
+  );
+};
+
+const isCompletedFinalPreviewContentAfterAbruptClose = (
+  item?: ChatContentItem,
+  params: StartPreviewParams = {},
+) =>
+  item?.type === ChatContentItemType.CONTENT &&
+  Boolean(item.content?.trim()) &&
+  !hasRemainingPreviewBlocks(params);
+
 const isPreviewActionableItem = (
   item?: Pick<
     ChatContentItem,
@@ -463,7 +482,12 @@ export function usePreviewChat() {
   const sseParams = useRef<StartPreviewParams>({});
   const sseRef = useRef<PreviewSseSource | null>(null);
   const ttsSseRef = useRef<Record<string, PreviewSseSource>>({});
+  const previewRunIdRef = useRef(0);
+  const autoSubmitTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(
+    new Set(),
+  );
   const isStreamingRef = useRef(false);
+  const previewFailedRef = useRef(false);
   const doneTerminalStateRef = useRef<boolean | null>(null);
   const [variablesSnapshot, setVariablesSnapshot] =
     useState<PreviewVariablesMap>({});
@@ -493,6 +517,18 @@ export function usePreviewChat() {
       title: t('module.chat.outputInProgress'),
     });
   }, [t]);
+
+  const showPreviewErrorToast = useCallback(
+    (message: string, fallbackMessage: string) => {
+      return showAiServiceErrorToast({
+        message,
+        fallbackMessage,
+        includeUnknown: true,
+        unavailableMessage: t('module.preview.aiDebugUnavailable'),
+      }).message;
+    },
+    [t],
+  );
 
   const removeAutoSubmittedBlocks = useCallback((blockIds: string[]) => {
     if (!blockIds?.length) {
@@ -700,7 +736,26 @@ export function usePreviewChat() {
     ttsSseRef.current = {};
   }, []);
 
+  const invalidatePreviewRun = useCallback(() => {
+    previewRunIdRef.current += 1;
+    return previewRunIdRef.current;
+  }, []);
+
+  const isCurrentPreviewRun = useCallback(
+    (runId: number) => previewRunIdRef.current === runId,
+    [],
+  );
+
+  const clearAutoSubmitTimers = useCallback(() => {
+    autoSubmitTimeoutsRef.current.forEach(timeoutId => {
+      clearTimeout(timeoutId);
+    });
+    autoSubmitTimeoutsRef.current.clear();
+  }, []);
+
   const stopPreview = useCallback(() => {
+    invalidatePreviewRun();
+    clearAutoSubmitTimers();
     if (sseRef.current) {
       sseRef.current.close();
       sseRef.current = null;
@@ -709,10 +764,11 @@ export function usePreviewChat() {
     isStreamingRef.current = false;
     currentStreamingElementBidRef.current = null;
     setIsLoading(false);
-  }, [closeAllTtsStreams]);
+  }, [clearAutoSubmitTimers, closeAllTtsStreams, invalidatePreviewRun]);
 
   const handlePreviewBusinessError = useCallback(
     (errorOrMessage?: string | ErrorWithCode | null, fallbackCode?: number) => {
+      previewFailedRef.current = true;
       const resolvedToast = resolveLearnerErrorToast({
         error: typeof errorOrMessage === 'string' ? undefined : errorOrMessage,
         message:
@@ -723,20 +779,25 @@ export function usePreviewChat() {
         typeof errorOrMessage === 'string'
           ? fallbackCode
           : (errorOrMessage?.code ?? fallbackCode);
+      const displayMessage = showPreviewErrorToast(
+        resolvedToast.message,
+        t('module.preview.llmError'),
+      );
       setTrackedContentList(prev =>
         replacePreviewLoadingWithBusinessError(
           prev,
-          resolvedToast.message,
+          displayMessage,
           resolvedCode,
         ),
       );
-      setError(resolvedToast.message);
+      setError(displayMessage);
       stopPreview();
     },
-    [setTrackedContentList, stopPreview, t],
+    [setTrackedContentList, showPreviewErrorToast, stopPreview, t],
   );
 
   const resetPreview = useCallback(() => {
+    previewFailedRef.current = false;
     stopPreview();
     setTrackedContentList([]);
     setError(null);
@@ -1235,13 +1296,7 @@ export function usePreviewChat() {
           const errorMessage =
             resolveResponseStringPayload(response) ||
             t('module.preview.llmError');
-          toast({
-            title: t('module.preview.llmError'),
-            description: errorMessage,
-            variant: 'destructive',
-          });
-          setError(errorMessage);
-          stopPreview();
+          handlePreviewBusinessError(errorMessage);
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
           const audioSegment = normalizeAudioSegmentPayload(
             resolveResponsePayload(response),
@@ -1285,10 +1340,10 @@ export function usePreviewChat() {
       ensureContentItem,
       finalizePreviewElementOutputInList,
       finalizePreviewItems,
+      handlePreviewBusinessError,
       parseInteractionBlock,
       stopPreviewAndContinueIfNeeded,
       setTrackedContentList,
-      stopPreview,
       t,
       upsertElementPreviewItem,
     ],
@@ -1341,6 +1396,7 @@ export function usePreviewChat() {
         max_block_count: finalMaxBlockCount,
         visual_mode: finalVisualMode = false,
       } = mergedParams;
+      previewFailedRef.current = false;
       sseParams.current = mergedParams;
       setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
       if (!normalizedUserInput) {
@@ -1362,6 +1418,7 @@ export function usePreviewChat() {
       }
 
       stopPreview();
+      const previewRunId = invalidatePreviewRun();
       doneTerminalStateRef.current = null;
       const resolvedBaseUrl = await resolveBaseUrl();
       if (!resolvedBaseUrl) {
@@ -1419,6 +1476,7 @@ export function usePreviewChat() {
             requestToken: tokenValue || '',
             requestId: traceHeaders.requestId,
             harnessRunId: traceHeaders.harnessRunId,
+            skipErrorToast: true,
           },
           onHandled: error => {
             if (sseRef.current !== source) {
@@ -1428,6 +1486,13 @@ export function usePreviewChat() {
           },
         });
         source.addEventListener('message', event => {
+          if (
+            !isCurrentPreviewRun(previewRunId) ||
+            previewFailedRef.current ||
+            sseRef.current !== source
+          ) {
+            return;
+          }
           const raw = event?.data;
           if (!raw) return;
           const payload = String(raw).trim();
@@ -1437,7 +1502,7 @@ export function usePreviewChat() {
           }
         });
         source.addEventListener('error', err => {
-          if (sseRef.current !== source) {
+          if (!isCurrentPreviewRun(previewRunId) || sseRef.current !== source) {
             return;
           }
           debugError('[preview-chat] preview SSE error', err);
@@ -1452,6 +1517,7 @@ export function usePreviewChat() {
           // Interaction submissions must receive the block-level done marker first.
           const shouldContinuePreviewOnAbruptClose =
             doneTerminalStateRef.current === null &&
+            Boolean(latestActionableItem) &&
             latestActionableItem?.type !== ChatContentItemType.INTERACTION;
           if (shouldContinuePreviewOnAbruptClose) {
             const didContinue =
@@ -1459,14 +1525,21 @@ export function usePreviewChat() {
             if (didContinue) {
               return;
             }
-            stopPreview();
-            return;
+            if (
+              isCompletedFinalPreviewContentAfterAbruptClose(
+                latestActionableItem,
+                sseParams.current,
+              )
+            ) {
+              stopPreview();
+              return;
+            }
           }
-          setError(t('module.preview.streamError'));
-          stopPreview();
+          handlePreviewBusinessError(t('module.preview.streamError'));
         });
         source.stream();
       } catch (err) {
+        previewFailedRef.current = true;
         debugError('[preview-chat] preview stream error', err);
         handlePreviewBusinessError(
           resolveLearnerErrorMessage({
@@ -1482,6 +1555,8 @@ export function usePreviewChat() {
       finalizePreviewItems,
       handlePreviewBusinessError,
       handlePayload,
+      invalidatePreviewRun,
+      isCurrentPreviewRun,
       resolveBaseUrl,
       setTrackedContentList,
       stopPreview,
@@ -1492,16 +1567,14 @@ export function usePreviewChat() {
 
   const continuePreviewFromLatestState = useCallback(
     (latestActionableItem?: ChatContentItem) => {
+      if (previewFailedRef.current) {
+        return false;
+      }
       if (!shouldContinueFromLatestActionableItem(latestActionableItem)) {
         return false;
       }
       const nextIndex = (sseParams.current?.block_index || 0) + 1;
-      const totalBlocks = sseParams.current?.max_block_count;
-      if (
-        typeof totalBlocks === 'number' &&
-        totalBlocks >= 0 &&
-        nextIndex >= totalBlocks
-      ) {
+      if (!hasRemainingPreviewBlocks(sseParams.current)) {
         return false;
       }
       startPreview({
@@ -1793,6 +1866,9 @@ export function usePreviewChat() {
 
   const tryAutoSubmitInteraction = useCallback(
     (blockId: string, content?: string | null) => {
+      if (previewFailedRef.current) {
+        return;
+      }
       if (!content || autoSubmittedBlocksRef.current.has(blockId)) {
         return;
       }
@@ -1811,16 +1887,27 @@ export function usePreviewChat() {
       if (!sendParams) {
         return;
       }
+      const previewRunId = previewRunIdRef.current;
       autoSubmittedBlocksRef.current.add(blockId);
       const delay = parsedInfo?.isMultiSelect ? 1000 : 600;
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
+        autoSubmitTimeoutsRef.current.delete(timeoutId);
+        if (!isCurrentPreviewRun(previewRunId) || previewFailedRef.current) {
+          return;
+        }
         performSend(sendParams, blockId, {
           skipStreamCheck: true,
           skipConfirm: true,
         });
       }, delay);
+      autoSubmitTimeoutsRef.current.add(timeoutId);
     },
-    [buildAutoSendParams, parseInteractionBlock, performSend],
+    [
+      buildAutoSendParams,
+      isCurrentPreviewRun,
+      parseInteractionBlock,
+      performSend,
+    ],
   );
 
   useEffect(() => {
@@ -1868,6 +1955,7 @@ export function usePreviewChat() {
       if (!shifuBid || !blockId) {
         return null;
       }
+      const previewRunId = previewRunIdRef.current;
 
       const existingItem = contentListRef.current.find(item =>
         matchPreviewItemBid(item, blockId),
@@ -1912,6 +2000,9 @@ export function usePreviewChat() {
       );
 
       const resolvedBaseUrl = await resolveBaseUrl();
+      if (!isCurrentPreviewRun(previewRunId)) {
+        return null;
+      }
       const tokenValue = useUserStore.getState().getToken();
       const traceHeaders = buildTraceHeaders({
         'Content-Type': 'application/json',
@@ -1941,6 +2032,12 @@ export function usePreviewChat() {
             harnessRunId: traceHeaders.harnessRunId,
           },
           onHandled: error => {
+            if (
+              !isCurrentPreviewRun(previewRunId) ||
+              ttsSseRef.current[blockId] !== source
+            ) {
+              return;
+            }
             setTrackedContentList(prevState =>
               ensureAudioItem(
                 prevState.map(item => {
@@ -1961,6 +2058,13 @@ export function usePreviewChat() {
         });
 
         source.addEventListener('message', event => {
+          if (
+            !isCurrentPreviewRun(previewRunId) ||
+            previewFailedRef.current ||
+            ttsSseRef.current[blockId] !== source
+          ) {
+            return;
+          }
           const raw = event?.data;
           if (!raw) return;
           const payload = String(raw).trim();
@@ -2008,6 +2112,12 @@ export function usePreviewChat() {
         });
 
         source.addEventListener('error', err => {
+          if (
+            !isCurrentPreviewRun(previewRunId) ||
+            ttsSseRef.current[blockId] !== source
+          ) {
+            return;
+          }
           debugError('[preview-chat] preview audio SSE error', err);
           setTrackedContentList(prevState =>
             ensureAudioItem(
@@ -2030,7 +2140,13 @@ export function usePreviewChat() {
         source.stream();
       });
     },
-    [closeTtsStream, ensureAudioItem, resolveBaseUrl, setTrackedContentList],
+    [
+      closeTtsStream,
+      ensureAudioItem,
+      isCurrentPreviewRun,
+      resolveBaseUrl,
+      setTrackedContentList,
+    ],
   );
 
   return {

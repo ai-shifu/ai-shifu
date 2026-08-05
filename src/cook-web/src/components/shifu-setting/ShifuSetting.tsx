@@ -22,6 +22,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { uploadFile } from '@/lib/file';
 import { buildTraceHeaders } from '@/lib/request-trace';
+import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
 import {
@@ -1599,17 +1600,20 @@ export default function ShifuSettingDialog({
 
     setAskPreviewLoading(true);
     try {
-      const response = (await api.askPreview({
-        query,
-        ask_model: askModel,
-        ask_temperature: askTemperatureForSubmit,
-        ask_system_prompt: '',
-        ask_provider_config: {
-          provider: askProviderForSubmit,
-          mode: askModeForSubmit,
-          config: askConfigForSubmit,
+      const response = (await api.askPreview(
+        {
+          query,
+          ask_model: askModel,
+          ask_temperature: askTemperatureForSubmit,
+          ask_system_prompt: '',
+          ask_provider_config: {
+            provider: askProviderForSubmit,
+            mode: askModeForSubmit,
+            config: askConfigForSubmit,
+          },
         },
-      })) as {
+        { skipErrorToast: true },
+      )) as {
         answer?: string;
         provider?: string;
         requested_provider?: string;
@@ -1623,7 +1627,13 @@ export default function ShifuSettingDialog({
         requestedProvider: String(response?.requested_provider || ''),
         fallbackUsed: Boolean(response?.fallback_used),
       });
-    } catch {
+    } catch (error) {
+      showAiServiceErrorToast({
+        message: error instanceof Error ? error.message : '',
+        fallbackMessage: t('common.core.unknownError'),
+        includeUnknown: true,
+        unavailableMessage: t('module.preview.aiDebugUnavailable'),
+      });
       setAskPreviewResult('');
       setAskPreviewMeta(null);
     } finally {
