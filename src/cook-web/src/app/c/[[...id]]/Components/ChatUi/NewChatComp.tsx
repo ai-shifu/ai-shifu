@@ -43,6 +43,7 @@ import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
+  upsertAudioComplete,
 } from '@/c-utils/audio-utils';
 import {
   Dialog,
@@ -356,6 +357,7 @@ export const NewChatComponents = ({
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
+  const setAskList = useAskStateStore(state => state.setAskList);
   const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
   const storedAskListByAnchorElementBid = useAskStateStore(
     state => state.askListByAnchorElementBid,
@@ -516,6 +518,33 @@ export const NewChatComponents = ({
       }).then(result => {
         if (result) {
           listenAudioBackfillFailedBlockBidsRef.current.delete(blockBid);
+          const askEntry = Object.entries(
+            useAskStateStore.getState().askListByAnchorElementBid,
+          ).find(([, askList]) =>
+            askList.some(
+              message =>
+                message.element_bid === blockBid ||
+                message.generated_block_bid === blockBid,
+            ),
+          );
+          if (askEntry) {
+            const [anchorElementBid, askList] = askEntry;
+            const targetMessage = askList.find(
+              message =>
+                message.element_bid === blockBid ||
+                message.generated_block_bid === blockBid,
+            );
+            const targetElementBid = targetMessage?.element_bid || blockBid;
+            setAskList(
+              anchorElementBid,
+              previousAskList =>
+                upsertAudioComplete(
+                  previousAskList as ChatContentItem[],
+                  targetElementBid,
+                  result,
+                ) as typeof previousAskList,
+            );
+          }
         }
         return result;
       });
@@ -526,7 +555,7 @@ export const NewChatComponents = ({
       }
       return trackedPromise;
     },
-    [requestAudioForBlock],
+    [requestAudioForBlock, setAskList],
   );
 
   const baseAskListByAnchorElementBid = useMemo(
@@ -559,9 +588,10 @@ export const NewChatComponents = ({
       projectListenModeItems({
         items,
         askButtonMarkup,
+        askListByAnchorElementBid: scopedAskListByAnchorElementBid,
         variant: isClassroomMode ? 'classroom' : 'listen',
       }),
-    [askButtonMarkup, isClassroomMode, items],
+    [askButtonMarkup, isClassroomMode, items, scopedAskListByAnchorElementBid],
   );
   const visibleReadModeItems = useMemo(
     () => buildVisibleReadModeItems(readModeItems, readModeTypewriterCache),
