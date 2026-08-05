@@ -1,7 +1,7 @@
 """add canonical learning profile to users
 
 Revision ID: c8f1a2d3e4b5
-Revises: a7c4e9f1b2d3
+Revises: b8d5f0a2c3e4
 Create Date: 2026-08-03 07:00:00.000000
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "c8f1a2d3e4b5"
-down_revision = "a7c4e9f1b2d3"
+down_revision = "b8d5f0a2c3e4"
 branch_labels = None
 depends_on = None
 
