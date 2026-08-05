@@ -6,6 +6,10 @@ import PreviewSettingsModal from './Preview';
 
 const mockSaveMdflow = jest.fn();
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
+const mockCurrentNode = {
+  bid: 'lesson-1',
+  depth: 1,
+};
 
 jest.mock('@/api', () => ({
   __esModule: true,
@@ -26,10 +30,7 @@ jest.mock('@/c-store', () => ({
 
 jest.mock('@/store', () => ({
   useShifu: () => ({
-    currentNode: {
-      bid: 'lesson-1',
-      depth: 1,
-    },
+    currentNode: mockCurrentNode,
     currentShifu: {
       bid: 'shifu-1',
       readonly: false,
@@ -57,6 +58,7 @@ describe('PreviewSettingsModal', () => {
     mockSaveMdflow.mockReset();
     (api.previewShifu as jest.Mock).mockReset();
     mockUseBillingOverview.mockReset();
+    mockCurrentNode.depth = 1;
   });
 
   it('disables preview when billing softlimit blocks debug', () => {
@@ -118,6 +120,36 @@ describe('PreviewSettingsModal', () => {
       expect(api.previewShifu).toHaveBeenCalled();
       expect(openSpy).toHaveBeenCalledWith(
         'https://example.com/c/shifu-1?preview=true&lessonid=lesson-1',
+        '_blank',
+        'noopener,noreferrer',
+      );
+    });
+
+    openSpy.mockRestore();
+  });
+
+  it('removes a stale lessonid when previewing from a root node', async () => {
+    mockCurrentNode.depth = 0;
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        debug_allowed: true,
+      },
+    });
+    (api.previewShifu as jest.Mock).mockResolvedValue(
+      'https://example.com/c/shifu-1?preview=true&lessonid=stale-lesson',
+    );
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(<PreviewSettingsModal />);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module.preview.previewAll/,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(openSpy).toHaveBeenCalledWith(
+        'https://example.com/c/shifu-1?preview=true',
         '_blank',
         'noopener,noreferrer',
       );

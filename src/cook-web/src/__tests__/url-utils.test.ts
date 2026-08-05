@@ -108,6 +108,14 @@ describe('buildAbsoluteUrlWithLessonId', () => {
       'https://learn.example.com/c/course-1?preview=true&lessonid=lesson-2',
     );
   });
+
+  it('resolves a relative preview url against the browser origin by default', () => {
+    expect(
+      buildAbsoluteUrlWithLessonId('/c/course-1?preview=true', 'lesson-2'),
+    ).toBe(
+      `${window.location.origin}/c/course-1?preview=true&lessonid=lesson-2`,
+    );
+  });
 });
 
 describe('replaceCurrentUrlWithLessonId', () => {
