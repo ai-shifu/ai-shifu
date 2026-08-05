@@ -31,6 +31,22 @@ const toRelativeUrl = (urlObj: URL) => {
   return `${urlObj.pathname}${urlObj.search}${urlObj.hash}`;
 };
 
+const updateQueryParam = (
+  urlObj: URL,
+  key: string,
+  value: string | null | undefined,
+) => {
+  const trimmedValue = value?.trim() || '';
+
+  if (trimmedValue) {
+    urlObj.searchParams.set(key, trimmedValue);
+  } else {
+    urlObj.searchParams.delete(key);
+  }
+
+  return urlObj;
+};
+
 export const buildCoursePageUrl = (currentUrl: string) => {
   try {
     const url = new URL(currentUrl);
@@ -54,15 +70,7 @@ export const buildUrlWithQueryParam = (
   value: string | null | undefined,
 ) => {
   const urlObj = createUrl(url);
-  const trimmedValue = value?.trim() || '';
-
-  if (trimmedValue) {
-    urlObj.searchParams.set(key, trimmedValue);
-  } else {
-    urlObj.searchParams.delete(key);
-  }
-
-  return toRelativeUrl(urlObj);
+  return toRelativeUrl(updateQueryParam(urlObj, key, value));
 };
 
 export const buildUrlWithLessonId = (
@@ -70,6 +78,17 @@ export const buildUrlWithLessonId = (
   lessonId: string | null | undefined,
 ) => {
   return buildUrlWithQueryParam(url, LESSON_ID_QUERY_KEY, lessonId);
+};
+
+export const buildAbsoluteUrlWithLessonId = (
+  url: string,
+  lessonId: string | null | undefined,
+  origin = typeof window !== 'undefined'
+    ? window.location.origin
+    : FALLBACK_URL_ORIGIN,
+) => {
+  const urlObj = new URL(url, origin);
+  return updateQueryParam(urlObj, LESSON_ID_QUERY_KEY, lessonId).toString();
 };
 
 export const replaceCurrentUrlWithLessonId = (
