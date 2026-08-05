@@ -9,7 +9,7 @@ import {
 import AskBlock from './AskBlock';
 import { AppContext } from '../AppContext';
 import { SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
-import { toast } from '@/hooks/useToast';
+import { toast, toastOnce } from '@/hooks/useToast';
 import { useAskStateStore } from './useAskStateStore';
 
 jest.mock('react-i18next', () => ({
@@ -20,6 +20,10 @@ jest.mock('react-i18next', () => ({
       resolvedLanguage: 'zh-CN',
     },
   }),
+}));
+
+jest.mock('i18next', () => ({
+  t: (key: string) => key,
 }));
 
 jest.mock('@/c-utils/markdownUtils', () => ({
@@ -63,6 +67,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
 
 jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
+  toastOnce: jest.fn(),
 }));
 
 jest.mock('next/image', () => {
@@ -949,6 +954,38 @@ describe('AskBlock', () => {
       expect(
         (screen.getByLabelText('ask-input') as HTMLTextAreaElement).value,
       ).toBe('another question');
+    });
+
+    it('shows a deduped friendly toast for technical AI service errors', async () => {
+      renderAskBlock();
+
+      fireEvent.change(screen.getByLabelText('ask-input'), {
+        target: { value: 'technical question' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+      await waitFor(() => expect(activeRun).toBeDefined());
+
+      await act(async () => {
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.ERROR,
+          content: '模型 deepseek 调用失败：provider unavailable',
+        });
+      });
+
+      expect(toast).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: expect.stringContaining('deepseek'),
+        }),
+      );
+      expect(toastOnce).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dedupeKey: 'ai-service-unavailable',
+          title: 'module.chat.contentGenerationUnavailable',
+          variant: 'destructive',
+          duration: 8000,
+        }),
+      );
     });
   });
 });
