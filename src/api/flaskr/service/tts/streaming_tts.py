@@ -90,7 +90,13 @@ _tts_executor_pid: int | None = None
 def _get_tts_executor() -> ThreadPoolExecutor:
     global _tts_executor, _tts_executor_pid
     current_pid = os.getpid()
-    if _tts_executor is None or _tts_executor_pid != current_pid:
+    # Rebuild only when there is no executor or the recorded pid is STALE.
+    # An executor with no recorded pid was injected directly (tests patch
+    # `_tts_executor` with a mock) and must be honored as-is; production
+    # code always records the pid alongside the instance it creates.
+    if _tts_executor is None or (
+        _tts_executor_pid is not None and _tts_executor_pid != current_pid
+    ):
         _tts_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="tts_")
         _tts_executor_pid = current_pid
     return _tts_executor

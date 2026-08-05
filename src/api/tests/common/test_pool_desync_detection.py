@@ -27,6 +27,7 @@ class _FakePyMySQLConnection:
 
     def close(self):
         self.closed = True
+        self._sock.close()
 
 
 @pytest.fixture()
@@ -168,9 +169,20 @@ def test_checkin_grace_window_is_a_short_positive_interval():
     assert 0 < dao._CHECKIN_PROBE_GRACE_SECONDS <= 0.002
 
 
+class _FakePingablePyMySQLConnection(_FakePyMySQLConnection):
+    """Fake with a healthy ping - the pymysql-shaped checkout path."""
+
+    def __init__(self, sock):
+        super().__init__(sock)
+        self.pings = 0
+
+    def ping(self, reconnect):
+        self.pings += 1
+
+
 def test_checkout_appends_a_journal_boundary_marker():
     clean_a, clean_b = socket.socketpair()
-    conn = _FakePyMySQLConnection(clean_a)
+    conn = _FakePingablePyMySQLConnection(clean_a)
 
     pool = QueuePool(lambda: conn, pool_size=1, max_overflow=0, reset_on_return=None)
     try:
@@ -191,6 +203,8 @@ def test_checkout_appends_a_journal_boundary_marker():
             if str(entry[0]).startswith(dao._CHECKOUT_BOUNDARY_MARKER)
         ]
         assert len(markers) == 2
+        # The pymysql-shaped path reaches the marker AFTER a healthy ping.
+        assert conn.pings == 2
         fairy2.close()
     finally:
         pool.dispose()

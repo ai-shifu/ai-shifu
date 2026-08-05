@@ -41,6 +41,17 @@ def test_executor_is_cached_within_one_process(monkeypatch):
     first.shutdown(wait=False)
 
 
+def test_directly_injected_executor_is_honored(monkeypatch):
+    # Existing tests patch `_tts_executor` with a mock and leave the pid
+    # unset; the accessor must return the injection instead of clobbering
+    # it with a real executor.
+    sentinel = object()
+    monkeypatch.setattr(streaming_tts, "_tts_executor", sentinel)
+    monkeypatch.setattr(streaming_tts, "_tts_executor_pid", None)
+
+    assert streaming_tts._get_tts_executor() is sentinel
+
+
 def test_executor_is_rebuilt_after_fork(monkeypatch):
     monkeypatch.setattr(streaming_tts, "_tts_executor", None)
     monkeypatch.setattr(streaming_tts, "_tts_executor_pid", None)
