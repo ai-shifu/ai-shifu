@@ -3327,6 +3327,80 @@ describe('useChatLogicHook stream cleanup', () => {
     ).toBe('');
   });
 
+  it('attaches live answer feedback without payload to the submitted interaction', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          block_type: 'content',
+          element_type: 'content',
+          content: 'intro',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          block_type: 'interaction',
+          element_type: 'interaction',
+          content: '?[1945 年 | 1946 年 | 1947 年]',
+          generated_block_bid: 'interaction-1',
+          element_bid: 'interaction-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.onSend(
+        {
+          variableName: '',
+          selectedValues: ['1946 年'],
+        },
+        'interaction-1',
+      );
+    });
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'feedback-generated-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'feedback-answer-1',
+          generated_block_bid: 'feedback-generated-1',
+          element_type: 'answer',
+          content: '答对了，继续看下一个坑。',
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(
+          item =>
+            item.type === ChatContentItemType.ASK &&
+            item.parent_element_bid === 'interaction-1',
+        )?.ask_list,
+      ).toEqual([
+        expect.objectContaining({
+          element_bid: 'feedback-answer-1',
+          type: 'answer',
+          content: '答对了，继续看下一个坑。',
+        }),
+      ]),
+    );
+  });
+
   it('drops orphan history follow-ups whose anchor element is absent from records', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',
