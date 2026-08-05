@@ -1,9 +1,18 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 
 import clsx from 'clsx';
 import styles from './PopupModal.module.scss';
 
 import { useCallback } from 'react';
+
+export type PopupModalProps = {
+  open?: boolean;
+  onClose?: (event: MouseEvent) => void;
+  children?: ReactNode;
+  style?: CSSProperties;
+  wrapStyle?: CSSProperties;
+  className?: string;
+};
 
 export const PopupModal = ({
   open = false,
@@ -12,14 +21,16 @@ export const PopupModal = ({
   style,
   wrapStyle,
   className,
-}) => {
-  const popupRef = useRef(null);
+}: PopupModalProps) => {
+  const popupRef = useRef<HTMLDivElement | null>(null);
 
   // Close the popup when clicking outside the modal
   const handleClickOutside = useCallback(
-    event => {
-      // @ts-expect-error EXPECT
-      if (popupRef.current && !popupRef.current.contains(event.target)) {
+    (event: MouseEvent) => {
+      if (
+        popupRef.current &&
+        !popupRef.current.contains(event.target as Node)
+      ) {
         // `data-scroll-locked` indicates that another overlay is active, so the menu cannot be closed directly.
         // TODO: Migrate to `shadcn/ui`
         if (!document.body.getAttribute('data-scroll-locked')) {
