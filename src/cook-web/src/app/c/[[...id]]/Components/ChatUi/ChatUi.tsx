@@ -30,6 +30,7 @@ const ChatComponents = dynamic(() => import('./NewChatComp'), {
 });
 
 interface ChatUiProps {
+  courseId: string;
   chapterId: string;
   lessonId?: string;
   lessonUpdate: (val: any) => void;
@@ -55,6 +56,7 @@ interface ChatUiProps {
  * Overall canvas for the chat area
  */
 export const ChatUi = ({
+  courseId,
   chapterId,
   lessonId,
   lessonUpdate,
@@ -164,7 +166,11 @@ export const ChatUi = ({
             )}
           >
             {previewMode ? (
-              <PreviewHeaderBanner className={styles.previewHeaderBanner} />
+              <PreviewHeaderBanner
+                courseId={courseId}
+                lessonId={lessonId}
+                className={styles.previewHeaderBanner}
+              />
             ) : null}
             <div className={styles.headerMain}>
               <div className={styles.headerContent}>
