@@ -3,11 +3,13 @@ import { render, screen } from '@testing-library/react';
 import PreviewHeaderBanner from './PreviewHeaderBanner';
 
 jest.mock('react-i18next', () => {
+  const draftNotice = 'Draft notice.';
+
   return {
     Trans: ({ components }: any) => {
       return (
         <>
-          Draft notice.
+          {draftNotice}
           {React.cloneElement(components.editLink, {}, 'Edit course')}
         </>
       );
