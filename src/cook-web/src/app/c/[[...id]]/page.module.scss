@@ -1,7 +1,7 @@
 .newChatPage {
   --mobile-chat-header-base-height: 44px;
   --mobile-chat-header-notice-height: 32px;
-  --mobile-chat-preview-banner-height: 40px;
+  --mobile-chat-preview-banner-height: 76px;
   --mobile-chat-header-height: var(--mobile-chat-header-base-height);
   width: 100%;
   min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);

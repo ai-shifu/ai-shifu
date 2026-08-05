@@ -1,3 +1,4 @@
+import os
 import ast
 import json
 import re
@@ -128,8 +129,23 @@ def build_langfuse_observation_link(
     return observation_link
 
 
+PRELOAD_MASTER_ENV = "AI_SHIFU_PRELOAD_MASTER"
+
+
 def init_langfuse(app: Flask):
     global langfuse_client
+    if os.environ.get(PRELOAD_MASTER_ENV):
+        # Running inside the gunicorn preload master. Creating a real client
+        # here starts the Langfuse/OTel BatchProcessor worker thread in the
+        # master and registers an os.register_at_fork hook; after fork every
+        # worker restarts that orphaned processor's thread, whose gevent
+        # threading bookkeeping then crashes the hub (KeyError on the stopped
+        # Thread in AbstractLinkable._notify_links) and can interrupt
+        # unrelated in-flight DB exchanges. post_fork clears the flag and
+        # calls init_langfuse again to build the real client per worker.
+        app.logger.info("Deferring Langfuse init out of the preload master")
+        langfuse_client = MockClient()
+        return
     app.logger.info("Initializing Langfuse client")
     if (
         app.config.get("LANGFUSE_PUBLIC_KEY")
