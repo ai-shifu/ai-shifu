@@ -7,6 +7,7 @@ export const AI_SERVICE_ERROR_TOAST_DEDUPE_MS = 10000;
 const AI_SERVICE_IDENTITY_MARKERS = [
   'llm',
   'litellm',
+  'langfuse',
   'model',
   'api key',
   'base_url',
@@ -25,6 +26,8 @@ const AI_SERVICE_ERROR_STATE_MARKERS = [
   'badrequesterror',
   'apiconnectionerror',
   'internalservererror',
+  'object has no attribute',
+  'attributeerror',
   '调用失败',
   '没有配置',
   '不支持',

@@ -276,6 +276,49 @@ describe('usePreviewChat helpers and business error rendering', () => {
     });
   });
 
+  test('shows friendly content when preview SSE error exposes Langfuse details', async () => {
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockImplementationOnce(() => source);
+
+    const { result } = renderHook(() => usePreviewChat());
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'prompt',
+      });
+    });
+
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({
+          type: 'error',
+          content: "'Langfuse' object has no attribute 'start_span'",
+        }),
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe(
+        'module.chat.contentGenerationUnavailable',
+      );
+    });
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringContaining('Langfuse'),
+      }),
+    );
+    expect(toastOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dedupeKey: 'ai-service-unavailable',
+        title: 'module.chat.contentGenerationUnavailable',
+        variant: 'destructive',
+        duration: 8000,
+      }),
+    );
+  });
+
   test('drops the loading placeholder without appending an empty error row', () => {
     const items: ChatContentItem[] = [
       {
