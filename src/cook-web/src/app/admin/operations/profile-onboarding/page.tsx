@@ -63,7 +63,7 @@ export default function ProfileOnboardingAdminPage() {
       .getAdminOperationProfileOnboardingConfig({})
       .then((response: ProfileOnboardingConfig) => {
         setEnabled(Boolean(response.enabled));
-        setMarkdownflow(response.markdownflow || defaultMarkdownflow);
+        setMarkdownflow(response.markdownflow ?? defaultMarkdownflow);
         setDocumentPrompt(response.document_prompt ?? defaultDocumentPrompt);
         setConfigRevision(
           Number(response.config_revision ?? response.version ?? 0),

@@ -178,6 +178,44 @@ describe('ProfileOnboardingAdminPage', () => {
     });
   });
 
+  test('preserves an intentionally empty MarkdownFlow while disabled', async () => {
+    mockGetConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: '',
+      document_prompt: '原有总结要求',
+      config_revision: 2,
+    });
+    mockUpdateConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: '',
+      document_prompt: '更新后的总结要求',
+      config_revision: 3,
+    });
+
+    render(<ProfileOnboardingAdminPage />);
+
+    const flowEditor = await screen.findByLabelText(
+      'module.profileOnboarding.admin.markdownflow',
+    );
+    expect(flowEditor).toHaveValue('');
+    fireEvent.change(screen.getByDisplayValue('原有总结要求'), {
+      target: { value: '更新后的总结要求' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith({
+        enabled: false,
+        markdownflow: '',
+        document_prompt: '更新后的总结要求',
+      });
+    });
+  });
+
   test('creates an isolated server-side runtime preview from the unsaved document', async () => {
     render(<ProfileOnboardingAdminPage />);
     await screen.findByDisplayValue(
