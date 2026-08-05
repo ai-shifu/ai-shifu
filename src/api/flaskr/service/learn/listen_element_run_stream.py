@@ -44,6 +44,7 @@ from flaskr.service.learn.listen_element_types import (
     _default_is_renderable,
     _default_is_speakable,
     _element_type_code,
+    _new_element_bid,
     _normalized_is_speakable,
 )
 from flaskr.service.learn.listen_slide_builder import (
@@ -198,7 +199,7 @@ class ListenElementRunStreamMixin:
 
     def _build_fallback_element(self, state: BlockState, role: str) -> ElementDTO:
         if not state.fallback_element_bid:
-            state.fallback_element_bid = self._new_element_bid()
+            state.fallback_element_bid = _new_element_bid(self.app)
             self._max_element_index += 1
         audio, audio_segments = _resolve_stream_audio_for_element_bid(
             state,
@@ -484,7 +485,7 @@ class ListenElementRunStreamMixin:
                 self._max_element_index += 1
                 stream_state = StreamElementState(
                     number=stream_number,
-                    element_bid=self._new_element_bid(),
+                    element_bid=_new_element_bid(self.app),
                     element_index=max(self._max_element_index, 0),
                     element_type=stream_element_type,
                     stream_type=normalized_stream_type,
@@ -776,7 +777,7 @@ class ListenElementRunStreamMixin:
                             continue
                         visual_segments.append(
                             VisualSegment(
-                                segment_id=self._new_element_bid(),
+                                segment_id=_new_element_bid(self.app),
                                 generated_block_bid=generated_block_bid,
                                 element_index=next_index,
                                 audio_position=int(boundary.get("position", 0) or 0),
