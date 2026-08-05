@@ -167,6 +167,7 @@ def _reject_desynced_connection_on_checkout(
     # sees an already-invalidated record and never touches the wire.
     ping = getattr(dbapi_connection, "ping", None)
     if ping is None:
+        _mark_checkout_boundary(connection_record)
         return
     try:
         ping(False)
@@ -182,6 +183,17 @@ def _reject_desynced_connection_on_checkout(
         # GreenletExit and friends propagate; the record is already
         # invalidated so nothing dirty can reach the pool.
         raise
+    _mark_checkout_boundary(connection_record)
+
+
+def _mark_checkout_boundary(connection_record) -> None:
+    # The journal lives in connection_record.info and therefore survives
+    # checkin/checkout: without a boundary marker a dump can silently mix
+    # statements from different requests that shared this pooled connection.
+    with contextlib.suppress(Exception):
+        _journal_from_info(connection_record.info).append(
+            (f"{_CHECKOUT_BOUNDARY_MARKER} pid={os.getpid()}", None, None)
+        )
 
 
 # Ring buffer of recent statements per DBAPI connection, plus a pre-execute
@@ -199,12 +211,19 @@ _STATEMENT_JOURNAL_SIZE = 25
 _STATEMENT_SNIPPET_CHARS = 90
 
 
-def _statement_journal(connection) -> collections.deque:
-    journal = connection.info.get(_STATEMENT_JOURNAL_KEY)
+_CHECKOUT_BOUNDARY_MARKER = "-- pool checkout --"
+
+
+def _journal_from_info(info) -> collections.deque:
+    journal = info.get(_STATEMENT_JOURNAL_KEY)
     if journal is None:
         journal = collections.deque(maxlen=_STATEMENT_JOURNAL_SIZE)
-        connection.info[_STATEMENT_JOURNAL_KEY] = journal
+        info[_STATEMENT_JOURNAL_KEY] = journal
     return journal
+
+
+def _statement_journal(connection) -> collections.deque:
+    return _journal_from_info(connection.info)
 
 
 @event.listens_for(Engine, "before_cursor_execute")
@@ -219,10 +238,13 @@ def _intercept_desync_before_execute(
         _pool_diagnostics_logger().error(
             "DB connection has an unread response before executing a new "
             "statement (off-by-one protocol desync, pid=%s "
-            "server_thread_id=%s). The LAST journal entry is the statement "
-            "whose exchange was interrupted. journal=%s next_statement=%r",
+            "server_thread_id=%s). The journal lists this connection's "
+            "recent COMPLETED statements ('%s' rows mark pool checkout "
+            "boundaries); the interrupted statement itself may be absent "
+            "because it never finished. journal=%s next_statement=%r",
             os.getpid(),
             _server_thread_id(dbapi_connection),
+            _CHECKOUT_BOUNDARY_MARKER,
             journal,
             statement[:_STATEMENT_SNIPPET_CHARS],
         )
