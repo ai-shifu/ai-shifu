@@ -355,6 +355,9 @@ describe('listenModeUtils', () => {
       'template',
       '<section><template>Hidden fallback text</template></section>',
     ],
+    ['unclosed script', '<section><script>const visible = "read this";'],
+    ['unclosed style', '<section><style>.hero { display: flex; }'],
+    ['unclosed template', '<section><template>Hidden fallback text'],
   ])(
     'does not use html tts fallback for %s-only hidden content',
     (_caseName, content) => {

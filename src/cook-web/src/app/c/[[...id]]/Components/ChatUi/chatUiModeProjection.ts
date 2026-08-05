@@ -204,9 +204,7 @@ const projectListenAnswerFeedbackItems = (
   }
 
   const askList =
-    Array.isArray(item.ask_list) && item.ask_list.length
-      ? item.ask_list
-      : askListByAnchorElementBid[item.parent_element_bid || ''];
+    askListByAnchorElementBid[item.parent_element_bid || ''] ?? item.ask_list;
 
   if (!Array.isArray(askList)) {
     return [];

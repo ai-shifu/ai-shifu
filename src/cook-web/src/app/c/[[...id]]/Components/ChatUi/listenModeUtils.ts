@@ -20,7 +20,7 @@ const MIN_LISTEN_MODE_TTS_TEXT_LENGTH = 2;
 const CUSTOM_BUTTON_RE =
   /<custom-button-after-content\b[\s\S]*?<\/custom-button-after-content>/gi;
 const HTML_NON_VISIBLE_CONTENT_RE =
-  /<(script|style|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+  /<(script|style|template)\b[^>]*>(?:[\s\S]*?<\/\1\s*>|[\s\S]*$)/gi;
 const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
 const HTML_TAG_RE = /<\/?\s*[a-zA-Z][a-zA-Z0-9:_-]*\b[^>]*>/g;
 const HTML_SPACE_ENTITY_RE = /&(?:nbsp|ensp|emsp|thinsp|zwnj|zwj);/gi;
