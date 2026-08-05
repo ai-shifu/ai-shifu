@@ -25,11 +25,11 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: root
+          MYSQL_ROOT_PASSWORD: ${{ vars.BACKEND_TEST_MYSQL_ROOT_PASSWORD }}
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -p${{ vars.BACKEND_TEST_MYSQL_ROOT_PASSWORD }}"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -193,8 +193,8 @@ jobs:
         if: github.event_name == 'pull_request' && env.RUN_MIGRATION_CONTRACT_TESTS == '1'
         working-directory: src/api
         env:
-          RUN_MYSQL_MIGRATION_SMOKE: "1"
-          TEST_SQLALCHEMY_DATABASE_URI: mysql+pymysql://root:root@127.0.0.1:3306/mysql
+          RUN_MYSQL_MIGRATION_SMOKE: ${{ vars.BACKEND_TEST_RUN_MYSQL_MIGRATION_SMOKE }}
+          TEST_SQLALCHEMY_DATABASE_URI: mysql+pymysql://root:${{ vars.BACKEND_TEST_MYSQL_ROOT_PASSWORD_URLENCODED }}@127.0.0.1:3306/mysql
         run: |
           python -m pytest tests/migrations -q
 
