@@ -267,6 +267,35 @@ describe('listenModeUtils', () => {
     ).toBe(false);
   });
 
+  it('allows html slides with visible text to use generated-block tts fallback', () => {
+    expect(
+      isListenModeAudioBackfillCandidate(
+        createContentItem({
+          element_bid: 'html-slide-1',
+          generated_block_bid: 'generated-block-1',
+          element_type: 'html',
+          content:
+            '<section><h1>计算机的定义</h1><p>存储程序，自动高速。</p></section>',
+          is_speakable: false,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not use html tts fallback for visual markup without visible text', () => {
+    expect(
+      isListenModeAudioBackfillCandidate(
+        createContentItem({
+          element_bid: 'html-slide-1',
+          generated_block_bid: 'generated-block-1',
+          element_type: 'html',
+          content: '<section><img src="/cover.png" /></section>',
+          is_speakable: false,
+        }),
+      ),
+    ).toBe(false);
+  });
+
   it('does not make very short content a listen-mode backfill candidate', () => {
     expect(
       isListenModeAudioBackfillCandidate(

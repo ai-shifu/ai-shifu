@@ -40,6 +40,13 @@ const hasListenModeSpeakableText = (content?: string) => {
   );
 };
 
+const isHtmlSlideFallbackTtsCandidate = (item?: ChatContentItem | null) =>
+  Boolean(
+    item?.element_type === 'html' &&
+    item.generated_block_bid?.trim() &&
+    hasListenModeSpeakableText(item.content),
+  );
+
 export const sortByPosition = <T extends { position?: number }>(
   list: T[] = [],
 ) =>
@@ -291,6 +298,7 @@ export const canRequestListenModeTtsForItem = (
 
   return Boolean(
     (item.is_speakable === true && hasListenModeSpeakableText(item.content)) ||
+    isHtmlSlideFallbackTtsCandidate(item) ||
     item.audio_url ||
     item.audioUrl ||
     item.isAudioStreaming ||
@@ -321,7 +329,8 @@ export const isListenModeAudioBackfillCandidate = (
   }
 
   return (
-    item.is_speakable !== false && hasListenModeSpeakableText(item.content)
+    (item.is_speakable !== false && hasListenModeSpeakableText(item.content)) ||
+    isHtmlSlideFallbackTtsCandidate(item)
   );
 };
 
