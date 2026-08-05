@@ -1996,10 +1996,20 @@ function useChatLogicHook({
               fallbackMessage: t('module.chat.requestFailed'),
               includeUnknown: true,
             });
-            toast({
-              title: displayErrorToast.message,
-              variant: resolvedErrorToast.variant,
-            });
+            if (displayErrorToast.isAiServiceUnavailable) {
+              toastOnce({
+                dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
+                dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
+                title: displayErrorToast.message,
+                variant: resolvedErrorToast.variant,
+                duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+              });
+            } else {
+              toast({
+                title: displayErrorToast.message,
+                variant: resolvedErrorToast.variant,
+              });
+            }
             cleanupRunStreamState();
             setHasRunFailed(true);
             appendRunBusinessError(

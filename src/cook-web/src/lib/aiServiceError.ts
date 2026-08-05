@@ -4,19 +4,27 @@ export const AI_SERVICE_ERROR_TOAST_KEY = 'ai-service-unavailable';
 export const AI_SERVICE_ERROR_TOAST_DURATION_MS = 8000;
 export const AI_SERVICE_ERROR_TOAST_DEDUPE_MS = 10000;
 
-const AI_SERVICE_ERROR_MARKERS = [
+const AI_SERVICE_IDENTITY_MARKERS = [
   'llm',
   'litellm',
   'model',
   'api key',
   'base_url',
+  'provider',
+  '模型',
+] as const;
+
+const AI_SERVICE_ERROR_STATE_MARKERS = [
+  'missing',
+  'failed',
+  'failure',
+  'error',
+  'unavailable',
   'not configured',
   'not supported',
-  'provider',
   'badrequesterror',
   'apiconnectionerror',
   'internalservererror',
-  '模型',
   '调用失败',
   '没有配置',
   '不支持',
@@ -40,11 +48,21 @@ export const isAiServiceUnavailableMessage = (
     return false;
   }
 
-  const markers = includeUnknown
-    ? [...AI_SERVICE_ERROR_MARKERS, ...UNKNOWN_ERROR_MARKERS]
-    : AI_SERVICE_ERROR_MARKERS;
+  const hasUnknownMarker =
+    includeUnknown &&
+    UNKNOWN_ERROR_MARKERS.some(marker => normalizedMessage.includes(marker));
+  if (hasUnknownMarker) {
+    return true;
+  }
 
-  return markers.some(marker => normalizedMessage.includes(marker));
+  const hasAiIdentity = AI_SERVICE_IDENTITY_MARKERS.some(marker =>
+    normalizedMessage.includes(marker),
+  );
+  const hasErrorState = AI_SERVICE_ERROR_STATE_MARKERS.some(marker =>
+    normalizedMessage.includes(marker),
+  );
+
+  return hasAiIdentity && hasErrorState;
 };
 
 export const resolveAiServiceErrorToast = ({

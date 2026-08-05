@@ -52,4 +52,25 @@ describe('aiServiceError', () => {
     );
     expect(isAiServiceUnavailableMessage('payment canceled')).toBe(false);
   });
+
+  it('does not classify generic unsupported business errors', () => {
+    expect(isAiServiceUnavailableMessage('This action is not supported')).toBe(
+      false,
+    );
+    expect(
+      resolveAiServiceErrorToast({
+        message: 'This action is not supported',
+        fallbackMessage: 'fallback',
+      }),
+    ).toEqual({
+      message: 'This action is not supported',
+      isAiServiceUnavailable: false,
+    });
+  });
+
+  it('keeps model unsupported errors classified when AI evidence is present', () => {
+    expect(
+      isAiServiceUnavailableMessage('Model deepseek is not supported'),
+    ).toBe(true);
+  });
 });

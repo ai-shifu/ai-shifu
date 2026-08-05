@@ -1625,6 +1625,44 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
+  it('uses the deduped friendly toast for preview AI service transport errors', async () => {
+    renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          previewMode: true,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    act(() => {
+      activeRun?.onError({
+        detail: {
+          code: 7101,
+          message: 'Model deepseek is not supported',
+        },
+      });
+    });
+
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringContaining('deepseek'),
+      }),
+    );
+    expect(toastOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dedupeKey: 'ai-service-unavailable',
+        title: 'module.chat.contentGenerationUnavailable',
+        variant: 'destructive',
+        duration: 8000,
+      }),
+    );
+  });
+
   it('uses the longer run stream idle timeout on mobile', async () => {
     jest.useFakeTimers();
 
