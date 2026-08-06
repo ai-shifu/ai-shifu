@@ -431,6 +431,84 @@ def test_save_shifu_mdflow_serializes_with_outline_structure_writes(app, monkeyp
     assert latest.position == "0101"
 
 
+def test_save_shifu_mdflow_rereads_outline_after_risk_control_commit(app, monkeypatch):
+    shifu_bid = "shifu-mdflow-risk-commit-1"
+    outline_bid = "outline-mdflow-risk-commit-1"
+
+    _add_outline_version(
+        app,
+        shifu_bid,
+        outline_bid,
+        "Original",
+        "user-risk-commit-1",
+        0,
+        parent_bid="parent-old",
+        position="0105",
+    )
+
+    def _risk_check_and_reorder(_app, _check_id, _user_id, _content):
+        with app.app_context():
+            latest = (
+                DraftOutlineItem.query.filter_by(
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=outline_bid,
+                )
+                .order_by(DraftOutlineItem.id.desc())
+                .first()
+            )
+            reordered = latest.clone()
+            reordered.parent_bid = "parent-new"
+            reordered.position = "0101"
+            reordered.updated_user_bid = "user-risk-commit-1"
+            reordered.updated_at = datetime.now() + timedelta(minutes=1)
+            db.session.add(reordered)
+            db.session.commit()
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
+        _risk_check_and_reorder,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.save_outline_history",
+        lambda *_args, **_kwargs: 999999,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.cleanup_outline_history_versions",
+        lambda *_args, **_kwargs: None,
+    )
+
+    result = save_shifu_mdflow(
+        app,
+        "user-risk-commit-2",
+        shifu_bid,
+        outline_bid,
+        "Updated content",
+    )
+
+    with app.app_context():
+        latest = (
+            DraftOutlineItem.query.filter_by(
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+
+    assert result["conflict"] is False
+    assert latest.content == "Updated content"
+    assert latest.parent_bid == "parent-new"
+    assert latest.position == "0101"
+
+
 def test_cleanup_outline_history_preserves_content_anchor_revision(app):
     shifu_bid = "shifu-mdflow-cleanup-1"
     outline_bid = "outline-mdflow-cleanup-1"

@@ -154,36 +154,13 @@ def save_shifu_mdflow(
     """
     content = content or ""
     with app.app_context():
-        # The risk check commits its own RiskControlResult row and calls an
-        # external moderation API, so it must run at most once per save. This
-        # guard lives outside the retried transaction below, so a deadlock retry
-        # of the DB write does not repeat that side effect.
-        risk_checked = False
+        lock_latest = isinstance(base_revision, int) and base_revision >= 0
 
-        @retry_on_deadlock()
-        def _save_txn() -> DraftSaveResponse:
-            nonlocal risk_checked
-            lock_shifu_for_outline_write(shifu_bid)
-            lock_latest = isinstance(base_revision, int) and base_revision >= 0
-            outline_query = DraftOutlineItem.query.filter(
-                DraftOutlineItem.shifu_bid == shifu_bid,
-                DraftOutlineItem.outline_item_bid == outline_bid,
-            ).order_by(DraftOutlineItem.id.desc())
+        def _current_conflict() -> DraftConflictResult | None:
+            latest_meta = get_shifu_draft_meta(app, shifu_bid, outline_bid)
+            if int(latest_meta.get("deleted", 0) or 0) == 1:
+                return {"conflict": True, "meta": latest_meta}
             if lock_latest:
-                outline_query = outline_query.with_for_update()
-            outline_item: DraftOutlineItem = outline_query.first()
-            if not outline_item:
-                raise_error("server.shifu.outlineItemNotFound")
-            if outline_item.deleted == 1:
-                return {
-                    "conflict": True,
-                    "meta": get_shifu_draft_meta(app, shifu_bid, outline_bid),
-                }
-
-            if lock_latest:
-                latest_meta = get_shifu_draft_meta(app, shifu_bid, outline_bid)
-                if int(latest_meta.get("deleted", 0) or 0) == 1:
-                    return {"conflict": True, "meta": latest_meta}
                 latest_revision = int(latest_meta.get("revision", 0) or 0)
                 updated_user_bid = (latest_meta.get("updated_user") or {}).get(
                     "user_bid"
@@ -192,19 +169,57 @@ def save_shifu_mdflow(
                     not updated_user_bid or updated_user_bid != user_id
                 ):
                     return {"conflict": True, "meta": latest_meta}
-            # create new version
-            new_outline: DraftOutlineItem = outline_item.clone()
-            new_outline.content = content
+            return None
 
-            # risk check
-            # save to database
+        preflight_outline = (
+            DraftOutlineItem.query.filter(
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.outline_item_bid == outline_bid,
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+        if not preflight_outline:
+            raise_error("server.shifu.outlineItemNotFound")
+        conflict = _current_conflict()
+        if conflict:
+            return conflict
+
+        # Risk control writes and commits its own audit row, so it must run before
+        # the outline write lock is acquired. The locked transaction below always
+        # re-reads the latest outline version after this possible commit.
+        if (preflight_outline.content or "") != content:
+            check_text_with_risk_control(
+                app, preflight_outline.outline_item_bid, user_id, content
+            )
+
+        @retry_on_deadlock()
+        def _save_txn() -> DraftSaveResponse:
+            lock_shifu_for_outline_write(shifu_bid)
+            conflict = _current_conflict()
+            if conflict:
+                return conflict
+
+            outline_item: DraftOutlineItem = (
+                DraftOutlineItem.query.filter(
+                    DraftOutlineItem.shifu_bid == shifu_bid,
+                    DraftOutlineItem.outline_item_bid == outline_bid,
+                )
+                .order_by(DraftOutlineItem.id.desc())
+                .first()
+            )
+            if not outline_item:
+                raise_error("server.shifu.outlineItemNotFound")
+            if outline_item.deleted == 1:
+                return {
+                    "conflict": True,
+                    "meta": get_shifu_draft_meta(app, shifu_bid, outline_bid),
+                }
+
             new_revision = None
-            if not outline_item.content == new_outline.content:
-                if not risk_checked:
-                    check_text_with_risk_control(
-                        app, outline_item.outline_item_bid, user_id, content
-                    )
-                    risk_checked = True
+            if (outline_item.content or "") != content:
+                new_outline: DraftOutlineItem = outline_item.clone()
+                new_outline.content = content
                 new_outline.updated_user_bid = user_id
                 new_outline.updated_at = now_utc()
                 db.session.add(new_outline)
