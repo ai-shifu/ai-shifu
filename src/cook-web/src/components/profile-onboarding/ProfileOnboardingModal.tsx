@@ -1,7 +1,14 @@
 'use client';
 
 import React from 'react';
-import { Check, Copy, MessageCircleQuestion, Sparkles } from 'lucide-react';
+import {
+  Check,
+  ChevronRight,
+  Copy,
+  MessageCircleQuestion,
+  ShieldCheck,
+  Sparkles,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   createProfileOnboardingSession,
@@ -137,6 +144,7 @@ export default function ProfileOnboardingModal({
   const [runtimeError, setRuntimeError] = React.useState('');
   const shownRef = React.useRef(false);
   const shownAtRef = React.useRef<number | null>(null);
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
   const presentationRef = React.useRef(presentation);
   const trackEventRef = React.useRef(trackEvent);
   presentationRef.current = presentation;
@@ -284,77 +292,81 @@ export default function ProfileOnboardingModal({
         ? 0
         : Math.max(0, Date.now() - shownAtRef.current);
     void trackEvent(PROFILE_ONBOARDING_EVENTS.SKIPPED, {
-      action: isNonBlocking ? 'dismissed' : 'skipped',
+      action: 'skipped',
       presentation,
       duration_ms: durationMs,
     });
     clearPasteDraft(pasteDraftStorageKey);
-  }, [
-    isNonBlocking,
-    onSkip,
-    pasteDraftStorageKey,
-    presentation,
-    sessionId,
-    trackEvent,
-  ]);
+  }, [onSkip, pasteDraftStorageKey, presentation, sessionId, trackEvent]);
 
   const profileLength = countUnicodeCodePoints(draft.trim());
   const combinedError = errorMessage || runtimeError;
   return (
-    <Dialog
-      open={open}
-      onOpenChange={nextOpen => {
-        if (!nextOpen && isNonBlocking && !submitting) {
-          void handleSkip();
-        }
-      }}
-    >
+    <Dialog open={open}>
       <DialogContent
         className={cn(
-          'inset-0 left-0 top-0 flex h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0',
-          'sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[min(760px,calc(100vh-48px))] sm:w-full sm:max-w-[640px] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border',
+          'flex max-h-[calc(100dvh-24px)] w-[calc(100vw-24px)] max-w-[600px] flex-col gap-0 overflow-hidden rounded-2xl border border-border/80 bg-background p-0 shadow-[0_24px_80px_rgba(15,23,42,0.24)] outline-none',
+          'sm:max-h-[min(760px,calc(100dvh-48px))] sm:rounded-2xl',
         )}
-        showClose={isNonBlocking}
-        onEscapeKeyDown={event => {
-          if (!isNonBlocking) {
-            event.preventDefault();
-          }
+        showClose={false}
+        onOpenAutoFocus={event => {
+          event.preventDefault();
+          titleRef.current?.focus();
         }}
-        onPointerDownOutside={event => {
-          if (!isNonBlocking) {
-            event.preventDefault();
-          }
-        }}
+        onEscapeKeyDown={event => event.preventDefault()}
+        onInteractOutside={event => event.preventDefault()}
       >
-        <div className='border-b px-5 py-5 sm:px-6'>
-          <DialogHeader>
-            <DialogTitle>{t('module.profileOnboarding.title')}</DialogTitle>
-            <DialogDescription>
-              {isNonBlocking
-                ? t('module.profileOnboarding.upgradeDescription')
-                : t('module.profileOnboarding.description')}
-            </DialogDescription>
+        <div className='border-b border-border/70 bg-gradient-to-br from-primary/[0.09] via-background to-background px-5 py-5 sm:px-6 sm:py-6'>
+          <DialogHeader className='text-left'>
+            <div className='flex items-start gap-3.5'>
+              <div className='mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm'>
+                <Sparkles
+                  className='h-5 w-5'
+                  aria-hidden='true'
+                />
+              </div>
+              <div className='min-w-0 space-y-1.5'>
+                <DialogTitle
+                  ref={titleRef}
+                  tabIndex={-1}
+                  className='text-xl leading-7 tracking-tight outline-none sm:text-2xl'
+                >
+                  {t('module.profileOnboarding.title')}
+                </DialogTitle>
+                <DialogDescription className='max-w-[48ch] text-sm leading-6'>
+                  {isNonBlocking
+                    ? t('module.profileOnboarding.upgradeDescription')
+                    : t('module.profileOnboarding.description')}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
         </div>
 
-        <div className='min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6'>
+        <div className='min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6'>
           {route === 'choice' ? (
-            <section className='space-y-5'>
-              <div className='rounded-xl border bg-muted/40 p-5'>
-                <h2 className='text-base font-semibold leading-6'>
+            <section className='space-y-4'>
+              <div>
+                <h2 className='text-lg font-semibold leading-7 tracking-tight'>
                   {t('module.profileOnboarding.routeQuestion')}
                 </h2>
-                <p className='mt-2 text-sm leading-6 text-muted-foreground'>
+                <p className='mt-1 text-sm leading-6 text-muted-foreground'>
                   {t('module.profileOnboarding.routeQuestionHint')}
                 </p>
               </div>
-              <p className='text-xs leading-5 text-muted-foreground'>
-                {t('module.profileOnboarding.privacyNotice')}
-              </p>
-              <div className='grid gap-3 sm:grid-cols-2'>
+              <div className='flex items-start gap-2.5 rounded-xl bg-muted/50 px-3.5 py-3 text-muted-foreground'>
+                <ShieldCheck
+                  className='mt-0.5 h-4 w-4 shrink-0 text-primary'
+                  aria-hidden='true'
+                />
+                <p className='text-xs leading-5'>
+                  {t('module.profileOnboarding.privacyNotice')}
+                </p>
+              </div>
+              <div className='grid gap-3'>
                 <button
                   type='button'
-                  className='rounded-xl border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                  className='group flex w-full items-center gap-3.5 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
                   disabled={submitting}
                   onClick={() => {
                     setSource('pasted');
@@ -366,20 +378,28 @@ export default function ProfileOnboardingModal({
                     });
                   }}
                 >
-                  <Sparkles
-                    className='h-5 w-5 text-primary'
+                  <span className='flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary'>
+                    <Sparkles
+                      className='h-5 w-5'
+                      aria-hidden='true'
+                    />
+                  </span>
+                  <span className='min-w-0 flex-1'>
+                    <span className='block font-medium leading-6'>
+                      {t('module.profileOnboarding.hasAgent.yes')}
+                    </span>
+                    <span className='mt-0.5 block text-sm leading-5 text-muted-foreground'>
+                      {t('module.profileOnboarding.hasAgent.yesHint')}
+                    </span>
+                  </span>
+                  <ChevronRight
+                    className='h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary'
                     aria-hidden='true'
                   />
-                  <span className='mt-3 block font-medium'>
-                    {t('module.profileOnboarding.hasAgent.yes')}
-                  </span>
-                  <span className='mt-1 block text-sm leading-5 text-muted-foreground'>
-                    {t('module.profileOnboarding.hasAgent.yesHint')}
-                  </span>
                 </button>
                 <button
                   type='button'
-                  className='rounded-xl border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50'
+                  className='group flex w-full items-center gap-3.5 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
                   disabled={submitting || !guidedAvailable}
                   onClick={() => {
                     setSource('guided');
@@ -391,18 +411,26 @@ export default function ProfileOnboardingModal({
                     });
                   }}
                 >
-                  <MessageCircleQuestion
-                    className='h-5 w-5 text-primary'
+                  <span className='flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary'>
+                    <MessageCircleQuestion
+                      className='h-5 w-5'
+                      aria-hidden='true'
+                    />
+                  </span>
+                  <span className='min-w-0 flex-1'>
+                    <span className='block font-medium leading-6'>
+                      {t('module.profileOnboarding.hasAgent.no')}
+                    </span>
+                    <span className='mt-0.5 block text-sm leading-5 text-muted-foreground'>
+                      {guidedAvailable
+                        ? t('module.profileOnboarding.hasAgent.noHint')
+                        : t('module.profileOnboarding.guided.unavailable')}
+                    </span>
+                  </span>
+                  <ChevronRight
+                    className='h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary'
                     aria-hidden='true'
                   />
-                  <span className='mt-3 block font-medium'>
-                    {t('module.profileOnboarding.hasAgent.no')}
-                  </span>
-                  <span className='mt-1 block text-sm leading-5 text-muted-foreground'>
-                    {guidedAvailable
-                      ? t('module.profileOnboarding.hasAgent.noHint')
-                      : t('module.profileOnboarding.guided.unavailable')}
-                  </span>
                 </button>
               </div>
             </section>
@@ -517,8 +545,22 @@ export default function ProfileOnboardingModal({
           ) : null}
         </div>
 
-        <DialogFooter className='gap-2 border-t px-5 py-4 sm:flex-row sm:justify-between sm:space-x-0 sm:px-6'>
-          <div className='flex gap-2'>
+        <DialogFooter
+          className={cn(
+            'gap-2 border-t border-border/70 bg-muted/20 px-5 py-3.5 sm:flex-row sm:items-center sm:space-x-0 sm:px-6',
+            route === 'choice'
+              ? 'items-center sm:justify-center'
+              : 'sm:justify-between',
+          )}
+        >
+          <div
+            className={cn(
+              'flex items-center gap-1',
+              route === 'choice'
+                ? 'justify-center'
+                : 'w-full justify-between sm:w-auto sm:justify-start',
+            )}
+          >
             {route !== 'choice' ? (
               <Button
                 type='button'
@@ -535,6 +577,7 @@ export default function ProfileOnboardingModal({
             <Button
               type='button'
               variant='ghost'
+              className='text-muted-foreground hover:text-foreground'
               disabled={submitting}
               onClick={handleSkip}
             >
@@ -547,6 +590,7 @@ export default function ProfileOnboardingModal({
               disabled={
                 !draft.trim() || profileLength > maxLength || submitting
               }
+              className='w-full sm:w-auto'
               onClick={handleSubmit}
             >
               {t('module.profileOnboarding.complete')}

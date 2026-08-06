@@ -218,7 +218,7 @@ describe('ProfileOnboardingModal v2', () => {
     ).toBe('保留这个草稿');
   });
 
-  test('tracks duration when onboarding is skipped', async () => {
+  test('allows skipping only through the explicit maybe-later button', async () => {
     const now = jest.spyOn(Date, 'now').mockReturnValue(4_000);
     const onSkip = jest.fn().mockResolvedValue(true);
     render(
@@ -229,6 +229,14 @@ describe('ProfileOnboardingModal v2', () => {
         onSkip={onSkip}
       />,
     );
+
+    expect(
+      screen.queryByRole('button', { name: 'component.header.close' }),
+    ).not.toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.pointerDown(document.body);
+    expect(onSkip).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
 
     now.mockReturnValue(4_640);
     fireEvent.click(
@@ -242,12 +250,70 @@ describe('ProfileOnboardingModal v2', () => {
       expect(mockTrackEvent).toHaveBeenCalledWith(
         'profile_onboarding_skipped',
         {
-          action: 'dismissed',
+          action: 'skipped',
           presentation: 'non_blocking',
           duration_ms: 640,
         },
       );
     });
+  });
+
+  test('focuses the heading instead of making the first route look selected', async () => {
+    render(
+      <ProfileOnboardingModal
+        open
+        presentation='non_blocking'
+        onComplete={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+
+    const heading = screen.getByRole('heading', {
+      name: 'module.profileOnboarding.title',
+    });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(
+      screen.getByRole('button', {
+        name: /module.profileOnboarding.hasAgent.yes/,
+      }),
+    ).not.toHaveFocus();
+  });
+
+  test('keeps the modal and pasted draft when explicit skipping fails', async () => {
+    const onSkip = jest.fn().mockResolvedValue(false);
+    render(
+      <ProfileOnboardingModal
+        open
+        presentation='non_blocking'
+        draftStorageScope='user-failed-skip'
+        onComplete={jest.fn()}
+        onSkip={onSkip}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module.profileOnboarding.hasAgent.yes/,
+      }),
+    );
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: '保留这份草稿' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.skip',
+      }),
+    );
+
+    await waitFor(() => expect(onSkip).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(
+      window.sessionStorage.getItem(scopedDraftKey('user-failed-skip')),
+    ).toBe('保留这份草稿');
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'profile_onboarding_skipped',
+      expect.anything(),
+    );
   });
 
   test('reviews guided runtime output before saving it', async () => {
