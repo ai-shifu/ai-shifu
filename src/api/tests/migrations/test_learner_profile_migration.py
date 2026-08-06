@@ -50,15 +50,7 @@ def test_learner_profile_column_remains_nullable_for_rolling_writers():
         def execute(self, statement):
             executed_statements.append(str(statement))
 
-    existing_after_add = {"learner_profile": 0, "learner_profile_updated_at": 0}
-
-    def _column_exists(_table_name: str, column_name: str) -> bool:
-        calls = existing_after_add[column_name]
-        existing_after_add[column_name] += 1
-        return column_name == "learner_profile" and calls > 0
-
     migration.op = _Operations()
-    migration._column_exists = _column_exists
 
     migration.upgrade()
 
