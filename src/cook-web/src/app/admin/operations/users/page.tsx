@@ -25,10 +25,6 @@ import {
   getAdminStickyRightHeaderClass,
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import {
-  formatAdminDateRangeEndUtc,
-  formatAdminDateRangeStartUtc,
-} from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -63,6 +59,7 @@ import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
+import { buildAdminUserListParams } from '../adminFilterParams';
 import { formatOperatorUtcDateTime } from './dateTime';
 import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
@@ -527,15 +524,12 @@ export default function AdminOperationUsersPage() {
       setError(null);
       try {
         const response = (await api.getAdminOperationUsers({
-          page_index: targetPage,
-          page_size: PAGE_SIZE,
-          identifier: filters.identifier.trim(),
-          nickname: filters.nickname.trim(),
-          user_status: filters.user_status,
-          user_role: filters.user_role,
-          quick_filter: resolvedQuickFilter,
-          start_time: formatAdminDateRangeStartUtc(filters.start_time),
-          end_time: formatAdminDateRangeEndUtc(filters.end_time),
+          ...buildAdminUserListParams({
+            pageIndex: targetPage,
+            pageSize: PAGE_SIZE,
+            filters,
+            quickFilter: resolvedQuickFilter,
+          }),
         })) as AdminOperationUserListResponse;
         if (requestId !== requestIdRef.current) {
           return;

@@ -15,11 +15,7 @@ import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import {
-  formatAdminDateRangeEndUtc,
-  formatAdminDateRangeStartUtc,
-  formatAdminUtcDateTime,
-} from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -52,6 +48,7 @@ import type {
   AdminOperationCourseOverview,
   AdminOperationCoursePromptResponse,
 } from './operation-course-types';
+import { buildAdminCourseListParams } from './adminFilterParams';
 import useOperatorGuard from './useOperatorGuard';
 import {
   ALL_OPTION_VALUE,
@@ -454,21 +451,12 @@ const OperationsPage = () => {
       setError(null);
       try {
         const response = (await api.getAdminOperationCourses({
-          page_index: targetPage,
-          page_size: PAGE_SIZE,
-          shifu_bid: resolvedFilters.shifu_bid.trim(),
-          course_name: resolvedFilters.course_name.trim(),
-          creator_keyword: resolvedFilters.creator_keyword.trim(),
-          course_status: resolvedFilters.course_status,
-          quick_filter: resolvedQuickFilter,
-          start_time: formatAdminDateRangeStartUtc(resolvedFilters.start_time),
-          end_time: formatAdminDateRangeEndUtc(resolvedFilters.end_time),
-          updated_start_time: formatAdminDateRangeStartUtc(
-            resolvedFilters.updated_start_time,
-          ),
-          updated_end_time: formatAdminDateRangeEndUtc(
-            resolvedFilters.updated_end_time,
-          ),
+          ...buildAdminCourseListParams({
+            pageIndex: targetPage,
+            pageSize: PAGE_SIZE,
+            filters: resolvedFilters,
+            quickFilter: resolvedQuickFilter,
+          }),
         })) as AdminOperationCourseListResponse;
         if (requestId !== requestIdRef.current) {
           return;

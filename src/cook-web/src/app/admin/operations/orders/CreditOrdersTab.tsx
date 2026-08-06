@@ -11,10 +11,6 @@ import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import {
-  formatAdminDateRangeEndUtc,
-  formatAdminDateRangeStartUtc,
-} from '@/app/admin/lib/dateTime';
-import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
@@ -58,6 +54,7 @@ import {
   resolveOperationCreditOrderValidityLabel,
   resolveOperationCreditOrderProviderLabel,
 } from '../operation-credit-order-helpers';
+import { buildAdminCreditOrderListParams } from '../adminFilterParams';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
 import type {
   AdminOperationCreditOrderItem,
@@ -290,21 +287,11 @@ export default function CreditOrdersTab() {
 
       try {
         const response = (await api.getAdminOperationCreditOrders({
-          page_index: targetPage,
-          page_size: PAGE_SIZE,
-          creator_keyword: filters.creator_keyword.trim(),
-          product_keyword: filters.product_keyword.trim(),
-          ...(filters.bill_order_bid.trim()
-            ? { bill_order_bid: filters.bill_order_bid.trim() }
-            : {}),
-          credit_order_kind: filters.credit_order_kind,
-          status: filters.status,
-          ...(filters.has_available_credits
-            ? { has_available_credits: true }
-            : {}),
-          payment_provider: filters.payment_provider,
-          start_time: formatAdminDateRangeStartUtc(filters.start_time),
-          end_time: formatAdminDateRangeEndUtc(filters.end_time),
+          ...buildAdminCreditOrderListParams({
+            pageIndex: targetPage,
+            pageSize: PAGE_SIZE,
+            filters,
+          }),
         })) as AdminOperationCreditOrderListResponse;
 
         if (requestId !== requestIdRef.current) {

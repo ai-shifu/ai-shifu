@@ -11,10 +11,6 @@ import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import {
-  formatAdminDateRangeEndUtc,
-  formatAdminDateRangeStartUtc,
-} from '@/app/admin/lib/dateTime';
-import {
   formatAdminCount,
   formatAdminNumber,
 } from '@/app/admin/lib/numberFormat';
@@ -51,6 +47,7 @@ import { cn } from '@/lib/utils';
 import { getOperationOrderSourceLabel } from '../operation-order-source';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
+import { buildAdminLearnOrderListParams } from '../adminFilterParams';
 import type {
   AdminOperationOrderItem,
   AdminOperationOrderListResponse,
@@ -291,17 +288,11 @@ export default function LearnOrdersTab() {
       setError(null);
       try {
         const response = (await api.getAdminOperationOrders({
-          page_index: targetPage,
-          page_size: PAGE_SIZE,
-          user_keyword: filters.user_keyword.trim(),
-          order_bid: filters.order_bid.trim(),
-          shifu_bid: filters.shifu_bid.trim(),
-          course_name: filters.course_name.trim(),
-          status: filters.status,
-          order_source: filters.order_source,
-          payment_channel: filters.payment_channel,
-          start_time: formatAdminDateRangeStartUtc(filters.start_time),
-          end_time: formatAdminDateRangeEndUtc(filters.end_time),
+          ...buildAdminLearnOrderListParams({
+            pageIndex: targetPage,
+            pageSize: PAGE_SIZE,
+            filters,
+          }),
         })) as AdminOperationOrderListResponse;
         if (requestId !== requestIdRef.current) {
           return;
