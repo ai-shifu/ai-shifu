@@ -81,6 +81,15 @@ import {
   AskProviderSchemaValidationError,
   buildAskProviderConfigForSubmit as buildAskProviderConfigBySchema,
 } from '@/components/shifu-setting/ask-provider-schema';
+import {
+  ASK_PROVIDER_LLM,
+  buildAskProviderSubmitConfig,
+  getAskProviderDefaultConfig as getAskProviderDefaultConfigFromMeta,
+  getAskProviderMeta,
+  normalizeStoredAskProviderConfig,
+  resolveAskProvider,
+  resolveAskProviderSelection,
+} from '@/components/shifu-setting/ask-provider-config';
 import AskSettingsSection from '@/components/shifu-setting/AskSettingsSection';
 import MiniMaxVoiceCloneDialog from '@/components/shifu-setting/MiniMaxVoiceCloneDialog';
 import {
@@ -163,8 +172,6 @@ const MIN_SHIFU_PRICE = 0.5;
 const TEMPERATURE_MIN = 0;
 const TEMPERATURE_MAX = 2;
 const ASK_MODE_ENABLE = 5103;
-const ASK_PROVIDER_LLM = 'llm';
-const ASK_PROVIDER_MODE_PROVIDER_ONLY = 'provider_only';
 const ASK_TEMPERATURE_MIN = 0;
 const ASK_TEMPERATURE_MAX = 2;
 const TTS_PREVIEW_CURRENT_TARGET = 'tts-current';
@@ -726,23 +733,11 @@ export default function ShifuSettingDialog({
       value: item.provider,
       label: item.title || item.provider,
     })) || [];
-  const resolvedAskProvider = (() => {
-    const provider = (askProvider || '').trim().toLowerCase();
-    if (!provider) {
-      return askConfigMeta?.providers?.[0]?.provider || ASK_PROVIDER_LLM;
-    }
-    if (askConfigMeta?.providers?.length) {
-      const exists = askConfigMeta.providers.some(p => p.provider === provider);
-      return exists
-        ? provider
-        : askConfigMeta.providers[0]?.provider || provider;
-    }
-    return provider;
-  })();
-  const currentAskProviderMeta =
-    askConfigMeta?.providers?.find(
-      item => item.provider === resolvedAskProvider,
-    ) || askConfigMeta?.providers?.[0];
+  const resolvedAskProvider = resolveAskProvider(askConfigMeta, askProvider);
+  const currentAskProviderMeta = getAskProviderMeta(
+    askConfigMeta,
+    resolvedAskProvider,
+  );
   const askProviderFieldEntries = useMemo(
     () => Object.entries(currentAskProviderMeta?.json_schema?.properties || {}),
     [currentAskProviderMeta],
@@ -752,14 +747,8 @@ export default function ShifuSettingDialog({
     [currentAskProviderMeta],
   );
   const getAskProviderDefaultConfig = useCallback(
-    (provider: string) => {
-      const config =
-        askConfigMeta?.providers?.find(item => item.provider === provider)
-          ?.default_config || {};
-      return config && typeof config === 'object' && !Array.isArray(config)
-        ? { ...config }
-        : {};
-    },
+    (provider: string) =>
+      getAskProviderDefaultConfigFromMeta(askConfigMeta, provider),
     [askConfigMeta],
   );
   const handleAskProviderChange = useCallback(
@@ -786,18 +775,14 @@ export default function ShifuSettingDialog({
 
   useEffect(() => {
     if (!askConfigMeta?.providers?.length) return;
-    const provider = (askProvider || '').trim().toLowerCase();
-    if (
-      provider &&
-      askConfigMeta.providers.some(item => item.provider === provider)
-    ) {
+    const selection = resolveAskProviderSelection(askConfigMeta, askProvider);
+    if (!selection.changed) {
       return;
     }
-    const fallbackProvider = askConfigMeta.providers[0].provider;
-    setAskProvider(fallbackProvider);
-    setAskProviderConfig(getAskProviderDefaultConfig(fallbackProvider));
+    setAskProvider(selection.provider);
+    setAskProviderConfig(selection.config);
     setAskProviderObjectInputs({});
-  }, [askConfigMeta, askProvider, getAskProviderDefaultConfig]);
+  }, [askConfigMeta, askProvider]);
 
   const normalizeAskTemperature = useCallback((value: number) => {
     const clamped = Math.min(
@@ -1061,15 +1046,15 @@ export default function ShifuSettingDialog({
           getDefaultTtsModelOption(ttsConfig?.model_options || [])?.provider ||
           ttsConfig?.providers?.[0]?.name ||
           '';
-        const askProviderForSubmit =
-          resolvedAskProvider ||
-          askConfigMeta?.default?.provider ||
-          ASK_PROVIDER_LLM;
-        const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
         const askTemperatureForSubmit = normalizeAskTemperature(
           Number(askTemperatureInput || askTemperature || 0),
         );
         const askConfigForSubmit = buildAskProviderConfigForSubmit();
+        const askProviderConfigForSubmit = buildAskProviderSubmitConfig({
+          metadata: askConfigMeta,
+          provider: resolvedAskProvider,
+          config: askConfigForSubmit,
+        });
 
         if (ttsEnabled && !providerForSubmit) {
           if (!ttsProviderToastShownRef.current && saveType === 'manual') {
@@ -1097,11 +1082,7 @@ export default function ShifuSettingDialog({
           ask_model: askModel,
           ask_temperature: askTemperatureForSubmit,
           ask_system_prompt: '',
-          ask_provider_config: {
-            provider: askProviderForSubmit,
-            mode: askModeForSubmit,
-            config: askConfigForSubmit,
-          },
+          ask_provider_config: askProviderConfigForSubmit,
           // TTS Configuration
           tts_enabled: ttsEnabled,
           tts_provider: providerForSubmit,
@@ -1182,27 +1163,16 @@ export default function ShifuSettingDialog({
         temperature: result.temperature + '',
         systemPrompt: result.system_prompt || '',
       });
-      const rawAskProviderConfig =
-        result.ask_provider_config &&
-        typeof result.ask_provider_config === 'object' &&
-        !Array.isArray(result.ask_provider_config)
-          ? result.ask_provider_config
-          : {};
-      const rawAskProviderInnerConfig =
-        rawAskProviderConfig.config &&
-        typeof rawAskProviderConfig.config === 'object' &&
-        !Array.isArray(rawAskProviderConfig.config)
-          ? rawAskProviderConfig.config
-          : {};
+      const savedAskProviderConfig = normalizeStoredAskProviderConfig(
+        result.ask_provider_config,
+      );
       setAskModel(result.ask_model || '');
       setAskTemperature(result.ask_temperature ?? ASK_TEMPERATURE_MIN);
       setAskTemperatureInput(
         String(result.ask_temperature ?? ASK_TEMPERATURE_MIN),
       );
-      setAskProvider(
-        (rawAskProviderConfig.provider || ASK_PROVIDER_LLM).toLowerCase(),
-      );
-      setAskProviderConfig(rawAskProviderInnerConfig);
+      setAskProvider(savedAskProviderConfig.provider);
+      setAskProviderConfig(savedAskProviderConfig.config);
       setAskProviderObjectInputs({});
       setAskPreviewLoading(false);
       setAskPreviewQuery('');
@@ -1547,14 +1517,14 @@ export default function ShifuSettingDialog({
       return;
     }
 
-    const askProviderForSubmit =
-      resolvedAskProvider ||
-      askConfigMeta?.default?.provider ||
-      ASK_PROVIDER_LLM;
-    const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
     const askTemperatureForSubmit = normalizeAskTemperature(
       Number(askTemperatureInput || askTemperature || 0),
     );
+    const askProviderConfigForSubmit = buildAskProviderSubmitConfig({
+      metadata: askConfigMeta,
+      provider: resolvedAskProvider,
+      config: askConfigForSubmit,
+    });
 
     setAskPreviewLoading(true);
     try {
@@ -1564,11 +1534,7 @@ export default function ShifuSettingDialog({
           ask_model: askModel,
           ask_temperature: askTemperatureForSubmit,
           ask_system_prompt: '',
-          ask_provider_config: {
-            provider: askProviderForSubmit,
-            mode: askModeForSubmit,
-            config: askConfigForSubmit,
-          },
+          ask_provider_config: askProviderConfigForSubmit,
         },
         { skipErrorToast: true },
       )) as {
@@ -1598,7 +1564,7 @@ export default function ShifuSettingDialog({
       setAskPreviewLoading(false);
     }
   }, [
-    askConfigMeta?.default?.provider,
+    askConfigMeta,
     askModel,
     askPreviewLoading,
     askPreviewQuery,
