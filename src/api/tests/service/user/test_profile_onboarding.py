@@ -6,6 +6,10 @@ from flaskr.service.profile_research.api import (
 )
 
 
+_SESSION_ID_1 = "0123456789abcdef0123456789abcdef"
+_SESSION_ID_2 = "abcdef0123456789abcdef0123456789"
+
+
 def _authenticate(monkeypatch, *, is_operator: bool = True) -> SimpleNamespace:
     user = SimpleNamespace(
         user_id="profile-route-user",
@@ -123,13 +127,13 @@ def test_profile_onboarding_complete_and_skip_delegate_strict_payloads(
         json={
             "learner_profile": "称呼我小明。",
             "trigger_source": "pasted",
-            "session_id": "session-1",
+            "session_id": _SESSION_ID_1,
         },
     )
     skipped = test_client.post(
         "/api/user/profile-onboarding/skip",
         headers={"Token": "token"},
-        json={"session_id": "session-2"},
+        json={"session_id": _SESSION_ID_2},
     )
 
     assert _data(complete) == {"completed": True}
@@ -147,7 +151,7 @@ def test_profile_onboarding_complete_and_skip_delegate_strict_payloads(
             "delete",
             {
                 "user_bid": user.user_id,
-                "session_id": "session-1",
+                "session_id": _SESSION_ID_1,
                 "expected_purpose": "profile-onboarding",
             },
         ),
@@ -156,11 +160,60 @@ def test_profile_onboarding_complete_and_skip_delegate_strict_payloads(
             "delete",
             {
                 "user_bid": user.user_id,
-                "session_id": "session-2",
+                "session_id": _SESSION_ID_2,
                 "expected_purpose": "profile-onboarding",
             },
         ),
     ]
+
+
+@pytest.mark.parametrize(
+    ("path", "payload"),
+    [
+        (
+            "/api/user/profile-onboarding/complete",
+            {
+                "learner_profile": "profile",
+                "trigger_source": "guided",
+                "session_id": "a" * 33,
+            },
+        ),
+        (
+            "/api/user/profile-onboarding/complete",
+            {
+                "learner_profile": "profile",
+                "trigger_source": "guided",
+                "session_id": "g" * 32,
+            },
+        ),
+        (
+            "/api/user/profile-onboarding/skip",
+            {"session_id": "a" * 100_000},
+        ),
+    ],
+)
+def test_profile_onboarding_rejects_invalid_session_id_before_mutation(
+    monkeypatch, test_client, path, payload
+):
+    _authenticate(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.route.user.complete_profile_onboarding",
+        lambda app, **kwargs: calls.append(("complete", kwargs)),
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.skip_profile_onboarding",
+        lambda **kwargs: calls.append(("skip", kwargs)),
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user._delete_profile_onboarding_session",
+        lambda app, **kwargs: calls.append(("delete", kwargs)),
+    )
+
+    response = test_client.post(path, headers={"Token": "token"}, json=payload)
+
+    assert response.get_json(force=True)["code"] != 0
+    assert calls == []
 
 
 def test_profile_onboarding_complete_ignores_session_cleanup_failure(
@@ -186,7 +239,7 @@ def test_profile_onboarding_complete_ignores_session_cleanup_failure(
         json={
             "learner_profile": "profile",
             "trigger_source": "guided",
-            "session_id": "expired-session",
+            "session_id": _SESSION_ID_1,
         },
     )
 
@@ -211,7 +264,7 @@ def test_profile_onboarding_skip_ignores_busy_session_cleanup(monkeypatch, test_
     response = test_client.post(
         "/api/user/profile-onboarding/skip",
         headers={"Token": "token"},
-        json={"session_id": "busy-session"},
+        json={"session_id": _SESSION_ID_2},
     )
 
     assert _data(response) == {"skipped": True}

@@ -67,6 +67,8 @@ from flaskr.i18n import _translations, set_language
 
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
+_PROFILE_RESEARCH_SESSION_ID_LENGTH = 32
+_PROFILE_RESEARCH_SESSION_ID_ALPHABET = frozenset("0123456789abcdef")
 
 
 def _request_json_object(parameter_name: str) -> dict:
@@ -97,6 +99,18 @@ def _optional_nonempty_string(payload: dict, key: str) -> str | None:
     if not isinstance(value, str) or not value.strip():
         raise_param_error(key)
     return value.strip()
+
+
+def _optional_profile_research_session_id(payload: dict) -> str | None:
+    session_id = _optional_nonempty_string(payload, "session_id")
+    if session_id is None:
+        return None
+    if (
+        len(session_id) != _PROFILE_RESEARCH_SESSION_ID_LENGTH
+        or not set(session_id) <= _PROFILE_RESEARCH_SESSION_ID_ALPHABET
+    ):
+        raise_param_error("session_id")
+    return session_id
 
 
 def _profile_onboarding_user_input(
@@ -619,7 +633,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
         learner_profile = _required_string(payload, "learner_profile")
         trigger_source = _required_string(payload, "trigger_source")
-        session_id = _optional_nonempty_string(payload, "session_id")
+        session_id = _optional_profile_research_session_id(payload)
         result = complete_profile_onboarding(
             app,
             user_id=request.user.user_id,
@@ -642,7 +656,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             allowed_fields={"session_id"},
             parameter_name="profile_onboarding",
         )
-        session_id = _optional_nonempty_string(payload, "session_id")
+        session_id = _optional_profile_research_session_id(payload)
         result = skip_profile_onboarding(user_id=request.user.user_id)
         _delete_profile_onboarding_session(
             app,
