@@ -29,45 +29,63 @@
     "updatedAt": "Mis à jour le",
     "updatedBy": "Mis à jour par"
   },
-  "back": "Retour",
+  "back": "Précédent",
   "characterCount": "{count} / {max} caractères",
   "characterCountOverLimit": "{count} caractères saisis ; la limite est de {max}. Raccourcissez le texte avant de l’enregistrer.",
-  "complete": "Enregistrer et continuer",
-  "description": "Parlez-nous de votre parcours, de vos préférences et de vos centres d’intérêt du moment. Les cours pourront ainsi choisir des exemples plus familiers, expliquer les notions dans le style que vous préférez et adapter les diapositives à vos goûts.",
+  "choice": {
+    "description": "Si oui, il peut les organiser pour vous. Sinon, nous vous poserons quelques questions.",
+    "title": "Un assistant IA vous connaît déjà bien ?"
+  },
+  "complete": "Confirmer et enregistrer",
+  "completeCompact": "Enregistrer",
+  "description": "Prenez une minute pour partager votre parcours et vos préférences. Les prochains cours pourront utiliser des exemples plus familiers, le style d’explication et les diapositives que vous préférez.",
   "externalAgent": {
     "copied": "Copié",
     "copy": "Copier ce message",
-    "copyFailed": "La copie a échoué. Sélectionnez et copiez le message manuellement.",
-    "prompt": "À partir de ce que vous savez déjà de moi, aidez-moi à rédiger une courte présentation qui permettra aux cours d’adapter plus facilement leurs explications à mon parcours et à mes préférences. Incluez uniquement :\n- La façon dont vous m’appelez habituellement\n- Mon parcours professionnel, mon identité et mon expérience pertinente\n- Mon style de communication préféré\n- Mon style de diapositives préféré\n- Les sujets sur lesquels je me concentre en ce moment\n\nRédigez le texte à la première personne, en texte brut et en moins de 1 000 caractères. N’inventez pas et n’ajoutez pas d’informations que vous ne connaissez pas réellement.",
-    "switchHint": "Vous pouvez temporairement passer à votre assistant IA. Tout contenu déjà collé restera ici à votre retour.",
-    "title": "Demandez de l’aide à votre assistant IA habituel"
+    "copyFailed": "La copie automatique a échoué. Sélectionnez et copiez le texte ci-dessus.",
+    "description": "Copiez le message ci-dessous dans votre assistant IA habituel, puis collez sa réponse ici.",
+    "prompt": "À partir de ce que vous savez déjà de moi, rédigez une courte présentation à transmettre à mes cours. Elle les aidera à choisir des exemples, des explications et des diapositives qui me conviennent. Incluez uniquement :\n- La façon dont vous m’appelez habituellement\n- Mon parcours professionnel, mes rôles et mon expérience pertinente\n- Le style d’expression que je préfère\n- Le style de diapositives que je préfère\n- Mes sujets d’intérêt du moment\n\nRédigez à la première personne, en texte brut et en moins de 1 000 caractères. Ne devinez rien, n’ajoutez pas d’informations que vous ignorez et n’incluez rien d’autre.",
+    "resultLabel": "Réponse de votre assistant IA",
+    "resultPlaceholder": "Collez ici la réponse de votre assistant IA",
+    "switchHint": "Vous pouvez changer d’application. Votre contenu sera toujours là à votre retour.",
+    "title": "Demandez à votre assistant IA"
   },
   "guided": {
-    "description": "Répondez à quelques questions courtes et nous organiserons votre parcours et vos préférences dans un texte modifiable. Terminez sur cette page : l’actualiser vous obligerait à recommencer.",
-    "missingDraft": "Vous avez terminé les questions, mais nous n’avons pas pu organiser le résultat. Veuillez recommencer.",
+    "description": "Cela prend environ une minute. Vos réponses aideront les cours à choisir de meilleurs exemples et explications pour vous.",
+    "missingDraft": "Nous n’avons pas pu terminer la synthèse. Répondez de nouveau aux questions.",
     "retry": "Réessayer",
-    "retryableError": "La connexion a été interrompue. Réessayez cette étape.",
-    "streamError": "Nous ne pouvons pas continuer pour le moment. Revenez en arrière et recommencez.",
-    "thinking": "Préparation de la prochaine question…",
-    "unavailable": "Cette option est temporairement indisponible. Vous pouvez toujours demander de l’aide à votre assistant IA habituel."
+    "retryableError": "La connexion a été interrompue. Votre réponse est conservée. Réessayez.",
+    "starting": "Préparation de la première question…",
+    "streamError": "Cette méthode est momentanément indisponible. Revenez à l’étape précédente et choisissez-en une autre.",
+    "thinking": "Préparation de la suite à partir de votre réponse…",
+    "title": "Répondez à quelques questions",
+    "unavailable": "Nous ne pouvons pas vous interroger directement pour le moment. Demandez de l’aide à votre assistant IA habituel."
   },
   "hasAgent": {
-    "no": "Non",
-    "noHint": "Répondez à quelques questions courtes et nous organiserons les informations",
-    "yes": "Oui",
-    "yesHint": "Demandez-lui de vous résumer, puis collez sa réponse ici"
+    "no": "Non, posez-moi les questions",
+    "noHint": "Répondez à quelques questions en une minute environ",
+    "yes": "Oui, lui demander de m’aider",
+    "yesHint": "Copiez-lui un message, puis collez sa réponse ici"
   },
   "loadFailed": "Vos paramètres de personnalisation n’ont pas pu être chargés ; le cours a donc été ouvert. Réessayez plus tard.",
-  "privacyNotice": "Ces informations sont enregistrées dans votre compte et utilisées dans vos différents cours. Pendant les leçons, les questions de suivi et les aperçus, les services d’IA du cours les utilisent uniquement comme contexte complémentaire ; les consignes propres au cours restent prioritaires. Le contenu envoyé fait également l’objet de contrôles de sécurité de la plateforme. Vous pouvez modifier ou supprimer ces informations à tout moment. N’indiquez pas de coordonnées, de numéro de pièce d’identité, d’adresse précise, ni de données de santé ou financières.",
+  "next": "Suivant",
+  "onboardingCharacterCount": "{count} / {max} caractères",
+  "onboardingCharacterCountOverLimit": "Vous avez saisi {count} caractères. La limite est de {max}. Raccourcissez le texte pour continuer.",
+  "privacyDetails": "Pendant les cours, les questions de suivi et les aperçus, les services d’IA utilisent ces informations uniquement comme contexte complémentaire. Les consignes du cours restent prioritaires. Le contenu envoyé fait l’objet de contrôles de sécurité. N’indiquez pas de coordonnées, de numéro de pièce d’identité, d’adresse précise, ni de données de santé ou financières.",
+  "privacyDetailsLabel": "Comment ces informations sont utilisées",
+  "privacyNotice": "Ces informations sont enregistrées dans votre compte pour mieux adapter vos différents cours. Vous pouvez les modifier ou les supprimer à tout moment.",
+  "privacySummary": "Ces informations sont enregistrées dans votre compte pour mieux adapter vos différents cours. Vous pouvez les modifier ou les supprimer à tout moment.",
   "profileLabel": "Votre parcours et vos préférences",
   "profilePlaceholder": "Par exemple : la façon de vous appeler, votre parcours professionnel ou scolaire, votre expérience, vos styles d’explication et de diapositives préférés, ainsi que vos centres d’intérêt du moment",
   "refreshPending": "Enregistré. Le cours est en cours de mise à jour ; actualisez la page dans un instant.",
   "review": {
-    "description": "Nous avons organisé ce texte à partir de vos réponses. Modifiez ce qui ne convient pas, puis enregistrez-le.",
-    "title": "Vérifiez que tout est correct"
+    "description": "Vérifiez ces informations avant de les enregistrer. Les prochains cours les utiliseront pour choisir des exemples, des explications et des diapositives.",
+    "profileLabel": "Informations utilisées par les cours",
+    "profilePlaceholder": "Ajoutez le parcours, l’expérience et les préférences que les cours doivent connaître",
+    "title": "Confirmez ces informations"
   },
   "routeQuestion": "Utilisez-vous souvent un assistant IA qui vous connaît déjà bien ?",
-  "routeQuestionHint": "Si oui, le plus rapide est de lui demander de vous résumer. Sinon, répondez simplement à quelques questions ici.",
+  "routeQuestionHint": "Si oui, il peut organiser ces informations pour vous. Sinon, nous vous poserons quelques questions.",
   "settings": {
     "cancel": "Annuler",
     "clear": "Supprimer ces informations",
@@ -88,8 +106,17 @@
     "title": "Des cours mieux adaptés à vos besoins",
     "updatedAt": "Dernière mise à jour : {time}"
   },
-  "skip": "Peut-être plus tard",
-  "submitFailed": "Impossible d’enregistrer. Vérifiez le contenu et réessayez.",
+  "sidebarDescription": "Trois étapes courtes pour mieux adapter les prochains cours à vos besoins.",
+  "skip": "Plus tard",
+  "skipping": "Patientez…",
+  "stepCounter": "Étape {current} sur {total}",
+  "steps": {
+    "choose": "Choisir une méthode",
+    "collect": "Ajouter vos informations",
+    "review": "Vérifier"
+  },
+  "submitFailed": "Nous n’avons pas pu enregistrer vos informations. Votre contenu est conservé. Réessayez.",
+  "submitting": "Enregistrement…",
   "title": "Des cours mieux adaptés à vos besoins",
-  "upgradeDescription": "Ajoutez ou mettez à jour votre parcours et vos préférences afin que les prochains cours utilisent des exemples plus familiers, expliquent les notions dans le style que vous préférez et adaptent les diapositives à vos goûts."
+  "upgradeDescription": "Mettez ces informations à jour pour que les prochains cours restent adaptés à votre situation actuelle."
 }

@@ -1,8 +1,15 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { createProfileOnboardingSession } from '@/c-api/user';
 import ProfileOnboardingModal, {
   countUnicodeCodePoints,
+  ProfileDraftEditor,
 } from './ProfileOnboardingModal';
 
 const EXTERNAL_PROMPT = [
@@ -16,6 +23,14 @@ const EXTERNAL_PROMPT = [
 const START_GUIDED_SESSION_LABEL = 'start guided session';
 const FINISH_GUIDED_PROFILE_LABEL = 'finish guided profile';
 const mockTrackEvent = jest.fn();
+const mockScrollTo = jest.fn();
+let latestOnDraftReady:
+  | ((draft: string, sessionId: string) => void)
+  | undefined;
+const originalScrollToDescriptor = Object.getOwnPropertyDescriptor(
+  HTMLElement.prototype,
+  'scrollTo',
+);
 const LEGACY_PASTE_DRAFT_STORAGE_KEY =
   'profile-onboarding-paste-draft:profile-v2';
 const ACTIVE_PASTE_DRAFT_STORAGE_KEY =
@@ -29,10 +44,16 @@ jest.mock('react-i18next', () => ({
       if (key === 'module.profileOnboarding.externalAgent.prompt') {
         return EXTERNAL_PROMPT;
       }
-      if (key === 'module.profileOnboarding.characterCount') {
+      if (
+        key === 'module.profileOnboarding.characterCount' ||
+        key === 'module.profileOnboarding.onboardingCharacterCount'
+      ) {
         return `${params?.count} / ${params?.max}`;
       }
-      if (key === 'module.profileOnboarding.characterCountOverLimit') {
+      if (
+        key === 'module.profileOnboarding.characterCountOverLimit' ||
+        key === 'module.profileOnboarding.onboardingCharacterCountOverLimit'
+      ) {
         return `${params?.count} characters; limit ${params?.max}`;
       }
       return key;
@@ -56,35 +77,73 @@ jest.mock('./ProfileOnboardingConversation', () => ({
     onDraftReady,
     onSessionStarted,
     createSession,
+    disabled,
   }: {
     onDraftReady: (draft: string, id: string) => void;
     onSessionStarted?: (id: string) => void;
     createSession: () => unknown;
-  }) => (
-    <>
-      <button
-        type='button'
-        onClick={() => {
-          void createSession();
-          onSessionStarted?.('session-1');
-        }}
-      >
-        {START_GUIDED_SESSION_LABEL}
-      </button>
-      <button
-        type='button'
-        onClick={() => onDraftReady('引导生成的画像', 'session-1')}
-      >
-        {FINISH_GUIDED_PROFILE_LABEL}
-      </button>
-    </>
-  ),
+    disabled?: boolean;
+  }) => {
+    latestOnDraftReady = onDraftReady;
+    return (
+      <div data-testid='mock-guided-conversation'>
+        <button
+          type='button'
+          disabled={disabled}
+          onClick={() => {
+            void createSession();
+            onSessionStarted?.('session-1');
+          }}
+        >
+          {START_GUIDED_SESSION_LABEL}
+        </button>
+        <button
+          type='button'
+          disabled={disabled}
+          onClick={() => onDraftReady('引导生成的画像', 'session-1')}
+        >
+          {FINISH_GUIDED_PROFILE_LABEL}
+        </button>
+      </div>
+    );
+  },
 }));
+
+const choosePasteRoute = () => {
+  const routeButton = screen.getByRole('button', {
+    name: /module.profileOnboarding.hasAgent.yes/,
+  });
+  fireEvent.click(routeButton);
+  expect(routeButton).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'module.profileOnboarding.next',
+    }),
+  );
+};
+
+const chooseGuidedRoute = () => {
+  const routeButton = screen.getByRole('button', {
+    name: /module.profileOnboarding.hasAgent.no/,
+  });
+  fireEvent.click(routeButton);
+  expect(routeButton).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'module.profileOnboarding.next',
+    }),
+  );
+};
 
 describe('ProfileOnboardingModal v2', () => {
   beforeEach(() => {
+    latestOnDraftReady = undefined;
     jest.clearAllMocks();
     window.sessionStorage.clear();
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+      configurable: true,
+      value: mockScrollTo,
+    });
     Object.assign(navigator, {
       clipboard: { writeText: jest.fn().mockResolvedValue(undefined) },
     });
@@ -92,9 +151,34 @@ describe('ProfileOnboardingModal v2', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    if (originalScrollToDescriptor) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'scrollTo',
+        originalScrollToDescriptor,
+      );
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo');
+    }
   });
 
-  test('asks about a familiar agent before choosing a path', () => {
+  test('keeps the shared settings editor on its auto-resizing default', () => {
+    render(
+      <ProfileDraftEditor
+        value='现有设置'
+        maxLength={1000}
+        disabled={false}
+        onChange={jest.fn()}
+      />,
+    );
+
+    const editor = screen.getByRole('textbox');
+    expect(editor).toHaveAttribute('rows', '8');
+    expect(editor).not.toHaveClass('resize-none');
+    expect(editor).not.toHaveClass('h-[184px]');
+  });
+
+  test('selects a familiar-agent route before continuing to it', () => {
     render(
       <ProfileOnboardingModal
         open
@@ -104,17 +188,20 @@ describe('ProfileOnboardingModal v2', () => {
     );
 
     expect(
-      screen.getByText('module.profileOnboarding.routeQuestion'),
+      screen.getByRole('heading', {
+        name: 'module.profileOnboarding.choice.title',
+      }),
     ).toBeInTheDocument();
-    const privacyNotice = screen.getByText(
-      'module.profileOnboarding.privacyNotice',
+    const privacySummaries = screen.getAllByText(
+      'module.profileOnboarding.privacySummary',
     );
+    const privacySummary = privacySummaries[privacySummaries.length - 1];
     const familiarAgentButton = screen.getByRole('button', {
       name: /module.profileOnboarding.hasAgent.yes/,
     });
     expect(familiarAgentButton).toBeInTheDocument();
     expect(
-      privacyNotice.compareDocumentPosition(familiarAgentButton) &
+      familiarAgentButton.compareDocumentPosition(privacySummary) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
@@ -122,9 +209,87 @@ describe('ProfileOnboardingModal v2', () => {
         name: /module.profileOnboarding.hasAgent.no/,
       }),
     ).toBeInTheDocument();
+    expect(familiarAgentButton).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(familiarAgentButton);
+
+    expect(familiarAgentButton).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      screen.queryByText((_, node) => node?.textContent === EXTERNAL_PROMPT),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.next',
+      }),
+    );
+
+    expect(
+      screen.getByText((_, node) => node?.textContent === EXTERNAL_PROMPT),
+    ).toBeInTheDocument();
   });
 
-  test('copies the five-area external-agent prompt and submits pasted text', async () => {
+  test('keeps three footer slots in stable DOM order across every route', () => {
+    render(
+      <ProfileOnboardingModal
+        open
+        guidedAvailable
+        onComplete={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+
+    const footer = screen.getByTestId('profile-onboarding-footer');
+    const backSlot = screen.getByTestId('profile-onboarding-footer-back');
+    const secondarySlot = screen.getByTestId(
+      'profile-onboarding-footer-secondary',
+    );
+    const primarySlot = screen.getByTestId('profile-onboarding-footer-primary');
+    const expectStableFooter = () => {
+      expect(Array.from(footer.children)).toEqual([
+        backSlot,
+        secondarySlot,
+        primarySlot,
+      ]);
+      expect(footer).not.toHaveClass('flex-col-reverse');
+      expect(screen.getByTestId('profile-onboarding-footer-back')).toBe(
+        backSlot,
+      );
+      expect(screen.getByTestId('profile-onboarding-footer-secondary')).toBe(
+        secondarySlot,
+      );
+      expect(screen.getByTestId('profile-onboarding-footer-primary')).toBe(
+        primarySlot,
+      );
+    };
+
+    expectStableFooter();
+    choosePasteRoute();
+    expectStableFooter();
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: '用于确认 footer 稳定的内容' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.next',
+      }),
+    );
+    expectStableFooter();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.back',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.back',
+      }),
+    );
+    chooseGuidedRoute();
+    expectStableFooter();
+  });
+
+  test('reviews pasted text before submitting and preserves it across a real back step', async () => {
     const now = jest.spyOn(Date, 'now').mockReturnValue(1_000);
     const onComplete = jest.fn().mockResolvedValue(true);
     render(
@@ -136,11 +301,7 @@ describe('ProfileOnboardingModal v2', () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.yes/,
-      }),
-    );
+    choosePasteRoute();
     expect(
       screen.getByText((_, node) => node?.textContent === EXTERNAL_PROMPT),
     ).toBeInTheDocument();
@@ -162,6 +323,42 @@ describe('ProfileOnboardingModal v2', () => {
     expect(window.sessionStorage.getItem(scopedDraftKey('user-paste'))).toBe(
       '我是一名产品经理，喜欢简洁的解释。',
     );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.next',
+      }),
+    );
+
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('heading', {
+        name: 'module.profileOnboarding.review.title',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toHaveValue(
+      '我是一名产品经理，喜欢简洁的解释。',
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.back',
+      }),
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'module.profileOnboarding.externalAgent.title',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toHaveValue(
+      '我是一名产品经理，喜欢简洁的解释。',
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.next',
+      }),
+    );
+
     now.mockReturnValue(2_750);
     fireEvent.click(
       screen.getByRole('button', {
@@ -199,14 +396,16 @@ describe('ProfileOnboardingModal v2', () => {
         onSkip={jest.fn()}
       />,
     );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.yes/,
-      }),
-    );
+    choosePasteRoute();
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: '保留这个草稿' },
     });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.next',
+      }),
+    );
+    expect(onComplete).not.toHaveBeenCalled();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.complete',
@@ -216,6 +415,118 @@ describe('ProfileOnboardingModal v2', () => {
     expect(
       window.sessionStorage.getItem(scopedDraftKey('user-failed-save')),
     ).toBe('保留这个草稿');
+  });
+
+  test('keeps confirmation single-flight and blocks every exit while it is pending', async () => {
+    let resolveComplete: ((value: boolean) => void) | undefined;
+    const completion = new Promise<boolean>(resolve => {
+      resolveComplete = resolve;
+    });
+    const onComplete = jest.fn(() => completion);
+    const onSkip = jest.fn();
+    render(
+      <ProfileOnboardingModal
+        open
+        onComplete={onComplete}
+        onSkip={onSkip}
+      />,
+    );
+
+    choosePasteRoute();
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: '等待保存的内容' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.next',
+      }),
+    );
+    const confirmButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.complete',
+    });
+    fireEvent.click(confirmButton);
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    const backButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.back',
+    });
+    const skipButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.skip',
+    });
+    expect(confirmButton).toBeDisabled();
+    expect(backButton).toBeDisabled();
+    expect(skipButton).toBeDisabled();
+
+    fireEvent.click(backButton);
+    fireEvent.click(skipButton);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.pointerDown(document.body);
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onSkip).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveComplete?.(false);
+      await completion;
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.complete',
+        }),
+      ).toBeEnabled();
+    });
+  });
+
+  test('locks the guided conversation and ignores late results while skipping', async () => {
+    let resolveSkip: ((value: boolean) => void) | undefined;
+    const skip = new Promise<boolean>(resolve => {
+      resolveSkip = resolve;
+    });
+    const onSkip = jest.fn(() => skip);
+    render(
+      <ProfileOnboardingModal
+        open
+        guidedAvailable
+        onComplete={jest.fn()}
+        onSkip={onSkip}
+      />,
+    );
+
+    chooseGuidedRoute();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.skip',
+      }),
+    );
+
+    await waitFor(() => expect(onSkip).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByRole('button', { name: START_GUIDED_SESSION_LABEL }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: FINISH_GUIDED_PROFILE_LABEL }),
+    ).toBeDisabled();
+
+    act(() => {
+      latestOnDraftReady?.('不应采用的迟到结果', 'session-late');
+    });
+    expect(screen.queryByDisplayValue('不应采用的迟到结果')).toBeNull();
+    expect(
+      screen.getByText('module.profileOnboarding.guided.title'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      resolveSkip?.(false);
+      await skip;
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: START_GUIDED_SESSION_LABEL }),
+      ).toBeEnabled();
+    });
   });
 
   test('allows skipping only through the explicit maybe-later button', async () => {
@@ -258,7 +569,7 @@ describe('ProfileOnboardingModal v2', () => {
     });
   });
 
-  test('focuses the heading instead of making the first route look selected', async () => {
+  test('focuses each route heading and resets page scroll on forward and back navigation', async () => {
     render(
       <ProfileOnboardingModal
         open
@@ -268,15 +579,46 @@ describe('ProfileOnboardingModal v2', () => {
       />,
     );
 
-    const heading = screen.getByRole('heading', {
-      name: 'module.profileOnboarding.title',
+    const choiceHeading = screen.getByRole('heading', {
+      name: 'module.profileOnboarding.choice.title',
     });
-    await waitFor(() => expect(heading).toHaveFocus());
+    await waitFor(() => expect(choiceHeading).toHaveFocus());
     expect(
       screen.getByRole('button', {
         name: /module.profileOnboarding.hasAgent.yes/,
       }),
     ).not.toHaveFocus();
+
+    const choiceBody = screen.getByTestId('profile-onboarding-body');
+    choiceBody.scrollTop = 240;
+    mockScrollTo.mockClear();
+    choosePasteRoute();
+
+    const pasteHeading = screen.getByRole('heading', {
+      name: 'module.profileOnboarding.externalAgent.title',
+    });
+    await waitFor(() => expect(pasteHeading).toHaveFocus());
+    expect(screen.getByTestId('profile-onboarding-body')).toHaveProperty(
+      'scrollTop',
+      0,
+    );
+    expect(mockScrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
+
+    const pasteBody = screen.getByTestId('profile-onboarding-body');
+    pasteBody.scrollTop = 180;
+    mockScrollTo.mockClear();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.back',
+      }),
+    );
+
+    await waitFor(() => expect(choiceHeading).toHaveFocus());
+    expect(screen.getByTestId('profile-onboarding-body')).toHaveProperty(
+      'scrollTop',
+      0,
+    );
+    expect(mockScrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
   });
 
   test('keeps the modal and pasted draft when explicit skipping fails', async () => {
@@ -291,11 +633,7 @@ describe('ProfileOnboardingModal v2', () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.yes/,
-      }),
-    );
+    choosePasteRoute();
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: '保留这份草稿' },
     });
@@ -316,7 +654,7 @@ describe('ProfileOnboardingModal v2', () => {
     );
   });
 
-  test('reviews guided runtime output before saving it', async () => {
+  test('reviews guided output and returns to the same guided conversation before saving', async () => {
     const onComplete = jest.fn().mockResolvedValue(true);
     render(
       <ProfileOnboardingModal
@@ -326,13 +664,24 @@ describe('ProfileOnboardingModal v2', () => {
         onSkip={jest.fn()}
       />,
     );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.no/,
-      }),
-    );
+    chooseGuidedRoute();
+    const guidedConversation = screen.getByTestId('mock-guided-conversation');
     fireEvent.click(
       screen.getByRole('button', { name: FINISH_GUIDED_PROFILE_LABEL }),
+    );
+    expect(screen.getByDisplayValue('引导生成的画像')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.back',
+      }),
+    );
+    expect(screen.getByTestId('mock-guided-conversation')).toBe(
+      guidedConversation,
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.next',
+      }),
     );
     expect(screen.getByDisplayValue('引导生成的画像')).toBeInTheDocument();
     fireEvent.click(
@@ -349,6 +698,71 @@ describe('ProfileOnboardingModal v2', () => {
     });
   });
 
+  test('restores the pasted draft after completing and leaving the guided route', () => {
+    window.sessionStorage.setItem(
+      scopedDraftKey('user-switches-routes'),
+      '原来的粘贴草稿',
+    );
+    render(
+      <ProfileOnboardingModal
+        open
+        guidedAvailable
+        draftStorageScope='user-switches-routes'
+        onComplete={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+
+    chooseGuidedRoute();
+    fireEvent.click(
+      screen.getByRole('button', { name: FINISH_GUIDED_PROFILE_LABEL }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.back' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.back' }),
+    );
+    choosePasteRoute();
+
+    expect(screen.getByRole('textbox')).toHaveValue('原来的粘贴草稿');
+    expect(
+      window.sessionStorage.getItem(scopedDraftKey('user-switches-routes')),
+    ).toBe('原来的粘贴草稿');
+  });
+
+  test('ignores a late guided result after the learner switches to pasted input', () => {
+    render(
+      <ProfileOnboardingModal
+        open
+        guidedAvailable
+        onComplete={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+
+    chooseGuidedRoute();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.back' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module.profileOnboarding.hasAgent.yes/,
+      }),
+    );
+    fireEvent.click(screen.getByText(FINISH_GUIDED_PROFILE_LABEL));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.next',
+      }),
+    );
+
+    expect(screen.getByRole('textbox')).toHaveValue('');
+    expect(
+      screen.getByText('module.profileOnboarding.externalAgent.title'),
+    ).toBeInTheDocument();
+  });
+
   test('uses onboarding intent for the default guided route', () => {
     render(
       <ProfileOnboardingModal
@@ -359,11 +773,7 @@ describe('ProfileOnboardingModal v2', () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.no/,
-      }),
-    );
+    chooseGuidedRoute();
     fireEvent.click(
       screen.getByRole('button', { name: START_GUIDED_SESSION_LABEL }),
     );
@@ -396,14 +806,13 @@ describe('ProfileOnboardingModal v2', () => {
       }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.yes/,
-      }),
-    );
+    choosePasteRoute();
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: '设置页更新后的背景和偏好' },
+    });
     expect(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.settings.save',
+        name: 'module.profileOnboarding.next',
       }),
     ).toBeInTheDocument();
     expect(
@@ -412,14 +821,23 @@ describe('ProfileOnboardingModal v2', () => {
       }),
     ).not.toBeInTheDocument();
     fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.next',
+      }),
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.save',
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.back' }),
+    );
+    fireEvent.click(
       screen.getByRole('button', { name: 'module.profileOnboarding.back' }),
     );
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.no/,
-      }),
-    );
+    chooseGuidedRoute();
     fireEvent.click(
       screen.getByRole('button', { name: START_GUIDED_SESSION_LABEL }),
     );
@@ -450,17 +868,13 @@ describe('ProfileOnboardingModal v2', () => {
         onSkip={jest.fn()}
       />,
     );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.yes/,
-      }),
-    );
+    choosePasteRoute();
 
     expect(screen.getByRole('textbox')).toHaveValue(oversizedDraft);
     expect(screen.getByText('4 characters; limit 3')).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.complete',
+        name: 'module.profileOnboarding.next',
       }),
     ).toBeDisabled();
     expect(
@@ -468,7 +882,7 @@ describe('ProfileOnboardingModal v2', () => {
     ).toBe(oversizedDraft);
   });
 
-  test('validates and submits the trimmed pasted profile length', async () => {
+  test('validates the trimmed pasted profile length before review and submit', async () => {
     const onComplete = jest.fn().mockResolvedValue(true);
     render(
       <ProfileOnboardingModal
@@ -478,28 +892,30 @@ describe('ProfileOnboardingModal v2', () => {
         onSkip={jest.fn()}
       />,
     );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.yes/,
-      }),
-    );
+    choosePasteRoute();
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: '  A😀你  ' },
     });
 
     expect(screen.getByText('3 / 3')).toBeInTheDocument();
-    const completeButton = screen.getByRole('button', {
-      name: 'module.profileOnboarding.complete',
+    const nextButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.next',
     });
-    expect(completeButton).toBeEnabled();
-    fireEvent.click(completeButton);
+    expect(nextButton).toBeEnabled();
+    fireEvent.click(nextButton);
+    expect(onComplete).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.complete',
+      }),
+    );
 
     await waitFor(() => {
       expect(onComplete).toHaveBeenCalledWith('A😀你', 'pasted', undefined);
     });
   });
 
-  test('keeps the guided session id when the user switches to the paste route', async () => {
+  test('never submits a pasted profile with an abandoned guided session id', async () => {
     const onComplete = jest.fn().mockResolvedValue(true);
     render(
       <ProfileOnboardingModal
@@ -510,25 +926,23 @@ describe('ProfileOnboardingModal v2', () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.no/,
-      }),
-    );
+    chooseGuidedRoute();
     fireEvent.click(
       screen.getByRole('button', { name: START_GUIDED_SESSION_LABEL }),
     );
     fireEvent.click(
       screen.getByRole('button', { name: 'module.profileOnboarding.back' }),
     );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.yes/,
-      }),
-    );
+    choosePasteRoute();
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: '改用已有智能体整理的画像' },
     });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.next',
+      }),
+    );
+    expect(onComplete).not.toHaveBeenCalled();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.complete',
@@ -539,7 +953,7 @@ describe('ProfileOnboardingModal v2', () => {
       expect(onComplete).toHaveBeenCalledWith(
         '改用已有智能体整理的画像',
         'pasted',
-        'session-1',
+        undefined,
       );
     });
   });
@@ -553,11 +967,7 @@ describe('ProfileOnboardingModal v2', () => {
         onSkip={jest.fn()}
       />,
     );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.yes/,
-      }),
-    );
+    choosePasteRoute();
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: '同一用户应恢复的草稿' },
     });
@@ -574,11 +984,7 @@ describe('ProfileOnboardingModal v2', () => {
         onSkip={jest.fn()}
       />,
     );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.yes/,
-      }),
-    );
+    choosePasteRoute();
 
     expect(screen.getByRole('textbox')).toHaveValue('同一用户应恢复的草稿');
   });
@@ -597,11 +1003,7 @@ describe('ProfileOnboardingModal v2', () => {
         onSkip={jest.fn()}
       />,
     );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.yes/,
-      }),
-    );
+    choosePasteRoute();
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: '只属于用户 A 的草稿' },
     });
@@ -617,11 +1019,7 @@ describe('ProfileOnboardingModal v2', () => {
         onSkip={jest.fn()}
       />,
     );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /module.profileOnboarding.hasAgent.yes/,
-      }),
-    );
+    choosePasteRoute();
 
     expect(screen.getByRole('textbox')).toHaveValue('');
     expect(window.sessionStorage.getItem(scopedDraftKey('user-a'))).toBeNull();

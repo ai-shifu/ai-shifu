@@ -21,6 +21,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     initialContentList: Array<{
       content: string;
       isFinished?: boolean;
+      readonly?: boolean;
       userInput?: string;
     }>;
     onSend: (value: { variableName: string; inputText: string }) => void;
@@ -35,6 +36,9 @@ jest.mock('markdown-flow-ui/renderer', () => ({
       {initialContentList.some(item => !item.isFinished) ? (
         <button
           type='button'
+          disabled={initialContentList.some(
+            item => !item.isFinished && item.readonly,
+          )}
           onClick={() =>
             onSend({ variableName: 'profile_goal', inputText: '学会 AI' })
           }
@@ -47,6 +51,153 @@ jest.mock('markdown-flow-ui/renderer', () => ({
 }));
 
 describe('ProfileOnboardingConversation', () => {
+  test('makes the active question read-only while the parent action is pending', async () => {
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'interaction-disabled',
+            element_type: 'interaction',
+            content: '?[%{{profile_goal}}...你的学习目标是什么？]',
+          },
+        });
+        onMessage({
+          type: 'done',
+          is_terminal: true,
+          content: { done: false },
+        });
+      });
+      return { close: jest.fn() };
+    });
+    const props = {
+      createSession: async () => ({ session_id: 'session-disabled' }),
+      runSession,
+      onDraftReady: jest.fn(),
+      onError: jest.fn(),
+    };
+    const view = render(
+      <ProfileOnboardingConversation
+        {...props}
+        disabled
+      />,
+    );
+
+    const answerButton = await screen.findByRole('button', {
+      name: ANSWER_GUIDED_QUESTION_LABEL,
+    });
+    expect(answerButton).toBeDisabled();
+    fireEvent.click(answerButton);
+    expect(runSession).toHaveBeenCalledTimes(1);
+
+    view.rerender(<ProfileOnboardingConversation {...props} />);
+    expect(answerButton).toBeEnabled();
+    fireEvent.click(answerButton);
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
+  });
+
+  test('keeps the newest guided question visible as the conversation grows', async () => {
+    const scrollIntoView = jest.fn();
+    const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'scrollIntoView',
+    );
+    const originalMatchMedia = Object.getOwnPropertyDescriptor(
+      window,
+      'matchMedia',
+    );
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: jest.fn().mockReturnValue({ matches: false }),
+    });
+
+    const runSession = jest
+      .fn()
+      .mockImplementationOnce(({ onMessage }) => {
+        queueMicrotask(() => {
+          onMessage({
+            type: 'element',
+            content: {
+              element_bid: 'interaction-scroll-1',
+              element_type: 'interaction',
+              content: '?[%{{profile_goal}}...第一个问题]',
+            },
+          });
+          onMessage({
+            type: 'done',
+            is_terminal: true,
+            content: { done: false, next_block_index: 1 },
+          });
+        });
+        return { close: jest.fn() };
+      })
+      .mockImplementationOnce(({ onMessage }) => {
+        queueMicrotask(() => {
+          onMessage({
+            type: 'element',
+            content: {
+              element_bid: 'interaction-scroll-2',
+              element_type: 'interaction',
+              content: '?[%{{profile_goal}}...第二个问题]',
+            },
+          });
+          onMessage({
+            type: 'done',
+            is_terminal: true,
+            content: { done: false, next_block_index: 2 },
+          });
+        });
+        return { close: jest.fn() };
+      });
+
+    const view = render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-scroll' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    try {
+      await screen.findByText('?[%{{profile_goal}}...第一个问题]');
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+      scrollIntoView.mockClear();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+      );
+
+      await screen.findByText('?[%{{profile_goal}}...第二个问题]');
+      await waitFor(() =>
+        expect(scrollIntoView).toHaveBeenCalledWith({
+          block: 'nearest',
+          behavior: 'smooth',
+        }),
+      );
+    } finally {
+      view.unmount();
+      if (originalScrollIntoView) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          'scrollIntoView',
+          originalScrollIntoView,
+        );
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+      }
+      if (originalMatchMedia) {
+        Object.defineProperty(window, 'matchMedia', originalMatchMedia);
+      } else {
+        Reflect.deleteProperty(window, 'matchMedia');
+      }
+    }
+  });
+
   test('submits without ES2023 array methods and returns the server profile draft', async () => {
     const onDraftReady = jest.fn();
     const runSession = jest

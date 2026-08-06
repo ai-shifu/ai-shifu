@@ -29,45 +29,63 @@
     "updatedAt": "Updated at",
     "updatedBy": "Updated by"
   },
-  "back": "Back",
+  "back": "Previous",
   "characterCount": "{count} / {max} characters",
   "characterCountOverLimit": "{count} characters entered; the limit is {max}. Shorten the text before saving.",
-  "complete": "Save and continue",
-  "description": "Tell us about your background, preferences, and current interests so courses can use familiar examples, explain things in a style you prefer, and present slides the way you like.",
+  "choice": {
+    "description": "If you do, it can organize the details for you. If not, we’ll ask you a few short questions.",
+    "title": "Do you have an AI assistant you use often that already knows you well?"
+  },
+  "complete": "Confirm and save",
+  "completeCompact": "Save",
+  "description": "Take a minute to share your background and preferences. Future courses can use more familiar examples, your preferred explanation style, and your preferred slide style.",
   "externalAgent": {
     "copied": "Copied",
     "copy": "Copy this message",
-    "copyFailed": "Copy failed. Select and copy the message manually.",
-    "prompt": "Based on what you already know about me, help me write a short note that makes it easier for courses to adapt explanations to my background and preferences. Include only:\n- What you usually call me\n- My professional background, identity, and relevant experience\n- My preferred communication style\n- My preferred slide style\n- What I have been focusing on recently\n\nWrite in first-person plain text, keep it within 1,000 characters, and do not guess or add details you do not actually know.",
-    "switchHint": "You can temporarily switch to your AI assistant. Anything you have already pasted will still be here when you return.",
-    "title": "Ask your usual AI assistant to help"
+    "copyFailed": "We could not copy it automatically. Select and copy the text above.",
+    "description": "Copy the message below to your usual AI assistant, then paste its answer here.",
+    "prompt": "Based on what you already know about me, write a short note I can share with my courses. It will help them choose examples, explanations, and slide styles that fit me. Include only:\n- What you usually call me\n- My professional background, roles, and relevant experience\n- My preferred expression style\n- My preferred slide style\n- What I am focusing on recently\n\nWrite in first-person plain text and keep it within 1,000 characters. Do not guess, add details you do not know, or include anything else.",
+    "resultLabel": "Your AI assistant’s answer",
+    "resultPlaceholder": "Paste your AI assistant’s answer here",
+    "switchHint": "You can switch apps. Your current content will still be here when you return.",
+    "title": "Ask your AI assistant for help"
   },
   "guided": {
-    "description": "Answer a few short questions and we’ll organize your background and preferences into editable text. Finish on this page; refreshing will start over.",
-    "missingDraft": "You finished the questions, but we could not organize the result. Please start again.",
-    "retry": "Retry",
-    "retryableError": "The connection was interrupted. Retry this step.",
-    "streamError": "We cannot continue right now. Go back and start again.",
-    "thinking": "Preparing the next question…",
-    "unavailable": "This option is temporarily unavailable. You can still ask your usual AI assistant to help."
+    "description": "This takes about a minute. Your answers help courses choose better examples and explanations for you.",
+    "missingDraft": "We could not finish organizing your answers. Please answer the questions again.",
+    "retry": "Try again",
+    "retryableError": "The connection was interrupted. Your answer is still here. Try again.",
+    "starting": "Preparing the first question…",
+    "streamError": "This option is unavailable right now. Go to the previous step and choose another way.",
+    "thinking": "Continuing from your answer…",
+    "title": "Answer a few short questions",
+    "unavailable": "We cannot ask you directly right now. You can still ask your usual AI assistant for help."
   },
   "hasAgent": {
-    "no": "No",
-    "noHint": "Answer a few short questions and we’ll organize the details",
-    "yes": "Yes",
-    "yesHint": "Ask it to summarize you, then paste the result here"
+    "no": "No, ask me directly",
+    "noHint": "Answer a few short questions in about a minute",
+    "yes": "Yes, let it help",
+    "yesHint": "Copy a message to it, then paste its answer here"
   },
   "loadFailed": "Your personalization settings could not be loaded, so the course was opened. Please try again later.",
-  "privacyNotice": "These details are saved to your account and used across courses. During lessons, follow-up questions, and previews, the AI services behind the course use them only as supporting context; the course's own requirements still take priority. Submitted content also goes through platform safety checks. You can edit or remove these details at any time. Do not include contact details, ID numbers, exact addresses, health data, or financial information.",
+  "next": "Next",
+  "onboardingCharacterCount": "{count} / {max} characters",
+  "onboardingCharacterCountOverLimit": "You have entered {count} characters. The limit is {max}. Shorten the text to continue.",
+  "privacyDetails": "During lessons, follow-up questions, and previews, the course’s AI services use these details only as supporting context. The course’s own requirements still take priority. Submitted content goes through platform safety checks. Do not include contact details, ID numbers, exact addresses, health data, or financial information.",
+  "privacyDetailsLabel": "How these details are used",
+  "privacyNotice": "These details are saved to your account to make different courses fit you better. You can edit or remove them at any time.",
+  "privacySummary": "These details are saved to your account to make different courses fit you better. You can edit or remove them at any time.",
   "profileLabel": "Your background and preferences",
   "profilePlaceholder": "For example: what to call you, your work or study background, relevant experience, preferred explanation and slide styles, and current interests",
   "refreshPending": "Saved. The course is updating, so please refresh the page shortly.",
   "review": {
-    "description": "We organized this text from your answers. Edit anything that is not right, then save it.",
-    "title": "Check that this looks right"
+    "description": "Check these details before saving. Future courses will use them to choose examples, explanations, and slide styles.",
+    "profileLabel": "Details courses will use",
+    "profilePlaceholder": "Add the background, experience, and preferences you want courses to know",
+    "title": "Confirm these details"
   },
   "routeQuestion": "Do you have an AI assistant you use often that already knows you well?",
-  "routeQuestionHint": "If you do, asking it to summarize you is fastest. If not, answer a few questions here.",
+  "routeQuestionHint": "If you do, it can organize the details for you. If not, we’ll ask you a few short questions.",
   "settings": {
     "cancel": "Cancel",
     "clear": "Remove these details",
@@ -88,8 +106,17 @@
     "title": "Make courses fit you better",
     "updatedAt": "Last updated: {time}"
   },
+  "sidebarDescription": "Three short steps help future courses fit you better.",
   "skip": "Maybe later",
-  "submitFailed": "Unable to save. Check the content and try again.",
+  "skipping": "Please wait…",
+  "stepCounter": "Step {current} of {total}",
+  "steps": {
+    "choose": "Choose a way",
+    "collect": "Add details",
+    "review": "Review"
+  },
+  "submitFailed": "We could not save your details. Your content is still here. Try again.",
+  "submitting": "Saving…",
   "title": "Make courses fit you better",
-  "upgradeDescription": "Add or update your background and preferences so future courses can use familiar examples, explain things in a style you prefer, and present slides the way you like."
+  "upgradeDescription": "Update these details so future courses keep fitting who you are now."
 }

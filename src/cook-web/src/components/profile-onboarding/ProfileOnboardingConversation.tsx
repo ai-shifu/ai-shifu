@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { Button } from '@/components/ui/Button';
+import { cn } from '@/lib/utils';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 import type { ProfileOnboardingStreamEvent } from '@/lib/profileOnboardingSse';
 
@@ -49,6 +50,8 @@ type ProfileOnboardingRunRequest = {
 export type ProfileOnboardingConversationProps = {
   createSession: () => Promise<ProfileOnboardingSessionInfo>;
   runSession: ProfileOnboardingRunSession;
+  disabled?: boolean;
+  errorMessage?: string;
   onSessionStarted?: (sessionId: string) => void;
   onDraftReady: (profileDraft: string, sessionId: string) => void;
   onError: (error: unknown) => void;
@@ -201,6 +204,8 @@ const upsertConversationItem = (
 export default function ProfileOnboardingConversation({
   createSession,
   runSession,
+  disabled = false,
+  errorMessage = '',
   onSessionStarted,
   onDraftReady,
   onError,
@@ -225,6 +230,7 @@ export default function ProfileOnboardingConversation({
   const streamCompletedRef = React.useRef(false);
   const runtimeFailedRef = React.useRef(false);
   const mountedRef = React.useRef(true);
+  const latestItemRef = React.useRef<HTMLDivElement>(null);
   const runNextRef = React.useRef<
     (userInput?: Record<string, string[]>) => void
   >(() => {});
@@ -234,6 +240,7 @@ export default function ProfileOnboardingConversation({
   const onDraftReadyRef = React.useRef(onDraftReady);
   const onErrorRef = React.useRef(onError);
   const onRetryRef = React.useRef(onRetry);
+  const disabledRef = React.useRef(disabled);
   const tRef = React.useRef(t);
   createSessionRef.current = createSession;
   runSessionRef.current = runSession;
@@ -241,6 +248,7 @@ export default function ProfileOnboardingConversation({
   onDraftReadyRef.current = onDraftReady;
   onErrorRef.current = onError;
   onRetryRef.current = onRetry;
+  disabledRef.current = disabled;
   tRef.current = t;
 
   const stopStream = React.useCallback(() => {
@@ -433,7 +441,23 @@ export default function ProfileOnboardingConversation({
     };
   }, [stopStream]);
 
+  React.useEffect(() => {
+    if (!items.length) {
+      return;
+    }
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    latestItemRef.current?.scrollIntoView?.({
+      block: 'nearest',
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+    });
+  }, [items.length]);
+
   const handleSend = React.useCallback((content: OnSendContentParams) => {
+    if (disabledRef.current) {
+      return;
+    }
     const { values, userInput } = resolveInteractionSubmission(content);
     if (!values.length) {
       return;
@@ -466,6 +490,7 @@ export default function ProfileOnboardingConversation({
     const lastRunRequest = lastRunRequestRef.current;
     if (
       !retryAvailableRef.current ||
+      disabledRef.current ||
       !sessionIdRef.current ||
       !lastRunRequest
     ) {
@@ -482,31 +507,48 @@ export default function ProfileOnboardingConversation({
   );
 
   return (
-    <div className='space-y-4'>
-      <div className='profile-onboarding-markdownflow min-h-36'>
+    <div
+      data-testid='profile-onboarding-conversation'
+      className='flex h-full min-h-0 flex-col gap-3'
+      aria-busy={disabled || loading}
+    >
+      <div className='profile-onboarding-markdownflow min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]'>
         <MarkdownFlow
           locale={locale}
           initialContentList={items.map(item => ({
             content: item.content,
             isFinished: item.finished,
-            readonly: item.finished || !item.interaction,
+            readonly: disabled || item.finished || !item.interaction,
             userInput: item.userInput,
           }))}
           onSend={handleSend}
         />
+        <div
+          ref={latestItemRef}
+          aria-hidden='true'
+        />
       </div>
       <div
-        className='flex min-h-6 items-center gap-2 text-sm text-muted-foreground'
-        role='status'
-        aria-live='polite'
+        className={cn(
+          'flex min-h-9 shrink-0 items-center gap-2 text-sm text-muted-foreground',
+          !items.length && 'order-first',
+        )}
+        role={errorMessage ? 'alert' : 'status'}
+        aria-live={errorMessage ? 'assertive' : 'polite'}
       >
-        {loading ? (
+        {errorMessage ? (
+          <span className='min-w-0 flex-1 text-destructive'>
+            {errorMessage}
+          </span>
+        ) : loading ? (
           <>
             <Loader2
               className='h-4 w-4 animate-spin'
               aria-hidden='true'
             />
-            {t('module.profileOnboarding.guided.thinking')}
+            {items.length
+              ? t('module.profileOnboarding.guided.thinking')
+              : t('module.profileOnboarding.guided.starting')}
           </>
         ) : null}
         {retryAvailable ? (
@@ -514,6 +556,7 @@ export default function ProfileOnboardingConversation({
             type='button'
             size='sm'
             variant='outline'
+            disabled={disabled}
             onClick={handleRetry}
           >
             {t('module.profileOnboarding.guided.retry')}
