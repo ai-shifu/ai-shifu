@@ -2,6 +2,7 @@ from markdown_flow import MarkdownFlow
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.shifu.models import DraftOutlineItem
+from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
 from flaskr.service.common import raise_error
 from flaskr.dao import db, retry_on_deadlock
 from flaskr.service.shifu.dtos import MdflowDTOParseResult
@@ -162,6 +163,7 @@ def save_shifu_mdflow(
         @retry_on_deadlock()
         def _save_txn() -> DraftSaveResponse:
             nonlocal risk_checked
+            lock_shifu_for_outline_write(shifu_bid)
             lock_latest = isinstance(base_revision, int) and base_revision >= 0
             outline_query = DraftOutlineItem.query.filter(
                 DraftOutlineItem.shifu_bid == shifu_bid,

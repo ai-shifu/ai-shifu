@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 import pytest
 
@@ -47,13 +48,28 @@ def _add_outline_version(
     content: str,
     updated_user_bid: str,
     minutes_offset: int,
+    *,
+    title: str = "outline",
+    parent_bid: str = "",
+    position: str = "01",
 ) -> int:
     with app.app_context():
         item = DraftOutlineItem(
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
-            title="outline",
+            title=title,
             content=content,
+            parent_bid=parent_bid,
+            position=position,
+            prerequisite_item_bids="",
+            llm="",
+            llm_temperature=Decimal("0.3"),
+            llm_system_prompt="",
+            ask_enabled_status=5101,
+            ask_llm="",
+            ask_llm_temperature=Decimal("0.3"),
+            ask_llm_system_prompt="",
+            deleted=0,
             updated_user_bid=updated_user_bid,
             updated_at=datetime.now() + timedelta(minutes=minutes_offset),
             created_user_bid=updated_user_bid,
@@ -331,6 +347,88 @@ def test_save_shifu_mdflow_returns_outline_revision_not_history_log(app, monkeyp
     assert result["conflict"] is False
     assert result["new_revision"] == current_revision
     assert result["new_revision"] != 999999
+
+
+def test_save_shifu_mdflow_serializes_with_outline_structure_writes(app, monkeypatch):
+    shifu_bid = "shifu-mdflow-structure-lock-1"
+    outline_bid = "outline-mdflow-structure-lock-1"
+    lock_calls = []
+
+    _add_outline_version(
+        app,
+        shifu_bid,
+        outline_bid,
+        "Original",
+        "user-structure-lock-1",
+        0,
+        parent_bid="parent-old",
+        position="0105",
+    )
+    with app.app_context():
+        latest = (
+            DraftOutlineItem.query.filter_by(
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+        reordered = latest.clone()
+        reordered.parent_bid = "parent-new"
+        reordered.position = "0101"
+        reordered.updated_user_bid = "user-structure-lock-1"
+        reordered.updated_at = datetime.now() + timedelta(minutes=1)
+        db.session.add(reordered)
+        db.session.commit()
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.lock_shifu_for_outline_write",
+        lambda bid: lock_calls.append(bid),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.save_outline_history",
+        lambda *_args, **_kwargs: 999999,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.cleanup_outline_history_versions",
+        lambda *_args, **_kwargs: None,
+    )
+
+    result = save_shifu_mdflow(
+        app,
+        "user-structure-lock-2",
+        shifu_bid,
+        outline_bid,
+        "Updated content",
+    )
+
+    with app.app_context():
+        latest = (
+            DraftOutlineItem.query.filter_by(
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+
+    assert result["conflict"] is False
+    assert lock_calls == [shifu_bid]
+    assert latest.content == "Updated content"
+    assert latest.parent_bid == "parent-new"
+    assert latest.position == "0101"
 
 
 def test_cleanup_outline_history_preserves_content_anchor_revision(app):
