@@ -27,6 +27,28 @@ export interface RequestAudioForBlockOptions {
 
 export type TtsStreamCancel = (options?: { updateState?: boolean }) => void;
 
+export interface LessonUpdatePayload {
+  id: string;
+  name?: string;
+  status?: string;
+  status_value?: string;
+}
+
+export interface ChapterUpdatePayload {
+  id: string;
+  status: string;
+  status_value: string;
+}
+
+export type LessonUpdateHandler = (params: LessonUpdatePayload) => void;
+export type ChapterUpdateHandler = (params: ChapterUpdatePayload) => void;
+export type LessonSelectionUpdater = (
+  lessonId: string,
+  forceExpand?: boolean,
+) => void | Promise<void>;
+export type NextLessonIdGetter = (lessonId?: string | null) => string | null;
+export type ChapterNavigationHandler = (lessonId: string) => void;
+
 export interface UseChatSessionParams {
   shifuBid: string;
   outlineBid: string;
@@ -39,14 +61,14 @@ export interface UseChatSessionParams {
   shouldPromptLessonFeedback?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, elementBid: string) => void;
-  lessonUpdate?: (params: Record<string, any>) => void;
-  chapterUpdate?: (params: Record<string, any>) => void;
-  updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
-  getNextLessonId: (lessonId?: string | null) => string | null;
+  lessonUpdate?: LessonUpdateHandler;
+  chapterUpdate?: ChapterUpdateHandler;
+  updateSelectedLesson: LessonSelectionUpdater;
+  getNextLessonId: NextLessonIdGetter;
   scrollToLesson: (lessonId: string) => void;
   showOutputInProgressToast: () => void;
   onPayModalOpen: () => void;
-  onGoChapter: (lessonId: string) => void;
+  onGoChapter: ChapterNavigationHandler;
 }
 
 export interface UseChatSessionResult {

@@ -92,6 +92,13 @@ import {
 import { useLessonPdfPrint } from './useLessonPdfPrint';
 import LessonPdfPreparingOverlay from './LessonPdfPreparingOverlay';
 import { buildCoursePageUrl } from '@/c-utils/urlUtils';
+import type {
+  ChapterNavigationHandler,
+  ChapterUpdateHandler,
+  LessonSelectionUpdater,
+  LessonUpdateHandler,
+  NextLessonIdGetter,
+} from './useChatLogicHook.types';
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
@@ -103,17 +110,17 @@ const LISTEN_AUDIO_BACKFILL_CONCURRENCY = 3;
 
 interface NewChatComponentsProps {
   className?: string;
-  lessonUpdate: (val: any) => void;
-  onGoChapter: (id: any) => void;
+  lessonUpdate: LessonUpdateHandler;
+  onGoChapter: ChapterNavigationHandler;
   chapterId: string;
   lessonId?: string;
   lessonTitle?: string;
   lessonStatus?: string;
   lessonHasContentUpdate?: boolean;
   onPurchased: () => void;
-  chapterUpdate: any;
-  updateSelectedLesson: any;
-  getNextLessonId: any;
+  chapterUpdate: ChapterUpdateHandler;
+  updateSelectedLesson: LessonSelectionUpdater;
+  getNextLessonId: NextLessonIdGetter;
   previewMode?: boolean;
   isNavOpen?: boolean;
   onListenPlayerVisibilityChange?: (visible: boolean) => void;
