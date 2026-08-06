@@ -315,6 +315,33 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
     }
 
 
+def test_worker_process_init_replaces_inherited_database_pool(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    from flaskr import dao
+
+    flask_app = Flask(__name__)
+    flask_app.config.update(
+        SQLALCHEMY_DATABASE_URI=f"sqlite:///{tmp_path / 'celery-fork.db'}",
+        TESTING=True,
+    )
+    dao.init_db(flask_app)
+    with flask_app.app_context():
+        inherited_pool = dao.db.engine.pool
+
+    monkeypatch.setattr(
+        celery_app_module,
+        "__CELERY_APP__",
+        types.SimpleNamespace(flask_app=flask_app),
+    )
+
+    celery_app_module.worker_process_init.send(sender=None)
+
+    with flask_app.app_context():
+        assert dao.db.engine.pool is not inherited_pool
+
+
 def test_get_celery_app_loads_flask_app_from_app_factory(
     monkeypatch,
 ) -> None:
