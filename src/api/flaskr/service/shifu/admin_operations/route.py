@@ -15,6 +15,9 @@ from flaskr.service.billing.api import (
     get_operator_credit_order_detail,
 )
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.profile_onboarding import (
+    PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS,
+)
 from flaskr.service.order.api import (
     get_operator_order_detail,
     get_operator_order_overview,
@@ -1121,6 +1124,9 @@ def register_admin_operations_routes(
             raise_param_error("markdownflow")
         if not isinstance(document_prompt, str):
             raise_param_error("document_prompt")
+        document_prompt = document_prompt.strip()
+        if len(document_prompt) > PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS:
+            raise_param_error("document_prompt")
         if language is not None and (
             not isinstance(language, str) or not language.strip()
         ):
@@ -1131,7 +1137,7 @@ def register_admin_operations_routes(
                 app,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
                 markdownflow=markdownflow.strip(),
-                document_prompt=document_prompt.strip(),
+                document_prompt=document_prompt,
                 config_revision=int(config.get("config_revision") or 0),
                 output_language=(
                     _normalize_profile_onboarding_language(app, language)

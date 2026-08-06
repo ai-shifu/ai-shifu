@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 
 import pytest
+from flaskr.service.common.profile_onboarding import (
+    PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS,
+)
 from flaskr.service.profile_research.api import (
     ProfileResearchSessionBusy,
 )
@@ -783,6 +786,34 @@ def test_operator_profile_onboarding_preview_start_is_isolated_and_purpose_scope
             "output_language": "fr-FR",
         }
     ]
+
+
+def test_operator_profile_onboarding_preview_rejects_oversized_document_prompt(
+    monkeypatch, test_client
+):
+    _authenticate(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.route.get_operator_profile_onboarding_config",
+        lambda app: {"config_revision": 5},
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.route.create_operator_profile_onboarding_preview_session",
+        lambda app, **kwargs: calls.append(kwargs),
+    )
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/profile-onboarding/preview",
+        headers={"Token": "token"},
+        json={
+            "markdownflow": "?[Continue]",
+            "document_prompt": "x"
+            * (PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS + 1),
+        },
+    )
+
+    assert response.get_json(force=True)["code"] != 0
+    assert calls == []
 
 
 def test_operator_profile_onboarding_preview_run_enforces_owner_and_purpose(
