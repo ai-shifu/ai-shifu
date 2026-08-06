@@ -5,11 +5,11 @@ import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { useEnvStore } from '@/c-store/envStore';
 import { useSystemStore } from '@/c-store/useSystemStore';
-import { LEARNING_PERMISSION } from '@/c-api/studyV2';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useShallow } from 'zustand/react/shallow';
 import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
+import { resolveLearnerLessonAccess } from '../learnerAccessRules';
 
 type LessonTreeApiLesson = {
   bid: string;
@@ -130,26 +130,25 @@ export const useLessonTree = () => {
 
   const ensureLessonAccessible = useCallback(
     (lesson: LessonTreeLesson, chapterId: string) => {
-      const needsLogin =
-        (lesson.type === LEARNING_PERMISSION.TRIAL ||
-          lesson.type === LEARNING_PERMISSION.NORMAL) &&
-        !isLoggedIn;
-      if (!previewMode && needsLogin) {
-        window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
+      const access = resolveLearnerLessonAccess({
+        type: lesson.type,
+        isPaid: lesson.is_paid,
+        isLoggedIn,
+        previewMode,
+        chapterId,
+        lessonId: lesson.id,
+        currentPathAndSearch: location.pathname + location.search,
+      });
+
+      if (access.type === 'login') {
+        window.location.href = access.redirectUrl;
         return false;
       }
 
-      if (
-        !previewMode &&
-        lesson.type === LEARNING_PERMISSION.NORMAL &&
-        !lesson.is_paid
-      ) {
+      if (access.type === 'pay') {
         openPayModal({
-          type: lesson.type,
-          payload: {
-            chapterId,
-            lessonId: lesson.id,
-          },
+          type: access.modalType,
+          payload: access.payload,
         });
         return false;
       }

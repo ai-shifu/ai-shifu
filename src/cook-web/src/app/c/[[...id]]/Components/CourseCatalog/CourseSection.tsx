@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
 import { useSystemStore } from '@/c-store/useSystemStore';
+import { resolveLearnerLessonAccess } from '../../learnerAccessRules';
 
 type CourseSectionProps = {
   id: string;
@@ -85,22 +86,25 @@ export const CourseSection = ({
       return;
     }
 
-    const needsLogin =
-      (type === LEARNING_PERMISSION.TRIAL ||
-        type === LEARNING_PERMISSION.NORMAL) &&
-      !isLoggedIn;
-    if (!previewMode && needsLogin) {
-      window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
+    const access = resolveLearnerLessonAccess({
+      type,
+      isPaid: is_paid,
+      isLoggedIn,
+      previewMode,
+      chapterId,
+      lessonId: id,
+      currentPathAndSearch: location.pathname + location.search,
+    });
+
+    if (access.type === 'login') {
+      window.location.href = access.redirectUrl;
       return;
     }
 
-    if (!previewMode && type === LEARNING_PERMISSION.NORMAL && !is_paid) {
+    if (access.type === 'pay') {
       openPayModal({
-        type,
-        payload: {
-          chapterId,
-          lessonId: id,
-        },
+        type: access.modalType,
+        payload: access.payload,
       });
       return;
     }
