@@ -127,15 +127,18 @@ def update_profile_onboarding_config(
     if not isinstance(payload.get("enabled", False), bool):
         raise_param_error("enabled")
     raw_markdownflow = payload.get("markdownflow", "")
-    raw_document_prompt = payload.get("document_prompt", "")
     if not isinstance(raw_markdownflow, str):
         raise_param_error("markdownflow")
-    if not isinstance(raw_document_prompt, str):
-        raise_param_error("document_prompt")
     markdownflow = raw_markdownflow.strip()
-    document_prompt = raw_document_prompt.strip()
-    if len(document_prompt) > PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS:
-        raise_param_error("document_prompt")
+    if "document_prompt" in payload:
+        raw_document_prompt = payload["document_prompt"]
+        if not isinstance(raw_document_prompt, str):
+            raise_param_error("document_prompt")
+        document_prompt = raw_document_prompt.strip()
+        if len(document_prompt) > PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS:
+            raise_param_error("document_prompt")
+    else:
+        document_prompt = existing.get("document_prompt", "")
     if markdownflow:
         validate_profile_onboarding_markdownflow(markdownflow)
     elif payload.get("enabled", False):

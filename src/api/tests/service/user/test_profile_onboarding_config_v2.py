@@ -119,6 +119,49 @@ def test_profile_onboarding_config_rejects_oversized_document_prompt(app, monkey
     assert saved_payloads == []
 
 
+@pytest.mark.parametrize(
+    ("payload", "expected_document_prompt"),
+    [
+        ({"enabled": False, "markdownflow": ""}, "Keep this prompt."),
+        (
+            {"enabled": False, "markdownflow": "", "document_prompt": ""},
+            "",
+        ),
+    ],
+)
+def test_profile_onboarding_config_preserves_only_omitted_document_prompt(
+    app, monkeypatch, payload, expected_document_prompt
+):
+    from flaskr.service.common import profile_onboarding as module
+
+    current_config = module.normalize_profile_onboarding_config_payload(
+        {
+            "enabled": False,
+            "markdownflow": "",
+            "document_prompt": "Keep this prompt.",
+            "revision": 4,
+        }
+    )
+    saved_payloads: list[dict] = []
+    monkeypatch.setattr(
+        module, "load_profile_onboarding_config_payload", lambda: current_config
+    )
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda _app, saved_payload, *, updated_by: saved_payloads.append(saved_payload),
+    )
+
+    result = module.update_profile_onboarding_config(
+        app,
+        payload=payload,
+        operator_user_bid="operator-1",
+    )
+
+    assert saved_payloads[0]["document_prompt"] == expected_document_prompt
+    assert result["document_prompt"] == expected_document_prompt
+
+
 def test_profile_onboarding_config_reads_legacy_version_as_revision():
     from flaskr.service.common.profile_onboarding import (
         normalize_profile_onboarding_config_payload,
