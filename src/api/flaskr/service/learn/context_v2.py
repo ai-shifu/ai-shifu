@@ -1285,6 +1285,11 @@ class RunScriptPreviewContextV2:
         try:
             return load_user_aggregate(user_bid, with_credentials=False)
         except Exception as exc:  # noqa: BLE001 - preview must survive lookup failures
+            cleanup_session_after(
+                exc,
+                source="preview learner profile lookup",
+                session=db.session,
+            )
             self.app.logger.warning(
                 "learner lookup failed for preview course prompt | "
                 "user_bid=%s | error_class=%s",

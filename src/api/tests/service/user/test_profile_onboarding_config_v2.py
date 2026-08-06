@@ -119,6 +119,35 @@ def test_profile_onboarding_config_rejects_oversized_document_prompt(app, monkey
     assert saved_payloads == []
 
 
+def test_profile_onboarding_config_rejects_combined_utf8_payload_over_text_limit(
+    app, monkeypatch
+):
+    from flaskr.service.common import profile_onboarding as module
+
+    saved_values: list[str] = []
+    monkeypatch.setattr(
+        module,
+        "add_config",
+        lambda _app, _key, value, **_kwargs: saved_values.append(value),
+    )
+    payload = module.normalize_profile_onboarding_config_payload(
+        {"markdownflow": "测" * 22_000}
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        module.save_profile_onboarding_config_payload(
+            app,
+            payload,
+            updated_by="operator-1",
+        )
+
+    assert (
+        len(payload["markdownflow"]) < module.PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES
+    )
+    assert "profile_onboarding_config" in str(exc_info.value)
+    assert saved_values == []
+
+
 @pytest.mark.parametrize(
     ("payload", "expected_document_prompt"),
     [

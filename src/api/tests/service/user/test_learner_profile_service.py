@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from flaskr.dao import db
@@ -469,6 +469,30 @@ def test_late_skip_does_not_downgrade_completed_profile(app, monkeypatch):
     assert skipped["skipped"] is False
     assert skipped["completed_at"] == completed["completed_at"]
     assert user.learner_profile == "最近关注：AI 教育"
+
+
+def test_completion_after_skip_refreshes_completed_timestamp(app, monkeypatch):
+    from flaskr.service.profile import onboarding as module
+
+    _allow_profile_safety(monkeypatch)
+    skipped_at = datetime(2026, 8, 1, 8, 0, tzinfo=timezone.utc)
+    completed_at = datetime(2026, 8, 2, 9, 30, tzinfo=timezone.utc)
+    timestamps = iter([skipped_at, completed_at])
+    monkeypatch.setattr(module, "now_utc", lambda: next(timestamps))
+
+    with app.app_context():
+        _create_user("profile-skip-then-complete")
+        skipped = module.skip_profile_onboarding(user_id="profile-skip-then-complete")
+        completed = module.complete_profile_onboarding(
+            app,
+            user_id="profile-skip-then-complete",
+            learner_profile="职业背景：产品经理",
+            trigger_source="settings",
+        )
+
+    assert skipped["completed_at"] == "2026-08-01T08:00:00Z"
+    assert completed["completed_at"] == "2026-08-02T09:30:00Z"
+    assert completed["status"] == "completed"
 
 
 def test_repeated_completion_preserves_profile_and_state_timestamps(app, monkeypatch):

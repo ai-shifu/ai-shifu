@@ -15,6 +15,7 @@ PROFILE_ONBOARDING_STATE_KEY = "_sys_profile_onboarding_state"
 PROFILE_ONBOARDING_SCENE_KEY = "profile_onboarding"
 PROFILE_ONBOARDING_VERSION = "profile-v2"
 PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS = 10_000
+PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES = 65_535
 
 
 def _now_iso() -> str:
@@ -69,10 +70,16 @@ def load_profile_onboarding_config_payload() -> dict[str, Any]:
 def save_profile_onboarding_config_payload(
     app: Flask, payload: dict[str, Any], *, updated_by: str
 ) -> None:
+    serialized_payload = json.dumps(payload, ensure_ascii=False)
+    if (
+        len(serialized_payload.encode("utf-8"))
+        > PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES
+    ):
+        raise_param_error("profile_onboarding_config")
     add_config(
         app,
         PROFILE_ONBOARDING_CONFIG_KEY,
-        json.dumps(payload, ensure_ascii=False),
+        serialized_payload,
         is_secret=False,
         remark="Profile onboarding MarkdownFlow configuration",
         updated_by=updated_by,

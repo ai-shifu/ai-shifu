@@ -1458,6 +1458,29 @@ class CoursePromptCompositionTests(unittest.TestCase):
         self.assertIn(LEARNER_PROFILE_PROMPT_MARKER, prompt)
         mock_load.assert_called_once_with("user-1")
 
+    def test_preview_learner_lookup_failure_cleans_the_database_session(self):
+        app = Flask("preview-course-prompt-lookup-failure")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        lookup_error = RuntimeError("database unavailable")
+
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.load_user_aggregate",
+                side_effect=lookup_error,
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.cleanup_session_after"
+            ) as mock_cleanup,
+        ):
+            learner = preview_ctx._load_learner_for_course_prompt("user-1")
+
+        self.assertIsNone(learner)
+        mock_cleanup.assert_called_once_with(
+            lookup_error,
+            source="preview learner profile lookup",
+            session=context_v2_module.db.session,
+        )
+
 
 class PreviewRunLlmLoggingTests(unittest.TestCase):
     def test_complete_logs_full_preview_output(self):

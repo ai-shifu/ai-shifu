@@ -49,6 +49,7 @@ _MAX_INPUT_VALUES_PER_KEY = 100
 _MAX_INPUT_VALUE_COUNT = 100
 _MAX_INPUT_VALUE_CODEPOINTS = 4_000
 _MAX_INPUT_TOTAL_CODEPOINTS = 10_000
+_REPLAY_DELTA_MARKER = "_profile_replay_delta"
 
 
 class ProfileResearchError(ValueError):
@@ -424,6 +425,58 @@ def _event(
     return event
 
 
+def _replay_stream_key(event: Mapping[str, Any]) -> tuple[str, str, str] | None:
+    content = event.get("content")
+    event_type = str(event.get("event_type") or "")
+    if (
+        not isinstance(content, str)
+        or event.get("is_terminal")
+        or event_type not in {"content", "interaction"}
+    ):
+        return None
+    return (
+        event_type,
+        str(event.get("generated_block_bid") or ""),
+        str(event.get("run_session_bid") or ""),
+    )
+
+
+def _compact_replay_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Store cumulative stream events as deltas without changing replay output."""
+
+    previous_content: dict[tuple[str, str, str], str] = {}
+    compacted: list[dict[str, Any]] = []
+    for event in events:
+        stored_event = dict(event)
+        stream_key = _replay_stream_key(stored_event)
+        if stream_key is not None:
+            content = str(stored_event["content"])
+            previous = previous_content.get(stream_key, "")
+            if content.startswith(previous):
+                stored_event["content"] = content[len(previous) :]
+                stored_event[_REPLAY_DELTA_MARKER] = True
+            previous_content[stream_key] = content
+        compacted.append(stored_event)
+    return compacted
+
+
+def _expand_replay_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    cumulative_content: dict[tuple[str, str, str], str] = {}
+    expanded: list[dict[str, Any]] = []
+    for event in events:
+        replay_event = dict(event)
+        is_delta = bool(replay_event.pop(_REPLAY_DELTA_MARKER, False))
+        stream_key = _replay_stream_key(replay_event)
+        if stream_key is not None:
+            content = str(replay_event["content"])
+            if is_delta:
+                content = cumulative_content.get(stream_key, "") + content
+                replay_event["content"] = content
+            cumulative_content[stream_key] = content
+        expanded.append(replay_event)
+    return expanded
+
+
 def _append_profile_summary(document: str) -> str:
     summary_prompt = load_prompt_template("profile_research_summary").strip()
     return f"{document.rstrip()}\n\n---\n\n{summary_prompt}"
@@ -568,10 +621,15 @@ class ProfileResearchRuntime:
         session: _ProfileResearchSession,
         provider: LLMProvider,
     ) -> MarkdownFlow:
+        document_prompt = (
+            None
+            if session.block_index == session.profile_draft_block_index
+            else session.document_prompt or None
+        )
         flow = MarkdownFlow(
             document=session.document,
             llm_provider=provider,
-            document_prompt=session.document_prompt or None,
+            document_prompt=document_prompt,
         )
         flow.set_model(session.model)
         flow.set_temperature(session.temperature)
@@ -613,7 +671,7 @@ class ProfileResearchRuntime:
         session.last_request_id = request_id or ""
         session.last_expected_block_index = expected_block_index
         session.last_user_input = user_input if request_id else {}
-        session.last_events = events if request_id else []
+        session.last_events = _compact_replay_events(events) if request_id else []
 
     @staticmethod
     def _replay_or_validate_request(
@@ -638,7 +696,7 @@ class ProfileResearchRuntime:
                 and user_input == session.last_user_input
                 and session.last_events
             ):
-                return session.last_events
+                return _expand_replay_events(session.last_events)
             raise ProfileResearchValidationError(
                 "request_id was reused with different run input"
             )
@@ -809,6 +867,10 @@ class ProfileResearchRuntime:
                     )
                     events.append(next_event)
                     yield next_event
+                if rendering_interaction and not outcome.content.strip():
+                    raise ProfileResearchError(
+                        "MarkdownFlow returned an empty interaction"
+                    )
                 if (
                     current_block.block_type == BlockType.INTERACTION
                     and has_user_input

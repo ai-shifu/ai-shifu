@@ -90,11 +90,14 @@ def _apply_v2_state(
     if state.status == STATUS_COMPLETED and status == STATUS_SKIPPED:
         return state
 
-    if state.status != status:
+    previous_status = state.status
+    if previous_status != status:
         state.status = status
     if state.trigger_source != trigger_source:
         state.trigger_source = trigger_source
-    if state.completed_at is None:
+    if state.completed_at is None or (
+        previous_status == STATUS_SKIPPED and status == STATUS_COMPLETED
+    ):
         state.completed_at = now
     return state
 

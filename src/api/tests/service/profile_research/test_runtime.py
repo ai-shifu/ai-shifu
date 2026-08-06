@@ -19,11 +19,14 @@ from flaskr.service.profile_research import api
 from flaskr.service.profile_research.runtime import (
     PROFILE_ONBOARDING_PREVIEW_PURPOSE,
     PROFILE_ONBOARDING_PURPOSE,
+    ProfileResearchError,
     ProfileResearchRuntime,
     ProfileResearchSessionNotFound,
     ProfileResearchValidationError,
     _ProfileResearchLLMProvider,
     _ProfileResearchSessionStore,
+    _compact_replay_events,
+    _expand_replay_events,
     build_profile_research_sse_response,
     validate_profile_research_document,
 )
@@ -270,6 +273,80 @@ def test_identical_retry_replays_without_running_markdownflow_again():
                 request_id="answer-2",
             )
         )
+
+
+def test_retry_cache_stores_stream_content_as_linear_deltas():
+    chunks = ["甲" * 100, "乙" * 100, "丙" * 100]
+    original = [
+        {
+            "type": "content",
+            "event_type": "content",
+            "content": "".join(chunks[: index + 1]),
+            "generated_block_bid": "block-1",
+            "run_session_bid": "session-1",
+            "is_terminal": False,
+        }
+        for index in range(len(chunks))
+    ]
+    original.append(
+        {
+            "type": "done",
+            "event_type": "done",
+            "content": {"done": False},
+            "run_session_bid": "session-1",
+            "is_terminal": True,
+        }
+    )
+
+    stored = _compact_replay_events(original)
+    stored_content = [
+        event["content"] for event in stored if event["event_type"] == "content"
+    ]
+
+    assert stored_content == chunks
+    assert sum(len(content) for content in stored_content) == len("".join(chunks))
+    assert _expand_replay_events(stored) == original
+
+
+def test_empty_initial_interaction_fails_without_advancing(monkeypatch):
+    _app, runtime, _providers = _make_runtime()
+    session = runtime.start_session(
+        user_bid="user-1",
+        document="?[继续]",
+        document_prompt=None,
+        purpose=PROFILE_ONBOARDING_PURPOSE,
+        config_revision=1,
+        output_language=None,
+    )
+    stored = runtime.store.load(session["session_id"])
+    parsed_flow = runtime._build_flow(stored, _FakeProvider([]))
+
+    class _EmptyInteractionFlow:
+        def get_all_blocks(self):
+            return parsed_flow.get_all_blocks()
+
+        def process(self, **_kwargs):
+            return []
+
+    monkeypatch.setattr(
+        runtime,
+        "_build_flow",
+        lambda _session, _provider: _EmptyInteractionFlow(),
+    )
+
+    with pytest.raises(ProfileResearchError, match="empty interaction"):
+        list(
+            runtime.stream_session(
+                user_bid="user-1",
+                session_id=session["session_id"],
+                user_input=None,
+                expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+            )
+        )
+
+    unchanged = runtime.store.load(session["session_id"])
+    assert unchanged.block_index == 0
+    assert unchanged.awaiting_input is False
 
 
 def test_invalid_interaction_answer_keeps_the_question_available():
@@ -535,6 +612,39 @@ def test_session_snapshots_summary_prompt_and_model_settings():
     assert stored.temperature == 0.3
     assert stored.output_language == "zh-CN"
     assert stored.config_revision == 9
+
+
+def test_locked_summary_does_not_inherit_operator_document_prompt():
+    _app, runtime, providers = _make_runtime(["称呼：小雨"])
+    session = runtime.start_session(
+        user_bid="user-1",
+        document="?[%{{role}} 学生//student | 老师//teacher]",
+        document_prompt="OPERATOR OVERRIDE: return JSON only",
+        purpose=PROFILE_ONBOARDING_PURPOSE,
+        config_revision=1,
+        output_language=None,
+    )
+
+    list(
+        runtime.stream_session(
+            user_bid="user-1",
+            session_id=session["session_id"],
+            user_input={"role": ["student"]},
+            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+        )
+    )
+    list(
+        runtime.stream_session(
+            user_bid="user-1",
+            session_id=session["session_id"],
+            user_input=None,
+            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+        )
+    )
+
+    summary_messages = providers[-1].messages[0]
+    assert "OPERATOR OVERRIDE" not in str(summary_messages)
+    assert "plain-text profile" in str(summary_messages)
 
 
 def test_profile_summary_prompt_requires_plain_text_without_placeholders():
