@@ -385,6 +385,36 @@ describe('ProfileOnboardingModal v2', () => {
       />,
     );
 
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.cancel',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.skip',
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module.profileOnboarding.hasAgent.yes/,
+      }),
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.save',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.complete',
+      }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.back' }),
+    );
+
     fireEvent.click(
       screen.getByRole('button', {
         name: /module.profileOnboarding.hasAgent.no/,

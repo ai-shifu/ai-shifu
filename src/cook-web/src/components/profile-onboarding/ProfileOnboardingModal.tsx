@@ -581,7 +581,11 @@ export default function ProfileOnboardingModal({
               disabled={submitting}
               onClick={handleSkip}
             >
-              {t('module.profileOnboarding.skip')}
+              {t(
+                sessionIntent === 'settings'
+                  ? 'module.profileOnboarding.settings.cancel'
+                  : 'module.profileOnboarding.skip',
+              )}
             </Button>
           </div>
           {route === 'paste' || route === 'review' ? (
@@ -593,7 +597,11 @@ export default function ProfileOnboardingModal({
               className='w-full sm:w-auto'
               onClick={handleSubmit}
             >
-              {t('module.profileOnboarding.complete')}
+              {t(
+                sessionIntent === 'settings'
+                  ? 'module.profileOnboarding.settings.save'
+                  : 'module.profileOnboarding.complete',
+              )}
             </Button>
           ) : null}
         </DialogFooter>

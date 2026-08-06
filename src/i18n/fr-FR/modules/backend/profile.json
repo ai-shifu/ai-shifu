@@ -13,7 +13,7 @@
     "prarentRequired": "Le parent est requis",
     "profileIdRequired": "L’ID du profil est requis",
     "profileKeyRequired": "La clé du profil est requise",
-    "profileOnboardingBusy": "Une autre demande de configuration du profil d’apprentissage est en cours. Veuillez réessayer dans un instant.",
+    "profileOnboardingBusy": "Une autre demande de personnalisation est déjà en cours. Réessayez dans un instant.",
     "profileTypeInvalid": "Type de profil non valide",
     "profileTypeRequired": "Le type de profil est requis",
     "sex": "Sexe",

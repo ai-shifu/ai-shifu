@@ -7,8 +7,8 @@
   "missingApiBaseUrl": "当前环境配置异常，请稍后重试。",
   "previewAll": "预览草稿",
   "previewModeBanner": "正在预览课程草稿，发布后学生才能看到更新。<editLink>编辑课程</editLink>",
-  "previewModeBannerWithProfile": "正在预览课程草稿，发布后学生才能看到更新。本次预览正在使用你已保存的学习画像进行个性化。<editLink>编辑课程</editLink>",
-  "previewModeBannerWithoutProfile": "正在预览课程草稿，发布后学生才能看到更新。你尚未保存学习画像，本次预览不使用画像个性化。<editLink>编辑课程</editLink>",
+  "previewModeBannerWithProfile": "正在预览课程草稿，发布后学生才能看到更新。本次预览会参考你保存的背景和偏好进行个性化。<editLink>编辑课程</editLink>",
+  "previewModeBannerWithoutProfile": "正在预览课程草稿，发布后学生才能看到更新。你尚未保存可供课程参考的背景和偏好，本次预览不会据此进行个性化。<editLink>编辑课程</editLink>",
   "requestFailed": "预览失败，请稍后重试。",
   "streamError": "预览连接已中断，请重试。"
 }
