@@ -35,7 +35,7 @@ export type ActiveRun = {
 };
 
 const buildAppContextWrapper = (mobileStyle: boolean) => {
-  const Wrapper = ({ children }: { children: React.ReactNode }) => (
+  const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <AppContext.Provider
       value={{
         isLoggedIn: false,
