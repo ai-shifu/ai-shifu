@@ -36,8 +36,10 @@ import {
 import {
   completeProfileOnboarding,
   getProfileOnboarding,
+  isProfileOnboardingV2Status,
+  skipProfileOnboarding,
   updateWxcode,
-  type ProfileOnboardingStatus,
+  type ProfileOnboardingV2Status,
 } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 import type { EnvStoreState } from '@/c-types/store';
@@ -405,7 +407,7 @@ export default function ChatPage() {
   );
 
   const [profileOnboardingStatus, setProfileOnboardingStatus] =
-    useState<ProfileOnboardingStatus | null>(null);
+    useState<ProfileOnboardingV2Status | null>(null);
   const [profileOnboardingOpen, setProfileOnboardingOpen] = useState(false);
   const [profileOnboardingRuntimeReady, setProfileOnboardingRuntimeReady] =
     useState(false);
@@ -472,10 +474,20 @@ export default function ChatPage() {
     profileOnboardingRequestedRef.current = true;
     void getProfileOnboarding()
       .then(status => {
-        if (status?.should_show && status.markdownflow?.trim()) {
+        if (!isProfileOnboardingV2Status(status)) {
+          debugWarn('[profile-onboarding] incompatible status contract', {
+            contractVersion: status?.contract_version || 'legacy',
+          });
+          setProfileOnboardingRuntimeReady(true);
+          return;
+        }
+        if (status.should_show && status.presentation !== 'hidden') {
           setProfileOnboardingStatus(status);
           setProfileOnboardingOpen(true);
           setProfileOnboardingError('');
+          if (status.presentation === 'non_blocking') {
+            setProfileOnboardingRuntimeReady(true);
+          }
           return;
         }
         setProfileOnboardingRuntimeReady(true);
@@ -494,13 +506,18 @@ export default function ChatPage() {
   ]);
 
   const handleProfileOnboardingComplete = useCallback(
-    async (variables: Record<string, string>) => {
+    async (
+      learnerProfile: string,
+      triggerSource: 'guided' | 'pasted',
+      sessionId?: string,
+    ) => {
       setProfileOnboardingSubmitting(true);
       setProfileOnboardingError('');
       try {
         await completeProfileOnboarding({
-          skipped: false,
-          variables,
+          learner_profile: learnerProfile,
+          trigger_source: triggerSource,
+          ...(sessionId ? { session_id: sessionId } : {}),
         });
         await refreshUserInfo().catch(error => {
           debugWarn('[profile-onboarding] failed to refresh user info', error);
@@ -508,8 +525,10 @@ export default function ChatPage() {
         });
         closeProfileOnboarding();
         setProfileOnboardingRuntimeReady(true);
+        return true;
       } catch (error) {
         setProfileOnboardingError(resolveProfileOnboardingError(error));
+        return false;
       } finally {
         setProfileOnboardingSubmitting(false);
       }
@@ -522,22 +541,24 @@ export default function ChatPage() {
     ],
   );
 
-  const handleProfileOnboardingSkip = useCallback(async () => {
-    setProfileOnboardingSubmitting(true);
-    setProfileOnboardingError('');
-    try {
-      await completeProfileOnboarding({
-        skipped: true,
-        variables: {},
-      });
-      closeProfileOnboarding();
-      setProfileOnboardingRuntimeReady(true);
-    } catch (error) {
-      setProfileOnboardingError(resolveProfileOnboardingError(error));
-    } finally {
-      setProfileOnboardingSubmitting(false);
-    }
-  }, [closeProfileOnboarding, resolveProfileOnboardingError]);
+  const handleProfileOnboardingSkip = useCallback(
+    async (sessionId?: string) => {
+      setProfileOnboardingSubmitting(true);
+      setProfileOnboardingError('');
+      try {
+        await skipProfileOnboarding(sessionId);
+        closeProfileOnboarding();
+        setProfileOnboardingRuntimeReady(true);
+        return true;
+      } catch (error) {
+        setProfileOnboardingError(resolveProfileOnboardingError(error));
+        return false;
+      } finally {
+        setProfileOnboardingSubmitting(false);
+      }
+    },
+    [closeProfileOnboarding, resolveProfileOnboardingError],
+  );
 
   useEffect(() => {
     if (!courseName) {
@@ -1066,8 +1087,10 @@ export default function ChatPage() {
         {profileOnboardingStatus ? (
           <ProfileOnboardingModal
             open={profileOnboardingOpen}
-            markdownflow={profileOnboardingStatus.markdownflow}
-            currentValues={profileOnboardingStatus.current_values}
+            draftStorageScope={userInfo?.user_id || ''}
+            presentation={profileOnboardingStatus.presentation}
+            guidedAvailable={profileOnboardingStatus.guided_available}
+            maxLength={profileOnboardingStatus.max_length}
             errorMessage={profileOnboardingError}
             submitting={profileOnboardingSubmitting}
             onComplete={handleProfileOnboardingComplete}

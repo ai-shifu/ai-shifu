@@ -1,7 +1,14 @@
 'use client';
 
 import React from 'react';
+import { Check, Copy, MessageCircleQuestion, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import {
+  createProfileOnboardingSession,
+  runProfileOnboardingSession,
+  type ProfileOnboardingPresentation,
+  type ProfileOnboardingSessionIntent,
+} from '@/c-api/user';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -13,226 +20,595 @@ import {
 } from '@/components/ui/Dialog';
 import { Textarea } from '@/components/ui/Textarea';
 import { cn } from '@/lib/utils';
-import {
-  type ProfileOnboardingStep,
-  parseProfileOnboardingFlow,
-} from './profileOnboardingFlow';
+import { useTracking } from '@/c-common/hooks/useTracking';
+import ProfileOnboardingConversation from './ProfileOnboardingConversation';
+import { PROFILE_ONBOARDING_EVENTS } from './events';
 
-type ProfileOnboardingValues = Record<string, string>;
+const LEGACY_PASTE_DRAFT_STORAGE_KEY =
+  'profile-onboarding-paste-draft:profile-v2';
+const PASTE_DRAFT_STORAGE_KEY_PREFIX =
+  'profile-onboarding-paste-draft:profile-v2:';
+const ACTIVE_PASTE_DRAFT_STORAGE_KEY =
+  'profile-onboarding-paste-draft:active-user:profile-v2';
 
-type ProfileOnboardingModalProps = {
+type ProfileOnboardingRoute = 'choice' | 'paste' | 'guided' | 'review';
+type ProfileSource = 'guided' | 'pasted';
+
+export type ProfileOnboardingModalProps = {
   open: boolean;
-  markdownflow: string;
-  currentValues?: ProfileOnboardingValues;
+  presentation?: ProfileOnboardingPresentation;
+  sessionIntent?: ProfileOnboardingSessionIntent;
+  guidedAvailable?: boolean;
+  maxLength?: number;
+  draftStorageScope?: string;
   errorMessage?: string;
   submitting?: boolean;
-  onComplete: (variables: ProfileOnboardingValues) => void | Promise<void>;
-  onSkip: () => void | Promise<void>;
+  onComplete: (
+    learnerProfile: string,
+    source: ProfileSource,
+    sessionId?: string,
+  ) => void | boolean | Promise<void | boolean>;
+  onSkip: (sessionId?: string) => void | boolean | Promise<void | boolean>;
 };
 
-const PROFILE_ONBOARDING_VARIABLE_LABEL_KEYS: Record<string, string> = {
-  sys_user_background:
-    'module.profileOnboarding.variableLabels.sys_user_background',
-  sys_user_nickname:
-    'module.profileOnboarding.variableLabels.sys_user_nickname',
-  sys_user_style: 'module.profileOnboarding.variableLabels.sys_user_style',
+export const countUnicodeCodePoints = (value: string) =>
+  Array.from(value).length;
+
+const resolvePasteDraftStorageKey = (scope: string) => {
+  const normalizedScope = scope.trim();
+  return normalizedScope
+    ? `${PASTE_DRAFT_STORAGE_KEY_PREFIX}${encodeURIComponent(normalizedScope)}`
+    : '';
 };
 
-const getVariableLabel = (
-  t: ReturnType<typeof useTranslation>['t'],
-  variableKey: string,
-) => {
-  const labelKey = PROFILE_ONBOARDING_VARIABLE_LABEL_KEYS[variableKey];
-  return labelKey ? t(labelKey) : variableKey;
-};
-
-const normalizeValues = (
-  steps: ProfileOnboardingStep[],
-  currentValues?: ProfileOnboardingValues,
-) =>
-  steps.reduce<ProfileOnboardingValues>((acc, step) => {
-    const currentValue = currentValues?.[step.variableKey];
-    if (typeof currentValue === 'string' && currentValue.trim()) {
-      acc[step.variableKey] = currentValue;
+const readPasteDraft = (storageKey: string) => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+  try {
+    window.sessionStorage.removeItem(LEGACY_PASTE_DRAFT_STORAGE_KEY);
+    const previousStorageKey = window.sessionStorage.getItem(
+      ACTIVE_PASTE_DRAFT_STORAGE_KEY,
+    );
+    if (
+      previousStorageKey &&
+      previousStorageKey !== storageKey &&
+      previousStorageKey.startsWith(PASTE_DRAFT_STORAGE_KEY_PREFIX)
+    ) {
+      window.sessionStorage.removeItem(previousStorageKey);
     }
-    return acc;
-  }, {});
+    if (!storageKey) {
+      window.sessionStorage.removeItem(ACTIVE_PASTE_DRAFT_STORAGE_KEY);
+      return '';
+    }
+    window.sessionStorage.setItem(ACTIVE_PASTE_DRAFT_STORAGE_KEY, storageKey);
+    return window.sessionStorage.getItem(storageKey) || '';
+  } catch {
+    return '';
+  }
+};
+
+const writePasteDraft = (storageKey: string, draft: string) => {
+  if (typeof window === 'undefined' || !storageKey) {
+    return;
+  }
+  try {
+    if (draft) {
+      window.sessionStorage.setItem(storageKey, draft);
+    } else {
+      window.sessionStorage.removeItem(storageKey);
+    }
+  } catch {
+    // Ignore storage errors in restricted browser modes.
+  }
+};
+
+const clearPasteDraft = (storageKey: string) => {
+  if (typeof window === 'undefined' || !storageKey) {
+    return;
+  }
+  try {
+    window.sessionStorage.removeItem(storageKey);
+  } catch {
+    // Ignore storage errors in restricted browser modes.
+  }
+};
 
 export default function ProfileOnboardingModal({
   open,
-  markdownflow,
-  currentValues,
+  presentation = 'blocking',
+  sessionIntent = 'onboarding',
+  guidedAvailable = true,
+  maxLength = 1000,
+  draftStorageScope = '',
   errorMessage = '',
   submitting = false,
   onComplete,
   onSkip,
 }: ProfileOnboardingModalProps) {
-  const { t } = useTranslation();
-  const steps = React.useMemo(
-    () => parseProfileOnboardingFlow(markdownflow),
-    [markdownflow],
+  const { t, i18n } = useTranslation();
+  const { trackEvent } = useTracking();
+  const [route, setRoute] = React.useState<ProfileOnboardingRoute>('choice');
+  const [draft, setDraft] = React.useState('');
+  const [draftStorageOwnerKey, setDraftStorageOwnerKey] = React.useState('');
+  const [source, setSource] = React.useState<ProfileSource>('pasted');
+  const [sessionId, setSessionId] = React.useState('');
+  const [copyState, setCopyState] = React.useState<'idle' | 'copied'>('idle');
+  const [runtimeError, setRuntimeError] = React.useState('');
+  const shownRef = React.useRef(false);
+  const shownAtRef = React.useRef<number | null>(null);
+  const presentationRef = React.useRef(presentation);
+  const trackEventRef = React.useRef(trackEvent);
+  presentationRef.current = presentation;
+  trackEventRef.current = trackEvent;
+  const externalAgentPrompt = t(
+    'module.profileOnboarding.externalAgent.prompt',
   );
-  const [activeIndex, setActiveIndex] = React.useState(0);
-  const [values, setValues] = React.useState<ProfileOnboardingValues>(() =>
-    normalizeValues(steps, currentValues),
+  const isNonBlocking = presentation === 'non_blocking';
+  const pasteDraftStorageKey = React.useMemo(
+    () => resolvePasteDraftStorageKey(draftStorageScope),
+    [draftStorageScope],
   );
 
   React.useEffect(() => {
+    // Reconcile the owner even while the modal is closed so logout/account
+    // switches cannot leave another user's draft available to later code in
+    // the same tab.
+    readPasteDraft(pasteDraftStorageKey);
+  }, [pasteDraftStorageKey]);
+
+  React.useEffect(() => {
     if (!open) {
+      shownRef.current = false;
+      shownAtRef.current = null;
       return;
     }
-    setActiveIndex(0);
-    setValues(normalizeValues(steps, currentValues));
-  }, [currentValues, open, steps]);
+    if (!shownRef.current) {
+      shownRef.current = true;
+      shownAtRef.current = Date.now();
+      void trackEventRef.current(PROFILE_ONBOARDING_EVENTS.SHOWN, {
+        presentation: presentationRef.current,
+      });
+    }
+    setRoute('choice');
+    setDraft(readPasteDraft(pasteDraftStorageKey));
+    setDraftStorageOwnerKey(pasteDraftStorageKey);
+    setSource('pasted');
+    setSessionId('');
+    setCopyState('idle');
+    setRuntimeError('');
+  }, [open, pasteDraftStorageKey]);
 
-  const activeStep = steps[activeIndex];
-  const currentValue = activeStep ? values[activeStep.variableKey] || '' : '';
-  const isLastStep = activeIndex >= steps.length - 1;
-  const canAdvance = !activeStep || currentValue.trim().length > 0;
+  React.useEffect(() => {
+    if (
+      route !== 'paste' ||
+      draftStorageOwnerKey !== pasteDraftStorageKey ||
+      typeof window === 'undefined'
+    ) {
+      return;
+    }
+    writePasteDraft(pasteDraftStorageKey, draft);
+  }, [draft, draftStorageOwnerKey, pasteDraftStorageKey, route]);
 
-  const updateCurrentValue = React.useCallback(
-    (value: string) => {
-      if (!activeStep) {
-        return;
-      }
-      setValues(current => ({
-        ...current,
-        [activeStep.variableKey]: value,
-      }));
-    },
-    [activeStep],
+  const createSession = React.useCallback(
+    () =>
+      createProfileOnboardingSession(
+        i18n.resolvedLanguage ?? i18n.language,
+        sessionIntent,
+      ),
+    [i18n.language, i18n.resolvedLanguage, sessionIntent],
+  );
+  const runSession = React.useCallback(
+    ({
+      sessionId: activeSessionId,
+      expectedBlockIndex,
+      requestId,
+      userInput,
+      onMessage,
+      onError,
+    }: Parameters<
+      React.ComponentProps<typeof ProfileOnboardingConversation>['runSession']
+    >[0]) =>
+      runProfileOnboardingSession({
+        sessionId: activeSessionId,
+        expectedBlockIndex,
+        requestId,
+        userInput,
+        language: i18n.resolvedLanguage ?? i18n.language,
+        onMessage,
+        onError,
+      }),
+    [i18n.language, i18n.resolvedLanguage],
   );
 
-  const submitValues = React.useCallback(async () => {
-    const trimmedValues = Object.fromEntries(
-      Object.entries(values)
-        .map(([key, value]) => [key, value.trim()])
-        .filter(([, value]) => Boolean(value)),
-    );
-    await onComplete(trimmedValues);
-  }, [onComplete, values]);
+  const handleDraftChange = React.useCallback((value: string) => {
+    setDraft(value);
+  }, []);
 
-  const handleNext = React.useCallback(async () => {
-    if (!canAdvance || submitting) {
+  const handleCopyPrompt = React.useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(externalAgentPrompt);
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 1800);
+    } catch {
+      setRuntimeError(t('module.profileOnboarding.externalAgent.copyFailed'));
+    }
+  }, [externalAgentPrompt, t]);
+
+  const handleSubmit = React.useCallback(async () => {
+    const learnerProfile = draft.trim();
+    if (
+      !learnerProfile ||
+      countUnicodeCodePoints(learnerProfile) > maxLength ||
+      submitting
+    ) {
       return;
     }
-    if (!activeStep || isLastStep) {
-      await submitValues();
+    const completed = await onComplete(
+      learnerProfile,
+      source,
+      sessionId || undefined,
+    );
+    if (completed === false) {
       return;
     }
-    setActiveIndex(index => Math.min(index + 1, steps.length - 1));
+    const durationMs =
+      shownAtRef.current === null
+        ? 0
+        : Math.max(0, Date.now() - shownAtRef.current);
+    void trackEvent(PROFILE_ONBOARDING_EVENTS.COMPLETED, {
+      source,
+      presentation,
+      duration_ms: durationMs,
+    });
+    clearPasteDraft(pasteDraftStorageKey);
   }, [
-    activeStep,
-    canAdvance,
-    isLastStep,
-    steps.length,
-    submitValues,
+    draft,
+    maxLength,
+    onComplete,
+    pasteDraftStorageKey,
+    presentation,
+    sessionId,
+    source,
     submitting,
+    trackEvent,
   ]);
 
-  const fallbackPrompt = activeStep
-    ? t('module.profileOnboarding.variablePrompt', {
-        variable: getVariableLabel(t, activeStep.variableKey),
-      })
-    : '';
-  const prompt = activeStep?.prompt || fallbackPrompt;
+  const handleSkip = React.useCallback(async () => {
+    const skipped = await onSkip(sessionId || undefined);
+    if (skipped === false) {
+      return;
+    }
+    const durationMs =
+      shownAtRef.current === null
+        ? 0
+        : Math.max(0, Date.now() - shownAtRef.current);
+    void trackEvent(PROFILE_ONBOARDING_EVENTS.SKIPPED, {
+      action: isNonBlocking ? 'dismissed' : 'skipped',
+      presentation,
+      duration_ms: durationMs,
+    });
+    clearPasteDraft(pasteDraftStorageKey);
+  }, [
+    isNonBlocking,
+    onSkip,
+    pasteDraftStorageKey,
+    presentation,
+    sessionId,
+    trackEvent,
+  ]);
 
+  const profileLength = countUnicodeCodePoints(draft.trim());
+  const combinedError = errorMessage || runtimeError;
   return (
-    <Dialog open={open}>
+    <Dialog
+      open={open}
+      onOpenChange={nextOpen => {
+        if (!nextOpen && isNonBlocking && !submitting) {
+          void handleSkip();
+        }
+      }}
+    >
       <DialogContent
-        className='max-w-[560px] gap-5 rounded-lg p-0'
-        showClose={false}
+        className={cn(
+          'inset-0 left-0 top-0 flex h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0',
+          'sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[min(760px,calc(100vh-48px))] sm:w-full sm:max-w-[640px] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border',
+        )}
+        showClose={isNonBlocking}
+        onEscapeKeyDown={event => {
+          if (!isNonBlocking) {
+            event.preventDefault();
+          }
+        }}
+        onPointerDownOutside={event => {
+          if (!isNonBlocking) {
+            event.preventDefault();
+          }
+        }}
       >
-        <div className='border-b px-6 py-5'>
+        <div className='border-b px-5 py-5 sm:px-6'>
           <DialogHeader>
             <DialogTitle>{t('module.profileOnboarding.title')}</DialogTitle>
             <DialogDescription>
-              {t('module.profileOnboarding.description')}
+              {isNonBlocking
+                ? t('module.profileOnboarding.upgradeDescription')
+                : t('module.profileOnboarding.description')}
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <div className='space-y-4 px-6'>
-          {activeStep?.intro ? (
-            <div className='max-h-32 overflow-y-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 text-sm leading-6 text-foreground'>
-              {activeStep.intro}
-            </div>
+        <div className='min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6'>
+          {route === 'choice' ? (
+            <section className='space-y-5'>
+              <div className='rounded-xl border bg-muted/40 p-5'>
+                <h2 className='text-base font-semibold leading-6'>
+                  {t('module.profileOnboarding.routeQuestion')}
+                </h2>
+                <p className='mt-2 text-sm leading-6 text-muted-foreground'>
+                  {t('module.profileOnboarding.routeQuestionHint')}
+                </p>
+              </div>
+              <p className='text-xs leading-5 text-muted-foreground'>
+                {t('module.profileOnboarding.privacyNotice')}
+              </p>
+              <div className='grid gap-3 sm:grid-cols-2'>
+                <button
+                  type='button'
+                  className='rounded-xl border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                  disabled={submitting}
+                  onClick={() => {
+                    setSource('pasted');
+                    setRuntimeError('');
+                    setRoute('paste');
+                    void trackEvent(PROFILE_ONBOARDING_EVENTS.ROUTE_SELECTED, {
+                      route: 'pasted',
+                      presentation,
+                    });
+                  }}
+                >
+                  <Sparkles
+                    className='h-5 w-5 text-primary'
+                    aria-hidden='true'
+                  />
+                  <span className='mt-3 block font-medium'>
+                    {t('module.profileOnboarding.hasAgent.yes')}
+                  </span>
+                  <span className='mt-1 block text-sm leading-5 text-muted-foreground'>
+                    {t('module.profileOnboarding.hasAgent.yesHint')}
+                  </span>
+                </button>
+                <button
+                  type='button'
+                  className='rounded-xl border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50'
+                  disabled={submitting || !guidedAvailable}
+                  onClick={() => {
+                    setSource('guided');
+                    setRuntimeError('');
+                    setRoute('guided');
+                    void trackEvent(PROFILE_ONBOARDING_EVENTS.ROUTE_SELECTED, {
+                      route: 'guided',
+                      presentation,
+                    });
+                  }}
+                >
+                  <MessageCircleQuestion
+                    className='h-5 w-5 text-primary'
+                    aria-hidden='true'
+                  />
+                  <span className='mt-3 block font-medium'>
+                    {t('module.profileOnboarding.hasAgent.no')}
+                  </span>
+                  <span className='mt-1 block text-sm leading-5 text-muted-foreground'>
+                    {guidedAvailable
+                      ? t('module.profileOnboarding.hasAgent.noHint')
+                      : t('module.profileOnboarding.guided.unavailable')}
+                  </span>
+                </button>
+              </div>
+            </section>
           ) : null}
 
-          {activeStep ? (
-            <div className='space-y-3'>
-              <div className='rounded-md bg-primary/10 px-4 py-3 text-sm font-medium leading-6 text-foreground'>
-                {prompt}
-              </div>
-
-              {activeStep.type === 'choice' ? (
-                <div className='grid gap-2 sm:grid-cols-2'>
-                  {activeStep.options.map(option => {
-                    const selected = currentValue === option.value;
-                    return (
-                      <Button
-                        key={option.value}
-                        type='button'
-                        variant={selected ? 'default' : 'outline'}
-                        className={cn(
-                          'h-auto min-h-10 justify-start whitespace-normal text-left',
-                          selected ? '' : 'bg-background',
-                        )}
-                        disabled={submitting}
-                        onClick={() => updateCurrentValue(option.value)}
-                      >
-                        {option.label}
-                      </Button>
-                    );
-                  })}
+          {route === 'paste' ? (
+            <section className='space-y-5'>
+              <div className='space-y-2'>
+                <div className='flex items-center justify-between gap-3'>
+                  <h2 className='font-medium'>
+                    {t('module.profileOnboarding.externalAgent.title')}
+                  </h2>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    disabled={submitting}
+                    onClick={handleCopyPrompt}
+                  >
+                    {copyState === 'copied' ? (
+                      <Check
+                        className='mr-1.5 h-4 w-4'
+                        aria-hidden='true'
+                      />
+                    ) : (
+                      <Copy
+                        className='mr-1.5 h-4 w-4'
+                        aria-hidden='true'
+                      />
+                    )}
+                    {copyState === 'copied'
+                      ? t('module.profileOnboarding.externalAgent.copied')
+                      : t('module.profileOnboarding.externalAgent.copy')}
+                  </Button>
                 </div>
-              ) : (
-                <Textarea
-                  value={currentValue}
-                  minRows={3}
-                  maxRows={5}
-                  disabled={submitting}
-                  placeholder={t('module.profileOnboarding.inputPlaceholder')}
-                  onChange={event => updateCurrentValue(event.target.value)}
-                />
-              )}
-            </div>
-          ) : (
-            <div className='rounded-md bg-muted px-4 py-3 text-sm'>
-              {t('module.profileOnboarding.emptyFlow')}
-            </div>
-          )}
+                <div className='whitespace-pre-wrap rounded-lg border bg-muted/40 p-4 text-sm leading-6'>
+                  {externalAgentPrompt}
+                </div>
+                <p className='text-xs leading-5 text-muted-foreground'>
+                  {t('module.profileOnboarding.externalAgent.switchHint')}
+                </p>
+              </div>
+              <ProfileDraftEditor
+                inputId='profile-onboarding-paste-draft'
+                value={draft}
+                maxLength={maxLength}
+                disabled={submitting}
+                onChange={handleDraftChange}
+              />
+            </section>
+          ) : null}
 
-          {errorMessage ? (
+          {route === 'guided' ? (
+            <section className='space-y-3'>
+              <p className='text-sm leading-6 text-muted-foreground'>
+                {t('module.profileOnboarding.guided.description')}
+              </p>
+              <ProfileOnboardingConversation
+                createSession={createSession}
+                runSession={runSession}
+                onSessionStarted={setSessionId}
+                onDraftReady={(profileDraft, activeSessionId) => {
+                  setDraft(profileDraft);
+                  setSessionId(activeSessionId);
+                  setSource('guided');
+                  setRuntimeError('');
+                  setRoute('review');
+                }}
+                onRetry={() => setRuntimeError('')}
+                onError={error => {
+                  void trackEvent(PROFILE_ONBOARDING_EVENTS.RUNTIME_FAILED, {
+                    stage: 'guided',
+                    presentation,
+                  });
+                  setRuntimeError(
+                    error instanceof Error && error.message
+                      ? error.message
+                      : t('module.profileOnboarding.guided.streamError'),
+                  );
+                }}
+              />
+            </section>
+          ) : null}
+
+          {route === 'review' ? (
+            <section className='space-y-4'>
+              <div>
+                <h2 className='font-medium'>
+                  {t('module.profileOnboarding.review.title')}
+                </h2>
+                <p className='mt-1 text-sm leading-6 text-muted-foreground'>
+                  {t('module.profileOnboarding.review.description')}
+                </p>
+              </div>
+              <ProfileDraftEditor
+                inputId='profile-onboarding-review-draft'
+                value={draft}
+                maxLength={maxLength}
+                disabled={submitting}
+                onChange={handleDraftChange}
+              />
+            </section>
+          ) : null}
+
+          {combinedError ? (
             <div
               role='alert'
-              className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'
+              className='mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'
             >
-              {errorMessage}
+              {combinedError}
             </div>
           ) : null}
         </div>
 
-        <DialogFooter className='gap-2 border-t px-6 py-4 sm:justify-between sm:space-x-0'>
-          <Button
-            type='button'
-            variant='ghost'
-            disabled={submitting}
-            onClick={onSkip}
-          >
-            {t('module.profileOnboarding.skip')}
-          </Button>
-          <Button
-            type='button'
-            disabled={!canAdvance || submitting}
-            onClick={handleNext}
-          >
-            {isLastStep || !activeStep
-              ? t('module.profileOnboarding.complete')
-              : t('module.profileOnboarding.next')}
-          </Button>
+        <DialogFooter className='gap-2 border-t px-5 py-4 sm:flex-row sm:justify-between sm:space-x-0 sm:px-6'>
+          <div className='flex gap-2'>
+            {route !== 'choice' ? (
+              <Button
+                type='button'
+                variant='ghost'
+                disabled={submitting}
+                onClick={() => {
+                  setRuntimeError('');
+                  setRoute('choice');
+                }}
+              >
+                {t('module.profileOnboarding.back')}
+              </Button>
+            ) : null}
+            <Button
+              type='button'
+              variant='ghost'
+              disabled={submitting}
+              onClick={handleSkip}
+            >
+              {t('module.profileOnboarding.skip')}
+            </Button>
+          </div>
+          {route === 'paste' || route === 'review' ? (
+            <Button
+              type='button'
+              disabled={
+                !draft.trim() || profileLength > maxLength || submitting
+              }
+              onClick={handleSubmit}
+            >
+              {t('module.profileOnboarding.complete')}
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function ProfileDraftEditor({
+  inputId = 'profile-onboarding-draft',
+  value,
+  maxLength,
+  disabled,
+  onChange,
+}: {
+  inputId?: string;
+  value: string;
+  maxLength: number;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+  const length = countUnicodeCodePoints(value.trim());
+  return (
+    <div className='space-y-2'>
+      <label
+        htmlFor={inputId}
+        className='text-sm font-medium'
+      >
+        {t('module.profileOnboarding.profileLabel')}
+      </label>
+      <Textarea
+        id={inputId}
+        value={value}
+        minRows={8}
+        maxRows={14}
+        disabled={disabled}
+        placeholder={t('module.profileOnboarding.profilePlaceholder')}
+        aria-describedby={`${inputId}-character-count`}
+        onChange={event => onChange(event.target.value)}
+      />
+      <div
+        id={`${inputId}-character-count`}
+        className={cn(
+          'text-right text-xs text-muted-foreground',
+          length > maxLength && 'font-medium text-destructive',
+        )}
+        aria-live='polite'
+      >
+        {t(
+          length > maxLength
+            ? 'module.profileOnboarding.characterCountOverLimit'
+            : 'module.profileOnboarding.characterCount',
+          {
+            count: length,
+            max: maxLength,
+          },
+        )}
+      </div>
+    </div>
   );
 }

@@ -13,6 +13,7 @@
     "prarentRequired": "Parent is required",
     "profileIdRequired": "Profile ID is required",
     "profileKeyRequired": "Profile key is required",
+    "profileOnboardingBusy": "Another learning profile setup request is in progress. Please try again in a moment.",
     "profileTypeInvalid": "Invalid profile type",
     "profileTypeRequired": "Profile type is required",
     "sex": "Sex",

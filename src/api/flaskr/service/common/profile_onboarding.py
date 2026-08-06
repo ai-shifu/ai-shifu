@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from typing import Any
 
 from flask import Flask
@@ -13,13 +12,8 @@ from flaskr.util.datetime import now_utc, to_utc_iso
 
 PROFILE_ONBOARDING_CONFIG_KEY = "PROFILE_ONBOARDING_FLOW"
 PROFILE_ONBOARDING_STATE_KEY = "_sys_profile_onboarding_state"
-ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS = (
-    "sys_user_nickname",
-    "sys_user_style",
-    "sys_user_background",
-)
-
-_INTERACTION_VARIABLE_PATTERN = re.compile(r"%\{\{\s*([^}\s]+)\s*\}\}")
+PROFILE_ONBOARDING_SCENE_KEY = "profile_onboarding"
+PROFILE_ONBOARDING_VERSION = "profile-v2"
 
 
 def _now_iso() -> str:
@@ -30,7 +24,8 @@ def _default_config_payload() -> dict[str, Any]:
     return {
         "enabled": False,
         "markdownflow": "",
-        "version": 0,
+        "document_prompt": "",
+        "revision": 0,
         "updated_by": "",
         "updated_at": "",
     }
@@ -43,7 +38,11 @@ def normalize_profile_onboarding_config_payload(payload: Any) -> dict[str, Any]:
             {
                 "enabled": bool(payload.get("enabled", False)),
                 "markdownflow": str(payload.get("markdownflow") or ""),
-                "version": int(payload.get("version") or 0),
+                "document_prompt": str(payload.get("document_prompt") or ""),
+                # `version` was the name used by the legacy questionnaire.
+                # It is read only as a migration fallback; revisions never
+                # affect learner eligibility.
+                "revision": int(payload.get("revision") or payload.get("version") or 0),
                 "updated_by": str(payload.get("updated_by") or ""),
                 "updated_at": str(payload.get("updated_at") or ""),
             }
@@ -79,18 +78,22 @@ def save_profile_onboarding_config_payload(
     )
 
 
-def extract_profile_onboarding_variable_keys(markdownflow: str) -> set[str]:
-    return {
-        match.group(1).strip()
-        for match in _INTERACTION_VARIABLE_PATTERN.finditer(markdownflow or "")
-        if match.group(1).strip()
-    }
+def validate_profile_onboarding_markdownflow(markdownflow: str) -> dict[str, Any]:
+    """Validate with the product's official MarkdownFlow runtime.
 
+    Keeping this as a lazy import prevents the configuration module from
+    duplicating MarkdownFlow syntax rules or owning a second parser.
+    """
 
-def validate_profile_onboarding_markdownflow(markdownflow: str) -> None:
-    keys = extract_profile_onboarding_variable_keys(markdownflow)
-    invalid_keys = keys.difference(ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS)
-    if invalid_keys:
+    if not markdownflow.strip():
+        raise_param_error("markdownflow")
+    from flaskr.service.profile_research.api import (
+        validate_profile_research_document,
+    )
+
+    try:
+        return validate_profile_research_document(markdownflow)
+    except Exception:  # noqa: BLE001 - normalize parser/provider failures for the API
         raise_param_error("markdownflow")
 
 
@@ -100,7 +103,10 @@ def build_profile_onboarding_config_response(
     normalized = normalize_profile_onboarding_config_payload(payload)
     return {
         **normalized,
-        "allowed_variable_keys": list(ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS),
+        "config_revision": normalized["revision"],
+        # Keep the legacy name temporarily so an older operator page can render
+        # metadata during a rolling deploy. It has no completion semantics.
+        "version": normalized["revision"],
     }
 
 
@@ -117,12 +123,25 @@ def update_profile_onboarding_config(
     operator_user_bid: str,
 ) -> dict[str, Any]:
     existing = load_profile_onboarding_config_payload()
-    markdownflow = str(payload.get("markdownflow") or "")
-    validate_profile_onboarding_markdownflow(markdownflow)
+    if not isinstance(payload.get("enabled", False), bool):
+        raise_param_error("enabled")
+    raw_markdownflow = payload.get("markdownflow", "")
+    raw_document_prompt = payload.get("document_prompt", "")
+    if not isinstance(raw_markdownflow, str):
+        raise_param_error("markdownflow")
+    if not isinstance(raw_document_prompt, str):
+        raise_param_error("document_prompt")
+    markdownflow = raw_markdownflow.strip()
+    document_prompt = raw_document_prompt.strip()
+    if markdownflow:
+        validate_profile_onboarding_markdownflow(markdownflow)
+    elif payload.get("enabled", False):
+        raise_param_error("markdownflow")
     next_payload = {
         "enabled": bool(payload.get("enabled", False)),
         "markdownflow": markdownflow,
-        "version": int(existing.get("version") or 0) + 1,
+        "document_prompt": document_prompt,
+        "revision": int(existing.get("revision") or 0) + 1,
         "updated_by": operator_user_bid or "system",
         "updated_at": _now_iso(),
     }

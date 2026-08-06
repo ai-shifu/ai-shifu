@@ -34,6 +34,11 @@ const api = {
   resetPassword: 'POST /user/reset_password',
   getProfileOnboarding: 'GET /user/profile-onboarding',
   completeProfileOnboarding: 'POST /user/profile-onboarding/complete',
+  skipProfileOnboarding: 'POST /user/profile-onboarding/skip',
+  createProfileOnboardingSession: 'POST /user/profile-onboarding/session',
+  getLearnerProfile: 'GET /user/learner-profile',
+  updateLearnerProfile: 'PUT /user/learner-profile',
+  clearLearnerProfile: 'DELETE /user/learner-profile',
 
   // referral api
   getReferralInviteProfile: 'GET /referral/invite-profile',
@@ -216,6 +221,8 @@ const api = {
     'GET /shifu/admin/operations/profile-onboarding',
   updateAdminOperationProfileOnboardingConfig:
     'POST /shifu/admin/operations/profile-onboarding',
+  createAdminOperationProfileOnboardingPreview:
+    'POST /shifu/admin/operations/profile-onboarding/preview',
   getAdminOperationConfigRates: 'GET /shifu/admin/operations/config/rates',
   updateAdminOperationConfigRate: 'POST /shifu/admin/operations/config/rates',
   getAdminOperationReferrals: 'GET /shifu/admin/operations/referrals',

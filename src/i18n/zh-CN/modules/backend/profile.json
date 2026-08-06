@@ -13,6 +13,7 @@
     "prarentRequired": "父级必填",
     "profileIdRequired": "变量ID必填",
     "profileKeyRequired": "变量键必填",
+    "profileOnboardingBusy": "当前有其他学习画像引导请求正在处理中，请稍后重试",
     "profileTypeInvalid": "变量类型不正确",
     "profileTypeRequired": "变量类型必选",
     "sex": "性别",

@@ -5,7 +5,10 @@ import api from '@/api';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
-import { Badge } from '@/components/ui/Badge';
+import ProfileOnboardingConversation, {
+  type ProfileOnboardingRunSession,
+  type ProfileOnboardingSessionInfo,
+} from '@/components/profile-onboarding/ProfileOnboardingConversation';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Switch } from '@/components/ui/Switch';
@@ -13,41 +16,41 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
 import { useTranslation } from 'react-i18next';
+import { streamProfileOnboardingRuntime } from '@/lib/profileOnboardingSse';
 import useOperatorGuard from '../useOperatorGuard';
-import {
-  PROFILE_ONBOARDING_ALLOWED_VARIABLE_KEYS,
-  getInvalidProfileOnboardingVariableKeys,
-  parseProfileOnboardingFlow,
-} from '@/components/profile-onboarding/profileOnboardingFlow';
 
 type ProfileOnboardingConfig = {
   enabled?: boolean;
   markdownflow?: string;
-  allowed_variable_keys?: string[];
+  document_prompt?: string;
+  config_revision?: number;
   version?: number;
   updated_by?: string;
   updated_at?: string;
 };
 
 export default function ProfileOnboardingAdminPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { isReady } = useOperatorGuard();
   const [enabled, setEnabled] = React.useState(false);
   const [markdownflow, setMarkdownflow] = React.useState('');
-  const [allowedKeys, setAllowedKeys] = React.useState<string[]>(
-    Array.from(PROFILE_ONBOARDING_ALLOWED_VARIABLE_KEYS),
-  );
-  const [version, setVersion] = React.useState(0);
+  const [documentPrompt, setDocumentPrompt] = React.useState('');
+  const [configRevision, setConfigRevision] = React.useState(0);
   const [updatedBy, setUpdatedBy] = React.useState('');
   const [updatedAt, setUpdatedAt] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
   const [previewOpen, setPreviewOpen] = React.useState(false);
+  const [previewKey, setPreviewKey] = React.useState(0);
+  const [previewDraft, setPreviewDraft] = React.useState('');
   const loadStartedRef = React.useRef(false);
   const defaultMarkdownflow = t(
     'module.profileOnboarding.admin.defaultMarkdownflow',
+  );
+  const defaultDocumentPrompt = t(
+    'module.profileOnboarding.admin.defaultDocumentPrompt',
   );
 
   React.useEffect(() => {
@@ -61,12 +64,10 @@ export default function ProfileOnboardingAdminPage() {
       .then((response: ProfileOnboardingConfig) => {
         setEnabled(Boolean(response.enabled));
         setMarkdownflow(response.markdownflow || defaultMarkdownflow);
-        setAllowedKeys(
-          response.allowed_variable_keys?.length
-            ? response.allowed_variable_keys
-            : Array.from(PROFILE_ONBOARDING_ALLOWED_VARIABLE_KEYS),
+        setDocumentPrompt(response.document_prompt ?? defaultDocumentPrompt);
+        setConfigRevision(
+          Number(response.config_revision ?? response.version ?? 0),
         );
-        setVersion(Number(response.version || 0));
         setUpdatedBy(response.updated_by || '');
         setUpdatedAt(response.updated_at || '');
         setError('');
@@ -80,48 +81,27 @@ export default function ProfileOnboardingAdminPage() {
       .finally(() => {
         setLoading(false);
       });
-  }, [defaultMarkdownflow, isReady, t]);
-
-  const previewSteps = React.useMemo(
-    () => parseProfileOnboardingFlow(markdownflow),
-    [markdownflow],
-  );
-
-  const validateBeforeSave = React.useCallback(() => {
-    const invalidKeys = getInvalidProfileOnboardingVariableKeys(
-      markdownflow,
-      allowedKeys,
-    );
-    if (invalidKeys.length > 0) {
-      return t('module.profileOnboarding.admin.invalidVariables', {
-        keys: invalidKeys.join(', '),
-      });
-    }
-    return '';
-  }, [allowedKeys, markdownflow, t]);
+  }, [defaultDocumentPrompt, defaultMarkdownflow, isReady, t]);
 
   const handleSave = React.useCallback(async () => {
-    const validationError = validateBeforeSave();
-    if (validationError) {
-      setError(validationError);
+    if (enabled && !markdownflow.trim()) {
+      setError(t('module.profileOnboarding.admin.documentRequired'));
       return;
     }
-
     setSaving(true);
     setError('');
     try {
       const response = (await api.updateAdminOperationProfileOnboardingConfig({
         enabled,
         markdownflow,
+        document_prompt: documentPrompt,
       })) as ProfileOnboardingConfig;
       setEnabled(Boolean(response.enabled));
-      setMarkdownflow(response.markdownflow || markdownflow);
-      setAllowedKeys(
-        response.allowed_variable_keys?.length
-          ? response.allowed_variable_keys
-          : allowedKeys,
+      setMarkdownflow(response.markdownflow ?? markdownflow);
+      setDocumentPrompt(response.document_prompt ?? documentPrompt);
+      setConfigRevision(
+        Number(response.config_revision ?? response.version ?? configRevision),
       );
-      setVersion(Number(response.version || version));
       setUpdatedBy(response.updated_by || updatedBy);
       setUpdatedAt(response.updated_at || updatedAt);
       toast({
@@ -136,16 +116,48 @@ export default function ProfileOnboardingAdminPage() {
       setSaving(false);
     }
   }, [
-    allowedKeys,
+    configRevision,
+    documentPrompt,
     enabled,
     markdownflow,
     t,
     toast,
     updatedAt,
     updatedBy,
-    validateBeforeSave,
-    version,
   ]);
+
+  const createPreviewSession = React.useCallback(async () => {
+    setPreviewDraft('');
+    setError('');
+    return (await api.createAdminOperationProfileOnboardingPreview({
+      markdownflow,
+      document_prompt: documentPrompt,
+      language: i18n.resolvedLanguage ?? i18n.language,
+    })) as ProfileOnboardingSessionInfo;
+  }, [documentPrompt, i18n.language, i18n.resolvedLanguage, markdownflow]);
+
+  const runPreviewSession = React.useCallback<ProfileOnboardingRunSession>(
+    ({
+      sessionId,
+      expectedBlockIndex,
+      requestId,
+      userInput,
+      onMessage,
+      onError,
+    }) =>
+      streamProfileOnboardingRuntime({
+        path: `/api/shifu/admin/operations/profile-onboarding/preview/${encodeURIComponent(sessionId)}/run`,
+        payload: {
+          expected_block_index: expectedBlockIndex,
+          request_id: requestId,
+          ...(userInput ? { user_input: userInput } : {}),
+        },
+        language: i18n.resolvedLanguage ?? i18n.language,
+        onMessage,
+        onError,
+      }),
+    [i18n.language, i18n.resolvedLanguage],
+  );
 
   if (!isReady || loading) {
     return <Loading />;
@@ -172,10 +184,14 @@ export default function ProfileOnboardingAdminPage() {
             <Button
               type='button'
               variant='outline'
-              onClick={() => setPreviewOpen(open => !open)}
+              onClick={() => {
+                setPreviewDraft('');
+                setPreviewOpen(true);
+                setPreviewKey(key => key + 1);
+              }}
             >
               {previewOpen
-                ? t('module.profileOnboarding.admin.hidePreview')
+                ? t('module.profileOnboarding.admin.restartPreview')
                 : t('module.profileOnboarding.admin.preview')}
             </Button>
             <Button
@@ -189,7 +205,7 @@ export default function ProfileOnboardingAdminPage() {
         }
       />
 
-      <div className='grid min-h-0 flex-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]'>
+      <div className='grid min-h-0 flex-1 gap-6 xl:grid-cols-[minmax(0,1fr)_400px]'>
         <section className='min-h-0 space-y-5'>
           <div className='flex items-center justify-between rounded-md border bg-background px-4 py-3'>
             <div className='space-y-1'>
@@ -209,9 +225,28 @@ export default function ProfileOnboardingAdminPage() {
           </div>
 
           <div className='space-y-2'>
+            <Label htmlFor='profile-onboarding-document-prompt'>
+              {t('module.profileOnboarding.admin.documentPrompt')}
+            </Label>
+            <p className='text-sm text-muted-foreground'>
+              {t('module.profileOnboarding.admin.documentPromptHint')}
+            </p>
+            <Textarea
+              id='profile-onboarding-document-prompt'
+              value={documentPrompt}
+              minRows={4}
+              maxRows={8}
+              onChange={event => setDocumentPrompt(event.target.value)}
+            />
+          </div>
+
+          <div className='space-y-2'>
             <Label htmlFor='profile-onboarding-markdownflow'>
               {t('module.profileOnboarding.admin.markdownflow')}
             </Label>
+            <p className='text-sm text-muted-foreground'>
+              {t('module.profileOnboarding.admin.markdownflowHint')}
+            </p>
             <Textarea
               id='profile-onboarding-markdownflow'
               value={markdownflow}
@@ -219,6 +254,15 @@ export default function ProfileOnboardingAdminPage() {
               maxRows={24}
               onChange={event => setMarkdownflow(event.target.value)}
             />
+          </div>
+
+          <div className='rounded-md border bg-muted/30 p-4 text-sm leading-6'>
+            <div className='font-medium'>
+              {t('module.profileOnboarding.admin.lockedSummaryTitle')}
+            </div>
+            <p className='mt-1 text-muted-foreground'>
+              {t('module.profileOnboarding.admin.lockedSummaryHint')}
+            </p>
           </div>
 
           {error ? (
@@ -234,33 +278,14 @@ export default function ProfileOnboardingAdminPage() {
         <aside className='space-y-5'>
           <section className='rounded-md border bg-background p-4'>
             <h2 className='text-sm font-semibold'>
-              {t('module.profileOnboarding.admin.allowedVariables')}
-            </h2>
-            <p className='mt-1 text-sm text-muted-foreground'>
-              {t('module.profileOnboarding.admin.allowedVariablesHint')}
-            </p>
-            <div className='mt-3 flex flex-wrap gap-2'>
-              {allowedKeys.map(key => (
-                <Badge
-                  key={key}
-                  variant='outline'
-                >
-                  {key}
-                </Badge>
-              ))}
-            </div>
-          </section>
-
-          <section className='rounded-md border bg-background p-4'>
-            <h2 className='text-sm font-semibold'>
               {t('module.profileOnboarding.admin.publishState')}
             </h2>
             <dl className='mt-3 space-y-2 text-sm'>
               <div className='flex justify-between gap-3'>
                 <dt className='text-muted-foreground'>
-                  {t('module.profileOnboarding.admin.version')}
+                  {t('module.profileOnboarding.admin.configRevision')}
                 </dt>
-                <dd>{version || '-'}</dd>
+                <dd>{configRevision || '-'}</dd>
               </div>
               <div className='flex justify-between gap-3'>
                 <dt className='text-muted-foreground'>
@@ -279,44 +304,52 @@ export default function ProfileOnboardingAdminPage() {
 
           {previewOpen ? (
             <section className='rounded-md border bg-background p-4'>
-              <h2 className='text-sm font-semibold'>
-                {t('module.profileOnboarding.admin.preview')}
-              </h2>
-              <div className='mt-3 space-y-3'>
-                {previewSteps.length > 0 ? (
-                  previewSteps.map(step => (
-                    <div
-                      key={step.id}
-                      className='rounded-md border px-3 py-2 text-sm'
-                    >
-                      {step.intro ? (
-                        <p className='mb-2 whitespace-pre-wrap text-muted-foreground'>
-                          {step.intro}
-                        </p>
-                      ) : null}
-                      <div className='font-medium'>
-                        {step.prompt || step.variableKey}
-                      </div>
-                      {step.options.length > 0 ? (
-                        <div className='mt-2 flex flex-wrap gap-2'>
-                          {step.options.map(option => (
-                            <Badge
-                              key={option.value}
-                              variant='secondary'
-                            >
-                              {option.label}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ))
-                ) : (
-                  <div className='text-sm text-muted-foreground'>
-                    {t('module.profileOnboarding.admin.emptyPreview')}
-                  </div>
-                )}
+              <div className='flex items-center justify-between gap-3'>
+                <h2 className='text-sm font-semibold'>
+                  {t('module.profileOnboarding.admin.preview')}
+                </h2>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='sm'
+                  onClick={() => setPreviewOpen(false)}
+                >
+                  {t('module.profileOnboarding.admin.hidePreview')}
+                </Button>
               </div>
+              <p className='mt-2 text-xs leading-5 text-muted-foreground'>
+                {t('module.profileOnboarding.admin.previewProfileNotice')}
+              </p>
+              <div className='mt-4'>
+                <ProfileOnboardingConversation
+                  key={previewKey}
+                  createSession={createPreviewSession}
+                  runSession={runPreviewSession}
+                  onDraftReady={draft => setPreviewDraft(draft)}
+                  onRetry={() => setError('')}
+                  onError={caughtError => {
+                    setError(
+                      caughtError instanceof Error && caughtError.message
+                        ? caughtError.message
+                        : t('module.profileOnboarding.admin.previewFailed'),
+                    );
+                  }}
+                />
+              </div>
+              {previewDraft ? (
+                <div className='mt-4 space-y-2'>
+                  <Label htmlFor='profile-onboarding-preview-draft'>
+                    {t('module.profileOnboarding.admin.previewDraft')}
+                  </Label>
+                  <Textarea
+                    id='profile-onboarding-preview-draft'
+                    value={previewDraft}
+                    minRows={6}
+                    maxRows={10}
+                    readOnly
+                  />
+                </div>
+              ) : null}
             </section>
           ) : null}
         </aside>

@@ -7,6 +7,8 @@
   "missingApiBaseUrl": "L’environnement actuel est mal configuré. Veuillez réessayer plus tard.",
   "previewAll": "Prévisualiser le brouillon",
   "previewModeBanner": "Aperçu du brouillon du cours. Les élèves ne verront les mises à jour qu’après publication.<editLink>Modifier le cours</editLink>",
+  "previewModeBannerWithProfile": "Aperçu du brouillon du cours. Les élèves ne verront les mises à jour qu’après publication. Votre profil d’apprentissage enregistré est utilisé pour cette prévisualisation personnalisée.<editLink>Modifier le cours</editLink>",
+  "previewModeBannerWithoutProfile": "Aperçu du brouillon du cours. Les élèves ne verront les mises à jour qu’après publication. Aucun profil d’apprentissage n’est actif pour cet aperçu.<editLink>Modifier le cours</editLink>",
   "requestFailed": "La prévisualisation a échoué. Veuillez réessayer plus tard.",
   "streamError": "La connexion de prévisualisation a été interrompue. Veuillez réessayer."
 }

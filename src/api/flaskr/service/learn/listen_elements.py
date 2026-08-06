@@ -83,6 +83,13 @@ class ListenElementRunAdapter(
         self._answer_element_bid_by_block_bid: dict[str, str] = {}
         self._latest_element_snapshots: dict[str, object] = {}
 
+    def _new_element_bid(self) -> str:
+        """Allocation seam for transient adapters that require retry-stable IDs."""
+
+        from flaskr.service.learn.listen_element_types import _new_element_bid
+
+        return _new_element_bid(self.app)
+
     def process(
         self, events: Iterable[RunMarkdownFlowDTO]
     ) -> Iterable[RunElementSSEMessageDTO]:

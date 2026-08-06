@@ -584,10 +584,25 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
     )
     monkeypatch.setattr(module, "chat_llm", lambda *_args, **_kwargs: iter([]))
 
+    effective_course_prompt = (
+        "COURSE_PROMPT\n\n"
+        "<!-- ai-shifu:learner-profile:v1 -->\n"
+        '<learner_profile_data format="json-string">\n'
+        '"喜欢图解"\n'
+        "</learner_profile_data>"
+    )
+    context = _Context()
+    context.get_system_prompt = lambda _outline_bid: effective_course_prompt
+    monkeypatch.setattr(
+        module,
+        "get_fmt_prompt",
+        lambda _app, _user_id, _course_id, template, **_kwargs: template,
+    )
+
     events = list(
         module.handle_input_ask(
             app=app,
-            context=_Context(),
+            context=context,
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
             input="hello",
@@ -613,7 +628,10 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
         if event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
     )
     assert len(captured["messages"]) == 2
-    assert captured["messages"][0] == {"role": "system", "content": "COURSE_PROMPT"}
+    assert captured["messages"][0] == {
+        "role": "system",
+        "content": effective_course_prompt,
+    }
     assert captured["messages"][1]["role"] == "user"
     user_content = captured["messages"][1]["content"]
     assert user_content.endswith("hello")
