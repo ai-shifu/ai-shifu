@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminTitle from '@/app/admin/components/AdminTitle';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
@@ -16,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { fail, show } from '@/hooks/useToast';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
-import AdminOperationsBreadcrumb from '../AdminOperationsBreadcrumb';
 import {
   buildAdminOperationsCourseFollowUpsUrl,
   buildAdminOperationsOrdersUrl,
@@ -39,6 +37,7 @@ import CourseChaptersTab, {
   type FlattenedChapterRow,
 } from './CourseChaptersTab';
 import CourseBasicInfoCard from './CourseBasicInfoCard';
+import CourseDetailHeader from './CourseDetailHeader';
 import CourseCreditUsageTab from './CourseCreditUsageTab';
 import CourseEstimatedCreditCostCard from './CourseEstimatedCreditCostCard';
 import CourseMetricsCardGrid from './CourseMetricsCardGrid';
@@ -1535,16 +1534,10 @@ export default function AdminOperationCourseDetailPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-        <AdminOperationsBreadcrumb
-          items={[
-            {
-              label: tOperations('title'),
-              href: '/admin/operations',
-            },
-            { label: tOperations('detail.title') },
-          ]}
+        <CourseDetailHeader
+          operationsLabel={tOperations('title')}
+          detailLabel={tOperations('detail.title')}
         />
-        <AdminTitle title={tOperations('detail.title')} />
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>
           <div className='space-y-5 pb-6'>
