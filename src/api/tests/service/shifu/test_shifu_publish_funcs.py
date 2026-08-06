@@ -2,12 +2,15 @@ import sys
 import types
 from datetime import datetime
 
+import pytest
 from flask import Flask
 
 from flaskr.dao import db
+from flaskr.service.common.models import AppException
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
+    LogPublishedStruct,
     PublishedOutlineItem,
 )
 
@@ -329,3 +332,62 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
     assert outline_load_calls == [
         (("publish-preserve-outline-updated-at",), {"include_content": True})
     ]
+
+
+def test_publish_shifu_draft_blocks_position_collision_before_history(app, monkeypatch):
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *args: None)
+    shifu_bid = "publish-blocks-outline-collision"
+
+    with app.app_context():
+        draft = DraftShifu(
+            shifu_bid=shifu_bid,
+            title="Draft",
+            description="Desc",
+            keywords="a,b",
+        )
+        first_outline = DraftOutlineItem(
+            outline_item_bid="publish-collision-first",
+            shifu_bid=shifu_bid,
+            title="First",
+            position="01",
+            type=401,
+            hidden=0,
+            content="# First",
+        )
+        second_outline = DraftOutlineItem(
+            outline_item_bid="publish-collision-second",
+            shifu_bid=shifu_bid,
+            title="Second",
+            position="01",
+            type=401,
+            hidden=0,
+            content="# Second",
+        )
+        db.session.add_all([draft, first_outline, second_outline])
+        db.session.commit()
+
+    with pytest.raises(AppException) as exc_info:
+        module.publish_shifu_draft(
+            app,
+            user_id="user-1",
+            shifu_id=shifu_bid,
+            base_url="https://example.com",
+            sync_summary=True,
+        )
+
+    assert exc_info.value.code == 4010
+
+    with app.app_context():
+        db.session.rollback()
+        published_outline_count = PublishedOutlineItem.query.filter_by(
+            shifu_bid=shifu_bid,
+            deleted=0,
+        ).count()
+        publish_history_count = LogPublishedStruct.query.filter_by(
+            shifu_bid=shifu_bid
+        ).count()
+
+    assert published_outline_count == 0
+    assert publish_history_count == 0

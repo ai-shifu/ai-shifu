@@ -81,6 +81,145 @@ def preview_shifu_draft(
         return _build_frontend_url(base_url, f"/c/{shifu_id}?preview=true")
 
 
+def _retire_existing_publication(shifu_id: str) -> None:
+    PublishedShifu.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
+    PublishedOutlineItem.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
+
+
+def _build_published_shifu_from_draft(
+    shifu_draft,
+    *,
+    shifu_id: str,
+    user_id: str,
+    now_time,
+) -> PublishedShifu:
+    shifu_published = PublishedShifu()
+    shifu_published.shifu_bid = shifu_id
+    shifu_published.title = shifu_draft.title
+    shifu_published.description = shifu_draft.description
+    shifu_published.avatar_res_bid = shifu_draft.avatar_res_bid
+    shifu_published.keywords = shifu_draft.keywords
+    shifu_published.llm = shifu_draft.llm
+    shifu_published.llm_temperature = shifu_draft.llm_temperature
+    shifu_published.price = shifu_draft.price
+    shifu_published.created_user_bid = shifu_draft.created_user_bid
+    shifu_published.updated_user_bid = user_id
+    shifu_published.updated_at = now_time
+    shifu_published.llm_system_prompt = shifu_draft.llm_system_prompt
+    shifu_published.ask_enabled_status = shifu_draft.ask_enabled_status
+    shifu_published.ask_llm = shifu_draft.ask_llm
+    shifu_published.ask_llm_temperature = shifu_draft.ask_llm_temperature
+    shifu_published.ask_llm_system_prompt = shifu_draft.ask_llm_system_prompt
+    shifu_published.ask_provider_config = (
+        getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
+    )
+    shifu_published.tts_enabled = shifu_draft.tts_enabled
+    shifu_published.tts_provider = getattr(shifu_draft, "tts_provider", "") or ""
+    shifu_published.tts_model = getattr(shifu_draft, "tts_model", "") or ""
+    shifu_published.tts_voice_id = shifu_draft.tts_voice_id
+    shifu_published.tts_speed = shifu_draft.tts_speed
+    shifu_published.tts_pitch = shifu_draft.tts_pitch
+    shifu_published.tts_emotion = shifu_draft.tts_emotion
+    shifu_published.use_learner_language = getattr(
+        shifu_draft, "use_learner_language", 0
+    )
+    return shifu_published
+
+
+def _copy_draft_outline_to_published(
+    draft_outline_item: DraftOutlineItem,
+    *,
+    shifu_id: str,
+    user_id: str,
+) -> PublishedOutlineItem:
+    outline_item = PublishedOutlineItem()
+    outline_item.shifu_bid = shifu_id
+    outline_item.outline_item_bid = draft_outline_item.outline_item_bid
+    outline_item.title = draft_outline_item.title
+    outline_item.position = draft_outline_item.position
+    outline_item.type = draft_outline_item.type
+    outline_item.hidden = draft_outline_item.hidden
+    outline_item.parent_bid = draft_outline_item.parent_bid
+    outline_item.llm = draft_outline_item.llm
+    outline_item.llm_temperature = draft_outline_item.llm_temperature
+    outline_item.llm_system_prompt = draft_outline_item.llm_system_prompt
+    outline_item.ask_enabled_status = draft_outline_item.ask_enabled_status
+    outline_item.ask_llm = draft_outline_item.ask_llm
+    outline_item.ask_llm_temperature = draft_outline_item.ask_llm_temperature
+    outline_item.ask_llm_system_prompt = draft_outline_item.ask_llm_system_prompt
+    outline_item.created_user_bid = user_id
+    outline_item.updated_user_bid = user_id
+    outline_item.updated_at = draft_outline_item.updated_at
+    outline_item.prerequisite_item_bids = draft_outline_item.prerequisite_item_bids
+    outline_item.content = draft_outline_item.content
+    return outline_item
+
+
+def _publish_outline_node(
+    node: ShifuOutlineTreeNode,
+    history_item: HistoryItem,
+    *,
+    shifu_id: str,
+    user_id: str,
+) -> None:
+    draft_outline_item: DraftOutlineItem = node.outline
+    outline_item = _copy_draft_outline_to_published(
+        draft_outline_item,
+        shifu_id=shifu_id,
+        user_id=user_id,
+    )
+    db.session.add(outline_item)
+    db.session.flush()
+    markdown_flow = MarkdownFlow(draft_outline_item.content).set_output_language(
+        get_markdownflow_output_language()
+    )
+    blocks = markdown_flow.get_all_blocks()
+    outline_item_history_item = HistoryItem(
+        bid=node.outline_id,
+        id=outline_item.id,
+        type="outline",
+        children=[],
+        child_count=len(blocks),
+    )
+    history_item.children.append(outline_item_history_item)
+    if node.children and len(node.children) > 0:
+        for child in node.children:
+            _publish_outline_node(
+                child,
+                outline_item_history_item,
+                shifu_id=shifu_id,
+                user_id=user_id,
+            )
+
+
+def _publish_outline_tree(
+    outline_tree: list[ShifuOutlineTreeNode],
+    history_item: HistoryItem,
+    *,
+    shifu_id: str,
+    user_id: str,
+) -> None:
+    for node in outline_tree:
+        _publish_outline_node(node, history_item, shifu_id=shifu_id, user_id=user_id)
+
+
+def _create_publish_history_log(
+    app,
+    *,
+    shifu_id: str,
+    user_id: str,
+    now_time,
+    history_item: HistoryItem,
+) -> LogPublishedStruct:
+    shifu_log_published_struct = LogPublishedStruct()
+    shifu_log_published_struct.struct_bid = generate_id(app)
+    shifu_log_published_struct.shifu_bid = shifu_id
+    shifu_log_published_struct.struct = history_item.to_json()
+    shifu_log_published_struct.created_user_bid = user_id
+    shifu_log_published_struct.created_at = now_time
+    return shifu_log_published_struct
+
+
 def publish_shifu_draft(
     app,
     user_id: str,
@@ -110,106 +249,43 @@ def publish_shifu_draft(
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
-        PublishedShifu.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
-        PublishedOutlineItem.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
-        shifu_published = PublishedShifu()
-        shifu_published.shifu_bid = shifu_id
-        shifu_published.title = shifu_draft.title
-        shifu_published.description = shifu_draft.description
-        shifu_published.avatar_res_bid = shifu_draft.avatar_res_bid
-        shifu_published.keywords = shifu_draft.keywords
-        shifu_published.llm = shifu_draft.llm
-        shifu_published.llm_temperature = shifu_draft.llm_temperature
-        shifu_published.price = shifu_draft.price
-        shifu_published.created_user_bid = shifu_draft.created_user_bid
-        shifu_published.updated_user_bid = user_id
-        shifu_published.updated_at = now_time
-        shifu_published.llm_system_prompt = shifu_draft.llm_system_prompt
-        shifu_published.ask_enabled_status = shifu_draft.ask_enabled_status
-        shifu_published.ask_llm = shifu_draft.ask_llm
-        shifu_published.ask_llm_temperature = shifu_draft.ask_llm_temperature
-        shifu_published.ask_llm_system_prompt = shifu_draft.ask_llm_system_prompt
-        shifu_published.ask_provider_config = (
-            getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
-        )
-        # TTS Configuration
-        shifu_published.tts_enabled = shifu_draft.tts_enabled
-        shifu_published.tts_provider = getattr(shifu_draft, "tts_provider", "") or ""
-        shifu_published.tts_model = getattr(shifu_draft, "tts_model", "") or ""
-        shifu_published.tts_voice_id = shifu_draft.tts_voice_id
-        shifu_published.tts_speed = shifu_draft.tts_speed
-        shifu_published.tts_pitch = shifu_draft.tts_pitch
-        shifu_published.tts_emotion = shifu_draft.tts_emotion
-        # Learner language setting
-        shifu_published.use_learner_language = getattr(
-            shifu_draft, "use_learner_language", 0
+
+        _retire_existing_publication(shifu_id)
+        shifu_published = _build_published_shifu_from_draft(
+            shifu_draft,
+            shifu_id=shifu_id,
+            user_id=user_id,
+            now_time=now_time,
         )
         db.session.add(shifu_published)
         db.session.flush()
+
         # Block publishing a structurally broken outline instead of silently
         # dropping orphaned/colliding nodes from the published result.
         outline_items = load_existing_outline_items(shifu_id, include_content=True)
         assert_outline_items_publishable(app, shifu_id, outline_items)
         outline_tree = build_outline_tree_from_items(app, outline_items)
 
-        def publish_outline_item(node: ShifuOutlineTreeNode, history_item: HistoryItem):
-            outline_item = PublishedOutlineItem()
-            draft_outline_item: DraftOutlineItem = node.outline
-            outline_item.shifu_bid = shifu_id
-            outline_item.outline_item_bid = draft_outline_item.outline_item_bid
-            outline_item.title = draft_outline_item.title
-            outline_item.position = draft_outline_item.position
-            outline_item.type = draft_outline_item.type
-            outline_item.hidden = draft_outline_item.hidden
-            outline_item.parent_bid = draft_outline_item.parent_bid
-            outline_item.llm = draft_outline_item.llm
-            outline_item.llm_temperature = draft_outline_item.llm_temperature
-            outline_item.llm_system_prompt = draft_outline_item.llm_system_prompt
-            outline_item.ask_enabled_status = draft_outline_item.ask_enabled_status
-            outline_item.ask_llm = draft_outline_item.ask_llm
-            outline_item.ask_llm_temperature = draft_outline_item.ask_llm_temperature
-            outline_item.ask_llm_system_prompt = (
-                draft_outline_item.ask_llm_system_prompt
-            )
-            outline_item.created_user_bid = user_id
-            outline_item.updated_user_bid = user_id
-            outline_item.updated_at = draft_outline_item.updated_at
-            outline_item.prerequisite_item_bids = (
-                draft_outline_item.prerequisite_item_bids
-            )
-            outline_item.content = draft_outline_item.content
-            db.session.add(outline_item)
-            db.session.flush()
-            markdown_flow = MarkdownFlow(
-                draft_outline_item.content
-            ).set_output_language(get_markdownflow_output_language())
-            blocks = markdown_flow.get_all_blocks()
-            outline_item_history_item = HistoryItem(
-                bid=node.outline_id,
-                id=outline_item.id,
-                type="outline",
-                children=[],
-                child_count=len(blocks),
-            )
-            history_item.children.append(outline_item_history_item)
-            if node.children and len(node.children) > 0:
-                for child in node.children:
-                    publish_outline_item(child, outline_item_history_item)
-
         history_item = HistoryItem(
             bid=shifu_id, id=shifu_published.id, type="shifu", children=[]
         )
-        for node in outline_tree:
-            publish_outline_item(node, history_item)
+        _publish_outline_tree(
+            outline_tree,
+            history_item,
+            shifu_id=shifu_id,
+            user_id=user_id,
+        )
 
-        shifu_log_published_struct = LogPublishedStruct()
-        shifu_log_published_struct.struct_bid = generate_id(app)
-        shifu_log_published_struct.shifu_bid = shifu_id
-        shifu_log_published_struct.struct = history_item.to_json()
-        shifu_log_published_struct.created_user_bid = user_id
-        shifu_log_published_struct.created_at = now_time
+        shifu_log_published_struct = _create_publish_history_log(
+            app,
+            shifu_id=shifu_id,
+            user_id=user_id,
+            now_time=now_time,
+            history_item=history_item,
+        )
         db.session.add(shifu_log_published_struct)
         db.session.commit()
+
         parent_shifu_context = get_shifu_context_snapshot()
         if sync_summary:
             _run_summary_with_error_handling(app, shifu_id, parent_shifu_context)
