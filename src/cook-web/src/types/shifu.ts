@@ -16,6 +16,7 @@ export interface ModelOption {
   creditMultiplier?: number | null;
   creditMultiplierLabel?: string;
   promoLabel?: string;
+  promoOriginalLabel?: string;
   isDefault?: boolean;
 }
 

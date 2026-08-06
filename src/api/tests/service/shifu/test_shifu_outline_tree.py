@@ -8,6 +8,7 @@ blocked with a clear error instead of shipping a broken course.
 """
 
 import pytest
+from sqlalchemy import inspect as sa_inspect
 
 from flaskr.dao import db
 from flaskr.service.common.models import AppException
@@ -104,3 +105,17 @@ def test_assert_publishable_raises_on_position_collision(app):
             assert_outline_tree_publishable(app, shifu_bid)
         # 4010 == server.shifu.outlineStructureBroken (see error_codes.json)
         assert exc_info.value.code == 4010
+
+
+def test_outline_tree_metadata_loader_does_not_read_content(app):
+    shifu_bid = "shifu_outline_lightweight_1"
+    with app.app_context():
+        item = _mk_item(shifu_bid, "root1", "01")
+        item.content = "# large lesson body"
+        db.session.commit()
+        db.session.expire_all()
+
+        tree = build_outline_tree(app, shifu_bid, include_content=False)
+
+        assert [node.outline_id for node in tree] == ["root1"]
+        assert "content" in sa_inspect(tree[0].outline).unloaded

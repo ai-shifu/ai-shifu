@@ -1,1 +1,5 @@
-export { default, NavFooter } from '@/c-components/NavDrawer/NavFooter';
+export {
+  default,
+  NavFooter,
+  type NavFooterHandle,
+} from '@/c-components/NavDrawer/NavFooter';

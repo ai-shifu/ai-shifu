@@ -7,6 +7,7 @@
   "classroomEnterFullscreen": "Fullscreen",
   "classroomTitlePlaceholderTips": "Classroom mode only shows slides; press F to toggle fullscreen, and use arrow keys or Space to change slides.",
   "closeCatalog": "Close catalog",
+  "contentGenerationUnavailable": "Content generation is temporarily unavailable. Please try again later.",
   "generating": "Generating diagram...",
   "learningModeClassroom": "Classroom",
   "learningModeClassroomShort": "Classroom",

@@ -22,6 +22,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { uploadFile } from '@/lib/file';
 import { buildTraceHeaders } from '@/lib/request-trace';
+import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
 import {
@@ -102,13 +103,24 @@ import {
   type TtsModelOption,
 } from '@/components/shifu-setting/tts-model-options';
 import {
+  normalizeAskProviders,
+  normalizeTtsProviders,
+  type AskConfigMetadata,
+  type TTSProviderConfig,
+} from '@/components/shifu-setting/settings-config-options';
+import {
   buildOnboardingTargetProps,
   ONBOARDING_TARGET_IDS,
 } from '@/lib/onboardingTargets';
 
 // Temporary display-only promo tag on TTS model options; remove when the
 // campaign ends. Credit multipliers stay admin-configured and untouched.
-const TTS_PROMO_MODEL_VALUES = new Set(['minimax/speech-2.8-turbo']);
+// originalMultiplierLabel is the struck-through pre-promo rate, shown so the
+// promo reads as "44x discounted to the current rate" rather than "current
+// rate with a further discount".
+const TTS_PROMO_MODELS: Record<string, { originalMultiplierLabel: string }> = {
+  'minimax/speech-2.8-turbo': { originalMultiplierLabel: '44x' },
+};
 
 interface Shifu {
   description: string;
@@ -416,60 +428,12 @@ export default function ShifuSettingDialog({
   );
 
   // TTS Config from backend
-  interface AskProviderConfigItem {
-    provider: string;
-    title: string;
-    description?: string;
-    default_config?: Record<string, any>;
-    json_schema?: {
-      properties?: Record<string, any>;
-      required?: string[];
-    };
-  }
-  interface AskConfigMetadata {
-    feature_enabled?: boolean;
-    default?: {
-      provider?: string;
-      mode?: string;
-      config?: Record<string, any>;
-    };
-    modes?: Array<{ value: string; title: string }>;
-    providers?: AskProviderConfigItem[];
-  }
-  interface TTSProviderConfig {
-    name: string;
-    label: string;
-    speed: { min: number; max: number; step: number; default: number };
-    pitch: { min: number; max: number; step: number; default: number };
-    supports_emotion: boolean;
-    supports_custom_voice_id?: boolean;
-    supports_voice_cloning?: boolean;
-    models: { value: string; label: string }[];
-    voices: { value: string; label: string; resource_id?: string }[];
-    emotions: { value: string; label: string }[];
-  }
   const [ttsConfig, setTtsConfig] = useState<{
     providers: TTSProviderConfig[];
     model_options: TtsModelOption[];
   } | null>(null);
   const [askConfigMeta, setAskConfigMeta] = useState<AskConfigMetadata | null>(
     null,
-  );
-  const normalizeTtsProviders = useCallback(
-    (providers?: TTSProviderConfig[] | null): TTSProviderConfig[] =>
-      (providers ?? []).map(provider => ({
-        ...provider,
-        name: (provider.name || '').toLowerCase(),
-      })),
-    [],
-  );
-  const normalizeAskProviders = useCallback(
-    (providers?: AskProviderConfigItem[] | null): AskProviderConfigItem[] =>
-      (providers ?? []).map(provider => ({
-        ...provider,
-        provider: (provider.provider || '').toLowerCase(),
-      })),
-    [],
   );
 
   // Fetch TTS config from backend
@@ -505,7 +469,7 @@ export default function ShifuSettingDialog({
     return () => {
       cancelled = true;
     };
-  }, [currentLanguage, normalizeAskProviders, normalizeTtsProviders]);
+  }, [currentLanguage]);
 
   const refreshMinimaxVoiceData = useCallback(async () => {
     if (!shifuId) return;
@@ -570,14 +534,16 @@ export default function ShifuSettingDialog({
 
   const ttsModelOptions = useMemo(
     () =>
-      (ttsConfig?.model_options || []).map(option =>
-        TTS_PROMO_MODEL_VALUES.has(option.value)
+      (ttsConfig?.model_options || []).map(option => {
+        const promo = TTS_PROMO_MODELS[option.value];
+        return promo
           ? {
               ...option,
               promoLabel: t('module.shifuSetting.ttsPromoBadge'),
+              promoOriginalLabel: promo.originalMultiplierLabel,
             }
-          : option,
-      ),
+          : option;
+      }),
     [t, ttsConfig?.model_options],
   );
   const ttsModelSelectValue = buildTtsModelOptionValue(
@@ -1592,17 +1558,20 @@ export default function ShifuSettingDialog({
 
     setAskPreviewLoading(true);
     try {
-      const response = (await api.askPreview({
-        query,
-        ask_model: askModel,
-        ask_temperature: askTemperatureForSubmit,
-        ask_system_prompt: '',
-        ask_provider_config: {
-          provider: askProviderForSubmit,
-          mode: askModeForSubmit,
-          config: askConfigForSubmit,
+      const response = (await api.askPreview(
+        {
+          query,
+          ask_model: askModel,
+          ask_temperature: askTemperatureForSubmit,
+          ask_system_prompt: '',
+          ask_provider_config: {
+            provider: askProviderForSubmit,
+            mode: askModeForSubmit,
+            config: askConfigForSubmit,
+          },
         },
-      })) as {
+        { skipErrorToast: true },
+      )) as {
         answer?: string;
         provider?: string;
         requested_provider?: string;
@@ -1616,7 +1585,13 @@ export default function ShifuSettingDialog({
         requestedProvider: String(response?.requested_provider || ''),
         fallbackUsed: Boolean(response?.fallback_used),
       });
-    } catch {
+    } catch (error) {
+      showAiServiceErrorToast({
+        message: error instanceof Error ? error.message : '',
+        fallbackMessage: t('common.core.unknownError'),
+        includeUnknown: true,
+        unavailableMessage: t('module.preview.aiDebugUnavailable'),
+      });
       setAskPreviewResult('');
       setAskPreviewMeta(null);
     } finally {

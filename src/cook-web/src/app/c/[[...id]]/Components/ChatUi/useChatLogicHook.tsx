@@ -60,7 +60,7 @@ import {
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import LoadingBar from './LoadingBar';
 import { useTranslation } from 'react-i18next';
-import { show as showToast, toast } from '@/hooks/useToast';
+import { show as showToast, toast, toastOnce } from '@/hooks/useToast';
 import { AppContext } from '../AppContext';
 import { stripCustomButtonAfterContent } from './chatUiUtils';
 import {
@@ -71,6 +71,12 @@ import {
 } from '@/c-store/useLessonRunContentStore';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
 import { resolveLearnerErrorToast } from '@/lib/learnerError';
+import {
+  AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
+  AI_SERVICE_ERROR_TOAST_DURATION_MS,
+  AI_SERVICE_ERROR_TOAST_KEY,
+  resolveAiServiceErrorToast,
+} from '@/lib/aiServiceError';
 import { debugWarn } from '@/c-utils/debugConsole';
 import {
   buildElementContentItem as buildChatElementContentItem,
@@ -1409,11 +1415,26 @@ function useChatLogicHook({
                 message: errorContent,
                 fallbackMessage: t('module.chat.requestFailed'),
               });
-
-              toast({
-                title: resolvedErrorToast.message,
-                variant: resolvedErrorToast.variant,
+              const displayErrorToast = resolveAiServiceErrorToast({
+                message: resolvedErrorToast.message,
+                fallbackMessage: t('module.chat.requestFailed'),
+                includeUnknown: true,
               });
+
+              if (displayErrorToast.isAiServiceUnavailable) {
+                toastOnce({
+                  dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
+                  dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
+                  title: displayErrorToast.message,
+                  variant: resolvedErrorToast.variant,
+                  duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+                });
+              } else {
+                toast({
+                  title: displayErrorToast.message,
+                  variant: resolvedErrorToast.variant,
+                });
+              }
               if (
                 effectivePreviewMode &&
                 businessCode === CREDIT_INSUFFICIENT_ERROR_CODE &&
@@ -1970,10 +1991,25 @@ function useChatLogicHook({
               message: businessError.message.trim(),
               fallbackMessage: t('module.chat.requestFailed'),
             });
-            toast({
-              title: resolvedErrorToast.message,
-              variant: resolvedErrorToast.variant,
+            const displayErrorToast = resolveAiServiceErrorToast({
+              message: resolvedErrorToast.message,
+              fallbackMessage: t('module.chat.requestFailed'),
+              includeUnknown: true,
             });
+            if (displayErrorToast.isAiServiceUnavailable) {
+              toastOnce({
+                dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
+                dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
+                title: displayErrorToast.message,
+                variant: resolvedErrorToast.variant,
+                duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+              });
+            } else {
+              toast({
+                title: displayErrorToast.message,
+                variant: resolvedErrorToast.variant,
+              });
+            }
             cleanupRunStreamState();
             setHasRunFailed(true);
             appendRunBusinessError(

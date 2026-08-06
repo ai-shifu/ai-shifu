@@ -1,23 +1,37 @@
 import styles from './NavFooter.module.scss';
 
 import clsx from 'clsx';
-import { memo, forwardRef, useImperativeHandle, useRef } from 'react';
+import {
+  memo,
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  type MouseEventHandler,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 import { ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
 
-export const NavFooter = forwardRef(
-  // @ts-expect-error EXPECT
+export type NavFooterHandle = {
+  containElement: (elem: EventTarget | null) => boolean;
+};
+
+type NavFooterProps = {
+  onClick?: MouseEventHandler<HTMLDivElement>;
+  isCollapse?: boolean;
+  isMenuOpen?: boolean;
+};
+
+export const NavFooter = forwardRef<NavFooterHandle, NavFooterProps>(
   ({ onClick, isCollapse = false, isMenuOpen = false }, ref) => {
     const { t } = useTranslation();
 
     const userInfo = useUserStore(state => state.userInfo);
     const isLoggedIn = useUserStore(state => state.isLoggedIn);
-    const htmlRef = useRef(null);
+    const htmlRef = useRef<HTMLDivElement | null>(null);
 
-    const containElement = elem => {
-      // @ts-expect-error EXPECT
-      return htmlRef.current && htmlRef.current.contains(elem);
+    const containElement = (elem: EventTarget | null) => {
+      return Boolean(elem instanceof Node && htmlRef.current?.contains(elem));
     };
     useImperativeHandle(ref, () => ({
       containElement,

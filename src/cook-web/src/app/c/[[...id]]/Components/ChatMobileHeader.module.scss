@@ -22,6 +22,12 @@
     box-sizing: border-box;
   }
 
+  .previewHeaderBanner {
+    flex: 0 0 var(--mobile-chat-preview-banner-height, 76px);
+    min-height: var(--mobile-chat-preview-banner-height, 76px);
+    height: var(--mobile-chat-preview-banner-height, 76px);
+  }
+
   .actionGroup {
     display: inline-flex;
     align-items: center;

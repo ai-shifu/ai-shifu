@@ -57,12 +57,12 @@ export type LessonTreeCatalog = {
   collapse: boolean;
 };
 
-type LessonTreeData = {
+export type LessonTreeData = {
   bannerInfo?: unknown;
   catalogs: LessonTreeCatalog[];
 };
 
-type LessonTree = LessonTreeData | null;
+export type LessonTree = LessonTreeData | null;
 
 type LessonStatusLike = {
   status_value: string;

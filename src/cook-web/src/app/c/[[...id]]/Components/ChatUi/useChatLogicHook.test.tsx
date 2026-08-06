@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { toast } from '@/hooks/useToast';
+import { toast, toastOnce } from '@/hooks/useToast';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import { AppContext } from '../AppContext';
 import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
@@ -13,6 +13,10 @@ jest.mock('react-i18next', () => ({
     i18n: { language: 'en-US', changeLanguage: jest.fn() },
     ready: true,
   }),
+}));
+
+jest.mock('i18next', () => ({
+  t: (key: string) => key,
 }));
 
 jest.mock('@/i18n', () => ({
@@ -34,6 +38,7 @@ jest.mock('remark-flow', () => ({
 jest.mock('@/hooks/useToast', () => ({
   show: jest.fn(),
   toast: jest.fn(),
+  toastOnce: jest.fn(),
   fail: jest.fn(),
 }));
 
@@ -1582,6 +1587,80 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(activeRun?.source.close).toHaveBeenCalled();
 
     jest.useRealTimers();
+  });
+
+  it('shows a deduped friendly toast for technical AI service stream errors', async () => {
+    renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          isListenMode: false,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.ERROR,
+        content: '模型 deepseek 调用失败：provider unavailable',
+      });
+    });
+
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringContaining('deepseek'),
+      }),
+    );
+    expect(toastOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dedupeKey: 'ai-service-unavailable',
+        title: 'module.chat.contentGenerationUnavailable',
+        variant: 'destructive',
+        duration: 8000,
+      }),
+    );
+  });
+
+  it('uses the deduped friendly toast for preview credit errors with AI-service details', async () => {
+    renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          previewMode: true,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    act(() => {
+      activeRun?.onError({
+        detail: {
+          code: 7101,
+          message: '模型 deepseek 调用失败：provider unavailable',
+        },
+      });
+    });
+
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringContaining('deepseek'),
+      }),
+    );
+    expect(toastOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dedupeKey: 'ai-service-unavailable',
+        title: 'module.chat.contentGenerationUnavailable',
+        variant: 'destructive',
+        duration: 8000,
+      }),
+    );
   });
 
   it('uses the longer run stream idle timeout on mobile', async () => {

@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/Button';
 import Image from 'next/image';
 import imgBeian from '@/c-assets/newchat/light/beian.png';
 
+const ACTION_SEPARATOR = '|';
+
 export const FillingModal = ({
   open,
   onClose,
@@ -19,7 +21,6 @@ export const FillingModal = ({
   const { t } = useTranslation();
 
   return (
-    // @ts-expect-error EXPECT
     <PopupModal
       open={open}
       onClose={onClose}
@@ -55,7 +56,7 @@ export const FillingModal = ({
           >
             {t('component.navigation.feedbackTitle')}
           </Button>
-          <div>|</div>
+          <div>{ACTION_SEPARATOR}</div>
           <Button
             variant='link'
             className={styles.actionBtn}
@@ -65,7 +66,7 @@ export const FillingModal = ({
           >
             {t('component.navigation.userAgreement')}
           </Button>
-          <div>|</div>
+          <div>{ACTION_SEPARATOR}</div>
           <Button
             variant='link'
             className={styles.actionBtn}

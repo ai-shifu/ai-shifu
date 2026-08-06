@@ -1,14 +1,28 @@
 import { memo, useCallback } from 'react';
 import { shifu } from '@/c-service/Shifu';
 import styles from './TrialNodeOuter.module.scss';
-import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
+import { useTranslation } from 'react-i18next';
+import {
+  TRAIL_NODE_POSITION,
+  type TrialNodePosition,
+} from './TrialNodeBottomArea';
 
-const TrialNodeOuter = ({ nodePosition, payload }) => {
+type TrialNodeOuterProps = {
+  nodePosition: TrialNodePosition;
+  payload: unknown;
+};
+
+const TrialNodeOuter = ({ nodePosition, payload }: TrialNodeOuterProps) => {
+  const { t } = useTranslation();
   const getTrialNodeAreaControl = useCallback(() => {
     const Control = shifu.getControl(shifu.ControlTypes.TRIAL_NODE_BOTTOM_AREA);
 
-    return Control ? <Control payload={payload} /> : <>non</>;
-  }, [payload]);
+    return Control ? (
+      <Control payload={payload} />
+    ) : (
+      <>{t('common.core.none')}</>
+    );
+  }, [payload, t]);
 
   const getClassName = useCallback(() => {
     let className = '';

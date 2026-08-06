@@ -1,4 +1,5 @@
 import {
+  buildAbsoluteUrlWithLessonId,
   buildCoursePageUrl,
   buildLoginRedirectPath,
   buildUrlWithLessonId,
@@ -81,6 +82,39 @@ describe('buildUrlWithLessonId', () => {
   it('removes lessonid when the provided value is empty', () => {
     const url = 'https://example.com/c/123?lessonid=lesson-1&listen=1';
     expect(buildUrlWithLessonId(url, '')).toBe('/c/123?listen=1');
+  });
+});
+
+describe('buildAbsoluteUrlWithLessonId', () => {
+  it('adds lessonid while preserving an absolute preview url', () => {
+    expect(
+      buildAbsoluteUrlWithLessonId(
+        'https://preview.example.com/c/course-1?preview=true#outline',
+        'lesson-2',
+      ),
+    ).toBe(
+      'https://preview.example.com/c/course-1?preview=true&lessonid=lesson-2#outline',
+    );
+  });
+
+  it('resolves a relative preview url against the supplied origin', () => {
+    expect(
+      buildAbsoluteUrlWithLessonId(
+        '/c/course-1?preview=true',
+        'lesson-2',
+        'https://learn.example.com',
+      ),
+    ).toBe(
+      'https://learn.example.com/c/course-1?preview=true&lessonid=lesson-2',
+    );
+  });
+
+  it('resolves a relative preview url against the browser origin by default', () => {
+    expect(
+      buildAbsoluteUrlWithLessonId('/c/course-1?preview=true', 'lesson-2'),
+    ).toBe(
+      `${window.location.origin}/c/course-1?preview=true&lessonid=lesson-2`,
+    );
   });
 });
 

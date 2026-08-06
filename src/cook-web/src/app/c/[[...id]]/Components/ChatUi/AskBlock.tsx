@@ -19,7 +19,7 @@ import { fixMarkdownStream } from '@/c-utils/markdownUtils';
 import LoadingBar from './LoadingBar';
 import StreamingLoadingDotsBar from './StreamingLoadingDotsBar';
 import styles from './AskBlock.module.scss';
-import { toast } from '@/hooks/useToast';
+import { toast, toastOnce } from '@/hooks/useToast';
 import { AppContext } from '../AppContext';
 import { BLOCK_TYPE } from '@/c-api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
@@ -32,6 +32,12 @@ import {
 import { useAskStateStore } from './useAskStateStore';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import {
+  AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
+  AI_SERVICE_ERROR_TOAST_DURATION_MS,
+  AI_SERVICE_ERROR_TOAST_KEY,
+  resolveAiServiceErrorToast,
+} from '@/lib/aiServiceError';
 export type { AskMessage } from './askState';
 
 export interface AskBlockProps {
@@ -312,9 +318,24 @@ export default function AskBlock({
 
             const backendMessage =
               typeof response.content === 'string' ? response.content : '';
-            toast({
-              title: backendMessage || t('module.chat.outputInProgress'),
+            const displayErrorToast = resolveAiServiceErrorToast({
+              message: backendMessage,
+              fallbackMessage: t('module.chat.outputInProgress'),
+              includeUnknown: true,
             });
+            if (displayErrorToast.isAiServiceUnavailable) {
+              toastOnce({
+                dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
+                dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
+                title: displayErrorToast.message,
+                variant: 'destructive',
+                duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+              });
+            } else {
+              toast({
+                title: displayErrorToast.message,
+              });
+            }
 
             sseRef.current?.close();
             return;
