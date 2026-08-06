@@ -80,6 +80,7 @@
     "loadFailed": "学习画像加载失败，请稍后重试。",
     "loading": "正在加载学习画像…",
     "regenerateSuccess": "新的学习画像已保存",
+    "retry": "重试",
     "rerun": "重新生成",
     "save": "保存画像",
     "saveFailed": "学习画像保存失败，请重试。",

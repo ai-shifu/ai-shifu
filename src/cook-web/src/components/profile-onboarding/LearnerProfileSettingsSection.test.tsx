@@ -156,6 +156,34 @@ describe('LearnerProfileSettingsSection', () => {
     });
   });
 
+  test('keeps editing disabled until a failed profile load is retried', async () => {
+    mockGetLearnerProfile
+      .mockRejectedValueOnce(new Error('load failed'))
+      .mockResolvedValueOnce({
+        learner_profile: '重新加载的学习画像',
+        learner_profile_updated_at: null,
+        max_length: 1000,
+      });
+    render(<LearnerProfileSettingsSection />);
+
+    const editor = await screen.findByLabelText(
+      'module.profileOnboarding.profileLabel',
+    );
+    expect(editor).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.save',
+      }),
+    ).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.retry',
+      }),
+    );
+
+    expect(await screen.findByDisplayValue('重新加载的学习画像')).toBeEnabled();
+  });
+
   test('shows voluntary rerun only while collection is enabled', async () => {
     mockGetOnboarding.mockResolvedValue(
       profileV2Status({

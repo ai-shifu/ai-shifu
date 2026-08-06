@@ -51,6 +51,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
   const [updatedAt, setUpdatedAt] = React.useState<string | null>(null);
   const [maxLength, setMaxLength] = React.useState(DEFAULT_MAX_LENGTH);
   const [loading, setLoading] = React.useState(true);
+  const [profileLoaded, setProfileLoaded] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
   const [clearOpen, setClearOpen] = React.useState(false);
@@ -70,6 +71,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
       loadSequence === loadSequenceRef.current &&
       requestScope === scopeRef.current;
     setLoading(true);
+    setProfileLoaded(false);
     try {
       const response = await getLearnerProfile();
       if (!isCurrentRequest()) {
@@ -96,6 +98,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
             compatibleStatus.has_learner_profile),
         ),
       );
+      setProfileLoaded(true);
       setError('');
       return true;
     } catch (caughtError) {
@@ -119,6 +122,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
     setSavedProfile('');
     setUpdatedAt(null);
     setMaxLength(DEFAULT_MAX_LENGTH);
+    setProfileLoaded(false);
     setSaving(false);
     setError('');
     setClearOpen(false);
@@ -133,6 +137,9 @@ const LearnerProfileSettingsSection = React.forwardRef<
   }, [loadProfile]);
 
   const saveProfile = React.useCallback(async (): Promise<boolean> => {
+    if (!profileLoaded) {
+      return false;
+    }
     const normalized = profile.trim();
     if (normalized === savedProfile) {
       return true;
@@ -173,6 +180,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
   }, [
     draftStorageScope,
     maxLength,
+    profileLoaded,
     profile,
     savedProfile,
     t,
@@ -221,6 +229,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
 
   const hasChanges = profile.trim() !== savedProfile;
   const profileLength = countUnicodeCodePoints(profile.trim());
+  const formDisabled = saving || !profileLoaded;
   const formattedUpdatedAt = updatedAt
     ? new Intl.DateTimeFormat(undefined, {
         dateStyle: 'medium',
@@ -250,7 +259,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
             inputId='learner-profile-settings-draft'
             value={profile}
             maxLength={maxLength}
-            disabled={saving}
+            disabled={formDisabled}
             onChange={setProfile}
           />
           {formattedUpdatedAt ? (
@@ -269,6 +278,19 @@ const LearnerProfileSettingsSection = React.forwardRef<
             </div>
           ) : null}
           <div className='flex flex-wrap gap-2'>
+            {!profileLoaded ? (
+              <Button
+                type='button'
+                size='sm'
+                variant='outline'
+                disabled={loading || saving}
+                onClick={() => {
+                  void loadProfile();
+                }}
+              >
+                {t('module.profileOnboarding.settings.retry')}
+              </Button>
+            ) : null}
             <Button
               type='button'
               size='sm'
@@ -276,7 +298,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
                 !profile.trim() ||
                 !hasChanges ||
                 profileLength > maxLength ||
-                saving
+                formDisabled
               }
               onClick={() => {
                 void saveProfile();
@@ -289,7 +311,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
                 type='button'
                 size='sm'
                 variant='outline'
-                disabled={saving}
+                disabled={formDisabled}
                 onClick={() => {
                   void trackEvent(
                     PROFILE_ONBOARDING_EVENTS.SETTINGS_RERUN_STARTED,
@@ -305,7 +327,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
               size='sm'
               variant='ghost'
               className='text-destructive hover:text-destructive'
-              disabled={!savedProfile || saving}
+              disabled={!savedProfile || formDisabled}
               onClick={() => setClearOpen(true)}
             >
               {t('module.profileOnboarding.settings.clear')}

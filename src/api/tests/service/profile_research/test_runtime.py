@@ -108,6 +108,13 @@ def test_validation_uses_markdownflow_public_parser():
         validate_profile_research_document("只有普通 Markdown")
 
 
+def test_validation_rejects_interaction_variable_longer_than_runtime_input_key():
+    variable_name = "x" * 257
+
+    with pytest.raises(ProfileResearchValidationError, match="variable name"):
+        validate_profile_research_document(f"?[%{{{{{variable_name}}}}}...请回答]")
+
+
 @pytest.mark.parametrize(
     "user_input",
     [

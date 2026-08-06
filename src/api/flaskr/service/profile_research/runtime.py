@@ -26,6 +26,7 @@ from flaskr.util.prompt_loader import load_prompt_template
 from markdown_flow import (
     USER_ANSWER_CONTEXT_KEY,
     BlockType,
+    InteractionParser,
     LLMProvider,
     LLMResult,
     MarkdownFlow,
@@ -500,6 +501,18 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
     )
     if interaction_count == 0:
         raise ProfileResearchValidationError("document must contain an interaction")
+    interaction_parser = InteractionParser()
+    for block in blocks:
+        if block.block_type != BlockType.INTERACTION:
+            continue
+        variable_name = interaction_parser.parse(block.content).get("variable")
+        if (
+            isinstance(variable_name, str)
+            and len(variable_name) > _MAX_INPUT_KEY_CODEPOINTS
+        ):
+            raise ProfileResearchValidationError(
+                "interaction variable name is too long"
+            )
     return {
         "block_count": len(blocks),
         "interaction_block_count": interaction_count,

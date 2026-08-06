@@ -80,6 +80,7 @@
     "loadFailed": "Failed to load your learning profile. Try again later.",
     "loading": "Loading your learning profile…",
     "regenerateSuccess": "New learning profile saved",
+    "retry": "Retry",
     "rerun": "Regenerate",
     "save": "Save profile",
     "saveFailed": "Failed to save your learning profile. Try again.",

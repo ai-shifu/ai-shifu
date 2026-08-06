@@ -80,6 +80,7 @@
     "loadFailed": "Échec du chargement de votre profil d’apprentissage. Réessayez plus tard.",
     "loading": "Chargement de votre profil d’apprentissage…",
     "regenerateSuccess": "Nouveau profil d’apprentissage enregistré",
+    "retry": "Réessayer",
     "rerun": "Régénérer",
     "save": "Enregistrer le profil",
     "saveFailed": "Échec de l’enregistrement de votre profil d’apprentissage. Réessayez.",
