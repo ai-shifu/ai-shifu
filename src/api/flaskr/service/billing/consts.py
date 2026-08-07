@@ -426,6 +426,18 @@ class CreditUsageRateSeed:
         return getattr(self, key)
 
 
+_CREDIT_USAGE_RATE_BID_MAX_LENGTH = 36
+
+
+def _seed_rate_bid(name: str) -> str:
+    # CreditUsageRate.rate_bid is String(36). Legacy non-strict MySQL silently
+    # truncated longer seed bids on insert, so existing production rows store
+    # the 36-char prefixes. Truncating here keeps the seed command working on
+    # strict-mode MySQL and keeps upserts keyed on rate_bid hitting those
+    # existing rows instead of inserting duplicate wildcard rates.
+    return name[:_CREDIT_USAGE_RATE_BID_MAX_LENGTH]
+
+
 def _build_credit_usage_rate_seeds() -> tuple[CreditUsageRateSeed, ...]:
     seeds: list[CreditUsageRateSeed] = []
     effective_from = datetime(2026, 1, 1, 0, 0, 0)
@@ -443,7 +455,9 @@ def _build_credit_usage_rate_seeds() -> tuple[CreditUsageRateSeed, ...]:
         for metric_name, billing_metric in llm_metrics:
             seeds.append(
                 CreditUsageRateSeed(
-                    rate_bid=f"credit-rate-llm-{scene_name}-{metric_name}-default",
+                    rate_bid=_seed_rate_bid(
+                        f"credit-rate-llm-{scene_name}-{metric_name}-default"
+                    ),
                     usage_type=BILL_USAGE_TYPE_LLM,
                     provider="*",
                     model="*",
@@ -459,7 +473,9 @@ def _build_credit_usage_rate_seeds() -> tuple[CreditUsageRateSeed, ...]:
             )
         seeds.append(
             CreditUsageRateSeed(
-                rate_bid=f"credit-rate-tts-{scene_name}-request-default",
+                rate_bid=_seed_rate_bid(
+                    f"credit-rate-tts-{scene_name}-request-default"
+                ),
                 usage_type=BILL_USAGE_TYPE_TTS,
                 provider="*",
                 model="*",

@@ -98,6 +98,18 @@ def test_credit_usage_rate_seeds_cover_all_scenes_with_bootstrap_defaults() -> N
     assert all(row["credits_per_unit"] == 0 for row in CREDIT_USAGE_RATE_SEEDS)
 
 
+def test_credit_usage_rate_seed_bids_fit_column_and_stay_unique() -> None:
+    rate_bid_column_length = CreditUsageRate.rate_bid.type.length
+    bids = [row["rate_bid"] for row in CREDIT_USAGE_RATE_SEEDS]
+
+    assert all(len(bid) <= rate_bid_column_length for bid in bids)
+    assert len(set(bids)) == len(bids)
+    # Legacy non-strict MySQL truncated the original longer bids on insert, so
+    # existing rows store 36-char prefixes; seeds must keep matching them.
+    assert "credit-rate-llm-production-output-de" in bids
+    assert "credit-rate-tts-production-request-d" in bids
+
+
 def test_billing_product_model_uses_catalog_table_name() -> None:
     assert BillingProduct.__tablename__ == "bill_products"
 
