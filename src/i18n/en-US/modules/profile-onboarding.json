@@ -33,25 +33,25 @@
   "characterCount": "{count} / {max} characters",
   "characterCountOverLimit": "{count} characters entered; the limit is {max}. Shorten the text before saving.",
   "choice": {
-    "description": "If you do, it can organize the details for you. If not, we’ll ask you a few short questions.",
+    "description": "If you do, ask it to organize the details. If not, AI Shifu will ask you a few short questions.",
     "title": "Do you have an AI assistant you use often that already knows you well?"
   },
   "complete": "Confirm and save",
   "completeCompact": "Save",
-  "description": "Take a minute to share your background and preferences. Future courses can use more familiar examples, your preferred explanation style, and your preferred slide style.",
+  "description": "AI Shifu gives you one-on-one interactive learning: it adapts examples and explanations to you, and you can ask questions at any time. Take a minute to share your background and preferences so learning fits you better.",
   "externalAgent": {
     "copied": "Copied",
     "copy": "Copy this message",
     "copyFailed": "We could not copy it automatically. Select and copy the text above.",
     "description": "Copy the message below to your usual AI assistant, then paste its answer here.",
-    "prompt": "Based on what you already know about me, write a short note I can share with my courses. It will help them choose examples, explanations, and slide styles that fit me. Include only:\n- What you usually call me\n- My professional background, roles, and relevant experience\n- My preferred expression style\n- My preferred slide style\n- What I am focusing on recently\n\nWrite in first-person plain text and keep it within 1,000 characters. Do not guess, add details you do not know, or include anything else.",
+    "prompt": "Based on what you already know about me, write a short note I can share with AI Shifu. It will help AI Shifu choose examples, explanations, and slide styles that fit me while I learn. Include only:\n- What you usually call me\n- My professional background, roles, and relevant experience\n- My preferred expression style\n- My preferred slide style\n- What I am focusing on recently\n\nWrite in first-person plain text and keep it within 1,000 characters. Do not guess, add details you do not know, or include anything else.",
     "resultLabel": "Your AI assistant’s answer",
     "resultPlaceholder": "Paste your AI assistant’s answer here",
     "switchHint": "You can switch apps. Your current content will still be here when you return.",
     "title": "Ask your AI assistant for help"
   },
   "guided": {
-    "description": "This takes about a minute. Your answers help courses choose better examples and explanations for you.",
+    "description": "This takes about a minute. AI Shifu will ask a few short questions about your background, experience, and preferences.",
     "missingDraft": "We could not finish organizing your answers. Please answer the questions again.",
     "retry": "Try again",
     "retryableError": "The connection was interrupted. Your answer is still here. Try again.",
@@ -71,21 +71,21 @@
   "next": "Next",
   "onboardingCharacterCount": "{count} / {max} characters",
   "onboardingCharacterCountOverLimit": "You have entered {count} characters. The limit is {max}. Shorten the text to continue.",
-  "privacyDetails": "During lessons, follow-up questions, and previews, the course’s AI services use these details only as supporting context. The course’s own requirements still take priority. Submitted content goes through platform safety checks. Do not include contact details, ID numbers, exact addresses, health data, or financial information.",
-  "privacyDetailsLabel": "How these details are used",
+  "privacyDetails": "During lessons and questions, AI Shifu uses these details to adapt examples, explanations, and slide styles without changing what you need to learn in the course. Submitted content goes through platform safety checks. Do not include contact details, ID numbers, exact addresses, health data, or financial information.",
+  "privacyDetailsLabel": "How these details help you",
   "privacyNotice": "These details are saved to your account to make different courses fit you better. You can edit or remove them at any time.",
-  "privacySummary": "These details are saved to your account to make different courses fit you better. You can edit or remove them at any time.",
+  "privacySummary": "These details are saved to your account and help AI Shifu provide one-on-one interactive learning that fits you across courses. You can edit or remove them at any time.",
   "profileLabel": "Your background and preferences",
   "profilePlaceholder": "For example: what to call you, your work or study background, relevant experience, preferred explanation and slide styles, and current interests",
   "refreshPending": "Saved. The course is updating, so please refresh the page shortly.",
   "review": {
-    "description": "Check these details before saving. Future courses will use them to choose examples, explanations, and slide styles.",
-    "profileLabel": "Details courses will use",
-    "profilePlaceholder": "Add the background, experience, and preferences you want courses to know",
+    "description": "Check these details before saving. During lessons, AI Shifu will use them to adapt examples, explanations, and slide styles for you.",
+    "profileLabel": "Details for AI Shifu",
+    "profilePlaceholder": "Add the background, experience, and preferences you want AI Shifu to know",
     "title": "Confirm these details"
   },
   "routeQuestion": "Do you have an AI assistant you use often that already knows you well?",
-  "routeQuestionHint": "If you do, it can organize the details for you. If not, we’ll ask you a few short questions.",
+  "routeQuestionHint": "If you do, ask it to organize the details. If not, AI Shifu will ask you a few short questions.",
   "settings": {
     "cancel": "Cancel",
     "clear": "Remove these details",
@@ -106,7 +106,7 @@
     "title": "Make courses fit you better",
     "updatedAt": "Last updated: {time}"
   },
-  "sidebarDescription": "Three short steps help future courses fit you better.",
+  "sidebarDescription": "Three short steps help AI Shifu provide one-on-one interactive learning that fits you.",
   "skip": "Maybe later",
   "skipping": "Please wait…",
   "stepCounter": "Step {current} of {total}",
@@ -117,6 +117,6 @@
   },
   "submitFailed": "We could not save your details. Your content is still here. Try again.",
   "submitting": "Saving…",
-  "title": "Make courses fit you better",
-  "upgradeDescription": "Update these details so future courses keep fitting who you are now."
+  "title": "Help AI Shifu get to know you",
+  "upgradeDescription": "Update these details so AI Shifu can keep adapting examples and explanations to who you are now."
 }

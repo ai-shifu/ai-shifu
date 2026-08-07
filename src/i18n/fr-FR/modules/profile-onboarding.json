@@ -33,25 +33,25 @@
   "characterCount": "{count} / {max} caractères",
   "characterCountOverLimit": "{count} caractères saisis ; la limite est de {max}. Raccourcissez le texte avant de l’enregistrer.",
   "choice": {
-    "description": "Si oui, il peut les organiser pour vous. Sinon, nous vous poserons quelques questions.",
+    "description": "Si oui, demandez-lui de les organiser. Sinon, AI Shifu vous posera quelques questions simples.",
     "title": "Un assistant IA vous connaît déjà bien ?"
   },
   "complete": "Confirmer et enregistrer",
   "completeCompact": "Enregistrer",
-  "description": "Prenez une minute pour partager votre parcours et vos préférences. Les prochains cours pourront utiliser des exemples plus familiers, le style d’explication et les diapositives que vous préférez.",
+  "description": "AI Shifu vous offre un apprentissage interactif individuel : il adapte les exemples et les explications à votre situation, et vous pouvez poser des questions à tout moment. Prenez une minute pour lui parler de votre parcours et de vos préférences.",
   "externalAgent": {
     "copied": "Copié",
     "copy": "Copier ce message",
     "copyFailed": "La copie automatique a échoué. Sélectionnez et copiez le texte ci-dessus.",
     "description": "Copiez le message ci-dessous dans votre assistant IA habituel, puis collez sa réponse ici.",
-    "prompt": "À partir de ce que vous savez déjà de moi, rédigez une courte présentation à transmettre à mes cours. Elle les aidera à choisir des exemples, des explications et des diapositives qui me conviennent. Incluez uniquement :\n- La façon dont vous m’appelez habituellement\n- Mon parcours professionnel, mes rôles et mon expérience pertinente\n- Le style d’expression que je préfère\n- Le style de diapositives que je préfère\n- Mes sujets d’intérêt du moment\n\nRédigez à la première personne, en texte brut et en moins de 1 000 caractères. Ne devinez rien, n’ajoutez pas d’informations que vous ignorez et n’incluez rien d’autre.",
+    "prompt": "À partir de ce que vous savez déjà de moi, rédigez une courte présentation à transmettre à AI Shifu. Elle l’aidera à choisir des exemples, des explications et des diapositives qui me conviennent pendant mon apprentissage. Incluez uniquement :\n- La façon dont vous m’appelez habituellement\n- Mon parcours professionnel, mes rôles et mon expérience pertinente\n- Le style d’expression que je préfère\n- Le style de diapositives que je préfère\n- Mes sujets d’intérêt du moment\n\nRédigez à la première personne, en texte brut et en moins de 1 000 caractères. Ne devinez rien, n’ajoutez pas d’informations que vous ignorez et n’incluez rien d’autre.",
     "resultLabel": "Réponse de votre assistant IA",
     "resultPlaceholder": "Collez ici la réponse de votre assistant IA",
     "switchHint": "Vous pouvez changer d’application. Votre contenu sera toujours là à votre retour.",
     "title": "Demandez à votre assistant IA"
   },
   "guided": {
-    "description": "Cela prend environ une minute. Vos réponses aideront les cours à choisir de meilleurs exemples et explications pour vous.",
+    "description": "Cela prend environ une minute. AI Shifu vous posera quelques questions simples sur votre parcours, votre expérience et vos préférences.",
     "missingDraft": "Nous n’avons pas pu terminer la synthèse. Répondez de nouveau aux questions.",
     "retry": "Réessayer",
     "retryableError": "La connexion a été interrompue. Votre réponse est conservée. Réessayez.",
@@ -71,21 +71,21 @@
   "next": "Suivant",
   "onboardingCharacterCount": "{count} / {max} caractères",
   "onboardingCharacterCountOverLimit": "Vous avez saisi {count} caractères. La limite est de {max}. Raccourcissez le texte pour continuer.",
-  "privacyDetails": "Pendant les cours, les questions de suivi et les aperçus, les services d’IA utilisent ces informations uniquement comme contexte complémentaire. Les consignes du cours restent prioritaires. Le contenu envoyé fait l’objet de contrôles de sécurité. N’indiquez pas de coordonnées, de numéro de pièce d’identité, d’adresse précise, ni de données de santé ou financières.",
-  "privacyDetailsLabel": "Comment ces informations sont utilisées",
+  "privacyDetails": "Pendant les cours et les questions, AI Shifu utilise ces informations pour adapter les exemples, les explications et le style des diapositives, sans modifier ce que vous devez apprendre. Le contenu envoyé fait l’objet de contrôles de sécurité. N’indiquez pas de coordonnées, de numéro de pièce d’identité, d’adresse précise, ni de données de santé ou financières.",
+  "privacyDetailsLabel": "Comment ces informations vous aident",
   "privacyNotice": "Ces informations sont enregistrées dans votre compte pour mieux adapter vos différents cours. Vous pouvez les modifier ou les supprimer à tout moment.",
-  "privacySummary": "Ces informations sont enregistrées dans votre compte pour mieux adapter vos différents cours. Vous pouvez les modifier ou les supprimer à tout moment.",
+  "privacySummary": "Ces informations sont enregistrées dans votre compte et aident AI Shifu à vous proposer un apprentissage interactif individuel adapté dans différents cours. Vous pouvez les modifier ou les supprimer à tout moment.",
   "profileLabel": "Votre parcours et vos préférences",
   "profilePlaceholder": "Par exemple : la façon de vous appeler, votre parcours professionnel ou scolaire, votre expérience, vos styles d’explication et de diapositives préférés, ainsi que vos centres d’intérêt du moment",
   "refreshPending": "Enregistré. Le cours est en cours de mise à jour ; actualisez la page dans un instant.",
   "review": {
-    "description": "Vérifiez ces informations avant de les enregistrer. Les prochains cours les utiliseront pour choisir des exemples, des explications et des diapositives.",
-    "profileLabel": "Informations utilisées par les cours",
-    "profilePlaceholder": "Ajoutez le parcours, l’expérience et les préférences que les cours doivent connaître",
+    "description": "Vérifiez ces informations avant de les enregistrer. Pendant les cours, AI Shifu les utilisera pour adapter les exemples, les explications et le style des diapositives.",
+    "profileLabel": "Informations pour AI Shifu",
+    "profilePlaceholder": "Ajoutez le parcours, l’expérience et les préférences que vous souhaitez faire connaître à AI Shifu",
     "title": "Confirmez ces informations"
   },
   "routeQuestion": "Utilisez-vous souvent un assistant IA qui vous connaît déjà bien ?",
-  "routeQuestionHint": "Si oui, il peut organiser ces informations pour vous. Sinon, nous vous poserons quelques questions.",
+  "routeQuestionHint": "Si oui, demandez-lui de les organiser. Sinon, AI Shifu vous posera quelques questions simples.",
   "settings": {
     "cancel": "Annuler",
     "clear": "Supprimer ces informations",
@@ -106,7 +106,7 @@
     "title": "Des cours mieux adaptés à vos besoins",
     "updatedAt": "Dernière mise à jour : {time}"
   },
-  "sidebarDescription": "Trois étapes courtes pour mieux adapter les prochains cours à vos besoins.",
+  "sidebarDescription": "Trois étapes courtes aident AI Shifu à vous proposer un apprentissage interactif individuel adapté.",
   "skip": "Plus tard",
   "skipping": "Patientez…",
   "stepCounter": "Étape {current} sur {total}",
@@ -117,6 +117,6 @@
   },
   "submitFailed": "Nous n’avons pas pu enregistrer vos informations. Votre contenu est conservé. Réessayez.",
   "submitting": "Enregistrement…",
-  "title": "Des cours mieux adaptés à vos besoins",
-  "upgradeDescription": "Mettez ces informations à jour pour que les prochains cours restent adaptés à votre situation actuelle."
+  "title": "Aidez AI Shifu à mieux vous connaître",
+  "upgradeDescription": "Mettez ces informations à jour afin qu’AI Shifu continue d’adapter les exemples et les explications à votre situation actuelle."
 }

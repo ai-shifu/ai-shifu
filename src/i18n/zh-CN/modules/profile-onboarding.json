@@ -33,25 +33,25 @@
   "characterCount": "已输入 {count} / {max} 字",
   "characterCountOverLimit": "已输入 {count} 字，最多 {max} 字，请精简后再保存。",
   "choice": {
-    "description": "有的话，它可以直接帮你整理；没有也没关系，我们问你几个简单问题。",
+    "description": "有的话，可以请它帮你整理；没有也没关系，AI 师傅会问你几个简单问题。",
     "title": "你有常用、比较了解你的 AI 助手吗？"
   },
   "complete": "确认并保存",
   "completeCompact": "保存",
-  "description": "花 1 分钟告诉我们你的背景和偏好。之后的课程会使用更熟悉的例子、你喜欢的讲解方式和幻灯片风格。",
+  "description": "AI 师傅会陪你一对一互动学习：根据你的情况调整案例和讲解，你也可以随时提问。花 1 分钟告诉它你的背景和偏好，让学习更适合你。",
   "externalAgent": {
     "copied": "已复制",
     "copy": "复制这段话",
     "copyFailed": "没能自动复制，请选择上方文字手动复制。",
     "description": "复制下面这段话发给常用的 AI 助手，再把它的回答粘贴回来。",
-    "prompt": "请根据你已经了解的我，帮我整理一段关于我的简短说明。我会把它提供给课程，用来选择更适合我的例子、讲解方式和幻灯片风格。只包括以下内容：\n- 你平时如何称呼我\n- 我的职业背景、身份和相关经验\n- 我喜欢的表达方式\n- 我喜欢的幻灯片风格\n- 我最近关注的事情\n\n请用第一人称纯文本表达，控制在 1000 字以内。不要猜测，不要补充你不了解的信息，也不要加入其他内容。",
+    "prompt": "请根据你已经了解的我，帮我整理一段关于我的简短说明。我会把它提供给 AI 师傅，帮助它在学习时选择更适合我的案例、讲解方式和幻灯片风格。只包括以下内容：\n- 你平时如何称呼我\n- 我的职业背景、身份和相关经验\n- 我喜欢的表达方式\n- 我喜欢的幻灯片风格\n- 我最近关注的事情\n\n请用第一人称纯文本表达，控制在 1000 字以内。不要猜测，不要补充你不了解的信息，也不要加入其他内容。",
     "resultLabel": "AI 助手整理的内容",
     "resultPlaceholder": "把 AI 助手的回答粘贴到这里",
     "switchHint": "可以放心切换应用，回来后会保留当前内容。",
     "title": "请 AI 助手帮你整理"
   },
   "guided": {
-    "description": "大约 1 分钟。你的回答会帮助课程选择更合适的例子和讲解方式。",
+    "description": "大约 1 分钟。AI 师傅会通过几个简单问题了解你的背景、经验和偏好。",
     "missingDraft": "刚才没能整理完成，请重新回答一次。",
     "retry": "再试一次",
     "retryableError": "刚才没有连接成功，你的回答还在。请再试一次。",
@@ -71,21 +71,21 @@
   "next": "下一步",
   "onboardingCharacterCount": "{count} / {max} 字",
   "onboardingCharacterCountOverLimit": "已输入 {count} 字，最多 {max} 字。请精简后继续。",
-  "privacyDetails": "讲解、追问和预览时，课程使用的 AI 服务会把这些信息作为辅助参考；课程本身的要求仍然优先。提交内容会经过平台安全检查。请勿填写联系方式、证件号码、详细住址、健康或财务信息。",
-  "privacyDetailsLabel": "了解信息如何使用",
+  "privacyDetails": "学习和提问时，AI 师傅会结合这些信息调整案例、讲解方式和幻灯片风格，但不会改变这门课需要学习的内容。提交内容会经过平台安全检查。请勿填写联系方式、证件号码、详细住址、健康或财务信息。",
+  "privacyDetailsLabel": "这些信息会怎么帮助你",
   "privacyNotice": "这些信息会保存到你的账号，用来让不同课程更适合你。你可以随时修改或删除。",
-  "privacySummary": "这些信息会保存到你的账号，用来让不同课程更适合你。你可以随时修改或删除。",
+  "privacySummary": "这些信息会保存到你的账号，帮助 AI 师傅在不同课程里提供更适合你的一对一互动学习。你可以随时修改或删除。",
   "profileLabel": "你的背景和偏好",
   "profilePlaceholder": "例如：希望怎样称呼你、你的工作或学习背景、相关经验、喜欢的讲解和幻灯片风格，以及最近关注的事情",
   "refreshPending": "已保存。课程正在更新，请稍后刷新页面。",
   "review": {
-    "description": "确认无误后保存。之后的课程会参考这些信息来选择例子、讲解方式和幻灯片风格。",
-    "profileLabel": "课程将参考的内容",
-    "profilePlaceholder": "写下希望课程了解的背景、经验和偏好",
+    "description": "确认无误后保存。学习时，AI 师傅会根据这些信息调整案例、讲解方式和幻灯片风格。",
+    "profileLabel": "提供给 AI 师傅的信息",
+    "profilePlaceholder": "写下希望 AI 师傅了解的背景、经验和偏好",
     "title": "确认这些信息"
   },
   "routeQuestion": "你有常用、比较了解你的 AI 助手吗？",
-  "routeQuestionHint": "有的话，它可以直接帮你整理；没有也没关系，我们问你几个简单问题。",
+  "routeQuestionHint": "有的话，可以请它帮你整理；没有也没关系，AI 师傅会问你几个简单问题。",
   "settings": {
     "cancel": "取消",
     "clear": "清除这些信息",
@@ -106,7 +106,7 @@
     "title": "让课程更适合你",
     "updatedAt": "上次更新：{time}"
   },
-  "sidebarDescription": "只需三个简单步骤，之后的课程会更贴合你。",
+  "sidebarDescription": "简单三步，让 AI 师傅为你提供更贴合的一对一互动学习。",
   "skip": "以后再说",
   "skipping": "请稍候…",
   "stepCounter": "第 {current} 步，共 {total} 步",
@@ -117,6 +117,6 @@
   },
   "submitFailed": "没有保存成功，你的内容还在。请再试一次。",
   "submitting": "正在保存…",
-  "title": "让课程更适合你",
-  "upgradeDescription": "更新这些信息，让之后的课程继续贴合现在的你。"
+  "title": "让 AI 师傅更了解你",
+  "upgradeDescription": "更新这些信息，让 AI 师傅继续根据现在的你调整案例和讲解方式。"
 }
