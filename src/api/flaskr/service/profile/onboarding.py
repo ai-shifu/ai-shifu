@@ -1,36 +1,62 @@
 from __future__ import annotations
 
-import json
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 from flask import Flask
 
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.common.profile_onboarding import (
-    ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS,
+    PROFILE_ONBOARDING_SCENE_KEY,
     PROFILE_ONBOARDING_STATE_KEY,
-    load_profile_onboarding_config_payload,
+    PROFILE_ONBOARDING_VERSION,
 )
-from flaskr.service.profile.dtos import ProfileToSave
-from flaskr.service.profile.funcs import (
-    check_text_content,
-    get_user_profiles,
-    save_user_profiles,
+from flaskr.service.profile.learner_profile import (
+    LEARNER_PROFILE_MAX_LENGTH,
+    apply_learner_profile,
+    load_learner_profile_user,
+    serialize_learner_profile,
+    validate_learner_profile_content,
 )
 from flaskr.service.profile.models import VariableValue
+from flaskr.service.user.models import UserOnboardingState
 from flaskr.util.datetime import now_utc, to_utc_iso
-from flaskr.util.uuid import generate_id
+from sqlalchemy.exc import IntegrityError
+
+STATUS_COMPLETED = "completed"
+STATUS_SKIPPED = "skipped"
+
+PRESENTATION_HIDDEN = "hidden"
+PRESENTATION_BLOCKING = "blocking"
+PRESENTATION_NON_BLOCKING = "non_blocking"
+
+COMPLETE_TRIGGER_SOURCES = {
+    "guided",
+    "pasted",
+    "settings",
+}
+SKIP_TRIGGER_SOURCE = "skipped"
+
+_T = TypeVar("_T")
 
 
-def _now_iso() -> str:
-    return to_utc_iso(now_utc().replace(microsecond=0)) or ""
+def _serialize_datetime(value) -> str | None:
+    return to_utc_iso(value)
 
 
-def _has_onboarding_state(user_id: str) -> bool:
+def _load_v2_state(user_id: str) -> UserOnboardingState | None:
+    return UserOnboardingState.query.filter(
+        UserOnboardingState.user_bid == str(user_id or "").strip(),
+        UserOnboardingState.scene_key == PROFILE_ONBOARDING_SCENE_KEY,
+        UserOnboardingState.version == PROFILE_ONBOARDING_VERSION,
+    ).first()
+
+
+def _has_legacy_state(user_id: str) -> bool:
     return (
         VariableValue.query.filter(
-            VariableValue.user_bid == user_id,
+            VariableValue.user_bid == str(user_id or "").strip(),
             VariableValue.shifu_bid == "",
             VariableValue.key == PROFILE_ONBOARDING_STATE_KEY,
             VariableValue.deleted == 0,
@@ -39,101 +65,196 @@ def _has_onboarding_state(user_id: str) -> bool:
     )
 
 
-def _write_onboarding_state(
-    app: Flask, user_id: str, *, skipped: bool, version: int
-) -> None:
-    state_payload = {
-        "status": "skipped" if skipped else "completed",
-        "version": version,
-        "updated_at": _now_iso(),
-    }
-    db.session.add(
-        VariableValue(
-            variable_value_bid=generate_id(app),
+def _apply_v2_state(
+    *,
+    user_id: str,
+    status: str,
+    trigger_source: str,
+) -> UserOnboardingState:
+    state = _load_v2_state(user_id)
+    now = now_utc()
+    if state is None:
+        state = UserOnboardingState(
             user_bid=user_id,
-            shifu_bid="",
-            variable_bid="",
-            key=PROFILE_ONBOARDING_STATE_KEY,
-            value=json.dumps(state_payload, ensure_ascii=False),
-            deleted=0,
+            scene_key=PROFILE_ONBOARDING_SCENE_KEY,
+            version=PROFILE_ONBOARDING_VERSION,
+            status=status,
+            trigger_source=trigger_source,
+            completed_at=now,
         )
-    )
+        db.session.add(state)
+        return state
+
+    # Completion is monotonic. A delayed duplicate skip request must not
+    # downgrade a successfully saved profile to a skipped state.
+    if state.status == STATUS_COMPLETED and status == STATUS_SKIPPED:
+        return state
+
+    previous_status = state.status
+    if previous_status != status:
+        state.status = status
+    if state.trigger_source != trigger_source:
+        state.trigger_source = trigger_source
+    if state.completed_at is None or (
+        previous_status == STATUS_SKIPPED and status == STATUS_COMPLETED
+    ):
+        state.completed_at = now
+    return state
 
 
-def _current_values_for_response(app: Flask, user_id: str) -> dict[str, str]:
-    profiles = get_user_profiles(app, user_id, "")
+def _commit_with_state_race_retry(
+    operation: Callable[[], _T],
+    *,
+    user_id: str,
+) -> _T:
+    def run_once() -> _T:
+        with unit_of_work():
+            result = operation()
+            # Surface the fixed-state unique-key race inside this boundary so
+            # unit_of_work rolls back the complete profile/state mutation.
+            db.session.flush()
+        return result
+
+    try:
+        return run_once()
+    except IntegrityError:
+        # The only expected integrity race is the fixed state row's unique
+        # key. If no winner is visible, preserve the original failure.
+        with unit_of_work():
+            winner = _load_v2_state(user_id)
+        if winner is None:
+            raise
+        return run_once()
+
+
+def _serialize_state(state: UserOnboardingState) -> dict[str, Any]:
     return {
-        key: str(profiles.get(key) or "")
-        for key in ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS
+        "handled": True,
+        "completed": state.status == STATUS_COMPLETED,
+        "skipped": state.status == STATUS_SKIPPED,
+        "status": state.status,
+        "trigger_source": state.trigger_source,
+        "completed_at": _serialize_datetime(state.completed_at),
+        "version": state.version,
     }
 
 
-def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]:
-    config_payload = load_profile_onboarding_config_payload()
-    enabled = bool(config_payload.get("enabled")) and bool(
-        str(config_payload.get("markdownflow") or "").strip()
-    )
+def get_profile_onboarding_state(*, user_id: str) -> dict[str, Any]:
+    user = load_learner_profile_user(user_id)
+    state = _load_v2_state(user_id)
+    legacy_handled = _has_legacy_state(user_id)
+
+    if state is not None:
+        presentation = PRESENTATION_HIDDEN
+    elif legacy_handled:
+        presentation = PRESENTATION_NON_BLOCKING
+    else:
+        presentation = PRESENTATION_BLOCKING
+
+    learner_profile = serialize_learner_profile(user)
     return {
-        "enabled": enabled,
-        "should_show": enabled and not _has_onboarding_state(user_id),
-        "markdownflow": str(config_payload.get("markdownflow") or ""),
-        "allowed_variable_keys": list(ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS),
-        "current_values": _current_values_for_response(app, user_id),
+        "handled": state is not None,
+        "completed": state is not None and state.status == STATUS_COMPLETED,
+        "skipped": state is not None and state.status == STATUS_SKIPPED,
+        "status": state.status if state is not None else None,
+        "trigger_source": state.trigger_source if state is not None else None,
+        "completed_at": _serialize_datetime(state.completed_at) if state else None,
+        "version": PROFILE_ONBOARDING_VERSION,
+        "should_show": state is None,
+        "presentation": presentation,
+        "legacy_handled": legacy_handled,
+        "has_learner_profile": learner_profile["has_learner_profile"],
+        "learner_profile_updated_at": learner_profile["learner_profile_updated_at"],
+        "max_length": LEARNER_PROFILE_MAX_LENGTH,
     }
 
 
-def _normalize_submitted_variables(raw_variables: Any) -> dict[str, str]:
-    if raw_variables is None:
-        return {}
-    if not isinstance(raw_variables, dict):
-        raise_param_error("variables")
-    invalid_keys = set(raw_variables).difference(
-        ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS
-    )
-    if invalid_keys:
-        raise_param_error("variables")
-    return {
-        key: str(value or "").strip()
-        for key, value in raw_variables.items()
-        if key in ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS and str(value or "").strip()
-    }
+def get_profile_onboarding_status(
+    _app: Flask | None = None,
+    *,
+    user_id: str,
+) -> dict[str, Any]:
+    """Compatibility name for callers while the learner route is upgraded."""
+
+    return get_profile_onboarding_state(user_id=user_id)
 
 
 def complete_profile_onboarding(
     app: Flask,
     *,
     user_id: str,
-    skipped: bool,
-    variables: dict[str, Any] | None,
+    learner_profile: str,
+    trigger_source: str,
 ) -> dict[str, Any]:
-    config_payload = load_profile_onboarding_config_payload()
-    normalized_variables = _normalize_submitted_variables(variables)
-    if not skipped:
-        nickname = normalized_variables.get("sys_user_nickname")
-        if nickname and not check_text_content(app, user_id, nickname):
-            raise_param_error("sys_user_nickname")
-        background = normalized_variables.get("sys_user_background")
-        if background and not check_text_content(app, user_id, background):
-            raise_param_error("sys_user_background")
-        save_user_profiles(
-            app,
-            user_id,
-            "",
-            [
-                ProfileToSave(key=key, value=value, bid=None)
-                for key, value in normalized_variables.items()
-            ],
+    normalized_trigger_source = str(trigger_source or "").strip()
+    if normalized_trigger_source not in COMPLETE_TRIGGER_SOURCES:
+        raise_param_error("trigger_source")
+
+    normalized_profile = validate_learner_profile_content(
+        app,
+        user_id=user_id,
+        learner_profile=learner_profile,
+    )
+
+    def operation() -> tuple[Any, UserOnboardingState]:
+        user = load_learner_profile_user(user_id)
+        apply_learner_profile(user, normalized_profile)
+        state = _apply_v2_state(
+            user_id=user_id,
+            status=STATUS_COMPLETED,
+            trigger_source=normalized_trigger_source,
+        )
+        return user, state
+
+    user, state = _commit_with_state_race_retry(operation, user_id=user_id)
+    return {
+        **_serialize_state(state),
+        **serialize_learner_profile(user),
+    }
+
+
+def clear_profile_onboarding(*, user_id: str) -> dict[str, Any]:
+    """Clear the canonical profile without making onboarding eligible again."""
+
+    # Load first so an invalid/deleted user cannot create a detached state row.
+    load_learner_profile_user(user_id)
+
+    def operation() -> tuple[Any, UserOnboardingState]:
+        user = load_learner_profile_user(user_id)
+        user.learner_profile = ""
+        user.learner_profile_updated_at = None
+        state = _apply_v2_state(
+            user_id=user_id,
+            status=STATUS_COMPLETED,
+            trigger_source="settings",
+        )
+        return user, state
+
+    user, state = _commit_with_state_race_retry(operation, user_id=user_id)
+    return {
+        **_serialize_state(state),
+        **serialize_learner_profile(user),
+    }
+
+
+def skip_profile_onboarding(
+    *,
+    user_id: str,
+    trigger_source: str = SKIP_TRIGGER_SOURCE,
+) -> dict[str, Any]:
+    normalized_trigger_source = str(trigger_source or "").strip()
+    if normalized_trigger_source != SKIP_TRIGGER_SOURCE:
+        raise_param_error("trigger_source")
+
+    # Load first so an invalid/deleted user cannot create a detached state row.
+    load_learner_profile_user(user_id)
+
+    def operation() -> UserOnboardingState:
+        return _apply_v2_state(
+            user_id=user_id,
+            status=STATUS_SKIPPED,
+            trigger_source=normalized_trigger_source,
         )
 
-    _write_onboarding_state(
-        app,
-        user_id,
-        skipped=skipped,
-        version=int(config_payload.get("version") or 0),
-    )
-    db.session.flush()
-    return {
-        "completed": True,
-        "skipped": bool(skipped),
-        "variables": normalized_variables,
-    }
+    state = _commit_with_state_race_retry(operation, user_id=user_id)
+    return _serialize_state(state)

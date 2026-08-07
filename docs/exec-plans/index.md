@@ -31,9 +31,12 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Billing 时区死管道清理 — 执行计划](./completed/billing-timezone-cleanup.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
 - [ExecPlan: Learn /run Chain Decomposition (B6)](./completed/learn-run-decomposition.md)
+- [Learner Profile Dialog Redesign](./completed/learner-profile-dialog-redesign.md)
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
 - [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
+- [Full MarkdownFlow Profile Onboarding and Canonical Learner Profile](./completed/profile-onboarding-markdownflow.md)
+- [Independent MarkdownFlow Profile Research Service](./completed/profile-research-markdownflow-service.md)
 
 ## Supporting Tracker
 
