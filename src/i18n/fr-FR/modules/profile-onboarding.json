@@ -107,7 +107,7 @@
     "updatedAt": "Dernière mise à jour : {time}"
   },
   "sidebarDescription": "Votre professeur IA apprend à vous connaître avant le cours.",
-  "skip": "Passer",
+  "skip": "Plus tard",
   "skipping": "Patientez…",
   "stepCounter": "Étape {current} sur {total}",
   "steps": {

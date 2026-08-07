@@ -512,12 +512,10 @@ export default function ProfileOnboardingModal({
               : 'module.profileOnboarding.complete',
           )
       : t('module.profileOnboarding.next');
-  const secondaryLabel =
+  const skipLabel =
     pendingAction === 'skip'
       ? t('module.profileOnboarding.skipping')
-      : sessionIntent === 'settings'
-        ? t('module.profileOnboarding.settings.cancel')
-        : t('module.profileOnboarding.skip');
+      : t('module.profileOnboarding.skip');
 
   const handlePrimaryAction = () => {
     if (route === 'choice') {
@@ -652,8 +650,8 @@ export default function ProfileOnboardingModal({
               </div>
             </div>
 
-            <header className='h-[164px] shrink-0 overflow-y-auto border-b border-border/70 [@media(max-height:480px)]:h-[112px] [@media(min-width:768px)_and_(min-height:640px)]:h-[144px]'>
-              <div className='flex min-h-full flex-col justify-center px-5 py-5 md:px-8 md:py-6'>
+            <header className='relative h-[164px] shrink-0 overflow-y-auto border-b border-border/70 [@media(max-height:480px)]:h-[112px] [@media(min-width:768px)_and_(min-height:640px)]:h-[144px]'>
+              <div className='flex min-h-full flex-col justify-center py-5 pl-5 pr-24 md:py-6 md:pl-8 md:pr-32'>
                 <DialogTitle
                   ref={routeHeadingRef}
                   tabIndex={-1}
@@ -665,6 +663,23 @@ export default function ProfileOnboardingModal({
                   {pageDescription}
                 </DialogDescription>
               </div>
+              <Button
+                data-testid='profile-onboarding-defer-action'
+                type='button'
+                variant='ghost'
+                size='sm'
+                className='absolute right-3 top-3 h-9 px-2 text-xs font-normal text-muted-foreground/60 hover:bg-transparent hover:text-muted-foreground md:right-6 md:top-5'
+                disabled={isBusy}
+                onClick={() => void handleSkip()}
+              >
+                {pendingAction === 'skip' ? (
+                  <Loader2
+                    className='h-3.5 w-3.5 animate-spin'
+                    aria-hidden='true'
+                  />
+                ) : null}
+                {skipLabel}
+              </Button>
             </header>
 
             <div className='relative min-h-0 flex-1 overflow-hidden'>
@@ -971,7 +986,7 @@ export default function ProfileOnboardingModal({
 
             <footer
               data-testid='profile-onboarding-footer'
-              className='grid min-h-[76px] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-t border-border/70 bg-background px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 sm:px-4 md:h-[76px] md:gap-3 md:px-8 md:py-4 [@media(max-height:480px)]:h-[60px] [@media(max-height:480px)]:min-h-[60px] [@media(max-height:480px)]:px-4 [@media(max-height:480px)]:py-2'
+              className='grid min-h-[76px] shrink-0 grid-cols-2 items-center gap-2 border-t border-border/70 bg-background px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 sm:px-4 md:h-[76px] md:gap-3 md:px-8 md:py-4 [@media(max-height:480px)]:h-[60px] [@media(max-height:480px)]:min-h-[60px] [@media(max-height:480px)]:px-4 [@media(max-height:480px)]:py-2'
             >
               <div
                 data-testid='profile-onboarding-footer-back'
@@ -991,28 +1006,6 @@ export default function ProfileOnboardingModal({
                   onClick={handleBack}
                 >
                   {t('module.profileOnboarding.back')}
-                </Button>
-              </div>
-
-              <div
-                data-testid='profile-onboarding-footer-secondary'
-                className='flex min-w-0 justify-center'
-              >
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='sm'
-                  className='h-11 px-1.5 font-normal text-muted-foreground/70 hover:bg-transparent hover:text-muted-foreground sm:px-2 md:h-10 md:min-w-[104px] md:px-4'
-                  disabled={isBusy}
-                  onClick={() => void handleSkip()}
-                >
-                  {pendingAction === 'skip' ? (
-                    <Loader2
-                      className='h-4 w-4 animate-spin'
-                      aria-hidden='true'
-                    />
-                  ) : null}
-                  {secondaryLabel}
                 </Button>
               </div>
 

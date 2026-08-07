@@ -233,7 +233,7 @@ describe('ProfileOnboardingModal v2', () => {
     ).toBeInTheDocument();
   });
 
-  test('keeps three footer slots in stable DOM order across every route', () => {
+  test('keeps two aligned footer slots and the defer action outside the footer', () => {
     render(
       <ProfileOnboardingModal
         open
@@ -245,22 +245,14 @@ describe('ProfileOnboardingModal v2', () => {
 
     const footer = screen.getByTestId('profile-onboarding-footer');
     const backSlot = screen.getByTestId('profile-onboarding-footer-back');
-    const secondarySlot = screen.getByTestId(
-      'profile-onboarding-footer-secondary',
-    );
     const primarySlot = screen.getByTestId('profile-onboarding-footer-primary');
+    const deferAction = screen.getByTestId('profile-onboarding-defer-action');
     const expectStableFooter = () => {
-      expect(Array.from(footer.children)).toEqual([
-        backSlot,
-        secondarySlot,
-        primarySlot,
-      ]);
+      expect(Array.from(footer.children)).toEqual([backSlot, primarySlot]);
+      expect(footer).not.toContainElement(deferAction);
       expect(footer).not.toHaveClass('flex-col-reverse');
       expect(screen.getByTestId('profile-onboarding-footer-back')).toBe(
         backSlot,
-      );
-      expect(screen.getByTestId('profile-onboarding-footer-secondary')).toBe(
-        secondarySlot,
       );
       expect(screen.getByTestId('profile-onboarding-footer-primary')).toBe(
         primarySlot,
@@ -536,7 +528,7 @@ describe('ProfileOnboardingModal v2', () => {
     });
   });
 
-  test('allows skipping only through the explicit skip button', async () => {
+  test('allows skipping only through the explicit maybe-later button', async () => {
     const now = jest.spyOn(Date, 'now').mockReturnValue(4_000);
     const onSkip = jest.fn().mockResolvedValue(true);
     render(
@@ -804,12 +796,12 @@ describe('ProfileOnboardingModal v2', () => {
 
     expect(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.settings.cancel',
+        name: 'module.profileOnboarding.skip',
       }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', {
-        name: 'module.profileOnboarding.skip',
+        name: 'module.profileOnboarding.settings.cancel',
       }),
     ).not.toBeInTheDocument();
 
