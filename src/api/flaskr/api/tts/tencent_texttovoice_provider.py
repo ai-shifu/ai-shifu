@@ -76,6 +76,9 @@ _LARGE_MODEL_SAMPLE_RATE = 24000
 _SEGMENT_WEIGHT_LIMIT = 140.0
 _NON_CJK_CHAR_WEIGHT = 0.3
 _TERMINAL_PUNCTUATION = "。！？!?；;\n"
+_ACCESS_LIMIT_ERROR_CODE = "LimitExceeded.AccessLimit"
+_ACCESS_LIMIT_MAX_ATTEMPTS = 2
+_ACCESS_LIMIT_RETRY_DELAY_SECONDS = 0.2
 
 
 def _texttovoice_voice(
@@ -349,32 +352,47 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
             secret_id=secret_id,
             secret_key=secret_key,
         )
-        try:
-            response = requests.post(
-                TENCENT_TEXTTOVOICE_ENDPOINT,
-                data=payload_json.encode("utf-8"),
-                headers=headers,
-                timeout=60,
-            )
-            body = response.json()
-        except requests.RequestException as exc:
-            logger.error("Tencent TextToVoice request failed: %s", exc)
-            raise ValueError(f"Tencent TextToVoice request failed: {exc}")
-        except ValueError as exc:
-            raise ValueError(f"Tencent TextToVoice returned invalid JSON: {exc}")
+        for attempt in range(_ACCESS_LIMIT_MAX_ATTEMPTS):
+            try:
+                response = requests.post(
+                    TENCENT_TEXTTOVOICE_ENDPOINT,
+                    data=payload_json.encode("utf-8"),
+                    headers=headers,
+                    timeout=60,
+                )
+                body = response.json()
+            except requests.RequestException as exc:
+                logger.error("Tencent TextToVoice request failed: %s", exc)
+                raise ValueError(f"Tencent TextToVoice request failed: {exc}")
+            except ValueError as exc:
+                raise ValueError(f"Tencent TextToVoice returned invalid JSON: {exc}")
 
-        result = body.get("Response") or {}
-        error = result.get("Error")
-        if error:
-            request_id = result.get("RequestId", "")
-            raise ValueError(
-                f"Tencent TextToVoice error {error.get('Code', 'unknown')}: "
-                f"{error.get('Message', '')} (request_id={request_id})"
-            )
-        audio_base64 = result.get("Audio") or ""
-        if not audio_base64:
-            raise ValueError("No audio data received from Tencent TextToVoice")
-        return base64.b64decode(audio_base64)
+            result = body.get("Response") or {}
+            error = result.get("Error")
+            if error:
+                error_code = error.get("Code", "unknown")
+                request_id = result.get("RequestId", "")
+                if (
+                    error_code == _ACCESS_LIMIT_ERROR_CODE
+                    and attempt + 1 < _ACCESS_LIMIT_MAX_ATTEMPTS
+                ):
+                    logger.warning(
+                        "Tencent TextToVoice rate limited; retrying once: "
+                        "request_id=%s",
+                        request_id,
+                    )
+                    time.sleep(_ACCESS_LIMIT_RETRY_DELAY_SECONDS)
+                    continue
+                raise ValueError(
+                    f"Tencent TextToVoice error {error_code}: "
+                    f"{error.get('Message', '')} (request_id={request_id})"
+                )
+            audio_base64 = result.get("Audio") or ""
+            if not audio_base64:
+                raise ValueError("No audio data received from Tencent TextToVoice")
+            return base64.b64decode(audio_base64)
+
+        raise RuntimeError("Tencent TextToVoice retry loop exhausted unexpectedly")
 
     def synthesize(
         self,

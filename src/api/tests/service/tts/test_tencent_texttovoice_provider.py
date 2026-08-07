@@ -248,6 +248,134 @@ def test_synthesize_raises_on_api_error_with_code(monkeypatch):
     assert "req-err" in str(exc_info.value)
 
 
+def test_synthesize_retries_access_limit_once(monkeypatch):
+    from flaskr.api.tts import tencent_texttovoice_provider as module
+
+    _patch_credentials(monkeypatch)
+    responses = iter(
+        [
+            _FakeResponse(
+                {
+                    "Response": {
+                        "Error": {
+                            "Code": "LimitExceeded.AccessLimit",
+                            "Message": "Your request is too frequently.",
+                        },
+                        "RequestId": "req-rate-limit",
+                    }
+                }
+            ),
+            _FakeResponse(
+                {
+                    "Response": {
+                        "Audio": base64.b64encode(b"audio").decode("ascii"),
+                        "RequestId": "req-success",
+                    }
+                }
+            ),
+        ]
+    )
+    request_count = 0
+
+    def _fake_post(*args, **kwargs):
+        nonlocal request_count
+        request_count += 1
+        return next(responses)
+
+    sleeps = []
+    monkeypatch.setattr(module.requests, "post", _fake_post)
+    monkeypatch.setattr(module.time, "sleep", sleeps.append)
+    monkeypatch.setattr(
+        module,
+        "concat_audio_best_effort",
+        lambda segments, output_format="mp3": b"".join(segments),
+    )
+    monkeypatch.setattr(
+        module,
+        "try_get_audio_duration_ms",
+        lambda audio, format="mp3": 123,
+    )
+
+    result = module.TencentTextToVoiceProvider().synthesize(
+        "你好",
+        voice_settings=module.VoiceSettings(voice_id="101001"),
+    )
+
+    assert request_count == 2
+    assert sleeps == [module._ACCESS_LIMIT_RETRY_DELAY_SECONDS]
+    assert result.audio_data == b"audio"
+
+
+def test_synthesize_raises_after_second_access_limit(monkeypatch):
+    from flaskr.api.tts import tencent_texttovoice_provider as module
+
+    _patch_credentials(monkeypatch)
+    request_count = 0
+
+    def _fake_post(*args, **kwargs):
+        nonlocal request_count
+        request_count += 1
+        return _FakeResponse(
+            {
+                "Response": {
+                    "Error": {
+                        "Code": "LimitExceeded.AccessLimit",
+                        "Message": "Your request is too frequently.",
+                    },
+                    "RequestId": f"req-rate-limit-{request_count}",
+                }
+            }
+        )
+
+    sleeps = []
+    monkeypatch.setattr(module.requests, "post", _fake_post)
+    monkeypatch.setattr(module.time, "sleep", sleeps.append)
+
+    with pytest.raises(ValueError, match=r"LimitExceeded\.AccessLimit"):
+        module.TencentTextToVoiceProvider().synthesize(
+            "你好",
+            voice_settings=module.VoiceSettings(voice_id="101001"),
+        )
+
+    assert request_count == 2
+    assert sleeps == [module._ACCESS_LIMIT_RETRY_DELAY_SECONDS]
+
+
+def test_synthesize_does_not_retry_non_transient_api_error(monkeypatch):
+    from flaskr.api.tts import tencent_texttovoice_provider as module
+
+    _patch_credentials(monkeypatch)
+    request_count = 0
+
+    def _fake_post(*args, **kwargs):
+        nonlocal request_count
+        request_count += 1
+        return _FakeResponse(
+            {
+                "Response": {
+                    "Error": {
+                        "Code": "InvalidParameterValue",
+                        "Message": "bad voice",
+                    },
+                    "RequestId": "req-invalid",
+                }
+            }
+        )
+
+    sleeps = []
+    monkeypatch.setattr(module.requests, "post", _fake_post)
+    monkeypatch.setattr(module.time, "sleep", sleeps.append)
+
+    with pytest.raises(ValueError, match="InvalidParameterValue"):
+        module.TencentTextToVoiceProvider().synthesize(
+            "你好",
+            voice_settings=module.VoiceSettings(voice_id="101001"),
+        )
+
+    assert request_count == 1
+    assert sleeps == []
+
+
 def test_synthesize_raises_on_empty_audio(monkeypatch):
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
