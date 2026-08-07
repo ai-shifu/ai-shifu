@@ -892,7 +892,7 @@ def test_gemini_thinking_policy_removes_nested_caller_override(
 
     assert kwargs == {
         "temperature": 0.4,
-        "reasoning_effort": "none",
+        "reasoning_effort": "minimal",
         "allowed_openai_params": ["reasoning_effort"],
         "extra_body": {
             "generationConfig": {top_k_key: 8},
@@ -1150,7 +1150,7 @@ def test_litellm_195_native_adapter_contracts():
             "gemini_3": litellm.get_optional_params(
                 model="gemini-3.6-flash",
                 custom_llm_provider="gemini",
-                reasoning_effort="none",
+                reasoning_effort="minimal",
                 allowed_openai_params=["reasoning_effort"],
             ),
             "gemini_25_pro": litellm.get_optional_params(
@@ -1223,7 +1223,7 @@ def test_litellm_195_native_adapter_contracts():
 
     assert contracts["gemini_3"]["thinkingConfig"] == {
         "thinkingLevel": "minimal",
-        "includeThoughts": False,
+        "includeThoughts": True,
     }
     assert contracts["gemini_25_pro"]["thinkingConfig"] == {
         "thinkingBudget": 128,
@@ -1293,13 +1293,13 @@ def test_chat_llm_disables_deepseek_thinking(monkeypatch, app):
     assert captured_kwargs["kwargs"]["extra_body"] == {"custom_field": "keep"}
 
 
-def test_gemini_3_params_use_none_with_explicit_allowlist():
+def test_gemini_3_params_use_minimal_with_explicit_allowlist():
     params = llm._reload_gemini_params("gemini-3.1-flash-lite", 0.3)
 
     assert params == {
         "temperature": 0.3,
         "allowed_openai_params": ["reasoning_effort"],
-        "reasoning_effort": "none",
+        "reasoning_effort": "minimal",
     }
 
 
