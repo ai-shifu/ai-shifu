@@ -8,6 +8,7 @@ from typing import Any
 
 from celery import Celery, Task
 from celery.schedules import crontab
+from celery.signals import worker_process_init
 from flask import Flask
 
 from flaskr.common.config import get_explicit_env_override
@@ -22,6 +23,26 @@ _DEFAULT_BILLING_DAILY_USAGE_METRICS_CRON = "15 1 * * *"
 _DEFAULT_BILLING_DAILY_LEDGER_SUMMARY_CRON = "30 1 * * *"
 
 __CELERY_APP__: Celery | None = None
+
+
+@worker_process_init.connect
+def _reset_database_pool_after_worker_fork(**_kwargs: Any) -> None:
+    """Replace the inherited SQLAlchemy pool in each prefork worker child."""
+
+    flask_app = getattr(__CELERY_APP__, "flask_app", None)
+    if flask_app is None:
+        return
+
+    from flaskr import dao
+
+    if dao.db is None:
+        return
+    with flask_app.app_context():
+        # The Flask app factory can query system configuration before Celery
+        # forks its worker pool. Reusing those inherited sockets from multiple
+        # children interleaves MySQL protocol responses. ``close=False`` swaps
+        # in a child-local pool without touching the parent's connections.
+        dao.db.engine.dispose(close=False)
 
 
 def create_celery_app(flask_app: Flask | None = None) -> Celery:
