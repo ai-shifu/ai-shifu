@@ -33,7 +33,7 @@
   "characterCount": "{count} / {max} characters",
   "characterCountOverLimit": "{count} characters entered; the limit is {max}. Shorten the text before saving.",
   "choice": {
-    "description": "For example, ChatGPT, Claude, Gemini, or DeepSeek.",
+    "description": "For example, ChatGPT, Claude, WorkBuddy, OpenClaw, Hermes Agent, Doubao, Kimi, or DeepSeek.",
     "title": "Do you use an AI often?"
   },
   "complete": "Confirm and save",
@@ -48,8 +48,7 @@
     "promptLabel": "Message to send",
     "resultLabel": "What it wrote",
     "resultPlaceholder": "Paste it here",
-    "switchHint": "Your content will stay here if you switch apps.",
-    "title": "Ask your usual AI to help"
+    "title": "Quickly import your details"
   },
   "guided": {
     "description": "This takes about a minute.",
@@ -59,7 +58,7 @@
     "starting": "Preparing the first question…",
     "streamError": "This option is unavailable right now. Go to the previous step and choose another way.",
     "thinking": "Continuing from your answer…",
-    "title": "Answer a few questions from your AI teacher",
+    "title": "Answer a few questions",
     "unavailable": "Questions are unavailable right now. You can ask your usual AI to help instead."
   },
   "hasAgent": {
@@ -80,13 +79,13 @@
   "profilePlaceholder": "For example: what to call you, your work or study background, relevant experience, preferred explanation and slide styles, and current interests",
   "refreshPending": "Saved. The course is updating, so please refresh the page shortly.",
   "review": {
-    "description": "After you save, your AI teacher will use this to adapt examples, explanations, and slides.",
+    "description": "Your AI teacher will use this to adapt how and what it teaches.",
     "profileLabel": "About you",
     "profilePlaceholder": "Add or change anything here",
     "title": "Check it once"
   },
   "routeQuestion": "Do you use an AI often?",
-  "routeQuestionHint": "For example, ChatGPT, Claude, Gemini, or DeepSeek.",
+  "routeQuestionHint": "For example, ChatGPT, Claude, WorkBuddy, OpenClaw, Hermes Agent, Doubao, Kimi, or DeepSeek.",
   "settings": {
     "cancel": "Cancel",
     "clear": "Remove these details",
@@ -119,5 +118,5 @@
   "submitFailed": "We could not save your details. Your content is still here. Try again.",
   "submitting": "Saving…",
   "title": "Let your AI teacher get to know you",
-  "upgradeDescription": "Update this so your AI teacher can keep adapting explanations to you."
+  "upgradeDescription": "The better your AI teacher knows you, the easier the lessons are to understand."
 }

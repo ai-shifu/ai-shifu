@@ -309,6 +309,9 @@ describe('ProfileOnboardingModal v2', () => {
     expect(
       screen.getByText((_, node) => node?.textContent === EXTERNAL_PROMPT),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.profileOnboarding.externalAgent.switchHint'),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole('button', {

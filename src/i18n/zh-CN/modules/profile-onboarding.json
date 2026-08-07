@@ -33,7 +33,7 @@
   "characterCount": "已输入 {count} / {max} 字",
   "characterCountOverLimit": "已输入 {count} 字，最多 {max} 字，请精简后再保存。",
   "choice": {
-    "description": "比如 ChatGPT、豆包、Kimi、DeepSeek。",
+    "description": "比如 ChatGPT、Claude、WorkBuddy、OpenClaw、Hermes Agent、豆包、Kimi、DeepSeek。",
     "title": "你有常用的 AI 吗？"
   },
   "complete": "确认并保存",
@@ -48,8 +48,7 @@
     "promptLabel": "发给它的内容",
     "resultLabel": "它整理的内容",
     "resultPlaceholder": "粘贴到这里",
-    "switchHint": "切换应用后，这里的内容不会丢失。",
-    "title": "请常用的 AI 帮你整理"
+    "title": "快速导入你的信息"
   },
   "guided": {
     "description": "大约 1 分钟。",
@@ -59,7 +58,7 @@
     "starting": "正在准备第一个问题…",
     "streamError": "这个方式暂时不可用。请回到上一步，换一种方式完成。",
     "thinking": "正在根据你的回答继续…",
-    "title": "让 AI 老师问你几个问题",
+    "title": "请回答几个问题",
     "unavailable": "暂时无法提问，你可以请常用的 AI 帮你整理。"
   },
   "hasAgent": {
@@ -80,13 +79,13 @@
   "profilePlaceholder": "例如：希望怎样称呼你、你的工作或学习背景、相关经验、喜欢的讲解和幻灯片风格，以及最近关注的事情",
   "refreshPending": "已保存。课程正在更新，请稍后刷新页面。",
   "review": {
-    "description": "保存后，AI 老师会据此调整案例、讲解和幻灯片。",
+    "description": "AI 老师会据此调整讲课形式和内容",
     "profileLabel": "关于你的介绍",
     "profilePlaceholder": "可以在这里补充或修改",
     "title": "确认一下"
   },
   "routeQuestion": "你有常用的 AI 吗？",
-  "routeQuestionHint": "比如 ChatGPT、豆包、Kimi、DeepSeek。",
+  "routeQuestionHint": "比如 ChatGPT、Claude、WorkBuddy、OpenClaw、Hermes Agent、豆包、Kimi、DeepSeek。",
   "settings": {
     "cancel": "取消",
     "clear": "清除这些信息",
@@ -119,5 +118,5 @@
   "submitFailed": "没有保存成功，你的内容还在。请再试一次。",
   "submitting": "正在保存…",
   "title": "先让 AI 老师认识你",
-  "upgradeDescription": "更新后，AI 老师会继续根据你的情况调整讲解。"
+  "upgradeDescription": "AI 老师越了解你，讲的课就越容易听懂。"
 }

@@ -33,7 +33,7 @@
   "characterCount": "{count} / {max} caractères",
   "characterCountOverLimit": "{count} caractères saisis ; la limite est de {max}. Raccourcissez le texte avant de l’enregistrer.",
   "choice": {
-    "description": "Par exemple ChatGPT, Claude, Gemini ou Mistral.",
+    "description": "Par exemple ChatGPT, Claude, WorkBuddy, OpenClaw, Hermes Agent, Doubao, Kimi ou DeepSeek.",
     "title": "Utilisez-vous souvent une IA ?"
   },
   "complete": "Confirmer et enregistrer",
@@ -48,8 +48,7 @@
     "promptLabel": "Message à envoyer",
     "resultLabel": "Son texte",
     "resultPlaceholder": "Collez-le ici",
-    "switchHint": "Votre contenu restera ici si vous changez d’application.",
-    "title": "Demandez de l’aide à votre IA habituelle"
+    "title": "Importez rapidement vos informations"
   },
   "guided": {
     "description": "Cela prend environ une minute.",
@@ -59,7 +58,7 @@
     "starting": "Préparation de la première question…",
     "streamError": "Cette méthode est momentanément indisponible. Revenez à l’étape précédente et choisissez-en une autre.",
     "thinking": "Préparation de la suite à partir de votre réponse…",
-    "title": "Répondez aux questions de votre professeur IA",
+    "title": "Répondez à quelques questions",
     "unavailable": "Les questions sont indisponibles. Vous pouvez demander de l’aide à votre IA habituelle."
   },
   "hasAgent": {
@@ -80,13 +79,13 @@
   "profilePlaceholder": "Par exemple : la façon de vous appeler, votre parcours professionnel ou scolaire, votre expérience, vos styles d’explication et de diapositives préférés, ainsi que vos centres d’intérêt du moment",
   "refreshPending": "Enregistré. Le cours est en cours de mise à jour ; actualisez la page dans un instant.",
   "review": {
-    "description": "Une fois enregistrées, ces informations aideront votre professeur IA à adapter les exemples, les explications et les diapositives.",
+    "description": "Votre professeur IA s’en servira pour adapter la forme et le contenu du cours.",
     "profileLabel": "À propos de vous",
     "profilePlaceholder": "Complétez ou modifiez ce texte",
     "title": "Vérifiez une dernière fois"
   },
   "routeQuestion": "Utilisez-vous souvent une IA ?",
-  "routeQuestionHint": "Par exemple ChatGPT, Claude, Gemini ou Mistral.",
+  "routeQuestionHint": "Par exemple ChatGPT, Claude, WorkBuddy, OpenClaw, Hermes Agent, Doubao, Kimi ou DeepSeek.",
   "settings": {
     "cancel": "Annuler",
     "clear": "Supprimer ces informations",
@@ -119,5 +118,5 @@
   "submitFailed": "Nous n’avons pas pu enregistrer vos informations. Votre contenu est conservé. Réessayez.",
   "submitting": "Enregistrement…",
   "title": "Aidez votre professeur IA à vous connaître",
-  "upgradeDescription": "Mettez ce texte à jour pour que votre professeur IA continue d’adapter ses explications."
+  "upgradeDescription": "Plus votre professeur IA vous connaît, plus le cours est facile à comprendre."
 }

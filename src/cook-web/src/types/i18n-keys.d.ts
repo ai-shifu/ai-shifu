@@ -2911,7 +2911,6 @@ export type I18nKey =
   | 'module.profileOnboarding.externalAgent.promptLabel'
   | 'module.profileOnboarding.externalAgent.resultLabel'
   | 'module.profileOnboarding.externalAgent.resultPlaceholder'
-  | 'module.profileOnboarding.externalAgent.switchHint'
   | 'module.profileOnboarding.externalAgent.title'
   | 'module.profileOnboarding.guided.description'
   | 'module.profileOnboarding.guided.missingDraft'

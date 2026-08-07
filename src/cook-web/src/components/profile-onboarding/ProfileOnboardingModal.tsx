@@ -853,9 +853,6 @@ export default function ProfileOnboardingModal({
                         {externalAgentPrompt}
                       </div>
                     </div>
-                    <p className='text-xs leading-5 text-muted-foreground'>
-                      {t('module.profileOnboarding.externalAgent.switchHint')}
-                    </p>
                     <ProfileDraftEditor
                       inputId='profile-onboarding-paste-draft'
                       variant='onboarding'
