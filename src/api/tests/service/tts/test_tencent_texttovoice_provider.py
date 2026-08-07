@@ -331,7 +331,7 @@ def test_synthesize_raises_after_second_access_limit(monkeypatch):
     monkeypatch.setattr(module.requests, "post", _fake_post)
     monkeypatch.setattr(module.time, "sleep", sleeps.append)
 
-    with pytest.raises(ValueError, match="LimitExceeded.AccessLimit"):
+    with pytest.raises(ValueError, match=r"LimitExceeded\.AccessLimit"):
         module.TencentTextToVoiceProvider().synthesize(
             "你好",
             voice_settings=module.VoiceSettings(voice_id="101001"),
