@@ -107,7 +107,7 @@
     "updatedAt": "Last updated: {time}"
   },
   "sidebarDescription": "Your AI teacher gets to know you before teaching.",
-  "skip": "Maybe later",
+  "skip": "Skip",
   "skipping": "Please wait…",
   "stepCounter": "Step {current} of {total}",
   "steps": {

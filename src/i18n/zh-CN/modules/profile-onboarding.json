@@ -107,7 +107,7 @@
     "updatedAt": "上次更新：{time}"
   },
   "sidebarDescription": "AI 老师会先了解你，再开始讲课。",
-  "skip": "以后再说",
+  "skip": "跳过",
   "skipping": "请稍候…",
   "stepCounter": "第 {current} 步，共 {total} 步",
   "steps": {

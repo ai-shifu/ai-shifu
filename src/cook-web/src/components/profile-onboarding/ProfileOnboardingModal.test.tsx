@@ -536,7 +536,7 @@ describe('ProfileOnboardingModal v2', () => {
     });
   });
 
-  test('allows skipping only through the explicit maybe-later button', async () => {
+  test('allows skipping only through the explicit skip button', async () => {
     const now = jest.spyOn(Date, 'now').mockReturnValue(4_000);
     const onSkip = jest.fn().mockResolvedValue(true);
     render(

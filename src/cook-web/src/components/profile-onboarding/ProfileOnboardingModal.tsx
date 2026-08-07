@@ -1002,7 +1002,7 @@ export default function ProfileOnboardingModal({
                   type='button'
                   variant='ghost'
                   size='sm'
-                  className='h-11 px-1.5 text-muted-foreground hover:text-foreground sm:px-2 md:h-10 md:min-w-[144px] md:border md:border-input md:bg-background md:px-4 md:shadow-sm'
+                  className='h-11 px-1.5 font-normal text-muted-foreground/70 hover:bg-transparent hover:text-muted-foreground sm:px-2 md:h-10 md:min-w-[104px] md:px-4'
                   disabled={isBusy}
                   onClick={() => void handleSkip()}
                 >
