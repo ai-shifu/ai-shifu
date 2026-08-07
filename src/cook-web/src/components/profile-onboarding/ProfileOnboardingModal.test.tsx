@@ -195,7 +195,11 @@ describe('ProfileOnboardingModal v2', () => {
     const privacySummaries = screen.getAllByText(
       'module.profileOnboarding.privacySummary',
     );
-    const privacySummary = privacySummaries[privacySummaries.length - 1];
+    expect(privacySummaries).toHaveLength(1);
+    const [privacySummary] = privacySummaries;
+    expect(
+      screen.queryByText('module.profileOnboarding.sidebarDescription'),
+    ).not.toBeInTheDocument();
     const familiarAgentButton = screen.getByRole('button', {
       name: /module.profileOnboarding.hasAgent.yes/,
     });

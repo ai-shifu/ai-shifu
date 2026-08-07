@@ -33,59 +33,60 @@
   "characterCount": "已输入 {count} / {max} 字",
   "characterCountOverLimit": "已输入 {count} 字，最多 {max} 字，请精简后再保存。",
   "choice": {
-    "description": "有的话，可以请它帮你整理；没有也没关系，AI 师傅会问你几个简单问题。",
-    "title": "你有常用、比较了解你的 AI 助手吗？"
+    "description": "比如 ChatGPT、豆包、Kimi、DeepSeek。",
+    "title": "你有常用的 AI 吗？"
   },
   "complete": "确认并保存",
   "completeCompact": "保存",
-  "description": "AI 师傅会陪你一对一互动学习：根据你的情况调整案例和讲解，你也可以随时提问。花 1 分钟告诉它你的背景和偏好，让学习更适合你。",
+  "description": "AI 老师会根据你的情况调整案例和讲解方式。",
   "externalAgent": {
     "copied": "已复制",
-    "copy": "复制这段话",
+    "copy": "复制",
     "copyFailed": "没能自动复制，请选择上方文字手动复制。",
-    "description": "复制下面这段话发给常用的 AI 助手，再把它的回答粘贴回来。",
-    "prompt": "请根据你已经了解的我，帮我整理一段关于我的简短说明。我会把它提供给 AI 师傅，帮助它在学习时选择更适合我的案例、讲解方式和幻灯片风格。只包括以下内容：\n- 你平时如何称呼我\n- 我的职业背景、身份和相关经验\n- 我喜欢的表达方式\n- 我喜欢的幻灯片风格\n- 我最近关注的事情\n\n请用第一人称纯文本表达，控制在 1000 字以内。不要猜测，不要补充你不了解的信息，也不要加入其他内容。",
-    "resultLabel": "AI 助手整理的内容",
-    "resultPlaceholder": "把 AI 助手的回答粘贴到这里",
-    "switchHint": "可以放心切换应用，回来后会保留当前内容。",
-    "title": "请 AI 助手帮你整理"
+    "description": "复制这段话发给它，再把回答粘贴回来。",
+    "prompt": "请根据你对我的了解，整理一段提供给 AI 老师的个人介绍，只写：\n- 你平时怎么称呼我\n- 我的职业或学习背景、身份和相关经验\n- 我喜欢的表达方式\n- 我喜欢的幻灯片风格\n- 我最近关注的事情\n\n请用第一人称纯文本，控制在 1000 字以内。不要猜测或添加你不了解的内容。",
+    "promptLabel": "发给它的内容",
+    "resultLabel": "它整理的内容",
+    "resultPlaceholder": "粘贴到这里",
+    "switchHint": "切换应用后，这里的内容不会丢失。",
+    "title": "请常用的 AI 帮你整理"
   },
   "guided": {
-    "description": "大约 1 分钟。AI 师傅会通过几个简单问题了解你的背景、经验和偏好。",
+    "description": "大约 1 分钟。",
     "missingDraft": "刚才没能整理完成，请重新回答一次。",
     "retry": "再试一次",
     "retryableError": "刚才没有连接成功，你的回答还在。请再试一次。",
     "starting": "正在准备第一个问题…",
     "streamError": "这个方式暂时不可用。请回到上一步，换一种方式完成。",
     "thinking": "正在根据你的回答继续…",
-    "title": "回答几个简单问题",
-    "unavailable": "暂时不能直接提问，你可以让常用的 AI 助手帮你整理。"
+    "title": "让 AI 老师问你几个问题",
+    "unavailable": "暂时无法提问，你可以请常用的 AI 帮你整理。"
   },
   "hasAgent": {
-    "no": "没有，直接问我吧",
-    "noHint": "回答几个简单问题，大约 1 分钟",
-    "yes": "有，让它帮我整理",
-    "yesHint": "复制一段话给它，再把回答粘贴回来"
+    "no": "没有，直接问我",
+    "noHint": "AI 老师会问几个简单问题",
+    "yes": "有，而且它比较了解我",
+    "yesHint": "请它帮你整理，复制回来即可"
   },
   "loadFailed": "暂时无法加载你的个性化设置，已先进入课程。请稍后重试。",
   "next": "下一步",
   "onboardingCharacterCount": "{count} / {max} 字",
   "onboardingCharacterCountOverLimit": "已输入 {count} 字，最多 {max} 字。请精简后继续。",
-  "privacyDetails": "学习和提问时，AI 师傅会结合这些信息调整案例、讲解方式和幻灯片风格，但不会改变这门课需要学习的内容。提交内容会经过平台安全检查。请勿填写联系方式、证件号码、详细住址、健康或财务信息。",
-  "privacyDetailsLabel": "这些信息会怎么帮助你",
+  "privacyDetails": "AI 老师会根据这些信息调整案例、讲解方式和幻灯片。请勿填写联系方式、证件号码、详细住址、健康或财务信息。",
+  "privacyDetailsLabel": "为什么要填写",
   "privacyNotice": "这些信息会保存到你的账号，用来让不同课程更适合你。你可以随时修改或删除。",
-  "privacySummary": "这些信息会保存到你的账号，帮助 AI 师傅在不同课程里提供更适合你的一对一互动学习。你可以随时修改或删除。",
+  "privacySummary": "信息会保存，可随时修改或删除。",
   "profileLabel": "你的背景和偏好",
   "profilePlaceholder": "例如：希望怎样称呼你、你的工作或学习背景、相关经验、喜欢的讲解和幻灯片风格，以及最近关注的事情",
   "refreshPending": "已保存。课程正在更新，请稍后刷新页面。",
   "review": {
-    "description": "确认无误后保存。学习时，AI 师傅会根据这些信息调整案例、讲解方式和幻灯片风格。",
-    "profileLabel": "提供给 AI 师傅的信息",
-    "profilePlaceholder": "写下希望 AI 师傅了解的背景、经验和偏好",
-    "title": "确认这些信息"
+    "description": "保存后，AI 老师会据此调整案例、讲解和幻灯片。",
+    "profileLabel": "关于你的介绍",
+    "profilePlaceholder": "可以在这里补充或修改",
+    "title": "确认一下"
   },
-  "routeQuestion": "你有常用、比较了解你的 AI 助手吗？",
-  "routeQuestionHint": "有的话，可以请它帮你整理；没有也没关系，AI 师傅会问你几个简单问题。",
+  "routeQuestion": "你有常用的 AI 吗？",
+  "routeQuestionHint": "比如 ChatGPT、豆包、Kimi、DeepSeek。",
   "settings": {
     "cancel": "取消",
     "clear": "清除这些信息",
@@ -106,7 +107,7 @@
     "title": "让课程更适合你",
     "updatedAt": "上次更新：{time}"
   },
-  "sidebarDescription": "简单三步，让 AI 师傅为你提供更贴合的一对一互动学习。",
+  "sidebarDescription": "AI 老师会先了解你，再开始讲课。",
   "skip": "以后再说",
   "skipping": "请稍候…",
   "stepCounter": "第 {current} 步，共 {total} 步",
@@ -117,6 +118,6 @@
   },
   "submitFailed": "没有保存成功，你的内容还在。请再试一次。",
   "submitting": "正在保存…",
-  "title": "让 AI 师傅更了解你",
-  "upgradeDescription": "更新这些信息，让 AI 师傅继续根据现在的你调整案例和讲解方式。"
+  "title": "先让 AI 老师认识你",
+  "upgradeDescription": "更新后，AI 老师会继续根据你的情况调整讲解。"
 }

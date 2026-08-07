@@ -561,15 +561,15 @@ export default function ProfileOnboardingModal({
               <p className='text-xl font-semibold leading-7 tracking-tight text-foreground'>
                 {t('module.profileOnboarding.title')}
               </p>
-              <p className='mt-2 text-sm leading-6 text-muted-foreground'>
-                {isNonBlocking
-                  ? t('module.profileOnboarding.upgradeDescription')
-                  : t('module.profileOnboarding.sidebarDescription')}
-              </p>
+              {isNonBlocking ? (
+                <p className='mt-2 text-sm leading-6 text-muted-foreground'>
+                  {t('module.profileOnboarding.upgradeDescription')}
+                </p>
+              ) : null}
             </div>
 
             <ol
-              className='mt-12 space-y-2'
+              className={cn('space-y-2', isNonBlocking ? 'mt-12' : 'mt-8')}
               aria-label={t('module.profileOnboarding.title')}
             >
               {PROFILE_ONBOARDING_STEPS.map((step, index) => {
@@ -621,14 +621,6 @@ export default function ProfileOnboardingModal({
                 );
               })}
             </ol>
-
-            <div className='mt-auto flex items-start gap-2.5 rounded-xl border border-border/70 bg-background/70 px-3 py-3 text-xs leading-5 text-muted-foreground'>
-              <ShieldCheck
-                className='mt-0.5 h-4 w-4 shrink-0 text-primary'
-                aria-hidden='true'
-              />
-              <span>{t('module.profileOnboarding.privacySummary')}</span>
-            </div>
           </aside>
 
           <main className='flex min-h-0 min-w-0 flex-1 flex-col'>
@@ -823,7 +815,9 @@ export default function ProfileOnboardingModal({
                     <div className='overflow-hidden rounded-xl border border-border bg-muted/25'>
                       <div className='flex flex-col gap-3 border-b border-border/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between'>
                         <p className='text-sm font-medium text-foreground'>
-                          {t('module.profileOnboarding.externalAgent.copy')}
+                          {t(
+                            'module.profileOnboarding.externalAgent.promptLabel',
+                          )}
                         </p>
                         <Button
                           type='button'
