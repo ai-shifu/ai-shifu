@@ -6,6 +6,8 @@ instead of submitting it all at once, preventing burst delivery of
 final segments.
 """
 
+import logging
+
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -39,6 +41,37 @@ def create_test_processor(mock_app, **kwargs):
 
 class TestFinalizeSegmentation:
     """Tests for finalize segmentation improvements."""
+
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_finalize_logs_timeout_type_and_provider_context(
+        self, mock_is_configured, mock_app, caplog
+    ):
+        mock_is_configured.return_value = True
+        processor = create_test_processor(
+            mock_app,
+            tts_provider="tencent_texttovoice",
+            tts_model="large-model",
+        )
+        future = MagicMock()
+        future.result.side_effect = TimeoutError()
+        future.done.return_value = False
+        future.running.return_value = True
+        processor._pending_futures.append(future)
+
+        with caplog.at_level(logging.ERROR, logger="flaskr.service.tts.streaming_tts"):
+            list(processor.finalize(commit=False))
+
+        future.result.assert_called_once_with(timeout=60)
+        assert any(
+            "TTS future failed: TimeoutError" in record.getMessage()
+            and "provider=tencent_texttovoice" in record.getMessage()
+            and "model=large-model" in record.getMessage()
+            and "future=1/1" in record.getMessage()
+            and "timeout_seconds=60" in record.getMessage()
+            and "done=False" in record.getMessage()
+            and "running=True" in record.getMessage()
+            for record in caplog.records
+        )
 
     @patch("flaskr.service.tts.streaming_tts._tts_executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
