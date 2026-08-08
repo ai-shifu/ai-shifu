@@ -52,21 +52,24 @@ class TestFinalizeSegmentation:
             tts_provider="tencent_texttovoice",
             tts_model="large-model",
         )
-        future = MagicMock()
-        future.result.side_effect = TimeoutError()
-        future.done.return_value = False
-        future.running.return_value = True
-        processor._pending_futures.append(future)
+        completed_future = MagicMock()
+        completed_future.result.return_value = None
+        timed_out_future = MagicMock()
+        timed_out_future.result.side_effect = TimeoutError()
+        timed_out_future.done.return_value = False
+        timed_out_future.running.return_value = True
+        processor._pending_futures.extend([completed_future, timed_out_future])
 
         with caplog.at_level(logging.ERROR, logger="flaskr.service.tts.streaming_tts"):
             list(processor.finalize(commit=False))
 
-        future.result.assert_called_once_with(timeout=60)
+        completed_future.result.assert_called_once_with(timeout=60)
+        timed_out_future.result.assert_called_once_with(timeout=60)
         assert any(
-            "TTS future failed: TimeoutError" in record.getMessage()
+            "TTS future failed: TimeoutError: " in record.getMessage()
             and "provider=tencent_texttovoice" in record.getMessage()
             and "model=large-model" in record.getMessage()
-            and "future=1/1" in record.getMessage()
+            and "future=2/2" in record.getMessage()
             and "timeout_seconds=60" in record.getMessage()
             and "done=False" in record.getMessage()
             and "running=True" in record.getMessage()
