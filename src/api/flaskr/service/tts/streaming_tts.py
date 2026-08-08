@@ -105,6 +105,7 @@ def _get_tts_executor() -> ThreadPoolExecutor:
 _EMPTY_AUDIO_ERROR_MESSAGE = "No audio data received"
 _EMPTY_AUDIO_RETRY_PROVIDERS = {"", "tencent", "tencent_texttovoice", "volcengine"}
 _EMPTY_AUDIO_RETRY_DELAY_SECONDS = 0.2
+_TTS_FUTURE_TIMEOUT_SECONDS = 60
 _TTS_ERROR_TEXT_PREVIEW_CHARS = 300
 _VOLCENGINE_TIMESTAMP_PROVIDERS = {"volcengine"}
 _NON_SPEAKABLE_TTS_SKIP_PROVIDERS = {
@@ -1982,11 +1983,24 @@ class StreamingTTSProcessor:
             self._buffer = ""
 
         # Wait for all pending TTS tasks to complete
-        for future in self._pending_futures:
+        pending_future_count = len(self._pending_futures)
+        for future_index, future in enumerate(self._pending_futures):
             try:
-                future.result(timeout=60)  # Max 60s per segment
+                future.result(timeout=_TTS_FUTURE_TIMEOUT_SECONDS)
             except Exception as e:
-                logger.error(f"TTS future failed: {e}")
+                logger.error(
+                    "TTS future failed: %s: %s provider=%s model=%s "
+                    "future=%s/%s timeout_seconds=%s done=%s running=%s",
+                    type(e).__name__,
+                    e,
+                    self.tts_provider or "(auto)",
+                    self.tts_model or "(unset)",
+                    future_index + 1,
+                    pending_future_count,
+                    _TTS_FUTURE_TIMEOUT_SECONDS,
+                    future.done(),
+                    future.running(),
+                )
 
         # Yield any remaining segments
         yield from self._yield_ready_segments()
