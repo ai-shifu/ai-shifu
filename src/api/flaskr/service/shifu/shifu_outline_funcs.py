@@ -20,7 +20,8 @@ from .consts import (
     UNIT_TYPE_TRIAL,
     UNIT_TYPE_GUEST,
 )
-from .models import DraftOutlineItem, DraftShifu
+from .models import DraftOutlineItem
+from .outline_write_lock import lock_shifu_for_outline_write
 from ...dao import db
 from ...util import generate_id
 from ..common.models import raise_error, raise_param_error
@@ -276,9 +277,11 @@ def __lock_shifu_for_outline_write(shifu_id: str) -> None:
     """Serialize concurrent outline structural writes for a single shifu.
 
     A new outline's ``position`` is allocated by reading the current siblings and
-    taking ``max(position) + 1``. Without a lock, concurrent create requests read
-    the same snapshot and allocate the *same* position, producing colliding
-    positions that later block publishing (``assert_outline_tree_publishable``).
+    taking ``max(position) + 1``. Content saves also clone the latest outline row
+    and must not race with structural reorders. Without a shared lock, concurrent
+    writes can publish a stale position as the latest version, producing
+    colliding positions that later block publishing
+    (``assert_outline_tree_publishable``).
 
     Take a row lock on the shifu's latest draft row so position allocation is
     serialized per shifu. ``DraftShifu`` rows are not written by outline creation,
@@ -287,12 +290,7 @@ def __lock_shifu_for_outline_write(shifu_id: str) -> None:
     shifts per write). ``FOR UPDATE`` is a no-op on SQLite (unit tests) and
     effective on MySQL (production).
     """
-    (
-        DraftShifu.query.filter(DraftShifu.shifu_bid == shifu_id)
-        .order_by(DraftShifu.id.desc())
-        .with_for_update()
-        .first()
-    )
+    lock_shifu_for_outline_write(shifu_id)
 
 
 def __normalize_outline_name(outline_name: str) -> str:

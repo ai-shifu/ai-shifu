@@ -221,7 +221,7 @@ export const SidebarContent = ({
   return (
     <div
       className={cn(
-        'relative flex h-full min-h-0 flex-col',
+        'relative isolate flex h-full min-h-0 flex-col',
         styles.adminLayout,
       )}
     >
@@ -231,7 +231,7 @@ export const SidebarContent = ({
           size={32}
         />
       </h1>
-      <div className='flex min-h-0 flex-1 flex-col p-2'>
+      <div className='relative z-0 flex min-h-0 flex-1 flex-col p-2'>
         {loading ? (
           <div
             className='space-y-3 px-2 pt-2 animate-pulse'
@@ -246,7 +246,7 @@ export const SidebarContent = ({
           <>
             {/* Keep the menu list flexible so the billing card stays pinned to the bottom. */}
             <nav
-              className='min-h-0 flex-1 space-y-1 overflow-y-auto'
+              className='relative z-0 min-h-0 flex-1 space-y-1 overflow-y-auto'
               data-testid='admin-sidebar-nav'
             >
               {renderMenuItems(menuItems)}
@@ -260,17 +260,19 @@ export const SidebarContent = ({
           </>
         )}
       </div>
-      <NavFooter
-        ref={footerRef}
-        onClick={onFooterClick}
-        isMenuOpen={userMenuOpen}
-      />
-      <MainMenuModal
-        open={userMenuOpen}
-        onClose={onUserMenuClose}
-        className={userMenuClassName || adminSidebarStyles.navMenuPopup}
-        isAdmin
-      />
+      <div className='relative z-50 shrink-0'>
+        <NavFooter
+          ref={footerRef}
+          onClick={onFooterClick}
+          isMenuOpen={userMenuOpen}
+        />
+        <MainMenuModal
+          open={userMenuOpen}
+          onClose={onUserMenuClose}
+          className={userMenuClassName || adminSidebarStyles.navMenuPopup}
+          isAdmin
+        />
+      </div>
     </div>
   );
 };
