@@ -124,11 +124,34 @@ describe('ProfileOnboardingModal guided-only flow', () => {
       screen.getAllByText('module.profileOnboarding.guided.description'),
     ).toHaveLength(1);
     expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    const mobileBrand = screen.getByTestId('profile-onboarding-mobile-brand');
+    expect(mobileBrand).toHaveClass(
+      'min-w-0',
+      'flex-1',
+      'whitespace-normal',
+      'leading-5',
+    );
+    expect(mobileBrand).not.toHaveClass('truncate', 'line-clamp-1');
+    expect(
+      screen.getByTestId('profile-onboarding-mobile-step-counter'),
+    ).toHaveClass('shrink-0', 'whitespace-nowrap');
+    expect(screen.getByTestId('profile-onboarding-defer-action')).toHaveClass(
+      'absolute',
+    );
     expect(screen.getByTestId('profile-onboarding-footer')).toHaveClass(
       'shrink-0',
     );
+    const routeHeader = screen.getByTestId('profile-onboarding-route-header');
+    expect(routeHeader).toHaveClass('shrink-0');
+    expect(routeHeader).not.toHaveClass('h-[164px]', 'overflow-y-auto');
+
     const body = screen.getByTestId('profile-onboarding-body');
-    expect(body).toHaveClass('motion-reduce:animate-none');
+    expect(body).toHaveClass(
+      'motion-reduce:animate-none',
+      'overflow-y-auto',
+      '[@media(max-height:480px)]:py-2',
+    );
+    expect(body.firstElementChild).toHaveClass('min-h-[120px]');
   });
 
   test('keeps the guided benefit and duration aligned across locales', () => {
