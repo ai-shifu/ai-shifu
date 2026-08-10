@@ -258,14 +258,16 @@ def skip_profile_onboarding_v2(*, user_id: str) -> dict[str, Any]:
     load_learner_profile_user(user_id)
 
     def operation() -> UserOnboardingState:
+        user = load_learner_profile_user(user_id)
         state = load_learner_profile_state(user_id)
         if state is None:
+            has_learner_profile = bool(str(user.learner_profile or "").strip())
             state = UserOnboardingState(
                 user_bid=user_id,
                 scene_key=PROFILE_ONBOARDING_SCENE_KEY,
                 version=PROFILE_ONBOARDING_VERSION,
-                status="skipped",
-                trigger_source="skipped",
+                status="completed" if has_learner_profile else "skipped",
+                trigger_source="settings" if has_learner_profile else "skipped",
                 completed_at=now_utc(),
             )
             db.session.add(state)
