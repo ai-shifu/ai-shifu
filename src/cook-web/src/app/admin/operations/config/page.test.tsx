@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import api from '@/api';
 import AdminOperationsConfigPage from './page';
@@ -278,6 +279,109 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     fireEvent.click(screen.getByRole('button', { name: 'tabs.llm' }));
     fireEvent.click(screen.getByRole('button', { name: 'tabs.tts' }));
     expect(screen.getByTestId('rate-table')).toHaveTextContent('1');
+  });
+
+  test('closes after a durable create and retries only the failed refresh', async () => {
+    const refreshedResponse = {
+      ...baseRateResponse,
+      tts_rates: [
+        ...Array.from({ length: 10 }, (_, index) => ({
+          provider: `provider-${index}`,
+          model: `model-${index}`,
+          rate_model: `model-${index}`,
+          source: 'exact',
+        })),
+        {
+          provider: 'tencent',
+          model: '',
+          rate_model: '',
+          source: 'exact',
+        },
+      ],
+    };
+    let resolveRetryRefresh: (value: unknown) => void = () => undefined;
+    const retryRefreshPromise = new Promise<unknown>(resolve => {
+      resolveRetryRefresh = resolve;
+    });
+    mockGetRates
+      .mockResolvedValueOnce(baseRateResponse)
+      .mockRejectedValueOnce(new Error('refresh failed'))
+      .mockReturnValueOnce(retryRefreshPromise);
+    render(<AdminOperationsConfigPage />);
+
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'tabs.tts' }));
+    fireEvent.click(screen.getByRole('button', { name: '添加费率' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-create' }));
+
+    await waitFor(() => expect(mockUpdateRate).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('create-rate-dialog'),
+      ).not.toBeInTheDocument(),
+    );
+    expect(mockUpdateRate).toHaveBeenCalledTimes(1);
+    expect(mockToast).not.toHaveBeenCalledWith({ title: 'create.success' });
+    expect(mockToast).not.toHaveBeenCalledWith({
+      title: 'refresh failed',
+      variant: 'destructive',
+    });
+    const addRateButton = screen.getByRole('button', { name: '添加费率' });
+    expect(addRateButton).toBeDisabled();
+    fireEvent.click(addRateButton);
+    expect(screen.queryByTestId('create-rate-dialog')).not.toBeInTheDocument();
+    expect(mockUpdateRate).toHaveBeenCalledTimes(1);
+    const partialSuccessAlert = screen.getByRole('alert');
+    expect(partialSuccessAlert).toHaveTextContent('create.partialSuccessTitle');
+    expect(partialSuccessAlert).toHaveTextContent(
+      'create.partialSuccessDescription',
+    );
+    const inlineRetryButton = within(partialSuccessAlert).getByRole('button', {
+      name: 'create.retryRefresh',
+    });
+    expect(inlineRetryButton).toBeEnabled();
+
+    const partialSuccessToast = mockToast.mock.calls.find(
+      ([options]) => options.title === 'create.partialSuccessTitle',
+    )?.[0];
+    expect(partialSuccessToast).toEqual(
+      expect.objectContaining({
+        title: 'create.partialSuccessTitle',
+        description: 'create.partialSuccessDescription',
+        variant: 'destructive',
+        duration: 0,
+      }),
+    );
+    const retryAction = partialSuccessToast.action as React.ReactElement<{
+      altText: string;
+      children: React.ReactNode;
+      onClick: () => void;
+    }>;
+    expect(retryAction.props.altText).toBe('create.retryRefreshAltText');
+    expect(retryAction.props.children).toBe('create.retryRefresh');
+
+    fireEvent.click(inlineRetryButton);
+
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(inlineRetryButton).toBeDisabled());
+    expect(addRateButton).toBeDisabled();
+    fireEvent.click(addRateButton);
+    expect(screen.queryByTestId('create-rate-dialog')).not.toBeInTheDocument();
+    expect(mockUpdateRate).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveRetryRefresh(refreshedResponse);
+      await retryRefreshPromise;
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('rate-table')).toHaveTextContent('2'),
+    );
+    await waitFor(() => expect(addRateButton).toBeEnabled());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(mockUpdateRate).toHaveBeenCalledTimes(1);
+    expect(mockToast).toHaveBeenCalledWith({ title: 'create.success' });
   });
 
   test('keeps the create dialog open and does not reload when create rejects', async () => {

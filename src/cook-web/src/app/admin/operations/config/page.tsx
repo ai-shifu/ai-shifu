@@ -24,6 +24,7 @@ import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { ToastAction } from '@/components/ui/Toast';
 import {
   Table,
   TableBody,
@@ -402,29 +403,40 @@ export default function AdminOperationsConfigPage() {
   const [creating, setCreating] = React.useState(false);
   const [revealIdentity, setRevealIdentity] =
     React.useState<RateIdentity | null>(null);
+  const [pendingCreatedIdentity, setPendingCreatedIdentity] =
+    React.useState<RateIdentity | null>(null);
   const createInFlightRef = React.useRef(false);
+  const createRefreshInFlightRef = React.useRef(false);
+  const pendingCreatedIdentityRef = React.useRef<RateIdentity | null>(null);
   const clearRevealIdentity = React.useCallback(
     () => setRevealIdentity(null),
     [],
   );
 
-  const loadConfig = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = (await api.getAdminOperationConfigRates(
-        {},
-      )) as RateConfigResponse;
-      setConfig(response || {});
-    } catch (caughtError) {
-      const typedError = caughtError as Partial<ErrorWithCode>;
-      toast({
-        title: typedError.message || t('loadFailed'),
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [t, toast]);
+  const loadConfig = React.useCallback(
+    async ({ suppressErrorToast = false } = {}) => {
+      setLoading(true);
+      try {
+        const response = (await api.getAdminOperationConfigRates(
+          {},
+        )) as RateConfigResponse;
+        setConfig(response || {});
+        return true;
+      } catch (caughtError) {
+        if (!suppressErrorToast) {
+          const typedError = caughtError as Partial<ErrorWithCode>;
+          toast({
+            title: typedError.message || t('loadFailed'),
+            variant: 'destructive',
+          });
+        }
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [t, toast],
+  );
 
   React.useEffect(() => {
     if (!isReady) {
@@ -574,18 +586,60 @@ export default function AdminOperationsConfigPage() {
     setCreateDialogOpen(true);
   }, [activeTab]);
 
+  const refreshCreatedRate = React.useCallback(
+    async function refreshCreatedRate(identity: RateIdentity) {
+      if (createRefreshInFlightRef.current) {
+        return false;
+      }
+      createRefreshInFlightRef.current = true;
+      try {
+        const refreshed = await loadConfig({ suppressErrorToast: true });
+        if (refreshed) {
+          pendingCreatedIdentityRef.current = null;
+          setPendingCreatedIdentity(null);
+          setRevealIdentity(identity);
+          toast({ title: t('create.success') });
+          return true;
+        }
+
+        pendingCreatedIdentityRef.current = identity;
+        setPendingCreatedIdentity(identity);
+        toast({
+          title: t('create.partialSuccessTitle'),
+          description: t('create.partialSuccessDescription'),
+          variant: 'destructive',
+          duration: 0,
+          action: (
+            <ToastAction
+              altText={t('create.retryRefreshAltText')}
+              onClick={() => void refreshCreatedRate(identity)}
+            >
+              {t('create.retryRefresh')}
+            </ToastAction>
+          ),
+        });
+        return false;
+      } finally {
+        createRefreshInFlightRef.current = false;
+      }
+    },
+    [loadConfig, t, toast],
+  );
+
   const createRate = React.useCallback(
     async (payload: CreateRatePayload, identity: RateIdentity) => {
-      if (createInFlightRef.current) {
+      if (
+        createInFlightRef.current ||
+        createRefreshInFlightRef.current ||
+        pendingCreatedIdentityRef.current
+      ) {
         return false;
       }
       createInFlightRef.current = true;
       setCreating(true);
       try {
         await api.updateAdminOperationConfigRate(payload);
-        await loadConfig();
-        setRevealIdentity(identity);
-        toast({ title: t('create.success') });
+        await refreshCreatedRate(identity);
         return true;
       } catch (caughtError) {
         const typedError = caughtError as Partial<ErrorWithCode>;
@@ -599,7 +653,7 @@ export default function AdminOperationsConfigPage() {
         createInFlightRef.current = false;
       }
     },
-    [loadConfig, t, toast],
+    [refreshCreatedRate, t, toast],
   );
 
   if (!isReady) {
@@ -647,13 +701,43 @@ export default function AdminOperationsConfigPage() {
           actions={
             <Button
               type='button'
-              disabled={creating || saving || Boolean(editState)}
+              disabled={
+                creating ||
+                saving ||
+                Boolean(editState) ||
+                Boolean(pendingCreatedIdentity)
+              }
               onClick={openCreateDialog}
             >
               {t('actions.addConfiguration')}
             </Button>
           }
         />
+
+        {pendingCreatedIdentity ? (
+          <div
+            role='alert'
+            className='mb-4 flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 sm:flex-row sm:items-center sm:justify-between'
+          >
+            <div className='min-w-0'>
+              <p className='text-sm font-medium text-destructive'>
+                {t('create.partialSuccessTitle')}
+              </p>
+              <p className='mt-1 text-sm text-muted-foreground'>
+                {t('create.partialSuccessDescription')}
+              </p>
+            </div>
+            <Button
+              type='button'
+              variant='outline'
+              className='shrink-0'
+              disabled={loading}
+              onClick={() => void refreshCreatedRate(pendingCreatedIdentity)}
+            >
+              {t('create.retryRefresh')}
+            </Button>
+          </div>
+        ) : null}
 
         <div className='flex min-h-0 flex-1 flex-col gap-4'>
           <TabsContent
