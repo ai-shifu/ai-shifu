@@ -57,6 +57,7 @@ describe('C preview layout', () => {
   const mockedGetCourseInfo = getCourseInfo as jest.MockedFunction<
     typeof getCourseInfo
   >;
+  const contentLabel = 'content';
 
   afterEach(() => {
     window.location.href = originalHref;
@@ -84,7 +85,7 @@ describe('C preview layout', () => {
       const previewMode = useSystemStore(state => state.previewMode);
       useEffect(() => {
         observedPreviewMode = previewMode;
-      }, []);
+      }, [previewMode]);
       return null;
     }
 
@@ -96,6 +97,48 @@ describe('C preview layout', () => {
 
     await act(async () => {});
     expect(observedPreviewMode).toBe(true);
+  });
+
+  test('waits for query state before rendering children', async () => {
+    window.location.href =
+      'http://localhost:3000/c/123?preview=true&skip=true&channel=wechat';
+    act(() => {
+      useSystemStore.setState({
+        channel: '',
+        previewMode: false,
+        skip: false,
+      });
+    });
+
+    const observedQueryState: Array<{
+      channel: string;
+      previewMode: boolean;
+      skip: boolean;
+    }> = [];
+
+    function Probe() {
+      const channel = useSystemStore(state => state.channel);
+      const previewMode = useSystemStore(state => state.previewMode);
+      const skip = useSystemStore(state => state.skip);
+      observedQueryState.push({ channel, previewMode, skip });
+      return null;
+    }
+
+    render(
+      <ChatLayout>
+        <Probe />
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(observedQueryState).toEqual([
+        {
+          channel: 'wechat',
+          previewMode: true,
+          skip: true,
+        },
+      ]);
+    });
   });
 
   test('redirects to /404 when course is not found', async () => {
@@ -113,7 +156,7 @@ describe('C preview layout', () => {
 
     render(
       <ChatLayout>
-        <div>content</div>
+        <div>{contentLabel}</div>
       </ChatLayout>,
     );
 
@@ -138,7 +181,7 @@ describe('C preview layout', () => {
 
     render(
       <ChatLayout>
-        <div>content</div>
+        <div>{contentLabel}</div>
       </ChatLayout>,
     );
 

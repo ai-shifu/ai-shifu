@@ -184,19 +184,34 @@ export default function ChatLayout({
         hasClassroomModeUrlOverride ||
         canUseClassroomModeForCourse === true;
 
-  if (channel !== currChannel) {
-    updateChannel(currChannel);
-  }
+  const queryStateReady =
+    channel === currChannel &&
+    previewMode === isPreviewMode &&
+    skip === isSkipMode;
 
-  // Apply preview/skip flags eagerly so child components (and their effects) see
-  // the correct mode on the first render.
-  if (previewMode !== isPreviewMode) {
-    updatePreviewMode(isPreviewMode);
-  }
+  useEffect(() => {
+    if (channel !== currChannel) {
+      updateChannel(currChannel);
+    }
 
-  if (skip !== isSkipMode) {
-    updateSkip(isSkipMode);
-  }
+    if (previewMode !== isPreviewMode) {
+      updatePreviewMode(isPreviewMode);
+    }
+
+    if (skip !== isSkipMode) {
+      updateSkip(isSkipMode);
+    }
+  }, [
+    channel,
+    currChannel,
+    isPreviewMode,
+    isSkipMode,
+    previewMode,
+    skip,
+    updateChannel,
+    updatePreviewMode,
+    updateSkip,
+  ]);
 
   useEffect(() => {
     if (!envDataInitialized) return;
@@ -246,17 +261,8 @@ export default function ChatLayout({
   }, [envDataInitialized, updateCourseId, courseId, params.courseId]);
 
   useEffect(() => {
-    updatePreviewMode(isPreviewMode);
-    updateSkip(isSkipMode);
     updateShowLearningModeToggle(showLearningModeToggle);
-  }, [
-    isPreviewMode,
-    isSkipMode,
-    showLearningModeToggle,
-    updatePreviewMode,
-    updateSkip,
-    updateShowLearningModeToggle,
-  ]);
+  }, [showLearningModeToggle, updateShowLearningModeToggle]);
 
   useEffect(() => {
     normalizeLegacyListenModeInUrl({
@@ -597,6 +603,10 @@ export default function ChatLayout({
     if (!checkWxcode) return;
     initUser();
   }, [envDataInitialized, checkWxcode, initUser]);
+
+  if (!queryStateReady) {
+    return null;
+  }
 
   return <UserProvider>{children}</UserProvider>;
 }
