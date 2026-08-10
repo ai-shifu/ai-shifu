@@ -11,8 +11,9 @@ Deliver the second stacked learner-profile PR on `sunner/profile-onboarding-guid
 - [x] 2026-08-10 12:55 CST: Rebased the in-progress projection onto PR1 head `f4d963d05`, including the password sign-in canonical merge fix.
 - [x] 2026-08-10 13:00 CST: Added the standalone Redis-backed MarkdownFlow runtime and passed its 29 focused tests.
 - [x] 2026-08-10 14:05 CST: Projected course gating, the two-step modal, settings rerun, admin preview, i18n, and the rolling dual protocol without reverting PR1 fixes.
-- [x] 2026-08-10 14:10 CST: Passed focused backend/frontend regressions, static gates, repository harness checks, and four-viewport browser QA; fixed short-height copy and interaction clipping found by visual inspection.
-- [ ] 2026-08-10 13:15 CST: Rebase the final PR1 head, commit, push, create ready stacked PR, and inspect CI/review threads.
+- [x] 2026-08-10 14:30 CST: Passed focused backend/frontend regressions, static gates, repository harness checks, and four-viewport browser QA; fixed short-height interaction clipping and the 320-pixel French mobile header found by visual inspection.
+- [x] 2026-08-10 14:50 CST: Rebased the independent implementation and review-fix commits onto final PR1 head `34b6260c6`, then verified ancestry and PR1 sign-in/profile-state preservation.
+- [ ] 2026-08-10 14:55 CST: Push, create the ready stacked PR, and close CI plus naturally generated review threads.
 
 ## Surprises & Discoveries
 
@@ -27,7 +28,7 @@ Deliver the second stacked learner-profile PR on `sunner/profile-onboarding-guid
 
 ## Outcomes & Retrospective
 
-Pending implementation and verification.
+Implementation and local verification are complete. The final stack preserves the legacy learner/admin protocol while adding a nested V2 contract, a direct Redis-backed official MarkdownFlow runtime, and guided/review entry points in courses, settings, and admin preview. Rebase verification passed 262 focused backend tests with 4 skips, 103 focused frontend tests, 61 PR1 regression tests, TypeScript, targeted lint/format, translation parity and usage, architecture with zero new violations, the repository harness, and diff checks. Browser QA covered desktop, portrait mobile, narrow French error, and landscape guided/review states; temporary harness routes stayed outside the committed tree. Publication, CI, and organic review closure remain pending.
 
 ## Context and Orientation
 
