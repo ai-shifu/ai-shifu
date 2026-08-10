@@ -521,7 +521,7 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
             _executemany,
         ):
             nonlocal active_rate_selects
-            if "from credit_usage_rates" in " ".join(statement.lower().split()):
+            if "credit_usage_rates" in statement.lower():
                 active_rate_selects += 1
 
         engine = db.engine
