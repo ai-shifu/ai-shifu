@@ -183,7 +183,7 @@
       "reset": "Reset",
       "scopeNote": "Scope: Only data from courses you created and own is included. Collaborative courses are excluded.",
       "search": "Search",
-      "searchPlaceholder": "Search by course name / course id",
+      "searchPlaceholder": "Course ID / course name",
       "title": "Course List",
       "totalCount": "Total: {count}",
       "viewCourse": "View Course",

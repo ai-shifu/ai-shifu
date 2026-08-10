@@ -125,7 +125,7 @@ describe('AdminOperationPromotionsPage coupons', () => {
 
     expect(
       screen.getAllByPlaceholderText(
-        'module.operationsPromotion.filters.courseIdPlaceholder',
+        'module.operationsPromotion.filters.courseQueryPlaceholder',
       ).length,
     ).toBeGreaterThan(0);
   });

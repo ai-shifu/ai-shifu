@@ -42,7 +42,7 @@
     },
     "creditLedgerFilters": {
       "course": "课程",
-      "coursePlaceholder": "输入ID/名称",
+      "coursePlaceholder": "课程ID / 课程名称",
       "grantSource": "发放方式",
       "grantSourceOptions": {
         "all": "全部",

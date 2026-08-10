@@ -76,7 +76,7 @@
   "filters": {
     "billingStatus": "Billing Status",
     "courseKeyword": "Course",
-    "courseKeywordPlaceholder": "Course ID/name",
+    "courseKeywordPlaceholder": "Course ID / course name",
     "createdTime": "Created Time",
     "createdTimePlaceholder": "Start date ~ End date",
     "failureReason": "Failure Reason",

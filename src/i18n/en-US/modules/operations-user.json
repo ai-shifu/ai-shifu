@@ -42,7 +42,7 @@
     },
     "creditLedgerFilters": {
       "course": "Course",
-      "coursePlaceholder": "Enter ID/name",
+      "coursePlaceholder": "Course ID / course name",
       "grantSource": "Grant Source",
       "grantSourceOptions": {
         "all": "All",

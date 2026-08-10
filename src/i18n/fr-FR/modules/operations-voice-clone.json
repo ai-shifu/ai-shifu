@@ -76,7 +76,7 @@
   "filters": {
     "billingStatus": "État de facturation",
     "courseKeyword": "Cours",
-    "courseKeywordPlaceholder": "ID/nom du cours",
+    "courseKeywordPlaceholder": "ID du cours / nom du cours",
     "createdTime": "Date de création",
     "createdTimePlaceholder": "Date de début ~ date de fin",
     "failureReason": "Cause d'échec",

@@ -76,7 +76,7 @@
   "filters": {
     "billingStatus": "计费状态",
     "courseKeyword": "课程",
-    "courseKeywordPlaceholder": "课程ID/名称",
+    "courseKeywordPlaceholder": "课程ID / 课程名称",
     "createdTime": "创建时间",
     "createdTimePlaceholder": "开始日期 ~ 结束日期",
     "failureReason": "失败原因",

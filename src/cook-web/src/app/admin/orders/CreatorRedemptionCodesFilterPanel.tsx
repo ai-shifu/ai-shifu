@@ -130,7 +130,7 @@ export default function CreatorRedemptionCodesFilterPanel({
     buildTextItem(
       'course_query',
       tPromotion('filters.courseId'),
-      tPromotion('filters.courseIdPlaceholder'),
+      tPromotion('filters.courseQueryPlaceholder'),
       filters.course_query,
       'compact',
     ),

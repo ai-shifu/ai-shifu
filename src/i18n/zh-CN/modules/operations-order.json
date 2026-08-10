@@ -92,9 +92,9 @@
   "emptyList": "暂无订单数据",
   "filters": {
     "courseId": "课程ID",
-    "courseIdPlaceholder": "输入课程ID",
+    "courseIdPlaceholder": "课程ID",
     "courseName": "课程名称",
-    "courseNamePlaceholder": "输入课程名称",
+    "courseNamePlaceholder": "课程名称",
     "createdAt": "下单时间",
     "endTime": "结束时间",
     "orderId": "订单ID",

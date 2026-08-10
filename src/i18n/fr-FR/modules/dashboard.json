@@ -183,7 +183,7 @@
       "reset": "Réinitialiser",
       "scopeNote": "Périmètre : seules les données des cours que vous avez créés et possédez sont incluses. Les cours collaboratifs sont exclus.",
       "search": "Rechercher",
-      "searchPlaceholder": "Rechercher par nom ou ID de cours",
+      "searchPlaceholder": "ID du cours / nom du cours",
       "title": "Liste des cours",
       "totalCount": "Total : {count}",
       "viewCourse": "Voir le cours",
