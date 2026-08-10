@@ -40,10 +40,10 @@
       },
       "filters": {
         "chapterKeyword": "Chapter",
-        "chapterKeywordPlaceholder": "Enter chapter / lesson name",
+        "chapterKeywordPlaceholder": "Chapter / lesson name",
         "followUpTime": "Follow-up Time",
         "lessonKeyword": "Lesson",
-        "lessonKeywordPlaceholder": "Enter lesson name",
+        "lessonKeywordPlaceholder": "Lesson name",
         "reset": "Reset",
         "resultCount": "Total {count}",
         "search": "Search",
@@ -51,10 +51,10 @@
         "sourceStatusAll": "All Statuses",
         "sourceStatusMissing": "Original Output Missing",
         "sourceStatusResolved": "Original Output Located",
-        "timePlaceholder": "Select time range",
+        "timePlaceholder": "Start time ~ End time",
         "userKeyword": "Learner",
-        "userKeywordPlaceholderEmail": "Enter nickname / email",
-        "userKeywordPlaceholderPhone": "Enter nickname / phone"
+        "userKeywordPlaceholderEmail": "Email / Nickname",
+        "userKeywordPlaceholderPhone": "Mobile / Nickname"
       },
       "summary": {
         "followUpCount": "Total Follow-ups",
@@ -93,13 +93,13 @@
       "empty": "No learners yet",
       "filters": {
         "lastLearningTime": "Last Learning Time",
-        "lastLearningTimePlaceholder": "Select time range",
+        "lastLearningTimePlaceholder": "Start time ~ End time",
         "learningStatus": "Learning Status",
         "statusAll": "All",
         "userKeyword": "Learner"
       },
-      "searchPlaceholderEmail": "Enter nickname / email",
-      "searchPlaceholderPhone": "Enter nickname / phone",
+      "searchPlaceholderEmail": "Email / Nickname",
+      "searchPlaceholderPhone": "Mobile / Nickname",
       "status": {
         "completed": "Completed",
         "learning": "Learning",
@@ -126,7 +126,7 @@
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Chapter",
-        "chapterKeywordPlaceholder": "Enter chapter / lesson name",
+        "chapterKeywordPlaceholder": "Chapter / lesson name",
         "commentStatus": "Comment",
         "commentStatusAll": "All",
         "commentStatusCommented": "With Comment Only",
@@ -136,10 +136,10 @@
         "score": "Rating",
         "scoreAll": "All Ratings",
         "search": "Search",
-        "timePlaceholder": "Select time range",
+        "timePlaceholder": "Start time ~ End time",
         "userKeyword": "Learner",
-        "userKeywordPlaceholderEmail": "Enter nickname / email",
-        "userKeywordPlaceholderPhone": "Enter nickname / phone"
+        "userKeywordPlaceholderEmail": "Email / Nickname",
+        "userKeywordPlaceholderPhone": "Mobile / Nickname"
       },
       "scoreValue": "{score} Stars",
       "summary": {
@@ -183,7 +183,7 @@
       "reset": "Reset",
       "scopeNote": "Scope: Only data from courses you created and own is included. Collaborative courses are excluded.",
       "search": "Search",
-      "searchPlaceholder": "Course ID / course name",
+      "searchPlaceholder": "Course ID / Course name",
       "title": "Course List",
       "totalCount": "Total: {count}",
       "viewCourse": "View Course",
@@ -191,7 +191,7 @@
     }
   },
   "filters": {
-    "dateRangePlaceholder": "Select date range",
+    "dateRangePlaceholder": "Start time ~ End time",
     "reset": "Reset"
   },
   "messages": {

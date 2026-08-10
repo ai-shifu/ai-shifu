@@ -226,8 +226,8 @@
       "filters": {
         "reset": "重置",
         "search": "查询",
-        "searchPlaceholderEmail": "输入老师邮箱",
-        "searchPlaceholderPhone": "输入老师手机号",
+        "searchPlaceholderEmail": "老师邮箱",
+        "searchPlaceholderPhone": "老师手机号",
         "status": "订阅状态",
         "statusAll": "全部订阅状态",
         "teacherField": "老师"

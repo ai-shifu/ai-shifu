@@ -42,7 +42,7 @@
     },
     "creditLedgerFilters": {
       "course": "Course",
-      "coursePlaceholder": "Course ID / course name",
+      "coursePlaceholder": "Course ID / Course name",
       "grantSource": "Grant Source",
       "grantSourceOptions": {
         "all": "All",
@@ -52,7 +52,7 @@
         "trial_subscription": "Trial Credits"
       },
       "time": "Time Range",
-      "timePlaceholder": "Select time range",
+      "timePlaceholder": "Start time ~ End time",
       "type": "Type",
       "typeOptions": {
         "all": "All",

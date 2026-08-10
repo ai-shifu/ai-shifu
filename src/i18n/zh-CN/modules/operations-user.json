@@ -52,7 +52,7 @@
         "trial_subscription": "体验积分"
       },
       "time": "时间范围",
-      "timePlaceholder": "选择时间范围",
+      "timePlaceholder": "开始时间 ~ 结束时间",
       "type": "类型",
       "typeOptions": {
         "all": "全部",

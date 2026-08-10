@@ -31,12 +31,12 @@
     "emptyList": "暂无积分订单数据",
     "filters": {
       "creatorKeyword": "用户",
-      "creatorKeywordPlaceholderEmail": "输入用户 ID / 邮箱",
-      "creatorKeywordPlaceholderPhone": "输入用户 ID / 手机号",
+      "creatorKeywordPlaceholderEmail": "邮箱",
+      "creatorKeywordPlaceholderPhone": "手机号",
       "orderKind": "订单类型",
       "paymentProvider": "支付服务商",
       "productKeyword": "积分套餐搜索",
-      "productKeywordPlaceholder": "输入积分套餐 / 积分包名称"
+      "productKeywordPlaceholder": "积分套餐 / 积分包名称"
     },
     "kind": {
       "other": "其他",
@@ -98,18 +98,18 @@
     "createdAt": "下单时间",
     "endTime": "结束时间",
     "orderId": "订单ID",
-    "orderIdPlaceholder": "输入订单ID",
+    "orderIdPlaceholder": "订单ID",
     "paymentChannel": "支付渠道",
     "reset": "重置",
     "search": "查询",
     "source": "订单来源",
     "startTime": "开始时间",
     "status": "状态",
-    "timeRangePlaceholder": "选择下单开始时间 / 结束时间",
+    "timeRangePlaceholder": "开始时间 ~ 结束时间",
     "userKeyword": "用户",
-    "userKeywordPlaceholder": "输入用户 ID / 手机号 / 邮箱",
-    "userKeywordPlaceholderEmail": "输入用户 ID / 邮箱",
-    "userKeywordPlaceholderPhone": "输入用户 ID / 手机号"
+    "userKeywordPlaceholder": "手机号 / 邮箱",
+    "userKeywordPlaceholderEmail": "邮箱",
+    "userKeywordPlaceholderPhone": "手机号"
   },
   "messages": {
     "loadCreditOrderDetailFailed": "积分订单详情加载失败，请稍后重试",
