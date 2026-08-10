@@ -647,7 +647,7 @@ export default function AdminOperationsConfigPage() {
           actions={
             <Button
               type='button'
-              disabled={creating || saving}
+              disabled={creating || saving || Boolean(editState)}
               onClick={openCreateDialog}
             >
               {t('actions.addConfiguration')}

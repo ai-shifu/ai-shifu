@@ -4,6 +4,7 @@ import api from '@/api';
 import AdminOperationsConfigPage from './page';
 
 const mockToast = jest.fn();
+let mockRenderRateTable = false;
 const mockT = (key: string) =>
   new Map([
     ['title', '费率管理'],
@@ -57,8 +58,17 @@ jest.mock('@/app/admin/components/AdminTitle', () => ({
 
 jest.mock('@/components/admin/AdminTableShell', () => ({
   __esModule: true,
-  default: ({ pagination }: { pagination: { pageIndex: number } }) => (
-    <div data-testid='rate-table'>{pagination.pageIndex}</div>
+  default: ({
+    pagination,
+    table,
+  }: {
+    pagination: { pageIndex: number };
+    table: (emptyRow: React.ReactNode) => React.ReactNode;
+  }) => (
+    <div data-testid='rate-table'>
+      <span>{pagination.pageIndex}</span>
+      {mockRenderRateTable ? table(null) : null}
+    </div>
   ),
 }));
 
@@ -175,6 +185,7 @@ const baseRateResponse = {
 describe('AdminOperationsConfigPage create-rate wiring', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRenderRateTable = false;
     mockGetRates.mockResolvedValue(baseRateResponse);
     mockUpdateRate.mockResolvedValue({});
   });
@@ -253,5 +264,38 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     );
     expect(screen.getByTestId('create-rate-dialog')).toBeInTheDocument();
     expect(mockGetRates).toHaveBeenCalledTimes(1);
+  });
+
+  test('disables adding a rate while an inline edit is active', async () => {
+    mockRenderRateTable = true;
+    mockGetRates.mockResolvedValueOnce({
+      ...baseRateResponse,
+      llm_rates: [
+        {
+          usage_type: 'llm',
+          provider: 'qwen',
+          model: 'qwen/deepseek-v4-flash',
+          rate_model: 'deepseek-v4-flash',
+          display_name: 'DeepSeek V4 Flash',
+          billing_metric: 'llm_output_tokens',
+          unit_size: 1,
+          credits_per_unit: 0.25,
+          multiplier: 1,
+          source: 'exact',
+          updated_at: null,
+        },
+      ],
+    });
+    render(<AdminOperationsConfigPage />);
+
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
+    const addRateButton = screen.getByRole('button', { name: '添加费率' });
+    expect(addRateButton).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'actions.edit' }));
+    expect(addRateButton).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'common.core:cancel' }));
+    expect(addRateButton).toBeEnabled();
   });
 });
