@@ -306,6 +306,8 @@
     "creator": "Créateur",
     "creatorBid": "ID de créateur",
     "creatorPlaceholder": "E-mail / pseudonyme",
+    "creatorPlaceholderEmail": "E-mail / pseudonyme",
+    "creatorPlaceholderPhone": "Mobile / pseudonyme",
     "mobile": "Mobile",
     "notificationType": "Type de notification",
     "skipReason": "Raison de non-envoi",

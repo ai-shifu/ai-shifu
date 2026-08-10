@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
+import { useEnvStore } from '@/c-store';
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
   NOTIFICATION_SKIP_REASONS,
   NOTIFICATION_TYPES,
 } from './creditNotificationUtils';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
 
 const SELECT_ITEM_CLASS = 'pl-3 pr-8';
 
@@ -48,8 +50,14 @@ export function CreditNotificationRecordsFilter({
   resolveSourceTypeLabel: (value: string) => string;
 }) {
   const { t } = useTranslation();
+  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
+  const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const clearLabel = t('common.core.close');
+  const creatorPlaceholderKey =
+    resolveContactMode(loginMethodsEnabled, defaultLoginMethod) === 'email'
+      ? 'module.operationsCreditNotifications.filters.creatorPlaceholderEmail'
+      : 'module.operationsCreditNotifications.filters.creatorPlaceholderPhone';
 
   const filterItems = useMemo(() => {
     const renderTypeSelect = () => (
@@ -220,9 +228,7 @@ export function CreditNotificationRecordsFilter({
     const renderCreatorInput = () => (
       <AdminClearableInput
         value={draftFilters.creator_keyword}
-        placeholder={t(
-          'module.operationsCreditNotifications.filters.creatorPlaceholder',
-        )}
+        placeholder={t(creatorPlaceholderKey)}
         clearLabel={clearLabel}
         onChange={value => updateDraftFilter('creator_keyword', value)}
       />
@@ -270,6 +276,7 @@ export function CreditNotificationRecordsFilter({
     ];
   }, [
     clearLabel,
+    creatorPlaceholderKey,
     draftFilters,
     resolveDeliveryStatusLabel,
     resolveSkipReasonLabel,

@@ -306,6 +306,8 @@
     "creator": "Teacher",
     "creatorBid": "Teacher ID",
     "creatorPlaceholder": "Email / nickname",
+    "creatorPlaceholderEmail": "Email / nickname",
+    "creatorPlaceholderPhone": "Mobile / nickname",
     "mobile": "Mobile",
     "notificationType": "Notification type",
     "skipReason": "Not-sent reason",

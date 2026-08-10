@@ -651,7 +651,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     fireEvent.change(
       screen.getByPlaceholderText(
-        'module.operationsCreditNotifications.filters.creatorPlaceholder',
+        'module.operationsCreditNotifications.filters.creatorPlaceholderPhone',
       ),
       { target: { value: '13800138000' } },
     );
@@ -695,6 +695,22 @@ describe('AdminOperationCreditNotificationsPage', () => {
         page_index: 1,
       }),
     );
+  });
+
+  it('uses email teacher search placeholder when email login is enabled', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetRecords).toHaveBeenCalledTimes(1);
+    });
+
+    expect(
+      screen.getByPlaceholderText(
+        'module.operationsCreditNotifications.filters.creatorPlaceholderEmail',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('applies overview card filters to the search results', async () => {
