@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 from flask import Flask
-from flaskr.api.check import CHECK_RESULT_PASS, CHECK_RESULT_REJECT, check_text
+from flaskr.api.check import CHECK_RESULT_PASS, check_text
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.check_risk.api import add_risk_control_result
@@ -78,7 +78,7 @@ def check_text_content(app: Flask, user_id: str, learner_profile: str) -> bool:
         1 if result.check_result == CHECK_RESULT_PASS else 0,
         LEARNER_PROFILE_CHECK_STRATEGY,
     )
-    return result.check_result != CHECK_RESULT_REJECT
+    return result.check_result == CHECK_RESULT_PASS
 
 
 def load_learner_profile_user(user_id: str) -> UserEntity:

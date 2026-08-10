@@ -5,6 +5,12 @@ import json
 from datetime import datetime
 
 import pytest
+from flaskr.api.check.dto import (
+    CHECK_RESULT_REJECT,
+    CHECK_RESULT_REVIEW,
+    CHECK_RESULT_UNCONF,
+    CHECK_RESULT_UNKNOWN,
+)
 from flaskr.dao import db
 from flaskr.service.common.models import AppException
 from flaskr.service.profile.models import VariableValue
@@ -169,6 +175,75 @@ def test_safety_rejection_preserves_existing_profile(app, monkeypatch):
         loaded = get_learner_profile(user_id="profile-safety-reject")
 
     assert loaded["learner_profile"] == "existing profile"
+
+
+@pytest.mark.parametrize(
+    "check_result",
+    [
+        CHECK_RESULT_REVIEW,
+        CHECK_RESULT_REJECT,
+        CHECK_RESULT_UNKNOWN,
+        CHECK_RESULT_UNCONF,
+    ],
+)
+def test_profile_moderation_rejects_every_non_pass_result(
+    app, monkeypatch, check_result
+):
+    from flaskr.api.check.dto import CheckResultDTO
+    from flaskr.service.profile.learner_profile import (
+        get_learner_profile,
+        replace_learner_profile,
+    )
+
+    monkeypatch.setattr(
+        "flaskr.service.profile.learner_profile.check_text",
+        lambda *_args, **_kwargs: CheckResultDTO(
+            check_result=check_result,
+            risk_labels=[],
+            risk_label_ids=[],
+            provider="test-provider",
+            raw_data={},
+        ),
+    )
+
+    with app.app_context():
+        user_bid = f"profile-moderation-{check_result}"
+        _create_user(user_bid, learner_profile="existing profile")
+        with pytest.raises(AppException):
+            replace_learner_profile(
+                app,
+                user_id=user_bid,
+                learner_profile="unapproved profile",
+            )
+        loaded = get_learner_profile(user_id=user_bid)
+        state = UserOnboardingState.query.filter_by(user_bid=user_bid).first()
+
+    assert loaded["learner_profile"] == "existing profile"
+    assert state is None
+
+
+def test_profile_moderation_rejects_when_provider_is_unavailable(app):
+    from flaskr.service.profile.learner_profile import (
+        get_learner_profile,
+        replace_learner_profile,
+    )
+
+    app.config["CHECK_PROVIDER"] = "unsupported-provider"
+    with app.app_context():
+        _create_user("profile-provider-unavailable", learner_profile="existing profile")
+        with pytest.raises(AppException):
+            replace_learner_profile(
+                app,
+                user_id="profile-provider-unavailable",
+                learner_profile="unchecked profile",
+            )
+        loaded = get_learner_profile(user_id="profile-provider-unavailable")
+        state = UserOnboardingState.query.filter_by(
+            user_bid="profile-provider-unavailable"
+        ).first()
+
+    assert loaded["learner_profile"] == "existing profile"
+    assert state is None
 
 
 def test_profile_safety_audit_redacts_local_text_and_provider_response(
