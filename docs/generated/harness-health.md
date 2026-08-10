@@ -10,7 +10,7 @@ This generated report summarizes the repository harness control plane.
 - Product specs: `10`
 - References: `3`
 - Active ExecPlans: `20`
-- Completed ExecPlans: `12`
+- Completed ExecPlans: `13`
 
 ## Boundary Baseline
 
