@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, render, screen, waitFor } from '@testing-library/react';
-import { getLearnerProfile } from '@/c-api/user';
+import { getLearnerProfile } from '@/api/learnerProfile';
 import { LEARNER_PROFILE_CHANGED_EVENT } from '@/lib/learnerProfileEvents';
 import PreviewHeaderBanner from './PreviewHeaderBanner';
 import enPreview from '../../../../../../i18n/en-US/modules/preview.json';
@@ -14,7 +14,7 @@ const mockSetPreviewUserScope = (userId: string | null) => {
   mockPreviewUserStoreListeners.forEach(listener => listener());
 };
 
-jest.mock('@/c-api/user', () => ({
+jest.mock('@/api/learnerProfile', () => ({
   getLearnerProfile: jest.fn(),
 }));
 

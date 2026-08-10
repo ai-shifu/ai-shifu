@@ -3,7 +3,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { getLearnerProfile } from '@/c-api/user';
+import { getLearnerProfile } from '@/api/learnerProfile';
 import { useUserStore } from '@/store/useUserStore';
 import { LEARNER_PROFILE_CHANGED_EVENT } from '@/lib/learnerProfileEvents';
 import { buildUrlWithLessonId } from '@/c-utils/urlUtils';

@@ -10,7 +10,7 @@ import {
   clearLearnerProfile,
   getLearnerProfile,
   updateLearnerProfile,
-} from '@/c-api/user';
+} from '@/api/learnerProfile';
 import LearnerProfileSettingsSection, {
   type LearnerProfileSettingsHandle,
 } from './LearnerProfileSettingsSection';
@@ -35,7 +35,7 @@ const mockT = (key: string, params?: Record<string, string | number>) => {
   return key;
 };
 
-jest.mock('@/c-api/user', () => ({
+jest.mock('@/api/learnerProfile', () => ({
   clearLearnerProfile: jest.fn(),
   getLearnerProfile: jest.fn(),
   updateLearnerProfile: jest.fn(),

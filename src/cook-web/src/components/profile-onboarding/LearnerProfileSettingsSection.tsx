@@ -6,7 +6,7 @@ import {
   clearLearnerProfile,
   getLearnerProfile,
   updateLearnerProfile,
-} from '@/c-api/user';
+} from '@/api/learnerProfile';
 import { Button } from '@/components/ui/Button';
 import {
   AlertDialog,
