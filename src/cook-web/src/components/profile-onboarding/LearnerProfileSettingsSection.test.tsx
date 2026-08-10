@@ -15,6 +15,9 @@ import LearnerProfileSettingsSection, {
   type LearnerProfileSettingsHandle,
 } from './LearnerProfileSettingsSection';
 import { LEARNER_PROFILE_CHANGED_EVENT } from '@/lib/learnerProfileEvents';
+import enProfile from '../../../../i18n/en-US/modules/profile-onboarding.json';
+import frProfile from '../../../../i18n/fr-FR/modules/profile-onboarding.json';
+import zhProfile from '../../../../i18n/zh-CN/modules/profile-onboarding.json';
 
 const mockToast = jest.fn();
 let mockLanguage = 'en-US';
@@ -67,6 +70,17 @@ describe('LearnerProfileSettingsSection', () => {
       has_learner_profile: true,
       max_length: 1000,
     });
+  });
+
+  test('limits clear confirmation to the canonical introduction', () => {
+    expect(enProfile.settings.clearDescription).toContain('this introduction');
+    expect(enProfile.settings.clearDescription).not.toContain('these details');
+    expect(frProfile.settings.clearDescription).toContain('cette présentation');
+    expect(frProfile.settings.clearDescription).not.toContain(
+      'ces informations',
+    );
+    expect(zhProfile.settings.clearDescription).toContain('这段介绍');
+    expect(zhProfile.settings.clearDescription).not.toContain('这些信息');
   });
 
   test('loads and directly saves an edited profile', async () => {

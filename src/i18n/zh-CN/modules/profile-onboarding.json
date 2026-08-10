@@ -36,7 +36,7 @@
   "settings": {
     "cancel": "取消",
     "clear": "清除这些信息",
-    "clearDescription": "清除后，之后的课程不会再参考这些信息，也不会自动请你重新填写。",
+    "clearDescription": "清除后，之后的课程不会再参考这段介绍，也不会自动请你重新填写。",
     "clearFailed": "清除失败，请重试。",
     "clearSuccess": "已清除",
     "clearTitle": "确定清除这些信息吗？",

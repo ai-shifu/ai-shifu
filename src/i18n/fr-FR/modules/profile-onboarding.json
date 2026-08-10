@@ -36,7 +36,7 @@
   "settings": {
     "cancel": "Annuler",
     "clear": "Supprimer ces informations",
-    "clearDescription": "Après leur suppression, les prochains cours n’utiliseront plus ces informations et vous ne serez pas invité à les fournir automatiquement de nouveau.",
+    "clearDescription": "Après avoir supprimé cette présentation, les prochains cours ne s’y référeront plus et vous ne serez pas invité à la renseigner automatiquement de nouveau.",
     "clearFailed": "Impossible de supprimer ces informations. Réessayez.",
     "clearSuccess": "Supprimé",
     "clearTitle": "Supprimer ces informations ?",

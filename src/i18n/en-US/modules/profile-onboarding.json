@@ -36,7 +36,7 @@
   "settings": {
     "cancel": "Cancel",
     "clear": "Remove these details",
-    "clearDescription": "After you remove them, future courses will no longer use these details and you will not be asked to fill them in automatically again.",
+    "clearDescription": "After you remove this introduction, future courses will no longer use it and you will not be asked to fill it in automatically again.",
     "clearFailed": "Could not remove these details. Try again.",
     "clearSuccess": "Removed",
     "clearTitle": "Remove these details?",

@@ -3,6 +3,9 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { getLearnerProfile } from '@/c-api/user';
 import { LEARNER_PROFILE_CHANGED_EVENT } from '@/lib/learnerProfileEvents';
 import PreviewHeaderBanner from './PreviewHeaderBanner';
+import enPreview from '../../../../../../i18n/en-US/modules/preview.json';
+import frPreview from '../../../../../../i18n/fr-FR/modules/preview.json';
+import zhPreview from '../../../../../../i18n/zh-CN/modules/preview.json';
 
 let mockPreviewUserInfo: { user_id: string } | null = null;
 const mockPreviewUserStoreListeners = new Set<() => void>();
@@ -67,7 +70,7 @@ describe('PreviewHeaderBanner', () => {
     });
   });
 
-  test('discloses that the current user learning profile is active', async () => {
+  test('discloses that the current user has a saved general introduction', async () => {
     mockGetLearnerProfile.mockResolvedValue({
       learner_profile: '画像',
       learner_profile_updated_at: null,
@@ -81,12 +84,36 @@ describe('PreviewHeaderBanner', () => {
     ).toBeInTheDocument();
   });
 
-  test('discloses when preview has no learning profile', async () => {
+  test('discloses when the current user has no saved general introduction', async () => {
     render(<PreviewHeaderBanner courseId='course-1' />);
 
     expect(
       await screen.findByText('module.preview.previewModeBannerWithoutProfile'),
     ).toBeInTheDocument();
+  });
+
+  test('describes profile state without promising a personalization outcome', () => {
+    expect(enPreview.previewModeBannerWithProfile).toContain(
+      'follow the same personalization rules',
+    );
+    expect(enPreview.previewModeBannerWithProfile).toContain(
+      'saved a general introduction',
+    );
+    expect(enPreview.previewModeBannerWithoutProfile).toContain(
+      'not saved a general introduction',
+    );
+    expect(frPreview.previewModeBannerWithProfile).toContain(
+      'mêmes règles de personnalisation',
+    );
+    expect(frPreview.previewModeBannerWithoutProfile).toContain(
+      'pas enregistré de présentation générale',
+    );
+    expect(zhPreview.previewModeBannerWithProfile).toContain(
+      '预览和正式学习使用相同的个性化规则',
+    );
+    expect(zhPreview.previewModeBannerWithoutProfile).toContain(
+      '尚未保存通用介绍',
+    );
   });
 
   test('refreshes the disclosure after the learner profile changes', async () => {
