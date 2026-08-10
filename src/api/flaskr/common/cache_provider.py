@@ -343,6 +343,5 @@ class FallbackCacheProvider:
 
 
 _in_memory_cache = InMemoryCacheProvider()
-cache: CacheProvider = FallbackCacheProvider(
-    _DynamicRedisCacheProvider(), _in_memory_cache
-)
+redis_cache: CacheProvider = _DynamicRedisCacheProvider()
+cache: CacheProvider = FallbackCacheProvider(redis_cache, _in_memory_cache)
