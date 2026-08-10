@@ -508,6 +508,7 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenCalledWith({
         page_index: 1,
         page_size: 20,
+        user_query: '',
         identifier: '',
         nickname: '',
         user_status: '',
@@ -807,7 +808,8 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith({
         page_index: 1,
         page_size: 20,
-        identifier: 'user-22@example.com',
+        user_query: 'user-22@example.com',
+        identifier: '',
         nickname: '',
         user_status: '',
         user_role: 'creator',
@@ -1113,15 +1115,21 @@ describe('AdminOperationUsersPage', () => {
     ).toBeInTheDocument();
   });
 
-  test('keeps nickname visible when collapsed and shifts remaining filters forward when expanded', async () => {
+  test('keeps status and role visible when collapsed and leaves dates expanded', async () => {
     await renderResolvedPage();
 
-    expect(screen.getAllByRole('textbox')).toHaveLength(2);
+    expect(screen.getAllByRole('textbox')).toHaveLength(1);
     expect(
-      screen.getByText('module.operationsUser.filters.nickname'),
+      screen.getByText('module.operationsUser.filters.user'),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText('module.operationsUser.filters.status'),
+      screen.getAllByText('module.operationsUser.filters.status').length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('module.operationsUser.filters.role').length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText('module.operationsUser.filters.createdAt'),
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'common.core.expand' }));

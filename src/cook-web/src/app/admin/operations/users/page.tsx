@@ -76,6 +76,7 @@ import type {
 } from '../operation-user-types';
 
 type UserFilters = {
+  user_query: string;
   identifier: string;
   nickname: string;
   user_status: string;
@@ -155,6 +156,7 @@ const EMPTY_USER_OVERVIEW: AdminOperationUserOverview = {
 };
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 const createDefaultFilters = (): UserFilters => ({
+  user_query: '',
   identifier: '',
   nickname: '',
   user_status: '',
@@ -296,6 +298,10 @@ const CourseListPreview = ({
  * t('module.operationsUser.overview.tooltips.guests')
  * t('module.operationsUser.filters.mobile')
  * t('module.operationsUser.filters.email')
+ * t('module.operationsUser.filters.user')
+ * t('module.operationsUser.filters.userPlaceholderEmail')
+ * t('module.operationsUser.filters.userPlaceholderPhone')
+ * t('module.operationsUser.filters.userPlaceholderPhoneEmail')
  * t('module.operationsUser.filters.nickname')
  * t('module.operationsUser.filters.status')
  * t('module.operationsUser.filters.role')
@@ -467,13 +473,15 @@ export default function AdminOperationUsersPage() {
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
-  const identifierLabel = React.useMemo(
-    () =>
-      contactType === 'email'
-        ? tOperationsUsers('filters.email')
-        : tOperationsUsers('filters.mobile'),
-    [contactType, tOperationsUsers],
-  );
+  const userQueryPlaceholder = React.useMemo(() => {
+    if (contactType === 'email') {
+      return tOperationsUsers('filters.userPlaceholderEmail');
+    }
+    if (contactType === 'phone') {
+      return tOperationsUsers('filters.userPlaceholderPhone');
+    }
+    return tOperationsUsers('filters.userPlaceholderPhoneEmail');
+  }, [contactType, tOperationsUsers]);
   const contactColumnLabel = React.useMemo(
     () =>
       contactType === 'email'
@@ -529,6 +537,7 @@ export default function AdminOperationUsersPage() {
         const response = (await api.getAdminOperationUsers({
           page_index: targetPage,
           page_size: PAGE_SIZE,
+          user_query: filters.user_query.trim(),
           identifier: filters.identifier.trim(),
           nickname: filters.nickname.trim(),
           user_status: filters.user_status,
@@ -939,33 +948,17 @@ export default function AdminOperationUsersPage() {
 
   const collapsedFilterItems = [
     {
-      key: 'identifier',
-      label: identifierLabel,
+      key: 'user_query',
+      label: tOperationsUsers('filters.user'),
       component: (
         <AdminClearableInput
-          value={draftFilters.identifier}
-          placeholder={identifierLabel}
+          value={draftFilters.user_query}
+          placeholder={userQueryPlaceholder}
           clearLabel={t('common.core.close')}
-          onChange={value => updateDraftFilter('identifier', value)}
+          onChange={value => updateDraftFilter('user_query', value)}
         />
       ),
     },
-    {
-      key: 'nickname',
-      label: tOperationsUsers('filters.nickname'),
-      component: (
-        <AdminClearableInput
-          value={draftFilters.nickname}
-          placeholder={tOperationsUsers('filters.nickname')}
-          clearLabel={t('common.core.close')}
-          onChange={value => updateDraftFilter('nickname', value)}
-        />
-      ),
-    },
-  ];
-
-  const expandedFirstRowFilterItems = [
-    ...collapsedFilterItems,
     {
       key: 'user_status',
       label: tOperationsUsers('filters.status'),
@@ -995,9 +988,6 @@ export default function AdminOperationUsersPage() {
         </Select>
       ),
     },
-  ];
-
-  const expandedSecondRowFilterItems = [
     {
       key: 'user_role',
       label: tOperationsUsers('filters.role'),
@@ -1027,6 +1017,11 @@ export default function AdminOperationUsersPage() {
         </Select>
       ),
     },
+  ];
+
+  const expandedFirstRowFilterItems = [...collapsedFilterItems];
+
+  const expandedSecondRowFilterItems = [
     {
       key: 'created_at',
       label: tOperationsUsers('filters.createdAt'),
@@ -1117,7 +1112,7 @@ export default function AdminOperationUsersPage() {
                 searchLabel={t('module.order.filters.search')}
                 expandLabel={t('common.core.expand')}
                 collapseLabel={t('common.core.collapse')}
-                collapsedCount={2}
+                collapsedCount={3}
                 className='bg-transparent'
                 contentClassName='min-w-0'
                 labelClassName='w-20 text-right'

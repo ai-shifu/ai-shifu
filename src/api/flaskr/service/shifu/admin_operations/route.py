@@ -470,10 +470,14 @@ def register_admin_operations_routes(
             - name: user_bid
               type: string
               required: false
+            - name: user_query
+              type: string
+              required: false
+              description: Matches user phone, email, identify, user_bid, or nickname
             - name: identifier
               type: string
               required: false
-              description: User phone, email, identify, or user_bid keyword
+              description: Deprecated user phone, email, identify, or user_bid keyword
             - name: mobile
               type: string
               required: false
@@ -529,6 +533,7 @@ def register_admin_operations_routes(
 
         filters = {
             "user_bid": _normalize_query_text(request.args.get("user_bid")),
+            "user_query": _normalize_query_text(request.args.get("user_query")),
             "identifier": _normalize_query_text(request.args.get("identifier")),
             "mobile": _normalize_query_text(request.args.get("mobile")),
             "nickname": _normalize_query_text(request.args.get("nickname")),

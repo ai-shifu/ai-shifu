@@ -60,6 +60,28 @@ from flaskr.service.user.consts import (
 from flaskr.service.user.models import UserInfo as UserEntity
 
 
+def _find_matching_user_bids_by_query(user_query: str) -> set[str]:
+    normalized_query = str(user_query or "").strip()
+    if not normalized_query:
+        return set()
+
+    matching_user_bids = set(find_matching_user_bids_by_identifier(normalized_query))
+    nickname_rows = (
+        db.session.query(UserEntity.user_bid)
+        .filter(
+            UserEntity.deleted == 0,
+            UserEntity.nickname.ilike(f"%{normalized_query}%"),
+        )
+        .all()
+    )
+    matching_user_bids.update(
+        str(user_bid or "").strip()
+        for (user_bid,) in nickname_rows
+        if str(user_bid or "").strip()
+    )
+    return matching_user_bids
+
+
 def _build_operator_user_overview() -> AdminOperationUserOverviewDTO:
     registered_states = [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID]
     learner_subquery = build_learner_user_bid_subquery()
@@ -192,6 +214,7 @@ def list_operator_users(
         filters = filters or {}
 
         user_bid = str(filters.get("user_bid", "") or "").strip()
+        user_query = str(filters.get("user_query", "") or "").strip()
         identifier = str(
             filters.get("identifier", "") or filters.get("mobile", "") or ""
         ).strip()
@@ -207,6 +230,16 @@ def list_operator_users(
         query = UserEntity.query.filter(UserEntity.deleted == 0)
         if user_bid:
             query = query.filter(UserEntity.user_bid == user_bid)
+        if user_query:
+            matching_user_bids = _find_matching_user_bids_by_query(user_query)
+            if not matching_user_bids:
+                return AdminOperationUserListDTO(
+                    safe_page_index,
+                    safe_page_size,
+                    0,
+                    [],
+                )
+            query = query.filter(UserEntity.user_bid.in_(list(matching_user_bids)))
         if nickname:
             query = query.filter(UserEntity.nickname.ilike(f"%{nickname}%"))
         if user_status:
