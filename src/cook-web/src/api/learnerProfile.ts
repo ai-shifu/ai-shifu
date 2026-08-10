@@ -8,7 +8,7 @@ export type LearnerProfile = {
 };
 
 export const getLearnerProfile = (): Promise<LearnerProfile> => {
-  return request.get('/api/user/learner-profile');
+  return request.get('/api/user/learner-profile', { skipErrorToast: true });
 };
 
 export const updateLearnerProfile = (

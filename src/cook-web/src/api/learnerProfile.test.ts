@@ -42,7 +42,9 @@ describe('learner profile api', () => {
     );
     await expect(clearLearnerProfile()).resolves.toEqual(clearedProfile);
 
-    expect(request.get).toHaveBeenCalledWith('/api/user/learner-profile');
+    expect(request.get).toHaveBeenCalledWith('/api/user/learner-profile', {
+      skipErrorToast: true,
+    });
     expect(request.put).toHaveBeenCalledWith('/api/user/learner-profile', {
       learner_profile: '我是一名产品经理。',
     });

@@ -92,6 +92,17 @@ describe('PreviewHeaderBanner', () => {
     ).toBeInTheDocument();
   });
 
+  test('falls back to the generic preview disclosure when profile loading fails', async () => {
+    mockGetLearnerProfile.mockRejectedValue(new Error('404'));
+
+    render(<PreviewHeaderBanner courseId='course-1' />);
+
+    await waitFor(() => expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByText('module.preview.previewModeBanner'),
+    ).toBeInTheDocument();
+  });
+
   test('describes profile state without promising a personalization outcome', () => {
     expect(enPreview.previewModeBannerWithProfile).toContain(
       'follow the same personalization rules',
