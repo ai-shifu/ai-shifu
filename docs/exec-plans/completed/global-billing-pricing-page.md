@@ -138,7 +138,7 @@ database is never targeted.
 ## Interfaces and Dependencies
 
 No public API or database schema changes. The implementation depends on the
-existing runtime `paymentChannels`, `GET /billing/catalog`, `BillingPlan` and
+existing runtime `paymentChannels`, `GET /api/billing/catalog`, `BillingPlan` and
 `BillingTopupProduct` types, SWR, shared UI primitives, and `useTracking`.
 
 The global deployment must provision these active USD products with the
