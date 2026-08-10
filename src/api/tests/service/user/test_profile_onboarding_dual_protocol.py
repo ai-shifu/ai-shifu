@@ -305,3 +305,55 @@ def test_late_v2_skip_never_downgrades_a_completed_profile(app, monkeypatch):
     assert skipped["skipped"] is False
     assert state.status == "completed"
     assert state.trigger_source == "guided"
+
+
+def test_late_v2_skip_reconstructs_completed_state_before_session_cleanup(
+    app, monkeypatch, test_client
+):
+    user_id = "protocol-profile-without-state"
+    session_id = "0123456789abcdef0123456789abcdef"
+
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: SimpleNamespace(
+            user_id=user_id,
+            language="en-US",
+            is_operator=False,
+        ),
+    )
+
+    with app.app_context():
+        _create_user(user_id, learner_profile="Keep this canonical profile.")
+        assert UserOnboardingState.query.filter_by(user_bid=user_id).first() is None
+
+    cleanup_observations: list[tuple[str, str, str]] = []
+
+    def observe_cleanup(_app, *, user_bid: str, session_id: str | None) -> None:
+        # Force a fresh ORM session so cleanup can only observe committed state.
+        db.session.remove()
+        state = UserOnboardingState.query.filter_by(user_bid=user_bid).one()
+        cleanup_observations.append((user_bid, session_id or "", state.status))
+
+    monkeypatch.setattr(
+        "flaskr.route.user._delete_profile_onboarding_session",
+        observe_cleanup,
+    )
+
+    response = test_client.post(
+        "/api/user/profile-onboarding/skip",
+        headers={"Token": "token"},
+        json={"session_id": session_id},
+    )
+
+    data = response.get_json(force=True)
+    assert data["code"] == 0
+    assert data["data"]["status"] == "completed"
+    assert data["data"]["completed"] is True
+    assert data["data"]["skipped"] is False
+    assert data["data"]["trigger_source"] == "settings"
+    assert cleanup_observations == [(user_id, session_id, "completed")]
+
+    with app.app_context():
+        state = UserOnboardingState.query.filter_by(user_bid=user_id).one()
+        assert state.status == "completed"
+        assert state.trigger_source == "settings"
