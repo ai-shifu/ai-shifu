@@ -39,6 +39,7 @@ import CourseChaptersTab, {
 import CourseBasicInfoCard from './CourseBasicInfoCard';
 import CourseDetailHeader from './CourseDetailHeader';
 import CourseCreditUsageTab from './CourseCreditUsageTab';
+import CourseEstimatedCreditCostCard from './CourseEstimatedCreditCostCard';
 import CourseMetricsCardGrid from './CourseMetricsCardGrid';
 import CourseUsersTab from './CourseUsersTab';
 import {
@@ -135,6 +136,35 @@ const EMPTY_DETAIL: AdminOperationCourseDetailResponse = {
     credit_user_count: 0,
     completed_credit_user_count: 0,
     completed_user_avg_credits: null,
+  },
+  estimated_credit_cost: {
+    read: {
+      min: 0,
+      max: 0,
+      llm: { min: 0, max: 0, model: '', model_label: '', multiplier: null },
+      tts: null,
+      enabled: null,
+    },
+    listen: {
+      min: 0,
+      max: 0,
+      llm: { min: 0, max: 0, model: '', model_label: '', multiplier: null },
+      tts: null,
+      enabled: null,
+    },
+    classroom: {
+      min: 0,
+      max: 0,
+      llm: { min: 0, max: 0, model: '', model_label: '', multiplier: null },
+      tts: null,
+      enabled: null,
+    },
+    assumptions: {
+      visible_lesson_count: 0,
+      prompt_char_count: 0,
+      content_char_count: 0,
+      calculated_at: '',
+    },
   },
   chapters: [],
 };
@@ -1516,9 +1546,15 @@ export default function AdminOperationCourseDetailPage() {
               items={basicInfoItems}
             />
 
+            <CourseEstimatedCreditCostCard
+              estimate={detail.estimated_credit_cost}
+              locale={i18n.language}
+            />
+
             <CourseMetricsCardGrid
               title={tOperations('detail.metrics')}
               cards={metricCards}
+              size='compact'
             />
 
             <Tabs

@@ -220,19 +220,53 @@ def build_usage_metric_charges(
     return []
 
 
+def _load_usage_rate_cached(
+    *,
+    usage: BillUsageRecord,
+    billing_metric: int,
+    settlement_at: datetime,
+    rate_cache: dict[tuple[int, str, str, int, int, datetime], CreditUsageRate | None]
+    | None = None,
+) -> CreditUsageRate | None:
+    if rate_cache is None:
+        return load_usage_rate(
+            usage=usage,
+            billing_metric=billing_metric,
+            settlement_at=settlement_at,
+        )
+    key = (
+        int(usage.usage_type or 0),
+        str(usage.provider or "").strip(),
+        str(usage.model or "").strip(),
+        int(usage.usage_scene or 0),
+        int(billing_metric),
+        settlement_at,
+    )
+    if key not in rate_cache:
+        rate_cache[key] = load_usage_rate(
+            usage=usage,
+            billing_metric=billing_metric,
+            settlement_at=settlement_at,
+        )
+    return rate_cache[key]
+
+
 def build_metric_charge(
     usage: BillUsageRecord,
     *,
     billing_metric: int,
     raw_amount: int,
     settlement_at: datetime,
+    rate_cache: dict[tuple[int, str, str, int, int, datetime], CreditUsageRate | None]
+    | None = None,
 ) -> UsageMetricCharge | None:
     if raw_amount <= 0:
         return None
-    rate = load_usage_rate(
+    rate = _load_usage_rate_cached(
         usage=usage,
         billing_metric=billing_metric,
         settlement_at=settlement_at,
+        rate_cache=rate_cache,
     )
     if rate is None:
         return None
@@ -337,6 +371,8 @@ def resolve_credit_multiplier_label(
     usage_scene: int = BILL_USAGE_SCENE_PROD,
     settlement_at: datetime | None = None,
     billing_metrics: tuple[int, ...] | None = None,
+    rate_cache: dict[tuple[int, str, str, int, int, datetime], CreditUsageRate | None]
+    | None = None,
 ) -> str | None:
     metrics = billing_metrics or _USAGE_TYPE_RATE_METRICS.get(int(usage_type or 0), ())
     if not metrics:
@@ -358,19 +394,21 @@ def resolve_credit_multiplier_label(
     ratios: list[Decimal] = []
 
     for metric in metrics:
-        baseline_rate = load_usage_rate(
+        baseline_rate = _load_usage_rate_cached(
             usage=baseline_usage,
             billing_metric=metric,
             settlement_at=at,
+            rate_cache=rate_cache,
         )
         baseline_cost = _rate_unit_cost(baseline_rate)
         if baseline_cost <= _ZERO:
             continue
 
-        rate = load_usage_rate(
+        rate = _load_usage_rate_cached(
             usage=usage,
             billing_metric=metric,
             settlement_at=at,
+            rate_cache=rate_cache,
         )
         actual_cost = _rate_unit_cost(rate or baseline_rate)
         if actual_cost <= _ZERO:

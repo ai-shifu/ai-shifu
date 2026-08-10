@@ -11,10 +11,16 @@ import pytest
 from flaskr.dao import db
 from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    BILLING_METRIC_TTS_OUTPUT_CHARS,
+    BILLING_METRIC_TTS_REQUEST_COUNT,
+    CREDIT_ROUNDING_MODE_CEIL,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_SOURCE_TYPE_USAGE,
 )
-from flaskr.service.billing.models import CreditLedgerEntry
+from flaskr.service.billing.models import CreditLedgerEntry, CreditUsageRate
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
@@ -74,6 +80,7 @@ from flaskr.service.user.repository import create_user_entity, upsert_credential
 
 def _clear_tables() -> None:
     db.session.query(CreditLedgerEntry).delete()
+    db.session.query(CreditUsageRate).delete()
     db.session.query(BillUsageRecord).delete()
     db.session.query(LearnLessonFeedback).delete()
     db.session.query(LearnGeneratedElement).delete()
@@ -625,6 +632,11 @@ def _seed_course(
     creator_user_bid: str,
     created_at: datetime,
     updated_at: datetime,
+    llm: str = "gpt-test",
+    llm_system_prompt: str = "",
+    tts_enabled: int = 0,
+    tts_provider: str = "",
+    tts_model: str = "",
 ) -> None:
     db.session.add(
         DraftShifu(
@@ -633,10 +645,13 @@ def _seed_course(
             description="draft",
             avatar_res_bid="",
             keywords="",
-            llm="gpt-test",
+            llm=llm,
             llm_temperature=Decimal("0"),
-            llm_system_prompt="",
+            llm_system_prompt=llm_system_prompt,
             price=Decimal("199.00"),
+            tts_enabled=tts_enabled,
+            tts_provider=tts_provider,
+            tts_model=tts_model,
             deleted=0,
             created_at=created_at,
             created_user_bid=creator_user_bid,
@@ -651,15 +666,48 @@ def _seed_course(
             description="published",
             avatar_res_bid="",
             keywords="",
-            llm="gpt-test",
+            llm=llm,
             llm_temperature=Decimal("0"),
-            llm_system_prompt="",
+            llm_system_prompt=llm_system_prompt,
             price=Decimal("99.00"),
+            tts_enabled=tts_enabled,
+            tts_provider=tts_provider,
+            tts_model=tts_model,
             deleted=0,
             created_at=created_at,
             created_user_bid=creator_user_bid,
             updated_at=created_at,
             updated_user_bid=creator_user_bid,
+        )
+    )
+
+
+def _seed_credit_usage_rate(
+    *,
+    rate_bid: str,
+    usage_type: int,
+    provider: str,
+    model: str,
+    billing_metric: int,
+    credits_per_unit: str,
+    effective_from: datetime,
+    unit_size: int = 1,
+) -> None:
+    db.session.add(
+        CreditUsageRate(
+            rate_bid=rate_bid,
+            usage_type=usage_type,
+            provider=provider,
+            model=model,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            billing_metric=billing_metric,
+            unit_size=unit_size,
+            credits_per_unit=Decimal(credits_per_unit),
+            rounding_mode=CREDIT_ROUNDING_MODE_CEIL,
+            effective_from=effective_from,
+            effective_to=None,
+            status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
+            deleted=0,
         )
     )
 
@@ -1029,6 +1077,219 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
             ],
         }
     ]
+
+
+def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin.get_course_visit_count_30d",
+        lambda _app, _shifu_bid: 0,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_estimate.get_current_models",
+        lambda _app: [
+            {
+                "model": "gpt-test",
+                "display_name": "GPT Test",
+                "credit_multiplier_label": "3x",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_estimate.get_all_provider_configs",
+        lambda: {
+            "model_options": [
+                {
+                    "provider": "minimax",
+                    "model": "speech-test",
+                    "label": "MiniMax Speech Test",
+                    "credit_multiplier_label": "3x",
+                }
+            ]
+        },
+    )
+    calculated_at = datetime(2026, 5, 1, 12, 0, 0)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_estimate.now_utc",
+        lambda: calculated_at,
+    )
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+            llm="gpt-test",
+            tts_enabled=0,
+            tts_provider="minimax",
+            tts_model="speech-test",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter",
+            position="1",
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            llm_system_prompt="abcdef",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            parent_bid="chapter-1",
+            position="1.1",
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="abcdefghij",
+            llm_system_prompt="abcd",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-2",
+            title="Lesson 2",
+            parent_bid="chapter-1",
+            position="1.2",
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="abcdefghijklmnopqrst",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-hidden",
+            title="Hidden",
+            parent_bid="chapter-1",
+            position="1.3",
+            hidden=1,
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="this hidden content is ignored",
+            llm_system_prompt="hidden",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-hidden-only",
+            title="Hidden-only Chapter",
+            position="2",
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="this visible chapter content is ignored",
+            llm_system_prompt="visible chapter prompt ignored",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="hidden-only-child",
+            title="Hidden-only Child",
+            parent_bid="chapter-hidden-only",
+            position="2.1",
+            hidden=1,
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="hidden child content is ignored",
+            llm_system_prompt="hidden child prompt ignored",
+        )
+        for billing_metric in (
+            BILLING_METRIC_LLM_INPUT_TOKENS,
+            BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        ):
+            _seed_credit_usage_rate(
+                rate_bid=f"rate-llm-baseline-{billing_metric}",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="*",
+                model="*",
+                billing_metric=billing_metric,
+                credits_per_unit="1",
+                effective_from=datetime(2026, 1, 1, 0, 0, 0),
+            )
+        _seed_credit_usage_rate(
+            rate_bid="rate-llm-input-gpt-test",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="*",
+            model="gpt-test",
+            billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+            credits_per_unit="1",
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        )
+        _seed_credit_usage_rate(
+            rate_bid="rate-llm-output-gpt-test",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="*",
+            model="gpt-test",
+            billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            credits_per_unit="2",
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        )
+        _seed_credit_usage_rate(
+            rate_bid="rate-tts-baseline-output",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider="*",
+            model="*",
+            billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
+            credits_per_unit="1",
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        )
+        _seed_credit_usage_rate(
+            rate_bid="rate-tts-minimax-request",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider="minimax",
+            model="speech-test",
+            billing_metric=BILLING_METRIC_TTS_REQUEST_COUNT,
+            credits_per_unit="0",
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        )
+        _seed_credit_usage_rate(
+            rate_bid="rate-tts-minimax-output",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider="minimax",
+            model="speech-test",
+            billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
+            credits_per_unit="1",
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    estimate = payload["data"]["estimated_credit_cost"]
+    assert estimate["read"]["min"] == 46
+    assert estimate["read"]["max"] == 82
+    assert estimate["classroom"]["min"] == 46
+    assert estimate["classroom"]["max"] == 82
+    assert estimate["listen"]["enabled"] is False
+    assert estimate["listen"]["min"] == 73
+    assert estimate["listen"]["max"] == 115
+    assert estimate["listen"]["llm"] == {
+        "min": 46,
+        "max": 82,
+        "model": "gpt-test",
+        "model_label": "GPT Test",
+        "multiplier": "3x",
+    }
+    assert estimate["listen"]["tts"] == {
+        "min": 27,
+        "max": 33,
+        "model": "speech-test",
+        "model_label": "MiniMax Speech Test",
+        "multiplier": "3x",
+    }
+    assert estimate["assumptions"] == {
+        "visible_lesson_count": 2,
+        "prompt_char_count": 10,
+        "content_char_count": 30,
+        "calculated_at": "2026-05-01T12:00:00Z",
+    }
 
 
 def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surfaces_unknown_permission(

@@ -145,6 +145,18 @@
       "title": "积分消耗"
     },
     "creditUsageTab": "积分消耗",
+    "estimatedCreditCost": {
+      "classroom": "课堂",
+      "creditUnit": "积分",
+      "description": "按当前内容、模型和倍率估算；不含重修、追问或重新生成等额外消耗，实际以积分明细为准。",
+      "disabled": "未开启",
+      "listen": "听课",
+      "llm": "LLM",
+      "read": "阅读",
+      "title": "预估全课消耗",
+      "tts": "TTS",
+      "unknownModel": "未知模型"
+    },
     "fields": {
       "courseId": "课程ID",
       "courseName": "课程名",
