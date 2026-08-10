@@ -402,6 +402,7 @@ def _build_llm_rows(
     rate_index: _ActiveRateIndex,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    catalog_seen: set[tuple[str, str]] = set()
     seen: set[tuple[str, str]] = set()
     for option in get_current_models(app):
         model = str(option.get("model") or "").strip()
@@ -411,28 +412,26 @@ def _build_llm_rows(
         rate_model = model_candidates[0] if model_candidates else model
         display_name = str(option.get("display_name") or model).strip()
         key = (provider, rate_model)
-        if key in seen:
+        if key in catalog_seen:
             continue
-        seen.add(key)
-        seen.update(
-            (provider, str(candidate or "").strip())
-            for candidate in model_candidates
-            if str(candidate or "").strip()
+        catalog_seen.add(key)
+        row = _serialize_rate_row(
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider=provider,
+            model=model,
+            model_candidates=model_candidates,
+            rate_model=rate_model,
+            display_name=display_name,
+            billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            baseline_cost=baseline_cost,
+            tts_chars_per_llm_token=None,
+            rate_index=rate_index,
         )
-        rows.append(
-            _serialize_rate_row(
-                usage_type=BILL_USAGE_TYPE_LLM,
-                provider=provider,
-                model=model,
-                model_candidates=model_candidates,
-                rate_model=rate_model,
-                display_name=display_name,
-                billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-                baseline_cost=baseline_cost,
-                tts_chars_per_llm_token=None,
-                rate_index=rate_index,
-            )
-        )
+        rows.append(row)
+        matched_provider = row["matched_rate_provider"]
+        matched_model = row["matched_rate_model"]
+        if matched_provider is not None and matched_model is not None:
+            seen.add((str(matched_provider), str(matched_model)))
     for provider, rate_model in _load_active_exact_rate_identities(
         rate_index, BILL_USAGE_TYPE_LLM
     ):

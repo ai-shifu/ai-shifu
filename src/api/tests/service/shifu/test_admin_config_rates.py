@@ -549,8 +549,15 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
             ("qwen", "foo", "Foo"),
             ("custom-a", "alpha", "custom-a/alpha"),
             ("custom-b", "beta", "custom-b/beta"),
+            ("qwen", "qwen/runtime", "qwen/qwen/runtime"),
         ]
         assert result["llm_rates"][0]["rate_bid"] == "runtime"
+        assert result["llm_rates"][0]["source"] == "exact"
+        assert result["llm_rates"][0]["rate_model"] == "runtime"
+        assert (
+            result["llm_rates"][0]["matched_rate_provider"],
+            result["llm_rates"][0]["matched_rate_model"],
+        ) == ("qwen", "runtime")
         assert result["llm_rates"][1]["rate_bid"] == "foo-alias"
         assert result["llm_rates"][1]["source"] == "exact"
         assert result["llm_rates"][1]["rate_model"] == "foo"
@@ -560,6 +567,12 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
         ) == ("qwen", "qwen/foo")
         assert result["llm_rates"][2]["rate_bid"] == "custom-a"
         assert result["llm_rates"][3]["rate_bid"] == "custom-b"
+        assert result["llm_rates"][4]["rate_bid"] == "runtime-alias"
+        assert result["llm_rates"][4]["source"] == "exact"
+        assert (
+            result["llm_rates"][4]["matched_rate_provider"],
+            result["llm_rates"][4]["matched_rate_model"],
+        ) == ("qwen", "qwen/runtime")
         assert [
             (row["provider"], row["rate_model"], row["display_name"])
             for row in result["tts_rates"]
