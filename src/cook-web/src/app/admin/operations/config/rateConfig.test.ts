@@ -254,12 +254,16 @@ describe('rate config helpers', () => {
     expect(isRateRowCreateSuggestion(ttsDefaultRow, 'tts')).toBe(false);
     expect(isRateRowCreateSuggestion(aliasBackedRow, 'llm')).toBe(true);
     expect(isRateRowCreateSuggestion(rawExactRow, 'llm')).toBe(false);
-    expect(
-      isRateRowCreateSuggestion(
-        rateRow({ ...rawExactRow, display_name: 'DB-only exact rate' }),
-        'llm',
-      ),
-    ).toBe(false);
+    const dbOnlyAliasRow = rateRow({
+      provider: 'qwen',
+      model: 'qwen/qwen/runtime',
+      rate_model: 'qwen/runtime',
+      display_name: 'qwen/qwen/runtime',
+      source: 'exact',
+      matched_rate_provider: 'qwen',
+      matched_rate_model: 'qwen/runtime',
+    });
+    expect(isRateRowCreateSuggestion(dbOnlyAliasRow, 'llm')).toBe(false);
   });
 
   test('falls back to exact source identity when matched identity is unavailable', () => {

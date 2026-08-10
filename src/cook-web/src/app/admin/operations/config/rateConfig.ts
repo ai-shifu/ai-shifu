@@ -186,10 +186,20 @@ export const hasExactRateIdentity = (rows: RateRow[], identity: RateIdentity) =>
   rows.some(row => rateRowMatchesExactIdentity(row, identity));
 
 export const isRateRowCreateSuggestion = (row: RateRow, usageType: RateTab) => {
+  const rawRateModel = row.rate_model ?? row.model;
+  const matchesRawRowIdentity =
+    row.matched_rate_provider != null &&
+    row.matched_rate_model != null &&
+    row.matched_rate_provider === row.provider &&
+    row.matched_rate_model === rawRateModel;
+  if (matchesRawRowIdentity) {
+    return false;
+  }
+
   const targetIdentity = canonicalizeRateIdentity(
     usageType,
     row.provider,
-    row.rate_model ?? row.model,
+    rawRateModel,
   );
   return !rateRowMatchesExactIdentity(row, targetIdentity);
 };
