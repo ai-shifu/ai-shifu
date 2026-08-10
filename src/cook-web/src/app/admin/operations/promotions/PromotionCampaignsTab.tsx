@@ -26,6 +26,7 @@ import {
   renderTimeRange,
   renderTooltipText,
   resolveCampaignApplyTypeLabel,
+  PROMOTION_FILTER_COLLAPSED_GRID_CLASS,
   SectionCard,
   shouldShowCampaignStatusToggle,
   TABLE_ACTION_CELL_CLASS,
@@ -116,8 +117,8 @@ export default function PromotionCampaignsTab({
           className='bg-transparent'
           contentClassName='min-w-0'
           labelClassName='w-24 text-right'
-          collapsedGridClassName='gap-x-5 xl:grid-cols-4'
-          expandedGridClassName='gap-x-5 xl:grid-cols-3'
+          collapsedGridClassName={PROMOTION_FILTER_COLLAPSED_GRID_CLASS}
+          expandedGridClassName='gap-x-5 xl:grid-cols-4'
           labelColon
         />
       </SectionCard>
