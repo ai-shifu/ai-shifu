@@ -164,6 +164,7 @@ def _build_latest_operator_course_rows_query(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
+    matching_course_bids: Optional[Set[str]] = None,
     creator_bids: Optional[Set[str]],
     start_time: Optional[datetime],
     end_time: Optional[datetime],
@@ -235,7 +236,9 @@ def _build_latest_operator_course_rows_query(
     if course_name:
         query = query.filter(model.title.ilike(f"%{course_name}%"))
     course_query_filter = _build_operator_course_query_filter(
-        model.shifu_bid, course_query
+        model.shifu_bid,
+        course_query,
+        matching_course_bids=matching_course_bids,
     )
     if course_query_filter is not None:
         query = query.filter(course_query_filter)
@@ -256,6 +259,7 @@ def _build_latest_operator_course_rows_subquery(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
+    matching_course_bids: Optional[Set[str]] = None,
     creator_bids: Optional[Set[str]],
     start_time: Optional[datetime],
     end_time: Optional[datetime],
@@ -266,6 +270,7 @@ def _build_latest_operator_course_rows_subquery(
         shifu_bid=shifu_bid,
         course_name=course_name,
         course_query=course_query,
+        matching_course_bids=matching_course_bids,
         creator_bids=creator_bids,
         start_time=start_time,
         end_time=end_time,
@@ -280,6 +285,7 @@ def _build_operator_course_candidate_query(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
+    matching_course_bids: Optional[Set[str]] = None,
     creator_bids: Optional[Set[str]],
     start_time: Optional[datetime],
     end_time: Optional[datetime],
@@ -290,6 +296,7 @@ def _build_operator_course_candidate_query(
         shifu_bid=shifu_bid,
         course_name=course_name,
         course_query=course_query,
+        matching_course_bids=matching_course_bids,
         creator_bids=creator_bids,
         start_time=start_time,
         end_time=end_time,
@@ -300,6 +307,7 @@ def _build_operator_course_candidate_query(
         shifu_bid=shifu_bid,
         course_name=course_name,
         course_query=course_query,
+        matching_course_bids=matching_course_bids,
         creator_bids=creator_bids,
         start_time=start_time,
         end_time=end_time,
@@ -599,6 +607,7 @@ def _build_latest_shifus_query(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
+    matching_course_bids: Optional[Set[str]] = None,
     creator_bids: Optional[Set[str]],
     start_time: Optional[datetime],
     end_time: Optional[datetime],
@@ -621,7 +630,9 @@ def _build_latest_shifus_query(
     if course_name:
         latest_rows = latest_rows.filter(model.title.ilike(f"%{course_name}%"))
     course_query_filter = _build_operator_course_query_filter(
-        model.shifu_bid, course_query
+        model.shifu_bid,
+        course_query,
+        matching_course_bids=matching_course_bids,
     )
     if course_query_filter is not None:
         latest_rows = latest_rows.filter(course_query_filter)
@@ -705,6 +716,7 @@ def _load_latest_shifus(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
+    matching_course_bids: Optional[Set[str]] = None,
     creator_bids: Optional[Set[str]],
     start_time: Optional[datetime],
     end_time: Optional[datetime],
@@ -718,6 +730,7 @@ def _load_latest_shifus(
         shifu_bid=shifu_bid,
         course_name=course_name,
         course_query=course_query,
+        matching_course_bids=matching_course_bids,
         creator_bids=creator_bids,
         start_time=start_time,
         end_time=end_time,
@@ -758,6 +771,7 @@ def _load_latest_shifu_seeds(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
+    matching_course_bids: Optional[Set[str]] = None,
     creator_bids: Optional[Set[str]],
     start_time: Optional[datetime],
     end_time: Optional[datetime],
@@ -769,6 +783,7 @@ def _load_latest_shifu_seeds(
         shifu_bid=shifu_bid,
         course_name=course_name,
         course_query=course_query,
+        matching_course_bids=matching_course_bids,
         creator_bids=creator_bids,
         start_time=start_time,
         end_time=end_time,
@@ -1038,13 +1053,18 @@ def _find_operator_course_bids_by_name(course_name: str) -> Set[str]:
 def _build_operator_course_query_filter(
     shifu_bid_column: Any,
     course_query: str,
+    *,
+    matching_course_bids: Optional[Set[str]] = None,
 ) -> Any | None:
     normalized_course_query = str(course_query or "").strip()
     if not normalized_course_query:
         return None
 
     course_filters = [shifu_bid_column == normalized_course_query]
-    matching_course_bids = _find_operator_course_bids_by_name(normalized_course_query)
+    if matching_course_bids is None:
+        matching_course_bids = _find_operator_course_bids_by_name(
+            normalized_course_query
+        )
     if matching_course_bids:
         course_filters.append(shifu_bid_column.in_(sorted(matching_course_bids)))
     return or_(*course_filters)
@@ -1242,6 +1262,9 @@ def _list_operator_courses_legacy(
     shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
     course_name = str(filters.get("course_name", "") or "").strip()
     course_query = str(filters.get("course_query", "") or "").strip()
+    matching_course_bids = (
+        _find_operator_course_bids_by_name(course_query) if course_query else None
+    )
     course_status = str(filters.get("course_status", "") or "").strip().lower()
     quick_filter = _resolve_course_quick_filter(filters.get("quick_filter", ""))
     creator_keyword = str(filters.get("creator_keyword", "") or "").strip()
@@ -1256,6 +1279,7 @@ def _list_operator_courses_legacy(
         shifu_bid=shifu_bid,
         course_name=course_name,
         course_query=course_query,
+        matching_course_bids=matching_course_bids,
         creator_bids=creator_bids,
         start_time=start_time,
         end_time=end_time,
@@ -1267,6 +1291,7 @@ def _list_operator_courses_legacy(
         shifu_bid=shifu_bid,
         course_name=course_name,
         course_query=course_query,
+        matching_course_bids=matching_course_bids,
         creator_bids=creator_bids,
         start_time=start_time,
         end_time=end_time,
@@ -1421,6 +1446,9 @@ def list_operator_courses(
         shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
         course_name = str(filters.get("course_name", "") or "").strip()
         course_query = str(filters.get("course_query", "") or "").strip()
+        matching_course_bids = (
+            _find_operator_course_bids_by_name(course_query) if course_query else None
+        )
         course_status = str(filters.get("course_status", "") or "").strip().lower()
         quick_filter = _resolve_course_quick_filter(filters.get("quick_filter", ""))
         creator_keyword = str(filters.get("creator_keyword", "") or "").strip()
@@ -1435,6 +1463,7 @@ def list_operator_courses(
             shifu_bid=shifu_bid,
             course_name=course_name,
             course_query=course_query,
+            matching_course_bids=matching_course_bids,
             creator_bids=creator_bids,
             start_time=start_time,
             end_time=end_time,
@@ -1466,6 +1495,7 @@ def list_operator_courses(
             shifu_bid=shifu_bid,
             course_name=course_name,
             course_query=course_query,
+            matching_course_bids=matching_course_bids,
             creator_bids=creator_bids,
             start_time=start_time,
             end_time=end_time,

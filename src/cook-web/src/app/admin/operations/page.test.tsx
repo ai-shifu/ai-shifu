@@ -1570,6 +1570,12 @@ describe('OperationsPage', () => {
       }),
     );
 
+    expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        course_query: 'course-second',
+      }),
+    );
+
     secondSearch.resolve({
       items: [
         {
