@@ -474,14 +474,25 @@ export default function AdminOperationUsersPage() {
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const userQueryPlaceholder = React.useMemo(() => {
+    const normalizedMethods = Array.isArray(loginMethodsEnabled)
+      ? loginMethodsEnabled
+      : String(loginMethodsEnabled || '').split(',');
+    const methodSet = new Set(
+      normalizedMethods
+        .map(method => method.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const hasPhone = methodSet.has('phone');
+    const hasEmail = methodSet.has('email') || methodSet.has('google');
+
+    if (hasPhone && hasEmail) {
+      return tOperationsUsers('filters.userPlaceholderPhoneEmail');
+    }
     if (contactType === 'email') {
       return tOperationsUsers('filters.userPlaceholderEmail');
     }
-    if (contactType === 'phone') {
-      return tOperationsUsers('filters.userPlaceholderPhone');
-    }
-    return tOperationsUsers('filters.userPlaceholderPhoneEmail');
-  }, [contactType, tOperationsUsers]);
+    return tOperationsUsers('filters.userPlaceholderPhone');
+  }, [contactType, loginMethodsEnabled, tOperationsUsers]);
   const contactColumnLabel = React.useMemo(
     () =>
       contactType === 'email'
@@ -1118,6 +1129,8 @@ export default function AdminOperationUsersPage() {
                 labelClassName='w-20 text-right'
                 collapsedGridClassName='gap-x-5 xl:grid-cols-3'
                 expandedGridClassName='gap-x-5 xl:grid-cols-3'
+                expandedActionsInline
+                expandedActionsClassName='xl:col-start-3'
                 labelColon
               />
             </div>

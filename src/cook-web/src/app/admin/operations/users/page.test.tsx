@@ -66,6 +66,11 @@ const mockUserState: {
     is_operator: true,
   },
 };
+const mockEnvState = {
+  loginMethodsEnabled: ['email'],
+  defaultLoginMethod: 'email',
+  currencySymbol: '¥',
+};
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -173,12 +178,7 @@ jest.mock('@/c-store', () => ({
       defaultLoginMethod: string;
       currencySymbol: string;
     }) => unknown,
-  ) =>
-    selector({
-      loginMethodsEnabled: ['email'],
-      defaultLoginMethod: 'email',
-      currencySymbol: '¥',
-    }),
+  ) => selector(mockEnvState),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -323,6 +323,9 @@ describe('AdminOperationUsersPage', () => {
     mockGetAdminOperationUsers.mockReset();
     mockGetAdminOperationUserDetail.mockReset();
     mockLanguage = 'en-US';
+    mockEnvState.loginMethodsEnabled = ['email'];
+    mockEnvState.defaultLoginMethod = 'email';
+    mockEnvState.currencySymbol = '¥';
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
     mockUserState.userInfo = { is_operator: true };
@@ -818,6 +821,19 @@ describe('AdminOperationUsersPage', () => {
         end_time: '',
       });
     });
+  });
+
+  test('shows both contact types in the combined user placeholder', async () => {
+    mockEnvState.loginMethodsEnabled = ['phone', 'email'];
+    mockEnvState.defaultLoginMethod = 'phone';
+
+    await renderResolvedPage();
+
+    expect(
+      screen.getByPlaceholderText(
+        'module.operationsUser.filters.userPlaceholderPhoneEmail',
+      ),
+    ).toBeInTheDocument();
   });
 
   test('clicking the paid users overview card syncs status and quick filter', async () => {

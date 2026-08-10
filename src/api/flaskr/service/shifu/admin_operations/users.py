@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from flask import Flask
-from sqlalchemy import and_, case
+from sqlalchemy import and_, case, or_
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
@@ -57,29 +57,23 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 
 
-def _find_matching_user_bids_by_query(user_query: str) -> set[str]:
+def _build_user_query_filter(user_query: str):
     normalized_query = str(user_query or "").strip()
-    if not normalized_query:
-        return set()
-
-    matching_user_bids = set(find_matching_user_bids_by_identifier(normalized_query))
-    nickname_rows = (
-        db.session.query(UserEntity.user_bid)
-        .filter(
-            UserEntity.deleted == 0,
-            UserEntity.nickname.ilike(f"%{normalized_query}%"),
-        )
-        .all()
+    like_pattern = f"%{normalized_query}%"
+    credential_user_bids = db.session.query(AuthCredential.user_bid).filter(
+        AuthCredential.deleted == 0,
+        AuthCredential.provider_name.in_(["phone", "email", "google"]),
+        AuthCredential.identifier.ilike(like_pattern),
     )
-    matching_user_bids.update(
-        str(user_bid or "").strip()
-        for (user_bid,) in nickname_rows
-        if str(user_bid or "").strip()
+    return or_(
+        UserEntity.user_bid.ilike(like_pattern),
+        UserEntity.user_identify.ilike(like_pattern),
+        UserEntity.nickname.ilike(like_pattern),
+        UserEntity.user_bid.in_(credential_user_bids),
     )
-    return matching_user_bids
 
 
 def _build_operator_user_overview() -> AdminOperationUserOverviewDTO:
@@ -231,15 +225,7 @@ def list_operator_users(
         if user_bid:
             query = query.filter(UserEntity.user_bid == user_bid)
         if user_query:
-            matching_user_bids = _find_matching_user_bids_by_query(user_query)
-            if not matching_user_bids:
-                return AdminOperationUserListDTO(
-                    safe_page_index,
-                    safe_page_size,
-                    0,
-                    [],
-                )
-            query = query.filter(UserEntity.user_bid.in_(list(matching_user_bids)))
+            query = query.filter(_build_user_query_filter(user_query))
         if nickname:
             query = query.filter(UserEntity.nickname.ilike(f"%{nickname}%"))
         if user_status:
