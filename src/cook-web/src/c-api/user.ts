@@ -51,28 +51,27 @@ export const updateWxcode = ({ wxcode }) => {
   return request.post('/api/user/update_openid', { wxcode, shifu_bid });
 };
 
-export type ProfileOnboardingStatus = {
-  enabled: boolean;
-  should_show: boolean;
-  markdownflow: string;
-  allowed_variable_keys: string[];
-  current_values: Record<string, string>;
-};
-
-export type CompleteProfileOnboardingPayload = {
-  skipped: boolean;
-  variables?: Record<string, string>;
-};
-
-export const getProfileOnboarding = (): Promise<ProfileOnboardingStatus> => {
-  return request.get('/api/user/profile-onboarding');
-};
-
-export const completeProfileOnboarding = (
-  payload: CompleteProfileOnboardingPayload,
-) => {
-  return request.post('/api/user/profile-onboarding/complete', payload);
-};
+// The maintained `c` route still imports this compatibility module. Keep the
+// learner-profile transport and validation owned by the modern API module.
+export {
+  completeGuidedProfileOnboarding as completeProfileOnboarding,
+  createProfileOnboardingSession,
+  getProfileOnboardingV2 as getProfileOnboarding,
+  isProfileOnboardingV2Status,
+  PROFILE_ONBOARDING_CONTRACT_VERSION,
+  runProfileOnboardingSession,
+  skipGuidedProfileOnboarding as skipProfileOnboarding,
+} from '@/api/learnerProfile';
+export type {
+  CompleteProfileOnboardingPayload,
+  LearnerProfile as CompleteProfileOnboardingResponse,
+  ProfileOnboardingPresentation,
+  ProfileOnboardingRunEvent,
+  ProfileOnboardingSession,
+  ProfileOnboardingSessionIntent,
+  ProfileOnboardingV2AdapterStatus as ProfileOnboardingStatus,
+  ProfileOnboardingV2Status,
+} from '@/api/learnerProfile';
 
 /**
  * Send SMS verification code

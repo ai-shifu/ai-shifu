@@ -3,12 +3,12 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
 class CacheLock(Protocol):
-    def acquire(self, blocking: bool = True, blocking_timeout: Optional[int] = None):
+    def acquire(self, blocking: bool = True, blocking_timeout: int | None = None):
         raise NotImplementedError
 
     def release(self) -> None:
@@ -20,15 +20,15 @@ class CacheProvider(Protocol):
     def get(self, key: str):
         raise NotImplementedError
 
-    def getex(self, key: str, ex: Optional[int] = None, px: Optional[int] = None):
+    def getex(self, key: str, ex: int | None = None, px: int | None = None):
         raise NotImplementedError
 
     def set(
         self,
         key: str,
         value: Any,
-        ex: Optional[int] = None,
-        px: Optional[int] = None,
+        ex: int | None = None,
+        px: int | None = None,
         nx: bool = False,
         xx: bool = False,
         *args,
@@ -51,8 +51,8 @@ class CacheProvider(Protocol):
     def lock(
         self,
         key: str,
-        timeout: Optional[int] = None,
-        blocking_timeout: Optional[int] = None,
+        timeout: int | None = None,
+        blocking_timeout: int | None = None,
     ):
         raise NotImplementedError
 
@@ -75,15 +75,15 @@ class _DynamicRedisCacheProvider:
     def get(self, key: str):
         return self._client().get(key)
 
-    def getex(self, key: str, ex: Optional[int] = None, px: Optional[int] = None):
+    def getex(self, key: str, ex: int | None = None, px: int | None = None):
         return self._client().getex(key, ex=ex, px=px)
 
     def set(
         self,
         key: str,
         value: Any,
-        ex: Optional[int] = None,
-        px: Optional[int] = None,
+        ex: int | None = None,
+        px: int | None = None,
         nx: bool = False,
         xx: bool = False,
         *args,
@@ -109,8 +109,8 @@ class _DynamicRedisCacheProvider:
     def lock(
         self,
         key: str,
-        timeout: Optional[int] = None,
-        blocking_timeout: Optional[int] = None,
+        timeout: int | None = None,
+        blocking_timeout: int | None = None,
     ):
         return self._client().lock(
             key, timeout=timeout, blocking_timeout=blocking_timeout
@@ -120,7 +120,7 @@ class _DynamicRedisCacheProvider:
 @dataclass
 class _InMemoryEntry:
     value: bytes
-    expires_at: Optional[float]
+    expires_at: float | None
 
 
 class _InMemoryLock:
@@ -128,7 +128,7 @@ class _InMemoryLock:
         self._lock = lock
         self._held = False
 
-    def acquire(self, blocking: bool = True, blocking_timeout: Optional[int] = None):
+    def acquire(self, blocking: bool = True, blocking_timeout: int | None = None):
         if not blocking:
             acquired = self._lock.acquire(blocking=False)
         elif blocking_timeout is None:
@@ -179,7 +179,7 @@ class InMemoryCacheProvider:
             entry = self._store.get(key)
             return entry.value if entry is not None else None
 
-    def getex(self, key: str, ex: Optional[int] = None, px: Optional[int] = None):
+    def getex(self, key: str, ex: int | None = None, px: int | None = None):
         with self._mu:
             self._purge_if_expired(key)
             entry = self._store.get(key)
@@ -195,8 +195,8 @@ class InMemoryCacheProvider:
         self,
         key: str,
         value: Any,
-        ex: Optional[int] = None,
-        px: Optional[int] = None,
+        ex: int | None = None,
+        px: int | None = None,
         nx: bool = False,
         xx: bool = False,
         *args,
@@ -208,7 +208,7 @@ class InMemoryCacheProvider:
                 return False
             if xx and key not in self._store:
                 return False
-            expires_at: Optional[float] = None
+            expires_at: float | None = None
             if ex is None and args:
                 ex = args[0]
             if ex is not None:
@@ -254,13 +254,13 @@ class InMemoryCacheProvider:
             if entry.expires_at is None:
                 return -1
             remaining = int(entry.expires_at - self._now())
-            return remaining if remaining > 0 else 0
+            return max(0, remaining)
 
     def lock(
         self,
         key: str,
-        timeout: Optional[int] = None,
-        blocking_timeout: Optional[int] = None,
+        timeout: int | None = None,
+        blocking_timeout: int | None = None,
     ):
         with self._mu:
             lock = self._locks.get(key)
@@ -294,15 +294,15 @@ class FallbackCacheProvider:
     def get(self, key: str):
         return self._call("get", key)
 
-    def getex(self, key: str, ex: Optional[int] = None, px: Optional[int] = None):
+    def getex(self, key: str, ex: int | None = None, px: int | None = None):
         return self._call("getex", key, ex=ex, px=px)
 
     def set(
         self,
         key: str,
         value: Any,
-        ex: Optional[int] = None,
-        px: Optional[int] = None,
+        ex: int | None = None,
+        px: int | None = None,
         nx: bool = False,
         xx: bool = False,
         *args,
@@ -335,8 +335,8 @@ class FallbackCacheProvider:
     def lock(
         self,
         key: str,
-        timeout: Optional[int] = None,
-        blocking_timeout: Optional[int] = None,
+        timeout: int | None = None,
+        blocking_timeout: int | None = None,
     ):
         return self._call(
             "lock", key, timeout=timeout, blocking_timeout=blocking_timeout
@@ -344,6 +344,5 @@ class FallbackCacheProvider:
 
 
 _in_memory_cache = InMemoryCacheProvider()
-cache: CacheProvider = FallbackCacheProvider(
-    _DynamicRedisCacheProvider(), _in_memory_cache
-)
+redis_cache: CacheProvider = _DynamicRedisCacheProvider()
+cache: CacheProvider = FallbackCacheProvider(redis_cache, _in_memory_cache)
