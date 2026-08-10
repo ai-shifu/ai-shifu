@@ -296,6 +296,8 @@ def test_update_db_only_llm_alias_only_supersedes_explicit_alias(monkeypatch, ap
         db.session.refresh(alias_output)
 
         assert result["rate_model"] == "qwen/foo"
+        assert raw_output.deleted == 0
+        assert raw_output.status == CREDIT_USAGE_RATE_STATUS_ACTIVE
         assert raw_output.effective_to is None
         assert alias_output.effective_to == rate_change_at
         assert set(active_alias_rows) == {
