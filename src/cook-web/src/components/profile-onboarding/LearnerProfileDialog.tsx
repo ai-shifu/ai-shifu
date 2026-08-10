@@ -12,10 +12,14 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
+  completeGuidedProfileOnboarding,
   getLearnerProfile,
+  getProfileOnboardingV2,
+  isProfileOnboardingV2Status,
   optimizeLearnerProfile,
   updateLearnerProfile,
 } from '@/api/learnerProfile';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +49,8 @@ import {
   resolveLearnerNicknameDraft,
   type LearnerNicknameSource,
 } from './learnerProfileDraft';
+import ProfileOnboardingModal from './ProfileOnboardingModal';
+import { PROFILE_ONBOARDING_EVENTS } from './events';
 
 const DEFAULT_MAX_LENGTH = 1000;
 const DEFAULT_NICKNAME_MAX_LENGTH = 64;
@@ -77,6 +83,7 @@ export default function LearnerProfileDialog({
 }: LearnerProfileDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { trackEvent } = useTracking();
   const [profile, setProfile] = React.useState('');
   const [initialProfile, setInitialProfile] = React.useState('');
   const [savedProfile, setSavedProfile] = React.useState('');
@@ -105,6 +112,13 @@ export default function LearnerProfileDialog({
     string | null
   >(null);
   const [discardOpen, setDiscardOpen] = React.useState(false);
+  const [rerunOpen, setRerunOpen] = React.useState(false);
+  const [rerunSubmitting, setRerunSubmitting] = React.useState(false);
+  const [rerunError, setRerunError] = React.useState('');
+  const [collectionEnabled, setCollectionEnabled] = React.useState(false);
+  const [guidedAvailable, setGuidedAvailable] = React.useState(false);
+  const [settingsSessionEligible, setSettingsSessionEligible] =
+    React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const translationRef = React.useRef(t);
   const mountedRef = React.useRef(false);
@@ -134,18 +148,23 @@ export default function LearnerProfileDialog({
   }, []);
 
   const loadProfile = React.useCallback(
-    async (generation: number, scope: string) => {
+    async (generation: number, scope: string): Promise<boolean> => {
       const request = ++loadRequestRef.current;
       setLoading(true);
       setLoaded(false);
       setError('');
       try {
-        const response = await getLearnerProfile();
+        const [response, onboardingStatus] = await Promise.all([
+          getLearnerProfile(),
+          mode === 'settings'
+            ? getProfileOnboardingV2().catch(() => null)
+            : Promise.resolve(null),
+        ]);
         if (
           !isCurrent(generation, scope) ||
           request !== loadRequestRef.current
         ) {
-          return;
+          return false;
         }
         const nextProfile = buildLearnerProfileDraft(
           response,
@@ -163,8 +182,22 @@ export default function LearnerProfileDialog({
         setNicknameMaxLength(
           response.nickname_max_length || DEFAULT_NICKNAME_MAX_LENGTH,
         );
+        const validOnboardingStatus = isProfileOnboardingV2Status(
+          onboardingStatus,
+        )
+          ? onboardingStatus
+          : null;
+        setCollectionEnabled(Boolean(validOnboardingStatus?.enabled));
+        setGuidedAvailable(Boolean(validOnboardingStatus?.guided_available));
+        setSettingsSessionEligible(
+          Boolean(
+            validOnboardingStatus?.handled ||
+            validOnboardingStatus?.has_learner_profile,
+          ),
+        );
         resetOptimization();
         setLoaded(true);
+        return true;
       } catch (caughtError) {
         if (
           isCurrent(generation, scope) &&
@@ -179,6 +212,7 @@ export default function LearnerProfileDialog({
             ),
           );
         }
+        return false;
       } finally {
         if (
           isCurrent(generation, scope) &&
@@ -188,7 +222,7 @@ export default function LearnerProfileDialog({
         }
       }
     },
-    [isCurrent, resetOptimization],
+    [isCurrent, mode, resetOptimization],
   );
 
   React.useEffect(() => {
@@ -206,6 +240,12 @@ export default function LearnerProfileDialog({
     loadRequestRef.current += 1;
     optimizeRequestRef.current += 1;
     setDiscardOpen(false);
+    setRerunOpen(false);
+    setRerunSubmitting(false);
+    setRerunError('');
+    setCollectionEnabled(false);
+    setGuidedAvailable(false);
+    setSettingsSessionEligible(false);
     setError('');
     setOptimizing(false);
     resetOptimization();
@@ -304,7 +344,15 @@ export default function LearnerProfileDialog({
           : responseNickname.source,
       );
       setNicknameMaxLength(response.nickname_max_length || nicknameMaxLength);
+      setSettingsSessionEligible(true);
       resetOptimization();
+      if (mode === 'settings') {
+        void trackEvent(
+          normalized
+            ? PROFILE_ONBOARDING_EVENTS.SETTINGS_SAVED
+            : PROFILE_ONBOARDING_EVENTS.SETTINGS_CLEARED,
+        );
+      }
       await runOnSaved(generation, scope);
       if (isCurrent(generation, scope)) {
         await onClose('saved');
@@ -329,6 +377,7 @@ export default function LearnerProfileDialog({
     isCurrent,
     loaded,
     maxLength,
+    mode,
     nickname,
     nicknameMaxLength,
     nicknameSource,
@@ -340,6 +389,7 @@ export default function LearnerProfileDialog({
     savedNickname,
     saving,
     t,
+    trackEvent,
   ]);
 
   const normalizedProfile = profile.trim();
@@ -505,6 +555,63 @@ export default function LearnerProfileDialog({
     void loadProfile(generation, draftStorageScope);
   }, [draftStorageScope, loadProfile]);
 
+  const completeSettingsRerun = React.useCallback(
+    async (
+      learnerProfile: string,
+      _source: 'guided' | 'settings',
+      sessionId?: string,
+    ) => {
+      const generation = generationRef.current;
+      const scope = draftStorageScope;
+      setRerunSubmitting(true);
+      setRerunError('');
+      try {
+        await completeGuidedProfileOnboarding({
+          learner_profile: learnerProfile,
+          trigger_source: 'settings',
+          ...(sessionId ? { session_id: sessionId } : {}),
+        });
+        if (!isCurrent(generation, scope)) {
+          return false;
+        }
+        const refreshed = await loadProfile(generation, scope);
+        if (!refreshed || !isCurrent(generation, scope)) {
+          return false;
+        }
+        await runOnSaved(generation, scope);
+        if (!isCurrent(generation, scope)) {
+          return false;
+        }
+        setRerunOpen(false);
+        toast({
+          title: t('module.profileOnboarding.settings.regenerateSuccess'),
+        });
+        return true;
+      } catch (caughtError) {
+        if (isCurrent(generation, scope)) {
+          setRerunError(
+            errorMessage(
+              caughtError,
+              t('module.profileOnboarding.dialog.saveFailed'),
+            ),
+          );
+        }
+        return false;
+      } finally {
+        if (isCurrent(generation, scope)) {
+          setRerunSubmitting(false);
+        }
+      }
+    },
+    [draftStorageScope, isCurrent, loadProfile, runOnSaved, t, toast],
+  );
+
+  const canRerunGuidedQuestions =
+    mode === 'settings' &&
+    collectionEnabled &&
+    guidedAvailable &&
+    settingsSessionEligible;
+
   const secondaryLabel =
     mode === 'onboarding'
       ? t('module.profileOnboarding.dialog.later')
@@ -531,7 +638,7 @@ export default function LearnerProfileDialog({
   return (
     <>
       <Dialog
-        open={open}
+        open={open && !rerunOpen}
         onOpenChange={nextOpen => {
           if (!nextOpen) {
             requestClose();
@@ -768,6 +875,24 @@ export default function LearnerProfileDialog({
                 </div>
               ) : null}
 
+              {canRerunGuidedQuestions ? (
+                <Button
+                  type='button'
+                  variant='outline'
+                  className='min-h-11 w-full sm:w-auto'
+                  disabled={busy || optimizing}
+                  onClick={() => {
+                    void trackEvent(
+                      PROFILE_ONBOARDING_EVENTS.SETTINGS_RERUN_STARTED,
+                    );
+                    setRerunError('');
+                    setRerunOpen(true);
+                  }}
+                >
+                  {t('module.profileOnboarding.settings.rerun')}
+                </Button>
+              ) : null}
+
               <div
                 data-testid='learner-profile-reassurance'
                 className='flex items-start gap-2 px-1 text-xs leading-5 text-muted-foreground sm:text-sm'
@@ -836,6 +961,22 @@ export default function LearnerProfileDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ProfileOnboardingModal
+        open={rerunOpen}
+        presentation='non_blocking'
+        sessionIntent='settings'
+        guidedAvailable={guidedAvailable}
+        maxLength={maxLength}
+        submitting={rerunSubmitting}
+        errorMessage={rerunError}
+        onComplete={completeSettingsRerun}
+        onSkip={() => {
+          setRerunError('');
+          setRerunOpen(false);
+          return true;
+        }}
+      />
     </>
   );
 }

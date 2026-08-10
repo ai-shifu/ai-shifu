@@ -838,7 +838,12 @@ def test_legacy_status_hides_for_canonical_profile_or_fixed_v2_state(app, monkey
         "markdownflow",
         "allowed_variable_keys",
         "current_values",
+        "contract_version",
+        "profile_v2",
     }
+    assert new_status["profile_v2"]["presentation"] == "blocking"
+    assert canonical_status["profile_v2"]["presentation"] == "hidden"
+    assert v2_status["profile_v2"]["presentation"] == "hidden"
 
 
 def test_complete_atomically_writes_profile_and_fixed_v2_state(app, monkeypatch):
