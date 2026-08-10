@@ -42,7 +42,7 @@
     "clearTitle": "Remove these details?",
     "confirmClear": "Remove details",
     "description": "Courses use the background and preferences below to choose more familiar examples and explain things in a style you prefer. You can edit or remove them at any time.",
-    "emptyProfile": "This introduction cannot be empty. To remove it, use Clear introduction.",
+    "emptyProfile": "This introduction cannot be empty. To remove it, use Remove these details.",
     "loadFailed": "Could not load these details. Try again later.",
     "loading": "Loading…",
     "retry": "Retry",

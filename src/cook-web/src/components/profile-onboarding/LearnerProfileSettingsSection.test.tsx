@@ -84,11 +84,9 @@ describe('LearnerProfileSettingsSection', () => {
   });
 
   test('explains how to remove an introduction in every language', () => {
-    expect(enProfile.settings.emptyProfile).toContain('Clear introduction');
-    expect(frProfile.settings.emptyProfile).toContain(
-      'Supprimer la présentation',
-    );
-    expect(zhProfile.settings.emptyProfile).toContain('清除介绍');
+    expect(enProfile.settings.emptyProfile).toContain(enProfile.settings.clear);
+    expect(frProfile.settings.emptyProfile).toContain(frProfile.settings.clear);
+    expect(zhProfile.settings.emptyProfile).toContain(zhProfile.settings.clear);
   });
 
   test('loads and directly saves an edited profile', async () => {
