@@ -306,6 +306,8 @@
     "creator": "老师",
     "creatorBid": "老师ID",
     "creatorPlaceholder": "手机号/昵称",
+    "creatorPlaceholderEmail": "邮箱/昵称",
+    "creatorPlaceholderPhone": "手机号/昵称",
     "mobile": "手机号",
     "notificationType": "通知类型",
     "skipReason": "未发送原因",
