@@ -480,7 +480,7 @@ def _build_tts_rows(
                 model=model,
                 model_candidates=[model],
                 rate_model=model,
-                display_name=f"{provider}/{model or 'default'}",
+                display_name=f"{provider}/{model}" if model else provider,
                 billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
                 baseline_cost=baseline_cost,
                 tts_chars_per_llm_token=tts_chars_per_llm_token,

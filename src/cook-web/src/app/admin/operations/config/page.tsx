@@ -45,6 +45,7 @@ import RateCreateDialog from './RateCreateDialog';
 import {
   RATE_TABS,
   canonicalizeRateIdentity,
+  getRateDisplayName,
   getRateRowKey,
   isValidMultiplier,
   normalizeMultiplierInput,
@@ -294,7 +295,7 @@ function RateTable({
                   </TableCell>
                   <TableCell>
                     <span className='block max-w-[220px] truncate'>
-                      {row.display_name || '-'}
+                      {getRateDisplayName(row, t('create.defaultTier'))}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -607,8 +608,9 @@ export default function AdminOperationsConfigPage() {
 
   const llmRows = config.llm_rates || [];
   const ttsRows = config.tts_rates || [];
-  const confirmModelName =
-    editState?.row.display_name || editState?.row.model || '-';
+  const confirmModelName = editState?.row
+    ? getRateDisplayName(editState.row, t('create.defaultTier'))
+    : '-';
   const confirmFromMultiplier = formatMultiplier(editState?.row.multiplier);
   const confirmToMultiplier = formatMultiplier(editState?.multiplier);
 

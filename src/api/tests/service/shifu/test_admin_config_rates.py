@@ -545,7 +545,7 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
             for row in result["tts_rates"]
         ] == [
             ("voice", "voice-1", "Voice 1"),
-            ("custom-tts", "", "custom-tts/default"),
+            ("custom-tts", "", "custom-tts"),
         ]
         assert active_rate_selects == 1
 

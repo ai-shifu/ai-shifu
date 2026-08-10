@@ -62,6 +62,23 @@ const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/;
 export const getRateRowKey = (row: RateRow) =>
   `${row.usage_type}-${row.provider}-${row.rate_model ?? row.model}-${row.billing_metric}`;
 
+export const getRateDisplayName = (row: RateRow, defaultTierLabel: string) => {
+  const provider = row.provider.trim();
+  const displayName = row.display_name.trim();
+  const rateModel = (row.rate_model ?? row.model).trim();
+  const usesProviderDefaultFallback =
+    row.usage_type === 'tts' &&
+    !rateModel &&
+    (!displayName ||
+      displayName === provider ||
+      displayName === `${provider}/default`);
+
+  if (usesProviderDefaultFallback) {
+    return `${provider || displayName || '-'}/${defaultTierLabel}`;
+  }
+  return displayName || row.model.trim() || provider || '-';
+};
+
 export const normalizeMultiplierInput = (value: string) => {
   const normalized = value.replace(/[。．｡,，]/g, '.');
   const cleaned = normalized.replace(/[^\d.]/g, '');

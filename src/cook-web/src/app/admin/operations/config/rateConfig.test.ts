@@ -2,6 +2,7 @@ import {
   buildCreateRatePayload,
   canonicalizeRateIdentity,
   deriveCreditsPerUnit,
+  getRateDisplayName,
   hasExactRateIdentity,
   isValidProvider,
   isValidRateModel,
@@ -53,6 +54,45 @@ describe('rate config helpers', () => {
       model: '',
       rateModel: '',
     });
+  });
+
+  test('localizes only synthesized TTS default-tier display names', () => {
+    expect(
+      getRateDisplayName(
+        rateRow({
+          usage_type: 'tts',
+          provider: 'tencent',
+          model: '',
+          rate_model: '',
+          display_name: 'tencent',
+        }),
+        '默认档位',
+      ),
+    ).toBe('tencent/默认档位');
+    expect(
+      getRateDisplayName(
+        rateRow({
+          usage_type: 'tts',
+          provider: 'tencent',
+          model: '',
+          rate_model: '',
+          display_name: 'tencent/default',
+        }),
+        '默认档位',
+      ),
+    ).toBe('tencent/默认档位');
+    expect(
+      getRateDisplayName(
+        rateRow({
+          usage_type: 'tts',
+          provider: 'tencent',
+          model: '',
+          rate_model: '',
+          display_name: 'Tencent Premium',
+        }),
+        '默认档位',
+      ),
+    ).toBe('Tencent Premium');
   });
 
   test('derives credits and builds the create-only payload', () => {
