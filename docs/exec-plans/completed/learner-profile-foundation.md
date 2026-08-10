@@ -23,7 +23,8 @@ contract remain intact.
 - [x] 2026-08-10 11:18 CST: Validated migration structure/head, backend and
   frontend behavior, translations, architecture, repository harness, and
   lefthook.
-- [ ] 2026-08-10 11:30 CST: Commit, push, and create a ready pull request.
+- [x] 2026-08-10 11:23 CST: Committed and pushed the split, then created ready
+  pull request #2301.
 
 ## Surprises & Discoveries
 
@@ -78,7 +79,20 @@ contract remain intact.
 
 ## Outcomes & Retrospective
 
-To be completed after validation and publication.
+PR #2301 delivers the canonical profile, direct settings management, legacy
+compatibility gate, and shared Teaching/Ask/formal-preview prompt composition
+without importing the guided onboarding redesign. Focused verification ended
+with 42 backend tests and 32 frontend tests passing, followed by clean Ruff,
+type-check, translation, architecture, harness, developer-tool, and lefthook
+gates.
+
+Review before publication found several rolling-deploy and async-lifecycle
+edges that the source implementation did not fully isolate. The final split
+keeps basic-info saves independent, treats an unavailable learner-profile GET
+as a no-op for legacy settings, accepts save/clear responses only for a mounted
+matching account generation, uses the active interface locale for timestamps,
+cleans failed preview database sessions, and excludes profile text from normal
+preview logs.
 
 ## Context and Orientation
 
@@ -118,6 +132,16 @@ under `src/i18n/`.
 - Run focused pytest and Jest suites, Ruff on changed Python files,
   TypeScript type-check, ESLint, translation checks, architecture checks,
   repository harness, tool doctor, and lefthook.
+
+## Deployment and Rollback
+
+Deploy in this order: run `FLASK_APP=app.py flask db upgrade` from `src/api/`,
+wait for the new backend to be ready on every instance, and only then deploy the
+frontend. The frontend may be rolled back first. After any canonical profile is
+saved, do not roll the backend back to a binary that does not recognize the
+canonical profile and fixed profile-v2 state; such a binary can show the legacy
+questionnaire again. This layer intentionally does not write an additional
+legacy marker.
 
 ## Validation and Acceptance
 
