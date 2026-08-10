@@ -157,6 +157,7 @@ function RateTable({
   showProvider,
   multiplierHeader,
   revealIdentity,
+  onRevealHandled,
 }: {
   rows: RateRow[];
   loading: boolean;
@@ -171,6 +172,7 @@ function RateTable({
   showProvider: boolean;
   multiplierHeader: string;
   revealIdentity?: RateIdentity | null;
+  onRevealHandled: () => void;
 }) {
   const { t } = useTranslation(['module.operationsConfig', 'common.core']);
   const [pageIndex, setPageIndex] = React.useState(1);
@@ -182,10 +184,15 @@ function RateTable({
   }, [rows, safePageIndex]);
   const dataColSpan = showProvider ? 6 : 5;
   const emptyColSpan = dataColSpan + 1;
+  const previousRowsRef = React.useRef(rows);
 
   React.useEffect(() => {
+    const rowsChanged = previousRowsRef.current !== rows;
+    previousRowsRef.current = rows;
     if (!revealIdentity) {
-      setPageIndex(1);
+      if (rowsChanged) {
+        setPageIndex(1);
+      }
       return;
     }
     const revealRowIndex = rows.findIndex(row => {
@@ -199,12 +206,12 @@ function RateTable({
         rowIdentity.rateModel === revealIdentity.rateModel
       );
     });
-    setPageIndex(
-      revealRowIndex >= 0
-        ? Math.floor(revealRowIndex / RATE_TABLE_PAGE_SIZE) + 1
-        : 1,
-    );
-  }, [revealIdentity, rows]);
+    if (revealRowIndex < 0) {
+      return;
+    }
+    setPageIndex(Math.floor(revealRowIndex / RATE_TABLE_PAGE_SIZE) + 1);
+    onRevealHandled();
+  }, [onRevealHandled, revealIdentity, rows]);
 
   return (
     <AdminTableShell
@@ -395,6 +402,10 @@ export default function AdminOperationsConfigPage() {
   const [revealIdentity, setRevealIdentity] =
     React.useState<RateIdentity | null>(null);
   const createInFlightRef = React.useRef(false);
+  const clearRevealIdentity = React.useCallback(
+    () => setRevealIdentity(null),
+    [],
+  );
 
   const loadConfig = React.useCallback(async () => {
     setLoading(true);
@@ -663,6 +674,7 @@ export default function AdminOperationsConfigPage() {
               revealIdentity={
                 revealIdentity?.usageType === 'llm' ? revealIdentity : null
               }
+              onRevealHandled={clearRevealIdentity}
             />
           </TabsContent>
 
@@ -686,6 +698,7 @@ export default function AdminOperationsConfigPage() {
               revealIdentity={
                 revealIdentity?.usageType === 'tts' ? revealIdentity : null
               }
+              onRevealHandled={clearRevealIdentity}
             />
           </TabsContent>
         </div>

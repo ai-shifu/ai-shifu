@@ -57,7 +57,9 @@ jest.mock('@/app/admin/components/AdminTitle', () => ({
 
 jest.mock('@/components/admin/AdminTableShell', () => ({
   __esModule: true,
-  default: () => <div data-testid='rate-table' />,
+  default: ({ pagination }: { pagination: { pageIndex: number } }) => (
+    <div data-testid='rate-table'>{pagination.pageIndex}</div>
+  ),
 }));
 
 jest.mock('@/components/ui/Tabs', () => {
@@ -110,10 +112,12 @@ jest.mock('./RateCreateDialog', () => ({
   default: ({
     open,
     usageType,
+    onOpenChange,
     onCreate,
   }: {
     open: boolean;
     usageType: string;
+    onOpenChange: (open: boolean) => void;
     onCreate: (
       payload: Record<string, unknown>,
       identity: Record<string, unknown>,
@@ -126,25 +130,30 @@ jest.mock('./RateCreateDialog', () => ({
           type='button'
           aria-label='mock-create'
           onClick={() =>
-            void onCreate(
-              {
-                create_only: true,
-                usage_type: 'tts',
-                provider: 'tencent',
-                model: '',
-                rate_model: '',
-                billing_metric: 'tts_output_chars',
-                unit_size: 1,
-                credits_per_unit: 1,
-                status: 'active',
-              },
-              {
-                usageType: 'tts',
-                provider: 'tencent',
-                model: '',
-                rateModel: '',
-              },
-            )
+            void (async () => {
+              const created = await onCreate(
+                {
+                  create_only: true,
+                  usage_type: 'tts',
+                  provider: 'tencent',
+                  model: '',
+                  rate_model: '',
+                  billing_metric: 'tts_output_chars',
+                  unit_size: 1,
+                  credits_per_unit: 1,
+                  status: 'active',
+                },
+                {
+                  usageType: 'tts',
+                  provider: 'tencent',
+                  model: '',
+                  rateModel: '',
+                },
+              );
+              if (created) {
+                onOpenChange(false);
+              }
+            })()
           }
         />
       </div>
@@ -153,23 +162,41 @@ jest.mock('./RateCreateDialog', () => ({
 
 const mockGetRates = api.getAdminOperationConfigRates as jest.Mock;
 const mockUpdateRate = api.updateAdminOperationConfigRate as jest.Mock;
+const baseRateResponse = {
+  baseline: {
+    is_configured: true,
+    unit_cost: 0.25,
+    tts_chars_per_llm_token: 0.5,
+  },
+  llm_rates: [],
+  tts_rates: [],
+};
 
 describe('AdminOperationsConfigPage create-rate wiring', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetRates.mockResolvedValue({
-      baseline: {
-        is_configured: true,
-        unit_cost: 0.25,
-        tts_chars_per_llm_token: 0.5,
-      },
-      llm_rates: [],
-      tts_rates: [],
-    });
+    mockGetRates.mockResolvedValue(baseRateResponse);
     mockUpdateRate.mockResolvedValue({});
   });
 
   test('opens the CTA for the current tab, posts create-only data, and reloads rates', async () => {
+    mockGetRates.mockResolvedValueOnce(baseRateResponse).mockResolvedValueOnce({
+      ...baseRateResponse,
+      tts_rates: [
+        ...Array.from({ length: 10 }, (_, index) => ({
+          provider: `provider-${index}`,
+          model: `model-${index}`,
+          rate_model: `model-${index}`,
+          source: 'exact',
+        })),
+        {
+          provider: 'tencent',
+          model: '',
+          rate_model: '',
+          source: 'exact',
+        },
+      ],
+    });
     render(<AdminOperationsConfigPage />);
 
     expect(
@@ -199,6 +226,32 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
       }),
     );
     await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.getByTestId('rate-table')).toHaveTextContent('2'),
+    );
     expect(mockToast).toHaveBeenCalledWith({ title: 'create.success' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'tabs.llm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'tabs.tts' }));
+    expect(screen.getByTestId('rate-table')).toHaveTextContent('1');
+  });
+
+  test('keeps the create dialog open and does not reload when create rejects', async () => {
+    mockUpdateRate.mockRejectedValueOnce(new Error('rate create rejected'));
+    render(<AdminOperationsConfigPage />);
+
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'tabs.tts' }));
+    fireEvent.click(screen.getByRole('button', { name: '添加费率' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-create' }));
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'rate create rejected',
+        variant: 'destructive',
+      }),
+    );
+    expect(screen.getByTestId('create-rate-dialog')).toBeInTheDocument();
+    expect(mockGetRates).toHaveBeenCalledTimes(1);
   });
 });
