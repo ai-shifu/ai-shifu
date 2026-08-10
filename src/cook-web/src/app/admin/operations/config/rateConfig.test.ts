@@ -233,34 +233,25 @@ describe('rate config helpers', () => {
 
     expect(hasExactRateIdentity([aliasBackedRow], identity)).toBe(false);
     expect(hasExactRateIdentity([rawExactRow], identity)).toBe(true);
-    expect(
-      hasExactRateIdentity(
-        [
-          rateRow({
-            usage_type: 'tts',
-            provider: 'custom-tts',
-            model: '',
-            rate_model: '',
-            source: 'exact',
-            matched_rate_provider: 'custom-tts',
-            matched_rate_model: '',
-          }),
-        ],
-        canonicalizeRateIdentity('tts', 'custom-tts', ''),
-      ),
-    ).toBe(true);
-    expect(
-      hasExactRateIdentity(
-        [
-          rateRow({
-            ...rawExactRow,
-            matched_rate_provider: null,
-            matched_rate_model: null,
-          }),
-        ],
-        identity,
-      ),
-    ).toBe(false);
+    const ttsDefaultRow = rateRow({
+      usage_type: 'tts',
+      provider: 'custom-tts',
+      model: '',
+      rate_model: '',
+      source: 'exact',
+      matched_rate_provider: 'custom-tts',
+      matched_rate_model: '',
+    });
+    const ttsDefaultIdentity = canonicalizeRateIdentity(
+      'tts',
+      'custom-tts',
+      '',
+    );
+
+    expect(hasExactRateIdentity([ttsDefaultRow], ttsDefaultIdentity)).toBe(
+      true,
+    );
+    expect(isRateRowCreateSuggestion(ttsDefaultRow, 'tts')).toBe(false);
     expect(isRateRowCreateSuggestion(aliasBackedRow, 'llm')).toBe(true);
     expect(isRateRowCreateSuggestion(rawExactRow, 'llm')).toBe(false);
     expect(
@@ -271,49 +262,44 @@ describe('rate config helpers', () => {
     ).toBe(false);
   });
 
-  test('falls back to legacy source identity only when matched fields are missing', () => {
+  test('falls back to exact source identity when matched identity is unavailable', () => {
     const identity = canonicalizeRateIdentity('llm', 'qwen', 'foo');
+    const legacyExactRow = rateRow({
+      source: 'exact',
+      provider: 'qwen',
+      model: 'qwen/foo',
+      rate_model: 'foo',
+    });
+    const unavailableMatchedRows = [
+      legacyExactRow,
+      rateRow({
+        ...legacyExactRow,
+        matched_rate_provider: null,
+        matched_rate_model: null,
+      }),
+      rateRow({
+        ...legacyExactRow,
+        matched_rate_provider: 'different-provider',
+      }),
+      rateRow({
+        ...legacyExactRow,
+        matched_rate_model: 'different-model',
+      }),
+    ];
 
-    expect(
-      hasExactRateIdentity(
-        [
-          rateRow({
-            source: 'exact',
-            provider: 'qwen',
-            model: 'qwen/foo',
-            rate_model: 'foo',
-          }),
-        ],
-        identity,
-      ),
-    ).toBe(true);
-    expect(
-      hasExactRateIdentity(
-        [
-          rateRow({
-            source: 'default',
-            provider: 'qwen',
-            model: 'qwen/foo',
-            rate_model: 'foo',
-          }),
-        ],
-        identity,
-      ),
-    ).toBe(false);
-    expect(
-      hasExactRateIdentity(
-        [
-          rateRow({
-            source: 'exact',
-            provider: 'qwen',
-            model: 'qwen/foo',
-            rate_model: 'foo',
-            matched_rate_provider: 'qwen',
-          }),
-        ],
-        identity,
-      ),
-    ).toBe(false);
+    unavailableMatchedRows.forEach(row => {
+      expect(hasExactRateIdentity([row], identity)).toBe(true);
+      expect(isRateRowCreateSuggestion(row, 'llm')).toBe(false);
+    });
+
+    const defaultRow = rateRow({
+      ...legacyExactRow,
+      source: 'default',
+      matched_rate_provider: null,
+      matched_rate_model: null,
+    });
+    expect(hasExactRateIdentity([defaultRow], identity)).toBe(false);
+    expect(isRateRowCreateSuggestion(defaultRow, 'llm')).toBe(true);
   });
 
   test('rejects wildcard and control characters in exact identities', () => {

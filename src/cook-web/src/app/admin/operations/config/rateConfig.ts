@@ -159,12 +159,10 @@ export const rateRowMatchesExactIdentity = (
   row: RateRow,
   identity: RateIdentity,
 ) => {
-  const hasMatchedProvider = row.matched_rate_provider !== undefined;
-  const hasMatchedModel = row.matched_rate_model !== undefined;
-  if (hasMatchedProvider || hasMatchedModel) {
+  const hasMatchedIdentity =
+    row.matched_rate_provider != null && row.matched_rate_model != null;
+  if (hasMatchedIdentity) {
     return (
-      hasMatchedProvider &&
-      hasMatchedModel &&
       row.matched_rate_provider === identity.provider &&
       row.matched_rate_model === identity.rateModel
     );
