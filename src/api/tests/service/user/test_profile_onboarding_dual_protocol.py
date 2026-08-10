@@ -307,6 +307,32 @@ def test_late_v2_skip_never_downgrades_a_completed_profile(app, monkeypatch):
     assert state.trigger_source == "guided"
 
 
+def test_v2_complete_accepts_dormant_canonical_pasted_trigger(app, monkeypatch):
+    from flaskr.service.profile.onboarding import complete_profile_onboarding_v2
+
+    monkeypatch.setattr(
+        "flaskr.service.profile.learner_profile.check_text_content",
+        lambda *_args, **_kwargs: True,
+    )
+
+    with app.app_context():
+        _create_user("protocol-dormant-pasted")
+        completed = complete_profile_onboarding_v2(
+            app,
+            user_id="protocol-dormant-pasted",
+            learner_profile="Imported canonical profile.",
+            trigger_source="pasted",
+        )
+        state = UserOnboardingState.query.filter_by(
+            user_bid="protocol-dormant-pasted"
+        ).one()
+
+    assert completed["status"] == "completed"
+    assert completed["trigger_source"] == "pasted"
+    assert state.status == "completed"
+    assert state.trigger_source == "pasted"
+
+
 def test_late_v2_skip_reconstructs_completed_state_before_session_cleanup(
     app, monkeypatch, test_client
 ):
