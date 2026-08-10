@@ -8,6 +8,21 @@ import {
 import AdminOperationPromotionsPage from './page';
 
 describe('AdminOperationPromotionsPage list and pagination', () => {
+  test('renders collapsed coupon filters shrinkable beside actions', async () => {
+    const { container } = render(<AdminOperationPromotionsPage />);
+
+    const collapsedGrid = Array.from(container.querySelectorAll('.grid')).find(
+      element => element.className.includes('minmax(0,180px)'),
+    );
+
+    expect(collapsedGrid).toBeInTheDocument();
+    expect(collapsedGrid).toHaveClass(
+      'xl:grid-cols-[minmax(0,180px)_minmax(0,210px)_minmax(0,190px)_minmax(0,250px)]',
+    );
+    expect(collapsedGrid).not.toHaveClass('xl:flex-none');
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalled());
+  });
+
   test('loads coupon tab by default', async () => {
     render(<AdminOperationPromotionsPage />);
 
