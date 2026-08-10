@@ -14,6 +14,7 @@ from flaskr.i18n import _translations, set_language
 from flaskr.service.common.dtos import OAuthStartDTO, UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.common.profile_onboarding import get_profile_onboarding_config
 from flaskr.service.feedback.funs import submit_feedback
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.profile.funcs import (
@@ -31,7 +32,9 @@ from flaskr.service.profile.learner_profile_optimizer_admission import (
 )
 from flaskr.service.profile.onboarding import (
     complete_profile_onboarding,
+    complete_profile_onboarding_v2,
     get_profile_onboarding_status,
+    skip_profile_onboarding_v2,
 )
 from flaskr.service.referral.service import extract_referral_post_auth_fields
 from flaskr.service.user.auth import get_provider
@@ -85,6 +88,8 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
+_PROFILE_RESEARCH_SESSION_ID_LENGTH = 32
+_PROFILE_RESEARCH_SESSION_ID_ALPHABET = frozenset("0123456789abcdef")
 
 
 def _request_json_object(parameter_name: str) -> dict:
@@ -99,6 +104,102 @@ def _reject_unknown_fields(
 ) -> None:
     if set(payload) - allowed_fields:
         raise_param_error(parameter_name)
+
+
+def _optional_nonempty_string(payload: dict, key: str) -> str | None:
+    if key not in payload:
+        return None
+    value = payload[key]
+    if not isinstance(value, str) or not value.strip():
+        raise_param_error(key)
+    return value.strip()
+
+
+def _optional_profile_research_session_id(payload: dict) -> str | None:
+    value = _optional_nonempty_string(payload, "session_id")
+    if value is None:
+        return None
+    return _normalize_profile_research_session_id(value)
+
+
+def _normalize_profile_research_session_id(value: object) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise_param_error("session_id")
+    normalized = value.strip()
+    if len(normalized) != _PROFILE_RESEARCH_SESSION_ID_LENGTH:
+        raise_param_error("session_id")
+    if not set(normalized).issubset(_PROFILE_RESEARCH_SESSION_ID_ALPHABET):
+        raise_param_error("session_id")
+    return normalized
+
+
+def _profile_onboarding_user_input(
+    payload: dict, *, parameter_name: str
+) -> dict[str, list[str]] | None:
+    if "user_input" not in payload:
+        return None
+    raw_user_input = payload["user_input"]
+    if not isinstance(raw_user_input, dict):
+        raise_param_error(parameter_name)
+    normalized: dict[str, list[str]] = {}
+    for raw_key, raw_values in raw_user_input.items():
+        if (
+            not isinstance(raw_key, str)
+            or not raw_key.strip()
+            or not isinstance(raw_values, list)
+            or not raw_values
+            or any(not isinstance(value, str) for value in raw_values)
+        ):
+            raise_param_error(parameter_name)
+        normalized[raw_key] = list(raw_values)
+    return normalized or None
+
+
+def _profile_onboarding_run_identity(
+    payload: dict,
+) -> tuple[int | None, str | None]:
+    has_expected_block_index = "expected_block_index" in payload
+    has_request_id = "request_id" in payload
+    if has_expected_block_index != has_request_id:
+        raise_param_error("profile_onboarding_session")
+    if not has_expected_block_index:
+        return None, None
+
+    expected_block_index = payload["expected_block_index"]
+    request_id = payload["request_id"]
+    if (
+        isinstance(expected_block_index, bool)
+        or not isinstance(expected_block_index, int)
+        or expected_block_index < 0
+    ):
+        raise_param_error("expected_block_index")
+    if (
+        not isinstance(request_id, str)
+        or not request_id.strip()
+        or len(request_id.strip()) > 128
+    ):
+        raise_param_error("request_id")
+    return expected_block_index, request_id.strip()
+
+
+def _delete_profile_onboarding_session(
+    app: Flask, *, user_bid: str, session_id: str | None
+) -> None:
+    """Best-effort cleanup must not roll back a durable completion state."""
+    if not session_id:
+        return
+    from flaskr.service.profile_research.api import (
+        PROFILE_ONBOARDING_PURPOSE,
+        delete_profile_research_session,
+    )
+
+    with contextlib.suppress(Exception):
+        delete_profile_research_session(
+            app,
+            user_bid=user_bid,
+            session_id=session_id,
+            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+        )
 
 
 def _normalize_runtime_language_code(language_code: str) -> str:
@@ -137,6 +238,30 @@ def _resolve_supported_runtime_language(raw_language: str | None) -> str | None:
             return supported_language
 
     return normalized_language
+
+
+def _resolve_profile_onboarding_runtime_language(user, raw_language: str | None) -> str:
+    """Resolve profile research to a bounded application-supported locale."""
+
+    supported_languages = (
+        tuple(_translations.keys()) or _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES
+    )
+    if raw_language is not None:
+        resolved_language = _resolve_supported_runtime_language(raw_language)
+        if resolved_language in supported_languages:
+            return resolved_language
+        raise_param_error("language")
+
+    request_language = _extract_request_language({})
+    for candidate in (
+        request_language,
+        getattr(user, "language", None),
+        "en-US",
+    ):
+        resolved_language = _resolve_supported_runtime_language(candidate)
+        if resolved_language in supported_languages:
+            return resolved_language
+    return supported_languages[0]
 
 
 def _extract_request_language(payload: dict | None = None) -> str | None:
@@ -409,6 +534,96 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             get_profile_onboarding_status(app, user_id=request.user.user_id)
         )
 
+    @app.route(path_prefix + "/profile-onboarding/session", methods=["POST"])
+    def create_profile_onboarding_session_api():
+        """Create a transient guided-profile session from the live config."""
+
+        payload = _request_json_object("profile_onboarding_session")
+        _reject_unknown_fields(
+            payload,
+            allowed_fields={"language", "intent"},
+            parameter_name="profile_onboarding_session",
+        )
+        language = _optional_nonempty_string(payload, "language")
+        intent = _optional_nonempty_string(payload, "intent") or "onboarding"
+        if intent not in {"onboarding", "settings"}:
+            raise_param_error("intent")
+        config = get_profile_onboarding_config()
+        document = str(config.get("markdownflow") or "").strip()
+        if not bool(config.get("enabled")) or not document:
+            raise_param_error("profile_onboarding")
+        status = get_profile_onboarding_status(app, user_id=request.user.user_id)
+        if not status["profile_v2"]["guided_available"]:
+            raise_param_error("profile_onboarding")
+        if intent == "onboarding" and not status["profile_v2"]["should_show"]:
+            raise_param_error("intent")
+        if intent == "settings" and not (
+            status["profile_v2"]["handled"]
+            or status["profile_v2"]["has_learner_profile"]
+        ):
+            raise_param_error("intent")
+        from flaskr.service.profile_research.api import (
+            PROFILE_ONBOARDING_PURPOSE,
+            ProfileResearchSessionBusy,
+            start_profile_research_session,
+        )
+
+        try:
+            session = start_profile_research_session(
+                app,
+                user_bid=request.user.user_id,
+                document=document,
+                document_prompt=str(config.get("document_prompt") or "").strip(),
+                purpose=PROFILE_ONBOARDING_PURPOSE,
+                config_revision=int(
+                    config.get("revision") or config.get("version") or 0
+                ),
+                output_language=_resolve_profile_onboarding_runtime_language(
+                    request.user,
+                    language,
+                ),
+            )
+        except ProfileResearchSessionBusy:
+            raise_error("server.profile.profileOnboardingBusy")
+        return make_common_response(session)
+
+    @app.route(
+        path_prefix + "/profile-onboarding/session/<session_id>/run",
+        methods=["POST"],
+    )
+    def run_profile_onboarding_session_api(session_id: str):
+        normalized_session_id = _normalize_profile_research_session_id(session_id)
+        payload = _request_json_object("profile_onboarding_session")
+        _reject_unknown_fields(
+            payload,
+            allowed_fields={"user_input", "expected_block_index", "request_id"},
+            parameter_name="profile_onboarding_session",
+        )
+        user_input = _profile_onboarding_user_input(
+            payload,
+            parameter_name="user_input",
+        )
+        expected_block_index, request_id = _profile_onboarding_run_identity(payload)
+        from flaskr.service.profile_research.api import (
+            PROFILE_ONBOARDING_PURPOSE,
+            build_profile_research_sse_response,
+            stream_profile_research_session,
+        )
+
+        return build_profile_research_sse_response(
+            app,
+            event_iter_factory=lambda: stream_profile_research_session(
+                app,
+                user_bid=request.user.user_id,
+                session_id=normalized_session_id,
+                user_input=user_input,
+                expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+                expected_block_index=expected_block_index,
+                request_id=request_id,
+            ),
+            log_context="learner profile onboarding",
+        )
+
     @app.route(path_prefix + "/profile-onboarding/complete", methods=["POST"])
     def complete_profile_onboarding_api() -> str:
         """Complete or skip platform-level profile onboarding.
@@ -420,16 +635,52 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             200:
                 description: onboarding completion result
         """
-        payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict):
+        payload = _request_json_object("profile_onboarding")
+        legacy_fields = {"skipped", "variables"}
+        v2_fields = {"learner_profile", "trigger_source", "session_id"}
+        keys = set(payload)
+        if keys and keys.issubset(legacy_fields) and "skipped" in keys:
+            if not isinstance(payload["skipped"], bool):
+                raise_param_error("skipped")
+            result = complete_profile_onboarding(
+                app,
+                user_id=request.user.user_id,
+                skipped=payload["skipped"],
+                variables=payload.get("variables"),
+            )
+            # The legacy helper only flushes so its historical route owns the
+            # transaction. Canonical v2 helpers commit inside their UoW.
+            db.session.commit()
+        elif {"learner_profile", "trigger_source"}.issubset(keys) and keys.issubset(
+            v2_fields
+        ):
+            session_id = _optional_profile_research_session_id(payload)
+            result = complete_profile_onboarding_v2(
+                app,
+                user_id=request.user.user_id,
+                learner_profile=payload["learner_profile"],
+                trigger_source=payload["trigger_source"],
+            )
+            _delete_profile_onboarding_session(
+                app, user_bid=request.user.user_id, session_id=session_id
+            )
+        else:
             raise_param_error("profile_onboarding")
-        result = complete_profile_onboarding(
-            app,
-            user_id=request.user.user_id,
-            skipped=bool(payload.get("skipped", False)),
-            variables=payload.get("variables") or {},
+        return make_common_response(result)
+
+    @app.route(path_prefix + "/profile-onboarding/skip", methods=["POST"])
+    def skip_profile_onboarding_api():
+        payload = _request_json_object("profile_onboarding")
+        _reject_unknown_fields(
+            payload,
+            allowed_fields={"session_id"},
+            parameter_name="profile_onboarding",
         )
-        db.session.commit()
+        session_id = _optional_profile_research_session_id(payload)
+        result = skip_profile_onboarding_v2(user_id=request.user.user_id)
+        _delete_profile_onboarding_session(
+            app, user_bid=request.user.user_id, session_id=session_id
+        )
         return make_common_response(result)
 
     @app.route(path_prefix + "/learner-profile", methods=["GET"])

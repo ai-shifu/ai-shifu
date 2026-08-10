@@ -217,6 +217,8 @@ const api = {
     'GET /shifu/admin/operations/profile-onboarding',
   updateAdminOperationProfileOnboardingConfig:
     'POST /shifu/admin/operations/profile-onboarding',
+  createAdminOperationProfileOnboardingPreview:
+    'POST /shifu/admin/operations/profile-onboarding/preview',
   getAdminOperationConfigRates: 'GET /shifu/admin/operations/config/rates',
   updateAdminOperationConfigRate: 'POST /shifu/admin/operations/config/rates',
   getAdminOperationReferrals: 'GET /shifu/admin/operations/referrals',

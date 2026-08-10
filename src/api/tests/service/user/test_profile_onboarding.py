@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import AppError
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity
 
@@ -70,22 +69,38 @@ def test_profile_onboarding_config_roundtrip(app: object, monkeypatch: object) -
     assert saved_payloads[0][1] == "operator-1"
 
 
-def test_profile_onboarding_config_rejects_non_whitelisted_variable(
-    app: object,
+def test_profile_onboarding_config_accepts_official_markdownflow_variables(
+    app: object, monkeypatch: object
 ) -> None:
-    from flaskr.service.common.profile_onboarding import (
-        update_profile_onboarding_config,
+    from flaskr.service.common import profile_onboarding as module
+
+    saved_payloads = []
+    monkeypatch.setattr(
+        module,
+        "load_profile_onboarding_config_payload",
+        lambda: module.normalize_profile_onboarding_config_payload({}),
+    )
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda _app, payload, *, updated_by: saved_payloads.append(payload),
     )
 
-    with pytest.raises(AppError):
-        update_profile_onboarding_config(
-            app,
-            payload={
-                "enabled": True,
-                "markdownflow": "?[%{{sys_user_language}} 中文 | English]",
-            },
-            operator_user_bid="operator-1",
-        )
+    result = module.update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": True,
+            "markdownflow": (
+                "?[%{{preferred_learning_context}}...Tell me about your work]"
+            ),
+        },
+        operator_user_bid="operator-1",
+    )
+
+    assert result["enabled"] is True
+    assert saved_payloads[0]["markdownflow"].startswith(
+        "?[%{{preferred_learning_context}}"
+    )
 
 
 def test_profile_onboarding_status_hides_after_skip(app: object) -> None:
