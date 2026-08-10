@@ -384,6 +384,96 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     expect(mockToast).toHaveBeenCalledWith({ title: 'create.success' });
   });
 
+  test('clears a pending create after an edit refresh succeeds', async () => {
+    mockRenderRateTable = true;
+    const initialResponse = {
+      ...baseRateResponse,
+      llm_rates: [
+        {
+          usage_type: 'llm',
+          provider: 'qwen',
+          model: 'qwen/deepseek-v4-flash',
+          rate_model: 'deepseek-v4-flash',
+          display_name: 'DeepSeek V4 Flash',
+          billing_metric: 'llm_output_tokens',
+          unit_size: 1,
+          credits_per_unit: 0.25,
+          multiplier: 1,
+          source: 'exact',
+          updated_at: null,
+        },
+      ],
+    };
+    const refreshedResponse = {
+      ...initialResponse,
+      tts_rates: [
+        {
+          usage_type: 'tts',
+          provider: 'tencent',
+          model: '',
+          rate_model: '',
+          source: 'exact',
+        },
+      ],
+    };
+    let resolveEditRefresh: (value: unknown) => void = () => undefined;
+    const editRefreshPromise = new Promise<unknown>(resolve => {
+      resolveEditRefresh = resolve;
+    });
+    mockGetRates
+      .mockResolvedValueOnce(initialResponse)
+      .mockRejectedValueOnce(new Error('create refresh failed'))
+      .mockReturnValueOnce(editRefreshPromise);
+    render(<AdminOperationsConfigPage />);
+
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: '添加费率' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-create' }));
+
+    await waitFor(() => expect(mockUpdateRate).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(2));
+    const pendingAlert = await screen.findByRole('alert');
+    const addRateButton = screen.getByRole('button', { name: '添加费率' });
+    expect(addRateButton).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'actions.edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'actions.save' }));
+    const confirmDialog = await screen.findByRole('alertdialog');
+    fireEvent.click(
+      within(confirmDialog).getByRole('button', { name: 'actions.save' }),
+    );
+
+    await waitFor(() => expect(mockUpdateRate).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(3));
+    expect(screen.getByRole('alert')).toBe(pendingAlert);
+    expect(
+      within(pendingAlert).getByRole('button', {
+        name: 'create.retryRefresh',
+      }),
+    ).toBeDisabled();
+    expect(addRateButton).toBeDisabled();
+    expect(
+      mockUpdateRate.mock.calls.filter(([payload]) => payload.create_only),
+    ).toHaveLength(1);
+
+    await act(async () => {
+      resolveEditRefresh(refreshedResponse);
+      await editRefreshPromise;
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument(),
+    );
+    await waitFor(() => expect(addRateButton).toBeEnabled());
+    expect(mockGetRates).toHaveBeenCalledTimes(3);
+    expect(mockUpdateRate).toHaveBeenCalledTimes(2);
+    expect(
+      mockUpdateRate.mock.calls.filter(([payload]) => payload.create_only),
+    ).toHaveLength(1);
+    expect(mockToast).toHaveBeenCalledWith({ title: 'saveSuccess' });
+    expect(mockToast).not.toHaveBeenCalledWith({ title: 'create.success' });
+  });
+
   test('keeps the create dialog open and does not reload when create rejects', async () => {
     mockUpdateRate.mockRejectedValueOnce(new Error('rate create rejected'));
     render(<AdminOperationsConfigPage />);

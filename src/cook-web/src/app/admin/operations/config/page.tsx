@@ -421,6 +421,8 @@ export default function AdminOperationsConfigPage() {
           {},
         )) as RateConfigResponse;
         setConfig(response || {});
+        pendingCreatedIdentityRef.current = null;
+        setPendingCreatedIdentity(null);
         return true;
       } catch (caughtError) {
         if (!suppressErrorToast) {
@@ -595,8 +597,6 @@ export default function AdminOperationsConfigPage() {
       try {
         const refreshed = await loadConfig({ suppressErrorToast: true });
         if (refreshed) {
-          pendingCreatedIdentityRef.current = null;
-          setPendingCreatedIdentity(null);
           setRevealIdentity(identity);
           toast({ title: t('create.success') });
           return true;
