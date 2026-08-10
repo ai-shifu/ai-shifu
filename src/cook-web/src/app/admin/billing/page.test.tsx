@@ -8,6 +8,7 @@ import { AdminBillingPageClient } from './AdminBillingPageClient';
 
 let mockSearchParamsValue = '';
 const mockReplace = jest.fn();
+const mockTrackEvent = jest.fn();
 
 jest.mock('next/navigation', () => ({
   usePathname: () => '/admin/billing',
@@ -51,6 +52,10 @@ jest.mock('@/api', () => ({
 jest.mock('@/hooks/useBillingData', () => ({
   ...jest.requireActual('@/hooks/useBillingData'),
   useBillingOverview: jest.fn(),
+}));
+
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
 jest.mock('@/c-store', () => ({
@@ -111,6 +116,7 @@ describe('AdminBillingPage', () => {
     mockGetBillingLedger.mockReset();
     mockGetBillingWalletBuckets.mockReset();
     mockUseBillingOverview.mockReset();
+    mockTrackEvent.mockReset();
 
     const bootstrapPayload = {
       service: 'billing',
@@ -335,6 +341,21 @@ describe('AdminBillingPage', () => {
     expect(mockGetBillingBootstrap).not.toHaveBeenCalled();
     expect(mockGetBillingCatalog).not.toHaveBeenCalled();
     expect(screen.queryByTestId('admin-billing-page')).not.toBeInTheDocument();
+  });
+
+  test('renders the global pricing experience for a Stripe-only deployment', async () => {
+    mockEnvState.paymentChannels = ['stripe'];
+
+    renderPage();
+
+    expect(
+      await screen.findByTestId('global-billing-pricing'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', {
+        name: 'module.billing.package.title',
+      }),
+    ).not.toBeInTheDocument();
   });
 
   test('switches to details and scrolls when an open-orders alert is triggered', async () => {
