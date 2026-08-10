@@ -14,6 +14,7 @@ from flask import current_app, request
 
 from flaskr.common.public_urls import build_google_oauth_callback_url
 from flaskr.service.common.models import raise_error
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.user.auth.base import (
     AuthProvider,
     AuthResult,
@@ -246,6 +247,12 @@ class GoogleAuthProvider(AuthProvider):
 
             if not aggregate and origin_aggregate:
                 aggregate = origin_aggregate
+
+            if aggregate and origin_user_id and aggregate.user_bid != origin_user_id:
+                merge_learner_profile_for_sign_in(
+                    source_user_id=origin_user_id,
+                    target_user_id=aggregate.user_bid,
+                )
 
             if aggregate:
                 entity = get_user_entity_by_bid(

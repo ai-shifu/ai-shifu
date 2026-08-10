@@ -133,6 +133,58 @@ def load_learner_profile_state(user_id: str) -> UserOnboardingState | None:
     ).first()
 
 
+def merge_learner_profile_for_sign_in(
+    *,
+    source_user_id: str,
+    target_user_id: str,
+) -> None:
+    """Copy canonical profile state into an existing signed-in account transaction."""
+
+    normalized_source_id = str(source_user_id or "").strip()
+    normalized_target_id = str(target_user_id or "").strip()
+    if (
+        not normalized_source_id
+        or not normalized_target_id
+        or normalized_source_id == normalized_target_id
+    ):
+        return
+
+    source_user = UserEntity.query.filter(
+        UserEntity.user_bid == normalized_source_id,
+        UserEntity.deleted == 0,
+    ).first()
+    target_user = UserEntity.query.filter(
+        UserEntity.user_bid == normalized_target_id,
+        UserEntity.deleted == 0,
+    ).first()
+    if source_user is None or target_user is None:
+        return
+
+    if load_learner_profile_state(normalized_target_id) is not None:
+        return
+
+    source_profile = str(source_user.learner_profile or "").strip()
+    target_profile = str(target_user.learner_profile or "").strip()
+    if source_profile and not target_profile:
+        target_user.learner_profile = source_user.learner_profile
+        target_user.learner_profile_updated_at = source_user.learner_profile_updated_at
+
+    source_state = load_learner_profile_state(normalized_source_id)
+    if source_state is None:
+        return
+
+    db.session.add(
+        UserOnboardingState(
+            user_bid=normalized_target_id,
+            scene_key=PROFILE_ONBOARDING_SCENE_KEY,
+            version=PROFILE_ONBOARDING_VERSION,
+            status=source_state.status,
+            trigger_source=source_state.trigger_source,
+            completed_at=source_state.completed_at,
+        )
+    )
+
+
 def has_learner_profile_or_state(user_id: str) -> bool:
     user = load_learner_profile_user(user_id)
     return bool(str(user.learner_profile or "").strip()) or (

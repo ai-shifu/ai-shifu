@@ -15,6 +15,7 @@ from sqlalchemy import text
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.consts import LEARN_STATUS_RESET
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.shifu.models import PublishedShifu, DraftShifu
 from flaskr.service.user.consts import (
     USER_STATE_REGISTERED,
@@ -350,6 +351,10 @@ def verify_phone_code(
                 user_id,
                 target_aggregate.user_bid,
                 normalized_course_id,
+            )
+            merge_learner_profile_for_sign_in(
+                source_user_id=user_id,
+                target_user_id=target_aggregate.user_bid,
             )
             if normalized_course_id is None:
                 app.logger.warning(
