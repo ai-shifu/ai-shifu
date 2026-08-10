@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 
@@ -322,6 +323,7 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app):
 def test_phone_sign_in_merges_profile_without_course_id(app, monkeypatch, caplog):
     import flaskr.service.user.phone_flow as phone_flow
 
+    caplog.set_level(logging.INFO)
     monkeypatch.setattr(phone_flow, "redis", _FakeRedis())
     monkeypatch.setattr(phone_flow, "FIX_CHECK_CODE", "9999")
     monkeypatch.setattr(phone_flow, "init_first_course", lambda *_args: False)
@@ -341,13 +343,17 @@ def test_phone_sign_in_merges_profile_without_course_id(app, monkeypatch, caplog
         _add_state(source.user_bid, status="completed")
         db.session.commit()
 
-        token, _created, _context = phone_flow.verify_phone_code(
-            app,
-            user_id=source.user_bid,
-            phone=phone,
-            code="9999",
-            course_id=None,
-        )
+        app.logger.addHandler(caplog.handler)
+        try:
+            token, _created, _context = phone_flow.verify_phone_code(
+                app,
+                user_id=source.user_bid,
+                phone=phone,
+                code="9999",
+                course_id=None,
+            )
+        finally:
+            app.logger.removeHandler(caplog.handler)
         db.session.commit()
 
         stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
@@ -356,6 +362,7 @@ def test_phone_sign_in_merges_profile_without_course_id(app, monkeypatch, caplog
         assert stored_target.learner_profile_updated_at == PROFILE_UPDATED_AT
         assert load_learner_profile_state(target.user_bid) is not None
         assert UserInfo.query.filter_by(user_bid=source.user_bid).one() is not None
+        assert "verify_phone_code merge_candidate" in caplog.text
         assert "phone merge sentinel" not in caplog.text
 
 
