@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import api from '@/api';
 import AdminOperationsConfigPage from './page';
 
@@ -190,8 +196,21 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     mockUpdateRate.mockResolvedValue({});
   });
 
-  test('opens the CTA for the current tab, posts create-only data, and reloads rates', async () => {
-    mockGetRates.mockResolvedValueOnce(baseRateResponse).mockResolvedValueOnce({
+  test('waits for the refreshed catalog before revealing the created rate', async () => {
+    const initialResponse = {
+      ...baseRateResponse,
+      tts_rates: [
+        {
+          usage_type: 'tts',
+          provider: 'tencent',
+          model: '',
+          rate_model: '',
+          display_name: 'tencent/default',
+          source: 'unconfigured',
+        },
+      ],
+    };
+    const refreshedResponse = {
       ...baseRateResponse,
       tts_rates: [
         ...Array.from({ length: 10 }, (_, index) => ({
@@ -207,7 +226,14 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
           source: 'exact',
         },
       ],
+    };
+    let resolveReload: (value: unknown) => void = () => undefined;
+    const reloadPromise = new Promise<unknown>(resolve => {
+      resolveReload = resolve;
     });
+    mockGetRates
+      .mockResolvedValueOnce(initialResponse)
+      .mockReturnValueOnce(reloadPromise);
     render(<AdminOperationsConfigPage />);
 
     expect(
@@ -237,6 +263,13 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
       }),
     );
     await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('rate-table')).toHaveTextContent('1');
+    expect(mockToast).not.toHaveBeenCalledWith({ title: 'create.success' });
+
+    await act(async () => {
+      resolveReload(refreshedResponse);
+      await reloadPromise;
+    });
     await waitFor(() =>
       expect(screen.getByTestId('rate-table')).toHaveTextContent('2'),
     );

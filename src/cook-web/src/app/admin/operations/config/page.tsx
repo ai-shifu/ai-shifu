@@ -583,8 +583,8 @@ export default function AdminOperationsConfigPage() {
       setCreating(true);
       try {
         await api.updateAdminOperationConfigRate(payload);
-        setRevealIdentity(identity);
         await loadConfig();
+        setRevealIdentity(identity);
         toast({ title: t('create.success') });
         return true;
       } catch (caughtError) {
