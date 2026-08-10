@@ -371,11 +371,17 @@ export default function ProfileOnboardingModal({
 
           <main className='flex min-h-0 min-w-0 flex-1 flex-col'>
             <div className='shrink-0 border-b border-border/70 px-4 pb-3 pt-[max(12px,env(safe-area-inset-top))] [@media(max-height:480px)]:pb-2 [@media(max-height:480px)]:pt-2 [@media(min-width:768px)_and_(min-height:640px)]:hidden'>
-              <div className='flex items-center justify-between gap-3'>
-                <span className='truncate text-sm font-semibold text-foreground'>
+              <div className='flex items-start justify-between gap-3'>
+                <span
+                  data-testid='profile-onboarding-mobile-brand'
+                  className='min-w-0 flex-1 whitespace-normal break-words text-sm font-semibold leading-5 text-foreground'
+                >
                   {t('module.profileOnboarding.title')}
                 </span>
-                <span className='shrink-0 text-xs tabular-nums text-muted-foreground'>
+                <span
+                  data-testid='profile-onboarding-mobile-step-counter'
+                  className='shrink-0 whitespace-nowrap pt-0.5 text-xs leading-4 tabular-nums text-muted-foreground'
+                >
                   {t('module.profileOnboarding.stepCounter', {
                     current: currentStepNumber,
                     total: PROFILE_ONBOARDING_STEP_COUNT,
@@ -398,16 +404,19 @@ export default function ProfileOnboardingModal({
               </div>
             </div>
 
-            <header className='relative h-[164px] shrink-0 overflow-y-auto border-b border-border/70 [@media(max-height:480px)]:h-[112px] [@media(min-width:768px)_and_(min-height:640px)]:h-[144px]'>
-              <div className='flex min-h-full flex-col justify-center py-5 pl-5 pr-24 md:py-6 md:pl-8 md:pr-32'>
+            <header
+              data-testid='profile-onboarding-route-header'
+              className='relative shrink-0 border-b border-border/70'
+            >
+              <div className='py-5 pl-5 pr-24 md:py-6 md:pl-8 md:pr-32 [@media(max-height:480px)]:py-3'>
                 <DialogTitle
                   ref={routeHeadingRef}
                   tabIndex={-1}
-                  className='text-xl leading-7 tracking-tight outline-none md:text-2xl md:leading-8'
+                  className='text-xl leading-7 tracking-tight outline-none md:text-2xl md:leading-8 [@media(max-height:480px)]:text-xl [@media(max-height:480px)]:leading-7'
                 >
                   {pageTitle}
                 </DialogTitle>
-                <DialogDescription className='mt-2 max-w-[58ch] text-sm leading-6'>
+                <DialogDescription className='mt-2 max-w-[58ch] text-sm leading-6 [@media(max-height:480px)]:mt-1.5 [@media(max-height:480px)]:leading-5'>
                   {pageDescription}
                 </DialogDescription>
               </div>
@@ -438,13 +447,13 @@ export default function ProfileOnboardingModal({
                 }
                 className={cn(
                   route === 'guided'
-                    ? 'absolute inset-0 overflow-hidden px-5 py-5 md:px-8 md:py-6'
+                    ? 'absolute inset-0 overflow-y-auto overscroll-contain px-5 py-5 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch] md:px-8 md:py-6 [@media(max-height:480px)]:py-2'
                     : 'hidden',
                   route === 'guided' && pageAnimationClass,
                   'motion-reduce:animate-none motion-reduce:transform-none',
                 )}
               >
-                <section className='h-full min-h-0'>
+                <section className='h-full min-h-[120px]'>
                   <ProfileOnboardingConversation
                     createSession={createSession}
                     runSession={runSession}
