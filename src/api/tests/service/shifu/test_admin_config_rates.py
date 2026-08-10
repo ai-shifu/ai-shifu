@@ -540,6 +540,8 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
             ("custom-b", "beta", "custom-b/beta"),
         ]
         assert result["llm_rates"][0]["rate_bid"] == "runtime"
+        assert result["llm_rates"][1]["rate_bid"] == "custom-a"
+        assert result["llm_rates"][2]["rate_bid"] == "custom-b"
         assert [
             (row["provider"], row["rate_model"], row["display_name"])
             for row in result["tts_rates"]
@@ -547,6 +549,7 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
             ("voice", "voice-1", "Voice 1"),
             ("custom-tts", "", "custom-tts"),
         ]
+        assert result["tts_rates"][1]["rate_bid"] == "tts-default"
         assert active_rate_selects == 1
 
         db.session.query(CreditUsageRate).delete()
