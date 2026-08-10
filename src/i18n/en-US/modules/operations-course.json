@@ -369,8 +369,8 @@
     "courseName": "Course Name",
     "createdAt": "Created At",
     "creator": "Creator",
-    "creatorEmailOrUserBid": "Teacher email",
-    "creatorMobileOrUserBid": "Teacher mobile",
+    "creatorEmailOrUserBid": "Creator email",
+    "creatorMobileOrUserBid": "Creator mobile",
     "endTime": "End Date",
     "startTime": "Start Date",
     "status": "Status"

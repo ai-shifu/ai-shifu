@@ -369,8 +369,8 @@
     "courseName": "Nom du cours",
     "createdAt": "Créé le",
     "creator": "Créateur",
-    "creatorEmailOrUserBid": "E-mail enseignant",
-    "creatorMobileOrUserBid": "Mobile enseignant",
+    "creatorEmailOrUserBid": "E-mail du créateur",
+    "creatorMobileOrUserBid": "Mobile du créateur",
     "endTime": "Date de fin",
     "startTime": "Date de début",
     "status": "Statut"

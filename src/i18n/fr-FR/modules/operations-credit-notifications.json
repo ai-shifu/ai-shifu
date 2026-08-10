@@ -79,8 +79,8 @@
       "windows": "Délais de rappel d’expiration"
     },
     "inputPlaceholders": {
-      "blockedCreatorsEmail": "E-mails enseignants, séparés par des virgules",
-      "blockedCreatorsPhone": "Mobiles enseignants, séparés par des virgules"
+      "blockedCreatorsEmail": "E-mails enseignants ou ID enseignants, séparés par des virgules",
+      "blockedCreatorsPhone": "Mobiles enseignants ou ID enseignants, séparés par des virgules"
     },
     "invalidConfig": "Impossible d’enregistrer la configuration. Vérifiez les valeurs du formulaire.",
     "listDialog": {

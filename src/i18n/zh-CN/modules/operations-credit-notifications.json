@@ -79,8 +79,8 @@
       "windows": "到期提醒窗口"
     },
     "inputPlaceholders": {
-      "blockedCreatorsEmail": "老师邮箱，多个值用逗号分隔",
-      "blockedCreatorsPhone": "老师手机号，多个值用逗号分隔"
+      "blockedCreatorsEmail": "老师邮箱或老师ID，多个值用逗号分隔",
+      "blockedCreatorsPhone": "老师手机号或老师ID，多个值用逗号分隔"
     },
     "invalidConfig": "配置保存失败，请检查表单内容。",
     "listDialog": {

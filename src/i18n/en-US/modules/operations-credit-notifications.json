@@ -79,8 +79,8 @@
       "windows": "Expiry reminder windows"
     },
     "inputPlaceholders": {
-      "blockedCreatorsEmail": "Teacher emails, separated by commas",
-      "blockedCreatorsPhone": "Teacher mobiles, separated by commas"
+      "blockedCreatorsEmail": "Teacher emails or IDs, separated by commas",
+      "blockedCreatorsPhone": "Teacher mobiles or IDs, separated by commas"
     },
     "invalidConfig": "Config could not be saved. Check the form values.",
     "listDialog": {
