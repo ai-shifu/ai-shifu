@@ -7,6 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 from flask import Flask
+from markdown_flow import LLMProvider
+
 from flaskr import dao
 from flaskr.api.langfuse import MockClient
 from flaskr.common.cache_provider import (
@@ -31,7 +33,6 @@ from flaskr.service.profile_research.runtime import (
     validate_profile_research_document,
 )
 from flaskr.util.prompt_loader import load_prompt_template
-from markdown_flow import LLMProvider
 
 
 class _FakeProvider(LLMProvider):

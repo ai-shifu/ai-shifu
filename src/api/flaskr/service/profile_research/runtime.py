@@ -9,6 +9,16 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from flask import Flask, Response, stream_with_context
+from markdown_flow import (
+    USER_ANSWER_CONTEXT_KEY,
+    BlockType,
+    InteractionParser,
+    LLMProvider,
+    LLMResult,
+    MarkdownFlow,
+    ProcessMode,
+)
+
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
     finalize_langfuse_trace,
@@ -23,15 +33,6 @@ from flaskr.service.metering.api import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.util import generate_id
 from flaskr.util.prompt_loader import load_prompt_template
-from markdown_flow import (
-    USER_ANSWER_CONTEXT_KEY,
-    BlockType,
-    InteractionParser,
-    LLMProvider,
-    LLMResult,
-    MarkdownFlow,
-    ProcessMode,
-)
 
 PROFILE_ONBOARDING_PURPOSE = "profile-onboarding"
 PROFILE_ONBOARDING_PREVIEW_PURPOSE = "profile-onboarding-preview"

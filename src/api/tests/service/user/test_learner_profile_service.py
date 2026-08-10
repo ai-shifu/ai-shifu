@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
+
 from flaskr.api.check.dto import (
     CHECK_RESULT_REJECT,
     CHECK_RESULT_REVIEW,
