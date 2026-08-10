@@ -703,6 +703,8 @@ export default function LearnOrdersTab() {
               labelClassName='w-24 text-right'
               collapsedGridClassName='gap-x-5 xl:grid-cols-3'
               expandedGridClassName='gap-x-5 xl:grid-cols-3'
+              expandedActionsInline
+              expandedActionsClassName='xl:col-span-2'
               labelColon
             />
           </div>
