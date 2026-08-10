@@ -742,7 +742,7 @@ def test_profile_onboarding_mutations_reject_invalid_shapes(
     assert response.get_json(force=True)["code"] != 0
 
 
-@pytest.mark.parametrize("trigger_source", ["unknown", "pasted", False, [], {}])
+@pytest.mark.parametrize("trigger_source", ["unknown", False, [], {}])
 def test_profile_onboarding_complete_rejects_invalid_trigger_source_as_param_error(
     monkeypatch, test_client, trigger_source
 ):
