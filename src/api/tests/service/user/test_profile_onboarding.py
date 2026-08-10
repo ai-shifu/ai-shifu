@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
+
 from flaskr.dao import db
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity
