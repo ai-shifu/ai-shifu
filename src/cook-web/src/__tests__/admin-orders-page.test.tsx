@@ -11,9 +11,11 @@ import api from '@/api';
 import OrdersPage from '@/app/admin/orders/page';
 
 const mockReplace = jest.fn();
+const paginationEllipsisLabel = '...';
 let mockSearchParamsValue = '';
 
 jest.mock('next/navigation', () => ({
+  usePathname: () => '/admin/orders',
   useRouter: () => ({
     replace: mockReplace,
   }),
@@ -123,7 +125,7 @@ jest.mock('@/components/ui/pagination', () => ({
   PaginationContent: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
-  PaginationEllipsis: () => <span>...</span>,
+  PaginationEllipsis: () => <span>{paginationEllipsisLabel}</span>,
   PaginationItem: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
