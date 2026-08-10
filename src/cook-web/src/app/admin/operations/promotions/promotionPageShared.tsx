@@ -31,7 +31,7 @@ export type PromotionTab =
   | 'referralCampaigns';
 
 export const PROMOTION_FILTER_COLLAPSED_GRID_CLASS =
-  'gap-x-2 xl:flex-none xl:grid-cols-[180px_210px_190px_250px]';
+  'gap-x-2 xl:grid-cols-[minmax(0,180px)_minmax(0,210px)_minmax(0,190px)_minmax(0,250px)]';
 
 export type CouponFilters = {
   keyword: string;

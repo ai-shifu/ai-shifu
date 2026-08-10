@@ -6,8 +6,14 @@ import {
   mockUpdateCouponStatus,
 } from './promotionsTestUtils.test-support';
 import AdminOperationPromotionsPage from './page';
+import { PROMOTION_FILTER_COLLAPSED_GRID_CLASS } from './promotionPageShared';
 
 describe('AdminOperationPromotionsPage list and pagination', () => {
+  test('keeps collapsed coupon filters shrinkable beside actions', () => {
+    expect(PROMOTION_FILTER_COLLAPSED_GRID_CLASS).toContain('minmax(0,180px)');
+    expect(PROMOTION_FILTER_COLLAPSED_GRID_CLASS).not.toContain('flex-none');
+  });
+
   test('loads coupon tab by default', async () => {
     render(<AdminOperationPromotionsPage />);
 
