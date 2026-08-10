@@ -1474,6 +1474,78 @@ def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(app
     assert [item.shifu_bid for item in result.items] == [normal_bid]
 
 
+def test_list_operator_courses_sql_path_filters_by_combined_course_query(app):
+    matching_bid = uuid.uuid4().hex[:32]
+    name_match_bid = uuid.uuid4().hex[:32]
+    other_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        DraftOutlineItem.query.delete()
+        PublishedOutlineItem.query.delete()
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
+        db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=matching_bid,
+                    title="Intro Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("19"),
+                    created_user_bid="creator-1",
+                    updated_user_bid="creator-1",
+                    created_at=datetime(2025, 5, 1, 9, 0, 0),
+                    updated_at=datetime(2025, 5, 1, 9, 0, 0),
+                ),
+                DraftShifu(
+                    shifu_bid=name_match_bid,
+                    title="Combined Search Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("29"),
+                    created_user_bid="creator-2",
+                    updated_user_bid="creator-2",
+                    created_at=datetime(2025, 5, 2, 9, 0, 0),
+                    updated_at=datetime(2025, 5, 2, 9, 0, 0),
+                ),
+                DraftShifu(
+                    shifu_bid=other_bid,
+                    title="Unrelated Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("39"),
+                    created_user_bid="creator-3",
+                    updated_user_bid="creator-3",
+                    created_at=datetime(2025, 5, 3, 9, 0, 0),
+                    updated_at=datetime(2025, 5, 3, 9, 0, 0),
+                ),
+            ]
+        )
+        db.session.commit()
+
+        id_result = list_operator_courses(app, 1, 20, {"course_query": matching_bid})
+        name_result = list_operator_courses(
+            app, 1, 20, {"course_query": "Combined Search"}
+        )
+
+    assert [item.shifu_bid for item in id_result.items] == [matching_bid]
+    assert [item.shifu_bid for item in name_result.items] == [name_match_bid]
+
+
 def test_merge_courses_checks_published_visibility_once():
     draft_course = DummyCourse(
         shifu_bid="course-draft",
