@@ -128,6 +128,18 @@ describe('AdminOperationPromotionsPage coupons', () => {
         'module.operationsPromotion.filters.courseQueryPlaceholder',
       ).length,
     ).toBeGreaterThan(0);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.campaigns',
+      }),
+    );
+    await screen.findByText('Early Bird');
+    expect(
+      screen.getAllByPlaceholderText(
+        'module.operationsPromotion.filters.courseQueryPlaceholder',
+      ).length,
+    ).toBeGreaterThan(0);
   });
   test('shows only used-up attention badge when an active coupon is both used up and expiring soon', async () => {
     const soonEndAt = new Date(
