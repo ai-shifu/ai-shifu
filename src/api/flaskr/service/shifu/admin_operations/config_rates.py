@@ -604,6 +604,7 @@ def update_operator_rate_config(
         provider = str(payload.get("provider") or "").strip()
         requested_model = str(payload.get("model") or "").strip()
         model = requested_model
+        has_explicit_rate_model = "rate_model" in payload
         rate_model = str(payload.get("rate_model") or "").strip()
         model_candidates = [model]
         if usage_type == BILL_USAGE_TYPE_LLM:
@@ -734,12 +735,17 @@ def update_operator_rate_config(
 
         existing_rows: list[CreditUsageRate] = []
         if not create_only:
+            models_to_supersede = (
+                [model]
+                if usage_type == BILL_USAGE_TYPE_LLM and has_explicit_rate_model
+                else model_candidates
+            )
             existing_rows = (
                 CreditUsageRate.query.filter(
                     CreditUsageRate.deleted == 0,
                     CreditUsageRate.usage_type == usage_type,
                     CreditUsageRate.provider == provider,
-                    CreditUsageRate.model.in_(model_candidates),
+                    CreditUsageRate.model.in_(models_to_supersede),
                     CreditUsageRate.usage_scene == BILL_USAGE_SCENE_PROD,
                     CreditUsageRate.billing_metric.in_(metrics_to_update),
                     CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,

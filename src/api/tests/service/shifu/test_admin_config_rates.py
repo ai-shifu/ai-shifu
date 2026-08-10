@@ -124,6 +124,14 @@ def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(monkeypatch, ap
     with app.app_context():
         db.session.query(CreditUsageRate).delete()
         _seed_default_llm_rates()
+        alias_output = _credit_rate(
+            rate_bid="rate-output-alias",
+            model="qwen/deepseek-v4-flash",
+            metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            credits_per_unit="30",
+        )
+        db.session.add(alias_output)
+        db.session.commit()
 
         result = config_rates.update_operator_rate_config(
             app,
@@ -183,6 +191,8 @@ def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(monkeypatch, ap
             CREDIT_USAGE_RATE_STATUS_ACTIVE
         }
         assert {row.effective_to for row in superseded_rows} == {rate_change_at}
+        db.session.refresh(alias_output)
+        assert alias_output.effective_to is None
 
         # A second save in the same DB second should update the deterministic
         # version instead of colliding on the rate lookup unique key.
@@ -217,6 +227,85 @@ def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(monkeypatch, ap
         assert config["llm_rates"][0]["multiplier"] == 7
         assert len(active_output_rows) == 1
         assert active_output_rows[0].credits_per_unit == Decimal(21)
+        db.session.refresh(alias_output)
+        assert alias_output.effective_to is None
+
+        db.session.query(CreditUsageRate).delete()
+        db.session.commit()
+
+
+def test_update_db_only_llm_alias_only_supersedes_explicit_alias(monkeypatch, app):
+    fixed_now = datetime(2026, 7, 20, 13, 30, 43, 990000)  # noqa: DTZ001
+    monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
+    monkeypatch.setattr(
+        config_rates, "_load_llm_credit_1x_reference_cost", lambda: Decimal(3)
+    )
+    monkeypatch.setattr(config_rates, "get_config", lambda _key, default=None: default)
+    monkeypatch.setattr(
+        config_rates,
+        "_resolve_llm_rate_identity",
+        lambda _model: ("qwen", ["qwen/foo", "qwen/qwen/foo"]),
+    )
+
+    with app.app_context():
+        db.session.query(CreditUsageRate).delete()
+        raw_output = _credit_rate(
+            rate_bid="raw-output",
+            provider="qwen",
+            model="foo",
+            metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            credits_per_unit="3",
+        )
+        alias_output = _credit_rate(
+            rate_bid="alias-output",
+            provider="qwen",
+            model="qwen/foo",
+            metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            credits_per_unit="6",
+        )
+        db.session.add_all([raw_output, alias_output])
+        db.session.commit()
+
+        result = config_rates.update_operator_rate_config(
+            app,
+            payload={
+                "usage_type": "llm",
+                "provider": "qwen",
+                "model": "qwen/qwen/foo",
+                "rate_model": "qwen/foo",
+                "display_name": "qwen/qwen/foo",
+                "billing_metric": "llm_output_tokens",
+                "unit_size": 1,
+                "credits_per_unit": 12,
+                "status": "active",
+            },
+            operator_user_bid="operator-test",
+        )
+
+        rate_change_at = fixed_now.replace(microsecond=0)
+        active_alias_rows = {
+            row.billing_metric: row
+            for row in CreditUsageRate.query.filter(
+                CreditUsageRate.provider == "qwen",
+                CreditUsageRate.model == "qwen/foo",
+                CreditUsageRate.effective_from == rate_change_at,
+                CreditUsageRate.effective_to.is_(None),
+            ).all()
+        }
+        db.session.refresh(raw_output)
+        db.session.refresh(alias_output)
+
+        assert result["rate_model"] == "qwen/foo"
+        assert raw_output.effective_to is None
+        assert alias_output.effective_to == rate_change_at
+        assert set(active_alias_rows) == {
+            BILLING_METRIC_LLM_INPUT_TOKENS,
+            BILLING_METRIC_LLM_CACHE_TOKENS,
+            BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        }
+        assert active_alias_rows[
+            BILLING_METRIC_LLM_OUTPUT_TOKENS
+        ].credits_per_unit == Decimal(12)
 
         db.session.query(CreditUsageRate).delete()
         db.session.commit()
