@@ -253,7 +253,11 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByRole('button', { name: 'tabs.tts' }));
-    fireEvent.click(screen.getByRole('button', { name: '添加费率' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: mockT('actions.addConfiguration'),
+      }),
+    );
 
     expect(screen.getByTestId('create-rate-usage-type')).toHaveTextContent(
       'tts',
@@ -336,7 +340,11 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     render(<AdminOperationsConfigPage />);
 
     await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole('button', { name: '添加费率' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: mockT('actions.addConfiguration'),
+      }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'mock-create' }));
 
     await waitFor(() =>
@@ -382,7 +390,11 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
 
     await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole('button', { name: 'tabs.tts' }));
-    fireEvent.click(screen.getByRole('button', { name: '添加费率' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: mockT('actions.addConfiguration'),
+      }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'mock-create' }));
 
     await waitFor(() => expect(mockUpdateRate).toHaveBeenCalledTimes(1));
@@ -398,7 +410,9 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
       title: 'refresh failed',
       variant: 'destructive',
     });
-    const addRateButton = screen.getByRole('button', { name: '添加费率' });
+    const addRateButton = screen.getByRole('button', {
+      name: mockT('actions.addConfiguration'),
+    });
     expect(addRateButton).toBeDisabled();
     fireEvent.click(addRateButton);
     expect(screen.queryByTestId('create-rate-dialog')).not.toBeInTheDocument();
@@ -498,13 +512,19 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     render(<AdminOperationsConfigPage />);
 
     await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole('button', { name: '添加费率' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: mockT('actions.addConfiguration'),
+      }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'mock-create' }));
 
     await waitFor(() => expect(mockUpdateRate).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(2));
     const pendingAlert = await screen.findByRole('alert');
-    const addRateButton = screen.getByRole('button', { name: '添加费率' });
+    const addRateButton = screen.getByRole('button', {
+      name: mockT('actions.addConfiguration'),
+    });
     expect(addRateButton).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'actions.edit' }));
@@ -551,7 +571,11 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
 
     await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole('button', { name: 'tabs.tts' }));
-    fireEvent.click(screen.getByRole('button', { name: '添加费率' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: mockT('actions.addConfiguration'),
+      }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'mock-create' }));
 
     await waitFor(() =>
@@ -587,7 +611,9 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     render(<AdminOperationsConfigPage />);
 
     await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
-    const addRateButton = screen.getByRole('button', { name: '添加费率' });
+    const addRateButton = screen.getByRole('button', {
+      name: mockT('actions.addConfiguration'),
+    });
     expect(addRateButton).toBeEnabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'actions.edit' }));
