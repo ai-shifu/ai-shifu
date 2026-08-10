@@ -125,7 +125,19 @@ describe('AdminOperationPromotionsPage coupons', () => {
 
     expect(
       screen.getAllByPlaceholderText(
-        'module.operationsPromotion.filters.courseIdPlaceholder',
+        'module.operationsPromotion.filters.courseQueryPlaceholder',
+      ).length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.campaigns',
+      }),
+    );
+    await screen.findByText('Early Bird');
+    expect(
+      screen.getAllByPlaceholderText(
+        'module.operationsPromotion.filters.courseQueryPlaceholder',
       ).length,
     ).toBeGreaterThan(0);
   });
