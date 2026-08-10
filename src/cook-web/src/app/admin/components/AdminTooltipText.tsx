@@ -18,6 +18,30 @@ type AdminTooltipTextProps = {
   forceTooltip?: boolean;
 };
 
+const CLIPPING_OVERFLOW_VALUES = new Set(['auto', 'clip', 'hidden', 'scroll']);
+
+const clipsOverflow = (element: HTMLElement) => {
+  const style = window.getComputedStyle(element);
+  return [style.overflow, style.overflowX, style.overflowY].some(value =>
+    CLIPPING_OVERFLOW_VALUES.has(value),
+  );
+};
+
+const elementExtendsBeyondCell = (
+  element: HTMLElement,
+  tableCell: HTMLElement,
+) => {
+  const elementRect = element.getBoundingClientRect();
+  const cellRect = tableCell.getBoundingClientRect();
+
+  return (
+    elementRect.left < cellRect.left ||
+    elementRect.right > cellRect.right ||
+    elementRect.top < cellRect.top ||
+    elementRect.bottom > cellRect.bottom
+  );
+};
+
 export default function AdminTooltipText({
   text,
   displayText,
@@ -44,8 +68,8 @@ export default function AdminTooltipText({
       element.scrollHeight > element.clientHeight;
     const isClippedByTableCell =
       tableCell && tableCell !== element
-        ? element.scrollWidth > tableCell.clientWidth ||
-          tableCell.scrollWidth > tableCell.clientWidth
+        ? clipsOverflow(tableCell) &&
+          elementExtendsBeyondCell(element, tableCell)
         : false;
 
     setIsOverflowing(Boolean(isClippedByOwnBounds || isClippedByTableCell));
