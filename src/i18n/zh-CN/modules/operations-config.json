@@ -1,6 +1,10 @@
 {
   "__namespace__": "module.operationsConfig",
   "actions": {
+    "addConfiguration": "添加费率",
+    "adding": "添加中…",
+    "confirmAdd": "确认添加",
+    "continue": "下一步",
     "edit": "编辑",
     "save": "保存"
   },
@@ -9,8 +13,32 @@
     "description": "确认将 {model} 的消耗倍率从 {from} 调整到 {to}。",
     "title": "确认保存消耗倍率"
   },
+  "create": {
+    "confirmDescription": "确认添加 {identity} 的专属费率（{type}），消耗倍率为 {multiplier}x。该费率仅影响后续新产生的用量。",
+    "confirmTitle": "确认添加费率",
+    "defaultTier": "默认档位",
+    "description": "为当前 {type} 添加一条专属费率。",
+    "doesNotEnable": "添加费率只会建立积分消耗规则，不会启用模型或改变模型可用性。",
+    "errors": {
+      "duplicate": "该厂商和模型已有专属费率，请在列表中使用“编辑”。",
+      "modelInvalid": "模型 / 档位不能超过 100 个字符，也不能包含控制字符或使用 *。",
+      "modelRequired": "请输入模型。",
+      "providerInvalid": "厂商不能超过 32 个字符，也不能包含控制字符或使用 *。",
+      "providerRequired": "请输入厂商。",
+      "ttsFactorMissing": "TTS 字符折算系数未配置，暂不能添加费率。"
+    },
+    "failed": "费率添加失败，请检查填写内容。",
+    "modelPlaceholder": "例如 deepseek-v4-flash",
+    "multiplierPlaceholder": "例如 1.5",
+    "providerPlaceholder": "例如 qwen",
+    "success": "费率已添加",
+    "title": "添加费率",
+    "ttsDefaultHint": "模型 / 档位留空时，表示该厂商的默认档位。",
+    "ttsModelPlaceholder": "留空使用厂商默认档位",
+    "typeLabel": "费率类型"
+  },
   "description": "维护 LLM 与语音合成的积分消耗规则，调整后仅影响后续新产生的用量结算。",
-  "empty": "暂无可配置模型。",
+  "empty": "暂无可管理的模型费率。",
   "fields": {
     "actions": "操作",
     "displayName": "展示名称",
@@ -18,13 +46,13 @@
     "modelTier": "模型 / 档位",
     "multiplier": "消耗倍率",
     "multiplierSuffix": "x",
-    "provider": "语音厂商",
-    "source": "配置方式",
+    "provider": "厂商",
+    "source": "费率来源",
     "ttsMultiplier": "消耗倍率",
     "updatedAt": "更新时间"
   },
   "invalidMultiplier": "请输入大于 0 的消耗倍率，最多保留 2 位小数。",
-  "loadFailed": "配置加载失败，请稍后重试。",
+  "loadFailed": "费率加载失败，请稍后重试。",
   "pagination": {
     "next": "下一页",
     "prev": "上一页"
@@ -38,19 +66,19 @@
     "fixedBaseline": "该基准为全局固定值，不随默认模型和模型倍率调整而变化",
     "futureOnly": "仅影响后续新产生的用量，历史账单不回算",
     "intro": "当前系统用于计算消耗倍率的固定参考值，仅供运营配置时核对。",
-    "tooltipAriaLabel": "查看配置参考",
+    "tooltipAriaLabel": "查看费率参考",
     "ttsFactor": "TTS 字符折算系数"
   },
-  "saveFailed": "配置保存失败，请检查填写内容。",
-  "saveSuccess": "配置已保存",
+  "saveFailed": "费率保存失败，请检查填写内容。",
+  "saveSuccess": "费率已保存",
   "source": {
-    "default": "系统默认倍率",
-    "exact": "专属倍率",
-    "unconfigured": "未配置"
+    "default": "系统默认费率",
+    "exact": "专属费率",
+    "unconfigured": "未设置费率"
   },
   "tabs": {
     "llm": "LLM 消耗倍率",
     "tts": "TTS 消耗倍率"
   },
-  "title": "配置管理"
+  "title": "费率管理"
 }

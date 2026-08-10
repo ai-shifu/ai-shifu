@@ -82,6 +82,7 @@
   "server.billing.notificationPolicySaveFailed": 7121,
   "server.billing.manualPlanGrantFailed": 7122,
   "server.billing.manualCreditGrantFailed": 7123,
+  "server.billing.rateConfigAlreadyExists": 7124,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,

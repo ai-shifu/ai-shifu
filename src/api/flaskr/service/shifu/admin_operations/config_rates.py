@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import unicodedata
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from flask import Flask
-
 from flaskr.api.llm import get_current_models
 from flaskr.api.tts import get_all_provider_configs
 from flaskr.dao import db
@@ -25,7 +25,7 @@ from flaskr.service.common.credit_rate_references import (
     load_llm_credit_1x_per_1000_output_tokens,
     load_llm_credit_1x_unit_cost,
 )
-from flaskr.service.common.models import raise_param_error
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config.funcs import get_config
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
@@ -53,8 +53,10 @@ _METRIC_CODES = {value: key for key, value in BILLING_METRIC_LABELS.items()}
 _LLM_MISSING_RATE_FALLBACK_RATIOS = {
     BILLING_METRIC_LLM_INPUT_TOKENS: Decimal("0.25"),
     BILLING_METRIC_LLM_CACHE_TOKENS: Decimal("0.125"),
-    BILLING_METRIC_LLM_OUTPUT_TOKENS: Decimal("1"),
+    BILLING_METRIC_LLM_OUTPUT_TOKENS: Decimal(1),
 }
+_PROVIDER_MAX_LENGTH = 32
+_MODEL_MAX_LENGTH = 100
 
 
 def _rate_effective_now():
@@ -69,12 +71,40 @@ def _decimal(value: Any, *, field_name: str) -> Decimal:
         result = Decimal(str(value).strip())
     except (InvalidOperation, AttributeError, TypeError, ValueError):
         raise_param_error(field_name)
-    if result < 0:
+    if not result.is_finite() or result < 0:
         raise_param_error(field_name)
     return result
 
 
-def _decimal_to_number(value: Decimal | int | float | str) -> int | float:
+def _normalize_create_only(payload: dict[str, Any]) -> bool:
+    if "create_only" not in payload:
+        return False
+    value = payload.get("create_only")
+    if not isinstance(value, bool):
+        raise_param_error("create_only")
+    return value
+
+
+def _validate_exact_identifier(
+    value: str,
+    *,
+    field_name: str,
+    max_length: int,
+    required: bool,
+) -> str:
+    normalized = str(value or "").strip()
+    if required and not normalized:
+        raise_param_error(field_name)
+    if len(normalized) > max_length:
+        raise_param_error(field_name)
+    if "*" in normalized or any(
+        unicodedata.category(char).startswith("C") for char in normalized
+    ):
+        raise_param_error(field_name)
+    return normalized
+
+
+def _decimal_to_number(value: Decimal | float | str) -> int | float:
     decimal_value = Decimal(str(value or 0))
     normalized = decimal_value.normalize()
     if normalized == normalized.to_integral_value():
@@ -126,7 +156,7 @@ def _load_llm_credit_1x_reference_cost() -> Decimal | None:
 
 def _load_default_llm_metric_ratio(metric: int) -> Decimal:
     if metric == BILLING_METRIC_LLM_OUTPUT_TOKENS:
-        return Decimal("1")
+        return Decimal(1)
 
     default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
     if default_model:
@@ -150,7 +180,7 @@ def _load_default_llm_metric_ratio(metric: int) -> Decimal:
         if metric_cost and output_cost and output_cost > 0:
             return metric_cost / output_cost
 
-    return _LLM_MISSING_RATE_FALLBACK_RATIOS.get(metric, Decimal("1"))
+    return _LLM_MISSING_RATE_FALLBACK_RATIOS.get(metric, Decimal(1))
 
 
 def _llm_credits_for_missing_metric(
@@ -269,7 +299,7 @@ def _serialize_rate_row(
         "billing_metric_code": int(billing_metric),
         "unit_size": int(rate.unit_size or 1) if rate else 1,
         "credits_per_unit": _decimal_to_number(rate.credits_per_unit) if rate else 0,
-        "unit_cost": _decimal_to_number(unit_cost or Decimal("0")),
+        "unit_cost": _decimal_to_number(unit_cost or Decimal(0)),
         "multiplier": _format_multiplier(multiplier),
         "rounding_mode": (
             int(rate.rounding_mode or CREDIT_ROUNDING_MODE_CEIL)
@@ -303,6 +333,11 @@ def _build_llm_rows(app: Flask, baseline_cost: Decimal | None) -> list[dict[str,
         if key in seen:
             continue
         seen.add(key)
+        seen.update(
+            (provider, str(candidate or "").strip())
+            for candidate in model_candidates
+            if str(candidate or "").strip()
+        )
         rows.append(
             _serialize_rate_row(
                 usage_type=BILL_USAGE_TYPE_LLM,
@@ -311,6 +346,25 @@ def _build_llm_rows(app: Flask, baseline_cost: Decimal | None) -> list[dict[str,
                 model_candidates=model_candidates,
                 rate_model=rate_model,
                 display_name=display_name,
+                billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+                baseline_cost=baseline_cost,
+                tts_chars_per_llm_token=None,
+            )
+        )
+    for provider, rate_model in _load_active_exact_rate_identities(BILL_USAGE_TYPE_LLM):
+        key = (provider, rate_model)
+        if key in seen:
+            continue
+        seen.add(key)
+        model = f"{provider}/{rate_model}"
+        rows.append(
+            _serialize_rate_row(
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider=provider,
+                model=model,
+                model_candidates=[rate_model],
+                rate_model=rate_model,
+                display_name=model,
                 billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
                 baseline_cost=baseline_cost,
                 tts_chars_per_llm_token=None,
@@ -346,7 +400,54 @@ def _build_tts_rows(baseline_cost: Decimal | None) -> list[dict[str, Any]]:
                 tts_chars_per_llm_token=tts_chars_per_llm_token,
             )
         )
+    for provider, model in _load_active_exact_rate_identities(BILL_USAGE_TYPE_TTS):
+        key = (provider, model)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(
+            _serialize_rate_row(
+                usage_type=BILL_USAGE_TYPE_TTS,
+                provider=provider,
+                model=model,
+                model_candidates=[model],
+                rate_model=model,
+                display_name=f"{provider}/{model or 'default'}",
+                billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
+                baseline_cost=baseline_cost,
+                tts_chars_per_llm_token=tts_chars_per_llm_token,
+            )
+        )
     return rows
+
+
+def _load_active_exact_rate_identities(usage_type: int) -> list[tuple[str, str]]:
+    effective_at = now_utc()
+    rows = (
+        CreditUsageRate.query.filter(
+            CreditUsageRate.deleted == 0,
+            CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,
+            CreditUsageRate.usage_type == usage_type,
+            CreditUsageRate.usage_scene == BILL_USAGE_SCENE_PROD,
+            CreditUsageRate.billing_metric.in_(_RATE_METRICS[usage_type]),
+            CreditUsageRate.effective_from <= effective_at,
+        )
+        .filter(
+            (CreditUsageRate.effective_to.is_(None))
+            | (CreditUsageRate.effective_to > effective_at)
+        )
+        .all()
+    )
+    identities: set[tuple[str, str]] = set()
+    for row in rows:
+        provider = str(row.provider or "").strip()
+        model = str(row.model or "").strip()
+        if not provider or "*" in provider or "*" in model:
+            continue
+        if usage_type == BILL_USAGE_TYPE_LLM and not model:
+            continue
+        identities.add((provider, model))
+    return sorted(identities)
 
 
 def get_operator_rate_config(app: Flask) -> dict[str, Any]:
@@ -356,13 +457,13 @@ def get_operator_rate_config(app: Flask) -> dict[str, Any]:
         return {
             "baseline": {
                 "default_llm_model": str(get_config("DEFAULT_LLM_MODEL", "") or ""),
-                "unit_cost": _decimal_to_number(baseline_cost or Decimal("0")),
+                "unit_cost": _decimal_to_number(baseline_cost or Decimal(0)),
                 "per_1000_output_tokens": _decimal_to_number(
-                    baseline_per_1000 or Decimal("0")
+                    baseline_per_1000 or Decimal(0)
                 ),
                 "is_configured": bool(baseline_cost and baseline_cost > 0),
                 "tts_chars_per_llm_token": _decimal_to_number(
-                    _load_tts_chars_per_llm_token() or Decimal("0")
+                    _load_tts_chars_per_llm_token() or Decimal(0)
                 ),
             },
             "llm_rates": _build_llm_rows(app, baseline_cost),
@@ -408,16 +509,26 @@ def update_operator_rate_config(
     operator_user_bid: str,
 ) -> dict[str, Any]:
     with app_context_scope(app), unit_of_work():
+        create_only = _normalize_create_only(payload)
         usage_type = _normalize_usage_type(payload.get("usage_type"))
         billing_metric = _normalize_metric(
             payload.get("billing_metric"), usage_type=usage_type
         )
+        expected_create_metric = (
+            BILLING_METRIC_LLM_OUTPUT_TOKENS
+            if usage_type == BILL_USAGE_TYPE_LLM
+            else BILLING_METRIC_TTS_OUTPUT_CHARS
+        )
+        if create_only and billing_metric != expected_create_metric:
+            raise_param_error("billing_metric")
         provider = str(payload.get("provider") or "").strip()
         requested_model = str(payload.get("model") or "").strip()
         model = requested_model
         rate_model = str(payload.get("rate_model") or "").strip()
         model_candidates = [model]
         if usage_type == BILL_USAGE_TYPE_LLM:
+            if create_only and not requested_model:
+                raise_param_error("model")
             resolved_provider, resolved_model_candidates = _resolve_llm_rate_identity(
                 requested_model
             )
@@ -427,9 +538,38 @@ def update_operator_rate_config(
             model = rate_model or model_candidates[0]
             if model and model not in model_candidates:
                 model_candidates = [model, *model_candidates]
-        if not provider and usage_type == BILL_USAGE_TYPE_TTS:
+        elif create_only and "rate_model" in payload:
+            model = rate_model
+            model_candidates = [model]
+        if create_only:
+            provider = _validate_exact_identifier(
+                provider,
+                field_name="provider",
+                max_length=_PROVIDER_MAX_LENGTH,
+                required=True,
+            )
+            model = _validate_exact_identifier(
+                model,
+                field_name="model",
+                max_length=_MODEL_MAX_LENGTH,
+                required=usage_type == BILL_USAGE_TYPE_LLM,
+            )
+        elif not provider and usage_type == BILL_USAGE_TYPE_TTS:
             raise_param_error("provider")
-        unit_size = int(payload.get("unit_size") or 1)
+        if create_only:
+            raw_unit_size = payload.get("unit_size", 1)
+            if raw_unit_size is None:
+                raw_unit_size = 1
+            try:
+                decimal_unit_size = Decimal(str(raw_unit_size).strip())
+                if decimal_unit_size != Decimal(1):
+                    raise_param_error("unit_size")
+                unit_size = 1
+            except (InvalidOperation, TypeError, ValueError):
+                raise_param_error("unit_size")
+        else:
+            raw_unit_size = payload.get("unit_size") or 1
+            unit_size = int(raw_unit_size)
         if unit_size <= 0:
             raise_param_error("unit_size")
 
@@ -450,11 +590,18 @@ def update_operator_rate_config(
                 else CREDIT_USAGE_RATE_STATUS_INACTIVE
             )
         else:
-            status_code = int(status or CREDIT_USAGE_RATE_STATUS_ACTIVE)
+            try:
+                status_code = int(status or CREDIT_USAGE_RATE_STATUS_ACTIVE)
+            except (TypeError, ValueError):
+                if create_only:
+                    raise_param_error("status")
+                raise
         if status_code not in {
             CREDIT_USAGE_RATE_STATUS_ACTIVE,
             CREDIT_USAGE_RATE_STATUS_INACTIVE,
         }:
+            raise_param_error("status")
+        if create_only and status_code != CREDIT_USAGE_RATE_STATUS_ACTIVE:
             raise_param_error("status")
 
         now = _rate_effective_now()
@@ -463,6 +610,26 @@ def update_operator_rate_config(
             if usage_type == BILL_USAGE_TYPE_LLM
             else (billing_metric,)
         )
+        if create_only:
+            existing_exact_rate = (
+                CreditUsageRate.query.filter(
+                    CreditUsageRate.deleted == 0,
+                    CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,
+                    CreditUsageRate.usage_type == usage_type,
+                    CreditUsageRate.provider == provider,
+                    CreditUsageRate.model == model,
+                    CreditUsageRate.usage_scene == BILL_USAGE_SCENE_PROD,
+                    CreditUsageRate.billing_metric.in_(metrics_to_update),
+                    CreditUsageRate.effective_from <= now,
+                )
+                .filter(
+                    (CreditUsageRate.effective_to.is_(None))
+                    | (CreditUsageRate.effective_to > now)
+                )
+                .first()
+            )
+            if existing_exact_rate is not None:
+                raise_error("server.billing.rateConfigAlreadyExists")
         target_unit_cost = credits_per_unit / Decimal(str(unit_size))
         current_rates_by_metric: dict[int, CreditUsageRate | None] = {}
         if usage_type == BILL_USAGE_TYPE_LLM:
@@ -483,24 +650,28 @@ def update_operator_rate_config(
             if current_output_cost and current_output_cost > 0:
                 llm_scale = target_unit_cost / current_output_cost
 
-        existing_rows = (
-            CreditUsageRate.query.filter(
-                CreditUsageRate.deleted == 0,
-                CreditUsageRate.usage_type == usage_type,
-                CreditUsageRate.provider == provider,
-                CreditUsageRate.model.in_(model_candidates),
-                CreditUsageRate.usage_scene == BILL_USAGE_SCENE_PROD,
-                CreditUsageRate.billing_metric.in_(metrics_to_update),
-                CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,
+        existing_rows: list[CreditUsageRate] = []
+        if not create_only:
+            existing_rows = (
+                CreditUsageRate.query.filter(
+                    CreditUsageRate.deleted == 0,
+                    CreditUsageRate.usage_type == usage_type,
+                    CreditUsageRate.provider == provider,
+                    CreditUsageRate.model.in_(model_candidates),
+                    CreditUsageRate.usage_scene == BILL_USAGE_SCENE_PROD,
+                    CreditUsageRate.billing_metric.in_(metrics_to_update),
+                    CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,
+                )
+                .filter(CreditUsageRate.effective_from <= now)
+                .filter(
+                    (CreditUsageRate.effective_to.is_(None))
+                    | (CreditUsageRate.effective_to > now)
+                )
+                .order_by(
+                    CreditUsageRate.effective_from.desc(), CreditUsageRate.id.desc()
+                )
+                .all()
             )
-            .filter(CreditUsageRate.effective_from <= now)
-            .filter(
-                (CreditUsageRate.effective_to.is_(None))
-                | (CreditUsageRate.effective_to > now)
-            )
-            .order_by(CreditUsageRate.effective_from.desc(), CreditUsageRate.id.desc())
-            .all()
-        )
         for row in existing_rows:
             row.effective_to = now
 
