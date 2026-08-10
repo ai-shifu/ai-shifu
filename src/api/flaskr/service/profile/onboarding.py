@@ -24,6 +24,7 @@ from flaskr.service.profile.funcs import (
 )
 from flaskr.service.profile.learner_profile import (
     LEARNER_PROFILE_MAX_LENGTH,
+    LEARNER_PROFILE_TRIGGER_SOURCES,
     get_learner_profile,
     load_learner_profile_state,
     load_learner_profile_user,
@@ -218,10 +219,10 @@ def complete_profile_onboarding_v2(
 ) -> dict[str, Any]:
     """Persist only the canonical v2 profile/state, never legacy sys_* values."""
 
-    if not isinstance(trigger_source, str) or trigger_source not in {
-        "guided",
-        "settings",
-    }:
+    if (
+        not isinstance(trigger_source, str)
+        or trigger_source not in LEARNER_PROFILE_TRIGGER_SOURCES
+    ):
         raise_param_error("trigger_source")
 
     return save_learner_profile(
