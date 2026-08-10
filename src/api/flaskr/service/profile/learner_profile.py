@@ -155,10 +155,14 @@ def merge_learner_profile_for_sign_in(
         UserEntity.user_bid == normalized_source_id,
         UserEntity.deleted == 0,
     ).first()
-    target_user = UserEntity.query.filter(
-        UserEntity.user_bid == normalized_target_id,
-        UserEntity.deleted == 0,
-    ).first()
+    target_user = (
+        UserEntity.query.filter(
+            UserEntity.user_bid == normalized_target_id,
+            UserEntity.deleted == 0,
+        )
+        .with_for_update()
+        .first()
+    )
     if source_user is None or target_user is None:
         return
 

@@ -320,6 +320,37 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app):
         assert load_learner_profile_state(target.user_bid) is None
 
 
+def test_merge_helper_locks_target_before_copying_state(app, monkeypatch):
+    with app.app_context():
+        source = _create_user(
+            identify=uuid.uuid4().hex,
+            learner_profile="locked merge profile",
+            learner_profile_updated_at=PROFILE_UPDATED_AT,
+        )
+        target = _create_user(identify=uuid.uuid4().hex)
+        _add_state(source.user_bid, status="completed")
+        db.session.commit()
+
+        query_type = type(UserInfo.query)
+        original_with_for_update = query_type.with_for_update
+        lock_calls = []
+
+        def track_with_for_update(query, *args, **kwargs):
+            lock_calls.append((args, kwargs))
+            return original_with_for_update(query, *args, **kwargs)
+
+        monkeypatch.setattr(query_type, "with_for_update", track_with_for_update)
+        with transactional_session():
+            merge_learner_profile_for_sign_in(
+                source_user_id=source.user_bid,
+                target_user_id=target.user_bid,
+            )
+        db.session.commit()
+
+        assert lock_calls == [((), {})]
+        assert load_learner_profile_state(target.user_bid) is not None
+
+
 def test_phone_sign_in_merges_profile_without_course_id(app, monkeypatch, caplog):
     import flaskr.service.user.phone_flow as phone_flow
 
