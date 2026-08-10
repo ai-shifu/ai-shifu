@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unicodedata
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 from flask import Flask
@@ -85,6 +85,16 @@ def _validate_create_only_credits_per_unit(value: Decimal) -> None:
     except InvalidOperation:
         raise_param_error("credits_per_unit")
     if value <= 0 or quantized != value or value > _CREDITS_PER_UNIT_MAX:
+        raise_param_error("credits_per_unit")
+
+
+def _quantize_derived_credits_per_unit(value: Decimal) -> Decimal:
+    try:
+        return value.quantize(
+            _CREDITS_PER_UNIT_QUANTIZER,
+            rounding=ROUND_HALF_UP,
+        )
+    except InvalidOperation:
         raise_param_error("credits_per_unit")
 
 
@@ -772,6 +782,13 @@ def update_operator_rate_config(
                         unit_size=next_unit_size,
                     )
             if create_only:
+                if (
+                    usage_type == BILL_USAGE_TYPE_LLM
+                    and metric != BILLING_METRIC_LLM_OUTPUT_TOKENS
+                ):
+                    next_credits_per_unit = _quantize_derived_credits_per_unit(
+                        next_credits_per_unit
+                    )
                 _validate_create_only_credits_per_unit(next_credits_per_unit)
             same_second_row = CreditUsageRate.query.filter(
                 CreditUsageRate.deleted == 0,

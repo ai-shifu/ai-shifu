@@ -587,8 +587,18 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
     [
         (Decimal(12), Decimal(3), Decimal("1.5")),
         (Decimal("0.25"), Decimal("0.0625"), Decimal("0.03125")),
+        (
+            Decimal("0.0001000005"),
+            Decimal("0.0000250001"),
+            Decimal("0.0000125001"),
+        ),
+        (
+            Decimal("0.0000000004"),
+            Decimal("0.0000000001"),
+            Decimal("0.0000000001"),
+        ),
     ],
-    ids=["whole-number", "fractional"],
+    ids=["whole-number", "fractional", "anchor-1.5x", "half-up-boundary"],
 )
 def test_create_only_llm_uses_raw_rate_model_without_superseding_alias(
     monkeypatch, app, credits_per_unit, expected_input, expected_cache
