@@ -151,6 +151,45 @@ describe('AdminTooltipText', () => {
     );
   });
 
+  test('shows tooltip when a table cell clips the trigger content', async () => {
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() {
+        if (this.tagName === 'TD') {
+          return 80;
+        }
+        return 160;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+      configurable: true,
+      get() {
+        return 160;
+      },
+    });
+
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <td>
+              <AdminTooltipText
+                text='Clipped by table cell'
+                emptyValue='--'
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('tooltip-content')).toHaveTextContent(
+        'Clipped by table cell',
+      );
+    });
+  });
+
   test('updates overflow state when display text changes without changing value', async () => {
     const { rerender } = render(
       <AdminTooltipText

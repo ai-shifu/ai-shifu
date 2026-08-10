@@ -135,7 +135,7 @@ export default function AdminTableShell({
   footnote,
   footer,
   pagination,
-  withTooltipProvider = false,
+  withTooltipProvider = true,
   containerClassName,
   tableWrapperClassName,
   tableWrapperTestId,

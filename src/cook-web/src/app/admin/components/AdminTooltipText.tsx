@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Tooltip,
   TooltipContent,
@@ -31,19 +31,32 @@ export default function AdminTooltipText({
   const trimmedText = text?.trim() ?? '';
   const value = trimmedText.length > 0 ? trimmedText : emptyValue;
 
-  useEffect(() => {
+  const updateOverflowState = useCallback(() => {
     const element = triggerRef.current;
     if (!element) {
       setIsOverflowing(false);
       return;
     }
 
-    const updateOverflowState = () => {
-      setIsOverflowing(
-        element.scrollWidth > element.clientWidth ||
-          element.scrollHeight > element.clientHeight,
-      );
-    };
+    const tableCell = element.closest('td,th') as HTMLElement | null;
+    const isClippedByOwnBounds =
+      element.scrollWidth > element.clientWidth ||
+      element.scrollHeight > element.clientHeight;
+    const isClippedByTableCell =
+      tableCell && tableCell !== element
+        ? element.scrollWidth > tableCell.clientWidth ||
+          tableCell.scrollWidth > tableCell.clientWidth
+        : false;
+
+    setIsOverflowing(Boolean(isClippedByOwnBounds || isClippedByTableCell));
+  }, []);
+
+  useEffect(() => {
+    const element = triggerRef.current;
+    if (!element) {
+      setIsOverflowing(false);
+      return;
+    }
 
     updateOverflowState();
 
@@ -53,6 +66,10 @@ export default function AdminTooltipText({
         updateOverflowState();
       });
       resizeObserver.observe(element);
+      const tableCell = element.closest('td,th');
+      if (tableCell && tableCell !== element) {
+        resizeObserver.observe(tableCell);
+      }
     }
 
     let mutationObserver: MutationObserver | null = null;
@@ -73,7 +90,7 @@ export default function AdminTooltipText({
       mutationObserver?.disconnect();
       window.removeEventListener('resize', updateOverflowState);
     };
-  }, [value]);
+  }, [updateOverflowState, value]);
 
   const content = (
     <span
