@@ -25,7 +25,6 @@ export function AdminBillingPageClient({
   initialTab = 'packages',
 }: AdminBillingPageClientProps) {
   const { t } = useTranslation();
-  const { t: globalT } = useTranslation(undefined, { lng: 'en-US' });
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -33,7 +32,6 @@ export function AdminBillingPageClient({
   const paymentChannels = useEnvStore(state => state.paymentChannels);
   const runtimeConfigLoaded = useEnvStore(state => state.runtimeConfigLoaded);
   const useGlobalPricing = isGlobalBillingExperience(paymentChannels);
-  const billingPageT = useGlobalPricing ? globalT : t;
   const activeTabFromUrl = React.useMemo(
     () => resolveBillingTab(searchParams.get('tab') ?? initialTab),
     [initialTab, searchParams],
@@ -43,11 +41,9 @@ export function AdminBillingPageClient({
     React.useState(false);
   const activeTabTitle =
     activeTab === 'details'
-      ? billingPageT('module.billing.page.tabs.ledger')
-      : billingPageT('module.billing.page.tabs.plans');
-  const pageHeading = `${billingPageT(
-    'module.billing.page.title',
-  )} · ${activeTabTitle}`;
+      ? t('module.billing.page.tabs.ledger')
+      : t('module.billing.page.tabs.plans');
+  const pageHeading = `${t('module.billing.page.title')} · ${activeTabTitle}`;
 
   React.useEffect(() => {
     setActiveTab(activeTabFromUrl);
@@ -135,14 +131,14 @@ export function AdminBillingPageClient({
                   className={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME}
                   style={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE}
                 >
-                  {billingPageT('module.billing.page.tabs.plans')}
+                  {t('module.billing.page.tabs.plans')}
                 </TabsTrigger>
                 <TabsTrigger
                   value='details'
                   className={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME}
                   style={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE}
                 >
-                  {billingPageT('module.billing.page.tabs.ledger')}
+                  {t('module.billing.page.tabs.ledger')}
                 </TabsTrigger>
               </TabsList>
             }

@@ -26,6 +26,10 @@ configuration fails closed to the existing domestic experience.
       with the domestic comparison structure, clarified 12-month annual credit
       validity and permanent credit-pack rules, and removed preview-only
       routes before release.
+- [x] 2026-08-10 19:30 CST: Adopted review feedback: the global pricing page
+      now follows the active i18n language (copy and number formatting)
+      instead of pinning `en-US`, and catalog currency values are normalized
+      defensively so a missing currency fails closed instead of crashing.
 
 ## Surprises & Discoveries
 

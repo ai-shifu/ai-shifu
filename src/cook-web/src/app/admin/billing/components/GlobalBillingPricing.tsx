@@ -180,9 +180,13 @@ function getLearnerSessionEstimate(creditAmount: number) {
 }
 
 function useGlobalBillingTranslation() {
-  const { t } = useTranslation(undefined, { lng: 'en-US' });
+  const { t, i18n } = useTranslation();
 
-  return t;
+  return { t, locale: i18n.resolvedLanguage || i18n.language || 'en-US' };
+}
+
+function normalizeCurrency(currency: unknown): string {
+  return typeof currency === 'string' ? currency.toUpperCase() : '';
 }
 
 function resolveGlobalProducts(
@@ -204,7 +208,7 @@ function resolveGlobalProducts(
     if (
       !product ||
       product.product_type !== expected.productType ||
-      product.currency.toUpperCase() !== 'USD' ||
+      normalizeCurrency(product.currency) !== 'USD' ||
       Number(product.price_amount) !== expected.priceAmount ||
       Number(product.credit_amount) !== expected.creditAmount
     ) {
@@ -222,9 +226,8 @@ function resolveGlobalProducts(
 }
 
 export function GlobalBillingPricing() {
-  const t = useGlobalBillingTranslation();
+  const { t, locale } = useGlobalBillingTranslation();
   const { trackEvent } = useTracking();
-  const locale = 'en-US';
   const [pricingTab, setPricingTab] = React.useState<PricingTab>('plans');
   const [billingCycle, setBillingCycle] =
     React.useState<BillingCycle>('annual');
@@ -262,7 +265,7 @@ export function GlobalBillingPricing() {
         plan_name: planName,
         billing_interval: billingInterval,
         price_amount: product.price_amount,
-        currency: product.currency.toUpperCase(),
+        currency: normalizeCurrency(product.currency),
         credit_amount: product.credit_amount,
         source_tab: sourceTab,
         checkout_status: 'coming_soon',
@@ -498,7 +501,7 @@ function CatalogState({
   isLoading: boolean;
   unavailable: boolean;
 }) {
-  const t = useGlobalBillingTranslation();
+  const { t } = useGlobalBillingTranslation();
 
   if (isLoading) {
     return (
@@ -550,7 +553,7 @@ function PlanCard({
     sourceTab: PricingTab;
   }) => void;
 }) {
-  const t = useGlobalBillingTranslation();
+  const { t } = useGlobalBillingTranslation();
   const monthlyProduct = products.get(tierSpec.monthlyCode) as BillingPlan;
   const annualProduct = tierSpec.annualCode
     ? (products.get(tierSpec.annualCode) as BillingPlan)

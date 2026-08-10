@@ -520,4 +520,17 @@ describe('GlobalBillingPricing', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Choose plan')).not.toBeInTheDocument();
   });
+
+  test('fails closed instead of crashing when a catalog currency is missing', async () => {
+    const catalog = buildGlobalCatalog();
+    (catalog.plans[0] as { currency?: string }).currency = undefined;
+    mockGetBillingCatalog.mockResolvedValue(catalog);
+
+    renderPricing();
+
+    expect(
+      await screen.findByTestId('global-billing-unavailable'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Choose plan')).not.toBeInTheDocument();
+  });
 });
