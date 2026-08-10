@@ -758,12 +758,18 @@ def register_admin_operations_routes(
             - name: order_bid
               type: string
               required: false
+            - name: course_query
+              type: string
+              required: false
+              description: Matches exact course ID or fuzzy course name
             - name: shifu_bid
               type: string
               required: false
+              description: Deprecated exact course ID filter
             - name: course_name
               type: string
               required: false
+              description: Deprecated fuzzy course name filter
             - name: status
               type: string
               required: false
@@ -802,6 +808,7 @@ def register_admin_operations_routes(
         filters = {
             "user_keyword": _normalize_query_text(request.args.get("user_keyword")),
             "order_bid": _normalize_query_text(request.args.get("order_bid")),
+            "course_query": _normalize_query_text(request.args.get("course_query")),
             "shifu_bid": _normalize_query_text(request.args.get("shifu_bid")),
             "course_name": _normalize_query_text(request.args.get("course_name")),
             "status": _parse_digit_query_param(
