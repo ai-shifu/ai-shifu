@@ -469,38 +469,46 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     expect(mockToast).toHaveBeenCalledWith({ title: 'create.success' });
   });
 
-  test('clears a pending create after an edit refresh succeeds', async () => {
+  test('ignores a stale retry response after a newer edit refresh succeeds', async () => {
     mockRenderRateTable = true;
+    const initialRow = {
+      usage_type: 'llm',
+      provider: 'qwen',
+      model: 'qwen/deepseek-v4-flash',
+      rate_model: 'deepseek-v4-flash',
+      display_name: 'Initial rate row',
+      billing_metric: 'llm_output_tokens',
+      unit_size: 1,
+      credits_per_unit: 0.25,
+      multiplier: 1,
+      source: 'exact',
+      updated_at: null,
+    };
     const initialResponse = {
       ...baseRateResponse,
-      llm_rates: [
-        {
-          usage_type: 'llm',
-          provider: 'qwen',
-          model: 'qwen/deepseek-v4-flash',
-          rate_model: 'deepseek-v4-flash',
-          display_name: 'DeepSeek V4 Flash',
-          billing_metric: 'llm_output_tokens',
-          unit_size: 1,
-          credits_per_unit: 0.25,
-          multiplier: 1,
-          source: 'exact',
-          updated_at: null,
-        },
-      ],
+      llm_rates: [initialRow],
     };
-    const refreshedResponse = {
+    const createdTtsRow = {
+      usage_type: 'tts',
+      provider: 'tencent',
+      model: '',
+      rate_model: '',
+      source: 'exact',
+    };
+    const staleRetryResponse = {
       ...initialResponse,
-      tts_rates: [
-        {
-          usage_type: 'tts',
-          provider: 'tencent',
-          model: '',
-          rate_model: '',
-          source: 'exact',
-        },
-      ],
+      llm_rates: [{ ...initialRow, display_name: 'Stale retry row' }],
+      tts_rates: [createdTtsRow],
     };
+    const latestEditResponse = {
+      ...initialResponse,
+      llm_rates: [{ ...initialRow, display_name: 'Latest edit row' }],
+      tts_rates: [createdTtsRow],
+    };
+    let resolveRetryRefresh: (value: unknown) => void = () => undefined;
+    const retryRefreshPromise = new Promise<unknown>(resolve => {
+      resolveRetryRefresh = resolve;
+    });
     let resolveEditRefresh: (value: unknown) => void = () => undefined;
     const editRefreshPromise = new Promise<unknown>(resolve => {
       resolveEditRefresh = resolve;
@@ -508,6 +516,7 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     mockGetRates
       .mockResolvedValueOnce(initialResponse)
       .mockRejectedValueOnce(new Error('create refresh failed'))
+      .mockReturnValueOnce(retryRefreshPromise)
       .mockReturnValueOnce(editRefreshPromise);
     render(<AdminOperationsConfigPage />);
 
@@ -527,7 +536,16 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     });
     expect(addRateButton).toBeDisabled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'actions.edit' }));
+    const retryButton = within(pendingAlert).getByRole('button', {
+      name: 'create.retryRefresh',
+    });
+    fireEvent.click(retryButton);
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(3));
+    expect(retryButton).toBeDisabled();
+
+    const editButton = screen.getByRole('button', { name: 'actions.edit' });
+    expect(editButton).toBeEnabled();
+    fireEvent.click(editButton);
     fireEvent.click(screen.getByRole('button', { name: 'actions.save' }));
     const confirmDialog = await screen.findByRole('alertdialog');
     fireEvent.click(
@@ -535,20 +553,16 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
     );
 
     await waitFor(() => expect(mockUpdateRate).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(4));
     expect(screen.getByRole('alert')).toBe(pendingAlert);
-    expect(
-      within(pendingAlert).getByRole('button', {
-        name: 'create.retryRefresh',
-      }),
-    ).toBeDisabled();
+    expect(retryButton).toBeDisabled();
     expect(addRateButton).toBeDisabled();
     expect(
       mockUpdateRate.mock.calls.filter(([payload]) => payload.create_only),
     ).toHaveLength(1);
 
     await act(async () => {
-      resolveEditRefresh(refreshedResponse);
+      resolveEditRefresh(latestEditResponse);
       await editRefreshPromise;
     });
 
@@ -556,7 +570,19 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
       expect(screen.queryByRole('alert')).not.toBeInTheDocument(),
     );
     await waitFor(() => expect(addRateButton).toBeEnabled());
-    expect(mockGetRates).toHaveBeenCalledTimes(3);
+    expect(screen.getByText('Latest edit row')).toBeInTheDocument();
+    expect(screen.queryByText('Stale retry row')).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveRetryRefresh(staleRetryResponse);
+      await retryRefreshPromise;
+    });
+
+    expect(screen.getByText('Latest edit row')).toBeInTheDocument();
+    expect(screen.queryByText('Stale retry row')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(addRateButton).toBeEnabled();
+    expect(mockGetRates).toHaveBeenCalledTimes(4);
     expect(mockUpdateRate).toHaveBeenCalledTimes(2);
     expect(
       mockUpdateRate.mock.calls.filter(([payload]) => payload.create_only),

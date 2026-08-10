@@ -401,6 +401,7 @@ export default function AdminOperationsConfigPage() {
   const createInFlightRef = React.useRef(false);
   const createRefreshInFlightRef = React.useRef(false);
   const pendingCreatedIdentityRef = React.useRef<RateIdentity | null>(null);
+  const loadConfigRequestIdRef = React.useRef(0);
   const clearRevealIdentity = React.useCallback(
     () => setRevealIdentity(null),
     [],
@@ -408,16 +409,23 @@ export default function AdminOperationsConfigPage() {
 
   const loadConfig = React.useCallback(
     async ({ suppressErrorToast = false } = {}) => {
+      const requestId = ++loadConfigRequestIdRef.current;
       setLoading(true);
       try {
         const response = (await api.getAdminOperationConfigRates(
           {},
         )) as RateConfigResponse;
+        if (requestId !== loadConfigRequestIdRef.current) {
+          return null;
+        }
         setConfig(response || {});
         pendingCreatedIdentityRef.current = null;
         setPendingCreatedIdentity(null);
         return true;
       } catch (caughtError) {
+        if (requestId !== loadConfigRequestIdRef.current) {
+          return null;
+        }
         if (!suppressErrorToast) {
           const typedError = caughtError as Partial<ErrorWithCode>;
           toast({
@@ -427,7 +435,9 @@ export default function AdminOperationsConfigPage() {
         }
         return false;
       } finally {
-        setLoading(false);
+        if (requestId === loadConfigRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [t, toast],
@@ -575,6 +585,9 @@ export default function AdminOperationsConfigPage() {
       createRefreshInFlightRef.current = true;
       try {
         const refreshed = await loadConfig({ suppressErrorToast: true });
+        if (refreshed == null) {
+          return false;
+        }
         if (refreshed) {
           setRevealIdentity(identity);
           toast({ title: t('create.success') });
