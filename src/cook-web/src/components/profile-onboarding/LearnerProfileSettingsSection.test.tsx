@@ -83,6 +83,14 @@ describe('LearnerProfileSettingsSection', () => {
     expect(zhProfile.settings.clearDescription).not.toContain('这些信息');
   });
 
+  test('explains how to remove an introduction in every language', () => {
+    expect(enProfile.settings.emptyProfile).toContain('Clear introduction');
+    expect(frProfile.settings.emptyProfile).toContain(
+      'Supprimer la présentation',
+    );
+    expect(zhProfile.settings.emptyProfile).toContain('清除介绍');
+  });
+
   test('loads and directly saves an edited profile', async () => {
     const onProfileChanged = jest.fn();
     window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
@@ -374,6 +382,25 @@ describe('LearnerProfileSettingsSection', () => {
 
     expect(saved).toBe(true);
     expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('页脚保存后的画像');
+  });
+
+  test('shows inline guidance when page-wide save finds an empty introduction', async () => {
+    const settingsRef = React.createRef<LearnerProfileSettingsHandle>();
+    render(<LearnerProfileSettingsSection ref={settingsRef} />);
+
+    fireEvent.change(await screen.findByDisplayValue('现有学习画像'), {
+      target: { value: '   ' },
+    });
+    let saved = true;
+    await act(async () => {
+      saved = (await settingsRef.current?.saveIfDirty()) ?? true;
+    });
+
+    expect(saved).toBe(false);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'module.profileOnboarding.settings.emptyProfile',
+    );
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
   });
 
   test('requires explicit confirmation before clearing the profile', async () => {

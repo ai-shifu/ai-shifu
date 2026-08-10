@@ -3028,6 +3028,7 @@ export type I18nKey =
   | 'module.profileOnboarding.settings.clearTitle'
   | 'module.profileOnboarding.settings.confirmClear'
   | 'module.profileOnboarding.settings.description'
+  | 'module.profileOnboarding.settings.emptyProfile'
   | 'module.profileOnboarding.settings.loadFailed'
   | 'module.profileOnboarding.settings.loading'
   | 'module.profileOnboarding.settings.retry'

@@ -132,7 +132,11 @@ const LearnerProfileSettingsSection = React.forwardRef<
     if (normalized === savedProfile) {
       return true;
     }
-    if (!normalized || countUnicodeCodePoints(normalized) > maxLength) {
+    if (!normalized) {
+      setError(t('module.profileOnboarding.settings.emptyProfile'));
+      return false;
+    }
+    if (countUnicodeCodePoints(normalized) > maxLength) {
       return false;
     }
     const saveScope = draftStorageScope;

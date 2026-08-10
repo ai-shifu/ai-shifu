@@ -42,6 +42,7 @@
     "clearTitle": "Supprimer ces informations ?",
     "confirmClear": "Supprimer les informations",
     "description": "Les cours utilisent le parcours et les préférences ci-dessous pour choisir des exemples plus familiers et expliquer les notions dans le style que vous préférez. Vous pouvez les modifier ou les supprimer à tout moment.",
+    "emptyProfile": "Cette présentation ne peut pas être vide. Pour la supprimer, utilisez Supprimer la présentation.",
     "loadFailed": "Impossible de charger ces informations. Réessayez plus tard.",
     "loading": "Chargement…",
     "retry": "Réessayer",
