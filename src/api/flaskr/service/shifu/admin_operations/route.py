@@ -6,6 +6,8 @@ import re
 from datetime import UTC, datetime
 
 from flask import Flask, request
+from pydantic import ValidationError
+
 from flaskr.common.config import get_config
 from flaskr.i18n import get_current_language, get_i18n_list
 from flaskr.route.common import make_common_response
