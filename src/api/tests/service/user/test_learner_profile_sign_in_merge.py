@@ -320,7 +320,7 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app):
         assert load_learner_profile_state(target.user_bid) is None
 
 
-def test_merge_helper_locks_target_before_copying_state(app, monkeypatch):
+def test_merge_helper_locks_target_and_state_before_reading_source(app, monkeypatch):
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -332,14 +332,22 @@ def test_merge_helper_locks_target_before_copying_state(app, monkeypatch):
         db.session.commit()
 
         query_type = type(UserInfo.query)
-        original_with_for_update = query_type.with_for_update
-        lock_calls = []
+        original_first = query_type.first
+        read_order = []
 
-        def track_with_for_update(query, *args, **kwargs):
-            lock_calls.append((args, kwargs))
-            return original_with_for_update(query, *args, **kwargs)
+        def track_first(query):
+            statement = str(query.statement)
+            table = (
+                "user_onboarding_states"
+                if "user_onboarding_states" in statement
+                else "user_users"
+                if "user_users" in statement
+                else "other"
+            )
+            read_order.append((table, query._for_update_arg is not None))
+            return original_first(query)
 
-        monkeypatch.setattr(query_type, "with_for_update", track_with_for_update)
+        monkeypatch.setattr(query_type, "first", track_first)
         with transactional_session():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
@@ -347,7 +355,11 @@ def test_merge_helper_locks_target_before_copying_state(app, monkeypatch):
             )
         db.session.commit()
 
-        assert lock_calls == [((), {})]
+        assert read_order[:3] == [
+            ("user_users", True),
+            ("user_onboarding_states", True),
+            ("user_users", False),
+        ]
         assert load_learner_profile_state(target.user_bid) is not None
 
 

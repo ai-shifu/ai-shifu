@@ -127,12 +127,19 @@ def apply_learner_profile(user: UserEntity, learner_profile: str) -> bool:
     return True
 
 
-def load_learner_profile_state(user_id: str) -> UserOnboardingState | None:
-    return UserOnboardingState.query.filter(
+def load_learner_profile_state(
+    user_id: str,
+    *,
+    for_update: bool = False,
+) -> UserOnboardingState | None:
+    query = UserOnboardingState.query.filter(
         UserOnboardingState.user_bid == str(user_id or "").strip(),
         UserOnboardingState.scene_key == PROFILE_ONBOARDING_SCENE_KEY,
         UserOnboardingState.version == PROFILE_ONBOARDING_VERSION,
-    ).first()
+    )
+    if for_update:
+        query = query.with_for_update()
+    return query.first()
 
 
 def merge_learner_profile_for_sign_in(
@@ -151,10 +158,6 @@ def merge_learner_profile_for_sign_in(
     ):
         return
 
-    source_user = UserEntity.query.filter(
-        UserEntity.user_bid == normalized_source_id,
-        UserEntity.deleted == 0,
-    ).first()
     target_user = (
         UserEntity.query.filter(
             UserEntity.user_bid == normalized_target_id,
@@ -163,7 +166,17 @@ def merge_learner_profile_for_sign_in(
         .with_for_update()
         .first()
     )
-    if source_user is None or target_user is None:
+    if target_user is None:
+        return
+
+    if load_learner_profile_state(normalized_target_id, for_update=True) is not None:
+        return
+
+    source_user = UserEntity.query.filter(
+        UserEntity.user_bid == normalized_source_id,
+        UserEntity.deleted == 0,
+    ).first()
+    if source_user is None:
         return
 
     if source_user.state == USER_STATE_REGISTERED:
@@ -180,9 +193,6 @@ def merge_learner_profile_for_sign_in(
         ).first()
     )
     if source_has_account_identifier:
-        return
-
-    if load_learner_profile_state(normalized_target_id) is not None:
         return
 
     source_profile = str(source_user.learner_profile or "").strip()
