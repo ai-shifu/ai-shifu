@@ -110,10 +110,6 @@ def test_skipped_v2_state_preserves_legacy_profile_behavior(app, monkeypatch):
         "flaskr.service.profile.funcs.get_profile_item_definition_list",
         lambda *_args, **_kwargs: [],
     )
-    monkeypatch.setattr(
-        "flaskr.service.profile.funcs.check_text_content",
-        lambda *_args, **_kwargs: True,
-    )
 
     with app.app_context():
         user_bid = "profile-v2-skipped-legacy"
