@@ -296,14 +296,14 @@ export default function AdminDashboardEntryPage() {
           </div>
         ) : null}
 
-        <div className='flex min-h-0 flex-1 flex-col'>
+        <div className='shrink-0'>
           <AdminTableShell
             loading={loading}
             isEmpty={items.length === 0}
             emptyContent={t('module.dashboard.entry.table.empty')}
             emptyColSpan={6}
-            containerClassName='min-h-0 flex-1'
-            tableWrapperClassName='flex min-h-0 flex-1 flex-col overflow-hidden'
+            containerClassName='shrink-0'
+            tableWrapperClassName='overflow-hidden'
             tableWrapperTestId='dashboard-course-list-scroll-region'
             loadingClassName='h-auto min-h-40 flex-1'
             footerTestId='dashboard-course-list-footer'
@@ -328,7 +328,7 @@ export default function AdminDashboardEntryPage() {
             }}
             table={emptyRow => (
               <Table
-                containerClassName='min-h-0 flex-1'
+                containerClassName='max-h-[calc(100vh-360px)]'
                 className='min-w-[980px]'
               >
                 <TableHeader>
