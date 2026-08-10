@@ -226,8 +226,8 @@
       "filters": {
         "reset": "Reset",
         "search": "Search",
-        "searchPlaceholderEmail": "Enter teacher email",
-        "searchPlaceholderPhone": "Enter teacher phone",
+        "searchPlaceholderEmail": "Teacher email",
+        "searchPlaceholderPhone": "Teacher mobile",
         "status": "Subscription status",
         "statusAll": "All statuses",
         "teacherField": "Teacher"

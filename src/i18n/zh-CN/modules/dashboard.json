@@ -40,10 +40,10 @@
       },
       "filters": {
         "chapterKeyword": "章节",
-        "chapterKeywordPlaceholder": "输入章/节名称",
+        "chapterKeywordPlaceholder": "章/节名称",
         "followUpTime": "追问时间",
         "lessonKeyword": "小节",
-        "lessonKeywordPlaceholder": "输入小节名称",
+        "lessonKeywordPlaceholder": "小节名称",
         "reset": "重置",
         "resultCount": "共 {count} 条",
         "search": "查询",
@@ -51,10 +51,10 @@
         "sourceStatusAll": "全部状态",
         "sourceStatusMissing": "未定位原始输出",
         "sourceStatusResolved": "已定位原始输出",
-        "timePlaceholder": "选择时间范围",
+        "timePlaceholder": "开始时间 ~ 结束时间",
         "userKeyword": "学员",
-        "userKeywordPlaceholderEmail": "输入昵称 / 邮箱",
-        "userKeywordPlaceholderPhone": "输入昵称 / 手机号"
+        "userKeywordPlaceholderEmail": "邮箱 / 昵称",
+        "userKeywordPlaceholderPhone": "手机号 / 昵称"
       },
       "summary": {
         "followUpCount": "累计追问数",
@@ -93,13 +93,13 @@
       "empty": "暂无学员",
       "filters": {
         "lastLearningTime": "最近学习时间",
-        "lastLearningTimePlaceholder": "选择时间范围",
+        "lastLearningTimePlaceholder": "开始时间 ~ 结束时间",
         "learningStatus": "学习状态",
         "statusAll": "全部",
         "userKeyword": "学员"
       },
-      "searchPlaceholderEmail": "输入昵称 / 邮箱",
-      "searchPlaceholderPhone": "输入昵称 / 手机号",
+      "searchPlaceholderEmail": "邮箱 / 昵称",
+      "searchPlaceholderPhone": "手机号 / 昵称",
       "status": {
         "completed": "已完成",
         "learning": "学习中",
@@ -126,7 +126,7 @@
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "章节",
-        "chapterKeywordPlaceholder": "输入章/节名称",
+        "chapterKeywordPlaceholder": "章/节名称",
         "commentStatus": "评价内容",
         "commentStatusAll": "全部",
         "commentStatusCommented": "仅看有评价",
@@ -136,10 +136,10 @@
         "score": "评分",
         "scoreAll": "全部评分",
         "search": "查询",
-        "timePlaceholder": "选择时间范围",
+        "timePlaceholder": "开始时间 ~ 结束时间",
         "userKeyword": "学员",
-        "userKeywordPlaceholderEmail": "输入昵称 / 邮箱",
-        "userKeywordPlaceholderPhone": "输入昵称 / 手机号"
+        "userKeywordPlaceholderEmail": "邮箱 / 昵称",
+        "userKeywordPlaceholderPhone": "手机号 / 昵称"
       },
       "scoreValue": "{score} 分",
       "summary": {
@@ -183,7 +183,7 @@
       "reset": "重置",
       "scopeNote": "统计范围说明：仅统计您本人创建并拥有的课程数据；协作课程的数据不包含在内。",
       "search": "查询",
-      "searchPlaceholder": "搜索课程名称 / 课程ID",
+      "searchPlaceholder": "课程ID / 课程名称",
       "title": "课程列表",
       "totalCount": "共 {count}",
       "viewCourse": "查看课程",
@@ -191,7 +191,7 @@
     }
   },
   "filters": {
-    "dateRangePlaceholder": "选择时间范围",
+    "dateRangePlaceholder": "开始时间 ~ 结束时间",
     "reset": "重置"
   },
   "messages": {

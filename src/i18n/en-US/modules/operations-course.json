@@ -109,10 +109,10 @@
         "scene": "Usage type",
         "sceneAll": "All",
         "time": "Time",
-        "timePlaceholder": "Select time range",
+        "timePlaceholder": "Start time ~ End time",
         "userKeyword": "User",
-        "userKeywordPlaceholderEmail": "Enter email or nickname",
-        "userKeywordPlaceholderPhone": "Enter phone or nickname"
+        "userKeywordPlaceholderEmail": "Email / Nickname",
+        "userKeywordPlaceholderPhone": "Mobile / Nickname"
       },
       "modelSummary": {
         "multiple": "{model} and {count} models"
@@ -196,10 +196,10 @@
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Chapter / Lesson Search",
-        "chapterKeywordPlaceholder": "Enter chapter / lesson title",
+        "chapterKeywordPlaceholder": "Chapter / lesson title",
         "followUpTime": "Follow-up Time",
         "lessonKeyword": "Lesson Search",
-        "lessonKeywordPlaceholder": "Enter lesson title",
+        "lessonKeywordPlaceholder": "Lesson title",
         "reset": "Reset",
         "resultCount": "{count, plural, one {# result} other {# results}}",
         "search": "Search",
@@ -207,7 +207,7 @@
         "sourceStatusAll": "All Statuses",
         "sourceStatusMissing": "Original Output Missing",
         "sourceStatusResolved": "Original Output Located",
-        "timePlaceholder": "Follow-up Start / End Time",
+        "timePlaceholder": "Start time ~ End time",
         "userKeyword": "User Search",
         "userKeywordPlaceholder": "Phone / Email / Nickname",
         "userKeywordPlaceholderEmail": "Email / Nickname",
@@ -282,7 +282,7 @@
         "sortBy": "Sort",
         "sortByLatest": "Latest First",
         "sortByLowScore": "Lowest Rating First",
-        "timePlaceholder": "Rating Start / End Time",
+        "timePlaceholder": "Start time ~ End time",
         "userKeyword": "User Search",
         "userKeywordPlaceholderEmail": "Email / Nickname",
         "userKeywordPlaceholderPhone": "Phone / Nickname"
@@ -335,9 +335,9 @@
       "paymentStatus": "Payment",
       "paymentUnpaid": "Unpaid",
       "userKeyword": "User Search",
-      "userKeywordPlaceholder": "Search by phone, email, or nickname",
-      "userKeywordPlaceholderEmail": "Search by email or nickname",
-      "userKeywordPlaceholderPhone": "Search by phone or nickname",
+      "userKeywordPlaceholder": "Mobile / Email / Nickname",
+      "userKeywordPlaceholderEmail": "Email / Nickname",
+      "userKeywordPlaceholderPhone": "Mobile / Nickname",
       "userRole": "User Role"
     },
     "usersTable": {
@@ -369,8 +369,8 @@
     "courseName": "Course Name",
     "createdAt": "Created At",
     "creator": "Creator",
-    "creatorEmailOrUserBid": "Email or user ID",
-    "creatorMobileOrUserBid": "Mobile or user ID",
+    "creatorEmailOrUserBid": "Teacher email",
+    "creatorMobileOrUserBid": "Teacher mobile",
     "endTime": "End Date",
     "startTime": "Start Date",
     "status": "Status"

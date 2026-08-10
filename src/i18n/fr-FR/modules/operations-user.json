@@ -42,7 +42,7 @@
     },
     "creditLedgerFilters": {
       "course": "Cours",
-      "coursePlaceholder": "Saisir ID/nom",
+      "coursePlaceholder": "ID du cours / Nom du cours",
       "grantSource": "Source d’attribution",
       "grantSourceOptions": {
         "all": "Tout",
@@ -52,7 +52,7 @@
         "trial_subscription": "Crédits d’essai"
       },
       "time": "Période",
-      "timePlaceholder": "Sélectionner la période",
+      "timePlaceholder": "Heure de début ~ Heure de fin",
       "type": "Type",
       "typeOptions": {
         "all": "Tout",

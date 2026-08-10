@@ -79,8 +79,8 @@
       "windows": "Expiry reminder windows"
     },
     "inputPlaceholders": {
-      "blockedCreatorsEmail": "Enter teacher email or ID, separated by commas",
-      "blockedCreatorsPhone": "Enter teacher mobile number or ID, separated by commas"
+      "blockedCreatorsEmail": "Teacher emails, separated by commas",
+      "blockedCreatorsPhone": "Teacher mobiles, separated by commas"
     },
     "invalidConfig": "Config could not be saved. Check the form values.",
     "listDialog": {
@@ -98,8 +98,8 @@
       "manage": "Manage",
       "optedOutDescription": "Opted-out teachers are read-only. Search by contact or nickname.",
       "optedOutSummary": "{count} opted-out teachers",
-      "searchPlaceholderEmail": "Search email or nickname",
-      "searchPlaceholderPhone": "Search mobile or nickname",
+      "searchPlaceholderEmail": "Email / Nickname",
+      "searchPlaceholderPhone": "Mobile / Nickname",
       "view": "View"
     },
     "loadFailed": "Notification policy could not be loaded. Refresh and try again.",
@@ -305,9 +305,9 @@
     "createdTime": "Created time",
     "creator": "Teacher",
     "creatorBid": "Teacher ID",
-    "creatorPlaceholder": "Email / nickname",
-    "creatorPlaceholderEmail": "Email / nickname",
-    "creatorPlaceholderPhone": "Mobile / nickname",
+    "creatorPlaceholder": "Mobile / Nickname",
+    "creatorPlaceholderEmail": "Email / Nickname",
+    "creatorPlaceholderPhone": "Mobile / Nickname",
     "mobile": "Mobile",
     "notificationType": "Notification type",
     "skipReason": "Not-sent reason",

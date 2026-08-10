@@ -109,10 +109,10 @@
         "scene": "消耗类型",
         "sceneAll": "全部",
         "time": "时间",
-        "timePlaceholder": "选择时间范围",
+        "timePlaceholder": "开始时间 ~ 结束时间",
         "userKeyword": "用户",
-        "userKeywordPlaceholderEmail": "输入邮箱 / 昵称",
-        "userKeywordPlaceholderPhone": "输入手机号 / 昵称"
+        "userKeywordPlaceholderEmail": "邮箱 / 昵称",
+        "userKeywordPlaceholderPhone": "手机号 / 昵称"
       },
       "modelSummary": {
         "multiple": "{model} 等 {count} 个"
@@ -196,10 +196,10 @@
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "章/节搜索",
-        "chapterKeywordPlaceholder": "输入章/节标题",
+        "chapterKeywordPlaceholder": "章/节标题",
         "followUpTime": "追问时间",
         "lessonKeyword": "节搜索",
-        "lessonKeywordPlaceholder": "输入节标题",
+        "lessonKeywordPlaceholder": "节标题",
         "reset": "重置",
         "resultCount": "共 {count} 条",
         "search": "查询",
@@ -207,7 +207,7 @@
         "sourceStatusAll": "全部状态",
         "sourceStatusMissing": "未定位原始输出",
         "sourceStatusResolved": "已定位原始输出",
-        "timePlaceholder": "追问开始/结束时间",
+        "timePlaceholder": "开始时间 ~ 结束时间",
         "userKeyword": "用户搜索",
         "userKeywordPlaceholder": "手机号 / 邮箱 / 昵称",
         "userKeywordPlaceholderEmail": "邮箱 / 昵称",
@@ -282,7 +282,7 @@
         "sortBy": "排序",
         "sortByLatest": "最新优先",
         "sortByLowScore": "低分优先",
-        "timePlaceholder": "评分开始/结束时间",
+        "timePlaceholder": "开始时间 ~ 结束时间",
         "userKeyword": "用户搜索",
         "userKeywordPlaceholderEmail": "邮箱 / 昵称",
         "userKeywordPlaceholderPhone": "手机号 / 昵称"
@@ -335,9 +335,9 @@
       "paymentStatus": "是否付费",
       "paymentUnpaid": "未付费",
       "userKeyword": "用户搜索",
-      "userKeywordPlaceholder": "输入手机号 / 邮箱 / 昵称",
-      "userKeywordPlaceholderEmail": "输入邮箱 / 昵称",
-      "userKeywordPlaceholderPhone": "输入手机号 / 昵称",
+      "userKeywordPlaceholder": "手机号 / 邮箱 / 昵称",
+      "userKeywordPlaceholderEmail": "邮箱 / 昵称",
+      "userKeywordPlaceholderPhone": "手机号 / 昵称",
       "userRole": "用户身份"
     },
     "usersTable": {
@@ -369,8 +369,8 @@
     "courseName": "课程名称",
     "createdAt": "创建时间",
     "creator": "创建者",
-    "creatorEmailOrUserBid": "邮箱或用户ID",
-    "creatorMobileOrUserBid": "手机号或用户ID",
+    "creatorEmailOrUserBid": "老师邮箱",
+    "creatorMobileOrUserBid": "老师手机号",
     "endTime": "结束日期",
     "startTime": "开始日期",
     "status": "状态"

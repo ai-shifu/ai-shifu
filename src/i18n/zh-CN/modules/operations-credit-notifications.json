@@ -79,8 +79,8 @@
       "windows": "到期提醒窗口"
     },
     "inputPlaceholders": {
-      "blockedCreatorsEmail": "输入老师邮箱或ID，多个值用逗号分隔",
-      "blockedCreatorsPhone": "输入老师手机号或ID，多个值用逗号分隔"
+      "blockedCreatorsEmail": "老师邮箱，多个值用逗号分隔",
+      "blockedCreatorsPhone": "老师手机号，多个值用逗号分隔"
     },
     "invalidConfig": "配置保存失败，请检查表单内容。",
     "listDialog": {
@@ -98,8 +98,8 @@
       "manage": "管理",
       "optedOutDescription": "已退订老师仅支持查看，可按手机号或昵称搜索。",
       "optedOutSummary": "已退订 {count} 位老师",
-      "searchPlaceholderEmail": "搜索邮箱或昵称",
-      "searchPlaceholderPhone": "搜索手机号或昵称",
+      "searchPlaceholderEmail": "邮箱 / 昵称",
+      "searchPlaceholderPhone": "手机号 / 昵称",
       "view": "查看"
     },
     "loadFailed": "通知策略读取失败，请刷新后重试。",
@@ -305,9 +305,9 @@
     "createdTime": "创建时间",
     "creator": "老师",
     "creatorBid": "老师ID",
-    "creatorPlaceholder": "手机号/昵称",
-    "creatorPlaceholderEmail": "邮箱/昵称",
-    "creatorPlaceholderPhone": "手机号/昵称",
+    "creatorPlaceholder": "手机号 / 昵称",
+    "creatorPlaceholderEmail": "邮箱 / 昵称",
+    "creatorPlaceholderPhone": "手机号 / 昵称",
     "mobile": "手机号",
     "notificationType": "通知类型",
     "skipReason": "未发送原因",
