@@ -45,6 +45,7 @@ import useOperatorGuard from '../useOperatorGuard';
 import RateCreateDialog from './RateCreateDialog';
 import {
   RATE_TABS,
+  deriveCreditsPerUnit,
   getRateDisplayName,
   getRateRowKey,
   isValidMultiplier,
@@ -450,28 +451,14 @@ export default function AdminOperationsConfigPage() {
   }, []);
 
   const updateCreditsFromMultiplier = React.useCallback(
-    (multiplierText: string, current: EditState): string | null => {
-      const multiplier = Number(multiplierText);
-      const unitSize = Number(current.unitSize || 1);
-      const baseline = Number(config.baseline?.unit_cost || 0);
-      if (
-        !Number.isFinite(multiplier) ||
-        !Number.isFinite(unitSize) ||
-        baseline <= 0
-      ) {
-        return null;
-      }
-      let value = baseline * multiplier * unitSize;
-      if (current.row.usage_type === 'tts') {
-        const factor = Number(config.baseline?.tts_chars_per_llm_token || 0);
-        if (factor <= 0) {
-          return null;
-        }
-        value = (baseline * multiplier * unitSize) / factor;
-      }
-      return String(Number(value.toFixed(10)));
-    },
-    [config.baseline?.tts_chars_per_llm_token, config.baseline?.unit_cost],
+    (multiplierText: string, current: EditState): string | null =>
+      deriveCreditsPerUnit({
+        usageType: current.row.usage_type === 'tts' ? 'tts' : 'llm',
+        multiplier: multiplierText,
+        unitSize: current.unitSize || '1',
+        baseline: config.baseline,
+      }),
+    [config.baseline],
   );
 
   const saveEdit = React.useCallback(async () => {
@@ -490,7 +477,7 @@ export default function AdminOperationsConfigPage() {
       editState.multiplier,
       editState,
     );
-    if (nextCreditsPerUnit == null || Number(nextCreditsPerUnit) <= 0) {
+    if (nextCreditsPerUnit == null) {
       toast({ title: t('invalidMultiplier'), variant: 'destructive' });
       return;
     }
@@ -504,7 +491,7 @@ export default function AdminOperationsConfigPage() {
         display_name: editState.row.display_name,
         billing_metric: editState.row.billing_metric,
         unit_size: Number(editState.unitSize || 1),
-        credits_per_unit: Number(nextCreditsPerUnit),
+        credits_per_unit: nextCreditsPerUnit,
         status: 'active',
       });
       toast({ title: t('saveSuccess') });

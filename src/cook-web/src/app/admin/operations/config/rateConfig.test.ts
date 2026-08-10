@@ -153,11 +153,11 @@ describe('rate config helpers', () => {
     );
     const creditsPerUnit = deriveCreditsPerUnit({
       usageType: 'llm',
-      multiplier: '1.5',
+      multiplier: '0.35',
       baseline: { is_configured: true, unit_cost: 0.000066667 },
     });
 
-    expect(creditsPerUnit).toBe(0.0001000005);
+    expect(creditsPerUnit).toBe('0.0000233335');
     expect(
       buildCreateRatePayload({ identity, creditsPerUnit: creditsPerUnit! }),
     ).toEqual({
@@ -168,7 +168,7 @@ describe('rate config helpers', () => {
       rate_model: 'deepseek-v4-flash',
       billing_metric: 'llm_output_tokens',
       unit_size: 1,
-      credits_per_unit: 0.0001000005,
+      credits_per_unit: '0.0000233335',
       status: 'active',
     });
   });
@@ -185,7 +185,7 @@ describe('rate config helpers', () => {
       },
     });
 
-    expect(creditsPerUnit).toBe(1);
+    expect(creditsPerUnit).toBe('1.0000000000');
     expect(
       buildCreateRatePayload({ identity, creditsPerUnit: creditsPerUnit! }),
     ).toEqual(
@@ -208,6 +208,85 @@ describe('rate config helpers', () => {
         usageType: 'llm',
         multiplier: '2',
         baseline: { is_configured: false, unit_cost: 0.25 },
+      }),
+    ).toBeNull();
+  });
+
+  test('rounds decimal operands once and enforces the storage domain', () => {
+    expect(
+      deriveCreditsPerUnit({
+        usageType: 'llm',
+        multiplier: '1.5',
+        baseline: { is_configured: true, unit_cost: 1e-10 },
+      }),
+    ).toBe('0.0000000002');
+    expect(
+      deriveCreditsPerUnit({
+        usageType: 'llm',
+        multiplier: '1.49',
+        baseline: { is_configured: true, unit_cost: 1e-10 },
+      }),
+    ).toBe('0.0000000001');
+    expect(
+      deriveCreditsPerUnit({
+        usageType: 'llm',
+        multiplier: '1.51',
+        baseline: { is_configured: true, unit_cost: 1e-10 },
+      }),
+    ).toBe('0.0000000002');
+    expect(
+      deriveCreditsPerUnit({
+        usageType: 'llm',
+        multiplier: '2.5e1',
+        unitSize: '4e-1',
+        baseline: { is_configured: true, unit_cost: 1e-7 },
+      }),
+    ).toBe('0.0000010000');
+    expect(
+      deriveCreditsPerUnit({
+        usageType: 'tts',
+        multiplier: '1',
+        baseline: {
+          is_configured: true,
+          unit_cost: 3e-10,
+          tts_chars_per_llm_token: 2,
+        },
+      }),
+    ).toBe('0.0000000002');
+    expect(
+      deriveCreditsPerUnit({
+        usageType: 'llm',
+        multiplier: '1',
+        baseline: { is_configured: true, unit_cost: 4e-11 },
+      }),
+    ).toBeNull();
+    expect(
+      deriveCreditsPerUnit({
+        usageType: 'llm',
+        multiplier: '9999999999.9999999999',
+        baseline: { is_configured: true, unit_cost: 1 },
+      }),
+    ).toBe('9999999999.9999999999');
+    expect(
+      deriveCreditsPerUnit({
+        usageType: 'llm',
+        multiplier: '9999999999.99999999995',
+        baseline: { is_configured: true, unit_cost: 1 },
+      }),
+    ).toBeNull();
+    expect(
+      deriveCreditsPerUnit({
+        usageType: 'llm',
+        multiplier: 'Infinity',
+        baseline: { is_configured: true, unit_cost: 1 },
+      }),
+    ).toBeNull();
+    expect(
+      deriveCreditsPerUnit({
+        usageType: 'llm',
+        multiplier: '1',
+        unitSize: 0,
+        baseline: { is_configured: true, unit_cost: 1 },
       }),
     ).toBeNull();
   });

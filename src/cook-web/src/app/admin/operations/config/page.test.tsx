@@ -20,7 +20,7 @@ const mockDefaultCreatePayload = {
   rate_model: '',
   billing_metric: 'tts_output_chars',
   unit_size: 1,
-  credits_per_unit: 1,
+  credits_per_unit: '1.0000000000',
   status: 'active',
 };
 const mockDefaultCreateIdentity = {
@@ -273,7 +273,7 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
         rate_model: '',
         billing_metric: 'tts_output_chars',
         unit_size: 1,
-        credits_per_unit: 1,
+        credits_per_unit: '1.0000000000',
         status: 'active',
       }),
     );
@@ -325,7 +325,7 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
       rate_model: 'qwen/foo',
       billing_metric: 'llm_output_tokens',
       unit_size: 1,
-      credits_per_unit: 1,
+      credits_per_unit: '1.0000000000',
       status: 'active',
     };
     mockCreateIdentity = {
@@ -621,5 +621,47 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'common.core:cancel' }));
     expect(addRateButton).toBeEnabled();
+  });
+
+  test('submits an edited rate as a fixed decimal string', async () => {
+    mockRenderRateTable = true;
+    mockGetRates.mockResolvedValueOnce({
+      ...baseRateResponse,
+      llm_rates: [
+        {
+          usage_type: 'llm',
+          provider: 'qwen',
+          model: 'qwen/deepseek-v4-flash',
+          rate_model: 'deepseek-v4-flash',
+          display_name: 'DeepSeek V4 Flash',
+          billing_metric: 'llm_output_tokens',
+          unit_size: 1,
+          credits_per_unit: 0.25,
+          multiplier: 1,
+          source: 'exact',
+          updated_at: null,
+        },
+      ],
+    });
+    render(<AdminOperationsConfigPage />);
+
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'actions.edit' }));
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: '0.35' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'actions.save' }));
+    const confirmDialog = await screen.findByRole('alertdialog');
+    fireEvent.click(
+      within(confirmDialog).getByRole('button', { name: 'actions.save' }),
+    );
+
+    await waitFor(() =>
+      expect(mockUpdateRate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          credits_per_unit: '0.0875000000',
+        }),
+      ),
+    );
   });
 });

@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js';
+
 export const RATE_TABS = ['llm', 'tts'] as const;
 
 export type RateTab = (typeof RATE_TABS)[number];
@@ -55,11 +57,18 @@ export type CreateRatePayload = {
   rate_model: string;
   billing_metric: 'llm_output_tokens' | 'tts_output_chars';
   unit_size: 1;
-  credits_per_unit: number;
+  credits_per_unit: string;
   status: 'active';
 };
 
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/;
+const RATE_DECIMAL_PLACES = 10;
+const RATE_ROUNDING_MODE = Decimal.ROUND_HALF_UP;
+const RateDecimal = Decimal.clone({
+  precision: 50,
+  rounding: RATE_ROUNDING_MODE,
+});
+const MAX_RATE_CREDITS_PER_UNIT = new RateDecimal('9999999999.9999999999');
 
 export const getRateRowKey = (row: RateRow) =>
   JSON.stringify([
@@ -207,35 +216,62 @@ export const isRateRowCreateSuggestion = (row: RateRow, usageType: RateTab) => {
 export const deriveCreditsPerUnit = ({
   usageType,
   multiplier,
+  unitSize = 1,
   baseline,
 }: {
   usageType: RateTab;
   multiplier: string;
+  unitSize?: string | number;
   baseline?: RateBaseline;
-}): number | null => {
-  const multiplierValue = Number(multiplier);
-  const baselineUnitCost = Number(baseline?.unit_cost || 0);
-  if (
-    !baseline?.is_configured ||
-    !Number.isFinite(multiplierValue) ||
-    multiplierValue <= 0 ||
-    !Number.isFinite(baselineUnitCost) ||
-    baselineUnitCost <= 0
-  ) {
+}): string | null => {
+  if (!baseline?.is_configured || baseline.unit_cost == null) {
     return null;
   }
 
-  let creditsPerUnit = baselineUnitCost * multiplierValue;
-  if (usageType === 'tts') {
-    const factor = Number(baseline.tts_chars_per_llm_token || 0);
-    if (!Number.isFinite(factor) || factor <= 0) {
+  try {
+    const baselineUnitCost = new RateDecimal(String(baseline.unit_cost));
+    const multiplierValue = new RateDecimal(String(multiplier));
+    const unitSizeValue = new RateDecimal(String(unitSize));
+    if (
+      !baselineUnitCost.isFinite() ||
+      baselineUnitCost.lte(0) ||
+      !multiplierValue.isFinite() ||
+      multiplierValue.lte(0) ||
+      !unitSizeValue.isFinite() ||
+      unitSizeValue.lte(0)
+    ) {
       return null;
     }
-    creditsPerUnit /= factor;
-  }
 
-  const rounded = Number(creditsPerUnit.toFixed(10));
-  return rounded > 0 ? rounded : null;
+    let creditsPerUnit = baselineUnitCost
+      .times(multiplierValue)
+      .times(unitSizeValue);
+    if (usageType === 'tts') {
+      if (baseline.tts_chars_per_llm_token == null) {
+        return null;
+      }
+      const factor = new RateDecimal(String(baseline.tts_chars_per_llm_token));
+      if (!factor.isFinite() || factor.lte(0)) {
+        return null;
+      }
+      creditsPerUnit = creditsPerUnit.dividedBy(factor);
+    }
+
+    const rounded = creditsPerUnit.toDecimalPlaces(
+      RATE_DECIMAL_PLACES,
+      RATE_ROUNDING_MODE,
+    );
+    if (
+      !rounded.isFinite() ||
+      rounded.lte(0) ||
+      rounded.gt(MAX_RATE_CREDITS_PER_UNIT)
+    ) {
+      return null;
+    }
+    return rounded.toFixed(RATE_DECIMAL_PLACES, RATE_ROUNDING_MODE);
+  } catch {
+    return null;
+  }
 };
 
 export const buildCreateRatePayload = ({
@@ -243,7 +279,7 @@ export const buildCreateRatePayload = ({
   creditsPerUnit,
 }: {
   identity: RateIdentity;
-  creditsPerUnit: number;
+  creditsPerUnit: string;
 }): CreateRatePayload => ({
   create_only: true,
   usage_type: identity.usageType,

@@ -147,7 +147,7 @@ describe('RateCreateDialog', () => {
             rate_model: 'exact-model',
           }),
         ]}
-        baseline={baseline}
+        baseline={{ ...baseline, unit_cost: 0.000066667 }}
         pending={false}
         onOpenChange={onOpenChange}
         onCreate={onCreate}
@@ -169,7 +169,7 @@ describe('RateCreateDialog', () => {
       target: { value: 'deepseek-v4-flash' },
     });
     fireEvent.change(screen.getByLabelText('fields.multiplier'), {
-      target: { value: '1.5' },
+      target: { value: '0.35' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'actions.continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'actions.confirmAdd' }));
@@ -184,7 +184,7 @@ describe('RateCreateDialog', () => {
           rate_model: 'deepseek-v4-flash',
           billing_metric: 'llm_output_tokens',
           unit_size: 1,
-          credits_per_unit: 0.375,
+          credits_per_unit: '0.0000233335',
           status: 'active',
         },
         {
@@ -317,7 +317,7 @@ describe('RateCreateDialog', () => {
           model: '',
           rate_model: '',
           billing_metric: 'tts_output_chars',
-          credits_per_unit: 1,
+          credits_per_unit: '1.0000000000',
         }),
         expect.any(Object),
       ),

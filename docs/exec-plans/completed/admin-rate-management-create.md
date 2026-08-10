@@ -138,5 +138,7 @@ retry. Failed validation or commit rolls back the whole rate version.
   but may return active exact identities outside the runtime model catalog.
 - POST `/shifu/admin/operations/config/rates` accepts optional
   `create_only: true`; omitted/false preserves the current edit contract.
-- No new package, provider, environment variable, database column, or runtime
-  model dependency is introduced.
+- No new provider, environment variable, database column, or runtime model
+  dependency is introduced. The already-installed transitive `decimal.js`
+  10.6.0 package is promoted to a direct frontend production dependency for
+  exact rate derivation.
