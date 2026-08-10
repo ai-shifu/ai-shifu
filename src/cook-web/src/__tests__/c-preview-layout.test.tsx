@@ -6,6 +6,13 @@ import { getCourseInfo } from '@/c-api/course';
 import { useEnvStore } from '@/c-store';
 import { useSystemStore } from '@/c-store/useSystemStore';
 
+let mockSearchParamsValue = '';
+
+jest.mock('next/navigation', () => ({
+  useParams: () => ({ id: ['123'] }),
+  useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
+}));
+
 jest.mock('@/c-api/course', () => ({
   getCourseInfo: jest.fn(),
 }));
@@ -60,6 +67,7 @@ describe('C preview layout', () => {
   const contentLabel = 'content';
 
   afterEach(() => {
+    mockSearchParamsValue = '';
     window.location.href = originalHref;
     mockedGetCourseInfo.mockReset();
     act(() => {
@@ -74,7 +82,8 @@ describe('C preview layout', () => {
   });
 
   test('applies preview mode before child effects run', async () => {
-    window.location.href = 'http://localhost:3000/c/123?preview=true';
+    mockSearchParamsValue = 'preview=true';
+    window.history.replaceState({}, '', '/c/123?preview=true');
     act(() => {
       useSystemStore.setState({ previewMode: false, skip: false });
     });
@@ -100,8 +109,12 @@ describe('C preview layout', () => {
   });
 
   test('waits for query state before rendering children', async () => {
-    window.location.href =
-      'http://localhost:3000/c/123?preview=true&skip=true&channel=wechat';
+    mockSearchParamsValue = 'preview=true&skip=true&channel=wechat';
+    window.history.replaceState(
+      {},
+      '',
+      '/c/123?preview=true&skip=true&channel=wechat',
+    );
     act(() => {
       useSystemStore.setState({
         channel: '',
@@ -138,6 +151,57 @@ describe('C preview layout', () => {
           skip: true,
         },
       ]);
+    });
+  });
+
+  test('updates query state after search params change', async () => {
+    mockSearchParamsValue = 'preview=true&skip=false&channel=wechat';
+    window.history.replaceState(
+      {},
+      '',
+      '/c/123?preview=true&skip=false&channel=wechat',
+    );
+    act(() => {
+      useSystemStore.setState({
+        channel: '',
+        previewMode: false,
+        skip: false,
+      });
+    });
+
+    const { rerender } = render(
+      <ChatLayout>
+        <div>{contentLabel}</div>
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(useSystemStore.getState()).toMatchObject({
+        channel: 'wechat',
+        previewMode: true,
+        skip: false,
+      });
+    });
+
+    mockSearchParamsValue = 'preview=false&skip=true&channel=app';
+    window.history.replaceState(
+      {},
+      '',
+      '/c/123?preview=false&skip=true&channel=app',
+    );
+
+    rerender(
+      <ChatLayout>
+        <div>{contentLabel}</div>
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(useSystemStore.getState()).toMatchObject({
+        channel: 'app',
+        previewMode: false,
+        skip: true,
+      });
     });
   });
 
