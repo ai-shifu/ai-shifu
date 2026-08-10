@@ -5,6 +5,7 @@ import {
   getRateDisplayName,
   getRateRowKey,
   hasExactRateIdentity,
+  isRateRowCreateSuggestion,
   isValidProvider,
   isValidRateModel,
   normalizeMultiplierInput,
@@ -211,22 +212,105 @@ describe('rate config helpers', () => {
     ).toBeNull();
   });
 
-  test('only treats an exact provider and rate model as a duplicate', () => {
-    const identity = canonicalizeRateIdentity(
-      'llm',
-      'qwen',
-      'deepseek-v4-flash',
-    );
+  test('compares matched raw identities without canonicalizing aliases', () => {
+    const identity = canonicalizeRateIdentity('llm', 'qwen', 'foo');
+    const aliasBackedRow = rateRow({
+      provider: 'qwen',
+      model: 'qwen/foo',
+      rate_model: 'foo',
+      source: 'exact',
+      matched_rate_provider: 'qwen',
+      matched_rate_model: 'qwen/foo',
+    });
+    const rawExactRow = rateRow({
+      provider: 'qwen',
+      model: 'qwen/foo',
+      rate_model: 'foo',
+      source: 'exact',
+      matched_rate_provider: 'qwen',
+      matched_rate_model: 'foo',
+    });
+
+    expect(hasExactRateIdentity([aliasBackedRow], identity)).toBe(false);
+    expect(hasExactRateIdentity([rawExactRow], identity)).toBe(true);
+    expect(
+      hasExactRateIdentity(
+        [
+          rateRow({
+            usage_type: 'tts',
+            provider: 'custom-tts',
+            model: '',
+            rate_model: '',
+            source: 'exact',
+            matched_rate_provider: 'custom-tts',
+            matched_rate_model: '',
+          }),
+        ],
+        canonicalizeRateIdentity('tts', 'custom-tts', ''),
+      ),
+    ).toBe(true);
+    expect(
+      hasExactRateIdentity(
+        [
+          rateRow({
+            ...rawExactRow,
+            matched_rate_provider: null,
+            matched_rate_model: null,
+          }),
+        ],
+        identity,
+      ),
+    ).toBe(false);
+    expect(isRateRowCreateSuggestion(aliasBackedRow, 'llm')).toBe(true);
+    expect(isRateRowCreateSuggestion(rawExactRow, 'llm')).toBe(false);
+    expect(
+      isRateRowCreateSuggestion(
+        rateRow({ ...rawExactRow, display_name: 'DB-only exact rate' }),
+        'llm',
+      ),
+    ).toBe(false);
+  });
+
+  test('falls back to legacy source identity only when matched fields are missing', () => {
+    const identity = canonicalizeRateIdentity('llm', 'qwen', 'foo');
 
     expect(
       hasExactRateIdentity(
-        [rateRow({ source: 'exact', model: 'qwen/deepseek-v4-flash' })],
+        [
+          rateRow({
+            source: 'exact',
+            provider: 'qwen',
+            model: 'qwen/foo',
+            rate_model: 'foo',
+          }),
+        ],
         identity,
       ),
     ).toBe(true);
     expect(
       hasExactRateIdentity(
-        [rateRow({ source: 'default', model: 'qwen/deepseek-v4-flash' })],
+        [
+          rateRow({
+            source: 'default',
+            provider: 'qwen',
+            model: 'qwen/foo',
+            rate_model: 'foo',
+          }),
+        ],
+        identity,
+      ),
+    ).toBe(false);
+    expect(
+      hasExactRateIdentity(
+        [
+          rateRow({
+            source: 'exact',
+            provider: 'qwen',
+            model: 'qwen/foo',
+            rate_model: 'foo',
+            matched_rate_provider: 'qwen',
+          }),
+        ],
         identity,
       ),
     ).toBe(false);

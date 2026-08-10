@@ -350,6 +350,8 @@ def _serialize_rate_row(
     )
     return {
         "rate_bid": str(rate.rate_bid or "") if rate else "",
+        "matched_rate_provider": str(rate.provider) if rate else None,
+        "matched_rate_model": str(rate.model) if rate else None,
         "usage_type": _USAGE_TYPE_LABELS.get(usage_type, str(usage_type)),
         "usage_type_code": int(usage_type),
         "provider": provider,

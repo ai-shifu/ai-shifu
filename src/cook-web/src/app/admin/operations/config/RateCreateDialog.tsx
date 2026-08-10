@@ -29,6 +29,7 @@ import {
   deriveCreditsPerUnit,
   getSuggestedRateModel,
   hasExactRateIdentity,
+  isRateRowCreateSuggestion,
   isValidMultiplier,
   isValidProvider,
   isValidRateModel,
@@ -71,8 +72,8 @@ export default function RateCreateDialog({
   const submittingRef = React.useRef(false);
 
   const suggestionRows = React.useMemo(
-    () => rows.filter(row => row.source !== 'exact'),
-    [rows],
+    () => rows.filter(row => isRateRowCreateSuggestion(row, usageType)),
+    [rows, usageType],
   );
   const providerSuggestions = React.useMemo(
     () =>

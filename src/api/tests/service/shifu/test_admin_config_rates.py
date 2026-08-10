@@ -403,12 +403,15 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
     monkeypatch.setattr(
         config_rates,
         "get_current_models",
-        lambda _app: [{"model": "qwen/runtime", "display_name": "Runtime"}],
+        lambda _app: [
+            {"model": "qwen/runtime", "display_name": "Runtime"},
+            {"model": "qwen/foo", "display_name": "Foo"},
+        ],
     )
     monkeypatch.setattr(
         config_rates,
         "_resolve_llm_rate_identity",
-        lambda _model: ("qwen", ["runtime", "qwen/runtime"]),
+        lambda model: ("qwen", [model.removeprefix("qwen/"), model]),
     )
     monkeypatch.setattr(
         config_rates,
@@ -435,6 +438,13 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
                     rate_bid="runtime-alias",
                     provider="qwen",
                     model="qwen/runtime",
+                    metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+                    credits_per_unit="2",
+                ),
+                _credit_rate(
+                    rate_bid="foo-alias",
+                    provider="qwen",
+                    model="qwen/foo",
                     metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
                     credits_per_unit="2",
                 ),
@@ -536,12 +546,20 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
             for row in result["llm_rates"]
         ] == [
             ("qwen", "runtime", "Runtime"),
+            ("qwen", "foo", "Foo"),
             ("custom-a", "alpha", "custom-a/alpha"),
             ("custom-b", "beta", "custom-b/beta"),
         ]
         assert result["llm_rates"][0]["rate_bid"] == "runtime"
-        assert result["llm_rates"][1]["rate_bid"] == "custom-a"
-        assert result["llm_rates"][2]["rate_bid"] == "custom-b"
+        assert result["llm_rates"][1]["rate_bid"] == "foo-alias"
+        assert result["llm_rates"][1]["source"] == "exact"
+        assert result["llm_rates"][1]["rate_model"] == "foo"
+        assert (
+            result["llm_rates"][1]["matched_rate_provider"],
+            result["llm_rates"][1]["matched_rate_model"],
+        ) == ("qwen", "qwen/foo")
+        assert result["llm_rates"][2]["rate_bid"] == "custom-a"
+        assert result["llm_rates"][3]["rate_bid"] == "custom-b"
         assert [
             (row["provider"], row["rate_model"], row["display_name"])
             for row in result["tts_rates"]
@@ -549,7 +567,15 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
             ("voice", "voice-1", "Voice 1"),
             ("custom-tts", "", "custom-tts"),
         ]
+        assert (
+            result["tts_rates"][0]["matched_rate_provider"],
+            result["tts_rates"][0]["matched_rate_model"],
+        ) == (None, None)
         assert result["tts_rates"][1]["rate_bid"] == "tts-default"
+        assert (
+            result["tts_rates"][1]["matched_rate_provider"],
+            result["tts_rates"][1]["matched_rate_model"],
+        ) == ("custom-tts", "")
         assert active_rate_selects == 1
 
         db.session.query(CreditUsageRate).delete()

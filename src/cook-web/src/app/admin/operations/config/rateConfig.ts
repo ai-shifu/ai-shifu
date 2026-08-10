@@ -4,6 +4,8 @@ export type RateTab = (typeof RATE_TABS)[number];
 
 export type RateRow = {
   rate_bid?: string;
+  matched_rate_provider?: string | null;
+  matched_rate_model?: string | null;
   usage_type: 'llm' | 'tts' | string;
   usage_type_code: number;
   provider: string;
@@ -153,21 +155,46 @@ export const isValidRateModel = (usageType: RateTab, rateModel: string) => {
   );
 };
 
-export const hasExactRateIdentity = (rows: RateRow[], identity: RateIdentity) =>
-  rows.some(row => {
-    if (row.source !== 'exact') {
-      return false;
-    }
-    const rowIdentity = canonicalizeRateIdentity(
-      identity.usageType,
-      row.provider,
-      row.rate_model ?? row.model,
-    );
+export const rateRowMatchesExactIdentity = (
+  row: RateRow,
+  identity: RateIdentity,
+) => {
+  const hasMatchedProvider = row.matched_rate_provider !== undefined;
+  const hasMatchedModel = row.matched_rate_model !== undefined;
+  if (hasMatchedProvider || hasMatchedModel) {
     return (
-      rowIdentity.provider === identity.provider &&
-      rowIdentity.rateModel === identity.rateModel
+      hasMatchedProvider &&
+      hasMatchedModel &&
+      row.matched_rate_provider === identity.provider &&
+      row.matched_rate_model === identity.rateModel
     );
-  });
+  }
+
+  if (row.source !== 'exact') {
+    return false;
+  }
+  const rowIdentity = canonicalizeRateIdentity(
+    identity.usageType,
+    row.provider,
+    row.rate_model ?? row.model,
+  );
+  return (
+    rowIdentity.provider === identity.provider &&
+    rowIdentity.rateModel === identity.rateModel
+  );
+};
+
+export const hasExactRateIdentity = (rows: RateRow[], identity: RateIdentity) =>
+  rows.some(row => rateRowMatchesExactIdentity(row, identity));
+
+export const isRateRowCreateSuggestion = (row: RateRow, usageType: RateTab) => {
+  const targetIdentity = canonicalizeRateIdentity(
+    usageType,
+    row.provider,
+    row.rate_model ?? row.model,
+  );
+  return !rateRowMatchesExactIdentity(row, targetIdentity);
+};
 
 export const deriveCreditsPerUnit = ({
   usageType,

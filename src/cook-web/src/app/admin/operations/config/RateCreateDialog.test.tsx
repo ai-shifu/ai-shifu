@@ -230,6 +230,62 @@ describe('RateCreateDialog', () => {
     expect(onCreate).not.toHaveBeenCalled();
   });
 
+  test('offers an alias-backed row and creates the raw target identity', async () => {
+    const onCreate = jest.fn().mockResolvedValue(true);
+    const { container } = render(
+      <RateCreateDialog
+        open
+        usageType='llm'
+        rows={[
+          rateRow({
+            source: 'exact',
+            provider: 'qwen',
+            model: 'qwen/foo',
+            rate_model: 'foo',
+            matched_rate_provider: 'qwen',
+            matched_rate_model: 'qwen/foo',
+          }),
+        ]}
+        baseline={baseline}
+        pending={false}
+        onOpenChange={jest.fn()}
+        onCreate={onCreate}
+      />,
+    );
+
+    expect(container.querySelector('option[value="qwen"]')).toBeInTheDocument();
+    expect(container.querySelector('option[value="foo"]')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('fields.provider'), {
+      target: { value: 'qwen' },
+    });
+    fireEvent.change(screen.getByLabelText('fields.model'), {
+      target: { value: 'foo' },
+    });
+    fireEvent.change(screen.getByLabelText('fields.multiplier'), {
+      target: { value: '1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'actions.continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'actions.confirmAdd' }));
+
+    await waitFor(() =>
+      expect(onCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          usage_type: 'llm',
+          provider: 'qwen',
+          model: 'qwen/foo',
+          rate_model: 'foo',
+          billing_metric: 'llm_output_tokens',
+        }),
+        expect.objectContaining({
+          usageType: 'llm',
+          provider: 'qwen',
+          model: 'qwen/foo',
+          rateModel: 'foo',
+        }),
+      ),
+    );
+  });
+
   test('keeps TTS form values after a failed request and submits a blank default tier', async () => {
     const onCreate = jest.fn().mockResolvedValue(false);
     render(
