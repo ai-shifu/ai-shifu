@@ -143,18 +143,16 @@ def get_fmt_prompt(
         bool(profile_tmplate),
         len(profile_tmplate),
     )
-    propmpt_keys = []
     profiles = {}
 
     profiles = dict(get_user_profiles(app, user_id, course_id) or {})
     if profile_overrides:
         profiles.update(profile_overrides)
-    propmpt_keys = list(profiles.keys())
+    profile_key_count = len(profiles)
     if input:
         profiles["sys_user_input"] = input
-        propmpt_keys.append("sys_user_input")
-    app.logger.info(propmpt_keys)
-    app.logger.info(profiles)
+        profile_key_count += 1
+    app.logger.info("profile bindings available | key_count=%s", profile_key_count)
     keys = extract_variables(profile_tmplate)
     fmt_keys = {}
     for key in keys:
@@ -162,7 +160,11 @@ def get_fmt_prompt(
             fmt_keys[key] = profiles[key]
         else:
             app.logger.info("key not found:" + key + " ,user_id:" + user_id)
-    app.logger.info(fmt_keys)
+    app.logger.info(
+        "profile bindings substituted | key_count=%s | requested_key_count=%s",
+        len(fmt_keys),
+        len(keys),
+    )
     if not keys:
         prompt = input if not profile_tmplate else profile_tmplate
     else:

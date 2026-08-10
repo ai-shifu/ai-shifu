@@ -1,4 +1,5 @@
 import importlib
+import logging
 import sys
 import types
 
@@ -649,6 +650,41 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
     assert sensitive_profile not in "\n".join(log_messages)
     provider_generation_input = dummy_trace.last_span.generations[0].kwargs["input"]
     assert sensitive_profile in provider_generation_input["messages"][0]["content"]
+
+
+def test_get_fmt_prompt_logs_binding_metadata_without_profile_values(
+    app, monkeypatch, caplog
+):
+    from flaskr.service.learn import utils_v2
+
+    sensitive_profile = "PRIVATE PROFILE BINDING VALUE"
+    monkeypatch.setattr(
+        utils_v2,
+        "get_user_profiles",
+        lambda *_args, **_kwargs: {
+            "sys_user_background": sensitive_profile,
+            "sys_user_style": "concise",
+        },
+    )
+    caplog.set_level(logging.INFO)
+    app.logger.addHandler(caplog.handler)
+    try:
+        prompt = utils_v2.get_fmt_prompt(
+            app,
+            "user-1",
+            "course-1",
+            "Background: {sys_user_background}",
+        )
+    finally:
+        app.logger.removeHandler(caplog.handler)
+
+    assert prompt == f"Background: {sensitive_profile}"
+    assert sensitive_profile not in caplog.text
+    assert "profile bindings available | key_count=2" in caplog.text
+    assert (
+        "profile bindings substituted | key_count=1 | requested_key_count=1"
+        in caplog.text
+    )
 
 
 def test_handle_input_ask_formats_provider_prompt_with_request_language(
