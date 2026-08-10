@@ -13,7 +13,7 @@ Deliver the second stacked learner-profile PR on `sunner/profile-onboarding-guid
 - [x] 2026-08-10 14:05 CST: Projected course gating, the two-step modal, settings rerun, admin preview, i18n, and the rolling dual protocol without reverting PR1 fixes.
 - [x] 2026-08-10 14:30 CST: Passed focused backend/frontend regressions, static gates, repository harness checks, and four-viewport browser QA; fixed short-height interaction clipping and the 320-pixel French mobile header found by visual inspection.
 - [x] 2026-08-10 14:50 CST: Rebased the independent implementation and review-fix commits onto final PR1 head `34b6260c6`, then verified ancestry and PR1 sign-in/profile-state preservation.
-- [ ] 2026-08-10 14:55 CST: Push, create the ready stacked PR, and close CI plus naturally generated review threads.
+- [x] 2026-08-10 15:05 CST: Pushed ready stacked PR #2308, passed all GitHub checks including the runtime smoke harness, and confirmed the natural review window produced no actionable threads.
 
 ## Surprises & Discoveries
 
@@ -28,7 +28,7 @@ Deliver the second stacked learner-profile PR on `sunner/profile-onboarding-guid
 
 ## Outcomes & Retrospective
 
-Implementation and local verification are complete. The final stack preserves the legacy learner/admin protocol while adding a nested V2 contract, a direct Redis-backed official MarkdownFlow runtime, and guided/review entry points in courses, settings, and admin preview. Rebase verification passed 262 focused backend tests with 4 skips, 103 focused frontend tests, 61 PR1 regression tests, TypeScript, targeted lint/format, translation parity and usage, architecture with zero new violations, the repository harness, and diff checks. Browser QA covered desktop, portrait mobile, narrow French error, and landscape guided/review states; temporary harness routes stayed outside the committed tree. Publication, CI, and organic review closure remain pending.
+Implementation, publication, and verification are complete in ready stacked PR #2308. The final stack preserves the legacy learner/admin protocol while adding a nested V2 contract, a direct Redis-backed official MarkdownFlow runtime, and guided/review entry points in courses, settings, and admin preview. Rebase verification passed 262 focused backend tests with 4 skips, 103 focused frontend tests, 61 PR1 regression tests, TypeScript, targeted lint/format, translation parity and usage, architecture with zero new violations, the repository harness, and diff checks. Browser QA covered desktop, portrait mobile, narrow French error, and landscape guided/review states; temporary harness routes stayed outside the committed tree. GitHub backend, contract, lint, Prettier, translation, repository, security, and runtime-harness checks passed, and the organic review-thread audit found no actionable feedback.
 
 ## Context and Orientation
 
