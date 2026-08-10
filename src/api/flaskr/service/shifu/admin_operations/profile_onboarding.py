@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Flask
+
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.profile_onboarding import (
     get_profile_onboarding_config,
