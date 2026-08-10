@@ -36,8 +36,10 @@ import {
 import {
   completeProfileOnboarding,
   getProfileOnboarding,
+  isProfileOnboardingV2Status,
+  skipProfileOnboarding,
   updateWxcode,
-  type ProfileOnboardingStatus,
+  type ProfileOnboardingV2Status,
 } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 import type { EnvStoreState } from '@/c-types/store';
@@ -133,6 +135,7 @@ export default function ChatPage() {
   const attemptedCourseVisitKeyRef = useRef<string | null>(null);
   const pendingCourseVisitKeyRef = useRef<string | null>(null);
   const profileOnboardingRequestedRef = useRef(false);
+  const profileOnboardingScopeGenerationRef = useRef(0);
   const initialCourseVisitEntryTypeRef = useRef<'catalog' | 'deep_link' | null>(
     null,
   );
@@ -145,6 +148,11 @@ export default function ChatPage() {
   const isUserInitialized = useUserStore(state => state.isInitialized);
   const refreshUserInfo = useUserStore(state => state.refreshUserInfo);
   const initialized = isUserInitialized;
+  const profileOnboardingAuthScope = isLoggedIn
+    ? `user:${userInfo?.user_id || 'pending'}`
+    : 'guest';
+  const profileOnboardingAuthScopeRef = useRef(profileOnboardingAuthScope);
+  profileOnboardingAuthScopeRef.current = profileOnboardingAuthScope;
 
   const { wechatCode, previewMode, learningMode } = useSystemStore(
     useShallow(state => ({
@@ -405,7 +413,7 @@ export default function ChatPage() {
   );
 
   const [profileOnboardingStatus, setProfileOnboardingStatus] =
-    useState<ProfileOnboardingStatus | null>(null);
+    useState<ProfileOnboardingV2Status | null>(null);
   const [profileOnboardingOpen, setProfileOnboardingOpen] = useState(false);
   const [profileOnboardingRuntimeReady, setProfileOnboardingRuntimeReady] =
     useState(false);
@@ -450,6 +458,18 @@ export default function ChatPage() {
   }, [t]);
 
   useEffect(() => {
+    profileOnboardingScopeGenerationRef.current += 1;
+    profileOnboardingRequestedRef.current = false;
+    setProfileOnboardingStatus(null);
+    setProfileOnboardingOpen(false);
+    setProfileOnboardingSubmitting(false);
+    setProfileOnboardingError('');
+    setProfileOnboardingRuntimeReady(
+      initialized && (!isLoggedIn || previewMode),
+    );
+  }, [initialized, isLoggedIn, previewMode, profileOnboardingAuthScope]);
+
+  useEffect(() => {
     if (!initialized) {
       setProfileOnboardingRuntimeReady(false);
       return;
@@ -470,17 +490,38 @@ export default function ChatPage() {
 
     setProfileOnboardingRuntimeReady(false);
     profileOnboardingRequestedRef.current = true;
+    const requestAuthScope = profileOnboardingAuthScope;
+    const requestScopeGeneration = profileOnboardingScopeGenerationRef.current;
+    const isCurrentRequest = () =>
+      requestAuthScope === profileOnboardingAuthScopeRef.current &&
+      requestScopeGeneration === profileOnboardingScopeGenerationRef.current;
     void getProfileOnboarding()
       .then(status => {
-        if (status?.should_show && status.markdownflow?.trim()) {
+        if (!isCurrentRequest()) {
+          return;
+        }
+        if (!isProfileOnboardingV2Status(status)) {
+          debugWarn('[profile-onboarding] incompatible status contract', {
+            contractVersion: status?.contract_version || 'legacy',
+          });
+          setProfileOnboardingRuntimeReady(true);
+          return;
+        }
+        if (status.should_show && status.presentation !== 'hidden') {
           setProfileOnboardingStatus(status);
           setProfileOnboardingOpen(true);
           setProfileOnboardingError('');
+          if (status.presentation === 'non_blocking') {
+            setProfileOnboardingRuntimeReady(true);
+          }
           return;
         }
         setProfileOnboardingRuntimeReady(true);
       })
       .catch(error => {
+        if (!isCurrentRequest()) {
+          return;
+        }
         debugWarn('[profile-onboarding] failed to load status', error);
         notifyProfileOnboardingLoadFailure(error);
         setProfileOnboardingRuntimeReady(true);
@@ -490,28 +531,56 @@ export default function ChatPage() {
     initialized,
     isLoggedIn,
     notifyProfileOnboardingLoadFailure,
+    profileOnboardingAuthScope,
     previewMode,
   ]);
 
   const handleProfileOnboardingComplete = useCallback(
-    async (variables: Record<string, string>) => {
+    async (
+      learnerProfile: string,
+      triggerSource: 'guided' | 'pasted',
+      sessionId?: string,
+    ) => {
+      const submissionAuthScope = profileOnboardingAuthScopeRef.current;
+      const submissionScopeGeneration =
+        profileOnboardingScopeGenerationRef.current;
+      const isCurrentSubmission = () =>
+        submissionAuthScope === profileOnboardingAuthScopeRef.current &&
+        submissionScopeGeneration ===
+          profileOnboardingScopeGenerationRef.current;
       setProfileOnboardingSubmitting(true);
       setProfileOnboardingError('');
       try {
         await completeProfileOnboarding({
-          skipped: false,
-          variables,
+          learner_profile: learnerProfile,
+          trigger_source: triggerSource,
+          ...(sessionId ? { session_id: sessionId } : {}),
         });
+        if (!isCurrentSubmission()) {
+          return false;
+        }
         await refreshUserInfo().catch(error => {
+          if (!isCurrentSubmission()) {
+            return;
+          }
           debugWarn('[profile-onboarding] failed to refresh user info', error);
           notifyProfileOnboardingRefreshDelay();
         });
+        if (!isCurrentSubmission()) {
+          return false;
+        }
         closeProfileOnboarding();
         setProfileOnboardingRuntimeReady(true);
+        return true;
       } catch (error) {
-        setProfileOnboardingError(resolveProfileOnboardingError(error));
+        if (isCurrentSubmission()) {
+          setProfileOnboardingError(resolveProfileOnboardingError(error));
+        }
+        return false;
       } finally {
-        setProfileOnboardingSubmitting(false);
+        if (isCurrentSubmission()) {
+          setProfileOnboardingSubmitting(false);
+        }
       }
     },
     [
@@ -522,22 +591,38 @@ export default function ChatPage() {
     ],
   );
 
-  const handleProfileOnboardingSkip = useCallback(async () => {
-    setProfileOnboardingSubmitting(true);
-    setProfileOnboardingError('');
-    try {
-      await completeProfileOnboarding({
-        skipped: true,
-        variables: {},
-      });
-      closeProfileOnboarding();
-      setProfileOnboardingRuntimeReady(true);
-    } catch (error) {
-      setProfileOnboardingError(resolveProfileOnboardingError(error));
-    } finally {
-      setProfileOnboardingSubmitting(false);
-    }
-  }, [closeProfileOnboarding, resolveProfileOnboardingError]);
+  const handleProfileOnboardingSkip = useCallback(
+    async (sessionId?: string) => {
+      const submissionAuthScope = profileOnboardingAuthScopeRef.current;
+      const submissionScopeGeneration =
+        profileOnboardingScopeGenerationRef.current;
+      const isCurrentSubmission = () =>
+        submissionAuthScope === profileOnboardingAuthScopeRef.current &&
+        submissionScopeGeneration ===
+          profileOnboardingScopeGenerationRef.current;
+      setProfileOnboardingSubmitting(true);
+      setProfileOnboardingError('');
+      try {
+        await skipProfileOnboarding(sessionId);
+        if (!isCurrentSubmission()) {
+          return false;
+        }
+        closeProfileOnboarding();
+        setProfileOnboardingRuntimeReady(true);
+        return true;
+      } catch (error) {
+        if (isCurrentSubmission()) {
+          setProfileOnboardingError(resolveProfileOnboardingError(error));
+        }
+        return false;
+      } finally {
+        if (isCurrentSubmission()) {
+          setProfileOnboardingSubmitting(false);
+        }
+      }
+    },
+    [closeProfileOnboarding, resolveProfileOnboardingError],
+  );
 
   useEffect(() => {
     if (!courseName) {
@@ -1066,8 +1151,10 @@ export default function ChatPage() {
         {profileOnboardingStatus ? (
           <ProfileOnboardingModal
             open={profileOnboardingOpen}
-            markdownflow={profileOnboardingStatus.markdownflow}
-            currentValues={profileOnboardingStatus.current_values}
+            draftStorageScope={userInfo?.user_id || ''}
+            presentation={profileOnboardingStatus.presentation}
+            guidedAvailable={profileOnboardingStatus.guided_available}
+            maxLength={profileOnboardingStatus.max_length}
             errorMessage={profileOnboardingError}
             submitting={profileOnboardingSubmitting}
             onComplete={handleProfileOnboardingComplete}

@@ -25,11 +25,23 @@ describe('profile onboarding api definitions', () => {
     expect(api.completeProfileOnboarding).toBe(
       'POST /user/profile-onboarding/complete',
     );
+    expect(api.skipProfileOnboarding).toBe(
+      'POST /user/profile-onboarding/skip',
+    );
+    expect(api.createProfileOnboardingSession).toBe(
+      'POST /user/profile-onboarding/session',
+    );
+    expect(api.getLearnerProfile).toBe('GET /user/learner-profile');
+    expect(api.updateLearnerProfile).toBe('PUT /user/learner-profile');
+    expect(api.clearLearnerProfile).toBe('DELETE /user/learner-profile');
     expect(api.getAdminOperationProfileOnboardingConfig).toBe(
       'GET /shifu/admin/operations/profile-onboarding',
     );
     expect(api.updateAdminOperationProfileOnboardingConfig).toBe(
       'POST /shifu/admin/operations/profile-onboarding',
+    );
+    expect(api.createAdminOperationProfileOnboardingPreview).toBe(
+      'POST /shifu/admin/operations/profile-onboarding/preview',
     );
     expect(api.getAdminOperationConfigRates).toBe(
       'GET /shifu/admin/operations/config/rates',
