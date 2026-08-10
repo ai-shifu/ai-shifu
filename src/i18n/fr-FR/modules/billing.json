@@ -226,8 +226,8 @@
       "filters": {
         "reset": "Reinitialiser",
         "search": "Rechercher",
-        "searchPlaceholderEmail": "Saisir l e-mail de l enseignant",
-        "searchPlaceholderPhone": "Saisir le telephone de l enseignant",
+        "searchPlaceholderEmail": "E-mail enseignant",
+        "searchPlaceholderPhone": "Mobile enseignant",
         "status": "Statut d abonnement",
         "statusAll": "Tous les statuts",
         "teacherField": "Enseignant"

@@ -76,13 +76,13 @@
   "filters": {
     "billingStatus": "Billing Status",
     "courseKeyword": "Course",
-    "courseKeywordPlaceholder": "Course ID/name",
+    "courseKeywordPlaceholder": "Course ID / Course name",
     "createdTime": "Created Time",
     "createdTimePlaceholder": "Start date ~ End date",
     "failureReason": "Failure Reason",
-    "failureReasonPlaceholder": "Enter failure reason",
+    "failureReasonPlaceholder": "Failure reason",
     "minimaxStatusCode": "MiniMax Status Code",
-    "minimaxStatusCodePlaceholder": "Enter status code",
+    "minimaxStatusCodePlaceholder": "Status code",
     "reset": "Reset",
     "search": "Search",
     "status": "Job Status",
@@ -91,7 +91,7 @@
     "userKeywordPlaceholderEmail": "Nickname / Email",
     "userKeywordPlaceholderPhone": "Nickname / Mobile",
     "voiceKeyword": "Voice",
-    "voiceKeywordPlaceholder": "Voice ID or voice name"
+    "voiceKeywordPlaceholder": "Voice ID / Voice name"
   },
   "loadFailed": "Failed to load voice clone records",
   "pagination": {
@@ -117,7 +117,7 @@
     "successToast": "Voice registered",
     "teacherLabel": "Assign to teacher",
     "teacherRequired": "Please select a teacher first",
-    "teacherSearchPlaceholder": "Search teacher by phone or email",
+    "teacherSearchPlaceholder": "Mobile / Email",
     "title": "Register cloned voice",
     "voiceIdHint": "Enter the Voice ID cloned on the MiniMax console.",
     "voiceIdLabel": "Voice ID",

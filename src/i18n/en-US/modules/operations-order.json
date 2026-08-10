@@ -31,12 +31,12 @@
     "emptyList": "No credit order data",
     "filters": {
       "creatorKeyword": "User",
-      "creatorKeywordPlaceholderEmail": "User ID / email",
-      "creatorKeywordPlaceholderPhone": "User ID / phone",
+      "creatorKeywordPlaceholderEmail": "Email",
+      "creatorKeywordPlaceholderPhone": "Mobile",
       "orderKind": "Order Type",
       "paymentProvider": "Provider",
       "productKeyword": "Product",
-      "productKeywordPlaceholder": "Plan / pack name"
+      "productKeywordPlaceholder": "Credit plan / Credit package name"
     },
     "kind": {
       "other": "Other",
@@ -105,11 +105,11 @@
     "source": "Source",
     "startTime": "Start Time",
     "status": "Status",
-    "timeRangePlaceholder": "Date range",
+    "timeRangePlaceholder": "Start time ~ End time",
     "userKeyword": "User",
-    "userKeywordPlaceholder": "User ID / phone / email",
-    "userKeywordPlaceholderEmail": "User ID / email",
-    "userKeywordPlaceholderPhone": "User ID / phone"
+    "userKeywordPlaceholder": "Mobile / Email",
+    "userKeywordPlaceholderEmail": "Email",
+    "userKeywordPlaceholderPhone": "Mobile"
   },
   "messages": {
     "loadCreditOrderDetailFailed": "Failed to load credit order detail. Please try again later.",

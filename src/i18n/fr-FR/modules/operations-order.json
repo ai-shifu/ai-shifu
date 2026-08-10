@@ -31,12 +31,12 @@
     "emptyList": "Aucune donnée de commande de crédits",
     "filters": {
       "creatorKeyword": "Utilisateur",
-      "creatorKeywordPlaceholderEmail": "ID d’utilisateur / e-mail",
-      "creatorKeywordPlaceholderPhone": "ID d’utilisateur / téléphone",
+      "creatorKeywordPlaceholderEmail": "E-mail",
+      "creatorKeywordPlaceholderPhone": "Mobile",
       "orderKind": "Type de commande",
       "paymentProvider": "Fournisseur",
       "productKeyword": "Produit",
-      "productKeywordPlaceholder": "Nom du forfait / pack"
+      "productKeywordPlaceholder": "Offre de crédits / Nom du pack de crédits"
     },
     "kind": {
       "other": "Autre",
@@ -105,11 +105,11 @@
     "source": "Source",
     "startTime": "Heure de début",
     "status": "Statut",
-    "timeRangePlaceholder": "Plage de dates",
+    "timeRangePlaceholder": "Heure de début ~ Heure de fin",
     "userKeyword": "Utilisateur",
-    "userKeywordPlaceholder": "ID d’utilisateur / téléphone / e-mail",
-    "userKeywordPlaceholderEmail": "ID d’utilisateur / e-mail",
-    "userKeywordPlaceholderPhone": "ID d’utilisateur / téléphone"
+    "userKeywordPlaceholder": "Mobile / E-mail",
+    "userKeywordPlaceholderEmail": "E-mail",
+    "userKeywordPlaceholderPhone": "Mobile"
   },
   "messages": {
     "loadCreditOrderDetailFailed": "Échec du chargement du détail de la commande de crédits. Veuillez réessayer plus tard.",
