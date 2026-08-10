@@ -375,6 +375,31 @@ describe('LearnOrdersTab', () => {
     expect(screen.getByDisplayValue('course-1')).toBeInTheDocument();
   });
 
+  test('prefers the combined course query from the url query', async () => {
+    mockSearchParamsValue = 'course_query=Course%201&shifu_bid=course-1';
+
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        course_query: 'Course 1',
+        shifu_bid: 'course-1',
+        course_name: '',
+        status: '502',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    expect(screen.getByDisplayValue('Course 1')).toBeInTheDocument();
+  });
+
   test('submits combined course search without legacy course filters', async () => {
     render(<LearnOrdersTab />);
 

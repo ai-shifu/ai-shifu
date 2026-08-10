@@ -133,11 +133,12 @@ const createDefaultFilters = (): OrderFilters => ({
 const createFiltersFromSearchParams = (searchParams: {
   get: (key: string) => string | null;
 }): OrderFilters => {
+  const courseQuery = (searchParams.get('course_query') || '').trim();
   const shifuBid = (searchParams.get('shifu_bid') || '').trim();
   const courseName = (searchParams.get('course_name') || '').trim();
   return {
     ...createDefaultFilters(),
-    course_query: shifuBid || courseName,
+    course_query: courseQuery || shifuBid || courseName,
     shifu_bid: shifuBid,
     course_name: courseName,
   };
