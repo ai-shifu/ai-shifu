@@ -23,6 +23,11 @@ from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
 )
+from flaskr.service.profile.learner_profile import (
+    clear_learner_profile,
+    get_learner_profile,
+    replace_learner_profile,
+)
 from flaskr.service.profile.onboarding import (
     complete_profile_onboarding,
     get_profile_onboarding_status,
@@ -60,6 +65,20 @@ from flaskr.i18n import _translations, set_language
 
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
+
+
+def _request_json_object(parameter_name: str) -> dict:
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        raise_param_error(parameter_name)
+    return payload
+
+
+def _reject_unknown_fields(
+    payload: dict, *, allowed_fields: set[str], parameter_name: str
+) -> None:
+    if set(payload) - allowed_fields:
+        raise_param_error(parameter_name)
 
 
 def _normalize_runtime_language_code(language_code: str) -> str:
@@ -376,6 +395,36 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
         db.session.commit()
         return make_common_response(result)
+
+    @app.route(path_prefix + "/learner-profile", methods=["GET"])
+    def learner_profile_api():
+        """Return the current user's canonical learning profile."""
+        return make_common_response(get_learner_profile(user_id=request.user.user_id))
+
+    @app.route(path_prefix + "/learner-profile", methods=["PUT"])
+    def update_learner_profile_api():
+        """Replace the current user's canonical learning profile."""
+        payload = _request_json_object("learner_profile")
+        _reject_unknown_fields(
+            payload,
+            allowed_fields={"learner_profile"},
+            parameter_name="learner_profile",
+        )
+        learner_profile = payload.get("learner_profile")
+        if not isinstance(learner_profile, str):
+            raise_param_error("learner_profile")
+        return make_common_response(
+            replace_learner_profile(
+                app,
+                user_id=request.user.user_id,
+                learner_profile=learner_profile,
+            )
+        )
+
+    @app.route(path_prefix + "/learner-profile", methods=["DELETE"])
+    def clear_learner_profile_api():
+        """Clear the profile while keeping profile-v2 handled."""
+        return make_common_response(clear_learner_profile(user_id=request.user.user_id))
 
     @app.route(path_prefix + "/require_tmp", methods=["POST"])
     @bypass_token_validation

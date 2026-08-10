@@ -139,6 +139,17 @@ class UserInfo(db.Model):
         comment="User identifier: phone or email",
     )
     nickname = Column(String(255), nullable=False, default="", comment="User nickname")
+    learner_profile = Column(
+        Text,
+        nullable=True,
+        default="",
+        comment="User-owned learning personalization profile",
+    )
+    learner_profile_updated_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Timestamp when the learning profile was last changed",
+    )
     avatar = Column(String(255), nullable=False, default="", comment="User avatar")
     birthday = Column(Date, nullable=True, comment="User birthday")
     language = Column(String(30), nullable=False, default="", comment="User language")

@@ -3,7 +3,7 @@
  */
 import styles from './UserSettings.module.scss';
 
-import { useState, useCallback, memo, useEffect } from 'react';
+import { useState, useCallback, memo, useEffect, useRef } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import SettingHeader from './SettingHeader';
@@ -21,6 +21,9 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useEnvStore } from '@/c-store/envStore';
 import { getUserProfile } from '@/c-api/user';
+import LearnerProfileSettingsSection, {
+  type LearnerProfileSettingsHandle,
+} from '@/components/profile-onboarding/LearnerProfileSettingsSection';
 
 const fixed_keys = ['sys_user_nickname', 'avatar', 'sex', 'birth'];
 const hidden_keys = ['language'];
@@ -32,9 +35,10 @@ export const UserSettings = ({
   isBasicInfo = false,
 }) => {
   const courseId = useEnvStore(state => state.courseId);
-  const { refreshUserInfo } = useUserStore(
+  const { refreshUserInfo, userId } = useUserStore(
     useShallow(state => ({
       refreshUserInfo: state.refreshUserInfo,
+      userId: state.userInfo?.user_id || '',
     })),
   );
 
@@ -53,8 +57,12 @@ export const UserSettings = ({
   const [birth, setBirth] = useState('');
 
   const [dynFormData, setDynFormData] = useState([]);
+  const learnerProfileSettingsRef = useRef<LearnerProfileSettingsHandle>(null);
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
 
   const onSaveSettingsClick = useCallback(async () => {
+    const saveUserId = userId;
     const data = [];
     // @ts-expect-error EXPECT
     data.push({
@@ -86,7 +94,20 @@ export const UserSettings = ({
       });
     });
     await updateUserProfile(data, courseId);
+    if (userIdRef.current !== saveUserId) {
+      return;
+    }
+    if (!isBasicInfo) {
+      const learnerProfileSaved =
+        await learnerProfileSettingsRef.current?.saveIfDirty();
+      if (learnerProfileSaved === false || userIdRef.current !== saveUserId) {
+        return;
+      }
+    }
     await refreshUserInfo();
+    if (userIdRef.current !== saveUserId) {
+      return;
+    }
     onClose();
   }, [
     avatar,
@@ -97,6 +118,8 @@ export const UserSettings = ({
     refreshUserInfo,
     sex,
     courseId,
+    isBasicInfo,
+    userId,
   ]);
 
   const onNickNameChanged = useCallback(
@@ -136,7 +159,11 @@ export const UserSettings = ({
 
   const loadData = useCallback(async () => {
     if (!courseId) return;
+    const requestUserId = userId;
     const respData = await getUserProfile(courseId);
+    if (userIdRef.current !== requestUserId) {
+      return;
+    }
 
     respData.forEach(v => {
       if (v.key === 'sys_user_nickname') {
@@ -154,7 +181,7 @@ export const UserSettings = ({
         v => !fixed_keys.includes(v.key) && !hidden_keys.includes(v.key),
       ),
     );
-  }, [courseId]);
+  }, [courseId, userId]);
 
   useEffect(() => {
     loadData();
@@ -261,6 +288,13 @@ export const UserSettings = ({
                   />
                 );
               })}
+              {!isBasicInfo ? (
+                <LearnerProfileSettingsSection
+                  key={userId || 'guest'}
+                  ref={learnerProfileSettingsRef}
+                  draftStorageScope={userId}
+                />
+              ) : null}
             </div>
             <div className={styles.settingFooter}>
               <div className={styles.centerWrapper}>

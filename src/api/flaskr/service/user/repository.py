@@ -76,6 +76,8 @@ class UserAggregate:
     user_bid: str
     identify: str
     nickname: str
+    learner_profile: str
+    learner_profile_updated_at: Optional[datetime]
     avatar: str
     birthday: Optional[date]
     language: str
@@ -241,6 +243,8 @@ def _build_user_aggregate(
         user_bid=entity.user_bid,
         identify=entity.user_identify or "",
         nickname=entity.nickname or "",
+        learner_profile=entity.learner_profile or "",
+        learner_profile_updated_at=entity.learner_profile_updated_at,
         avatar=entity.avatar or "",
         birthday=entity.birthday,
         language=entity.language or "",
@@ -481,6 +485,8 @@ def create_user_entity(
     user_bid: str,
     identify: str,
     nickname: Optional[str] = None,
+    learner_profile: Optional[str] = None,
+    learner_profile_updated_at: Optional[datetime] = None,
     language: Optional[str] = None,
     avatar: Optional[str] = None,
     state: Optional[int] = None,
@@ -490,6 +496,8 @@ def create_user_entity(
         user_bid=user_bid,
         user_identify=_normalize_identifier("", identify) or user_bid,
         nickname=nickname or "",
+        learner_profile=learner_profile or "",
+        learner_profile_updated_at=learner_profile_updated_at,
         avatar=avatar or "",
         birthday=birthday,
         language=language or "en-US",
@@ -508,6 +516,9 @@ def update_user_entity_fields(
     *,
     identify: Optional[str] = None,
     nickname: Optional[str] = None,
+    learner_profile: Optional[str] = None,
+    learner_profile_updated_at: Optional[datetime] = None,
+    update_learner_profile_timestamp: bool = False,
     avatar: Optional[str] = None,
     language: Optional[str] = None,
     state: Optional[int] = None,
@@ -518,6 +529,10 @@ def update_user_entity_fields(
         entity.user_identify = _normalize_identifier("", identify)
     if nickname is not None:
         entity.nickname = nickname
+    if learner_profile is not None:
+        entity.learner_profile = learner_profile
+    if update_learner_profile_timestamp:
+        entity.learner_profile_updated_at = learner_profile_updated_at
     if avatar is not None:
         entity.avatar = avatar
     if language is not None:
@@ -537,10 +552,12 @@ def upsert_user_entity(
     user_bid: str,
     defaults: Optional[Dict[str, Any]] = None,
 ) -> Tuple[UserEntity, bool]:
-    defaults = defaults or {}
+    defaults = dict(defaults or {})
     entity = get_user_entity_by_bid(user_bid, include_deleted=True)
     created = False
     if entity:
+        if "learner_profile_updated_at" in defaults:
+            defaults["update_learner_profile_timestamp"] = True
         update_user_entity_fields(entity, **defaults)
     else:
         created = True
@@ -548,6 +565,8 @@ def upsert_user_entity(
             user_bid=user_bid,
             identify=defaults.get("identify", user_bid),
             nickname=defaults.get("nickname"),
+            learner_profile=defaults.get("learner_profile"),
+            learner_profile_updated_at=defaults.get("learner_profile_updated_at"),
             language=defaults.get("language"),
             avatar=defaults.get("avatar"),
             state=defaults.get("state"),

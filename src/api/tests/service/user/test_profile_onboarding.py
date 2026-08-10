@@ -213,3 +213,73 @@ def test_profile_onboarding_routes_delegate(monkeypatch, test_client):
         "enabled": True,
         "operator": "user-onboarding",
     }
+
+
+def test_learner_profile_routes_delegate(monkeypatch, test_client):
+    dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: dummy_user,
+        raising=False,
+    )
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.route.user.get_learner_profile",
+        lambda **kwargs: calls.append(("get", kwargs)) or {"learner_profile": "old"},
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.replace_learner_profile",
+        lambda _app, **kwargs: (
+            calls.append(("put", kwargs))
+            or {"learner_profile": kwargs["learner_profile"]}
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.clear_learner_profile",
+        lambda **kwargs: calls.append(("delete", kwargs)) or {"learner_profile": ""},
+    )
+
+    fetched = test_client.get("/api/user/learner-profile", headers={"Token": "token"})
+    updated = test_client.put(
+        "/api/user/learner-profile",
+        headers={"Token": "token"},
+        json={"learner_profile": "new profile"},
+    )
+    cleared = test_client.delete(
+        "/api/user/learner-profile", headers={"Token": "token"}
+    )
+
+    assert fetched.get_json(force=True)["data"] == {"learner_profile": "old"}
+    assert updated.get_json(force=True)["data"] == {"learner_profile": "new profile"}
+    assert cleared.get_json(force=True)["data"] == {"learner_profile": ""}
+    assert calls == [
+        ("get", {"user_id": "learner-profile-user"}),
+        (
+            "put",
+            {
+                "user_id": "learner-profile-user",
+                "learner_profile": "new profile",
+            },
+        ),
+        ("delete", {"user_id": "learner-profile-user"}),
+    ]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [None, [], {"learner_profile": 123}, {"learner_profile": "ok", "x": 1}],
+)
+def test_learner_profile_update_rejects_invalid_shapes(
+    monkeypatch, test_client, payload
+):
+    dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: dummy_user,
+        raising=False,
+    )
+    kwargs = {"headers": {"Token": "token"}}
+    if payload is not None:
+        kwargs["json"] = payload
+    response = test_client.put("/api/user/learner-profile", **kwargs)
+    assert response.get_json(force=True)["code"] != 0

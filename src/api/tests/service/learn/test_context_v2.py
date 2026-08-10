@@ -5,7 +5,7 @@ import threading
 import time
 import types
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -123,6 +123,9 @@ from flaskr.service.learn.learn_dtos import (
     ElementType,
     GeneratedType,
     PlaygroundPreviewRequest,
+)
+from flaskr.service.learn.learner_profile_prompt import (
+    LEARNER_PROFILE_PROMPT_MARKER,
 )
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
@@ -1394,6 +1397,167 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         self.assertEqual(variables.get("sys_user_language"), "fr-FR")
         self.assertEqual(variables.get("language"), "fr-FR")
         mock_fetch.assert_called_once_with(app, "user-1", "shifu-1")
+
+
+class CoursePromptCompositionTests(unittest.TestCase):
+    def test_runtime_getter_returns_course_prompt_with_current_learner_profile(self):
+        app = Flask("runtime-course-prompt-profile")
+        ctx = _make_context()
+        ctx.app = app
+        ctx._struct = object()
+        ctx._user_info = types.SimpleNamespace(learner_profile="称呼我小雨，偏好图解")
+
+        outline_model = MagicMock()
+        outline_model.query.filter.return_value.all.return_value = [
+            types.SimpleNamespace(
+                id="outline-db-1",
+                llm_system_prompt="COURSE RULE",
+            )
+        ]
+        ctx._outline_model = outline_model
+        ctx._shifu_model = MagicMock()
+
+        with patch(
+            "flaskr.service.learn.context_v2._find_outline_path_or_raise",
+            return_value=[types.SimpleNamespace(id="outline-db-1", type="outline")],
+        ):
+            prompt = ctx.get_system_prompt("outline-1")
+
+        self.assertIsNotNone(prompt)
+        self.assertTrue(prompt.startswith("COURSE RULE"))
+        self.assertIn(LEARNER_PROFILE_PROMPT_MARKER, prompt)
+        self.assertTrue(prompt.endswith("</learner_profile_data>"))
+        ctx._shifu_model.query.filter.assert_not_called()
+
+    def test_formal_preview_composes_request_prompt_with_current_learner(self):
+        app = Flask("preview-course-prompt-profile")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            document_prompt="PREVIEW COURSE RULE",
+        )
+        learner = types.SimpleNamespace(learner_profile="最近关注知识管理")
+
+        with patch.object(
+            preview_ctx,
+            "_load_learner_for_course_prompt",
+            return_value=learner,
+        ) as mock_load:
+            prompt = preview_ctx._resolve_document_prompt(
+                preview_request,
+                outline=None,
+                shifu=types.SimpleNamespace(llm_system_prompt="FALLBACK RULE"),
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+            )
+
+        self.assertIsNotNone(prompt)
+        self.assertTrue(prompt.startswith("PREVIEW COURSE RULE"))
+        self.assertNotIn("FALLBACK RULE", prompt)
+        self.assertIn(LEARNER_PROFILE_PROMPT_MARKER, prompt)
+        mock_load.assert_called_once_with("user-1")
+
+    def test_formal_preview_reloads_profile_for_each_request(self):
+        app = Flask("preview-course-prompt-profile-refresh")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            document_prompt="PREVIEW COURSE RULE",
+        )
+
+        with patch.object(
+            preview_ctx,
+            "_load_learner_for_course_prompt",
+            side_effect=[
+                types.SimpleNamespace(learner_profile="偏好图解"),
+                types.SimpleNamespace(learner_profile=""),
+            ],
+        ) as mock_load:
+            personalized_prompt = preview_ctx._resolve_document_prompt(
+                preview_request,
+                outline=None,
+                shifu=None,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+            )
+            cleared_prompt = preview_ctx._resolve_document_prompt(
+                preview_request,
+                outline=None,
+                shifu=None,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+            )
+
+        self.assertIn(LEARNER_PROFILE_PROMPT_MARKER, personalized_prompt)
+        self.assertEqual(cleared_prompt, "PREVIEW COURSE RULE")
+        self.assertEqual(mock_load.call_args_list, [call("user-1"), call("user-1")])
+
+    def test_formal_preview_logs_prompt_metadata_without_profile_text(self):
+        app = Flask("preview-course-prompt-log-metadata")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(block_index=0)
+        sensitive_profile = "PRIVATE LEARNER PROFILE TEXT"
+        effective_prompt = (
+            f"COURSE RULE\n{LEARNER_PROFILE_PROMPT_MARKER}\n{sensitive_profile}"
+        )
+
+        with (
+            patch.object(preview_ctx, "_get_outline_record", return_value=None),
+            patch.object(preview_ctx, "_get_shifu_record", return_value=None),
+            patch.object(
+                preview_ctx,
+                "_resolve_document_prompt",
+                return_value=effective_prompt,
+            ),
+            patch.object(
+                preview_ctx,
+                "_resolve_llm_settings",
+                return_value=("gpt-test", 0.2),
+            ),
+            patch.object(app.logger, "info") as mock_info,
+        ):
+            with self.assertRaises(ValueError):
+                list(
+                    preview_ctx.stream_preview(
+                        preview_request=preview_request,
+                        shifu_bid="shifu-1",
+                        outline_bid="outline-1",
+                        user_bid="user-1",
+                        session_id="preview-session-1",
+                    )
+                )
+
+        log_calls = repr(mock_info.call_args_list)
+        self.assertNotIn(sensitive_profile, log_calls)
+        self.assertIn("has_prompt=%s", log_calls)
+        self.assertIn("learner_profile_attached=%s", log_calls)
+        self.assertIn("True", log_calls)
+
+    def test_preview_learner_lookup_failure_cleans_the_database_session(self):
+        app = Flask("preview-course-prompt-lookup-failure")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        lookup_error = RuntimeError("database unavailable")
+
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.load_user_aggregate",
+                side_effect=lookup_error,
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.cleanup_session_after"
+            ) as mock_cleanup,
+        ):
+            learner = preview_ctx._load_learner_for_course_prompt("user-1")
+
+        self.assertIsNone(learner)
+        mock_cleanup.assert_called_once_with(
+            lookup_error,
+            source="preview learner profile lookup",
+            session=context_v2_module.db.session,
+        )
 
 
 class PreviewRunLlmLoggingTests(unittest.TestCase):
