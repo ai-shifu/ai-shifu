@@ -88,7 +88,7 @@ namespaces under `src/i18n/`.
    identities, and synthesize provider/model labels for database-only rows.
 2. Add strict create-only validation to the existing writer and a localized
    duplicate-rate business error while preserving existing edit/upsert calls.
-3. Add a title action named Add Configuration, an adjacent form dialog with editable
+3. Add a title action named Add Rate, an adjacent form dialog with editable
    provider/model suggestions, and a protected async confirmation step.
 4. Refresh and reveal the created row after success; retain form state after
    failures and keep the existing inline edit path unchanged.
@@ -105,7 +105,8 @@ namespaces under `src/i18n/`.
 - Extract reusable rate types/conversion helpers as needed and add an adjacent
   create-dialog component rather than expanding the route entry indefinitely.
 - Update the page title, description context, add action, confirmation copy,
-  refresh/focus behavior, and three locale files.
+  refresh/focus behavior, and nine locale JSON files across English, French,
+  and Chinese.
 - Add backend service tests and frontend dialog/page tests.
 
 ## Validation and Acceptance
