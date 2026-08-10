@@ -203,6 +203,31 @@ def test_merge_helper_does_not_restore_a_profile_the_target_cleared(app):
         assert target_state.trigger_source == "settings"
 
 
+@pytest.mark.parametrize("source_identify", ["15500009991", "member@example.com"])
+def test_merge_helper_never_copies_from_a_registered_source(app, source_identify):
+    with app.app_context():
+        source = _create_user(
+            identify=source_identify,
+            learner_profile="registered source profile",
+            learner_profile_updated_at=PROFILE_UPDATED_AT,
+        )
+        target = _create_user(identify=uuid.uuid4().hex)
+        _add_state(source.user_bid, status="completed", trigger_source="settings")
+        db.session.commit()
+
+        with transactional_session():
+            merge_learner_profile_for_sign_in(
+                source_user_id=source.user_bid,
+                target_user_id=target.user_bid,
+            )
+        db.session.commit()
+
+        stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
+        assert stored_target.learner_profile == ""
+        assert stored_target.learner_profile_updated_at is None
+        assert load_learner_profile_state(target.user_bid) is None
+
+
 def test_merge_helper_rolls_back_with_sign_in_transaction(app):
     with app.app_context():
         source = _create_user(

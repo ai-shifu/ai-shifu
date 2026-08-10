@@ -12,6 +12,7 @@ from flaskr.dao.uow import unit_of_work
 from flaskr.service.check_risk.api import add_risk_control_result
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.user.models import (
+    AuthCredential,
     UserInfo as UserEntity,
 )
 from flaskr.service.user.models import (
@@ -158,6 +159,19 @@ def merge_learner_profile_for_sign_in(
         UserEntity.deleted == 0,
     ).first()
     if source_user is None or target_user is None:
+        return
+
+    source_identify = str(source_user.user_identify or "").strip()
+    source_has_account_identifier = bool(
+        "@" in source_identify
+        or source_identify.isdigit()
+        or AuthCredential.query.filter(
+            AuthCredential.user_bid == normalized_source_id,
+            AuthCredential.provider_name.in_(["phone", "email"]),
+            AuthCredential.deleted == 0,
+        ).first()
+    )
+    if source_has_account_identifier:
         return
 
     if load_learner_profile_state(normalized_target_id) is not None:

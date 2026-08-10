@@ -126,24 +126,27 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
         load_learner_profile_state,
     )
     from flaskr.service.user.models import UserInfo, UserOnboardingState
+    from flaskr.service.user.repository import create_user_entity
+    from flaskr.service.user.utils import generate_token
 
-    guest_phone = "15500002331"
     target_phone = "15500002332"
     password = "Abcd1234"
     profile_updated_at = datetime.fromisoformat("2026-08-04T05:30:00")
 
     with app.app_context():
-        guest_token, _created, _ctx = phone_flow.verify_phone_code(
-            app, user_id=None, phone=guest_phone, code="9999"
+        guest = create_user_entity(
+            user_bid="password-anonymous-guest",
+            identify="password-anonymous-guest",
+            nickname="Guest",
+            learner_profile="password merge sentinel",
+            learner_profile_updated_at=profile_updated_at,
         )
+        guest_token = generate_token(app, guest.user_bid)
         target_token, _created, _ctx = phone_flow.verify_phone_code(
             app, user_id=None, phone=target_phone, code="9999"
         )
-        guest_user_id = guest_token.userInfo.user_id
+        guest_user_id = guest.user_bid
         target_user_id = target_token.userInfo.user_id
-        guest = UserInfo.query.filter_by(user_bid=guest_user_id).one()
-        guest.learner_profile = "password merge sentinel"
-        guest.learner_profile_updated_at = profile_updated_at
         db.session.add(
             UserOnboardingState(
                 user_bid=guest_user_id,
@@ -167,7 +170,7 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
         test_client,
         "/api/user/login_password",
         {"identifier": target_phone, "password": "wrong-password"},
-        headers={"Token": guest_token.token},
+        headers={"Token": guest_token},
     )
     assert failed_response.status_code == 200
     assert failed_body["code"] != 0
@@ -180,7 +183,7 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
         test_client,
         "/api/user/login_password",
         {"identifier": target_phone, "password": password},
-        headers={"Token": guest_token.token},
+        headers={"Token": guest_token},
     )
 
     assert response.status_code == 200
@@ -196,6 +199,51 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
         assert target_state is not None
         assert target_state.status == "completed"
         assert target_state.trigger_source == "settings"
+
+
+def test_password_login_never_merges_from_a_registered_account(test_client, app):
+    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.dao import db
+    from flaskr.service.user.models import UserInfo
+
+    source_phone = "15500002334"
+    target_phone = "15500002335"
+    password = "Abcd1234"
+
+    with app.app_context():
+        source_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=source_phone, code="9999"
+        )
+        target_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=target_phone, code="9999"
+        )
+        source = UserInfo.query.filter_by(user_bid=source_token.userInfo.user_id).one()
+        source.learner_profile = "registered profile must stay isolated"
+        source.learner_profile_updated_at = datetime.fromisoformat(
+            "2026-08-04T05:45:00"
+        )
+        target_user_id = target_token.userInfo.user_id
+        db.session.commit()
+
+    _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": target_phone, "code": "9999", "new_password": password},
+        headers={"Token": target_token.token},
+    )
+    response, body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": target_phone, "password": password},
+        headers={"Token": source_token.token},
+    )
+
+    assert response.status_code == 200
+    assert body["code"] == 0
+    with app.app_context():
+        stored_target = UserInfo.query.filter_by(user_bid=target_user_id).one()
+        assert stored_target.learner_profile == ""
+        assert stored_target.learner_profile_updated_at is None
 
 
 def test_password_login_ignores_invalid_and_expired_optional_tokens(test_client, app):
