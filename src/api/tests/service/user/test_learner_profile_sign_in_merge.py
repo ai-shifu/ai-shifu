@@ -14,9 +14,13 @@ from flaskr.service.profile.learner_profile import (
 )
 from flaskr.service.user.auth.base import OAuthCallbackRequest
 from flaskr.service.user.auth.providers.google import GoogleAuthProvider, _encode_state
-from flaskr.service.user.consts import USER_STATE_REGISTERED
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.models import UserInfo, UserOnboardingState
-from flaskr.service.user.repository import create_user_entity, transactional_session
+from flaskr.service.user.repository import (
+    create_user_entity,
+    transactional_session,
+    upsert_credential,
+)
 
 PROFILE_UPDATED_AT = datetime.fromisoformat("2026-08-02T06:30:00")
 
@@ -56,6 +60,7 @@ def _create_user(
     identify: str,
     learner_profile: str = "",
     learner_profile_updated_at: datetime | None = None,
+    state: int = USER_STATE_UNREGISTERED,
 ) -> UserInfo:
     return create_user_entity(
         user_bid=uuid.uuid4().hex,
@@ -64,7 +69,7 @@ def _create_user(
         learner_profile=learner_profile,
         learner_profile_updated_at=learner_profile_updated_at,
         language="en-US",
-        state=USER_STATE_REGISTERED,
+        state=state,
     )
 
 
@@ -226,6 +231,65 @@ def test_merge_helper_never_copies_from_a_registered_source(app, source_identify
         assert stored_target.learner_profile == ""
         assert stored_target.learner_profile_updated_at is None
         assert load_learner_profile_state(target.user_bid) is None
+
+
+def test_merge_helper_never_copies_from_registered_random_identifier(app):
+    with app.app_context():
+        source = _create_user(
+            identify=uuid.uuid4().hex,
+            learner_profile="registered random source",
+            learner_profile_updated_at=PROFILE_UPDATED_AT,
+            state=USER_STATE_REGISTERED,
+        )
+        target = _create_user(identify=uuid.uuid4().hex)
+        _add_state(source.user_bid, status="completed", trigger_source="settings")
+        db.session.commit()
+
+        with transactional_session():
+            merge_learner_profile_for_sign_in(
+                source_user_id=source.user_bid,
+                target_user_id=target.user_bid,
+            )
+        db.session.commit()
+
+        stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
+        assert stored_target.learner_profile == ""
+        assert stored_target.learner_profile_updated_at is None
+        assert load_learner_profile_state(target.user_bid) is None
+
+
+def test_merge_helper_allows_unregistered_guest_with_wechat_credential(app):
+    with app.app_context():
+        source = _create_user(
+            identify=uuid.uuid4().hex,
+            learner_profile="wechat guest profile",
+            learner_profile_updated_at=PROFILE_UPDATED_AT,
+        )
+        target = _create_user(identify=uuid.uuid4().hex)
+        upsert_credential(
+            app,
+            user_bid=source.user_bid,
+            provider_name="wechat",
+            subject_id=uuid.uuid4().hex,
+            subject_format="open_id",
+            identifier=uuid.uuid4().hex,
+            metadata={},
+            verified=True,
+        )
+        _add_state(source.user_bid, status="completed", trigger_source="settings")
+        db.session.commit()
+
+        with transactional_session():
+            merge_learner_profile_for_sign_in(
+                source_user_id=source.user_bid,
+                target_user_id=target.user_bid,
+            )
+        db.session.commit()
+
+        stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
+        assert stored_target.learner_profile == "wechat guest profile"
+        assert stored_target.learner_profile_updated_at == PROFILE_UPDATED_AT
+        assert load_learner_profile_state(target.user_bid) is not None
 
 
 def test_merge_helper_rolls_back_with_sign_in_transaction(app):
