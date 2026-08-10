@@ -302,7 +302,7 @@ def test_profile_safety_audit_redacts_local_text_and_provider_response(
 
 
 def test_legacy_status_hides_for_canonical_profile_or_fixed_v2_state(app, monkeypatch):
-    from flaskr.service.common import profile_onboarding as config_module
+    from flaskr.service.profile import onboarding as onboarding_module
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_VERSION,
@@ -310,8 +310,8 @@ def test_legacy_status_hides_for_canonical_profile_or_fixed_v2_state(app, monkey
     from flaskr.service.profile.onboarding import get_profile_onboarding_status
 
     monkeypatch.setattr(
-        config_module,
-        "get_config",
+        onboarding_module,
+        "load_profile_onboarding_config_payload",
         lambda *_args, **_kwargs: {
             "enabled": True,
             "markdownflow": "?[%{{sys_user_background}}...背景]",
