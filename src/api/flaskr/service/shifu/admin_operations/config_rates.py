@@ -57,6 +57,7 @@ _LLM_MISSING_RATE_FALLBACK_RATIOS = {
 }
 _PROVIDER_MAX_LENGTH = 32
 _MODEL_MAX_LENGTH = 100
+_ActiveRateIndex = dict[tuple[int, int, str, str], CreditUsageRate]
 
 
 def _rate_effective_now():
@@ -199,6 +200,7 @@ def _rate_for_identity(
     provider: str,
     model_candidates: list[str],
     billing_metric: int,
+    rate_index: _ActiveRateIndex | None = None,
 ) -> CreditUsageRate | None:
     normalized_provider = str(provider or "").strip()
     normalized_models = [
@@ -208,6 +210,23 @@ def _rate_for_identity(
     ]
     if not normalized_models:
         normalized_models = [""]
+    if rate_index is not None:
+        providers = list(dict.fromkeys((normalized_provider, "*")))
+        models = list(dict.fromkeys((*normalized_models, "*")))
+        for candidate_provider in providers:
+            for candidate_model in models:
+                rate = rate_index.get(
+                    (
+                        usage_type,
+                        billing_metric,
+                        candidate_provider,
+                        candidate_model,
+                    )
+                )
+                if rate is not None:
+                    return rate
+        return None
+
     model_priority = {
         model: len(normalized_models) - index
         for index, model in enumerate(normalized_models)
@@ -247,6 +266,39 @@ def _rate_for_identity(
     return candidates[0]
 
 
+def _load_active_rate_index() -> _ActiveRateIndex:
+    effective_at = now_utc()
+    billing_metrics = tuple(
+        {metric for metrics in _RATE_METRICS.values() for metric in metrics}
+    )
+    rows = (
+        CreditUsageRate.query.filter(
+            CreditUsageRate.deleted == 0,
+            CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,
+            CreditUsageRate.usage_type.in_(tuple(_RATE_METRICS)),
+            CreditUsageRate.usage_scene == BILL_USAGE_SCENE_PROD,
+            CreditUsageRate.billing_metric.in_(billing_metrics),
+            CreditUsageRate.effective_from <= effective_at,
+        )
+        .filter(
+            (CreditUsageRate.effective_to.is_(None))
+            | (CreditUsageRate.effective_to > effective_at)
+        )
+        .order_by(CreditUsageRate.effective_from.desc(), CreditUsageRate.id.desc())
+        .all()
+    )
+    rate_index: _ActiveRateIndex = {}
+    for row in rows:
+        key = (
+            int(row.usage_type),
+            int(row.billing_metric),
+            str(row.provider or ""),
+            str(row.model or ""),
+        )
+        rate_index.setdefault(key, row)
+    return rate_index
+
+
 def _serialize_rate_row(
     *,
     usage_type: int,
@@ -258,6 +310,7 @@ def _serialize_rate_row(
     billing_metric: int,
     baseline_cost: Decimal | None,
     tts_chars_per_llm_token: Decimal | None,
+    rate_index: _ActiveRateIndex | None = None,
 ) -> dict[str, Any]:
     rate_model_candidates = model_candidates or [model]
     resolved_rate_model = rate_model or (
@@ -268,6 +321,7 @@ def _serialize_rate_row(
         provider=provider,
         model_candidates=rate_model_candidates,
         billing_metric=billing_metric,
+        rate_index=rate_index,
     )
     unit_cost = _unit_cost(rate)
     multiplier: Decimal | None = None
@@ -319,7 +373,11 @@ def _serialize_rate_row(
     }
 
 
-def _build_llm_rows(app: Flask, baseline_cost: Decimal | None) -> list[dict[str, Any]]:
+def _build_llm_rows(
+    app: Flask,
+    baseline_cost: Decimal | None,
+    rate_index: _ActiveRateIndex,
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     for option in get_current_models(app):
@@ -349,9 +407,12 @@ def _build_llm_rows(app: Flask, baseline_cost: Decimal | None) -> list[dict[str,
                 billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
                 baseline_cost=baseline_cost,
                 tts_chars_per_llm_token=None,
+                rate_index=rate_index,
             )
         )
-    for provider, rate_model in _load_active_exact_rate_identities(BILL_USAGE_TYPE_LLM):
+    for provider, rate_model in _load_active_exact_rate_identities(
+        rate_index, BILL_USAGE_TYPE_LLM
+    ):
         key = (provider, rate_model)
         if key in seen:
             continue
@@ -368,12 +429,16 @@ def _build_llm_rows(app: Flask, baseline_cost: Decimal | None) -> list[dict[str,
                 billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
                 baseline_cost=baseline_cost,
                 tts_chars_per_llm_token=None,
+                rate_index=rate_index,
             )
         )
     return rows
 
 
-def _build_tts_rows(baseline_cost: Decimal | None) -> list[dict[str, Any]]:
+def _build_tts_rows(
+    baseline_cost: Decimal | None,
+    rate_index: _ActiveRateIndex,
+) -> list[dict[str, Any]]:
     config = get_all_provider_configs()
     tts_chars_per_llm_token = _load_tts_chars_per_llm_token()
     rows: list[dict[str, Any]] = []
@@ -398,9 +463,12 @@ def _build_tts_rows(baseline_cost: Decimal | None) -> list[dict[str, Any]]:
                 billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
                 baseline_cost=baseline_cost,
                 tts_chars_per_llm_token=tts_chars_per_llm_token,
+                rate_index=rate_index,
             )
         )
-    for provider, model in _load_active_exact_rate_identities(BILL_USAGE_TYPE_TTS):
+    for provider, model in _load_active_exact_rate_identities(
+        rate_index, BILL_USAGE_TYPE_TTS
+    ):
         key = (provider, model)
         if key in seen:
             continue
@@ -416,32 +484,21 @@ def _build_tts_rows(baseline_cost: Decimal | None) -> list[dict[str, Any]]:
                 billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
                 baseline_cost=baseline_cost,
                 tts_chars_per_llm_token=tts_chars_per_llm_token,
+                rate_index=rate_index,
             )
         )
     return rows
 
 
-def _load_active_exact_rate_identities(usage_type: int) -> list[tuple[str, str]]:
-    effective_at = now_utc()
-    rows = (
-        CreditUsageRate.query.filter(
-            CreditUsageRate.deleted == 0,
-            CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,
-            CreditUsageRate.usage_type == usage_type,
-            CreditUsageRate.usage_scene == BILL_USAGE_SCENE_PROD,
-            CreditUsageRate.billing_metric.in_(_RATE_METRICS[usage_type]),
-            CreditUsageRate.effective_from <= effective_at,
-        )
-        .filter(
-            (CreditUsageRate.effective_to.is_(None))
-            | (CreditUsageRate.effective_to > effective_at)
-        )
-        .all()
-    )
+def _load_active_exact_rate_identities(
+    rate_index: _ActiveRateIndex, usage_type: int
+) -> list[tuple[str, str]]:
     identities: set[tuple[str, str]] = set()
-    for row in rows:
-        provider = str(row.provider or "").strip()
-        model = str(row.model or "").strip()
+    for indexed_usage_type, metric, indexed_provider, indexed_model in rate_index:
+        if indexed_usage_type != usage_type or metric not in _RATE_METRICS[usage_type]:
+            continue
+        provider = indexed_provider.strip()
+        model = indexed_model.strip()
         if not provider or "*" in provider or "*" in model:
             continue
         if usage_type == BILL_USAGE_TYPE_LLM and not model:
@@ -454,6 +511,7 @@ def get_operator_rate_config(app: Flask) -> dict[str, Any]:
     with app_context_scope(app):
         baseline_cost = _load_llm_credit_1x_reference_cost()
         baseline_per_1000 = load_llm_credit_1x_per_1000_output_tokens()
+        rate_index = _load_active_rate_index()
         return {
             "baseline": {
                 "default_llm_model": str(get_config("DEFAULT_LLM_MODEL", "") or ""),
@@ -466,8 +524,8 @@ def get_operator_rate_config(app: Flask) -> dict[str, Any]:
                     _load_tts_chars_per_llm_token() or Decimal(0)
                 ),
             },
-            "llm_rates": _build_llm_rows(app, baseline_cost),
-            "tts_rates": _build_tts_rows(baseline_cost),
+            "llm_rates": _build_llm_rows(app, baseline_cost, rate_index),
+            "tts_rates": _build_tts_rows(baseline_cost, rate_index),
         }
 
 

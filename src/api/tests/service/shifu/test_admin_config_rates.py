@@ -24,6 +24,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.shifu.admin_operations import config_rates
+from sqlalchemy import event
 
 
 def _credit_rate(
@@ -509,7 +510,26 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
         )
         db.session.commit()
 
-        result = config_rates.get_operator_rate_config(app)
+        active_rate_selects = 0
+
+        def count_active_rate_selects(
+            _connection,
+            _cursor,
+            statement,
+            _parameters,
+            _context,
+            _executemany,
+        ):
+            nonlocal active_rate_selects
+            if "from credit_usage_rates" in " ".join(statement.lower().split()):
+                active_rate_selects += 1
+
+        engine = db.engine
+        event.listen(engine, "before_cursor_execute", count_active_rate_selects)
+        try:
+            result = config_rates.get_operator_rate_config(app)
+        finally:
+            event.remove(engine, "before_cursor_execute", count_active_rate_selects)
 
         assert [
             (row["provider"], row["rate_model"], row["display_name"])
@@ -519,6 +539,7 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
             ("custom-a", "alpha", "custom-a/alpha"),
             ("custom-b", "beta", "custom-b/beta"),
         ]
+        assert result["llm_rates"][0]["rate_bid"] == "runtime"
         assert [
             (row["provider"], row["rate_model"], row["display_name"])
             for row in result["tts_rates"]
@@ -526,6 +547,7 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
             ("voice", "voice-1", "Voice 1"),
             ("custom-tts", "", "custom-tts/default"),
         ]
+        assert active_rate_selects == 1
 
         db.session.query(CreditUsageRate).delete()
         db.session.commit()
