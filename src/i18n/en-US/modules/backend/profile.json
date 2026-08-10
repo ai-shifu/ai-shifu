@@ -20,6 +20,7 @@
     "prarentRequired": "Parent is required",
     "profileIdRequired": "Profile ID is required",
     "profileKeyRequired": "Profile key is required",
+    "profileOnboardingBusy": "Another personalization request is already in progress. Please try again in a moment.",
     "profileTypeInvalid": "Invalid profile type",
     "profileTypeRequired": "Profile type is required",
     "sex": "Sex",

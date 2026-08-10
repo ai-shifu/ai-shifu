@@ -10,6 +10,7 @@ import ChatPage from './page';
 
 const mockGetProfileOnboarding = jest.fn();
 const mockCompleteProfileOnboarding = jest.fn();
+const mockSkipProfileOnboarding = jest.fn();
 const mockUpdateWxcode = jest.fn();
 const mockRefreshUserInfo = jest.fn();
 const mockUpdateCourseId = jest.fn();
@@ -55,11 +56,13 @@ interface MockLearnerProfileDialogProps {
 }
 
 interface MockProfileOnboardingModalProps {
-  currentValues?: Record<string, string>;
   errorMessage?: string;
-  markdownflow: string;
-  onComplete: (variables: Record<string, string>) => void | Promise<void>;
-  onSkip: () => void | Promise<void>;
+  onComplete: (
+    learnerProfile: string,
+    source: 'guided' | 'settings',
+    sessionId?: string,
+  ) => void | Promise<void>;
+  onSkip: (sessionId?: string) => void | Promise<void>;
   open: boolean;
   submitting?: boolean;
 }
@@ -165,33 +168,24 @@ const mockLearnerProfileDialog = jest.fn(
 );
 const mockProfileOnboardingModal = jest.fn(
   ({
-    currentValues,
     errorMessage,
-    markdownflow,
     onComplete,
     onSkip,
     open,
   }: MockProfileOnboardingModalProps) =>
     open ? (
-      <div
-        data-testid='profile-onboarding-modal'
-        data-markdownflow={markdownflow}
-        data-current-values={JSON.stringify(currentValues || {})}
-      >
+      <div data-testid='profile-onboarding-modal'>
         <button
           type='button'
           onClick={() =>
-            onComplete({
-              sys_user_nickname: '小明',
-              sys_user_background: '教育行业',
-            })
+            onComplete('我是产品经理，喜欢简洁表达。', 'guided', 'session-1')
           }
         >
           {completeOnboardingLabel}
         </button>
         <button
           type='button'
-          onClick={onSkip}
+          onClick={() => onSkip('session-1')}
         >
           {skipOnboardingLabel}
         </button>
@@ -199,6 +193,21 @@ const mockProfileOnboardingModal = jest.fn(
       </div>
     ) : null,
 );
+const profileV2Status = (overrides: Record<string, unknown> = {}) => ({
+  contract_version: 'profile-v2',
+  enabled: true,
+  should_show: false,
+  presentation: 'hidden',
+  guided_available: true,
+  handled: false,
+  legacy_handled: false,
+  has_learner_profile: false,
+  learner_profile: '',
+  learner_profile_updated_at: null,
+  max_length: 1000,
+  config_revision: 1,
+  ...overrides,
+});
 let mockSelectedLessonId = 'lesson-1';
 let mockLessonTreeLessons = [
   {
@@ -208,13 +217,30 @@ let mockLessonTreeLessons = [
   },
 ];
 
-const mockUserStoreState = {
-  userInfo: {
-    user_id: 'user-1',
-    name: 'Old name',
-    email: 'user@example.com',
-    language: 'zh-CN',
-  },
+type MockUserInfo = {
+  user_id: string;
+  name: string;
+  email: string;
+  language: string;
+};
+
+type MockUserStoreState = {
+  userInfo: MockUserInfo | null;
+  isLoggedIn: boolean;
+  isInitialized: boolean;
+  refreshUserInfo: typeof mockRefreshUserInfo;
+  getToken: () => string;
+};
+
+const defaultMockUserInfo: MockUserInfo = {
+  user_id: 'user-1',
+  name: 'Old name',
+  email: 'user@example.com',
+  language: 'zh-CN',
+};
+
+const mockUserStoreState: MockUserStoreState = {
+  userInfo: { ...defaultMockUserInfo },
   isLoggedIn: true,
   isInitialized: true,
   refreshUserInfo: mockRefreshUserInfo,
@@ -346,6 +372,14 @@ jest.mock('@/c-api/user', () => ({
     mockCompleteProfileOnboarding(...args),
   getProfileOnboarding: (...args: unknown[]) =>
     mockGetProfileOnboarding(...args),
+  isProfileOnboardingV2Status: (value: unknown) =>
+    typeof value === 'object' &&
+    value !== null &&
+    'contract_version' in value &&
+    value.contract_version === 'profile-v2' &&
+    'guided_available' in value,
+  skipProfileOnboarding: (...args: unknown[]) =>
+    mockSkipProfileOnboarding(...args),
   updateWxcode: (...args: unknown[]) => mockUpdateWxcode(...args),
 }));
 
@@ -438,6 +472,10 @@ jest.mock('@/components/profile-onboarding/ProfileOnboardingModal', () => ({
 describe('ChatPage profile onboarding gate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUserStoreState.userInfo = { ...defaultMockUserInfo };
+    mockUserStoreState.isLoggedIn = true;
+    mockUserStoreState.isInitialized = true;
+    mockUserStoreState.getToken = () => 'token-1';
     mockCourseStoreState.lessonId = 'lesson-1';
     mockCourseStoreState.chapterId = 'chapter-1';
     mockUserStoreState.userInfo = {
@@ -465,14 +503,13 @@ describe('ChatPage profile onboarding gate', () => {
       addListener: jest.fn(),
       removeListener: jest.fn(),
     });
-    mockGetProfileOnboarding.mockResolvedValue({
-      should_show: false,
-      markdownflow: '',
-      current_values: {},
-    });
+    mockGetProfileOnboarding.mockResolvedValue(profileV2Status());
     mockCompleteProfileOnboarding.mockResolvedValue({
-      completed: true,
+      learner_profile: '我是产品经理，喜欢简洁表达。',
+      learner_profile_updated_at: null,
+      max_length: 1000,
     });
+    mockSkipProfileOnboarding.mockResolvedValue({ skipped: true });
     mockReloadTree.mockResolvedValue(null);
     mockRefreshUserInfo.mockResolvedValue(undefined);
   });
@@ -493,11 +530,7 @@ describe('ChatPage profile onboarding gate', () => {
       'false',
     );
 
-    resolveStatus({
-      should_show: false,
-      markdownflow: '',
-      current_values: {},
-    });
+    resolveStatus(profileV2Status());
 
     await waitFor(() => {
       expect(screen.getByTestId('chat-ui')).toHaveAttribute(
@@ -507,12 +540,13 @@ describe('ChatPage profile onboarding gate', () => {
     });
   });
 
-  test('keeps the original guided onboarding flow before starting runtime', async () => {
-    mockGetProfileOnboarding.mockResolvedValue({
-      should_show: true,
-      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
-      current_values: {},
-    });
+  test('keeps the chat runtime blocked until onboarding completion refreshes user info', async () => {
+    mockGetProfileOnboarding.mockResolvedValue(
+      profileV2Status({
+        should_show: true,
+        presentation: 'blocking',
+      }),
+    );
 
     render(<ChatPage />);
 
@@ -535,11 +569,9 @@ describe('ChatPage profile onboarding gate', () => {
 
     await waitFor(() => {
       expect(mockCompleteProfileOnboarding).toHaveBeenCalledWith({
-        skipped: false,
-        variables: {
-          sys_user_nickname: '小明',
-          sys_user_background: '教育行业',
-        },
+        learner_profile: '我是产品经理，喜欢简洁表达。',
+        trigger_source: 'guided',
+        session_id: 'session-1',
       });
     });
     await waitFor(() => expect(mockRefreshUserInfo).toHaveBeenCalled());
@@ -599,6 +631,113 @@ describe('ChatPage profile onboarding gate', () => {
         'true',
       );
     });
+  });
+
+  test('mounts the course immediately for a non-blocking legacy upgrade prompt', async () => {
+    mockGetProfileOnboarding.mockResolvedValue(
+      profileV2Status({
+        should_show: true,
+        presentation: 'non_blocking',
+        legacy_handled: true,
+      }),
+    );
+
+    render(<ChatPage />);
+
+    await screen.findByTestId('profile-onboarding-modal');
+    expect(screen.getByTestId('chat-ui')).toBeInTheDocument();
+  });
+
+  test('persists explicit defer through the v2 skip endpoint', async () => {
+    mockGetProfileOnboarding.mockResolvedValue(
+      profileV2Status({
+        should_show: true,
+        presentation: 'blocking',
+      }),
+    );
+
+    render(<ChatPage />);
+    await screen.findByTestId('profile-onboarding-modal');
+    expect(screen.queryByTestId('chat-ui')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: skipOnboardingLabel }));
+
+    await waitFor(() => {
+      expect(mockSkipProfileOnboarding).toHaveBeenCalledWith('session-1');
+    });
+    expect(screen.getByTestId('chat-ui')).toBeInTheDocument();
+  });
+
+  test.each([
+    ['old backend', { enabled: true, should_show: true, markdownflow: '?[Q]' }],
+    ['hidden presentation', profileV2Status({ should_show: true })],
+    [
+      'disabled guided config',
+      profileV2Status({
+        enabled: false,
+        should_show: true,
+        presentation: 'blocking',
+      }),
+    ],
+    [
+      'guided unavailable',
+      profileV2Status({
+        should_show: true,
+        presentation: 'blocking',
+        guided_available: false,
+      }),
+    ],
+  ])('fails open without a modal for %s', async (_caseName, status) => {
+    mockGetProfileOnboarding.mockResolvedValue(status);
+
+    render(<ChatPage />);
+
+    expect(await screen.findByTestId('chat-ui')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('profile-onboarding-modal'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('resets the gate and ignores a stale status after the account changes', async () => {
+    let resolveFirstStatus: (value: unknown) => void = () => undefined;
+    mockGetProfileOnboarding
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveFirstStatus = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(profileV2Status());
+
+    const { rerender } = render(<ChatPage />);
+    await waitFor(() =>
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1),
+    );
+
+    mockUserStoreState.userInfo = {
+      ...defaultMockUserInfo,
+      user_id: 'user-2',
+      email: 'second@example.com',
+    };
+    mockUserStoreState.getToken = () => 'token-2';
+    rerender(<ChatPage />);
+
+    await waitFor(() =>
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(2),
+    );
+    expect(await screen.findByTestId('chat-ui')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveFirstStatus(
+        profileV2Status({
+          should_show: true,
+          presentation: 'blocking',
+        }),
+      );
+    });
+    expect(
+      screen.queryByTestId('profile-onboarding-modal'),
+    ).not.toBeInTheDocument();
   });
 
   test('passes the resolved selected lesson id to chat headers when the store id is stale', async () => {
@@ -715,40 +854,13 @@ describe('ChatPage profile onboarding gate', () => {
     });
   });
 
-  test('keeps onboarding recoverable when marking later fails', async () => {
-    mockGetProfileOnboarding.mockResolvedValue({
-      should_show: true,
-      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
-      current_values: {},
-    });
-    mockCompleteProfileOnboarding.mockRejectedValue(
-      new Error('暂时无法保存稍后处理状态'),
+  test('surfaces the backend onboarding error message when submit fails', async () => {
+    mockGetProfileOnboarding.mockResolvedValue(
+      profileV2Status({
+        should_show: true,
+        presentation: 'blocking',
+      }),
     );
-
-    render(<ChatPage />);
-
-    await screen.findByTestId('profile-onboarding-modal');
-
-    fireEvent.click(screen.getByRole('button', { name: skipOnboardingLabel }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        '暂时无法保存稍后处理状态',
-      );
-    });
-    expect(screen.getByTestId('profile-onboarding-modal')).toBeInTheDocument();
-    expect(screen.getByTestId('chat-ui')).toHaveAttribute(
-      'data-runtime-ready',
-      'false',
-    );
-  });
-
-  test('keeps the original onboarding open when guided submission fails', async () => {
-    mockGetProfileOnboarding.mockResolvedValue({
-      should_show: true,
-      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
-      current_values: {},
-    });
     mockCompleteProfileOnboarding.mockRejectedValue(
       new Error('昵称包含风险词'),
     );
