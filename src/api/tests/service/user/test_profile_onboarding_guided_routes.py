@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
+
 from flaskr.service.common.profile_onboarding import (
     PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS,
 )
