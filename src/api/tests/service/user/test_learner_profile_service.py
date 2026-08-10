@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from flaskr.api.check.dto import (
@@ -17,7 +17,12 @@ from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.models import UserInfo, UserOnboardingState
 from flaskr.service.user.repository import create_user_entity, load_user_aggregate
 
-PROFILE_UPDATED_AT = datetime.fromisoformat("2026-08-01T08:30:00")
+PROFILE_UPDATED_AT = datetime(2026, 8, 1, 8, 30, tzinfo=timezone.utc)
+
+
+def _assert_orm_utc(value: datetime | None, expected: datetime) -> None:
+    assert value is not None
+    assert value.replace(tzinfo=timezone.utc) == expected
 
 
 def _create_user(user_bid: str, *, learner_profile: str = "") -> UserInfo:
@@ -70,7 +75,7 @@ def test_repository_aggregate_exposes_learner_profile(app):
 
     assert aggregate is not None
     assert aggregate.learner_profile == "偏好图表和简洁表达"
-    assert aggregate.learner_profile_updated_at == PROFILE_UPDATED_AT
+    _assert_orm_utc(aggregate.learner_profile_updated_at, PROFILE_UPDATED_AT)
 
 
 def test_replace_and_clear_learner_profile(app, monkeypatch):
@@ -610,6 +615,6 @@ def test_clear_rolls_back_profile_and_state_together(app, monkeypatch):
         legacy_style = db.session.get(VariableValue, legacy_style.id)
 
     assert user.learner_profile == "old profile"
-    assert user.learner_profile_updated_at == PROFILE_UPDATED_AT
+    _assert_orm_utc(user.learner_profile_updated_at, PROFILE_UPDATED_AT)
     assert state is None
     assert legacy_style.deleted == 0

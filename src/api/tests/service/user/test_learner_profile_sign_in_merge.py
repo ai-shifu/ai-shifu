@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -28,7 +28,12 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 
-PROFILE_UPDATED_AT = datetime.fromisoformat("2026-08-02T06:30:00")
+PROFILE_UPDATED_AT = datetime(2026, 8, 2, 6, 30, tzinfo=timezone.utc)
+
+
+def _assert_orm_utc(value: datetime | None, expected: datetime) -> None:
+    assert value is not None
+    assert value.replace(tzinfo=timezone.utc) == expected
 
 
 class _FakeRedis:
@@ -143,14 +148,18 @@ def test_merge_helper_transfers_profile_and_handled_state(
         target_state = load_learner_profile_state(target.user_bid)
 
         assert stored_target.learner_profile == source_profile
-        assert stored_target.learner_profile_updated_at == (
-            PROFILE_UPDATED_AT if source_profile else None
-        )
+        if source_profile:
+            _assert_orm_utc(
+                stored_target.learner_profile_updated_at,
+                PROFILE_UPDATED_AT,
+            )
+        else:
+            assert stored_target.learner_profile_updated_at is None
         assert stored_source.learner_profile == source_profile
         assert target_state is not None
         assert target_state.status == status
         assert target_state.trigger_source == trigger_source
-        assert target_state.completed_at == PROFILE_UPDATED_AT
+        _assert_orm_utc(target_state.completed_at, PROFILE_UPDATED_AT)
 
 
 def test_merge_helper_preserves_target_profile_and_state(app):
@@ -160,7 +169,7 @@ def test_merge_helper_preserves_target_profile_and_state(app):
             learner_profile="source profile",
             learner_profile_updated_at=PROFILE_UPDATED_AT,
         )
-        target_updated_at = datetime.fromisoformat("2026-08-03T07:45:00")
+        target_updated_at = datetime(2026, 8, 3, 7, 45, tzinfo=timezone.utc)
         target = _create_user(
             identify=uuid.uuid4().hex,
             learner_profile="target profile",
@@ -180,7 +189,10 @@ def test_merge_helper_preserves_target_profile_and_state(app):
         stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
         target_state = load_learner_profile_state(target.user_bid)
         assert stored_target.learner_profile == "target profile"
-        assert stored_target.learner_profile_updated_at == target_updated_at
+        _assert_orm_utc(
+            stored_target.learner_profile_updated_at,
+            target_updated_at,
+        )
         assert target_state is not None
         assert target_state.status == "skipped"
         assert target_state.trigger_source == "settings"
@@ -302,7 +314,10 @@ def test_merge_helper_allows_unregistered_guest_with_wechat_credential(app):
 
         stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
         assert stored_target.learner_profile == "wechat guest profile"
-        assert stored_target.learner_profile_updated_at == PROFILE_UPDATED_AT
+        _assert_orm_utc(
+            stored_target.learner_profile_updated_at,
+            PROFILE_UPDATED_AT,
+        )
         assert load_learner_profile_state(target.user_bid) is not None
 
 
@@ -415,7 +430,10 @@ def test_phone_sign_in_merges_profile_without_course_id(app, monkeypatch, caplog
         stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
         assert token.userInfo.user_id == target.user_bid
         assert stored_target.learner_profile == "phone merge sentinel"
-        assert stored_target.learner_profile_updated_at == PROFILE_UPDATED_AT
+        _assert_orm_utc(
+            stored_target.learner_profile_updated_at,
+            PROFILE_UPDATED_AT,
+        )
         assert load_learner_profile_state(target.user_bid) is not None
         assert UserInfo.query.filter_by(user_bid=source.user_bid).one() is not None
         assert "verify_phone_code merge_candidate" in caplog.text
@@ -508,7 +526,10 @@ def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch):
         target_state = load_learner_profile_state(target.user_bid)
         assert result.user.user_id == target.user_bid
         assert stored_target.learner_profile == "google merge sentinel"
-        assert stored_target.learner_profile_updated_at == PROFILE_UPDATED_AT
+        _assert_orm_utc(
+            stored_target.learner_profile_updated_at,
+            PROFILE_UPDATED_AT,
+        )
         assert target_state is not None
         assert target_state.status == "skipped"
         assert UserInfo.query.filter_by(user_bid=source.user_bid).one() is not None
