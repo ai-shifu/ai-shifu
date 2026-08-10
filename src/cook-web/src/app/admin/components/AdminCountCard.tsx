@@ -6,6 +6,7 @@ type AdminCountCardProps = {
   value: ReactNode;
   className?: string;
   valueClassName?: string;
+  size?: 'default' | 'compact';
 };
 
 const ADMIN_COUNT_CARD_STYLE: CSSProperties = {
@@ -22,18 +23,32 @@ export default function AdminCountCard({
   value,
   className,
   valueClassName,
+  size = 'default',
 }: AdminCountCardProps) {
   return (
     <div
-      className={cn('p-[var(--spacing-6,24px)]', className)}
+      className={cn(
+        size === 'compact' ? 'p-4' : 'p-[var(--spacing-6,24px)]',
+        className,
+      )}
       style={ADMIN_COUNT_CARD_STYLE}
     >
-      <div className='text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
+      <div
+        className={cn(
+          'font-[var(--font-weight-normal,400)] text-[var(--base-muted-foreground,#737373)]',
+          size === 'compact'
+            ? 'text-[length:var(--text-xs-font-size,12px)] leading-[var(--text-xs-line-height,16px)]'
+            : 'text-[length:var(--text-sm-font-size,14px)] leading-[var(--text-sm-line-height,20px)]',
+        )}
+      >
         {title}
       </div>
       <div
         className={cn(
-          'mt-1.5 text-[length:var(--text-3xl-font-size,30px)] font-[var(--font-weight-semibold,600)] leading-[var(--text-3xl-line-height,36px)] text-[var(--base-card-foreground,#0A0A0A)]',
+          'font-[var(--font-weight-semibold,600)] text-[var(--base-card-foreground,#0A0A0A)]',
+          size === 'compact'
+            ? 'mt-1 text-[length:var(--text-2xl-font-size,24px)] leading-[var(--text-2xl-line-height,32px)]'
+            : 'mt-1.5 text-[length:var(--text-3xl-font-size,30px)] leading-[var(--text-3xl-line-height,36px)]',
           valueClassName,
         )}
       >

@@ -51,6 +51,10 @@ from flaskr.service.billing.operation_credits import (
     release_reserved_operation_credits,
     reserve_operation_credits,
 )
+from flaskr.service.billing.charges import (
+    build_metric_charge,
+    resolve_credit_multiplier_label,
+)
 from flaskr.service.billing import primitives as billing_primitives
 
 
@@ -65,6 +69,10 @@ def quantize_credit_amount(value, *, precision: int | None = None):
     return billing_primitives.quantize_credit_amount(value, precision=precision)
 
 
+def credit_decimal_to_number(value, *, precision: int | None = None):
+    return billing_primitives.credit_decimal_to_number(value, precision=precision)
+
+
 def to_decimal(value):
     return billing_primitives.to_decimal(value)
 
@@ -77,8 +85,10 @@ __all__ = [
     "OperationCreditReservationResult",
     "admit_creator_usage",
     "build_billing_catalog",
+    "build_metric_charge",
     "build_provider_config_overrides",
     "capture_reserved_operation_credits",
+    "credit_decimal_to_number",
     "estimate_voice_clone_operation_credits",
     "resolve_creator_bid_by_host",
     "resolve_creator_public_integrations",
@@ -106,6 +116,7 @@ __all__ = [
     "quantize_credit_amount",
     "requeue_credit_notification",
     "resolve_creator_limit_state",
+    "resolve_credit_multiplier_label",
     "release_reserved_operation_credits",
     "reserve_operation_credits",
     "save_credit_notification_policy",

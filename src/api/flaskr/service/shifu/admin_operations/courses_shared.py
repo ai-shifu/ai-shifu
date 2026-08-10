@@ -715,15 +715,13 @@ def _resolve_visible_leaf_outline_bids(
     visible_item_bids: Set[str] = set()
     visible_parent_bids: Set[str] = set()
     for item in outline_items:
-        if bool(getattr(item, "hidden", 0)):
-            continue
         outline_item_bid = str(getattr(item, "outline_item_bid", "") or "").strip()
         parent_bid = str(getattr(item, "parent_bid", "") or "").strip()
-        if not outline_item_bid:
-            continue
-        visible_item_bids.add(outline_item_bid)
         if parent_bid:
             visible_parent_bids.add(parent_bid)
+        if bool(getattr(item, "hidden", 0)) or not outline_item_bid:
+            continue
+        visible_item_bids.add(outline_item_bid)
     return sorted(visible_item_bids - visible_parent_bids)
 
 
