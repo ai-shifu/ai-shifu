@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { parseUrlParams } from '@/c-utils/urlUtils';
 // import routes from './Router/index';
 // import { useRoutes } from 'react-router-dom';
 // import { ConfigProvider } from 'antd';
@@ -10,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
 
 import { useShallow } from 'zustand/react/shallow';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 
 import {
   inWechat,
@@ -91,6 +90,7 @@ export default function ChatLayout({
   const { i18n, t } = useTranslation();
   const { trackEvent } = useTracking();
   const routeParams = useParams<{ id?: string[] }>();
+  const searchParams = useSearchParams();
 
   const [checkWxcode, setCheckWxcode] = useState<boolean>(false);
   const envDataInitialized = useEnvStore(
@@ -157,15 +157,22 @@ export default function ChatLayout({
   }, [browserLanguage, updateLanguage, envDataInitialized, userInfo]);
 
   // const [loading, setLoading] = useState<boolean>(true);
-  const params = parseUrlParams() as Record<string, string>;
+  const queryCode = searchParams?.get('code') || '';
+  const queryCourseId = searchParams?.get('courseId') || '';
+  const queryLessonId = searchParams?.get('lessonid') || '';
+  const queryChannel = searchParams?.get('channel') || '';
+  const queryPreview = searchParams?.get('preview') || '';
+  const querySkip = searchParams?.get('skip') || '';
+  const queryListen = searchParams?.get('listen') || '';
+  const queryMode = searchParams?.get('mode') || '';
   const routeCourseId = Array.isArray(routeParams?.id) ? routeParams.id[0] : '';
-  const storageCourseId = routeCourseId || params.courseId || courseId;
-  const outlineBid = params.lessonid || '';
-  const currChannel = params.channel || '';
-  const isPreviewMode = parseBooleanQueryParam(params.preview) ?? false;
-  const isSkipMode = parseBooleanQueryParam(params.skip) ?? false;
-  const listenModeParam = parseBooleanQueryParam(params.listen);
-  const urlModeParam = parseLearningModeQueryParam(params.mode);
+  const storageCourseId = routeCourseId || queryCourseId || courseId;
+  const outlineBid = queryLessonId;
+  const currChannel = queryChannel;
+  const isPreviewMode = parseBooleanQueryParam(queryPreview) ?? false;
+  const isSkipMode = parseBooleanQueryParam(querySkip) ?? false;
+  const listenModeParam = parseBooleanQueryParam(queryListen);
+  const urlModeParam = parseLearningModeQueryParam(queryMode);
   const hasListenModeOverride = listenModeParam !== null;
   const hasClassroomModeOverride = urlModeParam === 'classroom';
   const canUseClassroomModeForCourse =
@@ -184,19 +191,34 @@ export default function ChatLayout({
         hasClassroomModeUrlOverride ||
         canUseClassroomModeForCourse === true;
 
-  if (channel !== currChannel) {
-    updateChannel(currChannel);
-  }
+  const queryStateReady =
+    channel === currChannel &&
+    previewMode === isPreviewMode &&
+    skip === isSkipMode;
 
-  // Apply preview/skip flags eagerly so child components (and their effects) see
-  // the correct mode on the first render.
-  if (previewMode !== isPreviewMode) {
-    updatePreviewMode(isPreviewMode);
-  }
+  useEffect(() => {
+    if (channel !== currChannel) {
+      updateChannel(currChannel);
+    }
 
-  if (skip !== isSkipMode) {
-    updateSkip(isSkipMode);
-  }
+    if (previewMode !== isPreviewMode) {
+      updatePreviewMode(isPreviewMode);
+    }
+
+    if (skip !== isSkipMode) {
+      updateSkip(isSkipMode);
+    }
+  }, [
+    channel,
+    currChannel,
+    isPreviewMode,
+    isSkipMode,
+    previewMode,
+    skip,
+    updateChannel,
+    updatePreviewMode,
+    updateSkip,
+  ]);
 
   useEffect(() => {
     if (!envDataInitialized) return;
@@ -208,7 +230,7 @@ export default function ChatLayout({
     }
 
     const { appId } = useEnvStore.getState() as EnvStoreState;
-    const currCode = params.code;
+    const currCode = queryCode;
 
     if (!appId) {
       debugWarn('[lesson-layout] WeChat appId missing, skip OAuth redirect');
@@ -228,7 +250,7 @@ export default function ChatLayout({
     }
     setCheckWxcode(true);
   }, [
-    params.code,
+    queryCode,
     updateWechatCode,
     wechatCode,
     envDataInitialized,
@@ -238,25 +260,16 @@ export default function ChatLayout({
   useEffect(() => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
-      if (params.courseId) {
-        await updateCourseId(params.courseId);
+      if (queryCourseId) {
+        await updateCourseId(queryCourseId);
       }
     };
     fetchCourseInfo();
-  }, [envDataInitialized, updateCourseId, courseId, params.courseId]);
+  }, [envDataInitialized, updateCourseId, courseId, queryCourseId]);
 
   useEffect(() => {
-    updatePreviewMode(isPreviewMode);
-    updateSkip(isSkipMode);
     updateShowLearningModeToggle(showLearningModeToggle);
-  }, [
-    isPreviewMode,
-    isSkipMode,
-    showLearningModeToggle,
-    updatePreviewMode,
-    updateSkip,
-    updateShowLearningModeToggle,
-  ]);
+  }, [showLearningModeToggle, updateShowLearningModeToggle]);
 
   useEffect(() => {
     normalizeLegacyListenModeInUrl({
@@ -597,6 +610,10 @@ export default function ChatLayout({
     if (!checkWxcode) return;
     initUser();
   }, [envDataInitialized, checkWxcode, initUser]);
+
+  if (!queryStateReady) {
+    return null;
+  }
 
   return <UserProvider>{children}</UserProvider>;
 }

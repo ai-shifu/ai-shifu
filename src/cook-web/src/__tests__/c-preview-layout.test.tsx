@@ -6,6 +6,13 @@ import { getCourseInfo } from '@/c-api/course';
 import { useEnvStore } from '@/c-store';
 import { useSystemStore } from '@/c-store/useSystemStore';
 
+let mockSearchParamsValue = '';
+
+jest.mock('next/navigation', () => ({
+  useParams: () => ({ id: ['123'] }),
+  useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
+}));
+
 jest.mock('@/c-api/course', () => ({
   getCourseInfo: jest.fn(),
 }));
@@ -57,8 +64,10 @@ describe('C preview layout', () => {
   const mockedGetCourseInfo = getCourseInfo as jest.MockedFunction<
     typeof getCourseInfo
   >;
+  const contentLabel = 'content';
 
   afterEach(() => {
+    mockSearchParamsValue = '';
     window.location.href = originalHref;
     mockedGetCourseInfo.mockReset();
     act(() => {
@@ -73,7 +82,8 @@ describe('C preview layout', () => {
   });
 
   test('applies preview mode before child effects run', async () => {
-    window.location.href = 'http://localhost:3000/c/123?preview=true';
+    mockSearchParamsValue = 'preview=true';
+    window.history.replaceState({}, '', '/c/123?preview=true');
     act(() => {
       useSystemStore.setState({ previewMode: false, skip: false });
     });
@@ -84,7 +94,7 @@ describe('C preview layout', () => {
       const previewMode = useSystemStore(state => state.previewMode);
       useEffect(() => {
         observedPreviewMode = previewMode;
-      }, []);
+      }, [previewMode]);
       return null;
     }
 
@@ -96,6 +106,103 @@ describe('C preview layout', () => {
 
     await act(async () => {});
     expect(observedPreviewMode).toBe(true);
+  });
+
+  test('waits for query state before rendering children', async () => {
+    mockSearchParamsValue = 'preview=true&skip=true&channel=wechat';
+    window.history.replaceState(
+      {},
+      '',
+      '/c/123?preview=true&skip=true&channel=wechat',
+    );
+    act(() => {
+      useSystemStore.setState({
+        channel: '',
+        previewMode: false,
+        skip: false,
+      });
+    });
+
+    const observedQueryState: Array<{
+      channel: string;
+      previewMode: boolean;
+      skip: boolean;
+    }> = [];
+
+    function Probe() {
+      const channel = useSystemStore(state => state.channel);
+      const previewMode = useSystemStore(state => state.previewMode);
+      const skip = useSystemStore(state => state.skip);
+      observedQueryState.push({ channel, previewMode, skip });
+      return null;
+    }
+
+    render(
+      <ChatLayout>
+        <Probe />
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(observedQueryState).toEqual([
+        {
+          channel: 'wechat',
+          previewMode: true,
+          skip: true,
+        },
+      ]);
+    });
+  });
+
+  test('updates query state after search params change', async () => {
+    mockSearchParamsValue = 'preview=true&skip=false&channel=wechat';
+    window.history.replaceState(
+      {},
+      '',
+      '/c/123?preview=true&skip=false&channel=wechat',
+    );
+    act(() => {
+      useSystemStore.setState({
+        channel: '',
+        previewMode: false,
+        skip: false,
+      });
+    });
+
+    const { rerender } = render(
+      <ChatLayout>
+        <div>{contentLabel}</div>
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(useSystemStore.getState()).toMatchObject({
+        channel: 'wechat',
+        previewMode: true,
+        skip: false,
+      });
+    });
+
+    mockSearchParamsValue = 'preview=false&skip=true&channel=app';
+    window.history.replaceState(
+      {},
+      '',
+      '/c/123?preview=false&skip=true&channel=app',
+    );
+
+    rerender(
+      <ChatLayout>
+        <div>{contentLabel}</div>
+      </ChatLayout>,
+    );
+
+    await waitFor(() => {
+      expect(useSystemStore.getState()).toMatchObject({
+        channel: 'app',
+        previewMode: false,
+        skip: true,
+      });
+    });
   });
 
   test('redirects to /404 when course is not found', async () => {
@@ -113,7 +220,7 @@ describe('C preview layout', () => {
 
     render(
       <ChatLayout>
-        <div>content</div>
+        <div>{contentLabel}</div>
       </ChatLayout>,
     );
 
@@ -138,7 +245,7 @@ describe('C preview layout', () => {
 
     render(
       <ChatLayout>
-        <div>content</div>
+        <div>{contentLabel}</div>
       </ChatLayout>,
     );
 
