@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 
 def _post_json(client, path: str, payload: dict, headers: dict | None = None):
@@ -111,6 +112,87 @@ def test_password_login_after_setting_password(test_client, app):
     assert body["code"] == 0
     assert body["data"]["token"]
     assert body["data"]["userInfo"]["mobile"] == phone
+
+
+def test_password_login_merges_authenticated_guest_learner_profile(test_client, app):
+    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.dao import db
+    from flaskr.service.profile.learner_profile import (
+        PROFILE_ONBOARDING_SCENE_KEY,
+        PROFILE_ONBOARDING_VERSION,
+        load_learner_profile_state,
+    )
+    from flaskr.service.user.models import UserInfo, UserOnboardingState
+
+    guest_phone = "15500002331"
+    target_phone = "15500002332"
+    password = "Abcd1234"
+    profile_updated_at = datetime.fromisoformat("2026-08-04T05:30:00")
+
+    with app.app_context():
+        guest_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=guest_phone, code="9999"
+        )
+        target_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=target_phone, code="9999"
+        )
+        guest_user_id = guest_token.userInfo.user_id
+        target_user_id = target_token.userInfo.user_id
+        guest = UserInfo.query.filter_by(user_bid=guest_user_id).one()
+        guest.learner_profile = "password merge sentinel"
+        guest.learner_profile_updated_at = profile_updated_at
+        db.session.add(
+            UserOnboardingState(
+                user_bid=guest_user_id,
+                scene_key=PROFILE_ONBOARDING_SCENE_KEY,
+                version=PROFILE_ONBOARDING_VERSION,
+                status="completed",
+                trigger_source="settings",
+                completed_at=profile_updated_at,
+            )
+        )
+        db.session.commit()
+
+    _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": target_phone, "code": "9999", "new_password": password},
+        headers={"Token": target_token.token},
+    )
+
+    failed_response, failed_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": target_phone, "password": "wrong-password"},
+        headers={"Token": guest_token.token},
+    )
+    assert failed_response.status_code == 200
+    assert failed_body["code"] != 0
+    with app.app_context():
+        target_before_login = UserInfo.query.filter_by(user_bid=target_user_id).one()
+        assert target_before_login.learner_profile == ""
+        assert load_learner_profile_state(target_user_id) is None
+
+    response, body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": target_phone, "password": password},
+        headers={"Token": guest_token.token},
+    )
+
+    assert response.status_code == 200
+    assert body["code"] == 0
+    assert body["data"]["userInfo"]["user_id"] == target_user_id
+    with app.app_context():
+        stored_target = UserInfo.query.filter_by(user_bid=target_user_id).one()
+        stored_guest = UserInfo.query.filter_by(user_bid=guest_user_id).one()
+        target_state = load_learner_profile_state(target_user_id)
+        assert stored_target.learner_profile == "password merge sentinel"
+        assert stored_target.learner_profile_updated_at == profile_updated_at
+        assert stored_guest.learner_profile == "password merge sentinel"
+        assert target_state is not None
+        assert target_state.status == "completed"
+        assert target_state.trigger_source == "settings"
 
 
 def test_sms_login_route_logs_in_with_phone_code(test_client):

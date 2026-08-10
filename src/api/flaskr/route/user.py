@@ -28,6 +28,7 @@ from flaskr.service.profile.learner_profile import (
     get_learner_profile,
     replace_learner_profile,
 )
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.profile.onboarding import (
     complete_profile_onboarding,
     get_profile_onboarding_status,
@@ -1006,6 +1007,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/login_password", methods=["POST"])
     @bypass_token_validation
+    @optional_token_validation
     def login_password():
         """
         Login with password
@@ -1030,6 +1032,15 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         # TODO: Add rate-limiting and failed login attempt tracking
         # (record identifier, request.remote_addr, timestamp on failure)
         auth_result = provider.verify(app, vr)
+        current_user = getattr(request, "user", None)
+        current_user_id = (
+            getattr(current_user, "user_id", None) if current_user is not None else None
+        )
+        if current_user_id and current_user_id != auth_result.user.user_id:
+            merge_learner_profile_for_sign_in(
+                source_user_id=current_user_id,
+                target_user_id=auth_result.user.user_id,
+            )
         db.session.commit()
         run_post_auth_extensions(
             app,
