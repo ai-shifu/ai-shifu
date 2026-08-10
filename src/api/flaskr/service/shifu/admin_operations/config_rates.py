@@ -57,6 +57,8 @@ _LLM_MISSING_RATE_FALLBACK_RATIOS = {
 }
 _PROVIDER_MAX_LENGTH = 32
 _MODEL_MAX_LENGTH = 100
+_CREDITS_PER_UNIT_QUANTIZER = Decimal("0.0000000001")
+_CREDITS_PER_UNIT_MAX = Decimal("9999999999.9999999999")
 _ActiveRateIndex = dict[tuple[int, int, str, str], CreditUsageRate]
 
 
@@ -75,6 +77,15 @@ def _decimal(value: Any, *, field_name: str) -> Decimal:
     if not result.is_finite() or result < 0:
         raise_param_error(field_name)
     return result
+
+
+def _validate_create_only_credits_per_unit(value: Decimal) -> None:
+    try:
+        quantized = value.quantize(_CREDITS_PER_UNIT_QUANTIZER)
+    except InvalidOperation:
+        raise_param_error("credits_per_unit")
+    if value <= 0 or quantized != value or value > _CREDITS_PER_UNIT_MAX:
+        raise_param_error("credits_per_unit")
 
 
 def _normalize_create_only(payload: dict[str, Any]) -> bool:
@@ -640,6 +651,8 @@ def update_operator_rate_config(
         )
         if credits_per_unit <= 0:
             raise_param_error("credits_per_unit")
+        if create_only:
+            _validate_create_only_credits_per_unit(credits_per_unit)
         status = payload.get("status")
         if isinstance(status, str):
             status_code = (
@@ -739,7 +752,9 @@ def update_operator_rate_config(
             if usage_type == BILL_USAGE_TYPE_LLM:
                 current_metric_rate = current_rates_by_metric.get(metric)
                 current_metric_cost = _unit_cost(current_metric_rate)
-                if (
+                if create_only and metric == BILLING_METRIC_LLM_OUTPUT_TOKENS:
+                    next_credits_per_unit = credits_per_unit
+                elif (
                     llm_scale is not None
                     and current_metric_rate is not None
                     and current_metric_cost is not None
@@ -754,6 +769,8 @@ def update_operator_rate_config(
                         output_unit_cost=target_unit_cost,
                         unit_size=next_unit_size,
                     )
+            if create_only:
+                _validate_create_only_credits_per_unit(next_credits_per_unit)
             same_second_row = CreditUsageRate.query.filter(
                 CreditUsageRate.deleted == 0,
                 CreditUsageRate.usage_type == usage_type,

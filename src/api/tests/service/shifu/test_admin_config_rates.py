@@ -556,8 +556,16 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
         db.session.commit()
 
 
+@pytest.mark.parametrize(
+    ("credits_per_unit", "expected_input", "expected_cache"),
+    [
+        (Decimal(12), Decimal(3), Decimal("1.5")),
+        (Decimal("0.25"), Decimal("0.0625"), Decimal("0.03125")),
+    ],
+    ids=["whole-number", "fractional"],
+)
 def test_create_only_llm_uses_raw_rate_model_without_superseding_alias(
-    monkeypatch, app
+    monkeypatch, app, credits_per_unit, expected_input, expected_cache
 ):
     fixed_now = datetime(2026, 7, 21, 12, 0, 0)  # noqa: DTZ001
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
@@ -593,7 +601,7 @@ def test_create_only_llm_uses_raw_rate_model_without_superseding_alias(
                 "rate_model": "new-model",
                 "billing_metric": "llm_output_tokens",
                 "unit_size": 1,
-                "credits_per_unit": 12,
+                "credits_per_unit": credits_per_unit,
                 "status": "active",
             },
             operator_user_bid="operator-test",
@@ -614,11 +622,16 @@ def test_create_only_llm_uses_raw_rate_model_without_superseding_alias(
             BILLING_METRIC_LLM_CACHE_TOKENS,
             BILLING_METRIC_LLM_OUTPUT_TOKENS,
         }
-        assert created[BILLING_METRIC_LLM_INPUT_TOKENS].credits_per_unit == Decimal(3)
-        assert created[BILLING_METRIC_LLM_CACHE_TOKENS].credits_per_unit == Decimal(
-            "1.5"
+        assert (
+            created[BILLING_METRIC_LLM_INPUT_TOKENS].credits_per_unit == expected_input
         )
-        assert created[BILLING_METRIC_LLM_OUTPUT_TOKENS].credits_per_unit == Decimal(12)
+        assert (
+            created[BILLING_METRIC_LLM_CACHE_TOKENS].credits_per_unit == expected_cache
+        )
+        assert (
+            created[BILLING_METRIC_LLM_OUTPUT_TOKENS].credits_per_unit
+            == credits_per_unit
+        )
         assert alias_rate.effective_to is None
 
         db.session.query(CreditUsageRate).delete()
@@ -693,6 +706,12 @@ def test_create_only_rejects_duplicate_active_exact_identity(monkeypatch, app):
         {"status": "inactive"},
         {"credits_per_unit": "NaN"},
         {"credits_per_unit": "Infinity"},
+        {"credits_per_unit": "0.00000000001"},
+        {"credits_per_unit": "10000000000"},
+        pytest.param(
+            {"credits_per_unit": "0.0000000001"},
+            id="tiny-output-derived-rate",
+        ),
     ],
 )
 def test_create_only_rejects_invalid_identity_and_fixed_fields(
@@ -729,7 +748,12 @@ def test_create_only_rejects_invalid_identity_and_fixed_fields(
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_create_only_tts_allows_empty_default_model(monkeypatch, app):
+@pytest.mark.parametrize(
+    "credits_per_unit",
+    ["0.5", "9999999999.9999999999"],
+    ids=["regular", "numeric-max"],
+)
+def test_create_only_tts_allows_empty_default_model(monkeypatch, app, credits_per_unit):
     fixed_now = datetime(2026, 7, 21, 12, 0, 0)  # noqa: DTZ001
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
     monkeypatch.setattr(
@@ -752,7 +776,7 @@ def test_create_only_tts_allows_empty_default_model(monkeypatch, app):
                 "rate_model": "",
                 "billing_metric": "tts_output_chars",
                 "unit_size": 1,
-                "credits_per_unit": 0.5,
+                "credits_per_unit": credits_per_unit,
                 "status": "active",
             },
             operator_user_bid="operator-test",
