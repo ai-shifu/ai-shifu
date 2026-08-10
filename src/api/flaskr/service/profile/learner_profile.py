@@ -15,7 +15,7 @@ from flaskr.service.user.models import (
     AuthCredential,
     UserInfo as UserEntity,
 )
-from flaskr.service.user.consts import USER_STATE_REGISTERED
+from flaskr.service.user.consts import USER_STATE_UNREGISTERED
 from flaskr.service.user.models import (
     UserOnboardingState,
 )
@@ -179,7 +179,7 @@ def merge_learner_profile_for_sign_in(
     if source_user is None:
         return
 
-    if source_user.state == USER_STATE_REGISTERED:
+    if source_user.state != USER_STATE_UNREGISTERED:
         return
 
     source_identify = str(source_user.user_identify or "").strip()

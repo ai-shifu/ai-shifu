@@ -15,7 +15,12 @@ from flaskr.service.profile.learner_profile import (
 )
 from flaskr.service.user.auth.base import OAuthCallbackRequest
 from flaskr.service.user.auth.providers.google import GoogleAuthProvider, _encode_state
-from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
+from flaskr.service.user.consts import (
+    USER_STATE_PAID,
+    USER_STATE_REGISTERED,
+    USER_STATE_TRAIL,
+    USER_STATE_UNREGISTERED,
+)
 from flaskr.service.user.models import UserInfo, UserOnboardingState
 from flaskr.service.user.repository import (
     create_user_entity,
@@ -234,13 +239,21 @@ def test_merge_helper_never_copies_from_a_registered_source(app, source_identify
         assert load_learner_profile_state(target.user_bid) is None
 
 
-def test_merge_helper_never_copies_from_registered_random_identifier(app):
+@pytest.mark.parametrize(
+    "source_state",
+    [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID],
+    ids=["registered", "trial", "paid"],
+)
+def test_merge_helper_never_copies_from_non_guest_random_identifier(
+    app,
+    source_state,
+):
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
             learner_profile="registered random source",
             learner_profile_updated_at=PROFILE_UPDATED_AT,
-            state=USER_STATE_REGISTERED,
+            state=source_state,
         )
         target = _create_user(identify=uuid.uuid4().hex)
         _add_state(source.user_bid, status="completed", trigger_source="settings")
