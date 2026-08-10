@@ -45,11 +45,11 @@ import useOperatorGuard from '../useOperatorGuard';
 import RateCreateDialog from './RateCreateDialog';
 import {
   RATE_TABS,
-  canonicalizeRateIdentity,
   getRateDisplayName,
   getRateRowKey,
   isValidMultiplier,
   normalizeMultiplierInput,
+  rateRowMatchesExactIdentity,
   type CreateRatePayload,
   type RateConfigResponse,
   type RateIdentity,
@@ -197,17 +197,9 @@ function RateTable({
       }
       return;
     }
-    const revealRowIndex = rows.findIndex(row => {
-      const rowIdentity = canonicalizeRateIdentity(
-        revealIdentity.usageType,
-        row.provider,
-        row.rate_model ?? row.model,
-      );
-      return (
-        rowIdentity.provider === revealIdentity.provider &&
-        rowIdentity.rateModel === revealIdentity.rateModel
-      );
-    });
+    const revealRowIndex = rows.findIndex(row =>
+      rateRowMatchesExactIdentity(row, revealIdentity),
+    );
     if (revealRowIndex < 0) {
       return;
     }

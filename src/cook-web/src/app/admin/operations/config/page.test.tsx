@@ -12,6 +12,29 @@ import AdminOperationsConfigPage from './page';
 
 const mockToast = jest.fn();
 let mockRenderRateTable = false;
+const mockDefaultCreatePayload = {
+  create_only: true,
+  usage_type: 'tts',
+  provider: 'tencent',
+  model: '',
+  rate_model: '',
+  billing_metric: 'tts_output_chars',
+  unit_size: 1,
+  credits_per_unit: 1,
+  status: 'active',
+};
+const mockDefaultCreateIdentity = {
+  usageType: 'tts',
+  provider: 'tencent',
+  model: '',
+  rateModel: '',
+};
+let mockCreatePayload: Record<string, unknown> = {
+  ...mockDefaultCreatePayload,
+};
+let mockCreateIdentity: Record<string, unknown> = {
+  ...mockDefaultCreateIdentity,
+};
 const mockT = (key: string) =>
   new Map([
     ['title', '费率管理'],
@@ -149,23 +172,8 @@ jest.mock('./RateCreateDialog', () => ({
           onClick={() =>
             void (async () => {
               const created = await onCreate(
-                {
-                  create_only: true,
-                  usage_type: 'tts',
-                  provider: 'tencent',
-                  model: '',
-                  rate_model: '',
-                  billing_metric: 'tts_output_chars',
-                  unit_size: 1,
-                  credits_per_unit: 1,
-                  status: 'active',
-                },
-                {
-                  usageType: 'tts',
-                  provider: 'tencent',
-                  model: '',
-                  rateModel: '',
-                },
+                mockCreatePayload,
+                mockCreateIdentity,
               );
               if (created) {
                 onOpenChange(false);
@@ -193,6 +201,8 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRenderRateTable = false;
+    mockCreatePayload = { ...mockDefaultCreatePayload };
+    mockCreateIdentity = { ...mockDefaultCreateIdentity };
     mockGetRates.mockResolvedValue(baseRateResponse);
     mockUpdateRate.mockResolvedValue({});
   });
@@ -278,6 +288,67 @@ describe('AdminOperationsConfigPage create-rate wiring', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'tabs.llm' }));
     fireEvent.click(screen.getByRole('button', { name: 'tabs.tts' }));
+    expect(screen.getByTestId('rate-table')).toHaveTextContent('1');
+  });
+
+  test('reveals a database-only alias rate by its matched raw identity', async () => {
+    const refreshedResponse = {
+      ...baseRateResponse,
+      llm_rates: [
+        ...Array.from({ length: 10 }, (_, index) => ({
+          usage_type: 'llm',
+          provider: `provider-${index}`,
+          model: `provider-${index}/model-${index}`,
+          rate_model: `model-${index}`,
+          source: 'exact',
+        })),
+        {
+          usage_type: 'llm',
+          provider: 'qwen',
+          model: 'qwen/qwen/foo',
+          rate_model: 'qwen/foo',
+          matched_rate_provider: 'qwen',
+          matched_rate_model: 'qwen/foo',
+          source: 'exact',
+        },
+      ],
+    };
+    mockCreatePayload = {
+      create_only: true,
+      usage_type: 'llm',
+      provider: 'qwen',
+      model: 'qwen/qwen/foo',
+      rate_model: 'qwen/foo',
+      billing_metric: 'llm_output_tokens',
+      unit_size: 1,
+      credits_per_unit: 1,
+      status: 'active',
+    };
+    mockCreateIdentity = {
+      usageType: 'llm',
+      provider: 'qwen',
+      model: 'qwen/qwen/foo',
+      rateModel: 'qwen/foo',
+    };
+    mockGetRates
+      .mockResolvedValueOnce(baseRateResponse)
+      .mockResolvedValueOnce(refreshedResponse);
+    render(<AdminOperationsConfigPage />);
+
+    await waitFor(() => expect(mockGetRates).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: '添加费率' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock-create' }));
+
+    await waitFor(() =>
+      expect(mockUpdateRate).toHaveBeenCalledWith(mockCreatePayload),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('rate-table')).toHaveTextContent('2'),
+    );
+    expect(mockToast).toHaveBeenCalledWith({ title: 'create.success' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'tabs.tts' }));
+    fireEvent.click(screen.getByRole('button', { name: 'tabs.llm' }));
     expect(screen.getByTestId('rate-table')).toHaveTextContent('1');
   });
 
