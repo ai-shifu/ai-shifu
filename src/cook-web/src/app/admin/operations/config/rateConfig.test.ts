@@ -3,6 +3,7 @@ import {
   canonicalizeRateIdentity,
   deriveCreditsPerUnit,
   getRateDisplayName,
+  getRateRowKey,
   hasExactRateIdentity,
   isValidProvider,
   isValidRateModel,
@@ -33,6 +34,54 @@ const rateRow = (overrides: Partial<RateRow>): RateRow =>
   }) as RateRow;
 
 describe('rate config helpers', () => {
+  test('encodes row-key fields without delimiter collisions', () => {
+    const left = rateRow({
+      usage_type: 'llm',
+      provider: 'a-b',
+      rate_model: 'c',
+      billing_metric: 'metric',
+    });
+    const right = rateRow({
+      usage_type: 'llm',
+      provider: 'a',
+      rate_model: 'b-c',
+      billing_metric: 'metric',
+    });
+
+    expect(getRateRowKey(left)).not.toBe(getRateRowKey(right));
+    expect(JSON.parse(getRateRowKey(left))).toEqual([
+      'llm',
+      'a-b',
+      'c',
+      'metric',
+    ]);
+  });
+
+  test('keeps empty and special row-key fields stable', () => {
+    const row = rateRow({
+      usage_type: '',
+      provider: 'provider,-[]"',
+      model: 'ignored-model',
+      rate_model: '',
+      billing_metric: 'metric\n:-',
+    });
+
+    expect(getRateRowKey(row)).toBe(getRateRowKey({ ...row }));
+    expect(JSON.parse(getRateRowKey(row))).toEqual([
+      '',
+      'provider,-[]"',
+      '',
+      'metric\n:-',
+    ]);
+    expect(
+      JSON.parse(
+        getRateRowKey(
+          rateRow({ rate_model: undefined, model: 'fallback/model' }),
+        ),
+      )[2],
+    ).toBe('fallback/model');
+  });
+
   test('normalizes multiplier input with the existing two-decimal rule', () => {
     expect(normalizeMultiplierInput('１。234abc')).toBe('0.23');
     expect(normalizeMultiplierInput('1．25')).toBe('1.25');

@@ -60,7 +60,12 @@ export type CreateRatePayload = {
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/;
 
 export const getRateRowKey = (row: RateRow) =>
-  `${row.usage_type}-${row.provider}-${row.rate_model ?? row.model}-${row.billing_metric}`;
+  JSON.stringify([
+    row.usage_type,
+    row.provider,
+    row.rate_model ?? row.model,
+    row.billing_metric,
+  ]);
 
 export const getRateDisplayName = (row: RateRow, defaultTierLabel: string) => {
   const provider = row.provider.trim();
