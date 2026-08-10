@@ -96,6 +96,7 @@ from flaskr.service.shifu.admin_operations.users import (
 from flaskr.service.shifu.admin_operations.voice_clones import (
     OPERATOR_VOICE_CLONE_BILLING_STATUSES,
     OPERATOR_VOICE_CLONE_LIST_MAX_PAGE_SIZE,
+    OPERATOR_VOICE_CLONE_PROVIDERS,
     OPERATOR_VOICE_CLONE_STATUSES,
     list_operator_voice_clones,
     register_operator_voice_clone,
@@ -625,12 +626,16 @@ def register_admin_operations_routes(
             - name: voice_keyword
               type: string
               required: false
+            - name: provider
+              type: string
+              required: false
+              description: minimax or volcengine
             - name: minimax_status_code
               type: integer
               required: false
         responses:
             200:
-                description: List operator-visible MiniMax cloned voice jobs
+                description: List operator-visible cloned voice jobs
         """
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -683,6 +688,11 @@ def register_admin_operations_routes(
             "user_keyword": _normalize_query_text(request.args.get("user_keyword")),
             "course_keyword": _normalize_query_text(request.args.get("course_keyword")),
             "voice_keyword": _normalize_query_text(request.args.get("voice_keyword")),
+            "provider": _parse_choice_query_param(
+                request.args.get("provider"),
+                field_name="provider",
+                allowed_values=OPERATOR_VOICE_CLONE_PROVIDERS,
+            ),
             "minimax_status_code": minimax_status_code,
         }
         _validate_datetime_range(
@@ -702,7 +712,7 @@ def register_admin_operations_routes(
     @app.route(path_prefix + "/admin/operations/voice-clones", methods=["POST"])
     def admin_operations_register_voice_clone():
         """
-        Register a MiniMax voice cloned on the console and assign it to a teacher
+        Register a voice cloned on a provider console and assign it to a teacher
         ---
         tags:
             - TTS
@@ -719,9 +729,12 @@ def register_admin_operations_routes(
                         type: string
                     voice_id:
                         type: string
+                    provider:
+                        type: string
+                        description: minimax (default) or volcengine
         responses:
             200:
-                description: The registered MiniMax cloned voice record
+                description: The registered cloned voice record
         """
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -734,6 +747,7 @@ def register_admin_operations_routes(
                 owner_user_bid=str(payload.get("owner_user_bid") or ""),
                 display_name=str(payload.get("display_name") or ""),
                 voice_id=str(payload.get("voice_id") or ""),
+                provider=str(payload.get("provider") or ""),
             )
         )
 

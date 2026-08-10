@@ -14,12 +14,24 @@ import {
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
 import { useToast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
+import { isValidVolcengineCustomVoiceId } from '@/components/shifu-setting/minimax-voice-clone';
 import type {
   AdminOperationUserItem,
   AdminOperationUserListResponse,
 } from '../operation-user-types';
+import {
+  VOICE_CLONE_PROVIDERS,
+  type VoiceCloneProvider,
+} from '../operation-voice-clone-types';
 
 const TEACHER_SEARCH_PAGE_SIZE = 10;
 
@@ -49,6 +61,7 @@ export default function VoiceCloneRegisterDialog({
   const [selectedTeacher, setSelectedTeacher] =
     React.useState<AdminOperationUserItem | null>(null);
   const [displayName, setDisplayName] = React.useState('');
+  const [provider, setProvider] = React.useState<VoiceCloneProvider>('minimax');
   const [voiceId, setVoiceId] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -60,6 +73,7 @@ export default function VoiceCloneRegisterDialog({
     setSearched(false);
     setSelectedTeacher(null);
     setDisplayName('');
+    setProvider('minimax');
     setVoiceId('');
     setSubmitting(false);
     setError('');
@@ -112,6 +126,13 @@ export default function VoiceCloneRegisterDialog({
       setError(t('module.operationsVoiceClone.register.voiceIdRequired'));
       return;
     }
+    if (
+      provider === 'volcengine' &&
+      !isValidVolcengineCustomVoiceId(voiceId.trim())
+    ) {
+      setError(t('module.operationsVoiceClone.register.voiceIdInvalid'));
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -119,6 +140,7 @@ export default function VoiceCloneRegisterDialog({
         owner_user_bid: selectedTeacher.user_bid,
         display_name: displayName.trim(),
         voice_id: voiceId.trim(),
+        provider,
       });
       toast({
         title: t('module.operationsVoiceClone.register.successToast'),
@@ -135,6 +157,7 @@ export default function VoiceCloneRegisterDialog({
     displayName,
     onOpenChange,
     onRegistered,
+    provider,
     selectedTeacher,
     submitting,
     t,
@@ -261,6 +284,33 @@ export default function VoiceCloneRegisterDialog({
           </div>
 
           <div className='space-y-2'>
+            <Label>
+              {t('module.operationsVoiceClone.register.providerLabel')}
+            </Label>
+            <Select
+              value={provider}
+              onValueChange={value => {
+                setProvider(value as VoiceCloneProvider);
+                setError('');
+              }}
+            >
+              <SelectTrigger className='h-9'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VOICE_CLONE_PROVIDERS.map(option => (
+                  <SelectItem
+                    key={option}
+                    value={option}
+                  >
+                    {t(`module.operationsVoiceClone.providers.${option}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className='space-y-2'>
             <Label htmlFor='voice-clone-voice-id'>
               {t('module.operationsVoiceClone.register.voiceIdLabel')}
             </Label>
@@ -269,12 +319,18 @@ export default function VoiceCloneRegisterDialog({
               value={voiceId}
               onChange={event => setVoiceId(event.target.value)}
               placeholder={t(
-                'module.operationsVoiceClone.register.voiceIdPlaceholder',
+                provider === 'volcengine'
+                  ? 'module.operationsVoiceClone.register.voiceIdPlaceholderVolcengine'
+                  : 'module.operationsVoiceClone.register.voiceIdPlaceholder',
               )}
               className='h-9'
             />
             <p className='text-xs text-muted-foreground'>
-              {t('module.operationsVoiceClone.register.voiceIdHint')}
+              {t(
+                provider === 'volcengine'
+                  ? 'module.operationsVoiceClone.register.voiceIdHintVolcengine'
+                  : 'module.operationsVoiceClone.register.voiceIdHint',
+              )}
             </p>
           </div>
 

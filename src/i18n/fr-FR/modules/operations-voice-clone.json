@@ -12,7 +12,7 @@
     "reserved": "Réservé"
   },
   "copySuccess": "Copié",
-  "description": "Consultez l'état des tâches de clonage vocal MiniMax, les causes d'échec et le résultat de facturation.",
+  "description": "Consultez l'état de traitement, les causes d'échec et la facturation des voix clonées.",
   "detail": {
     "audio": "Résumé audio",
     "basic": "Informations de base",
@@ -33,6 +33,7 @@
     "normalizedAudioDuration": "Durée audio traitée",
     "owner": "Créateur",
     "promptAudioDuration": "Durée audio d’aperçu",
+    "provider": "Fournisseur",
     "readyAt": "Terminé le",
     "retryCount": "Nombre de relances",
     "sourceAudioDuration": "Durée audio source",
@@ -83,6 +84,7 @@
     "failureReasonPlaceholder": "Raison de l’échec",
     "minimaxStatusCode": "Code d'état MiniMax",
     "minimaxStatusCodePlaceholder": "Code de statut",
+    "provider": "Fournisseur",
     "reset": "Réinitialiser",
     "search": "Rechercher",
     "status": "État de la tâche",
@@ -101,15 +103,20 @@
     "prev": "Précédent",
     "prevAria": "Page précédente"
   },
+  "providers": {
+    "minimax": "MiniMax",
+    "volcengine": "Doubao (Volcengine)"
+  },
   "register": {
     "button": "Enregistrer une voix",
     "cancel": "Annuler",
     "clearTeacher": "Modifier",
-    "description": "Après avoir cloné une voix sur la console MiniMax, enregistrez ici son Voice ID et attribuez-le à un enseignant. La voix est gratuite pour l'enseignant ; l'enregistrement lance une courte synthèse de test pour la valider et la maintenir active.",
+    "description": "Après avoir cloné une voix sur la console du fournisseur, enregistrez ici le Voice ID et attribuez-le à un enseignant. La voix est gratuite pour l'enseignant ; l'enregistrement vérifie l'identifiant auprès du fournisseur.",
     "displayNameLabel": "Nom de la voix",
     "displayNamePlaceholder": "Nom que l'enseignant voit dans la liste des voix",
     "displayNameRequired": "Veuillez saisir un nom de voix",
     "noResults": "Aucun enseignant correspondant trouvé",
+    "providerLabel": "Fournisseur",
     "searchButton": "Rechercher",
     "searching": "Recherche…",
     "submit": "Enregistrer",
@@ -120,8 +127,11 @@
     "teacherSearchPlaceholder": "Mobile / E-mail",
     "title": "Enregistrer une voix clonée",
     "voiceIdHint": "Saisissez le Voice ID cloné sur la console MiniMax.",
+    "voiceIdHintVolcengine": "Saisissez l'identifiant de voix entraîné sur la console Volcengine (un emplacement commençant par S_).",
+    "voiceIdInvalid": "Format de Voice ID invalide",
     "voiceIdLabel": "Voice ID",
     "voiceIdPlaceholder": "ex. AiShifu_teacher_voice",
+    "voiceIdPlaceholderVolcengine": "ex. S_v57vvPYM1",
     "voiceIdRequired": "Veuillez saisir un Voice ID"
   },
   "status": {
@@ -140,6 +150,7 @@
     "failure": "Cause d'échec",
     "minimax": "MiniMax",
     "owner": "Créateur",
+    "provider": "Fournisseur",
     "status": "État",
     "updatedAt": "Mis à jour le",
     "voice": "Voix"

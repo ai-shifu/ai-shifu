@@ -84,13 +84,16 @@ import {
 import AskSettingsSection from '@/components/shifu-setting/AskSettingsSection';
 import MiniMaxVoiceCloneDialog from '@/components/shifu-setting/MiniMaxVoiceCloneDialog';
 import {
-  buildMiniMaxClonedVoiceListParams,
+  buildClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
   executeMiniMaxVoiceAction,
+  getCustomVoiceIdValidator,
   isMiniMaxProvider,
   isValidMiniMaxCustomVoiceId,
   loadMiniMaxVoiceRefreshData,
+  providerSupportsClonedVoices,
   shouldPreserveCustomMiniMaxVoice,
+  MINIMAX_PROVIDER,
   type MiniMaxCloneCost,
   type MiniMaxClonedVoice,
 } from '@/components/shifu-setting/minimax-voice-clone';
@@ -471,34 +474,6 @@ export default function ShifuSettingDialog({
     };
   }, [currentLanguage]);
 
-  const refreshMinimaxVoiceData = useCallback(async () => {
-    if (!shifuId) return;
-    const result = await loadMiniMaxVoiceRefreshData({
-      fetchVoices: () =>
-        api.listMinimaxTtsVoices(
-          buildMiniMaxClonedVoiceListParams(shifuId),
-        ) as Promise<{
-          voices?: MiniMaxClonedVoice[];
-        }>,
-      fetchCloneCost: () =>
-        api.getMinimaxTtsCloneCost({
-          shifu_bid: shifuId,
-        }) as Promise<MiniMaxCloneCost>,
-    });
-    if (result.voices !== null) {
-      setMinimaxClonedVoices(result.voices);
-    }
-    if (result.cloneCost !== null) {
-      setMinimaxCloneCost(result.cloneCost);
-    }
-    if (result.errors.length > 0) {
-      console.error(
-        'Failed to refresh MiniMax voice clone data:',
-        result.errors,
-      );
-    }
-  }, [shifuId]);
-
   const resolvedProvider = (() => {
     const provider = (ttsProvider || '').trim();
     const fallbackProvider =
@@ -514,6 +489,41 @@ export default function ShifuSettingDialog({
     }
     return provider;
   })();
+  const isMiniMaxTtsProvider = isMiniMaxProvider(resolvedProvider);
+  const providerSupportsCloning =
+    providerSupportsClonedVoices(resolvedProvider);
+
+  const refreshMinimaxVoiceData = useCallback(async () => {
+    if (!shifuId) return;
+    const result = await loadMiniMaxVoiceRefreshData({
+      fetchVoices: () =>
+        api.listMinimaxTtsVoices(
+          buildClonedVoiceListParams(resolvedProvider, shifuId),
+        ) as Promise<{
+          voices?: MiniMaxClonedVoice[];
+        }>,
+      // Clone-cost estimation only exists for the MiniMax self-serve flow;
+      // operator-registered voices (volcengine) are free for the teacher.
+      fetchCloneCost: () =>
+        isMiniMaxTtsProvider
+          ? (api.getMinimaxTtsCloneCost({
+              shifu_bid: shifuId,
+            }) as Promise<MiniMaxCloneCost>)
+          : Promise.resolve(null),
+    });
+    if (result.voices !== null) {
+      setMinimaxClonedVoices(result.voices);
+    }
+    if (result.cloneCost !== null) {
+      setMinimaxCloneCost(result.cloneCost);
+    }
+    if (result.errors.length > 0) {
+      console.error(
+        'Failed to refresh MiniMax voice clone data:',
+        result.errors,
+      );
+    }
+  }, [isMiniMaxTtsProvider, resolvedProvider, shifuId]);
   useEffect(() => {
     if (!ttsEnabled) return;
     const options = ttsConfig?.model_options || [];
@@ -610,7 +620,6 @@ export default function ShifuSettingDialog({
     ],
   );
 
-  const isMiniMaxTtsProvider = isMiniMaxProvider(resolvedProvider);
   const supportsMiniMaxVoiceCloning =
     isMiniMaxTtsProvider &&
     currentProviderConfig?.supports_voice_cloning === true;
@@ -632,26 +641,33 @@ export default function ShifuSettingDialog({
     [t],
   );
   const mergedTtsVoiceOptions = useMemo(() => {
-    if (!isMiniMaxTtsProvider) {
+    if (!providerSupportsCloning) {
       return ttsVoiceOptions.map(option => ({
         ...option,
         source: 'built_in' as const,
         disabled: false,
       }));
     }
+    // Cloned voices show under whatever model the teacher selected (like
+    // MiniMax): the built-in list is already model-filtered upstream, and
+    // provider-specific clone resources are inferred backend-side.
     return buildMiniMaxVoiceOptions({
       builtInVoices: ttsVoiceOptions,
-      clonedVoices: minimaxClonedVoices,
+      clonedVoices: minimaxClonedVoices.filter(
+        voice => (voice.provider || MINIMAX_PROVIDER) === resolvedProvider,
+      ),
       currentVoiceId: ttsVoiceId,
       clonedVoiceLabelFormatter: formatMiniMaxClonedVoiceLabel,
       manualLabel: t('module.shifuSetting.minimaxManualVoiceLabel'),
       statusLabels: minimaxStatusLabels,
+      manualVoiceValidator: getCustomVoiceIdValidator(resolvedProvider),
     });
   }, [
     formatMiniMaxClonedVoiceLabel,
-    isMiniMaxTtsProvider,
     minimaxClonedVoices,
     minimaxStatusLabels,
+    providerSupportsCloning,
+    resolvedProvider,
     t,
     ttsVoiceId,
     ttsVoiceOptions,
@@ -670,14 +686,14 @@ export default function ShifuSettingDialog({
   );
 
   useEffect(() => {
-    if (!open || !ttsEnabled || !isMiniMaxTtsProvider) {
+    if (!open || !ttsEnabled || !providerSupportsCloning) {
       return;
     }
     refreshMinimaxVoiceData();
-  }, [isMiniMaxTtsProvider, open, refreshMinimaxVoiceData, ttsEnabled]);
+  }, [providerSupportsCloning, open, refreshMinimaxVoiceData, ttsEnabled]);
 
   useEffect(() => {
-    if (!open || !isMiniMaxTtsProvider) {
+    if (!open || !providerSupportsCloning) {
       return;
     }
     const hasPendingVoice = minimaxClonedVoices.some(voice =>
@@ -693,7 +709,7 @@ export default function ShifuSettingDialog({
     }, 4000);
     return () => clearInterval(timer);
   }, [
-    isMiniMaxTtsProvider,
+    providerSupportsCloning,
     minimaxClonedVoices,
     open,
     refreshMinimaxVoiceData,
@@ -887,9 +903,11 @@ export default function ShifuSettingDialog({
       );
       const voiceValues = new Set(selectableVoiceOptions.map(v => v.value));
       const fallbackVoice = selectableVoiceOptions[0]?.value || '';
-      const currentClonedVoice = isMiniMaxProvider(provider.name)
+      const currentClonedVoice = providerSupportsClonedVoices(provider.name)
         ? minimaxClonedVoices.find(
-            voice => (voice.voice_id || '').trim() === ttsVoiceId,
+            voice =>
+              (voice.voice_id || '').trim() === ttsVoiceId &&
+              (voice.provider || MINIMAX_PROVIDER) === provider.name,
           )
         : undefined;
       const preserveCustomVoice =
@@ -2005,7 +2023,10 @@ export default function ShifuSettingDialog({
                           value={ttsVoiceId}
                           onValueChange={value => {
                             setTtsVoiceId(value);
-                            const selectedVoice = ttsVoiceOptions.find(
+                            // Look up merged options: cloned voices carry a
+                            // resource_id too (volcengine seed-icl-2.0), and
+                            // selecting one must switch the model with it.
+                            const selectedVoice = mergedTtsVoiceOptions.find(
                               option => option.value === value,
                             );
                             const inferredResourceId =
@@ -2027,7 +2048,7 @@ export default function ShifuSettingDialog({
                             />
                           </SelectTrigger>
                           <SelectContent>
-                            {isMiniMaxTtsProvider ? (
+                            {providerSupportsCloning ? (
                               <>
                                 {clonedTtsVoiceOptions.length > 0 ? (
                                   <SelectGroup>

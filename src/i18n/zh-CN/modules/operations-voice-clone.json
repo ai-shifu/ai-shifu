@@ -12,7 +12,7 @@
     "reserved": "已预扣"
   },
   "copySuccess": "已复制",
-  "description": "查看 MiniMax 克隆音色任务的处理状态、失败原因和计费结果。",
+  "description": "查看克隆音色任务的处理状态、失败原因和计费结果。",
   "detail": {
     "audio": "音频摘要",
     "basic": "基础信息",
@@ -33,6 +33,7 @@
     "normalizedAudioDuration": "处理后音频时长",
     "owner": "创作者",
     "promptAudioDuration": "试听音频时长",
+    "provider": "服务商",
     "readyAt": "完成时间",
     "retryCount": "重试次数",
     "sourceAudioDuration": "原始音频时长",
@@ -83,6 +84,7 @@
     "failureReasonPlaceholder": "失败原因",
     "minimaxStatusCode": "MiniMax 状态码",
     "minimaxStatusCodePlaceholder": "状态码",
+    "provider": "服务商",
     "reset": "重置",
     "search": "搜索",
     "status": "任务状态",
@@ -101,15 +103,20 @@
     "prev": "上一页",
     "prevAria": "上一页"
   },
+  "providers": {
+    "minimax": "MiniMax",
+    "volcengine": "豆包（火山引擎）"
+  },
   "register": {
     "button": "登记音色",
     "cancel": "取消",
     "clearTeacher": "重新选择",
-    "description": "在 MiniMax 控制台克隆好音色后，在此登记 Voice ID 并分配给指定老师。该音色对老师免费，登记时会做一次测试合成以校验并保活。",
+    "description": "在服务商控制台克隆好音色后，在此登记 Voice ID 并分配给指定老师。该音色对老师免费，登记时会向服务商校验音色可用性。",
     "displayNameLabel": "音色名称",
     "displayNamePlaceholder": "老师在语音列表中看到的名称",
     "displayNameRequired": "请填写音色名称",
     "noResults": "未找到匹配的老师",
+    "providerLabel": "服务商",
     "searchButton": "搜索",
     "searching": "搜索中…",
     "submit": "登记",
@@ -120,8 +127,11 @@
     "teacherSearchPlaceholder": "手机号 / 邮箱",
     "title": "登记克隆音色",
     "voiceIdHint": "填写在 MiniMax 控制台克隆得到的 Voice ID。",
+    "voiceIdHintVolcengine": "填写在火山引擎控制台训练完成的声音 ID（S_ 开头的音色槽位）。",
+    "voiceIdInvalid": "Voice ID 格式不正确",
     "voiceIdLabel": "Voice ID",
     "voiceIdPlaceholder": "例如：AiShifu_teacher_voice",
+    "voiceIdPlaceholderVolcengine": "例如：S_v57vvPYM1",
     "voiceIdRequired": "请填写 Voice ID"
   },
   "status": {
@@ -140,6 +150,7 @@
     "failure": "失败原因",
     "minimax": "MiniMax",
     "owner": "创作者",
+    "provider": "服务商",
     "status": "状态",
     "updatedAt": "更新时间",
     "voice": "音色"

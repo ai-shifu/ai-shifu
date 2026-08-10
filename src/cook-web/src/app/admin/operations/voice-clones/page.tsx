@@ -51,10 +51,11 @@ import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import useOperatorGuard from '../useOperatorGuard';
-import type {
-  AdminOperationVoiceCloneFilters,
-  AdminOperationVoiceCloneItem,
-  AdminOperationVoiceCloneListResponse,
+import {
+  VOICE_CLONE_PROVIDERS,
+  type AdminOperationVoiceCloneFilters,
+  type AdminOperationVoiceCloneItem,
+  type AdminOperationVoiceCloneListResponse,
 } from '../operation-voice-clone-types';
 
 const PAGE_SIZE = 20;
@@ -79,6 +80,7 @@ const FILTER_SELECT_ITEM_CLASS =
 const FILTER_SELECT_INDICATOR_CLASS = 'left-auto right-2';
 
 const createDefaultFilters = (): AdminOperationVoiceCloneFilters => ({
+  provider: '',
   status: '',
   failure_reason: '',
   billing_status: '',
@@ -246,6 +248,15 @@ export default function AdminOperationVoiceClonesPage() {
       t(
         `module.operationsVoiceClone.billingStatus.${status}`,
         status || EMPTY_LABEL,
+      ),
+    [t],
+  );
+
+  const resolveProviderLabel = React.useCallback(
+    (provider: string) =>
+      t(
+        `module.operationsVoiceClone.providers.${provider || 'minimax'}`,
+        provider || EMPTY_LABEL,
       ),
     [t],
   );
@@ -422,6 +433,44 @@ export default function AdminOperationVoiceClonesPage() {
         ),
       },
       {
+        key: 'provider',
+        label: t('module.operationsVoiceClone.filters.provider'),
+        component: (
+          <Select
+            value={draftFilters.provider || ALL_OPTION_VALUE}
+            onValueChange={value =>
+              setDraftFilter(
+                'provider',
+                value === ALL_OPTION_VALUE ? '' : value,
+              )
+            }
+          >
+            <SelectTrigger className='h-9'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                value={ALL_OPTION_VALUE}
+                className={FILTER_SELECT_ITEM_CLASS}
+                indicatorClassName={FILTER_SELECT_INDICATOR_CLASS}
+              >
+                {t('common.core.all')}
+              </SelectItem>
+              {VOICE_CLONE_PROVIDERS.map(provider => (
+                <SelectItem
+                  key={provider}
+                  value={provider}
+                  className={FILTER_SELECT_ITEM_CLASS}
+                  indicatorClassName={FILTER_SELECT_INDICATOR_CLASS}
+                >
+                  {resolveProviderLabel(provider)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ),
+      },
+      {
         key: 'status',
         label: t('module.operationsVoiceClone.filters.status'),
         component: (
@@ -564,6 +613,7 @@ export default function AdminOperationVoiceClonesPage() {
       applyFilters,
       draftFilters,
       resolveBillingStatusLabel,
+      resolveProviderLabel,
       resolveStatusLabel,
       setDraftFilter,
       t,
@@ -666,6 +716,9 @@ export default function AdminOperationVoiceClonesPage() {
                 <TableHead className='w-[260px]'>
                   {t('module.operationsVoiceClone.table.voice')}
                 </TableHead>
+                <TableHead className='w-[110px]'>
+                  {t('module.operationsVoiceClone.table.provider')}
+                </TableHead>
                 <TableHead className='w-[100px]'>
                   {t('module.operationsVoiceClone.table.status')}
                 </TableHead>
@@ -723,6 +776,9 @@ export default function AdminOperationVoiceClonesPage() {
                     <div className='mt-1 truncate text-xs text-muted-foreground'>
                       {resolveVoiceIdentifier(item)}
                     </div>
+                  </TableCell>
+                  <TableCell className='w-[110px] whitespace-nowrap'>
+                    {resolveProviderLabel(item.provider)}
                   </TableCell>
                   <TableCell>
                     <span
@@ -814,6 +870,10 @@ export default function AdminOperationVoiceClonesPage() {
                   <DetailRow
                     label={t('module.operationsVoiceClone.detail.voiceId')}
                     value={resolveVoiceIdentifier(detail)}
+                  />
+                  <DetailRow
+                    label={t('module.operationsVoiceClone.detail.provider')}
+                    value={resolveProviderLabel(detail.provider)}
                   />
                   <DetailRow
                     label={t('module.operationsVoiceClone.detail.owner')}
