@@ -6,12 +6,21 @@ import {
   mockUpdateCouponStatus,
 } from './promotionsTestUtils.test-support';
 import AdminOperationPromotionsPage from './page';
-import { PROMOTION_FILTER_COLLAPSED_GRID_CLASS } from './promotionPageShared';
 
 describe('AdminOperationPromotionsPage list and pagination', () => {
-  test('keeps collapsed coupon filters shrinkable beside actions', () => {
-    expect(PROMOTION_FILTER_COLLAPSED_GRID_CLASS).toContain('minmax(0,180px)');
-    expect(PROMOTION_FILTER_COLLAPSED_GRID_CLASS).not.toContain('flex-none');
+  test('renders collapsed coupon filters shrinkable beside actions', async () => {
+    const { container } = render(<AdminOperationPromotionsPage />);
+
+    const collapsedGrid = Array.from(container.querySelectorAll('.grid')).find(
+      element => element.className.includes('minmax(0,180px)'),
+    );
+
+    expect(collapsedGrid).toBeInTheDocument();
+    expect(collapsedGrid).toHaveClass(
+      'xl:grid-cols-[minmax(0,180px)_minmax(0,210px)_minmax(0,190px)_minmax(0,250px)]',
+    );
+    expect(collapsedGrid).not.toHaveClass('xl:flex-none');
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalled());
   });
 
   test('loads coupon tab by default', async () => {
