@@ -36,8 +36,10 @@ import {
 import {
   completeProfileOnboarding,
   getProfileOnboarding,
+  isProfileOnboardingV2Status,
+  skipProfileOnboarding,
   updateWxcode,
-  type ProfileOnboardingStatus,
+  type ProfileOnboardingV2Status,
 } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 import type { EnvStoreState } from '@/c-types/store';
@@ -415,7 +417,7 @@ export default function ChatPage() {
   const learnerProfileSettingsOpenRef = useRef(learnerProfileSettingsOpen);
   learnerProfileSettingsOpenRef.current = learnerProfileSettingsOpen;
   const [profileOnboardingStatus, setProfileOnboardingStatus] =
-    useState<ProfileOnboardingStatus | null>(null);
+    useState<ProfileOnboardingV2Status | null>(null);
   const [profileOnboardingOpen, setProfileOnboardingOpen] = useState(false);
   const [profileOnboardingSubmitting, setProfileOnboardingSubmitting] =
     useState(false);
@@ -516,12 +518,36 @@ export default function ChatPage() {
         ) {
           return;
         }
-        if (status?.should_show && status.markdownflow?.trim()) {
+        if (!isProfileOnboardingV2Status(status)) {
+          debugWarn('[profile-onboarding] incompatible status contract', {
+            contractVersion: status?.contract_version || 'legacy',
+          });
+          profileOnboardingEligibilityRef.current = 'complete';
+          setProfileOnboardingReadyScope(learnerProfileScope);
+          return;
+        }
+        if (
+          !status.enabled ||
+          !status.guided_available ||
+          !status.should_show ||
+          status.presentation === 'hidden'
+        ) {
+          profileOnboardingEligibilityRef.current = 'complete';
+          setProfileOnboardingReadyScope(learnerProfileScope);
+          return;
+        }
+        if (
+          status.presentation === 'blocking' ||
+          status.presentation === 'non_blocking'
+        ) {
           profileOnboardingEligibilityRef.current = 'show';
           setProfileOnboardingStatus(status);
           setProfileOnboardingError('');
           if (!learnerProfileSettingsOpenRef.current) {
             setProfileOnboardingOpen(true);
+          }
+          if (status.presentation === 'non_blocking') {
+            setProfileOnboardingReadyScope(learnerProfileScope);
           }
           return;
         }
@@ -550,29 +576,40 @@ export default function ChatPage() {
   ]);
 
   const handleProfileOnboardingComplete = useCallback(
-    async (variables: Record<string, string>) => {
+    async (
+      learnerProfile: string,
+      triggerSource: 'guided' | 'settings',
+      sessionId?: string,
+    ) => {
       const requestScope = learnerProfileScope;
       setProfileOnboardingSubmitting(true);
       setProfileOnboardingError('');
       try {
         await completeProfileOnboarding({
-          skipped: false,
-          variables,
+          learner_profile: learnerProfile,
+          trigger_source: triggerSource,
+          ...(sessionId ? { session_id: sessionId } : {}),
         });
         if (learnerProfileScopeRef.current !== requestScope) {
-          return;
+          return false;
         }
         await refreshUserInfo().catch(error => {
+          if (learnerProfileScopeRef.current !== requestScope) {
+            return;
+          }
           debugWarn('[profile-onboarding] failed to refresh user info', error);
           notifyProfileOnboardingRefreshDelay();
         });
-        if (learnerProfileScopeRef.current === requestScope) {
-          releaseProfileOnboarding();
+        if (learnerProfileScopeRef.current !== requestScope) {
+          return false;
         }
+        releaseProfileOnboarding();
+        return true;
       } catch (error) {
         if (learnerProfileScopeRef.current === requestScope) {
           setProfileOnboardingError(resolveProfileOnboardingError(error));
         }
+        return false;
       } finally {
         if (learnerProfileScopeRef.current === requestScope) {
           setProfileOnboardingSubmitting(false);
@@ -588,32 +625,35 @@ export default function ChatPage() {
     ],
   );
 
-  const handleProfileOnboardingSkip = useCallback(async () => {
-    const requestScope = learnerProfileScope;
-    setProfileOnboardingSubmitting(true);
-    setProfileOnboardingError('');
-    try {
-      await completeProfileOnboarding({
-        skipped: true,
-        variables: {},
-      });
-      if (learnerProfileScopeRef.current === requestScope) {
+  const handleProfileOnboardingSkip = useCallback(
+    async (sessionId?: string) => {
+      const requestScope = learnerProfileScope;
+      setProfileOnboardingSubmitting(true);
+      setProfileOnboardingError('');
+      try {
+        await skipProfileOnboarding(sessionId);
+        if (learnerProfileScopeRef.current !== requestScope) {
+          return false;
+        }
         releaseProfileOnboarding();
+        return true;
+      } catch (error) {
+        if (learnerProfileScopeRef.current === requestScope) {
+          setProfileOnboardingError(resolveProfileOnboardingError(error));
+        }
+        return false;
+      } finally {
+        if (learnerProfileScopeRef.current === requestScope) {
+          setProfileOnboardingSubmitting(false);
+        }
       }
-    } catch (error) {
-      if (learnerProfileScopeRef.current === requestScope) {
-        setProfileOnboardingError(resolveProfileOnboardingError(error));
-      }
-    } finally {
-      if (learnerProfileScopeRef.current === requestScope) {
-        setProfileOnboardingSubmitting(false);
-      }
-    }
-  }, [
-    learnerProfileScope,
-    releaseProfileOnboarding,
-    resolveProfileOnboardingError,
-  ]);
+    },
+    [
+      learnerProfileScope,
+      releaseProfileOnboarding,
+      resolveProfileOnboardingError,
+    ],
+  );
 
   const handleLearnerProfileSettingsClose = useCallback(
     (reason: 'dismiss' | 'saved') => {
@@ -1149,8 +1189,9 @@ export default function ChatPage() {
         {profileOnboardingStatus ? (
           <ProfileOnboardingModal
             open={profileOnboardingOpen}
-            markdownflow={profileOnboardingStatus.markdownflow}
-            currentValues={profileOnboardingStatus.current_values}
+            presentation={profileOnboardingStatus.presentation}
+            guidedAvailable={profileOnboardingStatus.guided_available}
+            maxLength={profileOnboardingStatus.max_length}
             errorMessage={profileOnboardingError}
             submitting={profileOnboardingSubmitting}
             onComplete={handleProfileOnboardingComplete}

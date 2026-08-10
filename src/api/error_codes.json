@@ -64,6 +64,7 @@
   "server.shifu.outlineItemNotFound": 4009,
   "server.shifu.outlineStructureBroken": 4010,
   "server.learn.ttsRateLimited": 4011,
+  "server.profile.profileOnboardingBusy": 4013,
   "server.pay.payChannelNotSupport": 5001,
   "server.pay.wechatOpenIdRequired": 5002,
   "server.billing.creditInsufficient": 7101,
