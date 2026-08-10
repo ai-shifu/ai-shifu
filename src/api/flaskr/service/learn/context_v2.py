@@ -911,18 +911,14 @@ class RunScriptPreviewContextV2:
         sent_prompt_chunks: list[str] = []
         preview_trace_input: str | None = None
         try:
-            final_payload = preview_request.model_dump()
-            final_payload["content"] = document
-            final_payload["document_prompt"] = document_prompt
-            final_payload["model"] = model
-            final_payload["temperature"] = temperature
-            final_payload["variables"] = resolved_variables
             self.app.logger.info(
-                "preview final payload | shifu_bid=%s | outline_bid=%s | user_bid=%s | payload=%s",
+                "preview payload prepared | shifu_bid=%s | outline_bid=%s | "
+                "user_bid=%s | has_prompt=%s | learner_profile_attached=%s",
                 shifu_bid,
                 outline_bid,
                 user_bid,
-                json.dumps(final_payload, ensure_ascii=False),
+                bool(normalized_document_prompt),
+                LEARNER_PROFILE_PROMPT_MARKER in normalized_document_prompt,
             )
 
             context_store = _PreviewContextStore(

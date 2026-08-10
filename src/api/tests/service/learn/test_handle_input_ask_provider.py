@@ -561,6 +561,7 @@ def test_handle_input_ask_provider_response_skips_llm(app, monkeypatch):
 
 def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkeypatch):
     from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn import utils_v2
 
     ask_provider_config = {
         "provider": "dify",
@@ -584,20 +585,29 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
     )
     monkeypatch.setattr(module, "chat_llm", lambda *_args, **_kwargs: iter([]))
 
+    sensitive_profile = "PRIVATE ASK LEARNER PROFILE"
     effective_course_prompt = (
         "COURSE_PROMPT\n\n"
         "<!-- ai-shifu:learner-profile:v1 -->\n"
         '<learner_profile_data format="json-string">\n'
-        '"喜欢图解"\n'
+        f'"{sensitive_profile}"\n'
         "</learner_profile_data>"
     )
     context = _Context()
     context.get_system_prompt = lambda _outline_bid: effective_course_prompt
     monkeypatch.setattr(
-        module,
-        "get_fmt_prompt",
-        lambda _app, _user_id, _course_id, template, **_kwargs: template,
+        utils_v2,
+        "get_user_profiles",
+        lambda *_args, **_kwargs: {},
     )
+    monkeypatch.setattr(module, "get_fmt_prompt", utils_v2.get_fmt_prompt)
+    log_messages = []
+
+    def _capture_info(message, *args):
+        log_messages.append(message % args if args else str(message))
+
+    monkeypatch.setattr(app.logger, "info", _capture_info)
+    dummy_trace = _DummyTrace()
 
     events = list(
         module.handle_input_ask(
@@ -613,7 +623,7 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
                 position=1,
             ),
             trace_args={"output": ""},
-            trace=_DummyTrace(),
+            trace=dummy_trace,
         )
     )
 
@@ -636,6 +646,9 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
     user_content = captured["messages"][1]["content"]
     assert user_content.endswith("hello")
     assert "plain text or standard Markdown" in user_content
+    assert sensitive_profile not in "\n".join(log_messages)
+    provider_generation_input = dummy_trace.last_span.generations[0].kwargs["input"]
+    assert sensitive_profile in provider_generation_input["messages"][0]["content"]
 
 
 def test_handle_input_ask_formats_provider_prompt_with_request_language(

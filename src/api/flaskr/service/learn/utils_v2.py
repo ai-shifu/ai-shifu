@@ -138,7 +138,11 @@ def get_fmt_prompt(
     Returns:
         str: Fmt prompt
     """
-    app.logger.info("raw prompt:" + profile_tmplate)
+    app.logger.info(
+        "format prompt | has_template=%s | template_chars=%s",
+        bool(profile_tmplate),
+        len(profile_tmplate),
+    )
     propmpt_keys = []
     profiles = {}
 
@@ -163,7 +167,11 @@ def get_fmt_prompt(
         prompt = input if not profile_tmplate else profile_tmplate
     else:
         prompt = safe_format_template(profile_tmplate, fmt_keys)
-    app.logger.info(f"fomat input:{prompt}")
+    app.logger.info(
+        "formatted prompt | prompt_chars=%s | variable_count=%s",
+        len(prompt),
+        len(fmt_keys),
+    )
     return prompt
 
 

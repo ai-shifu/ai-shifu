@@ -1505,7 +1505,13 @@ class CoursePromptCompositionTests(unittest.TestCase):
         )
 
         with (
-            patch.object(preview_ctx, "_get_outline_record", return_value=None),
+            patch.object(
+                preview_ctx,
+                "_get_outline_record",
+                return_value=types.SimpleNamespace(
+                    content="Preview document", title="Outline"
+                ),
+            ),
             patch.object(preview_ctx, "_get_shifu_record", return_value=None),
             patch.object(
                 preview_ctx,
@@ -1517,24 +1523,43 @@ class CoursePromptCompositionTests(unittest.TestCase):
                 "_resolve_llm_settings",
                 return_value=("gpt-test", 0.2),
             ),
+            patch.object(preview_ctx, "_resolve_preview_variables", return_value={}),
+            patch(
+                "flaskr.service.learn.context_v2.create_trace_with_root_span",
+                return_value=(_FakeLangfuseTrace(), _FakeLangfuseSpan()),
+            ),
+            patch(
+                "flaskr.service.learn.context_v2._PreviewContextStore",
+                side_effect=ValueError("stop after preview payload log"),
+            ),
             patch.object(app.logger, "info") as mock_info,
+            self.assertRaises(ValueError),
         ):
-            with self.assertRaises(ValueError):
-                list(
-                    preview_ctx.stream_preview(
-                        preview_request=preview_request,
-                        shifu_bid="shifu-1",
-                        outline_bid="outline-1",
-                        user_bid="user-1",
-                        session_id="preview-session-1",
-                    )
+            list(
+                preview_ctx.stream_preview(
+                    preview_request=preview_request,
+                    shifu_bid="shifu-1",
+                    outline_bid="outline-1",
+                    user_bid="user-1",
+                    session_id="preview-session-1",
                 )
+            )
 
         log_calls = repr(mock_info.call_args_list)
         self.assertNotIn(sensitive_profile, log_calls)
         self.assertIn("has_prompt=%s", log_calls)
         self.assertIn("learner_profile_attached=%s", log_calls)
         self.assertIn("True", log_calls)
+        payload_log_calls = [
+            log_call
+            for log_call in mock_info.call_args_list
+            if log_call.args[0].startswith("preview payload prepared")
+        ]
+        self.assertEqual(len(payload_log_calls), 1)
+        self.assertEqual(
+            payload_log_calls[0].args[1:],
+            ("shifu-1", "outline-1", "user-1", True, True),
+        )
 
     def test_preview_learner_lookup_failure_cleans_the_database_session(self):
         app = Flask("preview-course-prompt-lookup-failure")
