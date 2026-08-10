@@ -1,5 +1,8 @@
 import json
+import time
 from datetime import datetime
+
+import jwt
 
 
 def _post_json(client, path: str, payload: dict, headers: dict | None = None):
@@ -193,6 +196,61 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
         assert target_state is not None
         assert target_state.status == "completed"
         assert target_state.trigger_source == "settings"
+
+
+def test_password_login_ignores_invalid_and_expired_optional_tokens(test_client, app):
+    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.dao import db
+    from flaskr.service.user.models import UserInfo
+    from flaskr.service.user.repository import create_user_entity
+
+    target_phone = "15500002333"
+    password = "Abcd1234"
+
+    with app.app_context():
+        target_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=target_phone, code="9999"
+        )
+        target_user_id = target_token.userInfo.user_id
+        guest = create_user_entity(
+            user_bid="password-expired-token-guest",
+            identify="password-expired-token-guest",
+            nickname="Guest",
+            learner_profile="expired token profile",
+            learner_profile_updated_at=datetime.fromisoformat("2026-08-04T06:00:00"),
+        )
+        db.session.commit()
+        expired_token = jwt.encode(
+            {
+                "user_id": guest.user_bid,
+                "exp": int(time.time()) - 60,
+            },
+            app.config["SECRET_KEY"],
+            algorithm="HS256",
+        )
+
+    _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": target_phone, "code": "9999", "new_password": password},
+        headers={"Token": target_token.token},
+    )
+
+    for stale_token in ("not-a-jwt", expired_token):
+        response, body = _post_json(
+            test_client,
+            "/api/user/login_password",
+            {"identifier": target_phone, "password": password},
+            headers={"Token": stale_token},
+        )
+        assert response.status_code == 200
+        assert body["code"] == 0
+        assert body["data"]["userInfo"]["user_id"] == target_user_id
+
+    with app.app_context():
+        stored_target = UserInfo.query.filter_by(user_bid=target_user_id).one()
+        assert stored_target.learner_profile == ""
+        assert stored_target.learner_profile_updated_at is None
 
 
 def test_sms_login_route_logs_in_with_phone_code(test_client):

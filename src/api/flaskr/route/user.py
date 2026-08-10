@@ -192,6 +192,25 @@ def optional_token_validation(f):
     return decorated_function
 
 
+def _best_effort_password_login_user(app: Flask):
+    """Resolve an optional merge source without blocking credential recovery."""
+
+    token = request.cookies.get("token", None)
+    if not token:
+        token = request.args.get("token", None)
+    if not token:
+        token = request.headers.get("Token", None)
+    if not token and request.is_json:
+        token = request.get_json().get("token", None)
+    if not token:
+        return None
+
+    try:
+        return validate_user(app, str(token))
+    except Exception:  # noqa: BLE001 - stale login tokens must not block recovery
+        return None
+
+
 def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.before_request
     def before_request():
@@ -1007,7 +1026,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/login_password", methods=["POST"])
     @bypass_token_validation
-    @optional_token_validation
     def login_password():
         """
         Login with password
@@ -1032,7 +1050,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         # TODO: Add rate-limiting and failed login attempt tracking
         # (record identifier, request.remote_addr, timestamp on failure)
         auth_result = provider.verify(app, vr)
-        current_user = getattr(request, "user", None)
+        current_user = _best_effort_password_login_user(app)
         current_user_id = (
             getattr(current_user, "user_id", None) if current_user is not None else None
         )
