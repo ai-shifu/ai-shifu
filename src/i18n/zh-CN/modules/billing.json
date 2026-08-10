@@ -598,6 +598,109 @@
       "selfServe": "自助支持"
     }
   },
+  "globalPricing": {
+    "actions": {
+      "buyCredits": "购买积分",
+      "choosePlan": "选择套餐",
+      "viewMonthly": "查看月付套餐"
+    },
+    "annualSavings": "每年节省 {amount}（{percent}%）",
+    "approximatePricePrefix": "约",
+    "audienceLabel": "适用场景",
+    "billedAnnually": "每 12 个月支付 {price}",
+    "cancelAnytime": "按月付费，可随时取消。",
+    "comingSoon": {
+      "close": "知道了",
+      "description": "我们正在开发支付功能，敬请期待。",
+      "inlineNotice": "在线支付功能仍在开发中，选择套餐或积分包不会产生扣款。",
+      "title": "支付功能即将上线"
+    },
+    "creditPacks": {
+      "activeSubscriptionRequired": "使用积分包积分时，账户必须有生效中的订阅。订阅失效后，未使用积分仍保留在账户中；再次开通套餐后即可继续使用。",
+      "instantAndPermanent": "购买后积分立即到账，永久有效。",
+      "packName": "{credits} 积分"
+    },
+    "creditsLabel": "周期积分",
+    "creditsPerMonth": "每月 {credits} 积分",
+    "creditsPerYear": "每 12 个月计费周期 {credits} 积分",
+    "cycles": {
+      "annual": "年付",
+      "monthly": "月付"
+    },
+    "features": {
+      "coreTeaching": "全部课程制作、教学和学员交付功能",
+      "customBranding": "自定义品牌标识",
+      "customDomain": "自定义域名",
+      "dedicatedSupport": "专属技术支持",
+      "exclusiveTraining": "专属课程制作培训",
+      "higherConcurrency": "支持更多课程同时生成和学员同时学习",
+      "prioritySupport": "技术优先支持"
+    },
+    "featuresIncludes": {
+      "business": "享有 Growth 全部权益，以及：",
+      "growth": "享有 Studio 全部权益，以及：",
+      "scale": "享有 Business 全部权益，以及："
+    },
+    "featuresLabel": "包含权益",
+    "footnote": {
+      "intro": "学习人次是基于平台经验的预估，按“一人完整学完一次课程，课程规模约 10 个小节，平均每小节正常学习约 15 分钟，全部使用 DeepSeek，并开启听课模式”的口径估算。实际扣费会根据学习、预览、调试中产生的模型消耗结算，最终以积分明细为准。积分消耗影响因素：",
+      "validity": "积分有效期：月付套餐积分自到账之日起 30 天内有效（含当日）；年付套餐积分自到账之日起 12 个月内有效。两类均以到期日 23:59 为截止。"
+    },
+    "learnerEstimateLabel": "预计支持学习人次",
+    "learnerEstimateValue": "{minimum} - {maximum} 人次",
+    "monthlyOnly": "仅支持月付",
+    "mostPopular": "最受欢迎",
+    "perMonth": "/ 月",
+    "plans": {
+      "business": {
+        "description": "规模化交付个性化学习的大型机构。",
+        "estimates": {
+          "annual": "5,000 - 15,000 人次",
+          "monthly": "400 - 1,200 人次"
+        },
+        "name": "Business"
+      },
+      "growth": {
+        "description": "中小型教学机构。",
+        "estimates": {
+          "annual": "2,500 - 7,500 人次",
+          "monthly": "200 - 600 人次"
+        },
+        "name": "Growth"
+      },
+      "scale": {
+        "description": "开展大规模学习项目的超大型机构。",
+        "estimates": {
+          "annual": "11,000 - 33,000 人次",
+          "monthly": "900 - 2,700 人次"
+        },
+        "name": "Scale"
+      },
+      "studio": {
+        "description": "进行轻量级课程体验或验证首个学习项目。",
+        "estimates": {
+          "annual": "仅支持月付",
+          "monthly": "50 - 150 人次"
+        },
+        "name": "Studio"
+      }
+    },
+    "saveBadge": "节省约 20%",
+    "states": {
+      "loading": "正在加载套餐……",
+      "unavailableDescription": "请稍后重试；若问题持续存在，请联系技术支持。",
+      "unavailableTitle": "套餐暂时无法使用"
+    },
+    "tabs": {
+      "creditPacks": "积分包",
+      "plans": "套餐"
+    },
+    "validity": {
+      "annual": "自积分到账之日起 12 个月内有效，到期日 23:59 截止。",
+      "monthly": "自积分到账之日起 30 天内有效（含当日），到期日 23:59 截止。"
+    },
+    "validityLabel": "积分有效期"
+  },
   "ledger": {
     "bucketDescription": "查看积分来源积分桶、当前余额，以及后续实际扣减时会采用的顺序。",
     "category": {
