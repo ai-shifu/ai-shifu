@@ -1,15 +1,18 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
+import { streamProfileOnboardingRuntime } from '@/lib/profileOnboardingSse';
 import ProfileOnboardingAdminPage from './page';
 
 const mockToast = jest.fn();
+const RUN_MOCKED_PREVIEW_LABEL = 'run mocked preview';
 
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     getAdminOperationProfileOnboardingConfig: jest.fn(),
     updateAdminOperationProfileOnboardingConfig: jest.fn(),
+    createAdminOperationProfileOnboardingPreview: jest.fn(),
   },
 }));
 
@@ -30,43 +33,100 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string>) =>
       params?.keys ? `${key}:${params.keys}` : key,
+    i18n: { language: 'zh-CN', resolvedLanguage: 'zh-CN' },
   }),
 }));
+
+jest.mock('@/lib/profileOnboardingSse', () => ({
+  streamProfileOnboardingRuntime: jest.fn(() => ({ close: jest.fn() })),
+}));
+
+jest.mock(
+  '@/components/profile-onboarding/ProfileOnboardingConversation',
+  () => ({
+    __esModule: true,
+    default: ({
+      createSession,
+      runSession,
+      onDraftReady,
+    }: {
+      createSession: () => Promise<{ session_id: string }>;
+      runSession: (params: {
+        sessionId: string;
+        expectedBlockIndex: number;
+        requestId: string;
+        userInput?: Record<string, string[]>;
+        onMessage: () => void;
+        onError: () => void;
+      }) => unknown;
+      onDraftReady: (draft: string, sessionId: string) => void;
+    }) => (
+      <button
+        type='button'
+        onClick={async () => {
+          const session = await createSession();
+          runSession({
+            sessionId: session.session_id,
+            expectedBlockIndex: 2,
+            requestId: 'preview-run-1',
+            userInput: { research_topic: ['AI 教学'] },
+            onMessage: () => undefined,
+            onError: () => undefined,
+          });
+          onDraftReady('预览画像', session.session_id);
+        }}
+      >
+        {RUN_MOCKED_PREVIEW_LABEL}
+      </button>
+    ),
+  }),
+);
 
 const mockGetConfig = api.getAdminOperationProfileOnboardingConfig as jest.Mock;
 const mockUpdateConfig =
   api.updateAdminOperationProfileOnboardingConfig as jest.Mock;
+const mockCreatePreview =
+  api.createAdminOperationProfileOnboardingPreview as jest.Mock;
 
 describe('ProfileOnboardingAdminPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetConfig.mockResolvedValue({
       enabled: true,
-      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
+      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
+      document_prompt: '只调研与学习有关的信息',
       allowed_variable_keys: [
         'sys_user_nickname',
         'sys_user_style',
         'sys_user_background',
       ],
-      version: 2,
+      config_revision: 2,
       updated_by: 'operator-1',
       updated_at: '2026-06-15T00:00:00+00:00',
     });
+    mockCreatePreview.mockResolvedValue({ session_id: 'preview-session-1' });
   });
 
-  test('loads and saves profile onboarding configuration', async () => {
+  test('saves arbitrary official MarkdownFlow variables and the document prompt', async () => {
     mockUpdateConfig.mockResolvedValue({
       enabled: true,
-      markdownflow: '?[%{{sys_user_style}} 简洁 | 详细]',
+      markdownflow: '?[%{{arbitrary_runtime_variable}}...你的目标？]',
+      document_prompt: '根据回答自然追问',
+      config_revision: 3,
     });
 
     render(<ProfileOnboardingAdminPage />);
 
     const editor = await screen.findByDisplayValue(
-      '?[%{{sys_user_nickname}}...怎么称呼你？]',
+      '?[%{{research_topic}}...最近在关注什么？]',
     );
     fireEvent.change(editor, {
-      target: { value: '?[%{{sys_user_style}} 简洁 | 详细]' },
+      target: {
+        value: '?[%{{arbitrary_runtime_variable}}...你的目标？]',
+      },
+    });
+    fireEvent.change(screen.getByDisplayValue('只调研与学习有关的信息'), {
+      target: { value: '根据回答自然追问' },
     });
 
     fireEvent.click(
@@ -78,7 +138,8 @@ describe('ProfileOnboardingAdminPage', () => {
     await waitFor(() => {
       expect(mockUpdateConfig).toHaveBeenCalledWith({
         enabled: true,
-        markdownflow: '?[%{{sys_user_style}} 简洁 | 详细]',
+        markdownflow: '?[%{{arbitrary_runtime_variable}}...你的目标？]',
+        document_prompt: '根据回答自然追问',
       });
     });
     expect(mockToast).toHaveBeenCalledWith({
@@ -86,15 +147,127 @@ describe('ProfileOnboardingAdminPage', () => {
     });
   });
 
-  test('blocks non-whitelisted variables before saving', async () => {
+  test('preserves an intentionally empty document prompt', async () => {
+    mockGetConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
+      document_prompt: '',
+      config_revision: 2,
+    });
+    mockUpdateConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
+      document_prompt: '',
+      config_revision: 3,
+    });
+
     render(<ProfileOnboardingAdminPage />);
 
-    const editor = await screen.findByDisplayValue(
-      '?[%{{sys_user_nickname}}...怎么称呼你？]',
+    expect(
+      await screen.findByLabelText(
+        'module.profileOnboarding.admin.documentPrompt',
+      ),
+    ).toHaveValue('');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
     );
-    fireEvent.change(editor, {
-      target: { value: '?[%{{sys_user_language}} 中文 | English]' },
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith({
+        enabled: false,
+        markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
+        document_prompt: '',
+      });
     });
+  });
+
+  test('preserves an intentionally empty MarkdownFlow while disabled', async () => {
+    mockGetConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: '',
+      document_prompt: '原有总结要求',
+      config_revision: 2,
+    });
+    mockUpdateConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: '',
+      document_prompt: '更新后的总结要求',
+      config_revision: 3,
+    });
+
+    render(<ProfileOnboardingAdminPage />);
+
+    const flowEditor = await screen.findByLabelText(
+      'module.profileOnboarding.admin.markdownflow',
+    );
+    expect(flowEditor).toHaveValue('');
+    fireEvent.change(screen.getByDisplayValue('原有总结要求'), {
+      target: { value: '更新后的总结要求' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith({
+        enabled: false,
+        markdownflow: '',
+        document_prompt: '更新后的总结要求',
+      });
+    });
+  });
+
+  test('accepts the legacy version alias and compatibility allowlist', async () => {
+    mockGetConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: '',
+      allowed_variable_keys: ['sys_user_background'],
+      version: 7,
+    });
+
+    render(<ProfileOnboardingAdminPage />);
+
+    await screen.findByLabelText('module.profileOnboarding.admin.markdownflow');
+    expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.queryByText('sys_user_background')).not.toBeInTheDocument();
+  });
+
+  test('uses the legacy version alias returned after save', async () => {
+    mockUpdateConfig.mockResolvedValue({
+      enabled: true,
+      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
+      document_prompt: '只调研与学习有关的信息',
+      allowed_variable_keys: ['sys_user_background'],
+      version: 9,
+    });
+
+    render(<ProfileOnboardingAdminPage />);
+    await screen.findByDisplayValue(
+      '?[%{{research_topic}}...最近在关注什么？]',
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.save',
+      }),
+    );
+
+    expect(await screen.findByText('9')).toBeInTheDocument();
+  });
+
+  test('requires a document only when collection is enabled', async () => {
+    mockGetConfig.mockResolvedValue({
+      enabled: true,
+      markdownflow: '',
+      document_prompt: '',
+      config_revision: 2,
+    });
+
+    render(<ProfileOnboardingAdminPage />);
+    await screen.findByLabelText('module.profileOnboarding.admin.markdownflow');
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -104,9 +277,53 @@ describe('ProfileOnboardingAdminPage', () => {
 
     expect(mockUpdateConfig).not.toHaveBeenCalled();
     expect(
-      screen.getByText(
-        'module.profileOnboarding.admin.invalidVariables:sys_user_language',
-      ),
+      screen.getByText('module.profileOnboarding.admin.documentRequired'),
     ).toBeInTheDocument();
+  });
+
+  test('creates an isolated server preview from unsaved configuration', async () => {
+    render(<ProfileOnboardingAdminPage />);
+    const flowEditor = await screen.findByDisplayValue(
+      '?[%{{research_topic}}...最近在关注什么？]',
+    );
+    fireEvent.change(flowEditor, {
+      target: { value: '?[%{{unsaved_topic}}...未保存的问题？]' },
+    });
+    fireEvent.change(screen.getByDisplayValue('只调研与学习有关的信息'), {
+      target: { value: '未保存的调研提示词' },
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.preview',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: RUN_MOCKED_PREVIEW_LABEL }),
+    );
+
+    await waitFor(() => {
+      expect(mockCreatePreview).toHaveBeenCalledWith({
+        markdownflow: '?[%{{unsaved_topic}}...未保存的问题？]',
+        document_prompt: '未保存的调研提示词',
+        language: 'zh-CN',
+      });
+    });
+    expect(streamProfileOnboardingRuntime).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: '/api/shifu/admin/operations/profile-onboarding/preview/preview-session-1/run',
+        payload: {
+          expected_block_index: 2,
+          request_id: 'preview-run-1',
+          user_input: { research_topic: ['AI 教学'] },
+        },
+        language: 'zh-CN',
+      }),
+    );
+    expect(await screen.findByDisplayValue('预览画像')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.profileOnboarding.admin.previewProfileNotice'),
+    ).toBeInTheDocument();
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
   });
 });
