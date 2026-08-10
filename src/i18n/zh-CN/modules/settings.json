@@ -15,6 +15,7 @@
   "gender": "性别",
   "genderPlaceholder": "请选择性别",
   "home": "主页",
+  "learnerProfilePartialSave": "其他设置已保存，但这段介绍尚未保存。请根据上方提示重试。",
   "newPassword": "新密码",
   "nickname": "昵称",
   "nicknamePersonal": "昵称（同时作为个人基本信息）",

@@ -3172,6 +3172,7 @@ export type I18nKey =
   | 'module.settings.gender'
   | 'module.settings.genderPlaceholder'
   | 'module.settings.home'
+  | 'module.settings.learnerProfilePartialSave'
   | 'module.settings.newPassword'
   | 'module.settings.nickname'
   | 'module.settings.nicknamePersonal'

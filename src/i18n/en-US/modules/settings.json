@@ -15,6 +15,7 @@
   "gender": "Gender",
   "genderPlaceholder": "Please select gender",
   "home": "Home",
+  "learnerProfilePartialSave": "Other settings were saved, but this introduction was not. Follow the guidance above and try again.",
   "newPassword": "New Password",
   "nickname": "Nickname",
   "nicknamePersonal": "Nickname (also as personal info)",

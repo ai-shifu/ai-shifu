@@ -8,6 +8,9 @@ import {
 } from '@testing-library/react';
 import { getUserProfile, updateUserProfile } from '@/c-api/user';
 import { UserSettings } from './UserSettings';
+import enSettings from '../../../../../../../i18n/en-US/modules/settings.json';
+import frSettings from '../../../../../../../i18n/fr-FR/modules/settings.json';
+import zhSettings from '../../../../../../../i18n/zh-CN/modules/settings.json';
 
 const mockSaveLearnerProfile = jest.fn();
 const mockRefreshUserInfo = jest.fn();
@@ -122,7 +125,7 @@ describe('UserSettings learner profile save integration', () => {
     mockRefreshUserInfo.mockResolvedValue(undefined);
   });
 
-  test('keeps settings open when the learner profile draft cannot be saved', async () => {
+  test('reports a partial save when legacy fields succeed but the learner profile fails', async () => {
     const onClose = jest.fn();
     mockSaveLearnerProfile.mockResolvedValue(false);
     render(
@@ -141,6 +144,43 @@ describe('UserSettings learner profile save integration', () => {
     await waitFor(() => {
       expect(mockSaveLearnerProfile).toHaveBeenCalledTimes(1);
     });
+    expect(mockUpdateUserProfile).toHaveBeenCalledTimes(1);
+    expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'module.settings.learnerProfilePartialSave',
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test('keeps the partial-save message aligned across languages', () => {
+    expect(zhSettings.learnerProfilePartialSave).toContain('其他设置已保存');
+    expect(enSettings.learnerProfilePartialSave).toContain(
+      'Other settings were saved',
+    );
+    expect(frSettings.learnerProfilePartialSave).toContain(
+      'Les autres paramètres ont été enregistrés',
+    );
+  });
+
+  test('does not save the learner profile when legacy fields fail', async () => {
+    const onClose = jest.fn();
+    mockUpdateUserProfile.mockRejectedValue(new Error('legacy save failed'));
+    mockSaveLearnerProfile.mockResolvedValue(true);
+    render(
+      <UserSettings
+        onHomeClick={jest.fn()}
+        className=''
+        onClose={onClose}
+      />,
+    );
+
+    await screen.findByTestId('learner-profile-settings');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.settings.save' }),
+    );
+
+    await waitFor(() => expect(mockUpdateUserProfile).toHaveBeenCalledTimes(1));
+    expect(mockSaveLearnerProfile).not.toHaveBeenCalled();
     expect(mockRefreshUserInfo).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });

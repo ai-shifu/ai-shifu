@@ -57,12 +57,14 @@ export const UserSettings = ({
   const [birth, setBirth] = useState('');
 
   const [dynFormData, setDynFormData] = useState([]);
+  const [partialSaveNotice, setPartialSaveNotice] = useState('');
   const learnerProfileSettingsRef = useRef<LearnerProfileSettingsHandle>(null);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
 
   const onSaveSettingsClick = useCallback(async () => {
     const saveUserId = userId;
+    setPartialSaveNotice('');
     const data = [];
     // @ts-expect-error EXPECT
     data.push({
@@ -93,14 +95,29 @@ export const UserSettings = ({
         value: v.value,
       });
     });
-    await updateUserProfile(data, courseId);
+    try {
+      await updateUserProfile(data, courseId);
+    } catch {
+      return;
+    }
     if (userIdRef.current !== saveUserId) {
       return;
     }
     if (!isBasicInfo) {
       const learnerProfileSaved =
         await learnerProfileSettingsRef.current?.saveIfDirty();
-      if (learnerProfileSaved === false || userIdRef.current !== saveUserId) {
+      if (userIdRef.current !== saveUserId) {
+        return;
+      }
+      if (learnerProfileSaved === false) {
+        try {
+          await refreshUserInfo();
+        } catch {
+          // The legacy save already succeeded; keep the detailed section error.
+        }
+        if (userIdRef.current === saveUserId) {
+          setPartialSaveNotice(t('module.settings.learnerProfilePartialSave'));
+        }
         return;
       }
     }
@@ -119,6 +136,7 @@ export const UserSettings = ({
     sex,
     courseId,
     isBasicInfo,
+    t,
     userId,
   ]);
 
@@ -294,6 +312,14 @@ export const UserSettings = ({
                   ref={learnerProfileSettingsRef}
                   draftStorageScope={userId}
                 />
+              ) : null}
+              {partialSaveNotice ? (
+                <div
+                  role='alert'
+                  className='mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900'
+                >
+                  {partialSaveNotice}
+                </div>
               ) : null}
             </div>
             <div className={styles.settingFooter}>

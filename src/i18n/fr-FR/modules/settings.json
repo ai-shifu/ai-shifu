@@ -15,6 +15,7 @@
   "gender": "Genre",
   "genderPlaceholder": "Veuillez sélectionner le genre",
   "home": "Accueil",
+  "learnerProfilePartialSave": "Les autres paramètres ont été enregistrés, mais pas cette présentation. Suivez les indications ci-dessus et réessayez.",
   "newPassword": "Nouveau mot de passe",
   "nickname": "Pseudonyme",
   "nicknamePersonal": "Pseudonyme (également utilisé comme information personnelle)",
