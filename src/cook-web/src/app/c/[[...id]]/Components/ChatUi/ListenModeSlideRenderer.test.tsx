@@ -35,6 +35,7 @@ const mockAskBlock = jest.fn(
     />
   ),
 );
+let mockSlideMountId = 0;
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -58,6 +59,7 @@ jest.mock('next/image', () => ({
 }));
 
 jest.mock('markdown-flow-ui/slide', () => {
+  const ReactRuntime = jest.requireActual('react') as typeof React;
   const slideCustomActionContext = {
     currentElement: {
       blockBid: 'content-1',
@@ -76,16 +78,26 @@ jest.mock('markdown-flow-ui/slide', () => {
         playerCustomActions?:
           | React.ReactNode
           | ((context: typeof slideCustomActionContext) => React.ReactNode);
-      }) => (
-        <div data-testid='mock-slide'>
-          <audio data-testid='slide-audio' />
-          <div data-testid='slide-custom-actions'>
-            {typeof props.playerCustomActions === 'function'
-              ? props.playerCustomActions(slideCustomActionContext)
-              : props.playerCustomActions}
+      }) => {
+        const mountId = ReactRuntime.useMemo(() => {
+          mockSlideMountId += 1;
+          return mockSlideMountId;
+        }, []);
+
+        return (
+          <div
+            data-testid='mock-slide'
+            data-mount-id={mountId}
+          >
+            <audio data-testid='slide-audio' />
+            <div data-testid='slide-custom-actions'>
+              {typeof props.playerCustomActions === 'function'
+                ? props.playerCustomActions(slideCustomActionContext)
+                : props.playerCustomActions}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     ),
   };
 });
@@ -148,6 +160,7 @@ const originalRequestFullscreen = HTMLElement.prototype.requestFullscreen;
 describe('ListenModeSlideRenderer', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    mockSlideMountId = 0;
     getMockSlide().mockClear();
     mockAskBlock.mockClear();
     mockIsLessonFeedbackInteractionContent.mockClear();
@@ -1152,6 +1165,109 @@ describe('ListenModeSlideRenderer', () => {
     await waitFor(() => {
       expect(newAudioElement.defaultPlaybackRate).toBe(1.25);
       expect(newAudioElement.playbackRate).toBe(1.25);
+    });
+  });
+
+  it('remounts the slide on mobile viewport orientation changes to clear drag offsets', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 390,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 844,
+    });
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Slide',
+            element_bid: 'content-1',
+            element_type: 'html',
+          },
+          {
+            type: 'interaction',
+            content: '?[A | B]',
+            element_bid: 'interaction-1',
+          },
+        ]}
+        mobileStyle={true}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+      />,
+    );
+
+    const firstMountId = screen
+      .getByTestId('mock-slide')
+      .getAttribute('data-mount-id');
+
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 844,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 390,
+    });
+
+    act(() => {
+      window.dispatchEvent(new Event('orientationchange'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-slide')).not.toHaveAttribute(
+        'data-mount-id',
+        firstMountId,
+      );
+    });
+  });
+
+  it('remounts the slide when mobile orientation events fire before viewport dimensions settle', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 390,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 844,
+    });
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Slide',
+            element_bid: 'content-1',
+            element_type: 'html',
+          },
+          {
+            type: 'interaction',
+            content: '?[A | B]',
+            element_bid: 'interaction-1',
+          },
+        ]}
+        mobileStyle={true}
+        chatRef={createChatRef()}
+        lessonId='lesson-1'
+      />,
+    );
+
+    const firstMountId = screen
+      .getByTestId('mock-slide')
+      .getAttribute('data-mount-id');
+
+    act(() => {
+      window.dispatchEvent(new Event('orientationchange'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-slide')).not.toHaveAttribute(
+        'data-mount-id',
+        firstMountId,
+      );
     });
   });
 

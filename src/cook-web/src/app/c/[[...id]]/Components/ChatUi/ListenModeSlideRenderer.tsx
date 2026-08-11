@@ -727,6 +727,7 @@ const ListenModeSlideRenderer = ({
   const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
     DEFAULT_LISTEN_MOBILE_VIEW_MODE,
   );
+  const [slideViewportResetKey, setSlideViewportResetKey] = useState(0);
   const [fullscreenPortalContainer, setFullscreenPortalContainer] =
     useState<HTMLElement | null>(null);
   const [currentStepBlockBid, setCurrentStepBlockBid] = useState('');
@@ -741,6 +742,8 @@ const ListenModeSlideRenderer = ({
     useState('');
   const mobileAskActionRef = useRef<HTMLButtonElement | null>(null);
   const desktopAskActionRef = useRef<HTMLButtonElement | null>(null);
+  const mobileViewModeRef = useRef<MobileViewMode>(mobileViewMode);
+  const mobileViewportOrientationRef = useRef('');
   const playerCustomActionSetActiveRef = useRef<(active: boolean) => void>(
     () => {},
   );
@@ -1162,6 +1165,13 @@ const ListenModeSlideRenderer = ({
     playerCustomActionSetActiveRef.current(false);
   }, []);
 
+  const resetMobileSlideViewport = useCallback(() => {
+    setIsMobileAskOpen(false);
+    setIsMobileAskPanelMounted(false);
+    handlePlayerCustomActionClose();
+    setSlideViewportResetKey(prevKey => prevKey + 1);
+  }, [handlePlayerCustomActionClose]);
+
   useEffect(() => {
     if (!isAskActionDisabled) {
       return;
@@ -1502,11 +1512,74 @@ const ListenModeSlideRenderer = ({
 
   useEffect(() => {
     if (!mobileStyle) {
+      mobileViewportOrientationRef.current = '';
       return;
     }
     setIsMobileAskOpen(false);
     setIsMobileAskPanelMounted(false);
   }, [mobileStyle]);
+
+  useEffect(() => {
+    if (!mobileStyle || typeof window === 'undefined') {
+      mobileViewportOrientationRef.current = '';
+      return;
+    }
+
+    const getViewportOrientation = () =>
+      window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+
+    mobileViewportOrientationRef.current = getViewportOrientation();
+    let animationFrameId = 0;
+
+    let shouldForceReset = false;
+
+    const handleViewportChange = (forceReset = false) => {
+      shouldForceReset = shouldForceReset || forceReset;
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+
+      animationFrameId = window.requestAnimationFrame(() => {
+        animationFrameId = 0;
+        const forceNextReset = shouldForceReset;
+        shouldForceReset = false;
+        const nextOrientation = getViewportOrientation();
+        if (
+          !forceNextReset &&
+          mobileViewportOrientationRef.current === nextOrientation
+        ) {
+          return;
+        }
+
+        mobileViewportOrientationRef.current = nextOrientation;
+        resetMobileSlideViewport();
+      });
+    };
+
+    const handleOrientationChange = () => {
+      handleViewportChange(true);
+    };
+    const handleResize = () => {
+      handleViewportChange(false);
+    };
+    const screenOrientation = window.screen.orientation;
+
+    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('resize', handleResize);
+    screenOrientation?.addEventListener?.('change', handleOrientationChange);
+
+    return () => {
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      window.removeEventListener('resize', handleResize);
+      screenOrientation?.removeEventListener?.(
+        'change',
+        handleOrientationChange,
+      );
+    };
+  }, [mobileStyle, resetMobileSlideViewport]);
 
   useEffect(() => {
     if (!mobileStyle) {
@@ -1803,9 +1876,24 @@ const ListenModeSlideRenderer = ({
     }),
     [fullscreenHeaderContent],
   );
-  const handleMobileViewModeChange = useCallback((viewMode: MobileViewMode) => {
-    setMobileViewMode(viewMode);
-  }, []);
+  const handleMobileViewModeChange = useCallback(
+    (viewMode: MobileViewMode) => {
+      if (mobileViewModeRef.current === viewMode) {
+        return;
+      }
+
+      mobileViewModeRef.current = viewMode;
+      setMobileViewMode(viewMode);
+      if (mobileStyle) {
+        resetMobileSlideViewport();
+      }
+    },
+    [mobileStyle, resetMobileSlideViewport],
+  );
+
+  useEffect(() => {
+    mobileViewModeRef.current = mobileViewMode;
+  }, [mobileViewMode]);
 
   useEffect(() => {
     onMobileViewModeChange?.(mobileViewMode);
@@ -1998,6 +2086,7 @@ const ListenModeSlideRenderer = ({
             : desktopAskOverlay
           : null}
         <Slide
+          key={`${lessonId || 'lesson'}:${slideViewportResetKey}`}
           className={cn(
             'h-full w-full listen-slide-root',
             isMobileFullscreen && 'listen-slide-root--landscape',
