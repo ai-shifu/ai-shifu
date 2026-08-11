@@ -105,6 +105,19 @@ def _get_tts_executor() -> ThreadPoolExecutor:
 _EMPTY_AUDIO_ERROR_MESSAGE = "No audio data received"
 _EMPTY_AUDIO_RETRY_PROVIDERS = {"", "tencent", "tencent_texttovoice", "volcengine"}
 _EMPTY_AUDIO_RETRY_DELAY_SECONDS = 0.2
+# Provider throttling (e.g. Tencent LimitExceeded.AccessLimit) hits whole
+# bursts of concurrent segments at once; retries back off longer than the
+# empty-audio case and are staggered by segment index so the retrying
+# threads do not re-collide on the provider's quota window.
+_RATE_LIMIT_RETRY_MAX_ATTEMPTS = 3
+_RATE_LIMIT_RETRY_BASE_DELAY_SECONDS = 1.0
+_RATE_LIMIT_RETRY_STAGGER_SECONDS = 0.4
+_RATE_LIMIT_ERROR_MARKERS = (
+    "LimitExceeded",
+    "Too many requests",
+    "too frequently",
+    "rate limit",
+)
 _TTS_ERROR_TEXT_PREVIEW_CHARS = 300
 _VOLCENGINE_TIMESTAMP_PROVIDERS = {"volcengine"}
 _NON_SPEAKABLE_TTS_SKIP_PROVIDERS = {
@@ -134,6 +147,15 @@ def _is_retryable_empty_audio_error(error: Exception, provider_name: str) -> boo
     return (
         normalized_provider in _EMPTY_AUDIO_RETRY_PROVIDERS
         and _EMPTY_AUDIO_ERROR_MESSAGE in str(error)
+    )
+
+
+def _is_retryable_rate_limit_error(error: Exception) -> bool:
+    message = str(error)
+    lowered = message.lower()
+    return any(
+        marker in message or marker.lower() in lowered
+        for marker in _RATE_LIMIT_ERROR_MARKERS
     )
 
 
@@ -510,7 +532,9 @@ class StreamingTTSProcessor:
     ):
         result = None
         max_attempts = 2
-        for attempt in range(1, max_attempts + 1):
+        attempt = 0
+        while True:
+            attempt += 1
             try:
                 result = synthesize_text(
                     text=text,
@@ -534,6 +558,28 @@ class StreamingTTSProcessor:
                         _tts_error_text_preview(text or ""),
                     )
                     time.sleep(_EMPTY_AUDIO_RETRY_DELAY_SECONDS)
+                    continue
+                if (
+                    attempt < _RATE_LIMIT_RETRY_MAX_ATTEMPTS
+                    and _is_retryable_rate_limit_error(e)
+                ):
+                    delay = (
+                        _RATE_LIMIT_RETRY_BASE_DELAY_SECONDS * attempt
+                        + (segment_index or 0)
+                        % _RATE_LIMIT_RETRY_MAX_ATTEMPTS
+                        * _RATE_LIMIT_RETRY_STAGGER_SECONDS
+                    )
+                    logger.warning(
+                        "TTS segment %s throttled by provider; retrying in "
+                        "%.1fs (attempt %s/%s): provider=%s model=%s",
+                        segment_index if segment_index is not None else "request",
+                        delay,
+                        attempt,
+                        _RATE_LIMIT_RETRY_MAX_ATTEMPTS,
+                        tts_provider or "(auto)",
+                        tts_model or "(unset)",
+                    )
+                    time.sleep(delay)
                     continue
                 raise
         if result is None:
