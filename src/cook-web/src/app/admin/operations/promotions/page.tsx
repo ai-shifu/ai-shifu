@@ -1105,7 +1105,7 @@ export default function AdminOperationPromotionsPage() {
           onChange={value =>
             setCouponFilters(current => ({ ...current, course_query: value }))
           }
-          placeholder={tPromotion('filters.courseIdPlaceholder')}
+          placeholder={tPromotion('filters.courseQueryPlaceholder')}
           clearLabel={clearLabel}
         />
       ),
@@ -1270,7 +1270,7 @@ export default function AdminOperationPromotionsPage() {
           onChange={value =>
             setCampaignFilters(current => ({ ...current, course_query: value }))
           }
-          placeholder={tPromotion('filters.courseIdPlaceholder')}
+          placeholder={tPromotion('filters.courseQueryPlaceholder')}
           clearLabel={clearLabel}
         />
       ),

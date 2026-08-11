@@ -24,6 +24,7 @@ import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { ToastAction } from '@/components/ui/Toast';
 import {
   Table,
   TableBody,
@@ -41,44 +42,23 @@ import { useToast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
 import { useTranslation } from 'react-i18next';
 import useOperatorGuard from '../useOperatorGuard';
+import RateCreateDialog from './RateCreateDialog';
+import {
+  RATE_TABS,
+  deriveCreditsPerUnit,
+  getRateDisplayName,
+  getRateRowKey,
+  isValidMultiplier,
+  normalizeMultiplierInput,
+  rateRowMatchesExactIdentity,
+  type CreateRatePayload,
+  type RateConfigResponse,
+  type RateIdentity,
+  type RateRow,
+  type RateTab,
+} from './rateConfig';
 
-const RATE_TABS = ['llm', 'tts'] as const;
 const RATE_TABLE_PAGE_SIZE = 10;
-type RateTab = (typeof RATE_TABS)[number];
-
-type RateRow = {
-  rate_bid?: string;
-  usage_type: 'llm' | 'tts' | string;
-  usage_type_code: number;
-  provider: string;
-  model: string;
-  rate_model?: string;
-  display_name: string;
-  usage_scene: string;
-  usage_scene_code: number;
-  billing_metric: string;
-  billing_metric_code: number;
-  unit_size: number;
-  credits_per_unit: number;
-  unit_cost: number;
-  multiplier: number | null;
-  rounding_mode: number;
-  status_code: number;
-  updated_at?: string | null;
-  source: string;
-};
-
-type RateConfigResponse = {
-  baseline?: {
-    default_llm_model?: string;
-    unit_cost?: number;
-    per_1000_output_tokens?: number;
-    is_configured?: boolean;
-    tts_chars_per_llm_token?: number;
-  };
-  llm_rates?: RateRow[];
-  tts_rates?: RateRow[];
-};
 
 type EditState = {
   row: RateRow;
@@ -86,9 +66,6 @@ type EditState = {
   creditsPerUnit: string | null;
   multiplier: string;
 };
-
-const getRateRowKey = (row: RateRow) =>
-  `${row.usage_type}-${row.provider}-${row.rate_model || row.model}-${row.billing_metric}`;
 
 const formatNumber = (value: unknown, fallback = '-') => {
   if (value === null || value === undefined) {
@@ -99,22 +76,6 @@ const formatNumber = (value: unknown, fallback = '-') => {
     return fallback;
   }
   return numeric.toLocaleString(undefined, { maximumFractionDigits: 6 });
-};
-
-const normalizeMultiplierInput = (value: string) => {
-  const normalized = value.replace(/[。．｡]/g, '.');
-  const cleaned = normalized.replace(/[^\d.]/g, '');
-  const [integerPart = '', ...decimalParts] = cleaned.split('.');
-  const decimalPart = decimalParts.join('').slice(0, 2);
-  if (cleaned.includes('.')) {
-    return `${integerPart || '0'}.${decimalPart}`;
-  }
-  return integerPart;
-};
-
-const isValidMultiplier = (value: string) => {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) && numeric > 0;
 };
 
 const formatMultiplier = (value: unknown) => {
@@ -198,6 +159,8 @@ function RateTable({
   modelHeader,
   showProvider,
   multiplierHeader,
+  revealIdentity,
+  onRevealHandled,
 }: {
   rows: RateRow[];
   loading: boolean;
@@ -211,6 +174,8 @@ function RateTable({
   modelHeader: string;
   showProvider: boolean;
   multiplierHeader: string;
+  revealIdentity?: RateIdentity | null;
+  onRevealHandled: () => void;
 }) {
   const { t } = useTranslation(['module.operationsConfig', 'common.core']);
   const [pageIndex, setPageIndex] = React.useState(1);
@@ -222,10 +187,26 @@ function RateTable({
   }, [rows, safePageIndex]);
   const dataColSpan = showProvider ? 6 : 5;
   const emptyColSpan = dataColSpan + 1;
+  const previousRowsRef = React.useRef(rows);
 
   React.useEffect(() => {
-    setPageIndex(1);
-  }, [rows]);
+    const rowsChanged = previousRowsRef.current !== rows;
+    previousRowsRef.current = rows;
+    if (!revealIdentity) {
+      if (rowsChanged) {
+        setPageIndex(1);
+      }
+      return;
+    }
+    const revealRowIndex = rows.findIndex(row =>
+      rateRowMatchesExactIdentity(row, revealIdentity),
+    );
+    if (revealRowIndex < 0) {
+      return;
+    }
+    setPageIndex(Math.floor(revealRowIndex / RATE_TABLE_PAGE_SIZE) + 1);
+    onRevealHandled();
+  }, [onRevealHandled, revealIdentity, rows]);
 
   return (
     <AdminTableShell
@@ -308,7 +289,7 @@ function RateTable({
                   </TableCell>
                   <TableCell>
                     <span className='block max-w-[220px] truncate'>
-                      {row.display_name || '-'}
+                      {getRateDisplayName(row, t('create.defaultTier'))}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -410,24 +391,57 @@ export default function AdminOperationsConfigPage() {
   const [saving, setSaving] = React.useState(false);
   const [editState, setEditState] = React.useState<EditState | null>(null);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+  const [createUsageType, setCreateUsageType] = React.useState<RateTab>('llm');
+  const [creating, setCreating] = React.useState(false);
+  const [revealIdentity, setRevealIdentity] =
+    React.useState<RateIdentity | null>(null);
+  const [pendingCreatedIdentity, setPendingCreatedIdentity] =
+    React.useState<RateIdentity | null>(null);
+  const createInFlightRef = React.useRef(false);
+  const createRefreshInFlightRef = React.useRef(false);
+  const pendingCreatedIdentityRef = React.useRef<RateIdentity | null>(null);
+  const loadConfigRequestIdRef = React.useRef(0);
+  const clearRevealIdentity = React.useCallback(
+    () => setRevealIdentity(null),
+    [],
+  );
 
-  const loadConfig = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = (await api.getAdminOperationConfigRates(
-        {},
-      )) as RateConfigResponse;
-      setConfig(response || {});
-    } catch (caughtError) {
-      const typedError = caughtError as Partial<ErrorWithCode>;
-      toast({
-        title: typedError.message || t('loadFailed'),
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [t, toast]);
+  const loadConfig = React.useCallback(
+    async ({ suppressErrorToast = false } = {}) => {
+      const requestId = ++loadConfigRequestIdRef.current;
+      setLoading(true);
+      try {
+        const response = (await api.getAdminOperationConfigRates(
+          {},
+        )) as RateConfigResponse;
+        if (requestId !== loadConfigRequestIdRef.current) {
+          return null;
+        }
+        setConfig(response || {});
+        pendingCreatedIdentityRef.current = null;
+        setPendingCreatedIdentity(null);
+        return true;
+      } catch (caughtError) {
+        if (requestId !== loadConfigRequestIdRef.current) {
+          return null;
+        }
+        if (!suppressErrorToast) {
+          const typedError = caughtError as Partial<ErrorWithCode>;
+          toast({
+            title: typedError.message || t('loadFailed'),
+            variant: 'destructive',
+          });
+        }
+        return false;
+      } finally {
+        if (requestId === loadConfigRequestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [t, toast],
+  );
 
   React.useEffect(() => {
     if (!isReady) {
@@ -437,6 +451,7 @@ export default function AdminOperationsConfigPage() {
   }, [isReady, loadConfig]);
 
   const openEditor = React.useCallback((row: RateRow) => {
+    setRevealIdentity(null);
     setEditState({
       row,
       unitSize: String(row.unit_size || 1),
@@ -446,28 +461,14 @@ export default function AdminOperationsConfigPage() {
   }, []);
 
   const updateCreditsFromMultiplier = React.useCallback(
-    (multiplierText: string, current: EditState): string | null => {
-      const multiplier = Number(multiplierText);
-      const unitSize = Number(current.unitSize || 1);
-      const baseline = Number(config.baseline?.unit_cost || 0);
-      if (
-        !Number.isFinite(multiplier) ||
-        !Number.isFinite(unitSize) ||
-        baseline <= 0
-      ) {
-        return null;
-      }
-      let value = baseline * multiplier * unitSize;
-      if (current.row.usage_type === 'tts') {
-        const factor = Number(config.baseline?.tts_chars_per_llm_token || 0);
-        if (factor <= 0) {
-          return null;
-        }
-        value = (baseline * multiplier * unitSize) / factor;
-      }
-      return String(Number(value.toFixed(10)));
-    },
-    [config.baseline?.tts_chars_per_llm_token, config.baseline?.unit_cost],
+    (multiplierText: string, current: EditState): string | null =>
+      deriveCreditsPerUnit({
+        usageType: current.row.usage_type === 'tts' ? 'tts' : 'llm',
+        multiplier: multiplierText,
+        unitSize: current.unitSize || '1',
+        baseline: config.baseline,
+      }),
+    [config.baseline],
   );
 
   const saveEdit = React.useCallback(async () => {
@@ -486,7 +487,7 @@ export default function AdminOperationsConfigPage() {
       editState.multiplier,
       editState,
     );
-    if (nextCreditsPerUnit == null || Number(nextCreditsPerUnit) <= 0) {
+    if (nextCreditsPerUnit == null) {
       toast({ title: t('invalidMultiplier'), variant: 'destructive' });
       return;
     }
@@ -500,7 +501,7 @@ export default function AdminOperationsConfigPage() {
         display_name: editState.row.display_name,
         billing_metric: editState.row.billing_metric,
         unit_size: Number(editState.unitSize || 1),
-        credits_per_unit: Number(nextCreditsPerUnit),
+        credits_per_unit: nextCreditsPerUnit,
         status: 'active',
       });
       toast({ title: t('saveSuccess') });
@@ -571,14 +572,91 @@ export default function AdminOperationsConfigPage() {
     );
   }, []);
 
+  const openCreateDialog = React.useCallback(() => {
+    setCreateUsageType(activeTab);
+    setCreateDialogOpen(true);
+  }, [activeTab]);
+
+  const refreshCreatedRate = React.useCallback(
+    async function refreshCreatedRate(identity: RateIdentity) {
+      if (createRefreshInFlightRef.current) {
+        return false;
+      }
+      createRefreshInFlightRef.current = true;
+      try {
+        const refreshed = await loadConfig({ suppressErrorToast: true });
+        if (refreshed == null) {
+          return false;
+        }
+        if (refreshed) {
+          setRevealIdentity(identity);
+          toast({ title: t('create.success') });
+          return true;
+        }
+
+        pendingCreatedIdentityRef.current = identity;
+        setPendingCreatedIdentity(identity);
+        toast({
+          title: t('create.partialSuccessTitle'),
+          description: t('create.partialSuccessDescription'),
+          variant: 'destructive',
+          duration: 0,
+          action: (
+            <ToastAction
+              altText={t('create.retryRefreshAltText')}
+              onClick={() => void refreshCreatedRate(identity)}
+            >
+              {t('create.retryRefresh')}
+            </ToastAction>
+          ),
+        });
+        return false;
+      } finally {
+        createRefreshInFlightRef.current = false;
+      }
+    },
+    [loadConfig, t, toast],
+  );
+
+  const createRate = React.useCallback(
+    async (payload: CreateRatePayload, identity: RateIdentity) => {
+      if (
+        createInFlightRef.current ||
+        createRefreshInFlightRef.current ||
+        pendingCreatedIdentityRef.current
+      ) {
+        return false;
+      }
+      createInFlightRef.current = true;
+      setCreating(true);
+      try {
+        await api.updateAdminOperationConfigRate(payload);
+        await refreshCreatedRate(identity);
+        return true;
+      } catch (caughtError) {
+        const typedError = caughtError as Partial<ErrorWithCode>;
+        toast({
+          title: typedError.message || t('create.failed'),
+          variant: 'destructive',
+        });
+        return false;
+      } finally {
+        setCreating(false);
+        createInFlightRef.current = false;
+      }
+    },
+    [refreshCreatedRate, t, toast],
+  );
+
   if (!isReady) {
     return <Loading />;
   }
 
   const llmRows = config.llm_rates || [];
   const ttsRows = config.tts_rates || [];
-  const confirmModelName =
-    editState?.row.display_name || editState?.row.model || '-';
+  const confirmModelName = editState?.row
+    ? getRateDisplayName(editState.row, t('create.defaultTier'))
+    : '-';
   const confirmFromMultiplier = formatMultiplier(editState?.row.multiplier);
   const confirmToMultiplier = formatMultiplier(editState?.multiplier);
 
@@ -612,7 +690,46 @@ export default function AdminOperationsConfigPage() {
               ))}
             </TabsList>
           }
+          actions={
+            <Button
+              type='button'
+              disabled={
+                creating ||
+                saving ||
+                Boolean(editState) ||
+                Boolean(pendingCreatedIdentity)
+              }
+              onClick={openCreateDialog}
+            >
+              {t('actions.addConfiguration')}
+            </Button>
+          }
         />
+
+        {pendingCreatedIdentity ? (
+          <div
+            role='alert'
+            className='mb-4 flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 sm:flex-row sm:items-center sm:justify-between'
+          >
+            <div className='min-w-0'>
+              <p className='text-sm font-medium text-destructive'>
+                {t('create.partialSuccessTitle')}
+              </p>
+              <p className='mt-1 text-sm text-muted-foreground'>
+                {t('create.partialSuccessDescription')}
+              </p>
+            </div>
+            <Button
+              type='button'
+              variant='outline'
+              className='shrink-0'
+              disabled={loading}
+              onClick={() => void refreshCreatedRate(pendingCreatedIdentity)}
+            >
+              {t('create.retryRefresh')}
+            </Button>
+          </div>
+        ) : null}
 
         <div className='flex min-h-0 flex-1 flex-col gap-4'>
           <TabsContent
@@ -632,6 +749,10 @@ export default function AdminOperationsConfigPage() {
               modelHeader={t('fields.model')}
               showProvider={false}
               multiplierHeader={t('fields.multiplier')}
+              revealIdentity={
+                revealIdentity?.usageType === 'llm' ? revealIdentity : null
+              }
+              onRevealHandled={clearRevealIdentity}
             />
           </TabsContent>
 
@@ -652,10 +773,28 @@ export default function AdminOperationsConfigPage() {
               modelHeader={t('fields.modelTier')}
               showProvider
               multiplierHeader={t('fields.ttsMultiplier')}
+              revealIdentity={
+                revealIdentity?.usageType === 'tts' ? revealIdentity : null
+              }
+              onRevealHandled={clearRevealIdentity}
             />
           </TabsContent>
         </div>
       </Tabs>
+
+      <RateCreateDialog
+        open={createDialogOpen}
+        usageType={createUsageType}
+        rows={createUsageType === 'llm' ? llmRows : ttsRows}
+        baseline={config.baseline}
+        pending={creating}
+        onOpenChange={open => {
+          if (!creating) {
+            setCreateDialogOpen(open);
+          }
+        }}
+        onCreate={createRate}
+      />
 
       <AlertDialog
         open={confirmOpen}

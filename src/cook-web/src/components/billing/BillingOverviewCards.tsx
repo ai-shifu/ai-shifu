@@ -111,6 +111,7 @@ export function getPlanScaleKeys(
 }
 
 type TopupCardProps = {
+  actionClassName?: string;
   actionLabel: string;
   actionLoading?: boolean;
   campaignLabel?: string;
@@ -125,6 +126,7 @@ type TopupCardProps = {
 };
 
 export function TopupCard({
+  actionClassName,
   actionLabel,
   actionLoading = false,
   campaignLabel,
@@ -168,7 +170,7 @@ export function TopupCard({
             ) : null}
           </div>
           <Button
-            className={styles.topupCardAction}
+            className={cn(styles.topupCardAction, actionClassName)}
             data-testid={`${testId}-action`}
             disabled={disabled || actionLoading}
             onClick={onAction}

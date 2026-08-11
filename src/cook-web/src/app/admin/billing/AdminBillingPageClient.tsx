@@ -8,12 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
 import { BillingRecentActivitySection } from './components/BillingRecentActivitySection';
+import { GlobalBillingPricing } from './components/GlobalBillingPricing';
 import AdminTitle, {
   ADMIN_TITLE_HEADLINE_TABS_LIST_CLASSNAME,
   ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME,
   ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE,
 } from '@/app/admin/components/AdminTitle';
 import { resolveBillingTab, type BillingTab } from './billingTabs';
+import { isGlobalBillingExperience } from './billingExperience';
 
 type AdminBillingPageClientProps = {
   initialTab?: BillingTab;
@@ -27,7 +29,9 @@ export function AdminBillingPageClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
+  const paymentChannels = useEnvStore(state => state.paymentChannels);
   const runtimeConfigLoaded = useEnvStore(state => state.runtimeConfigLoaded);
+  const useGlobalPricing = isGlobalBillingExperience(paymentChannels);
   const activeTabFromUrl = React.useMemo(
     () => resolveBillingTab(searchParams.get('tab') ?? initialTab),
     [initialTab, searchParams],
@@ -146,7 +150,11 @@ export function AdminBillingPageClient({
             data-testid='admin-billing-packages-panel'
           >
             <div className='pb-6'>
-              <BillingOverviewTab onOpenOrdersTab={handleOpenOrdersSection} />
+              {useGlobalPricing ? (
+                <GlobalBillingPricing />
+              ) : (
+                <BillingOverviewTab onOpenOrdersTab={handleOpenOrdersSection} />
+              )}
             </div>
           </TabsContent>
 

@@ -29,6 +29,7 @@ import {
   renderTooltipText,
   resolveCouponScopeLabel,
   resolveCouponUsageTypeLabel,
+  PROMOTION_FILTER_COLLAPSED_GRID_CLASS,
   SectionCard,
   shouldShowCouponStatusToggle,
   TABLE_ACTION_CELL_CLASS,
@@ -122,8 +123,8 @@ export default function PromotionCouponsTab({
           className='bg-transparent'
           contentClassName='min-w-0'
           labelClassName='w-24 text-right'
-          collapsedGridClassName='gap-x-5 xl:grid-cols-4'
-          expandedGridClassName='gap-x-5 xl:grid-cols-3'
+          collapsedGridClassName={PROMOTION_FILTER_COLLAPSED_GRID_CLASS}
+          expandedGridClassName='gap-x-5 xl:grid-cols-4'
           labelColon
         />
       </SectionCard>

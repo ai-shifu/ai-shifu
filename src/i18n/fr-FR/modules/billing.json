@@ -598,6 +598,109 @@
       "selfServe": "Libre-service"
     }
   },
+  "globalPricing": {
+    "actions": {
+      "buyCredits": "Acheter des crédits",
+      "choosePlan": "Choisir ce forfait",
+      "viewMonthly": "Voir le forfait mensuel"
+    },
+    "annualSavings": "Économisez {amount} par an ({percent} %)",
+    "approximatePricePrefix": "Environ",
+    "audienceLabel": "Idéal pour",
+    "billedAnnually": "Facturé {price} tous les 12 mois",
+    "cancelAnytime": "Facturé mensuellement. Annulation à tout moment.",
+    "comingSoon": {
+      "close": "Compris",
+      "description": "Nous développons actuellement l’expérience de paiement. Revenez bientôt.",
+      "inlineNotice": "Le paiement en ligne est encore en développement. Choisir un forfait ou un pack de crédits ne déclenchera aucun débit.",
+      "title": "Les paiements arrivent bientôt"
+    },
+    "creditPacks": {
+      "activeSubscriptionRequired": "Un abonnement actif est requis pour utiliser les crédits d’un pack. Si l’abonnement devient inactif, les crédits non utilisés restent sur le compte et redeviennent utilisables lorsqu’un forfait est actif.",
+      "instantAndPermanent": "Les crédits sont ajoutés au compte immédiatement après l’achat et n’expirent jamais.",
+      "packName": "{credits} crédits"
+    },
+    "creditsLabel": "Crédits par cycle",
+    "creditsPerMonth": "{credits} crédits par mois",
+    "creditsPerYear": "{credits} crédits par période de facturation de 12 mois",
+    "cycles": {
+      "annual": "Annuel",
+      "monthly": "Mensuel"
+    },
+    "features": {
+      "coreTeaching": "Toutes les fonctionnalités de création de cours, d’enseignement et de diffusion aux apprenants",
+      "customBranding": "Marque personnalisée",
+      "customDomain": "Domaine personnalisé",
+      "dedicatedSupport": "Support technique dédié",
+      "exclusiveTraining": "Formation exclusive à la création de cours",
+      "higherConcurrency": "Davantage de générations de cours et d’activités apprenant simultanées",
+      "prioritySupport": "Support technique prioritaire"
+    },
+    "featuresIncludes": {
+      "business": "Tous les avantages de Growth, plus :",
+      "growth": "Tous les avantages de Studio, plus :",
+      "scale": "Tous les avantages de Business, plus :"
+    },
+    "featuresLabel": "Avantages inclus",
+    "footnote": {
+      "intro": "Les sessions apprenant estimées reposent sur l’expérience de la plateforme et utilisent le repère suivant : un apprenant termine une fois un cours d’environ 10 sections, à raison d’environ 15 minutes d’apprentissage normal par section, avec DeepSeek et le mode écoute activé. La facturation réelle dépend de la consommation du modèle pendant l’apprentissage, l’aperçu et le débogage ; le relevé de crédits fait foi. Facteurs influençant la consommation de crédits :",
+      "validity": "Validité des crédits : les crédits mensuels sont valables 30 jours à compter de leur attribution, jour inclus ; les crédits annuels sont valables 12 mois à compter de leur attribution. Les deux expirent à 23 h 59 le dernier jour."
+    },
+    "learnerEstimateLabel": "Sessions apprenant estimées",
+    "learnerEstimateValue": "{minimum} à {maximum} sessions apprenant",
+    "monthlyOnly": "Mensuel uniquement",
+    "mostPopular": "Le plus populaire",
+    "perMonth": "/ mois",
+    "plans": {
+      "business": {
+        "description": "Grandes organisations diffusant des apprentissages personnalisés à grande échelle.",
+        "estimates": {
+          "annual": "5 000–15 000 sessions",
+          "monthly": "400–1 200 sessions"
+        },
+        "name": "Business"
+      },
+      "growth": {
+        "description": "Petites et moyennes organisations d’enseignement.",
+        "estimates": {
+          "annual": "2 500–7 500 sessions",
+          "monthly": "200–600 sessions"
+        },
+        "name": "Growth"
+      },
+      "scale": {
+        "description": "Très grandes organisations gérant des programmes d’apprentissage à fort volume.",
+        "estimates": {
+          "annual": "11 000–33 000 sessions",
+          "monthly": "900–2 700 sessions"
+        },
+        "name": "Scale"
+      },
+      "studio": {
+        "description": "Tester un cours léger ou valider une première expérience d’apprentissage.",
+        "estimates": {
+          "annual": "Forfait mensuel uniquement",
+          "monthly": "50–150 sessions"
+        },
+        "name": "Studio"
+      }
+    },
+    "saveBadge": "Économisez ~20 %",
+    "states": {
+      "loading": "Chargement des forfaits…",
+      "unavailableDescription": "Revenez bientôt ou contactez le support si le problème persiste.",
+      "unavailableTitle": "Les forfaits sont temporairement indisponibles"
+    },
+    "tabs": {
+      "creditPacks": "Packs de crédits",
+      "plans": "Forfaits"
+    },
+    "validity": {
+      "annual": "Valable 12 mois à compter du jour d’attribution des crédits. Expire à 23 h 59 le dernier jour.",
+      "monthly": "Valable 30 jours à compter du jour d’attribution des crédits, jour inclus. Expire à 23 h 59 le dernier jour."
+    },
+    "validityLabel": "Validité des crédits"
+  },
   "ledger": {
     "bucketDescription": "Consulter les réserves de crédits, les soldes restants et l’ordre de consommation.",
     "category": {
