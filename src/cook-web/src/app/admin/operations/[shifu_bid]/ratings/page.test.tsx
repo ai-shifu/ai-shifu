@@ -110,13 +110,16 @@ jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
   __esModule: true,
   default: ({
     placeholder,
+    triggerAriaLabel,
     onChange,
   }: {
     placeholder: string;
+    triggerAriaLabel?: string;
     onChange: (range: { start: string; end: string }) => void;
   }) => (
     <button
       type='button'
+      aria-label={triggerAriaLabel || placeholder}
       onClick={() => onChange({ start: '2026-04-05', end: '2026-04-06' })}
     >
       {placeholder}
@@ -590,13 +593,13 @@ describe('AdminOperationCourseRatingsPage', () => {
     );
     expect(
       screen.queryByRole('button', {
-        name: 'module.operationsCourse.detail.ratings.filters.timePlaceholder',
+        name: 'module.operationsCourse.detail.ratings.filters.ratingTime',
       }),
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'common.core.expand' }));
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsCourse.detail.ratings.filters.timePlaceholder',
+        name: 'module.operationsCourse.detail.ratings.filters.ratingTime',
       }),
     );
     fireEvent.click(
