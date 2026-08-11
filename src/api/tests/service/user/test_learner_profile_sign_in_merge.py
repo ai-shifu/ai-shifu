@@ -373,7 +373,7 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app):
         assert load_learner_profile_state(target.user_bid) is None
 
 
-def test_merge_helper_locks_target_and_state_before_reading_source(app, monkeypatch):
+def test_merge_helper_locks_target_then_source_profile_snapshots(app, monkeypatch):
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -386,10 +386,12 @@ def test_merge_helper_locks_target_and_state_before_reading_source(app, monkeypa
 
         query_type = type(UserInfo.query)
         original_first = query_type.first
-        read_order = []
+        read_order: list[tuple[str, str, bool]] = []
 
         def track_first(query):
             statement = str(query.statement)
+            parameters = query.statement.compile().params
+            user_bid = str(parameters.get("user_bid_1", ""))
             table = (
                 "user_onboarding_states"
                 if "user_onboarding_states" in statement
@@ -397,7 +399,9 @@ def test_merge_helper_locks_target_and_state_before_reading_source(app, monkeypa
                 if "user_users" in statement
                 else "other"
             )
-            read_order.append((table, query._for_update_arg is not None))
+            read_order.append(
+                (table, user_bid, query._for_update_arg is not None),
+            )
             return original_first(query)
 
         monkeypatch.setattr(query_type, "first", track_first)
@@ -408,10 +412,16 @@ def test_merge_helper_locks_target_and_state_before_reading_source(app, monkeypa
             )
         db.session.commit()
 
-        assert read_order[:3] == [
-            ("user_users", True),
-            ("user_onboarding_states", True),
-            ("user_users", False),
+        profile_snapshot_reads = [
+            read
+            for read in read_order
+            if read[0] in {"user_users", "user_onboarding_states"}
+        ]
+        assert profile_snapshot_reads[:4] == [
+            ("user_users", target.user_bid, True),
+            ("user_onboarding_states", target.user_bid, True),
+            ("user_users", source.user_bid, True),
+            ("user_onboarding_states", source.user_bid, True),
         ]
         assert load_learner_profile_state(target.user_bid) is not None
 

@@ -475,10 +475,14 @@ def merge_learner_profile_for_sign_in(
     if load_learner_profile_state(normalized_target_id, for_update=True) is not None:
         return
 
-    source_user = UserEntity.query.filter(
-        UserEntity.user_bid == normalized_source_id,
-        UserEntity.deleted == 0,
-    ).first()
+    source_user = (
+        UserEntity.query.filter(
+            UserEntity.user_bid == normalized_source_id,
+            UserEntity.deleted == 0,
+        )
+        .with_for_update()
+        .first()
+    )
     if source_user is None:
         return
 
@@ -498,6 +502,10 @@ def merge_learner_profile_for_sign_in(
     if source_has_account_identifier:
         return
 
+    source_state = load_learner_profile_state(
+        normalized_source_id,
+        for_update=True,
+    )
     source_profile = str(source_user.learner_profile or "").strip()
     target_profile = str(target_user.learner_profile or "").strip()
     if source_profile and not target_profile:
@@ -505,7 +513,6 @@ def merge_learner_profile_for_sign_in(
         target_user.learner_profile_updated_at = source_user.learner_profile_updated_at
         target_user.nickname = extract_learner_profile_nickname(source_profile) or ""
 
-    source_state = load_learner_profile_state(normalized_source_id)
     if source_state is None:
         return
 
