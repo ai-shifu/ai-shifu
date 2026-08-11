@@ -220,9 +220,23 @@ jest.mock(
 jest.mock(
   './ContentBlock',
   () =>
-    function MockContentBlock({ item }: { item: { element_bid?: string } }) {
+    function MockContentBlock({
+      item,
+      contentRenderKey,
+      enableStreamingTypewriter,
+    }: {
+      item: { content?: string; element_bid?: string };
+      contentRenderKey?: string;
+      enableStreamingTypewriter?: boolean;
+    }) {
       return (
-        <div data-testid={`content-block-${item.element_bid || 'item'}`} />
+        <div
+          data-testid={`content-block-${item.element_bid || 'item'}`}
+          data-content-render-key={contentRenderKey}
+          data-typewriter={String(Boolean(enableStreamingTypewriter))}
+        >
+          {item.content}
+        </div>
       );
     },
 );
@@ -281,11 +295,7 @@ jest.mock('@/components/audio/AudioPlayer', () => ({
   },
 }));
 
-const renderNewChatComponents = (
-  onLessonUpdateNoticeVisibilityChange = jest.fn(),
-  onLessonPdfActionChange = jest.fn(),
-  items: Array<Record<string, unknown>> = [],
-) => {
+const setMockChatLogicItems = (items: Array<Record<string, unknown>>) => {
   mockUseChatLogicHook.mockReturnValue({
     currentStreamingElementBid: '',
     currentTypewriterElementBid: '',
@@ -311,35 +321,59 @@ const renderNewChatComponents = (
     showLessonUpdateNotice: true,
     toggleAskExpanded: jest.fn(),
   });
+};
 
-  return render(
-    <AppContext.Provider
-      value={{
-        frameLayout: 1,
-        isLoggedIn: true,
-        mobileStyle: false,
-        theme: 'light',
-        userInfo: null,
-      }}
-    >
-      <NewChatComponents
-        chapterId='chapter-1'
-        chapterUpdate={jest.fn()}
-        getNextLessonId={jest.fn()}
-        lessonHasContentUpdate={true}
-        lessonId='lesson-1'
-        lessonTitle='第一课'
-        lessonUpdate={jest.fn()}
-        onGoChapter={jest.fn()}
-        onPurchased={jest.fn()}
-        updateSelectedLesson={jest.fn()}
-        onLessonUpdateNoticeVisibilityChange={
-          onLessonUpdateNoticeVisibilityChange
-        }
-        onLessonPdfActionChange={onLessonPdfActionChange}
-      />
-    </AppContext.Provider>,
-  );
+const createNewChatComponentsElement = (
+  onLessonUpdateNoticeVisibilityChange: jest.Mock,
+  onLessonPdfActionChange: jest.Mock,
+) => (
+  <AppContext.Provider
+    value={{
+      frameLayout: 1,
+      isLoggedIn: true,
+      mobileStyle: false,
+      theme: 'light',
+      userInfo: null,
+    }}
+  >
+    <NewChatComponents
+      chapterId='chapter-1'
+      chapterUpdate={jest.fn()}
+      getNextLessonId={jest.fn()}
+      lessonHasContentUpdate={true}
+      lessonId='lesson-1'
+      lessonTitle='第一课'
+      lessonUpdate={jest.fn()}
+      onGoChapter={jest.fn()}
+      onPurchased={jest.fn()}
+      updateSelectedLesson={jest.fn()}
+      onLessonUpdateNoticeVisibilityChange={
+        onLessonUpdateNoticeVisibilityChange
+      }
+      onLessonPdfActionChange={onLessonPdfActionChange}
+    />
+  </AppContext.Provider>
+);
+
+const renderNewChatComponents = (
+  onLessonUpdateNoticeVisibilityChange = jest.fn(),
+  onLessonPdfActionChange = jest.fn(),
+  items: Array<Record<string, unknown>> = [],
+) => {
+  setMockChatLogicItems(items);
+  const renderElement = () =>
+    createNewChatComponentsElement(
+      onLessonUpdateNoticeVisibilityChange,
+      onLessonPdfActionChange,
+    );
+  const renderResult = render(renderElement());
+
+  return Object.assign(renderResult, {
+    rerenderWithItems(nextItems: Array<Record<string, unknown>>) {
+      setMockChatLogicItems(nextItems);
+      renderResult.rerender(renderElement());
+    },
+  });
 };
 
 const renderTitlebarLessonUpdateNotice = () =>
@@ -353,6 +387,8 @@ const renderTitlebarLessonUpdateNotice = () =>
 
 describe('NewChatComponents', () => {
   let requestAnimationFrameSpy: jest.SpyInstance;
+  let visibilityStateSpy: jest.SpyInstance;
+  let documentVisibilityState: DocumentVisibilityState;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -369,6 +405,10 @@ describe('NewChatComponents', () => {
     mockOfficialSiteUrl = 'https://official.example.com';
     mockLessonPdfReady = false;
     mockLessonPdfPreparing = false;
+    documentVisibilityState = 'visible';
+    visibilityStateSpy = jest
+      .spyOn(document, 'visibilityState', 'get')
+      .mockImplementation(() => documentVisibilityState);
     requestAnimationFrameSpy = jest
       .spyOn(window, 'requestAnimationFrame')
       .mockImplementation(() => 0);
@@ -376,6 +416,7 @@ describe('NewChatComponents', () => {
 
   afterEach(() => {
     requestAnimationFrameSpy.mockRestore();
+    visibilityStateSpy.mockRestore();
   });
 
   it('renders the titlebar retake action and opens the existing confirm dialog', async () => {
@@ -418,6 +459,127 @@ describe('NewChatComponents', () => {
     expect(
       screen.queryByText('本节课程已更新，建议重修'),
     ).not.toBeInTheDocument();
+  });
+
+  it('finishes visible read content immediately when the page becomes hidden', async () => {
+    mockLearningMode = 'read';
+    const initialItems: Array<Record<string, unknown>> = [
+      {
+        content: '正在打字的正文',
+        element_bid: 'text-1',
+        element_type: 'text',
+        is_final: false,
+        shouldUseTypewriter: true,
+        type: 'content',
+      },
+      {
+        content: '<div>已经收到的后续内容</div>',
+        element_bid: 'html-1',
+        element_type: 'html',
+        type: 'content',
+      },
+    ];
+    const backgroundItems: Array<Record<string, unknown>> = [
+      {
+        ...initialItems[0],
+        content: '正在打字的正文，以及后台收到的增量',
+      },
+      {
+        content: '后台收到的新正文块',
+        element_bid: 'text-2',
+        element_type: 'text',
+        is_final: false,
+        shouldUseTypewriter: true,
+        type: 'content',
+      },
+      initialItems[1],
+    ];
+    const { rerenderWithItems } = renderNewChatComponents(
+      jest.fn(),
+      jest.fn(),
+      initialItems,
+    );
+
+    expect(screen.getByTestId('content-block-text-1')).toHaveAttribute(
+      'data-typewriter',
+      'true',
+    );
+    expect(
+      screen.queryByTestId('content-block-html-1'),
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      documentVisibilityState = 'hidden';
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('content-block-text-1')).toHaveAttribute(
+        'data-typewriter',
+        'false',
+      );
+      expect(screen.getByTestId('content-block-text-1')).toHaveAttribute(
+        'data-content-render-key',
+        'text-1:hidden',
+      );
+      expect(screen.getByTestId('content-block-html-1')).toBeInTheDocument();
+    });
+
+    // Make a background SSE update available to the hook without committing a
+    // component render first. The foreground event must suppress this latest
+    // snapshot before typewriter mode can resume.
+    setMockChatLogicItems(backgroundItems);
+    act(() => {
+      documentVisibilityState = 'visible';
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('content-block-text-1')).toHaveTextContent(
+        '正在打字的正文，以及后台收到的增量',
+      );
+      expect(screen.getByTestId('content-block-text-1')).toHaveAttribute(
+        'data-typewriter',
+        'false',
+      );
+      expect(screen.getByTestId('content-block-text-1')).toHaveAttribute(
+        'data-content-render-key',
+        'text-1:suppressed',
+      );
+      expect(screen.getByTestId('content-block-text-2')).toHaveAttribute(
+        'data-typewriter',
+        'false',
+      );
+      expect(screen.getByTestId('content-block-text-2')).toHaveAttribute(
+        'data-content-render-key',
+        'text-2:suppressed',
+      );
+      expect(screen.getByTestId('content-block-html-1')).toBeInTheDocument();
+    });
+
+    act(() => {
+      rerenderWithItems([
+        ...backgroundItems,
+        {
+          content: '回到前台后收到的新正文块',
+          element_bid: 'text-3',
+          element_type: 'text',
+          is_final: false,
+          shouldUseTypewriter: true,
+          type: 'content',
+        },
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('content-block-text-3')).toHaveAttribute(
+        'data-typewriter',
+        'true',
+      );
+      expect(screen.getByTestId('content-block-text-3')).not.toHaveAttribute(
+        'data-content-render-key',
+      );
+    });
   });
 
   it('exposes the PDF action while a desktop slide mode is active', async () => {

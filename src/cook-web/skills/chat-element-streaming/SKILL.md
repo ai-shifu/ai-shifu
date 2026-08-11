@@ -56,6 +56,7 @@ description: 当 ai-shifu 聊天流从 block 粒度向 element 粒度演进，�
 41. 学习模式切换期间如果旧的 SSE stream 还在继续消费，凡是 `finalize/build item` 这类依赖当前模式的逻辑，都不能直接读取创建 stream 时 closure 里的 `isListenMode`；应改读实时 ref，否则“听课模式发起、阅读模式收尾”的交互链路会把新正文误标成 history-like，触发 typewriter 中途关闭后再重开，造成闪烁或整段重打。
 42. 追问 `AskBlock` 的 streaming answer 若在打字途中被收起/关闭，不能把这条 answer 的 `shouldUseTypewriter` 立即改成 `false`，也不要卸载承载它的 `ContentRender` 面板节点；应让流式会话在隐藏状态下继续保活，否则再次打开时同一条 answer 会因重挂载从错误进度重新打字，表现为速度异常、跳字或像被“叠速”一样。
 43. 上一条只适用于“流仍未结束”的窗口期；如果追问 answer 在面板隐藏期间已经收到终态 `done/text_end(is_terminal=true)` 并完成收尾，就应立即把该 answer 的 `shouldUseTypewriter` 置为 `false`。这样再次打开时直接展示静态最终文本，不要再重放一次打字机。
+44. 阅读模式页面进入 `document.visibilityState === 'hidden'` 时，应立即绕过 element 可见性 gate，并把所有已收到的实时 text element 标记为静态直出；这些 `element_bid` 回到前台后也要保持静态，避免 `ContentRender.enableTypewriter` 经历 `false -> true` 后从头重播。后台期间收到的同 bid 增量继续直出，回到前台后新出现的 text element 才重新使用打字机。
 
 ## 备注
 
