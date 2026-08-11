@@ -100,7 +100,7 @@ export const buildAdminMenuItems = ({
         },
         {
           id: 'operations-config',
-          label: t('common.core.configManagement'),
+          label: t('common.core.rateManagement'),
           href: '/admin/operations/config',
         },
         {

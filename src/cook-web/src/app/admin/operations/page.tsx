@@ -110,6 +110,8 @@ const buildModelLabelFallback = (value?: string) => {
  * t('module.operationsCourse.actions.transferCreator')
  * t('module.operationsCourse.detail.title')
  * t('module.operationsCourse.detail.basicInfo')
+ * t('module.operationsCourse.filters.courseQuery')
+ * t('module.operationsCourse.filters.courseQueryPlaceholder')
  * t('module.operationsCourse.filters.courseId')
  * t('module.operationsCourse.filters.courseName')
  * t('module.operationsCourse.filters.creator')
@@ -456,6 +458,7 @@ const OperationsPage = () => {
         const response = (await api.getAdminOperationCourses({
           page_index: targetPage,
           page_size: PAGE_SIZE,
+          course_query: resolvedFilters.course_query.trim(),
           shifu_bid: resolvedFilters.shifu_bid.trim(),
           course_name: resolvedFilters.course_name.trim(),
           creator_keyword: resolvedFilters.creator_keyword.trim(),
@@ -1175,33 +1178,17 @@ const OperationsPage = () => {
 
   const collapsedFilterItems = [
     {
-      key: 'shifu_bid',
-      label: tOperations('filters.courseId'),
+      key: 'course_query',
+      label: tOperations('filters.courseQuery'),
       component: (
         <AdminClearableInput
-          value={filters.shifu_bid}
-          onChange={value => handleFilterChange('shifu_bid', value)}
-          placeholder={tOperations('filters.courseId')}
+          value={filters.course_query}
+          onChange={value => handleFilterChange('course_query', value)}
+          placeholder={tOperations('filters.courseQueryPlaceholder')}
           clearLabel={clearLabel}
         />
       ),
     },
-    {
-      key: 'course_name',
-      label: tOperations('filters.courseName'),
-      component: (
-        <AdminClearableInput
-          value={filters.course_name}
-          onChange={value => handleFilterChange('course_name', value)}
-          placeholder={tOperations('filters.courseName')}
-          clearLabel={clearLabel}
-        />
-      ),
-    },
-  ];
-
-  const expandedPrimaryFilterItems = [
-    ...collapsedFilterItems,
     {
       key: 'creator_keyword',
       label: tOperations('filters.creator'),
@@ -1215,6 +1202,8 @@ const OperationsPage = () => {
       ),
     },
   ];
+
+  const expandedPrimaryFilterItems = [...collapsedFilterItems];
 
   const expandedSecondaryFilterItems = [
     {

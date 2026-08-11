@@ -156,6 +156,7 @@ const isToastVisible = (toastId: string) =>
 
 function toast({ duration = 2000, ...props }: Toast) {
   const id = genId();
+  const radixDuration = duration === 0 ? Number.POSITIVE_INFINITY : duration;
 
   const update = (props: ToasterToast) =>
     dispatch({
@@ -169,13 +170,14 @@ function toast({ duration = 2000, ...props }: Toast) {
     toast: {
       ...props,
       id,
+      duration: radixDuration,
       open: true,
       onOpenChange: (open: boolean) => {
         if (!open) dismiss();
       },
     },
   });
-  if (duration) {
+  if (Number.isFinite(duration) && duration > 0) {
     setTimeout(() => {
       dismiss();
     }, duration);

@@ -643,6 +643,7 @@ describe('OperationsPage', () => {
       expect.objectContaining({
         page_index: 1,
         page_size: 20,
+        course_query: '',
         shifu_bid: '',
         course_name: '',
         creator_keyword: '',
@@ -1237,7 +1238,7 @@ describe('OperationsPage', () => {
   test('clears search input with the right-side clear action', async () => {
     await renderAndWaitForLoadedPage();
     const courseIdInput = screen.getByPlaceholderText(
-      'module.operationsCourse.filters.courseId',
+      'module.operationsCourse.filters.courseQueryPlaceholder',
     ) as HTMLInputElement;
 
     fireEvent.change(courseIdInput, {
@@ -1298,6 +1299,7 @@ describe('OperationsPage', () => {
         expect.objectContaining({
           course_status: 'unpublished',
           quick_filter: 'draft',
+          course_query: '',
           shifu_bid: '',
           course_name: '',
           creator_keyword: '',
@@ -1541,7 +1543,7 @@ describe('OperationsPage', () => {
     await renderAndWaitForLoadedPage();
 
     const courseIdInput = screen.getByPlaceholderText(
-      'module.operationsCourse.filters.courseId',
+      'module.operationsCourse.filters.courseQueryPlaceholder',
     ) as HTMLInputElement;
 
     mockGetAdminOperationCourses.mockImplementationOnce(
@@ -1565,6 +1567,12 @@ describe('OperationsPage', () => {
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.order.filters.search',
+      }),
+    );
+
+    expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        course_query: 'course-second',
       }),
     );
 

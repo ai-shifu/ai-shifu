@@ -68,6 +68,7 @@ import { useOverviewStatusQuickFilter } from './useOverviewStatusQuickFilter';
 type OrderFilters = {
   user_keyword: string;
   order_bid: string;
+  course_query: string;
   shifu_bid: string;
   course_name: string;
   status: string;
@@ -119,6 +120,7 @@ type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 const createDefaultFilters = (): OrderFilters => ({
   user_keyword: '',
   order_bid: '',
+  course_query: '',
   shifu_bid: '',
   course_name: '',
   status: DEFAULT_ORDER_STATUS,
@@ -130,10 +132,17 @@ const createDefaultFilters = (): OrderFilters => ({
 
 const createFiltersFromSearchParams = (searchParams: {
   get: (key: string) => string | null;
-}): OrderFilters => ({
-  ...createDefaultFilters(),
-  shifu_bid: (searchParams.get('shifu_bid') || '').trim(),
-});
+}): OrderFilters => {
+  const courseQuery = (searchParams.get('course_query') || '').trim();
+  const shifuBid = (searchParams.get('shifu_bid') || '').trim();
+  const courseName = (searchParams.get('course_name') || '').trim();
+  return {
+    ...createDefaultFilters(),
+    course_query: courseQuery || shifuBid || courseName,
+    shifu_bid: shifuBid,
+    course_name: courseName,
+  };
+};
 
 const areOrderFiltersEqual = (
   left: OrderFilters,
@@ -141,6 +150,7 @@ const areOrderFiltersEqual = (
 ): boolean =>
   left.user_keyword === right.user_keyword &&
   left.order_bid === right.order_bid &&
+  left.course_query === right.course_query &&
   left.shifu_bid === right.shifu_bid &&
   left.course_name === right.course_name &&
   left.status === right.status &&
@@ -164,6 +174,8 @@ const formatMoney = (value: string | undefined, currencySymbol: string) => {
  * t('module.operationsOrder.filters.userKeywordPlaceholderPhone')
  * t('module.operationsOrder.filters.orderId')
  * t('module.operationsOrder.filters.orderIdPlaceholder')
+ * t('module.operationsOrder.filters.course')
+ * t('module.operationsOrder.filters.courseQueryPlaceholder')
  * t('module.operationsOrder.filters.courseId')
  * t('module.operationsOrder.filters.courseIdPlaceholder')
  * t('module.operationsOrder.filters.courseName')
@@ -295,6 +307,7 @@ export default function LearnOrdersTab() {
           page_size: PAGE_SIZE,
           user_keyword: filters.user_keyword.trim(),
           order_bid: filters.order_bid.trim(),
+          course_query: filters.course_query.trim(),
           shifu_bid: filters.shifu_bid.trim(),
           course_name: filters.course_name.trim(),
           status: filters.status,
@@ -484,17 +497,19 @@ export default function LearnOrdersTab() {
       ),
     },
     {
-      key: 'shifu_bid',
-      label: tOperationsOrder('filters.courseId'),
+      key: 'course_query',
+      label: tOperationsOrder('filters.course'),
       component: (
         <AdminClearableInput
-          value={draftFilters.shifu_bid}
-          placeholder={tOperationsOrder('filters.courseIdPlaceholder')}
+          value={draftFilters.course_query}
+          placeholder={tOperationsOrder('filters.courseQueryPlaceholder')}
           clearLabel={t('common.core.close')}
           onChange={value =>
             setDraftFilters(current => ({
               ...current,
-              shifu_bid: value,
+              course_query: value,
+              shifu_bid: '',
+              course_name: '',
             }))
           }
         />
@@ -533,23 +548,6 @@ export default function LearnOrdersTab() {
 
   const expandedFilterItems = [
     ...primaryFilterItems,
-    {
-      key: 'course_name',
-      label: tOperationsOrder('filters.courseName'),
-      component: (
-        <AdminClearableInput
-          value={draftFilters.course_name}
-          placeholder={tOperationsOrder('filters.courseNamePlaceholder')}
-          clearLabel={t('common.core.close')}
-          onChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              course_name: value,
-            }))
-          }
-        />
-      ),
-    },
     {
       key: 'order_bid',
       label: tOperationsOrder('filters.orderId'),
@@ -706,6 +704,8 @@ export default function LearnOrdersTab() {
               labelClassName='w-24 text-right'
               collapsedGridClassName='gap-x-5 xl:grid-cols-3'
               expandedGridClassName='gap-x-5 xl:grid-cols-3'
+              expandedActionsInline
+              expandedActionsClassName='xl:col-span-2'
               labelColon
             />
           </div>

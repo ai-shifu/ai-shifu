@@ -241,6 +241,53 @@ def test_list_operator_orders_returns_derived_source_and_coupon_codes():
     assert result.data[0].coupon_codes == ["FREE100"]
 
 
+def test_list_operator_orders_applies_combined_course_query():
+    app = Flask(__name__)
+    order = DummyOrder()
+
+    query_mock = MagicMock()
+    query_mock.filter.return_value = query_mock
+    query_mock.count.return_value = 1
+    query_mock.order_by.return_value = query_mock
+    query_mock.offset.return_value = query_mock
+    query_mock.limit.return_value = query_mock
+    query_mock.all.return_value = [order]
+
+    with patch("flaskr.service.order.admin.Order") as order_model_mock:
+        with patch(
+            "flaskr.service.order.admin._build_course_query_shifu_bid_filter"
+        ) as course_filter_mock:
+            with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
+                with patch(
+                    "flaskr.service.order.admin._load_user_map"
+                ) as user_map_mock:
+                    with patch(
+                        "flaskr.service.order.admin._load_coupon_code_map"
+                    ) as coupon_map_mock:
+                        order_model_mock.query = query_mock
+                        course_filter_mock.return_value = "course-query-filter"
+                        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
+                        user_map_mock.return_value = {
+                            "user-1": {
+                                "mobile": "18800001111",
+                                "email": "",
+                                "nickname": "Tester",
+                            }
+                        }
+                        coupon_map_mock.return_value = {}
+
+                        result = list_operator_orders(
+                            app,
+                            1,
+                            20,
+                            {"course_query": "Demo Course"},
+                        )
+
+    course_filter_mock.assert_called_once_with("Demo Course")
+    query_mock.filter.assert_any_call("course-query-filter")
+    assert isinstance(result, PageNationDTO)
+
+
 def test_list_operator_orders_applies_order_source_filter():
     app = Flask(__name__)
     order = DummyOrder()

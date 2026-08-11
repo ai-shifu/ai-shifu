@@ -17,6 +17,7 @@
     "manualPlanGrantBusy": "La demande d’attribution du forfait est en cours de traitement. Veuillez réessayer plus tard.",
     "manualPlanGrantFailed": "Échec de l’attribution du forfait. Vérifiez la configuration du forfait, puis réessayez.",
     "notificationPolicySaveFailed": "Échec de l’enregistrement de la règle de notification des crédits. Veuillez réessayer plus tard.",
+    "rateConfigAlreadyExists": "Un tarif existe déjà pour ce fournisseur et ce modèle. Modifiez plutôt le tarif existant.",
     "referralRewardProductMismatch": "La configuration du forfait de récompense d’invitation ne correspond pas au produit de facturation. Contactez un administrateur pour vérifier la campagne.",
     "subscriptionCheckoutBusy": "La demande d’achat du forfait est en cours de traitement. Veuillez réessayer plus tard.",
     "subscriptionInactive": "Veuillez d’abord acheter un forfait de crédits. Les packs de crédits ne peuvent être utilisés que lorsque le compte dispose d’un forfait de crédits actif.",

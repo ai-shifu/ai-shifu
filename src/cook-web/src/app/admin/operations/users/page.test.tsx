@@ -66,6 +66,11 @@ const mockUserState: {
     is_operator: true,
   },
 };
+const mockEnvState = {
+  loginMethodsEnabled: ['email'],
+  defaultLoginMethod: 'email',
+  currencySymbol: '¥',
+};
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -173,12 +178,7 @@ jest.mock('@/c-store', () => ({
       defaultLoginMethod: string;
       currencySymbol: string;
     }) => unknown,
-  ) =>
-    selector({
-      loginMethodsEnabled: ['email'],
-      defaultLoginMethod: 'email',
-      currencySymbol: '¥',
-    }),
+  ) => selector(mockEnvState),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -323,6 +323,9 @@ describe('AdminOperationUsersPage', () => {
     mockGetAdminOperationUsers.mockReset();
     mockGetAdminOperationUserDetail.mockReset();
     mockLanguage = 'en-US';
+    mockEnvState.loginMethodsEnabled = ['email'];
+    mockEnvState.defaultLoginMethod = 'email';
+    mockEnvState.currencySymbol = '¥';
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
     mockUserState.userInfo = { is_operator: true };
@@ -508,6 +511,7 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenCalledWith({
         page_index: 1,
         page_size: 20,
+        user_query: '',
         identifier: '',
         nickname: '',
         user_status: '',
@@ -807,7 +811,8 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith({
         page_index: 1,
         page_size: 20,
-        identifier: 'user-22@example.com',
+        user_query: 'user-22@example.com',
+        identifier: '',
         nickname: '',
         user_status: '',
         user_role: 'creator',
@@ -816,6 +821,19 @@ describe('AdminOperationUsersPage', () => {
         end_time: '',
       });
     });
+  });
+
+  test('shows both contact types in the combined user placeholder', async () => {
+    mockEnvState.loginMethodsEnabled = ['phone', 'email'];
+    mockEnvState.defaultLoginMethod = 'phone';
+
+    await renderResolvedPage();
+
+    expect(
+      screen.getByPlaceholderText(
+        'module.operationsUser.filters.userPlaceholderPhoneEmail',
+      ),
+    ).toBeInTheDocument();
   });
 
   test('clicking the paid users overview card syncs status and quick filter', async () => {
@@ -1113,15 +1131,21 @@ describe('AdminOperationUsersPage', () => {
     ).toBeInTheDocument();
   });
 
-  test('keeps nickname visible when collapsed and shifts remaining filters forward when expanded', async () => {
+  test('keeps status and role visible when collapsed and leaves dates expanded', async () => {
     await renderResolvedPage();
 
-    expect(screen.getAllByRole('textbox')).toHaveLength(2);
+    expect(screen.getAllByRole('textbox')).toHaveLength(1);
     expect(
-      screen.getByText('module.operationsUser.filters.nickname'),
+      screen.getByText('module.operationsUser.filters.user'),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText('module.operationsUser.filters.status'),
+      screen.getAllByText('module.operationsUser.filters.status').length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('module.operationsUser.filters.role').length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText('module.operationsUser.filters.createdAt'),
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'common.core.expand' }));

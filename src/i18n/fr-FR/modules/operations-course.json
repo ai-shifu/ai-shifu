@@ -367,6 +367,8 @@
   "filters": {
     "courseId": "ID du cours",
     "courseName": "Nom du cours",
+    "courseQuery": "Cours",
+    "courseQueryPlaceholder": "ID du cours / Nom du cours",
     "createdAt": "Créé le",
     "creator": "Créateur",
     "creatorEmailOrUserBid": "E-mail du créateur",
