@@ -681,7 +681,7 @@ export default function AdminOperationVoiceClonesPage() {
         loading={loading}
         isEmpty={items.length === 0}
         emptyContent={t('module.operationsVoiceClone.empty')}
-        emptyColSpan={9}
+        emptyColSpan={10}
         containerClassName='min-h-0 flex-1'
         tableWrapperClassName='max-h-[calc(100vh-22rem)] overflow-auto'
         footnote={t('module.operationsVoiceClone.total', { total })}
