@@ -367,6 +367,8 @@
   "filters": {
     "courseId": "Course ID",
     "courseName": "Course Name",
+    "courseQuery": "Course",
+    "courseQueryPlaceholder": "Course ID / Course name",
     "createdAt": "Created At",
     "creator": "Creator",
     "creatorEmailOrUserBid": "Creator email",

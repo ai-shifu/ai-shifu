@@ -367,6 +367,8 @@
   "filters": {
     "courseId": "课程ID",
     "courseName": "课程名称",
+    "courseQuery": "课程",
+    "courseQueryPlaceholder": "课程ID / 课程名称",
     "createdAt": "创建时间",
     "creator": "创建者",
     "creatorEmailOrUserBid": "课程负责人邮箱",

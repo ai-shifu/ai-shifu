@@ -6,6 +6,7 @@ import type { AdminOperationCourseOverview } from './operation-course-types';
 import { isValidEmail } from '@/lib/validators';
 
 export type CourseFilters = {
+  course_query: string;
   shifu_bid: string;
   course_name: string;
   creator_keyword: string;
@@ -78,6 +79,7 @@ export const COLLAPSED_TEXT_STYLE: CSSProperties = {
 export type TransferContactType = 'email' | 'phone';
 
 export const createDefaultFilters = (): CourseFilters => ({
+  course_query: '',
   shifu_bid: '',
   course_name: '',
   creator_keyword: '',

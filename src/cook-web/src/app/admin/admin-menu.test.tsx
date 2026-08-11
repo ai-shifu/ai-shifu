@@ -76,7 +76,7 @@ describe('buildAdminMenuItems', () => {
         },
         {
           id: 'operations-config',
-          label: 'common.core.configManagement',
+          label: 'common.core.rateManagement',
           href: '/admin/operations/config',
         },
         {

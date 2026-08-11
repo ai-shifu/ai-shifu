@@ -326,12 +326,18 @@ def register_admin_operations_routes(
               type: integer
               required: false
               description: Page size, defaults to 20 when omitted
+            - name: course_query
+              type: string
+              required: false
+              description: Matches course ID exactly or course name fuzzily
             - name: shifu_bid
               type: string
               required: false
+              description: Deprecated exact course ID filter
             - name: course_name
               type: string
               required: false
+              description: Deprecated fuzzy course name filter
             - name: creator_keyword
               type: string
               required: false
@@ -387,6 +393,7 @@ def register_admin_operations_routes(
         )
 
         filters = {
+            "course_query": _normalize_query_text(request.args.get("course_query")),
             "shifu_bid": _normalize_query_text(request.args.get("shifu_bid")),
             "course_name": _normalize_query_text(request.args.get("course_name")),
             "course_status": _normalize_query_text(request.args.get("course_status")),
@@ -470,10 +477,14 @@ def register_admin_operations_routes(
             - name: user_bid
               type: string
               required: false
+            - name: user_query
+              type: string
+              required: false
+              description: Matches user phone, email, identify, user_bid, or nickname
             - name: identifier
               type: string
               required: false
-              description: User phone, email, identify, or user_bid keyword
+              description: Deprecated user phone, email, identify, or user_bid keyword
             - name: mobile
               type: string
               required: false
@@ -529,6 +540,7 @@ def register_admin_operations_routes(
 
         filters = {
             "user_bid": _normalize_query_text(request.args.get("user_bid")),
+            "user_query": _normalize_query_text(request.args.get("user_query")),
             "identifier": _normalize_query_text(request.args.get("identifier")),
             "mobile": _normalize_query_text(request.args.get("mobile")),
             "nickname": _normalize_query_text(request.args.get("nickname")),

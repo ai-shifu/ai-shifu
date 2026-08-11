@@ -1,6 +1,10 @@
 {
   "__namespace__": "module.operationsConfig",
   "actions": {
+    "addConfiguration": "Ajouter un tarif",
+    "adding": "Ajout en cours…",
+    "confirmAdd": "Confirmer l’ajout",
+    "continue": "Continuer",
     "edit": "Modifier",
     "save": "Enregistrer"
   },
@@ -9,8 +13,36 @@
     "description": "Confirmer le passage du multiplicateur de consommation de crédits de {model} de {from} à {to}.",
     "title": "Confirmer le multiplicateur de consommation"
   },
+  "create": {
+    "confirmDescription": "Ajouter un tarif dédié à {identity} ({type}) avec un multiplicateur de consommation de {multiplier}x ? Ce tarif n’affecte que les usages futurs.",
+    "confirmTitle": "Confirmer l’ajout du tarif",
+    "defaultTier": "niveau par défaut",
+    "description": "Ajouter un tarif dédié à la catégorie {type} active.",
+    "doesNotEnable": "L’ajout d’un tarif crée uniquement une règle de consommation de crédits. Il n’active aucun modèle et ne modifie pas leur disponibilité.",
+    "errors": {
+      "duplicate": "Un tarif dédié existe déjà pour ce fournisseur et ce modèle. Utilisez Modifier dans la liste.",
+      "modelInvalid": "Le modèle / niveau doit comporter au maximum 100 caractères et ne peut pas contenir de caractères de contrôle ni utiliser *.",
+      "modelRequired": "Saisissez un modèle.",
+      "providerInvalid": "Le fournisseur doit comporter au maximum 32 caractères et ne peut pas contenir de caractères de contrôle ni utiliser *.",
+      "providerRequired": "Saisissez un fournisseur.",
+      "ttsFactorMissing": "Le facteur de conversion des caractères TTS n’est pas configuré ; le tarif ne peut pas être ajouté."
+    },
+    "failed": "Échec de l’ajout du tarif. Veuillez vérifier le formulaire.",
+    "modelPlaceholder": "Par exemple, deepseek-v4-flash",
+    "multiplierPlaceholder": "Par exemple, 1,5",
+    "partialSuccessDescription": "Réessayez d’actualiser la liste. N’ajoutez pas de nouveau le tarif.",
+    "partialSuccessTitle": "Tarif ajouté, mais impossible d’actualiser la liste",
+    "providerPlaceholder": "Par exemple, qwen",
+    "retryRefresh": "Réessayer l’actualisation",
+    "retryRefreshAltText": "Réessayer d’actualiser la liste des tarifs",
+    "success": "Tarif ajouté",
+    "title": "Ajouter un tarif",
+    "ttsDefaultHint": "Laissez le modèle / niveau vide pour utiliser le niveau par défaut du fournisseur.",
+    "ttsModelPlaceholder": "Laisser vide pour la valeur par défaut",
+    "typeLabel": "Type de tarif"
+  },
   "description": "Gérer les règles de consommation de crédits pour le LLM et la synthèse vocale. Les changements n’affectent que les usages futurs.",
-  "empty": "Aucun modèle configurable.",
+  "empty": "Aucun tarif de modèle disponible.",
   "fields": {
     "actions": "Actions",
     "displayName": "Nom affiché",
@@ -18,13 +50,13 @@
     "modelTier": "Modèle / Niveau",
     "multiplier": "Multiplicateur de consommation",
     "multiplierSuffix": "x",
-    "provider": "Fournisseur vocal",
-    "source": "Configuration",
+    "provider": "Fournisseur",
+    "source": "Source du tarif",
     "ttsMultiplier": "Multiplicateur de consommation",
     "updatedAt": "Mis à jour le"
   },
   "invalidMultiplier": "Saisissez un multiplicateur de consommation supérieur à 0 avec 2 décimales au maximum.",
-  "loadFailed": "Échec du chargement de la configuration. Veuillez réessayer plus tard.",
+  "loadFailed": "Échec du chargement des tarifs. Veuillez réessayer plus tard.",
   "pagination": {
     "next": "Suivant",
     "prev": "Précédent"
@@ -38,19 +70,19 @@
     "fixedBaseline": "Cette référence globale est fixe et ne change pas avec le modèle par défaut ni les mises à jour de multiplicateur.",
     "futureOnly": "Seuls les usages futurs sont affectés. Les factures historiques ne sont pas recalculées.",
     "intro": "Valeurs de référence fixes utilisées pour calculer les multiplicateurs de consommation, uniquement pour vérification opérationnelle.",
-    "tooltipAriaLabel": "Voir la référence de configuration",
+    "tooltipAriaLabel": "Voir la référence tarifaire",
     "ttsFactor": "Facteur de conversion des caractères TTS"
   },
-  "saveFailed": "Échec de l’enregistrement. Veuillez vérifier le formulaire.",
-  "saveSuccess": "Configuration enregistrée",
+  "saveFailed": "Échec de l’enregistrement du tarif. Veuillez vérifier le formulaire.",
+  "saveSuccess": "Tarif enregistré",
   "source": {
-    "default": "Multiplicateur par défaut du système",
-    "exact": "Multiplicateur dédié",
-    "unconfigured": "Non configuré"
+    "default": "Tarif par défaut du système",
+    "exact": "Tarif dédié",
+    "unconfigured": "Tarif non défini"
   },
   "tabs": {
     "llm": "Consommation LLM",
     "tts": "Consommation TTS"
   },
-  "title": "Gestion de la configuration"
+  "title": "Gestion des tarifs"
 }
