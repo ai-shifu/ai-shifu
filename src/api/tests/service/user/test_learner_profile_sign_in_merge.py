@@ -5,7 +5,6 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.profile.learner_profile import (
     PROFILE_ONBOARDING_SCENE_KEY,
@@ -69,6 +68,7 @@ class _FakeGoogleSession:
 def _create_user(
     *,
     identify: str,
+    nickname: str = "Learner",
     learner_profile: str = "",
     learner_profile_updated_at: datetime | None = None,
     state: int = USER_STATE_UNREGISTERED,
@@ -76,7 +76,7 @@ def _create_user(
     return create_user_entity(
         user_bid=uuid.uuid4().hex,
         identify=identify,
-        nickname="Learner",
+        nickname=nickname,
         learner_profile=learner_profile,
         learner_profile_updated_at=learner_profile_updated_at,
         language="en-US",
@@ -103,13 +103,19 @@ def _add_state(
 
 
 @pytest.mark.parametrize(
-    ("source_profile", "status", "trigger_source"),
+    ("source_profile", "status", "trigger_source", "expected_nickname"),
     [
-        ("prefers diagrams", "completed", "guided"),
-        ("", "skipped", "settings"),
-        ("", "completed", "settings"),
+        (
+            "Please call me Guest Profile. prefers diagrams",
+            "completed",
+            "guided",
+            "Guest Profile",
+        ),
+        ("prefers diagrams", "completed", "settings", ""),
+        ("", "skipped", "settings", ""),
+        ("", "completed", "settings", ""),
     ],
-    ids=["completed", "skipped", "cleared"],
+    ids=["completed-with-name", "completed-without-name", "skipped", "cleared"],
 )
 def test_merge_helper_transfers_profile_and_handled_state(
     app,
@@ -117,6 +123,7 @@ def test_merge_helper_transfers_profile_and_handled_state(
     source_profile,
     status,
     trigger_source,
+    expected_nickname,
 ):
     monkeypatch.setattr(
         "flaskr.service.profile.learner_profile.check_text_content",
@@ -125,10 +132,14 @@ def test_merge_helper_transfers_profile_and_handled_state(
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
+            nickname="Stale guest name",
             learner_profile=source_profile,
             learner_profile_updated_at=(PROFILE_UPDATED_AT if source_profile else None),
         )
-        target = _create_user(identify=uuid.uuid4().hex)
+        target = _create_user(
+            identify=uuid.uuid4().hex,
+            nickname="Existing account name",
+        )
         _add_state(
             source.user_bid,
             status=status,
@@ -156,6 +167,7 @@ def test_merge_helper_transfers_profile_and_handled_state(
         else:
             assert stored_target.learner_profile_updated_at is None
         assert stored_source.learner_profile == source_profile
+        assert stored_target.nickname == expected_nickname
         assert target_state is not None
         assert target_state.status == status
         assert target_state.trigger_source == trigger_source
@@ -166,12 +178,14 @@ def test_merge_helper_preserves_target_profile_and_state(app):
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
+            nickname="Source name",
             learner_profile="source profile",
             learner_profile_updated_at=PROFILE_UPDATED_AT,
         )
         target_updated_at = datetime(2026, 8, 3, 7, 45, tzinfo=timezone.utc)
         target = _create_user(
             identify=uuid.uuid4().hex,
+            nickname="Target name",
             learner_profile="target profile",
             learner_profile_updated_at=target_updated_at,
         )
@@ -189,6 +203,7 @@ def test_merge_helper_preserves_target_profile_and_state(app):
         stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
         target_state = load_learner_profile_state(target.user_bid)
         assert stored_target.learner_profile == "target profile"
+        assert stored_target.nickname == "Target name"
         _assert_orm_utc(
             stored_target.learner_profile_updated_at,
             target_updated_at,
@@ -202,10 +217,14 @@ def test_merge_helper_does_not_restore_a_profile_the_target_cleared(app):
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
+            nickname="Guest name",
             learner_profile="guest profile must not return",
             learner_profile_updated_at=PROFILE_UPDATED_AT,
         )
-        target = _create_user(identify=uuid.uuid4().hex)
+        target = _create_user(
+            identify=uuid.uuid4().hex,
+            nickname="",
+        )
         _add_state(source.user_bid, status="completed", trigger_source="guided")
         _add_state(target.user_bid, status="completed", trigger_source="settings")
         db.session.commit()
@@ -221,6 +240,7 @@ def test_merge_helper_does_not_restore_a_profile_the_target_cleared(app):
         target_state = load_learner_profile_state(target.user_bid)
         assert stored_target.learner_profile == ""
         assert stored_target.learner_profile_updated_at is None
+        assert stored_target.nickname == ""
         assert target_state is not None
         assert target_state.status == "completed"
         assert target_state.trigger_source == "settings"
@@ -325,10 +345,14 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app):
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
+            nickname="Rollback source name",
             learner_profile="rollback sentinel",
             learner_profile_updated_at=PROFILE_UPDATED_AT,
         )
-        target = _create_user(identify=uuid.uuid4().hex)
+        target = _create_user(
+            identify=uuid.uuid4().hex,
+            nickname="Rollback target name",
+        )
         _add_state(source.user_bid, status="completed")
         db.session.commit()
 
@@ -345,6 +369,7 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app):
         stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
         assert stored_target.learner_profile == ""
         assert stored_target.learner_profile_updated_at is None
+        assert stored_target.nickname == "Rollback target name"
         assert load_learner_profile_state(target.user_bid) is None
 
 
@@ -392,7 +417,7 @@ def test_merge_helper_locks_target_and_state_before_reading_source(app, monkeypa
 
 
 def test_phone_sign_in_merges_profile_without_course_id(app, monkeypatch, caplog):
-    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.service.user import phone_flow
 
     caplog.set_level(logging.INFO)
     monkeypatch.setattr(phone_flow, "redis", _FakeRedis())
@@ -441,7 +466,7 @@ def test_phone_sign_in_merges_profile_without_course_id(app, monkeypatch, caplog
 
 
 def test_email_sign_in_transfers_cleared_state_without_course_id(app, monkeypatch):
-    import flaskr.service.user.email_flow as email_flow
+    from flaskr.service.user import email_flow
 
     monkeypatch.setattr(email_flow, "redis", _FakeRedis())
     monkeypatch.setattr(email_flow, "FIX_CHECK_CODE", "9999")
@@ -471,7 +496,7 @@ def test_email_sign_in_transfers_cleared_state_without_course_id(app, monkeypatc
 
 def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch):
     import flaskr.service.user.auth.providers.google as google_provider
-    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.service.user import phone_flow
 
     monkeypatch.setattr(
         google_provider,
@@ -488,7 +513,8 @@ def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch):
         email = f"{uuid.uuid4().hex[:12]}@example.com"
         source = _create_user(
             identify=uuid.uuid4().hex,
-            learner_profile="google merge sentinel",
+            nickname="Profile learner",
+            learner_profile="Please call me Profile Learner. google merge sentinel",
             learner_profile_updated_at=PROFILE_UPDATED_AT,
         )
         target = _create_user(identify=email)
@@ -525,7 +551,10 @@ def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch):
         stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
         target_state = load_learner_profile_state(target.user_bid)
         assert result.user.user_id == target.user_bid
-        assert stored_target.learner_profile == "google merge sentinel"
+        assert stored_target.learner_profile == (
+            "Please call me Profile Learner. google merge sentinel"
+        )
+        assert stored_target.nickname == "Profile Learner"
         _assert_orm_utc(
             stored_target.learner_profile_updated_at,
             PROFILE_UPDATED_AT,
@@ -533,3 +562,68 @@ def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch):
         assert target_state is not None
         assert target_state.status == "skipped"
         assert UserInfo.query.filter_by(user_bid=source.user_bid).one() is not None
+
+
+def test_google_sign_in_preserves_canonical_cleared_nickname(app, monkeypatch):
+    import flaskr.service.user.auth.providers.google as google_provider
+    from flaskr.service.user import phone_flow
+
+    monkeypatch.setattr(
+        google_provider,
+        "_resolve_redirect_uri",
+        lambda _app, _explicit_uri=None: "http://localhost/google-callback",
+    )
+    monkeypatch.setattr(
+        google_provider,
+        "ensure_admin_creator_and_demo_permissions",
+        lambda *_args, **_kwargs: False,
+    )
+    monkeypatch.setattr(phone_flow, "init_first_course", lambda *_args: False)
+
+    with app.app_context():
+        email = f"{uuid.uuid4().hex[:12]}@example.com"
+        source = _create_user(
+            identify=uuid.uuid4().hex,
+            nickname="Stale guest nickname",
+        )
+        target = _create_user(
+            identify=email,
+            nickname="Existing Google account name",
+        )
+        _add_state(source.user_bid, status="completed", trigger_source="settings")
+        db.session.commit()
+
+        provider = GoogleAuthProvider()
+        monkeypatch.setattr(
+            provider,
+            "_create_session",
+            lambda _app, _redirect_uri: _FakeGoogleSession(
+                {
+                    "sub": uuid.uuid4().hex,
+                    "email": email,
+                    "email_verified": True,
+                    "name": "Google Learner",
+                }
+            ),
+        )
+        callback = OAuthCallbackRequest(
+            code="fake-google-code",
+            state=_encode_state(
+                app,
+                {"redirect_uri": "http://localhost/google-callback"},
+            ),
+            current_user_id=source.user_bid,
+        )
+
+        with app.test_request_context("/login/google-callback"):
+            result = provider.handle_oauth_callback(app, callback)
+        db.session.commit()
+
+        stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
+        target_state = load_learner_profile_state(target.user_bid)
+        assert result.user.user_id == target.user_bid
+        assert stored_target.learner_profile == ""
+        assert stored_target.nickname == ""
+        assert target_state is not None
+        assert target_state.status == "completed"
+        assert target_state.trigger_source == "settings"

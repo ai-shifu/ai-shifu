@@ -3,19 +3,24 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from flaskr.dao import db
-from flaskr.service.profile.learner_profile import (
-    PROFILE_ONBOARDING_SCENE_KEY,
-    PROFILE_ONBOARDING_VERSION,
-)
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.funcs import (
     get_user_profiles,
     save_user_profiles,
     update_user_profile_with_lable,
 )
+from flaskr.service.profile.learner_profile import (
+    PROFILE_ONBOARDING_SCENE_KEY,
+    PROFILE_ONBOARDING_VERSION,
+)
 from flaskr.service.profile.models import VariableValue
-from flaskr.service.user.models import UserOnboardingState
-from flaskr.service.user.repository import create_user_entity
+from flaskr.service.user.common import update_user_info
+from flaskr.service.user.models import UserInfo, UserOnboardingState
+from flaskr.service.user.repository import (
+    build_user_info_from_aggregate,
+    create_user_entity,
+    load_user_aggregate,
+)
 from flaskr.util.datetime import now_utc
 
 
@@ -127,3 +132,88 @@ def test_skipped_v2_state_preserves_legacy_profile_behavior(app, monkeypatch):
         assert [(value.key, value.value) for value in values] == [
             ("sys_user_background", "preserved background")
         ]
+
+
+def test_canonical_profile_keeps_legacy_nickname_rows_without_being_overwritten(
+    app,
+    monkeypatch,
+):
+    definitions = [
+        SimpleNamespace(
+            profile_key="sys_user_nickname",
+            profile_id="nickname-variable",
+        )
+    ]
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: definitions,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.check_text_content",
+        lambda *_args, **_kwargs: True,
+    )
+
+    with app.app_context():
+        user_bid = "profile-v2-canonical-nickname"
+        user = create_user_entity(
+            user_bid=user_bid,
+            identify=user_bid,
+            nickname="Canonical Name",
+            learner_profile="Please call me Canonical Name.",
+            learner_profile_updated_at=now_utc(),
+            language="en-US",
+        )
+        db.session.add(
+            UserOnboardingState(
+                user_bid=user_bid,
+                scene_key=PROFILE_ONBOARDING_SCENE_KEY,
+                version=PROFILE_ONBOARDING_VERSION,
+                status="completed",
+                trigger_source="settings",
+                completed_at=now_utc(),
+            )
+        )
+        db.session.commit()
+
+        save_user_profiles(
+            app,
+            user_bid,
+            "",
+            [ProfileToSave("sys_user_nickname", "Legacy One", None)],
+        )
+        update_user_profile_with_lable(
+            app,
+            user_bid,
+            [{"key": "sys_user_nickname", "value": "Legacy Two"}],
+        )
+        db.session.commit()
+        aggregate = load_user_aggregate(user_bid)
+        assert aggregate is not None
+        update_user_info(
+            app,
+            build_user_info_from_aggregate(aggregate),
+            name="Legacy API",
+        )
+        db.session.expire_all()
+
+        stored_user = db.session.get(UserInfo, user.id)
+        legacy_values = (
+            VariableValue.query.filter_by(
+                user_bid=user_bid,
+                shifu_bid="",
+                key="sys_user_nickname",
+                deleted=0,
+            )
+            .order_by(VariableValue.id.asc())
+            .all()
+        )
+        runtime_profiles = get_user_profiles(app, user_bid, "")
+
+        assert stored_user is not None
+        assert stored_user.nickname == "Canonical Name"
+        assert [value.value for value in legacy_values] == [
+            "Legacy One",
+            "Legacy Two",
+            "Legacy API",
+        ]
+        assert runtime_profiles["sys_user_nickname"] == "Canonical Name"

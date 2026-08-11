@@ -159,6 +159,84 @@ def test_replace_accepts_exactly_1000_unicode_code_points(app, monkeypatch):
     assert len(result["learner_profile"]) == 1000
 
 
+@pytest.mark.parametrize(
+    ("profile", "expected"),
+    [
+        ("可以叫我小雨。我是一名产品经理。", "小雨"),
+        ("我叫张小雨 目前在学习 AI 产品设计", "张小雨"),
+        ("称呼：小明\n表达风格：简洁", "小明"),
+        ("Please call me Alice Chen. I work in education.", "Alice Chen"),
+        ("My name is O'Connor, and I am learning Python.", "O'Connor"),
+        ("Je m'appelle Élodie. Je travaille dans la santé.", "Élodie"),
+        ("Vous pouvez m’appeler Jean-Pierre, je débute en IA.", "Jean-Pierre"),
+        ("My name is Alexander. Please call me Alex.", "Alex"),
+        ("Please call me Alex. My name is Alexander.", "Alex"),
+        ("以前我叫小明。现在请叫我小雨就好。", "小雨"),
+        ("Je m'appelle Alexandre. Appelez-moi Alex.", "Alex"),
+        ("我是产品经理，希望多用实际案例。", None),
+        ("我的邮箱是 learner@example.com。", None),
+        ("AI 老师可以叫我“小雨”就好。", "小雨"),
+        ("不要叫我小明。", None),
+        ("你可以叫我在回答前先思考。", None),
+        ("请叫我不要在公开场合回答。", None),
+        ("Please don't call me Alice.", None),
+        ("Call me when you arrive.", None),
+        ("Appelez-moi quand vous arrivez.", None),
+        ("Please call me J.R.", None),
+        ("Please call me Dr. Chen.", None),
+        ("My name is J. R. Smith.", None),
+        ("可以叫我小雨 多举些例子。", "小雨"),
+        ("可以叫我在野。", "在野"),
+        ("可以叫我不二。", "不二"),
+        ("可以叫我别克。", "别克"),
+        ("我叫 AI 老师多举些例子。", None),
+        (f"Call me {'A' * 65}.", None),
+    ],
+)
+def test_extracts_only_explicit_profile_nicknames(profile, expected):
+    from flaskr.service.profile.learner_profile import (
+        extract_learner_profile_nickname,
+    )
+
+    assert extract_learner_profile_nickname(profile) == expected
+
+
+def test_replace_atomically_syncs_recognized_nickname(app, monkeypatch):
+    from flaskr.service.profile.learner_profile import replace_learner_profile
+
+    _allow_profile_safety(monkeypatch)
+    with app.app_context():
+        user_bid = "profile-sync-nickname"
+        _create_user(user_bid)
+        replace_learner_profile(
+            app,
+            user_id=user_bid,
+            learner_profile=(
+                "可以叫我小雨。我是产品经理，希望先讲核心概念，再用实际案例。"
+            ),
+        )
+        stored = UserInfo.query.filter_by(user_bid=user_bid).one()
+
+    assert stored.nickname == "小雨"
+
+
+def test_replace_without_explicit_nickname_clears_display_name(app, monkeypatch):
+    from flaskr.service.profile.learner_profile import replace_learner_profile
+
+    _allow_profile_safety(monkeypatch)
+    with app.app_context():
+        user_bid = "profile-preserve-nickname"
+        _create_user(user_bid)
+        replace_learner_profile(
+            app,
+            user_id=user_bid,
+            learner_profile="我是产品经理，希望先讲核心概念，再用实际案例。",
+        )
+        stored = UserInfo.query.filter_by(user_bid=user_bid).one()
+
+    assert stored.nickname == ""
+
+
 def test_safety_rejection_preserves_existing_profile(app, monkeypatch):
     from flaskr.service.profile.learner_profile import (
         get_learner_profile,
@@ -178,8 +256,10 @@ def test_safety_rejection_preserves_existing_profile(app, monkeypatch):
                 learner_profile="rejected profile",
             )
         loaded = get_learner_profile(user_id="profile-safety-reject")
+        stored = UserInfo.query.filter_by(user_bid="profile-safety-reject").one()
 
     assert loaded["learner_profile"] == "existing profile"
+    assert stored.nickname == "Test learner"
 
 
 @pytest.mark.parametrize(
@@ -218,12 +298,14 @@ def test_profile_moderation_rejects_every_non_pass_result(
             replace_learner_profile(
                 app,
                 user_id=user_bid,
-                learner_profile="unapproved profile",
+                learner_profile="Please call me Rejected Name.",
             )
         loaded = get_learner_profile(user_id=user_bid)
+        stored = UserInfo.query.filter_by(user_bid=user_bid).one()
         state = UserOnboardingState.query.filter_by(user_bid=user_bid).first()
 
     assert loaded["learner_profile"] == "existing profile"
+    assert stored.nickname == "Test learner"
     assert state is None
 
 
@@ -240,14 +322,16 @@ def test_profile_moderation_rejects_when_provider_is_unavailable(app):
             replace_learner_profile(
                 app,
                 user_id="profile-provider-unavailable",
-                learner_profile="unchecked profile",
+                learner_profile="Please call me Unchecked Name.",
             )
         loaded = get_learner_profile(user_id="profile-provider-unavailable")
+        stored = UserInfo.query.filter_by(user_bid="profile-provider-unavailable").one()
         state = UserOnboardingState.query.filter_by(
             user_bid="profile-provider-unavailable"
         ).first()
 
     assert loaded["learner_profile"] == "existing profile"
+    assert stored.nickname == "Test learner"
     assert state is None
 
 
@@ -361,8 +445,8 @@ def test_complete_atomically_writes_profile_and_fixed_v2_state(app, monkeypatch)
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_VERSION,
+        save_learner_profile,
     )
-    from flaskr.service.profile.learner_profile import save_learner_profile
 
     checked = _allow_profile_safety(monkeypatch)
     with app.app_context():
@@ -389,6 +473,7 @@ def test_complete_atomically_writes_profile_and_fixed_v2_state(app, monkeypatch)
     assert result["status"] == "completed"
     assert result["trigger_source"] == "guided"
     assert user.learner_profile == "称呼：小明\n表达风格：简洁"
+    assert user.nickname == "小明"
     assert state.status == "completed"
     assert state.completed_at is not None
     assert variable_values == []
@@ -458,8 +543,8 @@ def test_clear_profile_keeps_v2_completed_and_preserves_legacy_values(app):
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_VERSION,
+        clear_learner_profile,
     )
-    from flaskr.service.profile.learner_profile import clear_learner_profile
 
     with app.app_context():
         user_bid = "profile-clear-preserved"
@@ -506,6 +591,7 @@ def test_clear_profile_keeps_v2_completed_and_preserves_legacy_values(app):
     assert result["learner_profile_updated_at"] is None
     assert user.learner_profile == ""
     assert user.learner_profile_updated_at is None
+    assert user.nickname == ""
     assert state.status == "completed"
     assert {(row.shifu_bid, row.key): row.deleted for row in rows} == {
         ("", "sys_user_background"): 0,
@@ -564,7 +650,7 @@ def test_complete_rolls_back_profile_and_state_together(app, monkeypatch):
             save_learner_profile(
                 app,
                 user_id="profile-atomic-failure",
-                learner_profile="new profile",
+                learner_profile="可以叫我新名字。新的画像内容。",
                 trigger_source="settings",
             )
         monkeypatch.setattr(db.session, "commit", original_commit)
@@ -577,6 +663,7 @@ def test_complete_rolls_back_profile_and_state_together(app, monkeypatch):
         legacy_background = db.session.get(VariableValue, legacy_background.id)
 
     assert user.learner_profile == "old profile"
+    assert user.nickname == "Test learner"
     assert state is None
     assert legacy_background.deleted == 0
 
@@ -616,5 +703,6 @@ def test_clear_rolls_back_profile_and_state_together(app, monkeypatch):
 
     assert user.learner_profile == "old profile"
     _assert_orm_utc(user.learner_profile_updated_at, PROFILE_UPDATED_AT)
+    assert user.nickname == "Test learner"
     assert state is None
     assert legacy_style.deleted == 0
