@@ -17,6 +17,7 @@
     "manualPlanGrantBusy": "The package grant request is still being processed. Please try again later.",
     "manualPlanGrantFailed": "Failed to grant the package. Check the package configuration and try again.",
     "notificationPolicySaveFailed": "Failed to save the credit notification policy. Please try again later.",
+    "rateConfigAlreadyExists": "A rate already exists for this provider and model. Edit the existing rate instead.",
     "referralRewardProductMismatch": "Referral reward package configuration does not match the billing product. Contact an administrator to review the campaign setup.",
     "subscriptionCheckoutBusy": "The package purchase request is still being processed. Please try again later.",
     "subscriptionInactive": "Please buy a credit plan first. Credit packs can be used only while the account has an active credit plan.",

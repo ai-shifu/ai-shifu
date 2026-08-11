@@ -1,6 +1,10 @@
 {
   "__namespace__": "module.operationsConfig",
   "actions": {
+    "addConfiguration": "Add Rate",
+    "adding": "Adding…",
+    "confirmAdd": "Confirm Add",
+    "continue": "Continue",
     "edit": "Edit",
     "save": "Save"
   },
@@ -9,8 +13,36 @@
     "description": "Change {model} credit consumption multiplier from {from} to {to}?",
     "title": "Confirm credit consumption multiplier change"
   },
+  "create": {
+    "confirmDescription": "Add a dedicated rate for {identity} ({type}) with a {multiplier}x credit consumption multiplier? This rate only affects future usage.",
+    "confirmTitle": "Confirm Rate Addition",
+    "defaultTier": "default tier",
+    "description": "Add a dedicated rate for the current {type} category.",
+    "doesNotEnable": "Adding a rate only creates a credit consumption rule. It does not enable a model or change model availability.",
+    "errors": {
+      "duplicate": "A dedicated rate already exists for this provider and model. Use Edit in the list instead.",
+      "modelInvalid": "Model / tier must be 100 characters or fewer and cannot contain control characters or use *.",
+      "modelRequired": "Enter a model.",
+      "providerInvalid": "Provider must be 32 characters or fewer and cannot contain control characters or use *.",
+      "providerRequired": "Enter a provider.",
+      "ttsFactorMissing": "The TTS character conversion factor is not configured, so the rate cannot be added."
+    },
+    "failed": "Failed to add the rate. Please check the form.",
+    "modelPlaceholder": "For example, deepseek-v4-flash",
+    "multiplierPlaceholder": "For example, 1.5",
+    "partialSuccessDescription": "Retry refreshing the list. Do not add the rate again.",
+    "partialSuccessTitle": "Rate added, but the list could not be refreshed",
+    "providerPlaceholder": "For example, qwen",
+    "retryRefresh": "Retry refresh",
+    "retryRefreshAltText": "Retry refreshing the rate list",
+    "success": "Rate added",
+    "title": "Add Rate",
+    "ttsDefaultHint": "Leave model / tier blank to use the provider default tier.",
+    "ttsModelPlaceholder": "Leave blank for the provider default",
+    "typeLabel": "Rate Type"
+  },
   "description": "Manage credit consumption rules for LLM and speech synthesis. Changes only affect future usage settlement.",
-  "empty": "No configurable models.",
+  "empty": "No model rates available.",
   "fields": {
     "actions": "Actions",
     "displayName": "Display Name",
@@ -18,13 +50,13 @@
     "modelTier": "Model / Tier",
     "multiplier": "Credit Consumption Multiplier",
     "multiplierSuffix": "x",
-    "provider": "Voice Provider",
-    "source": "Configuration",
+    "provider": "Provider",
+    "source": "Rate Source",
     "ttsMultiplier": "Credit Consumption Multiplier",
     "updatedAt": "Updated At"
   },
   "invalidMultiplier": "Enter a credit consumption multiplier greater than 0 with up to 2 decimal places.",
-  "loadFailed": "Failed to load config. Please try again later.",
+  "loadFailed": "Failed to load rates. Please try again later.",
   "pagination": {
     "next": "Next",
     "prev": "Previous"
@@ -38,19 +70,19 @@
     "fixedBaseline": "This is a fixed global baseline and does not change with the default model or model multiplier updates.",
     "futureOnly": "Only future usage is affected. Historical bills are not recalculated.",
     "intro": "Fixed reference values used to calculate credit consumption multipliers, for operations review only.",
-    "tooltipAriaLabel": "View configuration reference",
+    "tooltipAriaLabel": "View rate reference",
     "ttsFactor": "TTS character conversion factor"
   },
-  "saveFailed": "Failed to save config. Please check the form.",
-  "saveSuccess": "Config saved",
+  "saveFailed": "Failed to save the rate. Please check the form.",
+  "saveSuccess": "Rate saved",
   "source": {
-    "default": "System default multiplier",
-    "exact": "Dedicated multiplier",
-    "unconfigured": "Not configured"
+    "default": "System default rate",
+    "exact": "Dedicated rate",
+    "unconfigured": "Rate not set"
   },
   "tabs": {
     "llm": "LLM Credit Consumption",
     "tts": "TTS Credit Consumption"
   },
-  "title": "Config Management"
+  "title": "Rate Management"
 }

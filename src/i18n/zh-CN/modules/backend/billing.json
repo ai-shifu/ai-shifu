@@ -17,6 +17,7 @@
     "manualPlanGrantBusy": "当前套餐发放请求正在处理中，请稍后重试。",
     "manualPlanGrantFailed": "套餐发放失败，请检查套餐配置后重试。",
     "notificationPolicySaveFailed": "积分通知策略保存失败，请稍后重试。",
+    "rateConfigAlreadyExists": "该费率已存在，请直接编辑已有费率。",
     "referralRewardProductMismatch": "邀请奖励套餐配置与计费商品不匹配，请联系管理员检查活动配置。",
     "subscriptionCheckoutBusy": "当前套餐购买请求正在处理中，请稍后重试。",
     "subscriptionInactive": "请先购买积分套餐；账户下存在有效期内的积分套餐时，才可以使用积分包。",
