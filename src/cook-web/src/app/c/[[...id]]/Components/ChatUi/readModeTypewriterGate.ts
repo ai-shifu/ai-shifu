@@ -4,6 +4,7 @@ import { stripCustomButtonAfterContent } from './chatUiUtils';
 export interface ReadModeTypewriterCacheEntry {
   content: string;
   isFinished: boolean;
+  isSuppressed?: boolean;
 }
 
 export interface ReadModeTypewriterKeepAliveOptions {
@@ -19,6 +20,7 @@ export type ReadModeTypewriterCache = Record<
 
 export interface SyncReadModeTypewriterCacheOptions {
   markFinalTextItemsFinished?: boolean;
+  suppressTypewriter?: boolean;
 }
 
 export const normalizeReadModeTypewriterContent = (content?: string | null) =>
@@ -50,6 +52,10 @@ export const shouldEnableReadModeTypewriter = (
     return true;
   }
 
+  if (cacheEntry.isSuppressed) {
+    return false;
+  }
+
   const currentContent = getItemContent(item);
   const hasAppendedContentBeyondCache =
     currentContent.length > cacheEntry.content.length &&
@@ -69,7 +75,10 @@ export const shouldTrackReadModeTypewriter = (
   cacheEntry?: ReadModeTypewriterCacheEntry,
 ) => {
   if (isReadModeHistoryLikeTextItem(item)) {
-    return false;
+    // A visibility-suppressed element must stay static across temporary
+    // history-like projections. Dropping it here would let the same bid replay
+    // from the beginning if it becomes realtime again.
+    return cacheEntry?.isSuppressed === true;
   }
 
   return (
@@ -111,22 +120,33 @@ export const syncReadModeTypewriterCache = (
     }
 
     const content = getItemContent(item);
+    const isSuppressed = Boolean(
+      previousEntry?.isSuppressed || options.suppressTypewriter,
+    );
+    const shouldMarkFinished = Boolean(
+      isSuppressed || (options.markFinalTextItemsFinished && item.is_final),
+    );
     if (previousEntry?.content === content) {
-      nextCache[itemBid] =
-        options.markFinalTextItemsFinished &&
-        item.is_final &&
-        !previousEntry.isFinished
-          ? {
-              ...previousEntry,
-              isFinished: true,
-            }
-          : previousEntry;
+      if (
+        (previousEntry.isFinished || !shouldMarkFinished) &&
+        (previousEntry.isSuppressed || !isSuppressed)
+      ) {
+        nextCache[itemBid] = previousEntry;
+        return;
+      }
+
+      nextCache[itemBid] = {
+        ...previousEntry,
+        isFinished: previousEntry.isFinished || shouldMarkFinished,
+        ...(isSuppressed ? { isSuppressed: true } : {}),
+      };
       return;
     }
 
     nextCache[itemBid] = {
       content,
-      isFinished: Boolean(options.markFinalTextItemsFinished && item.is_final),
+      isFinished: shouldMarkFinished,
+      ...(isSuppressed ? { isSuppressed: true } : {}),
     };
   });
 
@@ -149,6 +169,10 @@ export const isReadModeTextContentItemReady = (
   const cacheEntry = itemBid ? cache[itemBid] : undefined;
   if (!cacheEntry) {
     return item.shouldUseTypewriter !== true;
+  }
+
+  if (cacheEntry.isSuppressed) {
+    return true;
   }
 
   return (

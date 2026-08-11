@@ -111,6 +111,45 @@ describe('readModeTypewriterGate', () => {
     ).toStrictEqual({});
   });
 
+  it('preserves visibility suppression across a temporary history-like projection', () => {
+    const suppressedCache = syncReadModeTypewriterCache(
+      [createTextItem()],
+      {},
+      { suppressTypewriter: true },
+    );
+    const historyLikeText = createTextItem({
+      is_final: true,
+      isHistory: true,
+      shouldUseTypewriter: false,
+      shouldRenderAsHistoryInReadMode: true,
+    });
+
+    const historyCache = syncReadModeTypewriterCache(
+      [historyLikeText],
+      suppressedCache,
+    );
+    const resumedRealtimeText = createTextItem({
+      content: 'First text resumed',
+    });
+    const resumedCache = syncReadModeTypewriterCache(
+      [resumedRealtimeText],
+      historyCache,
+    );
+
+    expect(historyCache['text-1']?.isSuppressed).toBe(true);
+    expect(resumedCache['text-1']).toStrictEqual({
+      content: 'First text resumed',
+      isFinished: true,
+      isSuppressed: true,
+    });
+    expect(
+      shouldEnableReadModeTypewriter(
+        resumedRealtimeText,
+        resumedCache['text-1'],
+      ),
+    ).toBe(false);
+  });
+
   it('resets the cache entry when a tracked text item receives new content', () => {
     const initialCache: ReadModeTypewriterCache = {
       'text-1': {
@@ -151,6 +190,82 @@ describe('readModeTypewriterGate', () => {
     expect(
       buildVisibleReadModeItems([finalizedClassroomText, secondHtml], cache),
     ).toStrictEqual([finalizedClassroomText, secondHtml]);
+  });
+
+  it('reveals every received item and disables typewriter when the page is hidden', () => {
+    const firstText = createTextItem();
+    const secondText = createTextItem({
+      element_bid: 'text-2',
+      content: 'Second text',
+    });
+    const interaction = createInteractionItem();
+    const items = [firstText, secondText, interaction];
+
+    const cache = syncReadModeTypewriterCache(
+      items,
+      {},
+      {
+        suppressTypewriter: true,
+      },
+    );
+
+    expect(cache).toStrictEqual({
+      'text-1': {
+        content: 'First text',
+        isFinished: true,
+        isSuppressed: true,
+      },
+      'text-2': {
+        content: 'Second text',
+        isFinished: true,
+        isSuppressed: true,
+      },
+    });
+    expect(isReadModeTextContentItemReady(firstText, cache)).toBe(true);
+    expect(shouldEnableReadModeTypewriter(firstText, cache['text-1'])).toBe(
+      false,
+    );
+    expect(buildVisibleReadModeItems(items, cache)).toStrictEqual(items);
+  });
+
+  it('keeps a hidden text element static when the same element receives more content', () => {
+    const initialCache = syncReadModeTypewriterCache(
+      [createTextItem()],
+      {},
+      { suppressTypewriter: true },
+    );
+    const appendedText = createTextItem({
+      content: 'First text with more content',
+    });
+
+    const nextCache = syncReadModeTypewriterCache([appendedText], initialCache);
+
+    expect(nextCache).toStrictEqual({
+      'text-1': {
+        content: 'First text with more content',
+        isFinished: true,
+        isSuppressed: true,
+      },
+    });
+    expect(
+      shouldEnableReadModeTypewriter(appendedText, nextCache['text-1']),
+    ).toBe(false);
+  });
+
+  it('allows a new foreground text element to use typewriter after hidden items were suppressed', () => {
+    const suppressedCache = syncReadModeTypewriterCache(
+      [createTextItem()],
+      {},
+      { suppressTypewriter: true },
+    );
+    const foregroundText = createTextItem({
+      element_bid: 'text-2',
+      content: 'Foreground text',
+    });
+
+    expect(
+      shouldEnableReadModeTypewriter(foregroundText, suppressedCache['text-2']),
+    ).toBe(true);
   });
 
   it('keeps typewriter enabled when the current text content outgrows a finished cache entry', () => {
