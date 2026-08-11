@@ -23,6 +23,12 @@ to.
   before creating new abstractions.
 - Use ExecPlans for complex work. `PLANS.md` defines the format, and active
   plans live under `docs/exec-plans/active/`.
+- Whenever creating a Git worktree for this repository, copy existing local
+  `.env` files from the source checkout into the matching paths in the new
+  worktree before starting services, including the repository-root `.env` and
+  `src/cook-web/.env` when present. Preserve file permissions, never commit
+  these copies, and do not overwrite an environment file already customized
+  in the new worktree.
 - Before committing, run `python scripts/check_dev_tools.py` to confirm
   lefthook and its underlying tools are installed; the local checks are
   silently skipped if lefthook was never installed.

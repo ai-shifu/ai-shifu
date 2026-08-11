@@ -8,7 +8,6 @@ from pathlib import Path
 import re
 import textwrap
 
-
 ROOT = Path(__file__).resolve().parents[1]
 WIDTH = 78
 MIN_AGENT_LINES = 60
@@ -119,6 +118,12 @@ ROOT_SPEC = DocSpec(
         "the current complex topic and keep its progress and decisions current.",
         "Move completed ExecPlans to `docs/exec-plans/completed/` only after "
         "implementation and verification are complete.",
+        "Whenever creating a Git worktree for this repository, copy existing "
+        "local `.env` files from the source checkout into matching paths in the "
+        "new worktree before starting services, including the repository-root "
+        "`.env` and `src/cook-web/.env` when present. Preserve permissions, "
+        "never commit the copies, and do not overwrite an environment file "
+        "already customized in the new worktree.",
         "Run the smallest relevant verification first, then widen to shared "
         "checks when a change crosses API boundaries, shared DTOs, i18n files, "
         "or common frontend libraries.",
@@ -1611,6 +1616,11 @@ def build_documents() -> dict[Path, str]:
                 "For complex design work, create an ExecPlan under "
                 "`docs/exec-plans/active/` and maintain it according to "
                 "`PLANS.md`.",
+                "When creating a Git worktree, copy existing local `.env` files "
+                "from the source checkout into matching paths in the new "
+                "worktree before starting services. Preserve permissions, never "
+                "commit the copies, and do not overwrite worktree-specific "
+                "environment files.",
                 "When a branch already has an open PR, keep the PR title and "
                 "description in sync with the latest code changes so they "
                 "accurately describe the current implementation and "
@@ -1788,6 +1798,11 @@ def build_documents() -> dict[Path, str]:
                 "For complex design work, create an ExecPlan in "
                 "`docs/exec-plans/active/` and maintain it according to "
                 "`PLANS.md`.",
+                "When creating a Git worktree, copy existing local `.env` files "
+                "from the source checkout into matching paths in the new "
+                "worktree before starting services. Preserve permissions, never "
+                "commit the copies, and do not overwrite worktree-specific "
+                "environment files.",
                 "When a branch already has an open PR, keep the PR title and "
                 "description in sync with the latest code changes so they "
                 "accurately describe the current implementation and "
