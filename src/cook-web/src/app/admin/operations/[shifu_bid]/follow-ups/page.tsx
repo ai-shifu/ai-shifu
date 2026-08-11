@@ -285,7 +285,6 @@ const resolvePrimaryAccount = ({
  * t('module.operationsCourse.detail.followUps.table.title')
  * t('module.operationsCourse.detail.followUps.table.createdAt')
  * t('module.operationsCourse.detail.followUps.table.user')
- * t('module.operationsCourse.detail.followUps.table.chapter')
  * t('module.operationsCourse.detail.followUps.table.lesson')
  * t('module.operationsCourse.detail.followUps.table.content')
  * t('module.operationsCourse.detail.followUps.table.turnIndex')
@@ -511,9 +510,6 @@ export default function AdminOperationCourseFollowUpsPage() {
   const outlineFilterPlaceholder = hasChapterHierarchy
     ? tOperations('detail.followUps.filters.chapterKeywordPlaceholder')
     : tOperations('detail.followUps.filters.lessonKeywordPlaceholder');
-  const outlineColumnLabel = hasChapterHierarchy
-    ? tOperations('detail.followUps.table.chapter')
-    : tOperations('detail.followUps.table.lesson');
   const turnIndexHelpText = tOperations('detail.followUps.turnIndexHelp');
   const tableScopeHint = tOperations('detail.followUps.table.scopeHint');
   const resolveDetailOutlineFieldLabel = useCallback(
@@ -758,7 +754,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                     handleSearch();
                   }}
                 >
-                  <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
+                  <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
                     <div className='flex flex-col gap-2'>
                       <label
                         htmlFor={userKeywordInputId}
@@ -949,7 +945,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                               )}
                               style={getColumnStyle('lesson')}
                             >
-                              {outlineColumnLabel}
+                              {tOperations('detail.followUps.table.lesson')}
                               {renderResizeHandle('lesson')}
                             </TableHead>
                             <TableHead
@@ -1054,7 +1050,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                                       </div>
                                     </TableCell>
                                     <TableCell
-                                      className='border-r border-border py-3 text-center align-top last:border-r-0'
+                                      className='border-r border-border py-3 align-middle last:border-r-0'
                                       style={getColumnStyle('lesson')}
                                     >
                                       <div className='flex flex-col gap-0.5 leading-tight'>
@@ -1062,14 +1058,14 @@ export default function AdminOperationCourseFollowUpsPage() {
                                           <AdminTooltipText
                                             text={primaryLessonDisplay}
                                             emptyValue={emptyValue}
-                                            className='mx-auto block max-w-full text-sm text-foreground'
+                                            className='block max-w-full text-sm text-foreground'
                                           />
                                         </div>
                                         {secondaryChapterDisplay ? (
                                           <AdminTooltipText
                                             text={secondaryChapterDisplay}
                                             emptyValue={emptyValue}
-                                            className='mx-auto block max-w-full text-xs text-muted-foreground'
+                                            className='block max-w-full text-xs text-muted-foreground'
                                           />
                                         ) : null}
                                       </div>

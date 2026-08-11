@@ -340,6 +340,16 @@ describe('AdminOperationCourseFollowUpsPage', () => {
       ),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('columnheader', {
+        name: 'module.operationsCourse.detail.followUps.table.lesson',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('columnheader', {
+        name: 'module.operationsCourse.detail.followUps.table.chapter',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByText(
         'module.operationsCourse.detail.followUps.table.scopeHint',
       ),
