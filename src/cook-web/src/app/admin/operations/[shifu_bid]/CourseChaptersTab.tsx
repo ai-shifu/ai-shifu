@@ -247,6 +247,7 @@ export default function CourseChaptersTab({
                             text={chapter.title || emptyValue}
                             emptyValue={emptyValue}
                             className='text-left text-sm font-medium text-foreground'
+                            tooltipContentClassName='text-left'
                           />
                         </div>
                       </TableCell>

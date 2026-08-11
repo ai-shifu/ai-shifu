@@ -13,6 +13,7 @@ type AdminTooltipTextProps = {
   text?: string | null;
   displayText?: ReactNode;
   className?: string;
+  tooltipContentClassName?: string;
   emptyValue: string;
   alwaysShowTooltip?: boolean;
   forceTooltip?: boolean;
@@ -46,6 +47,7 @@ export default function AdminTooltipText({
   text,
   displayText,
   className,
+  tooltipContentClassName,
   emptyValue,
   alwaysShowTooltip = false,
   forceTooltip = false,
@@ -139,7 +141,12 @@ export default function AdminTooltipText({
   return (
     <Tooltip>
       <TooltipTrigger asChild>{content}</TooltipTrigger>
-      <TooltipContent side='top'>{value}</TooltipContent>
+      <TooltipContent
+        side='top'
+        className={tooltipContentClassName}
+      >
+        {value}
+      </TooltipContent>
     </Tooltip>
   );
 }

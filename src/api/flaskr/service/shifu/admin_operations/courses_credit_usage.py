@@ -9,9 +9,9 @@ import math
 import re
 from decimal import Decimal
 from typing import Any, Dict, Optional, Sequence
-from flask import Flask, current_app
+from flask import Flask
 from sqlalchemy import and_, case, false, literal, not_, or_
-from flaskr.api.llm import get_current_models
+from flaskr.api.llm import PROVIDER_STATES, get_current_models
 from flaskr.api.tts import get_all_provider_configs
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
@@ -187,59 +187,90 @@ def _format_course_credit_usage_model_label_fallback(value: str) -> str:
     return "-".join(formatted_segments)
 
 
-def _resolve_course_credit_usage_model_label(
-    app: Flask,
-    *,
-    usage_type: int,
-    provider: str,
-    model: str,
-) -> str:
-    normalized_provider = str(provider or "").strip().lower()
-    normalized_model = str(model or "").strip()
-    if not normalized_provider and not normalized_model:
-        return ""
+class _CourseCreditUsageModelLabelResolver:
+    def __init__(self, app: Flask):
+        self._app = app
+        self._llm_label_map: dict[tuple[str, str], str] | None = None
+        self._tts_label_map: dict[tuple[str, str], str] | None = None
 
-    if int(usage_type or 0) == BILL_USAGE_TYPE_TTS:
+    def _load_llm_label_map(self) -> dict[tuple[str, str], str]:
+        if self._llm_label_map is not None:
+            return self._llm_label_map
+
+        label_by_model: dict[str, str] = {}
+        label_map: dict[tuple[str, str], str] = {}
+        try:
+            for option in get_current_models(self._app):
+                option_model = str(option.get("model", "") or "").strip()
+                label = str(option.get("display_name", "") or "").strip()
+                if option_model and label:
+                    label_by_model[option_model] = label
+                option_provider = str(option.get("provider", "") or "").strip().lower()
+                if option_provider and option_model and label:
+                    label_map[(option_provider, option_model)] = label
+
+            for provider_name, state in PROVIDER_STATES.items():
+                normalized_provider = str(provider_name or "").strip().lower()
+                if not normalized_provider:
+                    continue
+                for state_model in getattr(state, "models", []) or []:
+                    normalized_model = str(state_model or "").strip()
+                    label = label_by_model.get(normalized_model, "")
+                    if normalized_model and label:
+                        label_map[(normalized_provider, normalized_model)] = label
+        except Exception:
+            label_map = {}
+
+        self._llm_label_map = label_map
+        return label_map
+
+    def _load_tts_label_map(self) -> dict[tuple[str, str], str]:
+        if self._tts_label_map is not None:
+            return self._tts_label_map
+
+        label_map: dict[tuple[str, str], str] = {}
         try:
             configs = get_all_provider_configs()
             for option in configs.get("model_options") or []:
                 option_provider = str(option.get("provider", "") or "").strip().lower()
                 option_model = str(option.get("model", "") or "").strip()
-                if (
-                    option_provider == normalized_provider
-                    and option_model == normalized_model
-                ):
-                    label = str(option.get("label", "") or "").strip()
-                    if label:
-                        return label
+                label = str(option.get("label", "") or "").strip()
+                if option_provider and label:
+                    label_map[(option_provider, option_model)] = label
             for provider_config in configs.get("providers") or []:
-                if (
+                option_provider = (
                     str(provider_config.get("name", "") or "").strip().lower()
-                    != normalized_provider
-                ):
+                )
+                if not option_provider:
                     continue
                 for option in provider_config.get("models") or []:
-                    if str(option.get("value", "") or "").strip() == normalized_model:
-                        label = str(option.get("label", "") or "").strip()
-                        if label:
-                            return label
+                    option_model = str(option.get("value", "") or "").strip()
+                    label = str(option.get("label", "") or "").strip()
+                    if option_model and label:
+                        label_map[(option_provider, option_model)] = label
         except Exception:
-            pass
+            label_map = {}
+
+        self._tts_label_map = label_map
+        return label_map
+
+    def resolve(self, *, usage_type: int, provider: str, model: str) -> str:
+        normalized_provider = str(provider or "").strip().lower()
+        normalized_model = str(model or "").strip()
+        if not normalized_provider and not normalized_model:
+            return ""
+
+        label_map = (
+            self._load_tts_label_map()
+            if int(usage_type or 0) == BILL_USAGE_TYPE_TTS
+            else self._load_llm_label_map()
+        )
+        label = label_map.get((normalized_provider, normalized_model), "")
+        if label:
+            return label
         return _format_course_credit_usage_model_label_fallback(
             normalized_model or normalized_provider
         )
-
-    try:
-        for option in get_current_models(app):
-            if str(option.get("model", "") or "").strip() == normalized_model:
-                label = str(option.get("display_name", "") or "").strip()
-                if label:
-                    return label
-    except Exception:
-        pass
-    return _format_course_credit_usage_model_label_fallback(
-        normalized_model or normalized_provider
-    )
 
 
 def _build_course_credit_usage_group_key(
@@ -679,6 +710,7 @@ def _load_course_credit_usage_output_summary_map(
 def _build_operator_course_credit_usage_detail_item(
     usage_row: BillUsageRecord,
     ledger_amount: Any,
+    model_label_resolver: _CourseCreditUsageModelLabelResolver,
     output_summary: Optional[str] = None,
 ) -> AdminOperationCourseCreditUsageDetailItemDTO:
     return AdminOperationCourseCreditUsageDetailItemDTO(
@@ -690,8 +722,7 @@ def _build_operator_course_credit_usage_detail_item(
         output_tokens=int(getattr(usage_row, "output", 0) or 0),
         provider=str(getattr(usage_row, "provider", "") or ""),
         model=str(getattr(usage_row, "model", "") or ""),
-        model_label=_resolve_course_credit_usage_model_label(
-            current_app._get_current_object(),
+        model_label=model_label_resolver.resolve(
             usage_type=int(getattr(usage_row, "usage_type", 0) or 0),
             provider=str(getattr(usage_row, "provider", "") or ""),
             model=str(getattr(usage_row, "model", "") or ""),
@@ -987,6 +1018,7 @@ def get_operator_course_credit_usages(
             outline_item_bids=visible_leaf_outline_bids,
         )
         query = _apply_course_credit_usage_filters(query, filters)
+        model_label_resolver = _CourseCreditUsageModelLabelResolver(app)
 
         if view == COURSE_CREDIT_USAGE_VIEW_RAW:
             total = query.count()
@@ -1022,8 +1054,7 @@ def get_operator_course_credit_usages(
                         group_key=str(getattr(usage_row, "usage_bid", "") or ""),
                         usage_count=1,
                         usage_mode=_resolve_course_credit_usage_mode(usage_row),
-                        model_label=_resolve_course_credit_usage_model_label(
-                            app,
+                        model_label=model_label_resolver.resolve(
                             usage_type=int(getattr(usage_row, "usage_type", 0) or 0),
                             provider=str(getattr(usage_row, "provider", "") or ""),
                             model=str(getattr(usage_row, "model", "") or ""),
@@ -1233,8 +1264,7 @@ def get_operator_course_credit_usages(
                     usage_mode=str(getattr(row, "usage_mode", "") or ""),
                     provider=str(getattr(row, "provider", "") or ""),
                     model=str(getattr(row, "model", "") or ""),
-                    model_label=_resolve_course_credit_usage_model_label(
-                        app,
+                    model_label=model_label_resolver.resolve(
                         usage_type=(
                             BILL_USAGE_TYPE_TTS
                             if str(getattr(row, "usage_mode", "") or "")
@@ -1326,11 +1356,13 @@ def get_operator_course_credit_usage_details(
         output_summary_map = _load_course_credit_usage_output_summary_map(
             [usage_row for usage_row, _ledger_amount in rows]
         )
+        model_label_resolver = _CourseCreditUsageModelLabelResolver(app)
         return AdminOperationCourseCreditUsageDetailListDTO(
             items=[
                 _build_operator_course_credit_usage_detail_item(
                     usage_row=usage_row,
                     ledger_amount=ledger_amount,
+                    model_label_resolver=model_label_resolver,
                     output_summary=output_summary_map.get(
                         str(getattr(usage_row, "usage_bid", "") or "").strip(),
                         "",
