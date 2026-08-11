@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from flask import Flask
-from sqlalchemy import and_, case
+from sqlalchemy import and_, case, or_
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
@@ -57,7 +57,23 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+
+
+def _build_user_query_filter(user_query: str):
+    normalized_query = str(user_query or "").strip()
+    like_pattern = f"%{normalized_query}%"
+    credential_user_bids = db.session.query(AuthCredential.user_bid).filter(
+        AuthCredential.deleted == 0,
+        AuthCredential.provider_name.in_(["phone", "email", "google"]),
+        AuthCredential.identifier.ilike(like_pattern),
+    )
+    return or_(
+        UserEntity.user_bid.ilike(like_pattern),
+        UserEntity.user_identify.ilike(like_pattern),
+        UserEntity.nickname.ilike(like_pattern),
+        UserEntity.user_bid.in_(credential_user_bids),
+    )
 
 
 def _build_operator_user_overview() -> AdminOperationUserOverviewDTO:
@@ -192,6 +208,7 @@ def list_operator_users(
         filters = filters or {}
 
         user_bid = str(filters.get("user_bid", "") or "").strip()
+        user_query = str(filters.get("user_query", "") or "").strip()
         identifier = str(
             filters.get("identifier", "") or filters.get("mobile", "") or ""
         ).strip()
@@ -207,6 +224,8 @@ def list_operator_users(
         query = UserEntity.query.filter(UserEntity.deleted == 0)
         if user_bid:
             query = query.filter(UserEntity.user_bid == user_bid)
+        if user_query:
+            query = query.filter(_build_user_query_filter(user_query))
         if nickname:
             query = query.filter(UserEntity.nickname.ilike(f"%{nickname}%"))
         if user_status:

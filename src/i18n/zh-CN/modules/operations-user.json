@@ -192,7 +192,11 @@
     "mobile": "手机号",
     "nickname": "昵称",
     "role": "用户身份",
-    "status": "用户状态"
+    "status": "用户状态",
+    "user": "用户",
+    "userPlaceholderEmail": "邮箱 / 昵称",
+    "userPlaceholderPhone": "手机号 / 昵称",
+    "userPlaceholderPhoneEmail": "手机号 / 邮箱 / 昵称"
   },
   "grantDialog": {
     "bootstrapError": "套餐列表加载失败，请稍后重试。",

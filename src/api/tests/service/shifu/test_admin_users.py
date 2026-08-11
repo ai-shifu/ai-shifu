@@ -816,6 +816,50 @@ def test_list_operator_users_filters_by_email_identifier(app):
     assert result.data[0].created_courses == []
 
 
+def test_list_operator_users_filters_by_combined_user_query(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-query-email",
+            identify="query@example.com",
+            nickname="Email Query",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 6, 9, 0, 0),
+            updated_at=datetime(2026, 4, 6, 10, 0, 0),
+            providers=[("email", "query@example.com")],
+        )
+        _seed_user(
+            app,
+            user_bid="user-query-nickname",
+            identify="13900005555",
+            nickname="Nickname Query",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 7, 9, 0, 0),
+            updated_at=datetime(2026, 4, 7, 10, 0, 0),
+            providers=[("phone", "13900005555")],
+        )
+
+        email_result = list_operator_users(
+            app,
+            1,
+            20,
+            {
+                "user_query": "query@example.com",
+            },
+        )
+        nickname_result = list_operator_users(
+            app,
+            1,
+            20,
+            {
+                "user_query": "Nickname",
+            },
+        )
+
+    assert [item.user_bid for item in email_result.data] == ["user-query-email"]
+    assert [item.user_bid for item in nickname_result.data] == ["user-query-nickname"]
+
+
 def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
     app, monkeypatch
 ):
@@ -3988,7 +4032,7 @@ def test_admin_operation_users_route_returns_filtered_payload(
         query_string={
             "page_index": 1,
             "page_size": 20,
-            "nickname": "Route",
+            "user_query": "Route",
             "user_status": "unregistered",
         },
         headers={"Token": "test-token"},
