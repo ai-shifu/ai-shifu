@@ -41,8 +41,15 @@ def dispose_inherited_db_pools(flask_app: Flask) -> None:
     from flaskr.dao import db
 
     with flask_app.app_context():
-        for engine in db.engines.values():
-            engine.dispose(close=False)
+        for bind_key, engine in db.engines.items():
+            try:
+                engine.dispose(close=False)
+            except Exception:
+                # One failing bind must not leave the remaining binds with
+                # their inherited pools.
+                flask_app.logger.exception(
+                    "fork pool dispose failed for bind %r", bind_key
+                )
 
 
 def create_celery_app(flask_app: Flask | None = None) -> Celery:

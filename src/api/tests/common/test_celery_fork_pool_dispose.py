@@ -42,3 +42,26 @@ def test_worker_process_init_signal_disposes_pools(app):
 
     with app.app_context():
         assert db.engine.pool is not inherited_pool
+
+
+def test_one_failing_bind_does_not_block_the_rest(app, monkeypatch):
+    import flaskr.dao as dao
+
+    disposed = []
+
+    class _BrokenEngine:
+        def dispose(self, close):
+            raise RuntimeError("bind gone")
+
+    class _GoodEngine:
+        def dispose(self, close):
+            disposed.append(close)
+
+    class _FakeDB:
+        engines = {"broken": _BrokenEngine(), None: _GoodEngine()}
+
+    monkeypatch.setattr(dao, "db", _FakeDB())
+
+    dispose_inherited_db_pools(app)
+
+    assert disposed == [False]
