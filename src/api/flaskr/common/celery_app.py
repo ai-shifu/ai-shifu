@@ -8,6 +8,7 @@ from typing import Any
 
 from celery import Celery, Task
 from celery.schedules import crontab
+from celery.signals import worker_process_init
 from flask import Flask
 
 from flaskr.common.config import get_explicit_env_override
@@ -24,10 +25,39 @@ _DEFAULT_BILLING_DAILY_LEDGER_SUMMARY_CRON = "30 1 * * *"
 __CELERY_APP__: Celery | None = None
 
 
+def dispose_inherited_db_pools(flask_app: Flask) -> None:
+    """Drop DB pool state inherited across a process fork.
+
+    The celery parent builds the Flask app (validating a DB connection on
+    the way), then billiard forks the worker children, which inherit the
+    pool WITH the parent's open sockets. Concurrent children then
+    interleave the MySQL protocol on one shared connection - production
+    journals showed '-- pool checkout -- pid=1' followed by checkouts from
+    two different worker pids on the same server thread id (off-by-one
+    desync). dispose(close=False) discards the inherited pool without
+    closing the parent's file descriptors, mirroring the gunicorn
+    post_fork handling.
+    """
+    from flaskr.dao import db
+
+    with flask_app.app_context():
+        for engine in db.engines.values():
+            engine.dispose(close=False)
+
+
 def create_celery_app(flask_app: Flask | None = None) -> Celery:
     """Build a Celery app bound to the Flask app context."""
 
     resolved_flask_app = flask_app or _load_flask_app()
+
+    @worker_process_init.connect(weak=False)
+    def _dispose_db_pools_after_fork(**_kwargs: Any) -> None:
+        try:
+            dispose_inherited_db_pools(resolved_flask_app)
+        except Exception:  # pragma: no cover - never kill a booting worker
+            resolved_flask_app.logger.exception(
+                "celery worker fork pool dispose failed"
+            )
 
     class FlaskTask(Task):
         abstract = True
