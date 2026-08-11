@@ -52,16 +52,21 @@ def query_volcengine_voice_status(voice_id: str) -> int:
     if not appid or not token:
         raise_param_error("Volcengine TTS credentials are not configured")
 
-    response = requests.post(
-        VOLCENGINE_MEGA_TTS_STATUS_URL,
-        headers={
-            "Authorization": f"Bearer;{token}",
-            "Resource-Id": VOLCENGINE_ICL_RESOURCE_ID,
-            "Content-Type": "application/json",
-        },
-        json={"appid": appid, "speaker_id": (voice_id or "").strip()},
-        timeout=_STATUS_TIMEOUT,
-    )
+    try:
+        response = requests.post(
+            VOLCENGINE_MEGA_TTS_STATUS_URL,
+            headers={
+                "Authorization": f"Bearer;{token}",
+                "Resource-Id": VOLCENGINE_ICL_RESOURCE_ID,
+                "Content-Type": "application/json",
+            },
+            json={"appid": appid, "speaker_id": (voice_id or "").strip()},
+            timeout=_STATUS_TIMEOUT,
+        )
+    except requests.RequestException as exc:
+        # Provider unreachable / timed out: fail through the controlled
+        # parameter-error path instead of surfacing a raw HTTP 500.
+        raise_param_error(f"Volcengine voice status query failed: {exc}")
     # Volcengine answers 4xx with a JSON body for bad speaker ids / missing
     # grants; surface that as a parameter error instead of an opaque HTTPError.
     if response.status_code >= 400:
@@ -73,7 +78,10 @@ def query_volcengine_voice_status(voice_id: str) -> int:
             "Volcengine voice status query failed: "
             f"HTTP {response.status_code} - {detail}"
         )
-    message = response.json()
+    try:
+        message = response.json()
+    except ValueError:
+        raise_param_error("Volcengine voice status query returned invalid JSON")
     base_resp = message.get("BaseResp") or {}
     status_code = int(base_resp.get("StatusCode") or 0)
     if status_code != 0:

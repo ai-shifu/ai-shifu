@@ -92,6 +92,40 @@ def test_query_status_raises_without_credentials(monkeypatch) -> None:
         query_volcengine_voice_status("S_v57vvPYM1")
 
 
+def test_query_status_converts_transport_error_to_param_error(monkeypatch) -> None:
+    """Provider unreachable / timeout must fail through the controlled
+    parameter-error path, not bubble a raw RequestException into a 500."""
+    import requests as requests_lib
+
+    _patch_config(monkeypatch)
+
+    def _raise_transport_error(*args, **kwargs):
+        raise requests_lib.exceptions.ConnectTimeout("connect timeout")
+
+    monkeypatch.setattr(volcengine_voice_clone.requests, "post", _raise_transport_error)
+    with pytest.raises(AppException):
+        query_volcengine_voice_status("S_v57vvPYM1")
+
+
+def test_query_status_converts_invalid_json_to_param_error(monkeypatch) -> None:
+    _patch_config(monkeypatch)
+
+    class _BadJsonResponse:
+        status_code = 200
+        text = "<html>gateway error</html>"
+
+        def json(self):
+            raise ValueError("no json")
+
+    monkeypatch.setattr(
+        volcengine_voice_clone.requests,
+        "post",
+        lambda *args, **kwargs: _BadJsonResponse(),
+    )
+    with pytest.raises(AppException):
+        query_volcengine_voice_status("S_v57vvPYM1")
+
+
 def test_query_status_converts_http_error_to_param_error(monkeypatch) -> None:
     """Volcengine answers 4xx (with a JSON message) for unknown speakers or
     missing grants; that must surface as a parameter error, not an HTTPError."""
