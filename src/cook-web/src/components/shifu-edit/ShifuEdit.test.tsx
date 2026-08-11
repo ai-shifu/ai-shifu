@@ -11,6 +11,7 @@ import ScriptEditor, {
 } from './ShifuEdit';
 
 const refreshLabel = 'refresh';
+const historyLinkText = 'history';
 const mockMarkdownFlowEditor = jest.fn();
 const mockLessonPreview = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -89,7 +90,7 @@ jest.mock('../header', () => ({
         }
         onClick={onLessonHistoryClick}
       >
-        history
+        {historyLinkText}
       </a>
     ) : null,
 }));
@@ -184,6 +185,40 @@ jest.mock('@/c-utils/urlUtils', () => ({
     lessonId ? `${url}?lessonid=${lessonId}` : url,
   ),
   replaceCurrentUrlWithLessonId: jest.fn(),
+}));
+jest.mock('@/hooks/useOnboarding', () => ({
+  useCreatorOnboardingStatus: () => ({
+    data: {
+      eligible: false,
+      user_segment: 'ineligible',
+      version: 'test',
+      scenes: {
+        admin_home_onboarding: {
+          completed: true,
+          completed_at: null,
+          eligible: false,
+          status: 'completed',
+        },
+        course_editor_onboarding: {
+          completed: true,
+          completed_at: null,
+          eligible: false,
+          status: 'completed',
+        },
+      },
+      guide_course: { bid: '', title: '', language: 'zh-CN' },
+    },
+    mutate: jest.fn(),
+  }),
+  useOnboarding: () => ({
+    isOpen: false,
+    currentStep: null,
+    currentStepIndex: 0,
+    totalSteps: 0,
+    targetRect: null,
+    advance: jest.fn(),
+    skip: jest.fn(),
+  }),
 }));
 jest.mock('@/components/lesson-preview/usePreviewChat', () => ({
   usePreviewChat: () => ({

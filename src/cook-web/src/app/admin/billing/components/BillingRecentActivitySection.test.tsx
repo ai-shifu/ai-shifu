@@ -184,10 +184,13 @@ describe('BillingRecentActivitySection', () => {
     const { container } = renderSection();
 
     await waitFor(() => {
-      expect(mockGetBillingLedger).toHaveBeenCalledWith({
-        page_index: 1,
-        page_size: 20,
-      });
+      expect(mockGetBillingLedger).toHaveBeenCalledWith(
+        {
+          page_index: 1,
+          page_size: 20,
+        },
+        { skipErrorToast: true },
+      );
     });
 
     expect(
@@ -271,10 +274,13 @@ describe('BillingRecentActivitySection', () => {
     });
 
     await waitFor(() => {
-      expect(mockGetBillingLedger).toHaveBeenCalledWith({
-        page_index: 2,
-        page_size: 20,
-      });
+      expect(mockGetBillingLedger).toHaveBeenCalledWith(
+        {
+          page_index: 2,
+          page_size: 20,
+        },
+        { skipErrorToast: true },
+      );
     });
 
     expect(
