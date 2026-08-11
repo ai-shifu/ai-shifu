@@ -6,10 +6,13 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import math
+import re
 from decimal import Decimal
 from typing import Any, Dict, Optional, Sequence
-from flask import Flask
+from flask import Flask, current_app
 from sqlalchemy import and_, case, false, literal, not_, or_
+from flaskr.api.llm import get_current_models
+from flaskr.api.tts import get_all_provider_configs
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -153,6 +156,92 @@ def _build_course_credit_usage_model_display(provider: str, model: str) -> str:
     return normalized_provider or normalized_model
 
 
+def _format_course_credit_usage_model_label_fallback(value: str) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return ""
+    raw_label = "/".join(normalized.split("/")[1:]) if "/" in normalized else normalized
+    raw_label = re.sub(r"-\d{6,}$", "", raw_label)
+    raw_label = re.sub(r"(seed)-(\d+)-(\d+)", r"\1-\2.\3", raw_label)
+
+    special_segments = {
+        "deepseek": "DeepSeek",
+        "doubao": "Doubao",
+        "gpt": "GPT",
+        "seed": "Seed",
+        "pro": "pro",
+        "lite": "lite",
+        "flash": "Flash",
+    }
+    formatted_segments = []
+    for segment in raw_label.split("-"):
+        if not segment:
+            continue
+        lower_segment = segment.lower()
+        formatted_segments.append(
+            special_segments.get(
+                lower_segment,
+                segment[:1].upper() + segment[1:] if segment.isalpha() else segment,
+            )
+        )
+    return "-".join(formatted_segments)
+
+
+def _resolve_course_credit_usage_model_label(
+    app: Flask,
+    *,
+    usage_type: int,
+    provider: str,
+    model: str,
+) -> str:
+    normalized_provider = str(provider or "").strip().lower()
+    normalized_model = str(model or "").strip()
+    if not normalized_provider and not normalized_model:
+        return ""
+
+    if int(usage_type or 0) == BILL_USAGE_TYPE_TTS:
+        try:
+            configs = get_all_provider_configs()
+            for option in configs.get("model_options") or []:
+                option_provider = str(option.get("provider", "") or "").strip().lower()
+                option_model = str(option.get("model", "") or "").strip()
+                if (
+                    option_provider == normalized_provider
+                    and option_model == normalized_model
+                ):
+                    label = str(option.get("label", "") or "").strip()
+                    if label:
+                        return label
+            for provider_config in configs.get("providers") or []:
+                if (
+                    str(provider_config.get("name", "") or "").strip().lower()
+                    != normalized_provider
+                ):
+                    continue
+                for option in provider_config.get("models") or []:
+                    if str(option.get("value", "") or "").strip() == normalized_model:
+                        label = str(option.get("label", "") or "").strip()
+                        if label:
+                            return label
+        except Exception:
+            pass
+        return _format_course_credit_usage_model_label_fallback(
+            normalized_model or normalized_provider
+        )
+
+    try:
+        for option in get_current_models(app):
+            if str(option.get("model", "") or "").strip() == normalized_model:
+                label = str(option.get("display_name", "") or "").strip()
+                if label:
+                    return label
+    except Exception:
+        pass
+    return _format_course_credit_usage_model_label_fallback(
+        normalized_model or normalized_provider
+    )
+
+
 def _build_course_credit_usage_group_key(
     progress_record_bid: str,
     usage_scene: str,
@@ -188,6 +277,7 @@ def _build_operator_course_credit_usage_item(
     usage_mode: str = "",
     provider: str = "",
     model: str = "",
+    model_label: str = "",
     model_variant_count: int = 0,
     consumed_credits: Any = None,
     created_at: Any = None,
@@ -239,6 +329,7 @@ def _build_operator_course_credit_usage_item(
         usage_mode=resolved_usage_mode,
         provider=resolved_provider,
         model=resolved_model,
+        model_label=str(model_label or "").strip(),
         usage_count=max(int(usage_count or 0), 1),
         model_variant_count=max(int(model_variant_count or 0), 0),
         consumed_credits=resolved_consumed_credits,
@@ -597,6 +688,14 @@ def _build_operator_course_credit_usage_detail_item(
         ),
         input_tokens=int(getattr(usage_row, "input", 0) or 0),
         output_tokens=int(getattr(usage_row, "output", 0) or 0),
+        provider=str(getattr(usage_row, "provider", "") or ""),
+        model=str(getattr(usage_row, "model", "") or ""),
+        model_label=_resolve_course_credit_usage_model_label(
+            current_app._get_current_object(),
+            usage_type=int(getattr(usage_row, "usage_type", 0) or 0),
+            provider=str(getattr(usage_row, "provider", "") or ""),
+            model=str(getattr(usage_row, "model", "") or ""),
+        ),
         word_count=int(getattr(usage_row, "word_count", 0) or 0),
         duration_ms=int(getattr(usage_row, "duration_ms", 0) or 0),
         segment_count=int(getattr(usage_row, "segment_count", 0) or 0),
@@ -923,6 +1022,12 @@ def get_operator_course_credit_usages(
                         group_key=str(getattr(usage_row, "usage_bid", "") or ""),
                         usage_count=1,
                         usage_mode=_resolve_course_credit_usage_mode(usage_row),
+                        model_label=_resolve_course_credit_usage_model_label(
+                            app,
+                            usage_type=int(getattr(usage_row, "usage_type", 0) or 0),
+                            provider=str(getattr(usage_row, "provider", "") or ""),
+                            model=str(getattr(usage_row, "model", "") or ""),
+                        ),
                         model_variant_count=1 if model_display else 0,
                     )
                 )
@@ -1128,6 +1233,17 @@ def get_operator_course_credit_usages(
                     usage_mode=str(getattr(row, "usage_mode", "") or ""),
                     provider=str(getattr(row, "provider", "") or ""),
                     model=str(getattr(row, "model", "") or ""),
+                    model_label=_resolve_course_credit_usage_model_label(
+                        app,
+                        usage_type=(
+                            BILL_USAGE_TYPE_TTS
+                            if str(getattr(row, "usage_mode", "") or "")
+                            == COURSE_CREDIT_USAGE_MODE_LISTEN
+                            else 0
+                        ),
+                        provider=str(getattr(row, "provider", "") or ""),
+                        model=str(getattr(row, "model", "") or ""),
+                    ),
                     usage_count=int(getattr(row, "usage_count", 0) or 0),
                     model_variant_count=int(
                         getattr(row, "model_variant_count", 0) or 0

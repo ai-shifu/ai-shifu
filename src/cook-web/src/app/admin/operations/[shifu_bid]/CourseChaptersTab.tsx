@@ -234,7 +234,7 @@ export default function CourseChaptersTab({
                         style={getColumnStyle('name')}
                       >
                         <div
-                          className='flex min-w-0 items-center justify-center gap-2'
+                          className='flex min-w-0 items-center justify-start gap-2 text-left'
                           style={{ paddingLeft: `${chapter.depth * 20}px` }}
                         >
                           <Badge
@@ -246,7 +246,7 @@ export default function CourseChaptersTab({
                           <AdminTooltipText
                             text={chapter.title || emptyValue}
                             emptyValue={emptyValue}
-                            className='text-center text-sm font-medium text-foreground'
+                            className='text-left text-sm font-medium text-foreground'
                           />
                         </div>
                       </TableCell>

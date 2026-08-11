@@ -714,6 +714,9 @@ class AdminOperationCourseCreditUsageItemDTO(BaseModel):
     )
     provider: str = Field(default="", description="Provider name", required=False)
     model: str = Field(default="", description="Provider model", required=False)
+    model_label: str = Field(
+        default="", description="Model display name", required=False
+    )
     usage_count: int = Field(
         default=1,
         description="Grouped usage row count",
@@ -741,6 +744,8 @@ class AdminOperationCourseCreditUsageItemDTO(BaseModel):
 class AdminOperationCourseCreditUsageDetailItemDTO(BaseModel):
     """Operator-facing single credit usage detail row."""
 
+    model_config = ConfigDict(protected_namespaces=())
+
     usage_bid: str = Field(..., description="Usage business identifier", required=False)
     consumed_credits: int | float = Field(
         default=0,
@@ -752,6 +757,11 @@ class AdminOperationCourseCreditUsageDetailItemDTO(BaseModel):
     )
     output_tokens: int = Field(
         default=0, description="Output token count", required=False
+    )
+    provider: str = Field(default="", description="Provider name", required=False)
+    model: str = Field(default="", description="Provider model", required=False)
+    model_label: str = Field(
+        default="", description="Model display name", required=False
     )
     word_count: int = Field(default=0, description="TTS word count", required=False)
     duration_ms: int = Field(

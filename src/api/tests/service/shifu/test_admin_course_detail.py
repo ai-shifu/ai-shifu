@@ -2706,6 +2706,9 @@ def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summ
     assert item["consumed_credits"] == 5
     assert item["input_tokens"] == 100
     assert item["output_tokens"] == 200
+    assert item["provider"] == "openai"
+    assert item["model"] == "gpt-4.1"
+    assert item["model_label"] == "GPT-4.1"
     assert item["output_summary"] == "Generated answer"
 
 
