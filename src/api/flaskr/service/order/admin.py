@@ -553,6 +553,24 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> List[str]:
     return sorted(matched_shifu_bids)
 
 
+def _build_course_query_shifu_bid_filter(course_query: str):
+    normalized_course_query = str(course_query or "").strip()
+    like_value = f"%{normalized_course_query}%"
+    draft_course_bids = db.session.query(DraftShifu.shifu_bid).filter(
+        DraftShifu.deleted == 0,
+        DraftShifu.title.like(like_value),
+    )
+    published_course_bids = db.session.query(PublishedShifu.shifu_bid).filter(
+        PublishedShifu.deleted == 0,
+        PublishedShifu.title.like(like_value),
+    )
+    matching_course_bids = draft_course_bids.union(published_course_bids)
+    return db.or_(
+        Order.shifu_bid == normalized_course_query,
+        Order.shifu_bid.in_(matching_course_bids),
+    )
+
+
 def _apply_order_source_filter(query, order_source: str):
     normalized_order_source = str(order_source or "").strip()
     if not normalized_order_source:
@@ -961,6 +979,10 @@ def list_operator_orders(
                 query = query.filter(Order.user_bid.in_(matched_user_bids))
             else:
                 query = query.filter(Order.user_bid == user_keyword)
+
+        course_query = str(filters.get("course_query", "") or "").strip()
+        if course_query:
+            query = query.filter(_build_course_query_shifu_bid_filter(course_query))
 
         shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
         if shifu_bid:

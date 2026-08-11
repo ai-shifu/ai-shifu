@@ -91,10 +91,12 @@
   },
   "emptyList": "No order data",
   "filters": {
+    "course": "Course",
     "courseId": "Course ID",
     "courseIdPlaceholder": "Course ID",
     "courseName": "Course",
     "courseNamePlaceholder": "Course name",
+    "courseQueryPlaceholder": "Course ID / Course name",
     "createdAt": "Created",
     "endTime": "End Time",
     "orderId": "Order ID",

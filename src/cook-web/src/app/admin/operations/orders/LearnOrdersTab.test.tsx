@@ -225,6 +225,7 @@ describe('LearnOrdersTab', () => {
         page_size: 20,
         user_keyword: '',
         order_bid: '',
+        course_query: '',
         shifu_bid: '',
         course_name: '',
         status: '502',
@@ -315,6 +316,7 @@ describe('LearnOrdersTab', () => {
         page_size: 20,
         user_keyword: '',
         order_bid: '',
+        course_query: '',
         shifu_bid: '',
         course_name: '',
         status: '',
@@ -336,6 +338,7 @@ describe('LearnOrdersTab', () => {
         page_size: 20,
         user_keyword: '',
         order_bid: '',
+        course_query: '',
         shifu_bid: '',
         course_name: '',
         status: '502',
@@ -358,6 +361,7 @@ describe('LearnOrdersTab', () => {
         page_size: 20,
         user_keyword: '',
         order_bid: '',
+        course_query: 'course-1',
         shifu_bid: 'course-1',
         course_name: '',
         status: '502',
@@ -369,6 +373,63 @@ describe('LearnOrdersTab', () => {
     });
 
     expect(screen.getByDisplayValue('course-1')).toBeInTheDocument();
+  });
+
+  test('prefers the combined course query from the url query', async () => {
+    mockSearchParamsValue = 'course_query=Course%201&shifu_bid=course-1';
+
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        course_query: 'Course 1',
+        shifu_bid: 'course-1',
+        course_name: '',
+        status: '502',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    expect(screen.getByDisplayValue('Course 1')).toBeInTheDocument();
+  });
+
+  test('submits combined course search without legacy course filters', async () => {
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsOrder.filters.courseQueryPlaceholder',
+      ),
+      {
+        target: { value: 'Course 1' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsOrder.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          course_query: 'Course 1',
+          shifu_bid: '',
+          course_name: '',
+        }),
+      );
+    });
   });
 
   test('submits filters and opens detail drawer', async () => {

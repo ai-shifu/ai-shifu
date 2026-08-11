@@ -91,10 +91,12 @@
   },
   "emptyList": "Aucune donnée de commande",
   "filters": {
+    "course": "Cours",
     "courseId": "ID du cours",
     "courseIdPlaceholder": "ID du cours",
     "courseName": "Cours",
     "courseNamePlaceholder": "Nom du cours",
+    "courseQueryPlaceholder": "ID du cours / Nom du cours",
     "createdAt": "Créé",
     "endTime": "Heure de fin",
     "orderId": "ID de commande",
