@@ -34,7 +34,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 # Install hints. Versions mirror lefthook.yml's header comment (lines 10-13).
-BREW_INSTALL = "brew install lefthook"
+import sys
+if sys.platform == "darwin":
+    LEFTHOOK_PKG_INSTALL = "brew install lefthook"
+else:
+    LEFTHOOK_PKG_INSTALL = "npm install -g @evilmartians/lefthook  # (or use your package manager)"
 PIP_INSTALL = "pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0"
 NPM_INSTALL = "cd src/cook-web && npm ci"
 LEFTHOOK_INSTALL = "lefthook install"
@@ -113,7 +117,7 @@ def collect_checks() -> tuple[list[Check], list[Check]]:
     lefthook_present = shutil.which("lefthook") is not None
 
     core: list[Check] = [
-        Check("lefthook", lefthook_present, BREW_INSTALL),
+        Check("lefthook", lefthook_present, LEFTHOOK_PKG_INSTALL),
         # Only meaningful once the binary exists; surface the install step
         # regardless so a half-finished setup is obvious.
         Check(
