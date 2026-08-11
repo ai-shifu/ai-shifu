@@ -1309,7 +1309,7 @@ describe('ListenModeSlideRenderer', () => {
     });
   });
 
-  it('does not remount the slide for manual mobile view mode changes', () => {
+  it('refreshes mobile interaction elements without remounting the slide for manual view mode changes', async () => {
     render(
       <ListenModeSlideRenderer
         items={[
@@ -1334,6 +1334,14 @@ describe('ListenModeSlideRenderer', () => {
     const initialMountId = screen
       .getByTestId('mock-slide')
       .getAttribute('data-mount-id');
+    const initialSlideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+      | {
+          elementList?: Array<{ type?: string; content?: unknown }>;
+        }
+      | undefined;
+    const initialInteractionElement = initialSlideProps?.elementList?.find(
+      element => element.type === 'interaction',
+    );
     const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as
       | {
           onMobileViewModeChange?: (viewMode: 'fullscreen') => void;
@@ -1344,10 +1352,23 @@ describe('ListenModeSlideRenderer', () => {
       slideProps?.onMobileViewModeChange?.('fullscreen');
     });
 
-    expect(screen.getByTestId('mock-slide')).toHaveAttribute(
-      'data-mount-id',
-      initialMountId ?? '',
-    );
+    await waitFor(() => {
+      const nextSlideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+        | {
+            elementList?: Array<{ type?: string; content?: unknown }>;
+          }
+        | undefined;
+      const nextInteractionElement = nextSlideProps?.elementList?.find(
+        element => element.type === 'interaction',
+      );
+
+      expect(screen.getByTestId('mock-slide')).toHaveAttribute(
+        'data-mount-id',
+        initialMountId ?? '',
+      );
+      expect(nextInteractionElement).not.toBe(initialInteractionElement);
+      expect(nextInteractionElement?.content).toBe('?[A | B]');
+    });
   });
 
   it('keeps lesson feedback pending until the trailing visible interaction settles', () => {

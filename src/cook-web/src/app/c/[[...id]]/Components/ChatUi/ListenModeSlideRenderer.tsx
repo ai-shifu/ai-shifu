@@ -1886,14 +1886,18 @@ const ListenModeSlideRenderer = ({
     }),
     [fullscreenHeaderContent],
   );
-  const handleMobileViewModeChange = useCallback((viewMode: MobileViewMode) => {
-    if (mobileViewModeRef.current === viewMode) {
-      return;
-    }
+  const handleMobileViewModeChange = useCallback(
+    (viewMode: MobileViewMode) => {
+      if (mobileViewModeRef.current === viewMode) {
+        return;
+      }
 
-    mobileViewModeRef.current = viewMode;
-    setMobileViewMode(viewMode);
-  }, []);
+      mobileViewModeRef.current = viewMode;
+      setMobileViewMode(viewMode);
+      resetMobileSlideViewport();
+    },
+    [resetMobileSlideViewport],
+  );
 
   useEffect(() => {
     mobileViewModeRef.current = mobileViewMode;
