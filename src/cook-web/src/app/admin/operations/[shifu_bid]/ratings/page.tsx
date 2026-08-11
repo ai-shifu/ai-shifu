@@ -1000,7 +1000,7 @@ export default function AdminOperationCourseRatingsPage() {
                                       />
                                     </TableCell>
                                     <TableCell
-                                      className='border-r border-border py-3 text-center align-top last:border-r-0'
+                                      className='border-r border-border py-3 text-left align-top last:border-r-0'
                                       style={getColumnStyle('user')}
                                     >
                                       <div className='flex flex-col gap-0.5 leading-tight'>
