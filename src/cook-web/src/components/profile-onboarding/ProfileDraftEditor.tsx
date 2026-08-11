@@ -10,6 +10,8 @@ export const countUnicodeCodePoints = (value: string) =>
 
 export function ProfileDraftEditor({
   inputId = 'learner-profile-draft',
+  textareaRef,
+  textareaClassName,
   value,
   maxLength,
   disabled,
@@ -18,6 +20,8 @@ export function ProfileDraftEditor({
   onChange,
 }: {
   inputId?: string;
+  textareaRef?: React.Ref<HTMLTextAreaElement>;
+  textareaClassName?: string;
   value: string;
   maxLength: number;
   disabled: boolean;
@@ -47,7 +51,9 @@ export function ProfileDraftEditor({
         {label ?? t('module.profileOnboarding.profileLabel')}
       </label>
       <Textarea
+        ref={textareaRef}
         id={inputId}
+        className={textareaClassName}
         value={value}
         minRows={8}
         maxRows={14}

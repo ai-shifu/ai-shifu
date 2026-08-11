@@ -47,9 +47,17 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     container?: DialogPortalContainer;
+    overlayClassName?: string;
     showClose?: boolean;
   }
->(({ className, children, container, showClose = true, ...props }, ref) => {
+>(({ overlayClassName, ...contentProps }, ref) => {
+  const {
+    className,
+    children,
+    container,
+    showClose = true,
+    ...props
+  } = contentProps;
   const [resolvedContainer, setResolvedContainer] =
     React.useState<DialogPortalContainer>(
       () => container ?? getFullscreenDialogContainer(),
@@ -85,7 +93,7 @@ const DialogContent = React.forwardRef<
 
   return (
     <DialogPortal container={resolvedContainer}>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(

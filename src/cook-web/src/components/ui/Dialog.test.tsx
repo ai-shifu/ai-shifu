@@ -102,4 +102,21 @@ describe('Dialog fullscreen portal', () => {
     expect(overlayElement).toBeTruthy();
     expect(screen.getByRole('dialog')).toHaveClass('z-[101]');
   });
+
+  it('allows one dialog to use a lighter contextual overlay', () => {
+    render(
+      <Dialog open={true}>
+        <DialogContent overlayClassName='bg-slate-950/45'>
+          <DialogTitle>Contextual Dialog</DialogTitle>
+          <DialogDescription>Context remains visible</DialogDescription>
+        </DialogContent>
+      </Dialog>,
+    );
+
+    const overlayElement = Array.from(
+      document.body.querySelectorAll('[data-state="open"]'),
+    ).find(element => element.className.includes('z-[100]'));
+
+    expect(overlayElement).toHaveClass('bg-slate-950/45');
+  });
 });

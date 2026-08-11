@@ -180,7 +180,6 @@ describe('MainMenuModal', () => {
       <MainMenuModal
         open
         onClose={jest.fn()}
-        onBasicInfoClick={jest.fn()}
         onPersonalInfoClick={jest.fn()}
         isAdmin
       />,
@@ -206,7 +205,6 @@ describe('MainMenuModal', () => {
       <MainMenuModal
         open
         onClose={onClose}
-        onBasicInfoClick={jest.fn()}
         onPersonalInfoClick={jest.fn()}
         isAdmin
       />,
@@ -230,7 +228,6 @@ describe('MainMenuModal', () => {
       <MainMenuModal
         open
         onClose={jest.fn()}
-        onBasicInfoClick={jest.fn()}
         onPersonalInfoClick={jest.fn()}
         isAdmin
       />,
@@ -252,7 +249,6 @@ describe('MainMenuModal', () => {
       <MainMenuModal
         open
         onClose={jest.fn()}
-        onBasicInfoClick={jest.fn()}
         onPersonalInfoClick={jest.fn()}
         isAdmin
       />,
@@ -261,5 +257,26 @@ describe('MainMenuModal', () => {
     expect(
       screen.queryByText('module.settings.setPassword'),
     ).not.toBeInTheDocument();
+  });
+
+  test('closes the menu before opening personalization settings', () => {
+    const calls: string[] = [];
+
+    render(
+      <MainMenuModal
+        open
+        onClose={() => calls.push('close-menu')}
+        onPersonalInfoClick={() => calls.push('open-profile')}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'component.menus.navigationMenus.personalInfo',
+      }),
+    );
+
+    expect(calls).toEqual(['close-menu', 'open-profile']);
+    expect(mockTrackEvent).toHaveBeenCalledWith('USER_MENU_PERSONALIZED', {});
   });
 });
