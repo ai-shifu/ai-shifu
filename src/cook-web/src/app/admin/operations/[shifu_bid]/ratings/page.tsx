@@ -159,16 +159,6 @@ const splitTimestampValue = (value: string) => {
   return [datePart, timePart];
 };
 
-const resolvePrimaryLessonDisplay = ({
-  lessonTitle,
-  chapterTitle,
-  emptyValue,
-}: {
-  lessonTitle?: string;
-  chapterTitle?: string;
-  emptyValue: string;
-}) => formatValue(lessonTitle || chapterTitle, emptyValue);
-
 const resolveSecondaryChapterDisplay = ({
   chapterTitle,
   lessonTitle,
@@ -188,6 +178,16 @@ const resolveSecondaryChapterDisplay = ({
   }
   return formatValue(normalizedChapterTitle, emptyValue);
 };
+
+const resolvePrimaryLessonDisplay = ({
+  lessonTitle,
+  chapterTitle,
+  emptyValue,
+}: {
+  lessonTitle?: string;
+  chapterTitle?: string;
+  emptyValue: string;
+}) => formatValue(lessonTitle || chapterTitle, emptyValue);
 
 const resolvePrimaryAccount = ({
   mobile,
@@ -283,7 +283,7 @@ export default function AdminOperationCourseRatingsPage() {
   const [pageIndex, setPageIndex] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [filters, setFilters] = useState<RatingFilters>(createRatingFilters);
   const [filtersDraft, setFiltersDraft] =
     useState<RatingFilters>(createRatingFilters);
@@ -406,9 +406,6 @@ export default function AdminOperationCourseRatingsPage() {
   const outlineFilterPlaceholder = hasChapterHierarchy
     ? tOperations('detail.ratings.filters.chapterKeywordPlaceholder')
     : tOperations('detail.ratings.filters.lessonKeywordPlaceholder');
-  const outlineColumnLabel = hasChapterHierarchy
-    ? tOperations('detail.ratings.table.chapter')
-    : tOperations('detail.ratings.table.lesson');
   const userKeywordInputId = 'rating-user-keyword-filter';
   const outlineKeywordInputId = 'rating-outline-keyword-filter';
   const ratingTimeFilterAriaLabel = tOperations(
@@ -927,7 +924,7 @@ export default function AdminOperationCourseRatingsPage() {
                               )}
                               style={getColumnStyle('lesson')}
                             >
-                              {outlineColumnLabel}
+                              {tOperations('detail.ratings.table.lesson')}
                               {renderResizeHandle('lesson')}
                             </TableHead>
                             <TableHead
@@ -1007,32 +1004,35 @@ export default function AdminOperationCourseRatingsPage() {
                                       style={getColumnStyle('user')}
                                     >
                                       <div className='flex flex-col gap-0.5 leading-tight'>
-                                        {isGuestAccount ? (
-                                          <div className='flex justify-center text-sm text-muted-foreground'>
-                                            <span>{guestUserLabel}</span>
-                                          </div>
-                                        ) : (
-                                          <div className='font-medium text-foreground'>
-                                            <AdminTooltipText
-                                              text={primaryAccount}
-                                              emptyValue={emptyValue}
-                                              className='mx-auto block max-w-full text-sm text-foreground'
-                                            />
-                                          </div>
-                                        )}
+                                        <div className='font-medium text-foreground'>
+                                          <AdminTooltipText
+                                            text={
+                                              isGuestAccount
+                                                ? guestUserLabel
+                                                : primaryAccount
+                                            }
+                                            emptyValue={emptyValue}
+                                            className={cn(
+                                              'block max-w-full text-sm',
+                                              isGuestAccount
+                                                ? 'text-muted-foreground'
+                                                : 'text-foreground',
+                                            )}
+                                          />
+                                        </div>
                                         {secondaryAccount ? (
                                           <div className='text-xs text-muted-foreground'>
                                             <AdminTooltipText
                                               text={secondaryAccount}
                                               emptyValue={emptyValue}
-                                              className='mx-auto block max-w-full text-xs text-muted-foreground'
+                                              className='block max-w-full text-xs text-muted-foreground'
                                             />
                                           </div>
                                         ) : null}
                                       </div>
                                     </TableCell>
                                     <TableCell
-                                      className='border-r border-border py-3 text-center align-top last:border-r-0'
+                                      className='border-r border-border py-3 align-middle last:border-r-0'
                                       style={getColumnStyle('lesson')}
                                     >
                                       <div className='flex flex-col gap-0.5 leading-tight'>
@@ -1040,14 +1040,14 @@ export default function AdminOperationCourseRatingsPage() {
                                           <AdminTooltipText
                                             text={primaryLessonDisplay}
                                             emptyValue={emptyValue}
-                                            className='mx-auto block max-w-full text-sm text-foreground'
+                                            className='block max-w-full text-sm text-foreground'
                                           />
                                         </div>
                                         {secondaryChapterDisplay ? (
                                           <AdminTooltipText
                                             text={secondaryChapterDisplay}
                                             emptyValue={emptyValue}
-                                            className='mx-auto block max-w-full text-xs text-muted-foreground'
+                                            className='block max-w-full text-xs text-muted-foreground'
                                           />
                                         ) : null}
                                       </div>

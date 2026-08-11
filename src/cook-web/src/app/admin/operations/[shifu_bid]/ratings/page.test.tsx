@@ -264,6 +264,16 @@ describe('AdminOperationCourseRatingsPage', () => {
     });
 
     expect(screen.getByText('Very helpful lesson')).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', {
+        name: 'module.operationsCourse.detail.ratings.table.lesson',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('columnheader', {
+        name: 'module.operationsCourse.detail.ratings.table.chapter',
+      }),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByText('13900001235').length).toBeGreaterThan(0);
     expect(
       screen.getAllByText('module.operationsCourse.detail.ratings.scoreValue')
@@ -578,6 +588,12 @@ describe('AdminOperationCourseRatingsPage', () => {
         target: { value: 'Chapter 1' },
       },
     );
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.operationsCourse.detail.ratings.filters.timePlaceholder',
+      }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.expand' }));
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsCourse.detail.ratings.filters.timePlaceholder',
