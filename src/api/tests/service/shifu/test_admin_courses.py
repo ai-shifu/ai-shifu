@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -12,6 +12,9 @@ from flaskr.dao import db
 from flaskr.service.common.models import AppException
 from flaskr.service.shifu import admin as admin_module
 from flaskr.service.shifu.admin_operations import courses as admin_courses_module
+from flaskr.service.shifu.admin_operations import (
+    courses_listing as courses_listing_module,
+)
 from flaskr.service.shifu.admin import (
     _load_latest_shifus,
     _build_operator_course_overview,
@@ -30,6 +33,7 @@ from flaskr.service.shifu.admin_dtos import (
 )
 from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
+from flaskr.util.datetime import now_utc
 
 
 EMPTY_COURSE_OVERVIEW = AdminOperationCourseOverviewDTO()
@@ -1472,6 +1476,87 @@ def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(app
 
     assert result.total == 1
     assert [item.shifu_bid for item in result.items] == [normal_bid]
+
+
+def test_list_operator_courses_sql_path_filters_by_combined_course_query(app):
+    matching_bid = uuid.uuid4().hex[:32]
+    name_match_bid = uuid.uuid4().hex[:32]
+    other_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        base_time = now_utc().replace(microsecond=0)
+        DraftOutlineItem.query.delete()
+        PublishedOutlineItem.query.delete()
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
+        db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=matching_bid,
+                    title="Intro Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("19"),
+                    created_user_bid="creator-1",
+                    updated_user_bid="creator-1",
+                    created_at=base_time - timedelta(days=2),
+                    updated_at=base_time - timedelta(days=2),
+                ),
+                DraftShifu(
+                    shifu_bid=name_match_bid,
+                    title="Combined Search Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("29"),
+                    created_user_bid="creator-2",
+                    updated_user_bid="creator-2",
+                    created_at=base_time - timedelta(days=1),
+                    updated_at=base_time - timedelta(days=1),
+                ),
+                DraftShifu(
+                    shifu_bid=other_bid,
+                    title="Unrelated Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("39"),
+                    created_user_bid="creator-3",
+                    updated_user_bid="creator-3",
+                    created_at=base_time,
+                    updated_at=base_time,
+                ),
+            ]
+        )
+        db.session.commit()
+
+        with patch.object(
+            courses_listing_module,
+            "_find_operator_course_bids_by_name",
+            wraps=courses_listing_module._find_operator_course_bids_by_name,
+        ) as find_course_bids_mock:
+            id_result = list_operator_courses(
+                app, 1, 20, {"course_query": matching_bid}
+            )
+            name_result = list_operator_courses(
+                app, 1, 20, {"course_query": "Combined Search"}
+            )
+
+    assert [item.shifu_bid for item in id_result.items] == [matching_bid]
+    assert [item.shifu_bid for item in name_result.items] == [name_match_bid]
+    assert find_course_bids_mock.call_count == 2
 
 
 def test_merge_courses_checks_published_visibility_once():

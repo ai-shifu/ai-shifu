@@ -326,12 +326,18 @@ def register_admin_operations_routes(
               type: integer
               required: false
               description: Page size, defaults to 20 when omitted
+            - name: course_query
+              type: string
+              required: false
+              description: Matches course ID exactly or course name fuzzily
             - name: shifu_bid
               type: string
               required: false
+              description: Deprecated exact course ID filter
             - name: course_name
               type: string
               required: false
+              description: Deprecated fuzzy course name filter
             - name: creator_keyword
               type: string
               required: false
@@ -387,6 +393,7 @@ def register_admin_operations_routes(
         )
 
         filters = {
+            "course_query": _normalize_query_text(request.args.get("course_query")),
             "shifu_bid": _normalize_query_text(request.args.get("shifu_bid")),
             "course_name": _normalize_query_text(request.args.get("course_name")),
             "course_status": _normalize_query_text(request.args.get("course_status")),

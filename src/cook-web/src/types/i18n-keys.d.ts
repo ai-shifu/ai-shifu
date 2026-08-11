@@ -1524,6 +1524,8 @@ export type I18nKey =
   | 'module.operationsCourse.emptyList'
   | 'module.operationsCourse.filters.courseId'
   | 'module.operationsCourse.filters.courseName'
+  | 'module.operationsCourse.filters.courseQuery'
+  | 'module.operationsCourse.filters.courseQueryPlaceholder'
   | 'module.operationsCourse.filters.createdAt'
   | 'module.operationsCourse.filters.creator'
   | 'module.operationsCourse.filters.creatorEmailOrUserBid'
