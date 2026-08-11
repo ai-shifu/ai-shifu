@@ -50,11 +50,13 @@ const LearnerProfileSettingsSection = React.forwardRef<
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
   const [clearOpen, setClearOpen] = React.useState(false);
+  const translationRef = React.useRef(t);
   const loadSequenceRef = React.useRef(0);
   const operationGenerationRef = React.useRef(0);
   const mountedRef = React.useRef(true);
   const scopeRef = React.useRef(draftStorageScope);
   scopeRef.current = draftStorageScope;
+  translationRef.current = t;
 
   const loadProfile = React.useCallback(async (): Promise<boolean> => {
     const loadSequence = ++loadSequenceRef.current;
@@ -85,7 +87,9 @@ const LearnerProfileSettingsSection = React.forwardRef<
         setError(
           caughtError instanceof Error && caughtError.message
             ? caughtError.message
-            : t('module.profileOnboarding.settings.loadFailed'),
+            : translationRef.current(
+                'module.profileOnboarding.settings.loadFailed',
+              ),
         );
       }
       return false;
@@ -94,7 +98,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
         setLoading(false);
       }
     }
-  }, [draftStorageScope, t]);
+  }, [draftStorageScope]);
 
   React.useEffect(() => {
     mountedRef.current = true;

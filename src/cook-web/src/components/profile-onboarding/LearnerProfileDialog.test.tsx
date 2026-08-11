@@ -18,7 +18,10 @@ import frProfile from '../../../../i18n/fr-FR/modules/profile-onboarding.json';
 import zhProfile from '../../../../i18n/zh-CN/modules/profile-onboarding.json';
 
 const mockToast = jest.fn();
-const mockT = (key: string, params?: Record<string, string | number>) => {
+const translateKey = (
+  key: string,
+  params?: Record<string, string | number>,
+) => {
   if (key === 'module.profileOnboarding.characterCount') {
     return `${params?.count} / ${params?.max}`;
   }
@@ -27,6 +30,8 @@ const mockT = (key: string, params?: Record<string, string | number>) => {
   }
   return key;
 };
+let mockT = translateKey;
+let mockLanguage = 'en-US';
 
 jest.mock('@/api/learnerProfile', () => ({
   clearLearnerProfile: jest.fn(),
@@ -41,6 +46,10 @@ jest.mock('@/hooks/useToast', () => ({
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: mockT,
+    i18n: {
+      language: mockLanguage,
+      resolvedLanguage: mockLanguage,
+    },
   }),
 }));
 
@@ -85,6 +94,8 @@ const openClearConfirmation = async () => {
 describe('LearnerProfileDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockT = translateKey;
+    mockLanguage = 'en-US';
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
   });
 
@@ -451,6 +462,7 @@ describe('LearnerProfileDialog', () => {
     expect(
       await screen.findByDisplayValue('User B introduction'),
     ).toBeEnabled();
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(2);
     await act(async () => {
       resolveUserA(existingProfile);
     });
@@ -459,6 +471,40 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.queryByDisplayValue(existingProfile.learner_profile),
     ).toBeNull();
+  });
+
+  test('preserves an unsaved draft when the interface language changes', async () => {
+    const onClose = jest.fn();
+    const { rerender } = render(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-a'
+        onClose={onClose}
+      />,
+    );
+    const editor = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+    fireEvent.change(editor, {
+      target: { value: 'Unsaved learner introduction' },
+    });
+
+    mockLanguage = 'fr-FR';
+    mockT = (key, params) => translateKey(key, params);
+    rerender(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-a'
+        onClose={onClose}
+      />,
+    );
+
+    expect(screen.getByRole('textbox')).toHaveValue(
+      'Unsaved learner introduction',
+    );
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
   });
 
   test('does not notify or close when a save resolves after unmount', async () => {

@@ -22,7 +22,10 @@ import zhProfile from '../../../../i18n/zh-CN/modules/profile-onboarding.json';
 const mockToast = jest.fn();
 let mockLanguage = 'en-US';
 let mockResolvedLanguage = 'en-US';
-const mockT = (key: string, params?: Record<string, string | number>) => {
+const translateKey = (
+  key: string,
+  params?: Record<string, string | number>,
+) => {
   if (key === 'module.profileOnboarding.characterCount') {
     return `${params?.count} / ${params?.max}`;
   }
@@ -34,6 +37,7 @@ const mockT = (key: string, params?: Record<string, string | number>) => {
   }
   return key;
 };
+let mockT = translateKey;
 
 jest.mock('@/api/learnerProfile', () => ({
   clearLearnerProfile: jest.fn(),
@@ -62,6 +66,7 @@ const mockClearLearnerProfile = clearLearnerProfile as jest.Mock;
 describe('LearnerProfileSettingsSection', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockT = translateKey;
     mockLanguage = 'en-US';
     mockResolvedLanguage = 'en-US';
     mockGetLearnerProfile.mockResolvedValue({
@@ -138,6 +143,22 @@ describe('LearnerProfileSettingsSection', () => {
     expect(
       await screen.findByText(`updated:${expectedTime}`),
     ).toBeInTheDocument();
+  });
+
+  test('preserves an unsaved draft when the interface language changes', async () => {
+    const { rerender } = render(
+      <LearnerProfileSettingsSection draftStorageScope='user-a' />,
+    );
+    const editor = await screen.findByDisplayValue('现有学习画像');
+    fireEvent.change(editor, { target: { value: '尚未保存的学习画像' } });
+
+    mockLanguage = 'fr-FR';
+    mockResolvedLanguage = 'fr-FR';
+    mockT = (key, params) => translateKey(key, params);
+    rerender(<LearnerProfileSettingsSection draftStorageScope='user-a' />);
+
+    expect(screen.getByRole('textbox')).toHaveValue('尚未保存的学习画像');
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
   });
 
   test('keeps editing disabled until a failed profile load is retried', async () => {
@@ -217,6 +238,7 @@ describe('LearnerProfileSettingsSection', () => {
     expect(
       await screen.findByDisplayValue('账号 B 的画像'),
     ).toBeInTheDocument();
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(2);
 
     await act(async () => {
       resolveFirstProfile({

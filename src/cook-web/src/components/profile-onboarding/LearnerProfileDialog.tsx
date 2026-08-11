@@ -87,6 +87,7 @@ export default function LearnerProfileDialog({
   const [clearOpen, setClearOpen] = React.useState(false);
   const [discardOpen, setDiscardOpen] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const translationRef = React.useRef(t);
   const mountedRef = React.useRef(false);
   const openRef = React.useRef(open);
   const scopeRef = React.useRef(draftStorageScope);
@@ -95,6 +96,7 @@ export default function LearnerProfileDialog({
 
   openRef.current = open;
   scopeRef.current = draftStorageScope;
+  translationRef.current = t;
 
   const isCurrent = React.useCallback(
     (generation: number, scope: string) =>
@@ -132,7 +134,9 @@ export default function LearnerProfileDialog({
           setError(
             errorMessage(
               caughtError,
-              t('module.profileOnboarding.dialog.loadFailed'),
+              translationRef.current(
+                'module.profileOnboarding.dialog.loadFailed',
+              ),
             ),
           );
         }
@@ -145,7 +149,7 @@ export default function LearnerProfileDialog({
         }
       }
     },
-    [isCurrent, t],
+    [isCurrent],
   );
 
   React.useEffect(() => {
