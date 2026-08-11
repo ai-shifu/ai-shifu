@@ -84,16 +84,23 @@ def test_throttled_segment_gives_up_after_max_attempts(monkeypatch):
         )
 
 
-def test_stagger_depends_on_segment_index(monkeypatch):
-    success = types.SimpleNamespace(audio_data=b"ok")
-    _, _, sleeps_a = _run_retry(
-        monkeypatch, [ValueError(_TENCENT_MESSAGE), success], segment_index=0
-    )
-    _, _, sleeps_b = _run_retry(
-        monkeypatch, [ValueError(_TENCENT_MESSAGE), success], segment_index=1
-    )
+def test_stagger_gives_concurrent_segments_distinct_delays(monkeypatch):
+    from flaskr.service.tts.streaming_tts import _RATE_LIMIT_RETRY_STAGGER_SLOTS
 
-    assert sleeps_a[0] != sleeps_b[0]
+    success = types.SimpleNamespace(audio_data=b"ok")
+    # The executor runs _RATE_LIMIT_RETRY_STAGGER_SLOTS segments at a time
+    # with near-consecutive indexes; every one of them must land in its own
+    # delay slot (index 0 vs 3 shared a slot under the old modulo-3 math).
+    delays = []
+    for index in range(_RATE_LIMIT_RETRY_STAGGER_SLOTS):
+        _, _, sleeps = _run_retry(
+            monkeypatch,
+            [ValueError(_TENCENT_MESSAGE), success],
+            segment_index=index,
+        )
+        delays.append(sleeps[0])
+
+    assert len(set(delays)) == _RATE_LIMIT_RETRY_STAGGER_SLOTS
 
 
 def test_non_retryable_error_still_raises_immediately(monkeypatch):

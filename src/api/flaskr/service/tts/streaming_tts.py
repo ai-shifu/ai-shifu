@@ -112,6 +112,12 @@ _EMPTY_AUDIO_RETRY_DELAY_SECONDS = 0.2
 _RATE_LIMIT_RETRY_MAX_ATTEMPTS = 3
 _RATE_LIMIT_RETRY_BASE_DELAY_SECONDS = 1.0
 _RATE_LIMIT_RETRY_STAGGER_SECONDS = 0.4
+# Stagger slot count matches the TTS executor width (4 workers): at most 4
+# segments synthesize concurrently and their indexes are close to
+# consecutive, so 4 slots give every in-flight segment a distinct delay
+# while keeping the delay bounded (a plain index multiplier would make
+# late segments wait tens of seconds).
+_RATE_LIMIT_RETRY_STAGGER_SLOTS = 4
 _RATE_LIMIT_ERROR_MARKERS = (
     "LimitExceeded",
     "Too many requests",
@@ -566,7 +572,7 @@ class StreamingTTSProcessor:
                     delay = (
                         _RATE_LIMIT_RETRY_BASE_DELAY_SECONDS * attempt
                         + (segment_index or 0)
-                        % _RATE_LIMIT_RETRY_MAX_ATTEMPTS
+                        % _RATE_LIMIT_RETRY_STAGGER_SLOTS
                         * _RATE_LIMIT_RETRY_STAGGER_SECONDS
                     )
                     logger.warning(
