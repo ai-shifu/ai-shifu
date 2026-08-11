@@ -1,5 +1,78 @@
-import { act } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
+import { ToastAction } from '@/components/ui/Toast';
+import { Toaster } from '@/components/ui/Toaster';
 import { toast, toastOnce } from './useToast';
+
+describe('toast duration', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    act(() => {
+      toast({ title: 'cleanup', duration: 0 }).dismiss();
+      jest.runOnlyPendingTimers();
+    });
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it('keeps a zero-duration toast and its action visible past the provider default', () => {
+    const timeoutSpy = jest.spyOn(window, 'setTimeout');
+    const retryLabel = 'Retry refresh';
+    render(<Toaster />);
+
+    act(() => {
+      toast({
+        title: 'Rate added, but refresh failed',
+        duration: 0,
+        action: (
+          <ToastAction altText='Retry refreshing the rate list'>
+            {retryLabel}
+          </ToastAction>
+        ),
+      });
+    });
+
+    expect(
+      screen.getByText('Rate added, but refresh failed'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: retryLabel }),
+    ).toBeInTheDocument();
+
+    act(() => {
+      jest.advanceTimersByTime(6000);
+    });
+
+    expect(
+      screen.getByText('Rate added, but refresh failed'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: retryLabel }),
+    ).toBeInTheDocument();
+    expect(
+      timeoutSpy.mock.calls.some(
+        ([, delay]) => delay === Number.POSITIVE_INFINITY,
+      ),
+    ).toBe(false);
+  });
+
+  it('dismisses a finite-duration toast on schedule', () => {
+    render(<Toaster />);
+
+    act(() => {
+      toast({ title: 'Temporary notice', duration: 100 });
+    });
+    expect(screen.getByText('Temporary notice')).toBeInTheDocument();
+
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    expect(screen.queryByText('Temporary notice')).not.toBeInTheDocument();
+  });
+});
 
 describe('toastOnce', () => {
   afterEach(() => {
