@@ -228,6 +228,7 @@ export type AdminOperationCourseCreditUsageItem = {
   usage_mode: AdminOperationCourseCreditUsageMode;
   provider: string;
   model: string;
+  model_label: string;
   usage_count: number;
   model_variant_count: number;
   consumed_credits: number;
@@ -248,6 +249,9 @@ export type AdminOperationCourseCreditUsageDetailItem = {
   consumed_credits: number;
   input_tokens: number;
   output_tokens: number;
+  provider: string;
+  model: string;
+  model_label: string;
   word_count: number;
   duration_ms: number;
   segment_count: number;

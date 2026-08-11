@@ -311,7 +311,6 @@ const createCourseCreditUsageFilters =
  * t('module.operationsCourse.detail.creditUsage.modes.ask')
  * t('module.operationsCourse.detail.creditUsage.modes.mixed')
  * t('module.operationsCourse.detail.creditUsage.modes.unknown')
- * t('module.operationsCourse.detail.creditUsage.modelSummary.multiple')
  * t('module.operationsCourse.detail.creditUsage.table.createdAt')
  * t('module.operationsCourse.detail.creditUsage.table.nickname')
  * t('module.operationsCourse.detail.creditUsage.table.scene')

@@ -2464,6 +2464,157 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert raw_payload["data"]["items"][0]["usage_mode"] == "learn"
 
 
+def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+    load_counts = {"llm": 0, "tts": 0}
+
+    def fake_get_current_models(_app):
+        load_counts["llm"] += 1
+        return [
+            {"model": "gpt-known", "display_name": "GPT Known"},
+            {"model": "shared-model", "display_name": "Shared Model"},
+        ]
+
+    def fake_get_all_provider_configs():
+        load_counts["tts"] += 1
+        return {
+            "providers": [],
+            "model_options": [
+                {
+                    "provider": "volcengine",
+                    "model": "seed-tts-2.0",
+                    "label": "Flagship Voice",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_usage.get_current_models",
+        fake_get_current_models,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_usage.get_all_provider_configs",
+        fake_get_all_provider_configs,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_usage.PROVIDER_STATES",
+        {
+            "openai": SimpleNamespace(models=["gpt-known"]),
+            "gemini": SimpleNamespace(models=["shared-model"]),
+            "other": SimpleNamespace(models=["shared-model"]),
+        },
+    )
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="student-1", phone="13900001235")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            parent_bid="chapter-1",
+            title="Lesson 1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        usage_specs = [
+            ("usage-llm-1", BILL_USAGE_TYPE_LLM, "openai", "gpt-known", "4"),
+            ("usage-llm-2", BILL_USAGE_TYPE_LLM, "gemini", "shared-model", "3"),
+            ("usage-tts-1", BILL_USAGE_TYPE_TTS, "volcengine", "seed-tts-2.0", "2"),
+            ("usage-legacy-1", BILL_USAGE_TYPE_LLM, "legacy", "old-model-260101", "1"),
+        ]
+        for index, (usage_bid, usage_type, provider, model, credits) in enumerate(
+            usage_specs
+        ):
+            _seed_credit_usage(
+                usage_bid=usage_bid,
+                user_bid="student-1",
+                shifu_bid="course-detail",
+                outline_item_bid="lesson-1",
+                progress_record_bid=f"progress-{index}",
+                usage_type=usage_type,
+                provider=provider,
+                model=model,
+                consumed_credits=Decimal(credits),
+                created_at=datetime(2026, 4, 4, 10, index, 0),
+                extra={"generation_name": f"lesson_runtime/run_llm/{index}"},
+            )
+        db.session.commit()
+
+    raw_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages"
+        "?page=1&page_size=20&view=raw",
+        headers={"Token": "test-token"},
+    )
+    raw_payload = raw_response.get_json(force=True)
+
+    assert raw_response.status_code == 200
+    assert raw_payload["code"] == 0
+    assert load_counts == {"llm": 1, "tts": 1}
+    raw_labels = {
+        item["usage_bid"]: item["model_label"] for item in raw_payload["data"]["items"]
+    }
+    assert raw_labels["usage-llm-1"] == "GPT Known"
+    assert raw_labels["usage-llm-2"] == "Shared Model"
+    assert raw_labels["usage-tts-1"] == "Flagship Voice"
+    assert raw_labels["usage-legacy-1"] == "Old-Model"
+
+    grouped_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages"
+        "?page=1&page_size=20",
+        headers={"Token": "test-token"},
+    )
+    grouped_payload = grouped_response.get_json(force=True)
+
+    assert grouped_response.status_code == 200
+    assert grouped_payload["code"] == 0
+    assert load_counts == {"llm": 2, "tts": 2}
+    grouped_labels = {
+        item["usage_bid"]: item["model_label"]
+        for item in grouped_payload["data"]["items"]
+    }
+    assert grouped_labels["usage-tts-1"] == "Flagship Voice"
+    assert grouped_labels["usage-legacy-1"] == "Old-Model"
+
+    detail_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages/details"
+        "?page=1&page_size=20&user_bid=student-1&outline_item_bid=lesson-1",
+        headers={"Token": "test-token"},
+    )
+    detail_payload = detail_response.get_json(force=True)
+
+    assert detail_response.status_code == 200
+    assert detail_payload["code"] == 0
+    assert load_counts == {"llm": 3, "tts": 3}
+    detail_labels = {
+        item["usage_bid"]: item["model_label"]
+        for item in detail_payload["data"]["items"]
+    }
+    assert detail_labels == raw_labels
+
+
 def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
     app,
     test_client,
@@ -2706,6 +2857,9 @@ def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summ
     assert item["consumed_credits"] == 5
     assert item["input_tokens"] == 100
     assert item["output_tokens"] == 200
+    assert item["provider"] == "openai"
+    assert item["model"] == "gpt-4.1"
+    assert item["model_label"] == "GPT-4.1"
     assert item["output_summary"] == "Generated answer"
 
 

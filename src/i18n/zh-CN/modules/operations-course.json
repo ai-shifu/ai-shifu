@@ -93,6 +93,7 @@
           "createdAt": "消耗时间",
           "credits": "消耗积分",
           "inputTokens": "输入 Tokens",
+          "model": "模型",
           "outputSummary": "输出摘要",
           "outputTokens": "输出 Tokens",
           "ttsContent": "合成内容",
@@ -115,7 +116,7 @@
         "userKeywordPlaceholderPhone": "手机号 / 昵称"
       },
       "modelSummary": {
-        "multiple": "{model} 等 {count} 个"
+        "variants": "涉及 {count} 种"
       },
       "modes": {
         "ask": "追问",
@@ -131,11 +132,11 @@
         "unknown": "未知类型"
       },
       "table": {
-        "chapter": "章节",
+        "chapter": "章",
         "createdAt": "最近消耗时间",
         "credits": "总消耗积分",
         "empty": "暂无积分消耗记录",
-        "lesson": "小节",
+        "lesson": "节",
         "mode": "消耗场景",
         "model": "模型",
         "nickname": "昵称",

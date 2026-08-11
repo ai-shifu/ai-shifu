@@ -84,10 +84,50 @@ const CREDIT_USAGE_COLUMN_KEYS = Object.keys(
   CREDIT_USAGE_COLUMN_DEFAULT_WIDTHS,
 ) as CreditUsageColumnKey[];
 const CREDIT_USAGE_DETAIL_TABLE_COLUMN_COUNT = {
-  read: 5,
-  listen: 6,
+  read: 6,
+  listen: 7,
 } as const;
 const FILTER_ALL_OPTION = 'all';
+
+const MODEL_LABEL_SPECIAL_SEGMENTS: Record<string, string> = {
+  deepseek: 'DeepSeek',
+  doubao: 'Doubao',
+  gpt: 'GPT',
+  seed: 'Seed',
+  pro: 'pro',
+  lite: 'lite',
+  flash: 'Flash',
+};
+
+const formatModelLabelFallback = (value: string) => {
+  const normalized = value.trim();
+  if (!normalized) {
+    return '';
+  }
+  const rawLabel = (
+    normalized.includes('/')
+      ? normalized.split('/').slice(1).join('/')
+      : normalized
+  )
+    .replace(/-\d{6,}$/, '')
+    .replace(/(seed)-(\d+)-(\d+)/, '$1-$2.$3');
+
+  return rawLabel
+    .split('-')
+    .filter(Boolean)
+    .map(segment => {
+      const specialSegment =
+        MODEL_LABEL_SPECIAL_SEGMENTS[segment.toLowerCase()];
+      if (specialSegment) {
+        return specialSegment;
+      }
+      return /^[a-z]+$/i.test(segment)
+        ? `${segment.slice(0, 1).toUpperCase()}${segment.slice(1)}`
+        : segment;
+    })
+    .join('-');
+};
+
 const EMPTY_CREDIT_USAGE_DETAIL_RESPONSE: AdminOperationCourseCreditUsageDetailListResponse =
   {
     items: [],
@@ -251,20 +291,31 @@ export default function CourseCreditUsageTab({
   );
 
   const resolveModelDisplay = useCallback(
-    (row: AdminOperationCourseCreditUsageItem) => {
+    (row: {
+      provider?: string | null;
+      model?: string | null;
+      model_label?: string | null;
+    }) => {
+      const modelLabel = row.model_label?.trim() || '';
       const provider = row.provider?.trim() || '';
       const model = row.model?.trim() || '';
-      const baseDisplay =
-        provider && model ? `${provider} / ${model}` : provider || model || '';
-      if (row.model_variant_count > 1 && baseDisplay) {
-        return tOperations('detail.creditUsage.modelSummary.multiple', {
-          model: baseDisplay,
-          count: row.model_variant_count,
-        });
-      }
-      return baseDisplay || emptyValue;
+      return (
+        modelLabel || formatModelLabelFallback(model || provider) || emptyValue
+      );
     },
-    [emptyValue, tOperations],
+    [emptyValue],
+  );
+
+  const resolveModelVariantHint = useCallback(
+    (row: AdminOperationCourseCreditUsageItem) => {
+      if (row.model_variant_count <= 1) {
+        return '';
+      }
+      return tOperations('detail.creditUsage.modelSummary.variants', {
+        count: row.model_variant_count,
+      });
+    },
+    [tOperations],
   );
 
   const handleOpenDetails = useCallback(
@@ -317,6 +368,9 @@ export default function CourseCreditUsageTab({
         setDetailData({
           items: (response?.items || []).map(item => ({
             ...item,
+            provider: item.provider || '',
+            model: item.model || '',
+            model_label: item.model_label || '',
             word_count: item.word_count || 0,
             duration_ms: item.duration_ms || 0,
             segment_count: item.segment_count || 0,
@@ -375,7 +429,7 @@ export default function CourseCreditUsageTab({
       lesson: row => [row.lesson_title || emptyValue],
       usageCount: row => [String(row.usage_count || 0)],
       credits: row => [String(row.consumed_credits || 0)],
-      model: row => [resolveModelDisplay(row)],
+      model: row => [resolveModelDisplay(row), resolveModelVariantHint(row)],
     };
     const multiplierMap: Partial<Record<CreditUsageColumnKey, number>> = {
       createdAt: 5,
@@ -433,6 +487,7 @@ export default function CourseCreditUsageTab({
     resolveSceneLabel,
     resolveModeLabel,
     resolveModelDisplay,
+    resolveModelVariantHint,
     rows,
     setColumnWidths,
   ]);
@@ -882,11 +937,21 @@ export default function CourseCreditUsageTab({
                             className='py-2.5 text-center text-sm text-foreground'
                             style={getColumnStyle('model')}
                           >
-                            <AdminTooltipText
-                              text={resolveModelDisplay(row)}
-                              emptyValue={emptyValue}
-                              className='mx-auto block max-w-[220px]'
-                            />
+                            <div className='mx-auto flex max-w-[220px] min-w-0 flex-col items-center gap-0.5 leading-tight'>
+                              <AdminTooltipText
+                                text={resolveModelDisplay(row)}
+                                emptyValue={emptyValue}
+                                className='block max-w-full'
+                              />
+                              {resolveModelVariantHint(row) ? (
+                                <AdminTooltipText
+                                  text={resolveModelVariantHint(row)}
+                                  emptyValue={emptyValue}
+                                  alwaysShowTooltip
+                                  className='block max-w-full text-xs text-muted-foreground'
+                                />
+                              ) : null}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -919,7 +984,7 @@ export default function CourseCreditUsageTab({
                   ? CREDIT_USAGE_DETAIL_TABLE_COLUMN_COUNT.listen
                   : CREDIT_USAGE_DETAIL_TABLE_COLUMN_COUNT.read
               }
-              withTooltipProvider={false}
+              withTooltipProvider
               tableWrapperClassName='max-h-[52vh] overflow-auto'
               loadingClassName='min-h-[220px]'
               pagination={{
@@ -960,6 +1025,11 @@ export default function CourseCreditUsageTab({
                           <TableHead className='h-10 w-[120px] whitespace-nowrap bg-muted/80 text-center text-xs'>
                             {detailSecondMetricLabel}
                           </TableHead>
+                          <TableHead className='h-10 w-[180px] whitespace-nowrap bg-muted/80 text-center text-xs'>
+                            {tOperations(
+                              'detail.creditUsage.details.table.model',
+                            )}
+                          </TableHead>
                           {isListenDetail ? (
                             <TableHead className='h-10 w-[120px] whitespace-nowrap bg-muted/80 text-center text-xs'>
                               {tOperations(
@@ -992,6 +1062,13 @@ export default function CourseCreditUsageTab({
                               {isListenDetail
                                 ? formatDuration(detail.duration_ms)
                                 : detail.output_tokens}
+                            </TableCell>
+                            <TableCell className='border-r border-border py-2.5 text-center text-sm text-foreground'>
+                              <AdminTooltipText
+                                text={resolveModelDisplay(detail)}
+                                emptyValue={emptyValue}
+                                className='mx-auto block max-w-[180px]'
+                              />
                             </TableCell>
                             {isListenDetail ? (
                               <TableCell className='border-r border-border py-2.5 text-center text-sm tabular-nums text-foreground'>
