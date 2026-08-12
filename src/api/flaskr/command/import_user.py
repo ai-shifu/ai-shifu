@@ -34,7 +34,10 @@ def import_user(
         )
         canonical_profile_controls_nickname = bool(
             existing_aggregate
-            and has_learner_profile_or_state(existing_aggregate.user_bid)
+            and has_learner_profile_or_state(
+                existing_aggregate.user_bid,
+                for_update=True,
+            )
         )
         defaults = {
             "identify": normalized_mobile,
@@ -54,7 +57,6 @@ def import_user(
             raise RuntimeError("Failed to resolve user aggregate during import")
 
         user_id = aggregate.user_bid
-        canonical_profile_controls_nickname = has_learner_profile_or_state(user_id)
 
         # Hard-sync canonical entity with the latest phone and nickname to avoid
         # any edge cases where the ensure helper might skip fields.

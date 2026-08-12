@@ -396,14 +396,21 @@ def check_text_content(app: Flask, user_id: str, learner_profile: str) -> bool:
     return result.check_result != CHECK_RESULT_REJECT
 
 
-def load_learner_profile_user(user_id: str) -> UserEntity:
+def load_learner_profile_user(
+    user_id: str,
+    *,
+    for_update: bool = False,
+) -> UserEntity:
     normalized_user_id = str(user_id or "").strip()
     if not normalized_user_id:
         raise_error("server.user.userNotLogin")
-    user = UserEntity.query.filter(
+    query = UserEntity.query.filter(
         UserEntity.user_bid == normalized_user_id,
         UserEntity.deleted == 0,
-    ).first()
+    )
+    if for_update:
+        query = query.populate_existing().with_for_update()
+    user = query.first()
     if user is None:
         raise_error("server.user.userNotLogin")
     return user
@@ -487,7 +494,7 @@ def load_learner_profile_state(
         UserOnboardingState.version == PROFILE_ONBOARDING_VERSION,
     )
     if for_update:
-        query = query.with_for_update()
+        query = query.populate_existing().with_for_update()
     return query.first()
 
 
@@ -578,10 +585,17 @@ def merge_learner_profile_for_sign_in(
     )
 
 
-def has_learner_profile_or_state(user_id: str) -> bool:
-    user = load_learner_profile_user(user_id)
-    return bool(str(user.learner_profile or "").strip()) or (
-        load_learner_profile_state(user_id) is not None
+def has_learner_profile_or_state(
+    user_id: str,
+    *,
+    for_update: bool = False,
+) -> bool:
+    user = load_learner_profile_user(user_id, for_update=for_update)
+    has_profile = bool(str(user.learner_profile or "").strip())
+    if has_profile and not for_update:
+        return True
+    return has_profile or (
+        load_learner_profile_state(user_id, for_update=for_update) is not None
     )
 
 
