@@ -98,6 +98,7 @@ describe('LearnerProfileDialog', () => {
     expect(zhProfile.dialog.description).toContain('AI 老师');
     expect(zhProfile.dialog.description).toContain('喜欢的语言风格');
     expect(zhProfile.dialog.promptHeading).toBe('可以从这三方面写起');
+    expect(zhProfile.dialog.writingGuideTitle).toBe('可以包括');
     expect(zhProfile.dialog.chips.identity.label).toBe('我的情况');
     expect(zhProfile.dialog.chips.goals.label).toBe('我最近在意什么');
     expect(zhProfile.dialog.chips.teaching.label).toBe('我喜欢的语言风格');
@@ -114,6 +115,7 @@ describe('LearnerProfileDialog', () => {
     expect(enProfile.dialog.description).toContain('AI teacher');
     expect(enProfile.dialog.description).toContain('language style');
     expect(enProfile.dialog.promptHeading).toBe('Start with these three areas');
+    expect(enProfile.dialog.writingGuideTitle).toBe('You can include');
     expect(enProfile.dialog.chips.identity.label).toBe('About me');
     expect(enProfile.dialog.chips.goals.label).toBe('What matters to me now');
     expect(enProfile.dialog.chips.teaching.label).toBe(
@@ -136,6 +138,7 @@ describe('LearnerProfileDialog', () => {
     expect(frProfile.dialog.promptHeading).toBe(
       'Commencez par ces trois aspects',
     );
+    expect(frProfile.dialog.writingGuideTitle).toBe('Vous pouvez inclure');
     expect(frProfile.dialog.chips.identity.label).toBe('Ma situation');
     expect(frProfile.dialog.chips.goals.label).toBe(
       'Ce qui compte pour moi aujourd’hui',
