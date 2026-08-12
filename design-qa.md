@@ -29,6 +29,9 @@
   university background, an AI-supported personal ambition, and teaching
   preferences, including tone, that any subject can reuse instead of assuming
   a course task.
+- The dialog description, teaching prompt, and writing guide also name tone as
+  an editable preference, so the capability is discoverable without reading
+  the full example.
 - Component tests assert the structural properties above, focus behavior,
   minimum action height, and dialog semantics. These checks do not replace a
   browser-rendered pixel comparison.

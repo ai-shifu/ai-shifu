@@ -182,6 +182,9 @@ legacy onboarding service remains in
   existing experience, current cross-topic concerns, explanation and tone
   preferences, familiar scenarios, trade-offs, and likely blind spots without
   assuming a specific subject or learning task.
+- Mention tone preferences outside the placeholder as well: the dialog
+  description, teaching prompt, and writing guide must all make this capability
+  discoverable.
 - Do not add or regenerate a database migration. Nickname already belongs to
   `user_users`.
 - Preserve legacy endpoint payloads and historical rows; focused diff checks

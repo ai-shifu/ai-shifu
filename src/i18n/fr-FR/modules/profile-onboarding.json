@@ -38,12 +38,12 @@
         "text": "Vous pouvez m’appeler…"
       },
       "teaching": {
-        "label": "Quoi apprendre, et comment ?",
-        "text": "Je souhaite apprendre à… Ma difficulté actuelle est… J’aimerais que mon enseignant IA explique à un rythme… avec une structure… et des exemples sur…"
+        "label": "Comment votre enseignant IA doit-il enseigner ?",
+        "text": "J’aimerais que mon enseignant IA adopte un ton…, explique à un rythme… avec une structure… et utilise des exemples sur…"
       }
     },
     "close": "Fermer",
-    "description": "Cette présentation aide votre enseignant IA à comprendre votre parcours, vos objectifs et vos préférences d’apprentissage afin de vous proposer des explications et des exemples mieux adaptés dans vos différentes expériences d’apprentissage.",
+    "description": "Cette présentation aide votre enseignant IA à comprendre votre parcours, vos objectifs, vos préférences d’apprentissage et le ton que vous appréciez, afin d’adapter sa façon d’expliquer et ses exemples dans vos différentes expériences d’apprentissage.",
     "discard": "Abandonner les modifications",
     "discardDescription": "Tout contenu non enregistré sera perdu.",
     "discardTitle": "Abandonner ces modifications ?",
@@ -69,7 +69,7 @@
     "settingsTitle": "Mettez à jour ce que votre enseignant IA sait de vous",
     "writingGuideGoals": "L’objectif visé, les difficultés actuelles ou le problème que vous souhaitez résoudre",
     "writingGuideIdentity": "La façon de vous appeler, votre parcours professionnel ou personnel, ainsi que vos connaissances ou expériences",
-    "writingGuideTeaching": "La manière dont votre enseignant IA doit expliquer : rythme, niveau de détail, structure, exemples ou situations préférés",
+    "writingGuideTeaching": "La manière dont votre enseignant IA doit expliquer : ton, rythme, niveau de détail, structure, exemples ou situations préférés",
     "writingGuideTitle": "Conseils de rédaction (facultatif)"
   },
   "emptyFlow": "Aucune question de profil n’est configurée.",

@@ -96,16 +96,30 @@ describe('LearnerProfileDialog', () => {
 
     expect(zhProfile.dialog.onboardingTitle).toContain('AI 老师');
     expect(zhProfile.dialog.description).toContain('AI 老师');
+    expect(zhProfile.dialog.description).toContain('喜欢的交流语气');
+    expect(zhProfile.dialog.chips.teaching.label).toContain('AI 老师怎么教');
     expect(zhProfile.dialog.chips.teaching.text).toContain('AI 老师');
+    expect(zhProfile.dialog.chips.teaching.text).toContain('语气');
     expect(zhProfile.dialog.writingGuideTeaching).toContain('AI 老师');
+    expect(zhProfile.dialog.writingGuideTeaching).toContain('语气');
     expect(JSON.stringify(zhProfile.dialog)).not.toContain('课程');
     expect(enProfile.dialog.description).toContain('AI teacher');
+    expect(enProfile.dialog.description).toContain('preferred tone');
+    expect(enProfile.dialog.chips.teaching.label).toContain('AI teacher teach');
     expect(enProfile.dialog.chips.teaching.text).toContain('AI teacher');
+    expect(enProfile.dialog.chips.teaching.text).toContain('tone');
     expect(enProfile.dialog.writingGuideTeaching).toContain('AI teacher');
+    expect(enProfile.dialog.writingGuideTeaching).toContain('tone');
     expect(JSON.stringify(enProfile.dialog)).not.toMatch(/\bcourses?\b/i);
     expect(frProfile.dialog.description).toContain('enseignant IA');
+    expect(frProfile.dialog.description).toContain('ton que vous appréciez');
+    expect(frProfile.dialog.chips.teaching.label).toContain(
+      'enseignant IA doit-il enseigner',
+    );
     expect(frProfile.dialog.chips.teaching.text).toContain('enseignant IA');
+    expect(frProfile.dialog.chips.teaching.text).toContain('ton');
     expect(frProfile.dialog.writingGuideTeaching).toContain('enseignant IA');
+    expect(frProfile.dialog.writingGuideTeaching).toContain('ton');
     expect(JSON.stringify(frProfile.dialog)).not.toMatch(/\bcours\b/i);
   });
 

@@ -38,12 +38,12 @@
         "text": "You can call me…"
       },
       "teaching": {
-        "label": "What and how do you want to learn?",
-        "text": "I want to learn how to… My current challenge is… I would like my AI teacher to explain at a… pace with a… structure and examples about…"
+        "label": "How should your AI teacher teach?",
+        "text": "I would like my AI teacher to use a… tone, explain at a… pace with a… structure, and use examples about…"
       }
     },
     "close": "Close",
-    "description": "This introduction helps your AI teacher understand your background, goals, and learning preferences, so you receive explanations and examples that fit you better across learning experiences.",
+    "description": "This introduction helps your AI teacher understand your background, goals, learning preferences, and preferred tone, so you receive explanations and examples delivered in a way that fits you better across learning experiences.",
     "discard": "Discard changes",
     "discardDescription": "Anything you have not saved will be lost.",
     "discardTitle": "Discard these changes?",
@@ -69,7 +69,7 @@
     "settingsTitle": "Update what your AI teacher knows about you",
     "writingGuideGoals": "The goal you want to reach, your current challenges, or the problem you want to solve",
     "writingGuideIdentity": "What to call you, your work or life background, and what you already know or have experienced",
-    "writingGuideTeaching": "How you want your AI teacher to explain things, including pace, detail, structure, and preferred examples or scenarios",
+    "writingGuideTeaching": "How you want your AI teacher to explain things, including tone, pace, detail, structure, and preferred examples or scenarios",
     "writingGuideTitle": "Writing guide (optional)"
   },
   "emptyFlow": "No profile questions are configured.",

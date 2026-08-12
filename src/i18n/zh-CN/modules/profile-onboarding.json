@@ -38,12 +38,12 @@
         "text": "可以叫我……。"
       },
       "teaching": {
-        "label": "你想学什么、怎么学？",
-        "text": "我想学会……，目前最困扰我的是……。希望 AI 老师用……的节奏和结构讲解，多用……作为例子。"
+        "label": "希望 AI 老师怎么教？",
+        "text": "希望 AI 老师用……的语气、……的节奏和结构讲解，多用……作为例子。"
       }
     },
     "close": "关闭",
-    "description": "这段介绍将帮助 AI 老师了解你的背景、目标与学习偏好，从而在不同学习体验中，为你提供更合适的讲解与示例。",
+    "description": "这段介绍将帮助 AI 老师了解你的背景、目标、学习偏好和喜欢的交流语气，从而在不同学习体验中，用更合适的方式讲解和举例。",
     "discard": "放弃修改",
     "discardDescription": "尚未保存的内容会丢失。",
     "discardTitle": "放弃这次修改吗？",
@@ -69,7 +69,7 @@
     "settingsTitle": "更新 AI 老师对你的了解",
     "writingGuideGoals": "你希望达成的目标、当前遇到的挑战或想解决的问题",
     "writingGuideIdentity": "想被如何称呼、你的职业或生活背景、已有的知识或经验",
-    "writingGuideTeaching": "你希望 AI 老师如何讲解（节奏、详略、结构等）、偏好的案例或场景",
+    "writingGuideTeaching": "你希望 AI 老师如何讲解（语气、节奏、详略、结构等）、偏好的案例或场景",
     "writingGuideTitle": "写作提示（可参考）"
   },
   "emptyFlow": "暂未配置学习画像问题。",
