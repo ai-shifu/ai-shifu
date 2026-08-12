@@ -686,8 +686,7 @@ def import_activation_order(
         normalized_identifier, providers=[contact_type]
     )
     canonical_profile_controls_nickname = bool(
-        existing_aggregate
-        and has_learner_profile_or_state(existing_aggregate.user_bid)
+        existing_aggregate and has_learner_profile_or_state(existing_aggregate.user_bid)
     )
     defaults = {
         "identify": normalized_identifier,
