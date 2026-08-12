@@ -17,7 +17,11 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.check_risk.api import add_risk_control_result
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.profile.constants import LEGACY_LEARNER_PROFILE_KEYS
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.profile.constants import (
+    LEGACY_LEARNER_PROFILE_KEYS,
+    SYS_USER_NICKNAME,
+)
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.consts import USER_STATE_UNREGISTERED
 from flaskr.service.user.models import (
@@ -424,10 +428,10 @@ def serialize_learner_profile(user: UserEntity) -> dict[str, Any]:
     }
 
 
-def _load_legacy_learner_profile_values(user_id: str) -> dict[str, str]:
+def _load_legacy_learner_profile_values(user: UserEntity) -> dict[str, str]:
     rows = (
         VariableValue.query.filter(
-            VariableValue.user_bid == user_id,
+            VariableValue.user_bid == user.user_bid,
             VariableValue.shifu_bid == "",
             VariableValue.key.in_(LEGACY_LEARNER_PROFILE_KEYS),
             VariableValue.deleted == 0,
@@ -436,12 +440,20 @@ def _load_legacy_learner_profile_values(user_id: str) -> dict[str, str]:
         .all()
     )
     latest_values: dict[str, str] = {}
+    seen_keys: set[str] = set()
     for row in rows:
-        if row.key in latest_values:
+        if row.key in seen_keys:
+            continue
+        seen_keys.add(row.key)
+        if row.key == SYS_USER_NICKNAME:
             continue
         value = str(row.value or "").strip()
         if value:
             latest_values[row.key] = value
+
+    canonical_nickname = str(user.nickname or "").strip()
+    if canonical_nickname:
+        latest_values[SYS_USER_NICKNAME] = canonical_nickname
     return latest_values
 
 
@@ -451,7 +463,7 @@ def get_learner_profile(*, user_id: str) -> dict[str, Any]:
     serialized["legacy_profile_values"] = (
         {}
         if serialized["has_learner_profile"]
-        else _load_legacy_learner_profile_values(user.user_bid)
+        else _load_legacy_learner_profile_values(user)
     )
     return serialized
 
@@ -524,9 +536,10 @@ def merge_learner_profile_for_sign_in(
         return
 
     source_identify = str(source_user.user_identify or "").strip()
+    normalized_source_phone = normalize_phone_identifier(source_identify)
     source_has_account_identifier = bool(
         "@" in source_identify
-        or source_identify.isdigit()
+        or normalized_source_phone.isdigit()
         or AuthCredential.query.filter(
             AuthCredential.user_bid == normalized_source_id,
             AuthCredential.provider_name.in_(["phone", "email"]),

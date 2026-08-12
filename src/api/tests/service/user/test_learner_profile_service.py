@@ -25,11 +25,16 @@ def _assert_orm_utc(value: datetime | None, expected: datetime) -> None:
     assert value.replace(tzinfo=timezone.utc) == expected
 
 
-def _create_user(user_bid: str, *, learner_profile: str = "") -> UserInfo:
+def _create_user(
+    user_bid: str,
+    *,
+    learner_profile: str = "",
+    nickname: str = "Test learner",
+) -> UserInfo:
     user = create_user_entity(
         user_bid=user_bid,
         identify=user_bid,
-        nickname="Test learner",
+        nickname=nickname,
         language="zh-CN",
         learner_profile=learner_profile,
         learner_profile_updated_at=PROFILE_UPDATED_AT if learner_profile else None,
@@ -78,12 +83,12 @@ def test_repository_aggregate_exposes_learner_profile(app):
     _assert_orm_utc(aggregate.learner_profile_updated_at, PROFILE_UPDATED_AT)
 
 
-def test_empty_profile_exposes_latest_global_legacy_values_for_prefill(app):
+def test_empty_profile_prefill_uses_canonical_nickname_and_latest_legacy_values(app):
     from flaskr.service.profile.learner_profile import get_learner_profile
 
     with app.app_context():
         user_bid = "profile-legacy-prefill"
-        _create_user(user_bid)
+        _create_user(user_bid, nickname="当前称呼")
         _add_profile_value(
             value_bid="legacy-name-old",
             user_bid=user_bid,
@@ -121,10 +126,41 @@ def test_empty_profile_exposes_latest_global_legacy_values_for_prefill(app):
 
     assert loaded["learner_profile"] == ""
     assert loaded["legacy_profile_values"] == {
-        "sys_user_nickname": "小林",
+        "sys_user_nickname": "当前称呼",
         "sys_user_background": "办公室工作",
         "sys_user_style": "亲切直接",
     }
+
+
+def test_empty_legacy_values_do_not_revive_older_prefill_values(app):
+    from flaskr.service.profile.learner_profile import get_learner_profile
+
+    with app.app_context():
+        user_bid = "profile-legacy-prefill-cleared"
+        _create_user(user_bid, nickname="")
+        for key, old_value in (
+            ("sys_user_nickname", "旧称呼"),
+            ("sys_user_background", "旧背景"),
+            ("sys_user_style", "旧风格"),
+        ):
+            _add_profile_value(
+                value_bid=f"{key}-old",
+                user_bid=user_bid,
+                key=key,
+                value=old_value,
+            )
+            _add_profile_value(
+                value_bid=f"{key}-cleared",
+                user_bid=user_bid,
+                key=key,
+                value="  ",
+            )
+        db.session.commit()
+
+        loaded = get_learner_profile(user_id=user_bid)
+
+    assert loaded["learner_profile"] == ""
+    assert loaded["legacy_profile_values"] == {}
 
 
 def test_canonical_profile_does_not_expose_legacy_prefill_values(app):
