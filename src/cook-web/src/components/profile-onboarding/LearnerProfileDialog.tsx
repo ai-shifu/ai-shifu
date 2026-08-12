@@ -473,7 +473,7 @@ export default function LearnerProfileDialog({
             <Button
               type='button'
               variant='outline'
-              className='min-h-11 min-w-0 flex-1 sm:min-w-40 sm:flex-none'
+              className='min-h-11 min-w-0 flex-1 sm:flex-none'
               disabled={busy}
               onClick={requestClose}
             >
@@ -481,7 +481,7 @@ export default function LearnerProfileDialog({
             </Button>
             <Button
               type='button'
-              className='min-h-11 min-w-0 flex-[1.4] sm:min-w-80 sm:flex-none'
+              className='min-h-11 min-w-0 flex-[1.4] sm:flex-none'
               disabled={!canSave}
               onClick={() => {
                 void saveProfile();

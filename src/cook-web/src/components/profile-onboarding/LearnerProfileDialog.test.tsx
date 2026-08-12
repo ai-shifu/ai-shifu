@@ -380,6 +380,10 @@ describe('LearnerProfileDialog', () => {
     expect(overlay).toHaveClass('!bg-slate-950/45', 'backdrop-blur-[1px]');
     expect(footer).toHaveClass('sticky', 'bottom-0');
     expect(footer).toContainElement(primaryAction);
+    expect(later).toHaveClass('flex-1', 'sm:flex-none');
+    expect(primaryAction).toHaveClass('flex-[1.4]', 'sm:flex-none');
+    expect(later).not.toHaveClass('sm:min-w-40');
+    expect(primaryAction).not.toHaveClass('sm:min-w-80');
     expect(
       screen.queryByRole('button', {
         name: 'module.profileOnboarding.dialog.moreActions',
