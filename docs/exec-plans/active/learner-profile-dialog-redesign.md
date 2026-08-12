@@ -76,6 +76,10 @@ secondary action and primary save action, with no clear or overflow control.
   nickname or derived metadata in the dialog.
   Rationale: the learner should experience name recognition as a background
   consequence of a natural introduction, not as another field to manage.
+- Decision: make the example concrete through durable background, current
+  concerns, and teaching preferences rather than a course-specific task.
+  Rationale: the same learner profile should give any AI teacher useful
+  personalization context without implying what the learner is studying.
 - Decision: recognize only explicit, bounded address phrases in supported
   languages and treat the result (including no result) as the derived account
   nickname; clearing the canonical profile clears that derived nickname.
@@ -170,8 +174,10 @@ legacy onboarding service remains in
   approximately 720-pixel desktop surface and a near-full-height mobile sheet
   with at least 44-pixel actions.
 - Provide three optional writing-prompt buttons that only focus/seed the same
-  textarea. The complete placeholder must cover address, background, existing
-  foundation, goal, current problem, explanation preferences, and scenarios.
+  textarea. The complete placeholder must cover address, durable background,
+  existing experience, current cross-topic concerns, explanation preferences,
+  familiar scenarios, trade-offs, and likely blind spots without assuming a
+  specific subject or learning task.
 - Do not add or regenerate a database migration. Nickname already belongs to
   `user_users`.
 - Preserve legacy endpoint payloads and historical rows; focused diff checks
@@ -181,7 +187,8 @@ legacy onboarding service remains in
 
 - Opening “学习者画像” closes the account menu, leaves the lesson visible, and
   opens a focus-managed dialog on desktop and a usable sheet on mobile.
-- The dialog contains one learner-profile textarea, complete example guidance,
+- The dialog contains one learner-profile textarea, complete cross-course
+  example guidance,
   a context-appropriate secondary action and primary save action, inline error
   and retry states, and no clear/overflow or editable/parsed
   nickname/background/style controls.

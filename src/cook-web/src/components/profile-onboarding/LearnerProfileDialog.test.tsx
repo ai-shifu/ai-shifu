@@ -109,67 +109,110 @@ describe('LearnerProfileDialog', () => {
     expect(JSON.stringify(frProfile.dialog)).not.toMatch(/\bcours\b/i);
   });
 
-  test('uses a concrete and accessible placeholder in every language', () => {
+  test('uses a concrete cross-course placeholder in every language', () => {
     const zhPlaceholder = zhProfile.dialog.profilePlaceholder;
     const enPlaceholder = enProfile.dialog.profilePlaceholder;
     const frPlaceholder = frProfile.dialog.profilePlaceholder;
 
     for (const detail of [
       '可以叫我',
-      '一家小店工作',
-      '用 Excel 记录',
-      '会做简单表格',
-      '月度报告',
-      '先看哪些数字',
-      '选什么图表',
-      '饮料和面包',
-      '一步一步操作',
-      '检查清单',
-      '漏算退货',
-      '混淆销量和销售额',
+      '一家小公司工作',
+      '和同事协调工作',
+      '整理信息',
+      '客户提出的问题',
+      '几年工作经验',
+      '不熟悉的话题',
+      '先抓住重点',
+      '把基础补齐',
+      '把事情说明白',
+      '根据事实作判断',
+      '平衡工作和生活',
+      '主题和我有什么关系',
+      '分步骤',
+      '工作沟通',
+      '家庭安排',
+      '日常消费',
+      '比较各自的利弊',
+      '容易忽略',
     ]) {
       expect(zhPlaceholder).toContain(detail);
     }
-    expect(zhPlaceholder).not.toContain('产品经理');
-    expect(zhPlaceholder).not.toContain('AI 产品');
+    for (const courseSpecificDetail of [
+      'Excel',
+      '数据分析',
+      '月度报告',
+      '销售额',
+      '产品经理',
+      'AI 产品',
+    ]) {
+      expect(zhPlaceholder).not.toContain(courseSpecificDetail);
+    }
 
     for (const detail of [
       'call me',
-      'work at a small shop',
-      'record daily sales and stock',
-      'simple spreadsheets',
-      'monthly report',
-      'which numbers to look at first',
-      'which chart to choose',
-      'drinks and bread',
+      'small company',
+      'coordinate work with coworkers',
+      'organize information',
+      'customer questions',
+      'few years of work experience',
+      'unfamiliar topic',
+      'main ideas first',
+      'build up the basics',
+      'communicating clearly',
+      'decisions based on evidence',
+      'balancing work and personal life',
+      'how a topic relates to me',
       'step by step',
-      'checklist',
-      'missing returns',
-      'sales revenue',
-      'common mistakes',
+      'workplace communication',
+      'organizing things at home',
+      'everyday purchases',
+      'pros and cons',
+      'things I might overlook',
     ]) {
       expect(enPlaceholder).toContain(detail);
     }
-    expect(enPlaceholder).not.toContain('AI products');
+    for (const courseSpecificDetail of [
+      'Excel',
+      'data analysis',
+      'monthly report',
+      'sales revenue',
+      'AI products',
+    ]) {
+      expect(enPlaceholder).not.toContain(courseSpecificDetail);
+    }
 
     for (const detail of [
       'm’appeler',
-      'travaille dans un petit magasin',
-      'ventes et les stocks',
-      'tableaux simples',
-      'rapport mensuel',
-      'quels chiffres regarder en premier',
-      'quel graphique choisir',
-      'boissons et de pain',
+      'petite entreprise',
+      'avec mes collègues',
+      'organise des informations',
+      'questions des clients',
+      'années d’expérience professionnelle',
+      'sujet que je connais mal',
+      'commencer par l’essentiel',
+      'reprendre les bases',
+      'mieux expliquer les choses',
+      'décisions fondées sur des faits',
+      'équilibrer travail et vie personnelle',
+      'en quoi le sujet me concerne',
       'étape par étape',
-      'liste de vérification',
-      'oublier les retours',
-      'chiffre d’affaires',
-      'erreurs fréquentes',
+      'communication au travail',
+      'organisation à la maison',
+      'achats du quotidien',
+      'avantages et les inconvénients',
+      'points que je risque d’oublier',
     ]) {
       expect(frPlaceholder).toContain(detail);
     }
-    expect(frPlaceholder).not.toContain('produits IA');
+    for (const courseSpecificDetail of [
+      'Excel',
+      'analyse de données',
+      'rapport mensuel',
+      'chiffre d’affaires',
+      'produits IA',
+    ]) {
+      expect(frPlaceholder).not.toContain(courseSpecificDetail);
+    }
   });
 
   test('renders the centered contextual dialog with option-three guidance and actions', async () => {
