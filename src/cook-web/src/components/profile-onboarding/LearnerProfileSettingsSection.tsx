@@ -51,6 +51,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
   const [clearOpen, setClearOpen] = React.useState(false);
+  const [clearError, setClearError] = React.useState('');
   const translationRef = React.useRef(t);
   const loadSequenceRef = React.useRef(0);
   const operationGenerationRef = React.useRef(0);
@@ -123,6 +124,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
     setSaving(false);
     setError('');
     setClearOpen(false);
+    setClearError('');
     void loadProfile();
     return () => {
       if (operationGenerationRef.current === scopeGeneration) {
@@ -199,6 +201,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
       scopeRef.current === clearScope;
     setSaving(true);
     setError('');
+    setClearError('');
     try {
       const response = await clearLearnerProfile();
       if (!isCurrentClear()) {
@@ -212,7 +215,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
       toast({ title: t('module.profileOnboarding.settings.clearSuccess') });
     } catch (caughtError) {
       if (isCurrentClear()) {
-        setError(
+        setClearError(
           caughtError instanceof Error && caughtError.message
             ? caughtError.message
             : t('module.profileOnboarding.settings.clearFailed'),
@@ -320,7 +323,12 @@ const LearnerProfileSettingsSection = React.forwardRef<
 
       <AlertDialog
         open={clearOpen}
-        onOpenChange={setClearOpen}
+        onOpenChange={nextOpen => {
+          setClearOpen(nextOpen);
+          if (!nextOpen) {
+            setClearError('');
+          }
+        }}
       >
         <AlertDialogContent className='w-[calc(100vw-32px)]'>
           <AlertDialogHeader>
@@ -331,6 +339,14 @@ const LearnerProfileSettingsSection = React.forwardRef<
               {t('module.profileOnboarding.settings.clearDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {clearError ? (
+            <div
+              role='alert'
+              className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'
+            >
+              {clearError}
+            </div>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>
               {t('module.profileOnboarding.settings.cancel')}

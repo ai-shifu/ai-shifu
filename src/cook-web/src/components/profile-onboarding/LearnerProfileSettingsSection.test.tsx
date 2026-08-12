@@ -581,6 +581,34 @@ describe('LearnerProfileSettingsSection', () => {
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
+  test('shows a current clear failure inside the open confirmation dialog', async () => {
+    mockClearLearnerProfile.mockRejectedValue(
+      new Error('clear request failed'),
+    );
+    render(<LearnerProfileSettingsSection />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.settings.clear',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.confirmClear',
+      }),
+    );
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('clear request failed');
+    expect(screen.getByRole('alertdialog')).toContainElement(alert);
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.confirmClear',
+      }),
+    ).toBeEnabled();
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
   test('does not truncate an oversized Unicode edit', async () => {
     mockGetLearnerProfile.mockResolvedValue({
       learner_profile: '旧画像',
