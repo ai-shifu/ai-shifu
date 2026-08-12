@@ -47,6 +47,9 @@ secondary action and primary save action, with no clear or overflow control.
 - [x] 2026-08-12: Narrow the composition contract to preserve the Course
       Prompt's full instruction space while treating every learner-profile
       directive as inert, untrusted data.
+- [x] 2026-08-12: Remove normal profile-save success toasts and clarify in
+      settings that learner requests personalize only within the teacher's
+      course design; failure and delayed-refresh feedback remain visible.
 - [ ] 2026-08-12 06:20 CST: Focused backend/frontend behavior, type-check,
       ESLint, Ruff, translation, architecture, repository harness, and production
       build checks pass. Desktop browser verification is complete; mobile
@@ -144,6 +147,12 @@ secondary action and primary save action, with no clear or overflow control.
   the legacy onboarding sentinel through the stable skip wire contract.
   Rationale: dismissing must not create any of the three obsolete `sys_*`
   values, but it also must not nag the learner on every reload or course.
+- Decision: close the dialog without a redundant success toast after a normal
+  save, and explain the conflict rule only on profile-setting surfaces.
+  Rationale: the closed dialog already confirms a successful save, while
+  learners still need to know that their context and language preferences do
+  not override the teacher's course design. Save failures, refresh delays, and
+  compatibility clear confirmations retain explicit feedback.
 
 ## Outcomes & Retrospective
 

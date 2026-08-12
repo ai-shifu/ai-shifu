@@ -94,6 +94,21 @@ describe('LearnerProfileSettingsSection', () => {
     expect(zhProfile.settings.emptyProfile).toContain(zhProfile.settings.clear);
   });
 
+  test('explains that teacher course design wins conflicting requests', () => {
+    expect(zhProfile.settings.description).toContain('老师对课程的设定');
+    expect(zhProfile.settings.description).toContain('遵循老师的设定');
+    expect(enProfile.settings.description).toContain(
+      "teacher's design for the course",
+    );
+    expect(enProfile.settings.description).toContain(
+      "follow the teacher's design",
+    );
+    expect(frProfile.settings.description).toContain(
+      'choix de l’enseignant pour le cours',
+    );
+    expect(frProfile.settings.description).toContain('suivra ces choix');
+  });
+
   test('loads and directly saves an edited profile', async () => {
     const onProfileChanged = jest.fn();
     window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
@@ -116,9 +131,7 @@ describe('LearnerProfileSettingsSection', () => {
     await waitFor(() => {
       expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('更新后的学习画像');
     });
-    expect(mockToast).toHaveBeenCalledWith({
-      title: 'module.profileOnboarding.settings.saveSuccess',
-    });
+    expect(mockToast).not.toHaveBeenCalled();
     expect(onProfileChanged).toHaveBeenCalledTimes(1);
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
@@ -450,6 +463,9 @@ describe('LearnerProfileSettingsSection', () => {
       expect(mockClearLearnerProfile).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => expect(onProfileChanged).toHaveBeenCalledTimes(1));
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.profileOnboarding.settings.clearSuccess',
+    });
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 

@@ -93,6 +93,12 @@ describe('LearnerProfileDialog', () => {
         name: 'module.profileOnboarding.dialog.later',
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.description'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.profileOnboarding.dialog.settingsDescription'),
+    ).not.toBeInTheDocument();
 
     expect(zhProfile.dialog.onboardingTitle).toContain('AI 老师');
     expect(zhProfile.dialog.description).toContain('AI 老师');
@@ -107,7 +113,7 @@ describe('LearnerProfileDialog', () => {
     expect(zhProfile.dialog.writingGuideTeaching).toContain('语言风格');
     expect(zhProfile.dialog.writingGuideTeaching).toContain('希望避免的表达');
     expect(zhProfile.dialog.profileLabel).toContain('长期了解');
-    expect(JSON.stringify(zhProfile.dialog)).not.toContain('课程');
+    expect(zhProfile.dialog.description).not.toContain('课程');
     expect(JSON.stringify(zhProfile.dialog)).not.toMatch(
       /节奏|结构|分步骤|多提问/,
     );
@@ -128,7 +134,7 @@ describe('LearnerProfileDialog', () => {
       'wording you want to avoid',
     );
     expect(enProfile.dialog.profileLabel).toContain('remember about you');
-    expect(JSON.stringify(enProfile.dialog)).not.toMatch(/\bcourses?\b/i);
+    expect(enProfile.dialog.description).not.toMatch(/\bcourses?\b/i);
     expect(JSON.stringify(enProfile.dialog)).not.toMatch(
       /teaching pace|teaching structure|step by step|ask more questions/i,
     );
@@ -153,10 +159,35 @@ describe('LearnerProfileDialog', () => {
       'formulations à éviter',
     );
     expect(frProfile.dialog.profileLabel).toContain('doit retenir de vous');
-    expect(JSON.stringify(frProfile.dialog)).not.toMatch(/\bcours\b/i);
+    expect(frProfile.dialog.description).not.toMatch(/\bcours\b/i);
     expect(JSON.stringify(frProfile.dialog)).not.toMatch(
       /rythme d’enseignement|structure d’enseignement|étape par étape|poser plus de questions/i,
     );
+  });
+
+  test('explains teacher course authority only in settings mode', async () => {
+    renderDialog();
+
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.settingsDescription'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.profileOnboarding.dialog.description'),
+    ).not.toBeInTheDocument();
+
+    expect(zhProfile.dialog.settingsDescription).toContain('老师对课程的设定');
+    expect(zhProfile.dialog.settingsDescription).toContain('遵循老师的设定');
+    expect(enProfile.dialog.settingsDescription).toContain(
+      "teacher's design for the course",
+    );
+    expect(enProfile.dialog.settingsDescription).toContain(
+      "follow the teacher's design",
+    );
+    expect(frProfile.dialog.settingsDescription).toContain(
+      'choix de l’enseignant pour le cours',
+    );
+    expect(frProfile.dialog.settingsDescription).toContain('suivra ces choix');
   });
 
   test('uses the approved relatable cross-course placeholder in every language', () => {
@@ -458,9 +489,7 @@ describe('LearnerProfileDialog', () => {
     expect(calls).toEqual(['saved', 'close:saved']);
     expect(onClose).toHaveBeenCalledWith('saved');
     expect(onProfileChanged).toHaveBeenCalledTimes(1);
-    expect(mockToast).toHaveBeenCalledWith({
-      title: 'module.profileOnboarding.dialog.saveSuccess',
-    });
+    expect(mockToast).not.toHaveBeenCalled();
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
@@ -736,6 +765,29 @@ describe('LearnerProfileDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(mockToast).not.toHaveBeenCalledWith({
       title: 'module.profileOnboarding.refreshPending',
+    });
+  });
+
+  test('keeps refresh failure feedback after a successful save', async () => {
+    const onSaved = jest.fn().mockRejectedValue(new Error('refresh failed'));
+    const onClose = jest.fn();
+    renderDialog({ onClose, onSaved });
+
+    fireEvent.change(
+      await screen.findByDisplayValue(existingProfile.learner_profile),
+      { target: { value: 'Saved while refresh fails' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.saveChanges',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.profileOnboarding.refreshPending',
+      });
+      expect(onClose).toHaveBeenCalledWith('saved');
     });
   });
 });

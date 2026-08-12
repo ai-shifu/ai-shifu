@@ -165,7 +165,6 @@ const LearnerProfileSettingsSection = React.forwardRef<
       setUpdatedAt(response.learner_profile_updated_at || null);
       setMaxLength(response.max_length || maxLength);
       notifyLearnerProfileChanged();
-      toast({ title: t('module.profileOnboarding.settings.saveSuccess') });
       return true;
     } catch (caughtError) {
       if (isCurrentSave()) {
@@ -181,15 +180,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
         setSaving(false);
       }
     }
-  }, [
-    draftStorageScope,
-    maxLength,
-    profileLoaded,
-    profile,
-    savedProfile,
-    t,
-    toast,
-  ]);
+  }, [draftStorageScope, maxLength, profileLoaded, profile, savedProfile, t]);
 
   React.useImperativeHandle(
     ref,

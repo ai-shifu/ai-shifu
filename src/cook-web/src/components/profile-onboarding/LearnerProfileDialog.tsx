@@ -218,7 +218,6 @@ export default function LearnerProfileDialog({
       setSavedProfile(response.learner_profile);
       setMaxLength(response.max_length || maxLength);
       notifyLearnerProfileChanged();
-      toast({ title: t('module.profileOnboarding.dialog.saveSuccess') });
       await runOnSaved(generation, scope);
       if (isCurrent(generation, scope)) {
         await onClose('saved');
@@ -247,7 +246,6 @@ export default function LearnerProfileDialog({
     runOnSaved,
     saving,
     t,
-    toast,
   ]);
 
   const dirty = loaded && profile.trim() !== initialProfile;
@@ -356,7 +354,11 @@ export default function LearnerProfileDialog({
                 )}
               </DialogTitle>
               <DialogDescription className='text-left text-sm leading-6 sm:text-center sm:text-base'>
-                {t('module.profileOnboarding.dialog.description')}
+                {t(
+                  mode === 'settings'
+                    ? 'module.profileOnboarding.dialog.settingsDescription'
+                    : 'module.profileOnboarding.dialog.description',
+                )}
               </DialogDescription>
             </DialogHeader>
             <Button
