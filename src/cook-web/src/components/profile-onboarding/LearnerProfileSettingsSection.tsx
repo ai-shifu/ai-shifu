@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
 import { useToast } from '@/hooks/useToast';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { notifyLearnerProfileChanged } from '@/lib/learnerProfileEvents';
 import {
   ProfileDraftEditor,
@@ -235,6 +236,7 @@ const LearnerProfileSettingsSection = React.forwardRef<
     ? new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language, {
         dateStyle: 'medium',
         timeStyle: 'short',
+        timeZone: getBrowserTimeZone() || 'UTC',
       }).format(new Date(updatedAt))
     : '';
 

@@ -22,6 +22,7 @@ import zhProfile from '../../../../i18n/zh-CN/modules/profile-onboarding.json';
 const mockToast = jest.fn();
 let mockLanguage = 'en-US';
 let mockResolvedLanguage = 'en-US';
+const mockBrowserTimeZone = jest.fn(() => 'Asia/Shanghai');
 const translateKey = (
   key: string,
   params?: Record<string, string | number>,
@@ -49,6 +50,10 @@ jest.mock('@/hooks/useToast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
+}));
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: mockT,
@@ -69,6 +74,7 @@ describe('LearnerProfileSettingsSection', () => {
     mockT = translateKey;
     mockLanguage = 'en-US';
     mockResolvedLanguage = 'en-US';
+    mockBrowserTimeZone.mockReturnValue('Asia/Shanghai');
     mockGetLearnerProfile.mockResolvedValue({
       learner_profile: '现有学习画像',
       learner_profile_updated_at: null,
@@ -154,6 +160,7 @@ describe('LearnerProfileSettingsSection', () => {
     const expectedTime = new Intl.DateTimeFormat('fr-FR', {
       dateStyle: 'medium',
       timeStyle: 'short',
+      timeZone: 'Asia/Shanghai',
     }).format(new Date(updatedAt));
     expect(
       await screen.findByText(`updated:${expectedTime}`),
