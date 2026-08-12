@@ -17,7 +17,6 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.check_risk.api import add_risk_control_result
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.profile.constants import (
     LEGACY_LEARNER_PROFILE_KEYS,
     SYS_USER_NICKNAME,
@@ -536,10 +535,9 @@ def merge_learner_profile_for_sign_in(
         return
 
     source_identify = str(source_user.user_identify or "").strip()
-    normalized_source_phone = normalize_phone_identifier(source_identify)
     source_has_account_identifier = bool(
         "@" in source_identify
-        or normalized_source_phone.isdigit()
+        or source_identify.isdigit()
         or AuthCredential.query.filter(
             AuthCredential.user_bid == normalized_source_id,
             AuthCredential.provider_name.in_(["phone", "email"]),
