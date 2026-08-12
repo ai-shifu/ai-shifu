@@ -176,18 +176,22 @@ describe('LearnerProfileDialog', () => {
       screen.queryByText('module.profileOnboarding.dialog.description'),
     ).not.toBeInTheDocument();
 
-    expect(zhProfile.dialog.settingsDescription).toContain('老师对课程的设定');
-    expect(zhProfile.dialog.settingsDescription).toContain('遵循老师的设定');
-    expect(enProfile.dialog.settingsDescription).toContain(
-      "teacher's design for the course",
+    expect(zhProfile.dialog.settingsDescription).toContain(
+      '真人老师为课程做出的设定',
+    );
+    expect(zhProfile.dialog.settingsDescription).toContain(
+      '以真人老师的设定为准',
     );
     expect(enProfile.dialog.settingsDescription).toContain(
-      "follow the teacher's design",
+      'course design set by the human teacher',
+    );
+    expect(enProfile.dialog.settingsDescription).toContain(
+      "follow the human teacher's design",
     );
     expect(frProfile.dialog.settingsDescription).toContain(
-      'choix de l’enseignant pour le cours',
+      'cadre défini pour le cours par l’enseignant humain',
     );
-    expect(frProfile.dialog.settingsDescription).toContain('suivra ces choix');
+    expect(frProfile.dialog.settingsDescription).toContain('suivra ce cadre');
   });
 
   test('uses the approved relatable cross-course placeholder in every language', () => {

@@ -48,8 +48,9 @@ secondary action and primary save action, with no clear or overflow control.
       Prompt's full instruction space while treating every learner-profile
       directive as inert, untrusted data.
 - [x] 2026-08-12: Remove normal profile-save success toasts and clarify in
-      settings that learner requests personalize only within the teacher's
-      course design; failure and delayed-refresh feedback remain visible.
+      settings that learner requests personalize only within the human
+      teacher's course design; failure and delayed-refresh feedback remain
+      visible.
 - [ ] 2026-08-12 06:20 CST: Focused backend/frontend behavior, type-check,
       ESLint, Ruff, translation, architecture, repository harness, and production
       build checks pass. Desktop browser verification is complete; mobile
@@ -151,8 +152,8 @@ secondary action and primary save action, with no clear or overflow control.
   save, and explain the conflict rule only on profile-setting surfaces.
   Rationale: the closed dialog already confirms a successful save, while
   learners still need to know that their context and language preferences do
-  not override the teacher's course design. Save failures, refresh delays, and
-  compatibility clear confirmations retain explicit feedback.
+  not override the human teacher's course design. Save failures, refresh
+  delays, and compatibility clear confirmations retain explicit feedback.
 
 ## Outcomes & Retrospective
 

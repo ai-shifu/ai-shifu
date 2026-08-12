@@ -95,18 +95,20 @@ describe('LearnerProfileSettingsSection', () => {
   });
 
   test('explains that teacher course design wins conflicting requests', () => {
-    expect(zhProfile.settings.description).toContain('老师对课程的设定');
-    expect(zhProfile.settings.description).toContain('遵循老师的设定');
+    expect(zhProfile.settings.description).toContain(
+      '真人老师为课程做出的设定',
+    );
+    expect(zhProfile.settings.description).toContain('以真人老师的设定为准');
     expect(enProfile.settings.description).toContain(
-      "teacher's design for the course",
+      'course design set by the human teacher',
     );
     expect(enProfile.settings.description).toContain(
-      "follow the teacher's design",
+      "follow the human teacher's design",
     );
     expect(frProfile.settings.description).toContain(
-      'choix de l’enseignant pour le cours',
+      'cadre défini pour le cours par l’enseignant humain',
     );
-    expect(frProfile.settings.description).toContain('suivra ces choix');
+    expect(frProfile.settings.description).toContain('suivra ce cadre');
   });
 
   test('loads and directly saves an edited profile', async () => {
