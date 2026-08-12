@@ -2,7 +2,7 @@
 
 ## Evidence
 
-- Reference: `/Users/sunner/.codex/generated_images/019fe96e-310e-71e1-b426-efff9e67343f/exec-8c6fc012-e17d-4cbd-99c3-4838c2409753.png`
+- Reference: `docs/assets/learner-profile-dialog-approved-reference.png`
 - Reference pixels: 1487 x 1058. The image contains the approved desktop
   dialog and mobile bottom-sheet composition side by side.
 - Local implementation: `http://localhost:3000`, confirmed to return HTTP 200.

@@ -13,7 +13,7 @@ can be safely recognized from the canonical profile, `user_users.nickname` is
 updated in the same transaction without adding a second editable field.
 
 The selected visual truth began with the revised option-three mock at
-`/Users/sunner/.codex/generated_images/019fe96e-310e-71e1-b426-efff9e67343f/exec-8c6fc012-e17d-4cbd-99c3-4838c2409753.png`
+`docs/assets/learner-profile-dialog-approved-reference.png`
 and was refined by direct user feedback: the active dialog has only its
 secondary action and primary save action, with no clear or overflow control.
 
@@ -291,6 +291,6 @@ hunk; never reset the entire worktree or touch another worktree.
 - Frontend: shared `LearnerProfileDialog`, modern learner-profile API,
   `useUserStore.refreshUserInfo`, `learner-profile-changed`, account menu and
   course onboarding gate.
-- Visual target: revised generated mock path recorded above, with the direct
-  user-feedback refinement that removes clear/overflow UI; implementation is
-  verified at desktop and mobile viewports before handoff.
+- Visual target: `docs/assets/learner-profile-dialog-approved-reference.png`,
+  with the direct user-feedback refinement that removes clear/overflow UI;
+  implementation is verified at desktop and mobile viewports before handoff.
