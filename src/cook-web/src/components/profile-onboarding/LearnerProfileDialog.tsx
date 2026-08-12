@@ -28,6 +28,7 @@ import {
   ProfileDraftEditor,
   countUnicodeCodePoints,
 } from './ProfileDraftEditor';
+import { buildLearnerProfileDraft } from './learnerProfileDraft';
 
 const DEFAULT_MAX_LENGTH = 1000;
 
@@ -58,6 +59,7 @@ export default function LearnerProfileDialog({
   const { t } = useTranslation();
   const { toast } = useToast();
   const [profile, setProfile] = React.useState('');
+  const [initialProfile, setInitialProfile] = React.useState('');
   const [savedProfile, setSavedProfile] = React.useState('');
   const [maxLength, setMaxLength] = React.useState(DEFAULT_MAX_LENGTH);
   const [loading, setLoading] = React.useState(false);
@@ -101,9 +103,13 @@ export default function LearnerProfileDialog({
         ) {
           return;
         }
-        const nextProfile = response.learner_profile || '';
+        const nextProfile = buildLearnerProfileDraft(
+          response,
+          translationRef.current,
+        );
         setProfile(nextProfile);
-        setSavedProfile(nextProfile);
+        setInitialProfile(nextProfile);
+        setSavedProfile(response.learner_profile || '');
         setMaxLength(response.max_length || DEFAULT_MAX_LENGTH);
         setLoaded(true);
       } catch (caughtError) {
@@ -153,6 +159,7 @@ export default function LearnerProfileDialog({
 
     const scope = draftStorageScope;
     setProfile('');
+    setInitialProfile('');
     setSavedProfile('');
     setMaxLength(DEFAULT_MAX_LENGTH);
     setLoaded(false);
@@ -207,6 +214,7 @@ export default function LearnerProfileDialog({
         return;
       }
       setProfile(response.learner_profile);
+      setInitialProfile(response.learner_profile);
       setSavedProfile(response.learner_profile);
       setMaxLength(response.max_length || maxLength);
       notifyLearnerProfileChanged();
@@ -242,7 +250,7 @@ export default function LearnerProfileDialog({
     toast,
   ]);
 
-  const dirty = loaded && profile.trim() !== savedProfile;
+  const dirty = loaded && profile.trim() !== initialProfile;
   const busy = saving || dismissing;
   const profileLength = countUnicodeCodePoints(profile.trim());
   const canSave =

@@ -265,6 +265,69 @@ describe('LearnerProfileDialog', () => {
     }
   });
 
+  test('prefills an empty canonical profile from legacy system variables', async () => {
+    mockT = (key, params) => {
+      const value = String(params?.value || '');
+      const legacyPrefill = {
+        'module.profileOnboarding.dialog.legacyPrefill.nickname': `可以叫我 ${value}。`,
+        'module.profileOnboarding.dialog.legacyPrefill.background': `我的背景：${value}`,
+        'module.profileOnboarding.dialog.legacyPrefill.style': `我喜欢的语言风格：${value}`,
+      };
+      return legacyPrefill[key as keyof typeof legacyPrefill] ?? key;
+    };
+    mockGetLearnerProfile.mockResolvedValue({
+      learner_profile: '',
+      learner_profile_updated_at: null,
+      has_learner_profile: false,
+      max_length: 1000,
+      legacy_profile_values: {
+        sys_user_nickname: '小林',
+        sys_user_background: '办公室工作',
+        sys_user_style: '亲切直接',
+      },
+    });
+    const { props } = renderDialog();
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox')).toHaveValue(
+        '可以叫我 小林。\n我的背景：办公室工作\n我喜欢的语言风格：亲切直接',
+      );
+    });
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.saveChanges',
+      }),
+    ).toBeEnabled();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.cancel',
+      }),
+    );
+    await waitFor(() => {
+      expect(props.onClose).toHaveBeenCalledWith('dismiss');
+    });
+    expect(
+      screen.queryByText('module.profileOnboarding.dialog.discardTitle'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('keeps an existing canonical profile instead of legacy values', async () => {
+    mockGetLearnerProfile.mockResolvedValue({
+      ...existingProfile,
+      legacy_profile_values: {
+        sys_user_nickname: '旧称呼',
+        sys_user_background: '旧背景',
+        sys_user_style: '旧风格',
+      },
+    });
+
+    renderDialog();
+
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    expect(screen.queryByDisplayValue(/旧背景/)).not.toBeInTheDocument();
+  });
+
   test('renders the centered contextual dialog with option-three guidance and actions', async () => {
     renderDialog({ mode: 'onboarding' });
 

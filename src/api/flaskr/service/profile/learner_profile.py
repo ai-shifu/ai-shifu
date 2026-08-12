@@ -13,6 +13,8 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.check_risk.api import add_risk_control_result
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.profile.constants import LEGACY_LEARNER_PROFILE_KEYS
+from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.consts import USER_STATE_UNREGISTERED
 from flaskr.service.user.models import (
     AuthCredential,
@@ -418,8 +420,36 @@ def serialize_learner_profile(user: UserEntity) -> dict[str, Any]:
     }
 
 
+def _load_legacy_learner_profile_values(user_id: str) -> dict[str, str]:
+    rows = (
+        VariableValue.query.filter(
+            VariableValue.user_bid == user_id,
+            VariableValue.shifu_bid == "",
+            VariableValue.key.in_(LEGACY_LEARNER_PROFILE_KEYS),
+            VariableValue.deleted == 0,
+        )
+        .order_by(VariableValue.id.desc())
+        .all()
+    )
+    latest_values: dict[str, str] = {}
+    for row in rows:
+        if row.key in latest_values:
+            continue
+        value = str(row.value or "").strip()
+        if value:
+            latest_values[row.key] = value
+    return latest_values
+
+
 def get_learner_profile(*, user_id: str) -> dict[str, Any]:
-    return serialize_learner_profile(load_learner_profile_user(user_id))
+    user = load_learner_profile_user(user_id)
+    serialized = serialize_learner_profile(user)
+    serialized["legacy_profile_values"] = (
+        {}
+        if serialized["has_learner_profile"]
+        else _load_legacy_learner_profile_values(user.user_bid)
+    )
+    return serialized
 
 
 def apply_learner_profile(user: UserEntity, learner_profile: str) -> bool:

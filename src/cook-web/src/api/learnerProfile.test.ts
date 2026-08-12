@@ -31,6 +31,11 @@ describe('learner profile api', () => {
       learner_profile: '',
       learner_profile_updated_at: null,
       has_learner_profile: false,
+      legacy_profile_values: {
+        sys_user_nickname: '小明',
+        sys_user_background: '产品经理',
+        sys_user_style: '简洁',
+      },
     };
     (request.get as jest.Mock).mockResolvedValue(savedProfile);
     (request.put as jest.Mock).mockResolvedValue(savedProfile);

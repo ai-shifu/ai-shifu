@@ -51,6 +51,11 @@
     "emptyProfile": "Cette présentation ne peut pas être vide. Ajoutez quelques informations avant de l’enregistrer.",
     "keepEditing": "Continuer à modifier",
     "later": "Plus tard",
+    "legacyPrefill": {
+      "background": "Mon parcours : {{value}}",
+      "nickname": "Vous pouvez m’appeler {{value}}.",
+      "style": "Mon style de langage préféré : {{value}}"
+    },
     "loadFailed": "Impossible de charger ces informations. Réessayez.",
     "loading": "Chargement de votre profil d’apprentissage…",
     "onboardingTitle": "Aidez votre enseignant IA à mieux vous connaître",

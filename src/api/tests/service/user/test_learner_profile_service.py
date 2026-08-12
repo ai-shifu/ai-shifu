@@ -78,6 +78,75 @@ def test_repository_aggregate_exposes_learner_profile(app):
     _assert_orm_utc(aggregate.learner_profile_updated_at, PROFILE_UPDATED_AT)
 
 
+def test_empty_profile_exposes_latest_global_legacy_values_for_prefill(app):
+    from flaskr.service.profile.learner_profile import get_learner_profile
+
+    with app.app_context():
+        user_bid = "profile-legacy-prefill"
+        _create_user(user_bid)
+        _add_profile_value(
+            value_bid="legacy-name-old",
+            user_bid=user_bid,
+            key="sys_user_nickname",
+            value="旧称呼",
+        )
+        _add_profile_value(
+            value_bid="legacy-name-new",
+            user_bid=user_bid,
+            key="sys_user_nickname",
+            value="小林",
+        )
+        _add_profile_value(
+            value_bid="legacy-background",
+            user_bid=user_bid,
+            key="sys_user_background",
+            value="办公室工作",
+        )
+        _add_profile_value(
+            value_bid="legacy-style",
+            user_bid=user_bid,
+            key="sys_user_style",
+            value="亲切直接",
+        )
+        _add_profile_value(
+            value_bid="course-style",
+            user_bid=user_bid,
+            shifu_bid="course-1",
+            key="sys_user_style",
+            value="仅属于旧课程的风格",
+        )
+        db.session.commit()
+
+        loaded = get_learner_profile(user_id=user_bid)
+
+    assert loaded["learner_profile"] == ""
+    assert loaded["legacy_profile_values"] == {
+        "sys_user_nickname": "小林",
+        "sys_user_background": "办公室工作",
+        "sys_user_style": "亲切直接",
+    }
+
+
+def test_canonical_profile_does_not_expose_legacy_prefill_values(app):
+    from flaskr.service.profile.learner_profile import get_learner_profile
+
+    with app.app_context():
+        user_bid = "profile-no-legacy-prefill"
+        _create_user(user_bid, learner_profile="正式学习者画像")
+        _add_profile_value(
+            value_bid="legacy-background-hidden",
+            user_bid=user_bid,
+            key="sys_user_background",
+            value="旧背景不应返回",
+        )
+        db.session.commit()
+
+        loaded = get_learner_profile(user_id=user_bid)
+
+    assert loaded["learner_profile"] == "正式学习者画像"
+    assert loaded["legacy_profile_values"] == {}
+
+
 def test_replace_and_clear_learner_profile(app, monkeypatch):
     from flaskr.service.profile.learner_profile import (
         clear_learner_profile,

@@ -108,6 +108,12 @@ secondary action and primary save action, with no clear or overflow control.
   their definitions, rows, endpoints, parser, or runtime resolution.
   Rationale: old courses and rolling deployments still depend on those
   contracts.
+- Decision: when the canonical profile is empty, expose only the latest global
+  values of the three legacy variables to the current user and compose them
+  into a localized, editable draft without auto-saving it.
+  Rationale: existing learners start from information they already provided,
+  while canonical profiles remain authoritative and course-scoped legacy data
+  never leaks into the new cross-course profile.
 - Decision: keep the existing handled behavior for “稍后再说” by writing only
   the legacy onboarding sentinel through the stable skip wire contract.
   Rationale: dismissing must not create any of the three obsolete `sys_*`
@@ -117,7 +123,9 @@ secondary action and primary save action, with no clear or overflow control.
 
 The learner now stays inside the lesson while one shared responsive dialog
 collects a single natural introduction. No legacy nickname/background/style
-fields or parsed nickname are displayed. A moderated save atomically updates
+fields or parsed nickname are displayed. When that introduction is empty,
+existing global legacy values seed a localized draft that the learner can
+review, edit, and explicitly save. A moderated save atomically updates
 the canonical profile, profile-v2 handled state, and a conservatively derived
 account nickname; clear atomically empties the profile and nickname while
 remaining handled through the stable compatibility API. The redesigned dialog

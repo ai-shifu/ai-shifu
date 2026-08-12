@@ -24,6 +24,7 @@ import {
   ProfileDraftEditor,
   countUnicodeCodePoints,
 } from './ProfileDraftEditor';
+import { buildLearnerProfileDraft } from './learnerProfileDraft';
 
 const DEFAULT_MAX_LENGTH = 1000;
 
@@ -74,9 +75,12 @@ const LearnerProfileSettingsSection = React.forwardRef<
       if (!isCurrentRequest()) {
         return false;
       }
-      const nextProfile = response.learner_profile || '';
+      const nextProfile = buildLearnerProfileDraft(
+        response,
+        translationRef.current,
+      );
       setProfile(nextProfile);
-      setSavedProfile(nextProfile);
+      setSavedProfile(response.learner_profile || '');
       setUpdatedAt(response.learner_profile_updated_at || null);
       setMaxLength(response.max_length || DEFAULT_MAX_LENGTH);
       setProfileLoaded(true);

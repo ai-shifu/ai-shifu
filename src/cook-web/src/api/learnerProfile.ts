@@ -5,6 +5,12 @@ export type LearnerProfile = {
   learner_profile_updated_at: string | null;
   has_learner_profile: boolean;
   max_length: number;
+  legacy_profile_values?: Partial<
+    Record<
+      'sys_user_nickname' | 'sys_user_background' | 'sys_user_style',
+      string
+    >
+  >;
 };
 
 export const getLearnerProfile = (): Promise<LearnerProfile> => {

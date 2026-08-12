@@ -51,6 +51,11 @@
     "emptyProfile": "This introduction cannot be empty. Add a few details before saving.",
     "keepEditing": "Keep editing",
     "later": "Maybe later",
+    "legacyPrefill": {
+      "background": "My background: {{value}}",
+      "nickname": "You can call me {{value}}.",
+      "style": "My preferred language style: {{value}}"
+    },
     "loadFailed": "Could not load these details. Try again.",
     "loading": "Loading your learning profile…",
     "onboardingTitle": "Help your AI teacher understand you",

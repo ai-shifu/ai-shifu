@@ -51,6 +51,11 @@
     "emptyProfile": "这段介绍不能为空，请填写后再保存。",
     "keepEditing": "继续编辑",
     "later": "以后再说",
+    "legacyPrefill": {
+      "background": "我的背景：{{value}}",
+      "nickname": "可以叫我 {{value}}。",
+      "style": "我喜欢的语言风格：{{value}}"
+    },
     "loadFailed": "暂时无法加载这些信息，请重试。",
     "loading": "正在加载你的学习画像…",
     "onboardingTitle": "让 AI 老师更懂你",
