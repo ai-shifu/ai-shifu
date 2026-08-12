@@ -93,8 +93,8 @@ from flaskr.service.learn.learn_dtos import (
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.learn.learner_profile_prompt import (
-    LEARNER_PROFILE_PROMPT_MARKER,
     build_course_prompt,
+    has_composed_learner_profile,
 )
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
 from flaskr.service.profile.profile_manage import (
@@ -827,7 +827,7 @@ class RunScriptPreviewContextV2:
             shifu_bid,
             outline_bid,
             bool(normalized_document_prompt),
-            LEARNER_PROFILE_PROMPT_MARKER in normalized_document_prompt,
+            has_composed_learner_profile(normalized_document_prompt),
         )
         model, temperature = self._resolve_llm_settings(preview_request, outline, shifu)
         document = preview_request.get_document() or (
@@ -918,7 +918,7 @@ class RunScriptPreviewContextV2:
                 outline_bid,
                 user_bid,
                 bool(normalized_document_prompt),
-                LEARNER_PROFILE_PROMPT_MARKER in normalized_document_prompt,
+                has_composed_learner_profile(normalized_document_prompt),
             )
 
             context_store = _PreviewContextStore(

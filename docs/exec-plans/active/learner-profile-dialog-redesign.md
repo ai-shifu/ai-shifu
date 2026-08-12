@@ -38,6 +38,12 @@ secondary action and primary save action, with no clear or overflow control.
       body at `575px` for both client and scroll height with `scrollTop = 0`, so
       the complete editor, guide, reassurance, and actions fit without initial
       scrolling; shorter viewports and longer drafts retain internal scrolling.
+- [x] 2026-08-12: Replace positional Course Prompt/profile concatenation with a
+      single MarkdownFlow-compatible composition envelope that identifies the
+      platform, current task, course, and learner contributions by responsibility.
+- [x] 2026-08-12: Verify the envelope across runtime teaching, Ask/provider,
+      and formal preview with 26 focused backend tests, repository-pinned Ruff,
+      architecture boundaries, and the repository harness.
 - [ ] 2026-08-12 06:20 CST: Focused backend/frontend behavior, type-check,
       ESLint, Ruff, translation, architecture, repository harness, and production
       build checks pass. Desktop browser verification is complete; mobile
@@ -65,6 +71,10 @@ secondary action and primary save action, with no clear or overflow control.
 - A canonical clear remains a handled profile mutation for compatibility, but
   the redesigned dialog no longer exposes it. The modern DELETE endpoint and
   legacy `LearnerProfileSettingsSection` clear flow remain stable interfaces.
+- MarkdownFlow 0.3.1 accepts one `document_prompt` string and places it in its
+  existing system-message assembly, so the three-block envelope requires no
+  provider or library API change. Its tags express composition semantics rather
+  than a separate transport-level security boundary.
 
 ## Decision Log
 
@@ -114,6 +124,16 @@ secondary action and primary save action, with no clear or overflow control.
   Rationale: existing learners start from information they already provided,
   while canonical profiles remain authoritative and course-scoped legacy data
   never leaks into the new cross-course profile.
+- Decision: when a canonical profile is available, serialize the effective
+  `document_prompt` as a platform-owned composition contract followed by an
+  unmodified teacher-authored Course Prompt block and a JSON-encoded learner
+  profile block.
+  Rationale: Course Prompts and learner profiles are both open inputs whose
+  apparent conflicts cannot be eliminated in advance. A responsibility-based
+  composition protocol lets the Course Prompt define course-wide boundaries and
+  lets the profile adapt only relevant open choices while remaining compatible
+  with MarkdownFlow's single-string `document_prompt` API. With no canonical
+  profile, the original Course Prompt remains byte-for-byte unchanged.
 - Decision: keep the existing handled behavior for “稍后再说” by writing only
   the legacy onboarding sentinel through the stable skip wire contract.
   Rationale: dismissing must not create any of the three obsolete `sys_*`

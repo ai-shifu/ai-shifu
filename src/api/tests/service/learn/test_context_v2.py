@@ -126,6 +126,7 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.service.learn.learner_profile_prompt import (
     LEARNER_PROFILE_PROMPT_MARKER,
+    build_course_prompt,
 )
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
@@ -1400,6 +1401,31 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
 
 class CoursePromptCompositionTests(unittest.TestCase):
+    def assert_composed_course_prompt(
+        self,
+        prompt: str | None,
+        *,
+        course_prompt: str,
+        learner_profile: str,
+    ) -> None:
+        self.assertIsNotNone(prompt)
+        assert prompt is not None
+        composition_index = prompt.index("<composition_contract>")
+        course_index = prompt.index("<course_prompt>")
+        learner_profile_opening_tag = '<learner_profile format="json-string">'
+        profile_index = prompt.index(learner_profile_opening_tag)
+        self.assertLess(composition_index, course_index)
+        self.assertLess(course_index, profile_index)
+        self.assertIn(
+            f"<course_prompt>\n{course_prompt}\n</course_prompt>",
+            prompt,
+        )
+        self.assertIn(
+            f'{learner_profile_opening_tag}\n"{learner_profile}"\n</learner_profile>',
+            prompt,
+        )
+        self.assertEqual(prompt.count(LEARNER_PROFILE_PROMPT_MARKER), 1)
+
     def test_runtime_getter_returns_course_prompt_with_current_learner_profile(self):
         app = Flask("runtime-course-prompt-profile")
         ctx = _make_context()
@@ -1423,10 +1449,11 @@ class CoursePromptCompositionTests(unittest.TestCase):
         ):
             prompt = ctx.get_system_prompt("outline-1")
 
-        self.assertIsNotNone(prompt)
-        self.assertTrue(prompt.startswith("COURSE RULE"))
-        self.assertIn(LEARNER_PROFILE_PROMPT_MARKER, prompt)
-        self.assertTrue(prompt.endswith("</learner_profile_data>"))
+        self.assert_composed_course_prompt(
+            prompt,
+            course_prompt="COURSE RULE",
+            learner_profile="称呼我小雨，偏好图解",
+        )
         ctx._shifu_model.query.filter.assert_not_called()
 
     def test_formal_preview_composes_request_prompt_with_current_learner(self):
@@ -1452,10 +1479,13 @@ class CoursePromptCompositionTests(unittest.TestCase):
                 user_bid="user-1",
             )
 
-        self.assertIsNotNone(prompt)
-        self.assertTrue(prompt.startswith("PREVIEW COURSE RULE"))
+        self.assert_composed_course_prompt(
+            prompt,
+            course_prompt="PREVIEW COURSE RULE",
+            learner_profile="最近关注知识管理",
+        )
+        assert prompt is not None
         self.assertNotIn("FALLBACK RULE", prompt)
-        self.assertIn(LEARNER_PROFILE_PROMPT_MARKER, prompt)
         mock_load.assert_called_once_with("user-1")
 
     def test_formal_preview_reloads_profile_for_each_request(self):
@@ -1491,17 +1521,73 @@ class CoursePromptCompositionTests(unittest.TestCase):
                 user_bid="user-1",
             )
 
-        self.assertIn(LEARNER_PROFILE_PROMPT_MARKER, personalized_prompt)
+        self.assert_composed_course_prompt(
+            personalized_prompt,
+            course_prompt="PREVIEW COURSE RULE",
+            learner_profile="偏好图解",
+        )
         self.assertEqual(cleared_prompt, "PREVIEW COURSE RULE")
         self.assertEqual(mock_load.call_args_list, [call("user-1"), call("user-1")])
+
+    def test_formal_preview_recomposes_client_envelope_for_current_learner(self):
+        app = Flask("preview-course-prompt-current-account")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        prompt_for_previous_account = build_course_prompt(
+            "PREVIEW COURSE RULE",
+            learner=types.SimpleNamespace(learner_profile="PREVIOUS ACCOUNT PROFILE"),
+        )
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            document_prompt=prompt_for_previous_account,
+        )
+
+        with patch.object(
+            preview_ctx,
+            "_load_learner_for_course_prompt",
+            side_effect=[
+                types.SimpleNamespace(learner_profile="CURRENT ACCOUNT PROFILE"),
+                types.SimpleNamespace(learner_profile=""),
+            ],
+        ):
+            current_prompt = preview_ctx._resolve_document_prompt(
+                preview_request,
+                outline=None,
+                shifu=None,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="current-user",
+            )
+            cleared_prompt = preview_ctx._resolve_document_prompt(
+                preview_request,
+                outline=None,
+                shifu=None,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="current-user",
+            )
+
+        self.assert_composed_course_prompt(
+            current_prompt,
+            course_prompt="PREVIEW COURSE RULE",
+            learner_profile="CURRENT ACCOUNT PROFILE",
+        )
+        assert current_prompt is not None
+        self.assertNotIn("PREVIOUS ACCOUNT PROFILE", current_prompt)
+        self.assertEqual(cleared_prompt, "PREVIEW COURSE RULE")
 
     def test_formal_preview_logs_prompt_metadata_without_profile_text(self):
         app = Flask("preview-course-prompt-log-metadata")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(block_index=0)
         sensitive_profile = "PRIVATE LEARNER PROFILE TEXT"
-        effective_prompt = (
-            f"COURSE RULE\n{LEARNER_PROFILE_PROMPT_MARKER}\n{sensitive_profile}"
+        effective_prompt = build_course_prompt(
+            "COURSE RULE",
+            learner=types.SimpleNamespace(learner_profile=sensitive_profile),
+        )
+        self.assert_composed_course_prompt(
+            effective_prompt,
+            course_prompt="COURSE RULE",
+            learner_profile=sensitive_profile,
         )
 
         with (

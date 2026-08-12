@@ -563,6 +563,7 @@ def test_handle_input_ask_provider_response_skips_llm(app, monkeypatch):
 def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkeypatch):
     from flaskr.service.learn import handle_input_ask as module
     from flaskr.service.learn import utils_v2
+    from flaskr.service.learn.learner_profile_prompt import build_course_prompt
 
     ask_provider_config = {
         "provider": "dify",
@@ -587,12 +588,16 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
     monkeypatch.setattr(module, "chat_llm", lambda *_args, **_kwargs: iter([]))
 
     sensitive_profile = "PRIVATE ASK LEARNER PROFILE"
-    effective_course_prompt = (
-        "COURSE_PROMPT\n\n"
-        "<!-- ai-shifu:learner-profile:v1 -->\n"
-        '<learner_profile_data format="json-string">\n'
-        f'"{sensitive_profile}"\n'
-        "</learner_profile_data>"
+    effective_course_prompt = build_course_prompt(
+        "COURSE_PROMPT",
+        learner=types.SimpleNamespace(learner_profile=sensitive_profile),
+    )
+    assert effective_course_prompt is not None
+    assert "<composition_contract>" in effective_course_prompt
+    assert "<course_prompt>\nCOURSE_PROMPT\n</course_prompt>" in effective_course_prompt
+    assert (
+        '<learner_profile format="json-string">\n'
+        f'"{sensitive_profile}"\n</learner_profile>' in effective_course_prompt
     )
     context = _Context()
     context.get_system_prompt = lambda _outline_bid: effective_course_prompt

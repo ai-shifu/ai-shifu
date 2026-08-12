@@ -4,10 +4,10 @@
 
 Deliver the first independently deployable layer of the learner-profile work
 from source snapshot `331a54f53`. Learners can edit or clear one canonical
-profile in settings, and that untrusted profile is appended once, at lower
-priority, to the existing course prompt used by teaching, ask, and formal
-preview. The legacy profile-onboarding questionnaire and its `sys_*` storage
-contract remain intact.
+profile in settings. When a profile exists, the course prompt and JSON-encoded
+learner data are composed once inside a platform-owned responsibility contract
+used by teaching, ask, and formal preview. The legacy profile-onboarding
+questionnaire and its `sys_*` storage contract remain intact.
 
 ## Progress
 
@@ -151,9 +151,10 @@ legacy marker.
   clear correctly; PUT/DELETE atomically retain fixed profile-v2 handled state.
 - Legacy questionnaire payloads, parser, `sys_*` writes, and old course profile
   reads remain compatible; canonical/v2 users do not see the old questionnaire.
-- No-profile course prompts are unchanged. Profiles append exactly once after
-  all existing course instructions, and teaching, ask, and formal preview use
-  that same effective prompt.
+- No-profile course prompts are unchanged. When a profile exists, one effective
+  prompt preserves the teacher-authored Course Prompt and places the encoded
+  profile in its own learner-data block after a responsibility-based composition
+  contract; teaching, ask, and formal preview use that same prompt.
 - Settings survives load failure, saves and clears explicitly, does not close
   on failed save, ignores stale account responses, and leaves old background
   and style fields visible.
