@@ -52,9 +52,9 @@
     "keepEditing": "Keep editing",
     "later": "Maybe later",
     "legacyPrefill": {
-      "background": "My background: {{value}}",
-      "nickname": "You can call me {{value}}.",
-      "style": "My preferred language style: {{value}}"
+      "background": "My background: {value}",
+      "nickname": "You can call me {value}.",
+      "style": "My preferred language style: {value}"
     },
     "loadFailed": "Could not load these details. Try again.",
     "loading": "Loading your learning profile…",
