@@ -33,10 +33,15 @@ secondary action and primary save action, with no clear or overflow control.
       user-info synchronization without displaying parsing metadata.
 - [x] 2026-08-12: Refine the selected visual target from direct user feedback
       so the active dialog exposes no clear or overflow action.
+- [x] 2026-08-12 16:05 CST: Tighten desktop header/body/footer spacing and the
+      empty editor height. The selected in-app browser measured the open dialog
+      body at `575px` for both client and scroll height with `scrollTop = 0`, so
+      the complete editor, guide, reassurance, and actions fit without initial
+      scrolling; shorter viewports and longer drafts retain internal scrolling.
 - [ ] 2026-08-12 06:20 CST: Focused backend/frontend behavior, type-check,
       ESLint, Ruff, translation, architecture, repository harness, and production
-      build checks pass. Browser-rendered desktop/mobile comparison remains blocked
-      by the selected in-app browser's localhost security policy.
+      build checks pass. Desktop browser verification is complete; mobile
+      comparison and visible interaction exercise remain.
 
 ## Surprises & Discoveries
 

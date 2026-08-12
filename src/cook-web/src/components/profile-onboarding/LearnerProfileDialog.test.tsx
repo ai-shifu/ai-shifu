@@ -293,7 +293,9 @@ describe('LearnerProfileDialog', () => {
       'sm:max-w-[680px]',
       'sm:rounded-2xl',
     );
-    expect(editor).toHaveClass('min-h-[215px]', 'sm:min-h-[185px]');
+    expect(editor).toHaveClass('min-h-[215px]', 'sm:min-h-[168px]');
+    expect(heading.parentElement).toHaveClass('sm:space-y-2');
+    expect(writingGuide).toHaveClass('sm:py-3');
     expect(heading.parentElement).toHaveClass('text-center');
     expect(dialog.querySelector('svg.lucide-sparkles')).toBeNull();
     expect(mobileHandle).toHaveClass('sm:hidden');

@@ -7,15 +7,18 @@
   dialog and mobile bottom-sheet composition side by side.
 - Local implementation: `http://localhost:3000`, confirmed to return HTTP 200.
 - Browser choice: the in-app browser selected by the user.
-- Implementation screenshot: not captured. The in-app browser controller
-  rejected claiming or reloading the localhost tab under its URL security
-  policy, and the selected-browser rule prevents switching to a different
-  browser or automation path.
+- Implementation screenshot: captured in the selected in-app browser after the
+  compact-layout refinement. At the default desktop viewport, the dialog body
+  measured `scrollHeight = clientHeight = 575` with `scrollTop = 0`, so the
+  complete editor, guidance, reassurance, and actions are visible on open.
 
 ## Static Comparison Completed
 
 - Desktop content is a centered 680-pixel dialog with rounded corners, a
   contextual 45% overlay, centered heading, and no decorative Sparkles icon.
+- Desktop spacing, editor height, writing-guide padding, and footer padding are
+  compact enough that the dialog no longer requires scrolling on first open;
+  internal scrolling remains available for shorter viewports and longer input.
 - Mobile content leaves a 96-pixel contextual header area above a bottom sheet
   with a drag handle, rounded top corners, internal scrolling, and
   safe-area-aware actions.
@@ -49,15 +52,11 @@
 
 ## Remaining Visual QA
 
-Capture the implementation in the selected in-app browser at one desktop and
-one mobile viewport, compare both captures to the approved reference plus the
-direct user-feedback refinement above at equal display density, and fix any
-remaining P0, P1, or P2 visual differences. Also exercise the visible
-secondary and primary actions and confirm the browser console has no new
-errors.
+Capture and compare one portrait-mobile implementation at equal display
+density. Also exercise the visible secondary and primary actions and confirm
+the browser console has no new errors.
 
-final result: blocked
+final result: partial
 
-Blocker: a browser-rendered implementation screenshot from the selected in-app
-browser is unavailable because localhost control was rejected by the browser
-security policy.
+Desktop visual verification is complete, including the no-initial-scroll
+measurement. Mobile visual comparison and interaction exercise remain.

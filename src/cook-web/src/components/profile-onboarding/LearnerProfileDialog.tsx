@@ -338,8 +338,8 @@ export default function LearnerProfileDialog({
             aria-hidden='true'
           />
 
-          <div className='sticky top-0 z-10 bg-background px-5 pb-4 pt-5 sm:px-8 sm:pb-5 sm:pt-8'>
-            <DialogHeader className='mx-auto max-w-[560px] space-y-3 text-center'>
+          <div className='sticky top-0 z-10 bg-background px-5 pb-4 pt-5 sm:px-8 sm:pb-3 sm:pt-6'>
+            <DialogHeader className='mx-auto max-w-[560px] space-y-3 text-center sm:space-y-2'>
               <DialogTitle className='text-2xl font-bold leading-8 tracking-tight sm:text-[28px] sm:leading-9'>
                 {t(
                   mode === 'onboarding'
@@ -364,8 +364,8 @@ export default function LearnerProfileDialog({
             </Button>
           </div>
 
-          <div className='min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-8 sm:pb-7'>
-            <div className='space-y-5'>
+          <div className='min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-8 sm:pb-5'>
+            <div className='space-y-5 sm:space-y-4'>
               <div className='flex flex-wrap justify-center gap-2 sm:gap-3'>
                 {PROFILE_PROMPTS.map(({ key, Icon }) => (
                   <Button
@@ -385,7 +385,7 @@ export default function LearnerProfileDialog({
               <ProfileDraftEditor
                 inputId='learner-profile-dialog-draft'
                 textareaRef={textareaRef}
-                textareaClassName='min-h-[215px] resize-none rounded-xl border-border px-4 py-3 leading-6 shadow-none focus-visible:ring-primary/30 sm:min-h-[185px]'
+                textareaClassName='min-h-[215px] resize-none rounded-xl border-border px-4 py-3 leading-6 shadow-none focus-visible:ring-primary/30 sm:min-h-[168px]'
                 value={profile}
                 maxLength={maxLength}
                 disabled={!loaded || busy}
@@ -430,7 +430,7 @@ export default function LearnerProfileDialog({
 
               <section
                 data-testid='learner-profile-writing-guide'
-                className='rounded-xl bg-primary/[0.07] px-4 py-4 text-sm leading-6 sm:px-5'
+                className='rounded-xl bg-primary/[0.07] px-4 py-4 text-sm leading-6 sm:px-5 sm:py-3'
               >
                 <h3 className='font-semibold text-primary'>
                   {t('module.profileOnboarding.dialog.writingGuideTitle')}
@@ -461,7 +461,7 @@ export default function LearnerProfileDialog({
             </div>
           </div>
 
-          <div className='sticky bottom-0 z-10 flex items-center gap-2.5 border-t bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:justify-end sm:gap-3 sm:px-8 sm:py-5'>
+          <div className='sticky bottom-0 z-10 flex items-center gap-2.5 border-t bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:justify-end sm:gap-3 sm:px-8 sm:py-4'>
             <Button
               type='button'
               variant='outline'
