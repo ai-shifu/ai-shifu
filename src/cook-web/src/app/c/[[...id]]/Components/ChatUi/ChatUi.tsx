@@ -244,13 +244,18 @@ export const ChatUi = ({
         <div
           className={cn(styles.chatComponents, styles.runtimePlaceholder)}
           data-testid='chat-runtime-placeholder'
-          aria-hidden='true'
+          role='status'
+          aria-busy='true'
         >
-          <div className={styles.runtimePlaceholderCard}>
+          <div
+            className={styles.runtimePlaceholderCard}
+            aria-hidden='true'
+          >
             <div className={styles.runtimePlaceholderLineLong} />
             <div className={styles.runtimePlaceholderLineMedium} />
             <div className={styles.runtimePlaceholderLineShort} />
           </div>
+          <span className='sr-only'>{t('module.chat.loading')}</span>
         </div>
       )}
 

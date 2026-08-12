@@ -259,7 +259,13 @@ describe('ChatUi runtime gate', () => {
     );
 
     expect(screen.getByTestId('course-summary')).toBeInTheDocument();
-    expect(screen.getByTestId('chat-runtime-placeholder')).toBeInTheDocument();
+    const loadingStatus = screen.getByRole('status');
+    expect(loadingStatus).toBe(screen.getByTestId('chat-runtime-placeholder'));
+    expect(loadingStatus).toHaveAttribute('aria-busy', 'true');
+    expect(loadingStatus).toHaveTextContent('module.chat.loading');
+    expect(
+      loadingStatus.querySelector('[aria-hidden="true"]'),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('chat-components')).not.toBeInTheDocument();
   });
 });

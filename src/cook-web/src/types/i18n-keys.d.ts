@@ -971,6 +971,7 @@ export type I18nKey =
   | 'module.chat.listenModeTtsDisabled'
   | 'module.chat.listenPlaybackSpeedAriaLabel'
   | 'module.chat.listenPlaybackSpeedLabel'
+  | 'module.chat.loading'
   | 'module.chat.markdownFlow'
   | 'module.chat.noMoreLessons'
   | 'module.chat.openCatalog'
