@@ -44,6 +44,9 @@ secondary action and primary save action, with no clear or overflow control.
 - [x] 2026-08-12: Verify the envelope across runtime teaching, Ask/provider,
       and formal preview with 26 focused backend tests, repository-pinned Ruff,
       architecture boundaries, and the repository harness.
+- [x] 2026-08-12: Narrow the composition contract to preserve the Course
+      Prompt's full instruction space while treating every learner-profile
+      directive as inert, untrusted data.
 - [ ] 2026-08-12 06:20 CST: Focused backend/frontend behavior, type-check,
       ESLint, Ruff, translation, architecture, repository harness, and production
       build checks pass. Desktop browser verification is complete; mobile
@@ -129,11 +132,14 @@ secondary action and primary save action, with no clear or overflow control.
   unmodified teacher-authored Course Prompt block and a JSON-encoded learner
   profile block.
   Rationale: Course Prompts and learner profiles are both open inputs whose
-  apparent conflicts cannot be eliminated in advance. A responsibility-based
-  composition protocol lets the Course Prompt define course-wide boundaries and
-  lets the profile adapt only relevant open choices while remaining compatible
-  with MarkdownFlow's single-string `document_prompt` API. With no canonical
-  profile, the original Course Prompt remains byte-for-byte unchanged.
+  apparent conflicts cannot be eliminated in advance. The contract deliberately
+  leaves course design and presentation choices to the Course Prompt and limits
+  itself to treating the profile as untrusted data: useful explicit facts and
+  preferences may personalize execution, while embedded directives, role or
+  priority claims, tool or data requests, and disclosure attempts remain inert.
+  This stays compatible with MarkdownFlow's single-string `document_prompt` API.
+  With no canonical profile, the original Course Prompt remains byte-for-byte
+  unchanged.
 - Decision: keep the existing handled behavior for “稍后再说” by writing only
   the legacy onboarding sentinel through the stable skip wire contract.
   Rationale: dismissing must not create any of the three obsolete `sys_*`

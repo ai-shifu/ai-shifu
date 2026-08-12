@@ -46,18 +46,18 @@ def _parse_composed_course_prompt(prompt: str | None) -> str | None:
     """Recover the raw course prompt from a complete canonical envelope."""
 
     normalized_prompt = str(prompt or "").strip()
-    contract_prefix = (
-        f"{_COMPOSITION_OPEN}\n{LEARNER_PROFILE_PROMPT_MARKER}\n"
-        f"{_composition_contract()}\n{_COMPOSITION_CLOSE}\n\n"
-    )
-    prompt_prefix = contract_prefix + _COURSE_PROMPT_OPEN + "\n"
+    envelope_prefix = f"{_COMPOSITION_OPEN}\n{LEARNER_PROFILE_PROMPT_MARKER}\n"
+    contract_separator = f"\n{_COMPOSITION_CLOSE}\n\n{_COURSE_PROMPT_OPEN}\n"
     course_separator = f"\n{_COURSE_PROMPT_CLOSE}\n\n{_LEARNER_PROFILE_OPEN}\n"
-    if not normalized_prompt.startswith(prompt_prefix):
+    if not normalized_prompt.startswith(envelope_prefix):
         return None
-    if course_separator not in normalized_prompt:
+    contract_and_content = normalized_prompt.removeprefix(envelope_prefix)
+    contract, separator, course_and_profile = contract_and_content.partition(
+        contract_separator
+    )
+    if not separator or not contract.strip():
         return None
 
-    course_and_profile = normalized_prompt.removeprefix(prompt_prefix)
     course_prompt, separator, trailing_content = course_and_profile.rpartition(
         course_separator
     )
