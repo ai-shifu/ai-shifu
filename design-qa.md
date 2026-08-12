@@ -25,9 +25,9 @@
   Direct user feedback refined the selected reference by removing the clear
   and overflow action from the active dialog.
 - Chinese, English, and French copy consistently refers to the AI teacher. The
-  complete example uses durable background, current concerns, and teaching
-  preferences that any subject can reuse instead of assuming a specific
-  course task.
+  approved example presents a relatable office worker in Shanghai, a common
+  university background, an AI-supported personal ambition, and teaching
+  preferences that any subject can reuse instead of assuming a course task.
 - Component tests assert the structural properties above, focus behavior,
   minimum action height, and dialog semantics. These checks do not replace a
   browser-rendered pixel comparison.

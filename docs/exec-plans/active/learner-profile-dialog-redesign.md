@@ -80,6 +80,10 @@ secondary action and primary save action, with no clear or overflow control.
   concerns, and teaching preferences rather than a course-specific task.
   Rationale: the same learner profile should give any AI teacher useful
   personalization context without implying what the learner is studying.
+- Decision: portray a relatable office worker in a recognizable city, with a
+  common degree and an AI-supported personal ambition.
+  Rationale: direct user review preferred an ordinary, specific person whose
+  background and goal remain useful across different subjects.
 - Decision: recognize only explicit, bounded address phrases in supported
   languages and treat the result (including no result) as the derived account
   nickname; clearing the canonical profile clears that derived nickname.

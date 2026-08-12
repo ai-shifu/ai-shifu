@@ -109,31 +109,29 @@ describe('LearnerProfileDialog', () => {
     expect(JSON.stringify(frProfile.dialog)).not.toMatch(/\bcours\b/i);
   });
 
-  test('uses a concrete cross-course placeholder in every language', () => {
+  test('uses the approved relatable cross-course placeholder in every language', () => {
     const zhPlaceholder = zhProfile.dialog.profilePlaceholder;
     const enPlaceholder = enProfile.dialog.profilePlaceholder;
     const frPlaceholder = frProfile.dialog.profilePlaceholder;
 
     for (const detail of [
       '可以叫我',
-      '一家小公司工作',
-      '和同事协调工作',
-      '整理信息',
-      '客户提出的问题',
-      '几年工作经验',
-      '不熟悉的话题',
-      '先抓住重点',
-      '把基础补齐',
-      '把事情说明白',
-      '根据事实作判断',
-      '平衡工作和生活',
-      '主题和我有什么关系',
-      '分步骤',
-      '工作沟通',
-      '家庭安排',
-      '日常消费',
-      '比较各自的利弊',
-      '容易忽略',
+      '住在上海',
+      '大学学工商管理',
+      '普通的办公室工作',
+      '整理资料、写邮件、做表格',
+      '没有技术背景',
+      '下班后的时间也不多',
+      '属于自己的事',
+      '借助 AI 整理想法、补足知识',
+      '城市生活和职场的观察',
+      '文章和小工具',
+      '长期投入的个人事业',
+      '术语和复杂步骤',
+      '和这个目标有什么关系',
+      '简单的话分步骤讲解',
+      '办公室和日常生活',
+      '不同选择的投入和效果',
     ]) {
       expect(zhPlaceholder).toContain(detail);
     }
@@ -150,24 +148,22 @@ describe('LearnerProfileDialog', () => {
 
     for (const detail of [
       'call me',
-      'small company',
-      'coordinate work with coworkers',
-      'organize information',
-      'customer questions',
-      'few years of work experience',
-      'unfamiliar topic',
-      'main ideas first',
-      'build up the basics',
-      'communicating clearly',
-      'decisions based on evidence',
-      'balancing work and personal life',
-      'how a topic relates to me',
+      'live in Shanghai',
+      'studied business administration',
+      'regular office job',
+      'organizing documents, writing emails, and making spreadsheets',
+      'do not have a technical background',
+      'limited time after work',
+      'something of my own',
+      'use AI to organize my ideas and fill gaps in my knowledge',
+      'observations about city life and work',
+      'useful articles and small tools',
+      'personal project I can pursue for years',
+      'terminology and complicated steps',
+      'topic relates to this goal',
       'step by step',
-      'workplace communication',
-      'organizing things at home',
-      'everyday purchases',
-      'pros and cons',
-      'things I might overlook',
+      'office and everyday life',
+      'effort and results of different options',
     ]) {
       expect(enPlaceholder).toContain(detail);
     }
@@ -183,24 +179,22 @@ describe('LearnerProfileDialog', () => {
 
     for (const detail of [
       'm’appeler',
-      'petite entreprise',
-      'avec mes collègues',
-      'organise des informations',
-      'questions des clients',
-      'années d’expérience professionnelle',
-      'sujet que je connais mal',
-      'commencer par l’essentiel',
-      'reprendre les bases',
-      'mieux expliquer les choses',
-      'décisions fondées sur des faits',
-      'équilibrer travail et vie personnelle',
-      'en quoi le sujet me concerne',
+      'vis à Shanghai',
+      'étudié la gestion à l’université',
+      'emploi de bureau ordinaire',
+      'classe des documents, écris des e-mails et prépare des tableaux',
+      'pas de formation technique',
+      'peu de temps après le travail',
+      'projet qui m’appartienne',
+      'utiliser l’IA pour organiser mes idées et compléter mes connaissances',
+      'observations sur la vie en ville et le travail',
+      'articles et petits outils utiles',
+      'projet personnel durable',
+      'termes nouveaux et les étapes complexes',
+      'lien entre un sujet et cet objectif',
       'étape par étape',
-      'communication au travail',
-      'organisation à la maison',
-      'achats du quotidien',
-      'avantages et les inconvénients',
-      'points que je risque d’oublier',
+      'bureau et de la vie quotidienne',
+      'effort et des résultats de chaque option',
     ]) {
       expect(frPlaceholder).toContain(detail);
     }
