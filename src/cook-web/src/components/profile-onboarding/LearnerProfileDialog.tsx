@@ -248,15 +248,18 @@ export default function LearnerProfileDialog({
     t,
   ]);
 
-  const dirty = loaded && profile.trim() !== initialProfile;
+  const normalizedProfile = profile.trim();
+  const dirty = loaded && normalizedProfile !== initialProfile;
   const busy = saving || dismissing;
-  const profileLength = countUnicodeCodePoints(profile.trim());
+  const profileLength = countUnicodeCodePoints(normalizedProfile);
+  const canExplainEmptySettingsProfile =
+    mode === 'settings' && !normalizedProfile && Boolean(savedProfile);
   const canSave =
     loaded &&
     !busy &&
-    Boolean(profile.trim()) &&
+    (Boolean(normalizedProfile) || canExplainEmptySettingsProfile) &&
     profileLength <= maxLength &&
-    profile.trim() !== savedProfile;
+    normalizedProfile !== savedProfile;
 
   const dismiss = React.useCallback(async () => {
     if (busy) {

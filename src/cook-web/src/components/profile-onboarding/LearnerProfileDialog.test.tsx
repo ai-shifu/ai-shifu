@@ -497,6 +497,27 @@ describe('LearnerProfileDialog', () => {
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
+  test('shows the empty-profile guidance after deleting an existing profile', async () => {
+    renderDialog();
+    const editor = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveChanges',
+    });
+
+    expect(save).toBeDisabled();
+    fireEvent.change(editor, { target: { value: '' } });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.emptyProfile'),
+    ).toBeInTheDocument();
+    expect(editor).toHaveFocus();
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+  });
+
   test('keeps the editor protected after load failure and retries', async () => {
     mockGetLearnerProfile
       .mockRejectedValueOnce(new Error('load request failed'))
