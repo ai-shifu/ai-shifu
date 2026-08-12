@@ -246,8 +246,15 @@ def test_merge_helper_does_not_restore_a_profile_the_target_cleared(app):
         assert target_state.trigger_source == "settings"
 
 
-@pytest.mark.parametrize("source_identify", ["15500009991", "member@example.com"])
-def test_merge_helper_never_copies_from_a_registered_source(app, source_identify):
+@pytest.mark.parametrize(
+    "source_identify",
+    ["15500009991", "+8615500009991", "member@example.com"],
+    ids=["phone", "country-prefixed-phone", "email"],
+)
+def test_merge_helper_never_copies_from_a_source_with_account_identifier(
+    app,
+    source_identify,
+):
     with app.app_context():
         source = _create_user(
             identify=source_identify,
