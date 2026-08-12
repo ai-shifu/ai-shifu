@@ -50,9 +50,15 @@ describe('learner profile api', () => {
     expect(request.get).toHaveBeenCalledWith('/api/user/learner-profile', {
       skipErrorToast: true,
     });
-    expect(request.put).toHaveBeenCalledWith('/api/user/learner-profile', {
-      learner_profile: '我是一名产品经理。',
+    expect(request.put).toHaveBeenCalledWith(
+      '/api/user/learner-profile',
+      {
+        learner_profile: '我是一名产品经理。',
+      },
+      { skipErrorToast: true },
+    );
+    expect(request.delete).toHaveBeenCalledWith('/api/user/learner-profile', {
+      skipErrorToast: true,
     });
-    expect(request.delete).toHaveBeenCalledWith('/api/user/learner-profile');
   });
 });

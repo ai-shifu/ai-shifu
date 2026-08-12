@@ -20,11 +20,17 @@ export const getLearnerProfile = (): Promise<LearnerProfile> => {
 export const updateLearnerProfile = (
   learnerProfile: string,
 ): Promise<LearnerProfile> => {
-  return request.put('/api/user/learner-profile', {
-    learner_profile: learnerProfile,
-  });
+  return request.put(
+    '/api/user/learner-profile',
+    {
+      learner_profile: learnerProfile,
+    },
+    { skipErrorToast: true },
+  );
 };
 
 export const clearLearnerProfile = (): Promise<LearnerProfile> => {
-  return request.delete('/api/user/learner-profile');
+  return request.delete('/api/user/learner-profile', {
+    skipErrorToast: true,
+  });
 };

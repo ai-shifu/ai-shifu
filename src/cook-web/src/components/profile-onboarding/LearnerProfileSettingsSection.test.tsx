@@ -331,6 +331,60 @@ describe('LearnerProfileSettingsSection', () => {
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
+  test('ignores a rejected save after account A unmounts', async () => {
+    let rejectSave: (reason: Error) => void = () => undefined;
+    mockGetLearnerProfile
+      .mockResolvedValueOnce({
+        learner_profile: '账号 A 的画像',
+        learner_profile_updated_at: null,
+        has_learner_profile: true,
+        max_length: 1000,
+      })
+      .mockResolvedValueOnce({
+        learner_profile: '账号 B 的画像',
+        learner_profile_updated_at: null,
+        has_learner_profile: true,
+        max_length: 1000,
+      });
+    mockUpdateLearnerProfile.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSave = reject;
+        }),
+    );
+    const onProfileChanged = jest.fn();
+    window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
+
+    const accountA = render(
+      <LearnerProfileSettingsSection draftStorageScope='user-a' />,
+    );
+    fireEvent.change(await screen.findByDisplayValue('账号 A 的画像'), {
+      target: { value: '账号 A 的新画像' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.save',
+      }),
+    );
+    await waitFor(() =>
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledTimes(1),
+    );
+    accountA.unmount();
+
+    render(<LearnerProfileSettingsSection draftStorageScope='user-b' />);
+    expect(
+      await screen.findByDisplayValue('账号 B 的画像'),
+    ).toBeInTheDocument();
+    await act(async () => {
+      rejectSave(new Error('late save failed'));
+    });
+
+    expect(screen.getByDisplayValue('账号 B 的画像')).toBeInTheDocument();
+    expect(mockToast).not.toHaveBeenCalled();
+    expect(onProfileChanged).not.toHaveBeenCalled();
+    window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
+  });
+
   test('ignores a clear response that arrives after account A unmounts', async () => {
     let resolveClear: (value: {
       learner_profile: string;
@@ -389,6 +443,62 @@ describe('LearnerProfileSettingsSection', () => {
         has_learner_profile: false,
         max_length: 1000,
       });
+    });
+
+    expect(screen.getByDisplayValue('账号 B 的画像')).toBeInTheDocument();
+    expect(mockToast).not.toHaveBeenCalled();
+    expect(onProfileChanged).not.toHaveBeenCalled();
+    window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
+  });
+
+  test('ignores a rejected clear after account A unmounts', async () => {
+    let rejectClear: (reason: Error) => void = () => undefined;
+    mockGetLearnerProfile
+      .mockResolvedValueOnce({
+        learner_profile: '账号 A 的画像',
+        learner_profile_updated_at: null,
+        has_learner_profile: true,
+        max_length: 1000,
+      })
+      .mockResolvedValueOnce({
+        learner_profile: '账号 B 的画像',
+        learner_profile_updated_at: null,
+        has_learner_profile: true,
+        max_length: 1000,
+      });
+    mockClearLearnerProfile.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectClear = reject;
+        }),
+    );
+    const onProfileChanged = jest.fn();
+    window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
+
+    const accountA = render(
+      <LearnerProfileSettingsSection draftStorageScope='user-a' />,
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.settings.clear',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.confirmClear',
+      }),
+    );
+    await waitFor(() =>
+      expect(mockClearLearnerProfile).toHaveBeenCalledTimes(1),
+    );
+    accountA.unmount();
+
+    render(<LearnerProfileSettingsSection draftStorageScope='user-b' />);
+    expect(
+      await screen.findByDisplayValue('账号 B 的画像'),
+    ).toBeInTheDocument();
+    await act(async () => {
+      rejectClear(new Error('late clear failed'));
     });
 
     expect(screen.getByDisplayValue('账号 B 的画像')).toBeInTheDocument();

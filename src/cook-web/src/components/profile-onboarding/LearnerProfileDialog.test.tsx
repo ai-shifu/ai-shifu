@@ -740,6 +740,40 @@ describe('LearnerProfileDialog', () => {
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
+  test('does not toast or close when a save rejects after unmount', async () => {
+    let rejectSave: (reason: Error) => void = () => undefined;
+    mockUpdateLearnerProfile.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSave = reject;
+        }),
+    );
+    const onSaved = jest.fn();
+    const onClose = jest.fn();
+    const { unmount } = renderDialog({ onClose, onSaved });
+    fireEvent.change(
+      await screen.findByDisplayValue(existingProfile.learner_profile),
+      { target: { value: 'Late rejected introduction' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.saveChanges',
+      }),
+    );
+    await waitFor(() =>
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledTimes(1),
+    );
+    unmount();
+
+    await act(async () => {
+      rejectSave(new Error('late save failed'));
+    });
+
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
   test('does not toast or close when a refresh fails after unmount', async () => {
     let rejectRefresh: (reason: Error) => void = () => undefined;
     const onSaved = jest.fn(
