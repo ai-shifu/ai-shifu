@@ -329,22 +329,18 @@ def test_safety_rejection_preserves_existing_profile(app, monkeypatch):
 
     assert loaded["learner_profile"] == "existing profile"
     assert stored.nickname == "Test learner"
-    assert caught_error.value.code == 2002
-    assert caught_error.value.message == (
-        "This introduction did not pass content review. Please revise it and try again."
-    )
+    assert caught_error.value.message == "please check the content"
 
 
 @pytest.mark.parametrize(
     "check_result",
     [
         CHECK_RESULT_REVIEW,
-        CHECK_RESULT_REJECT,
         CHECK_RESULT_UNKNOWN,
         CHECK_RESULT_UNCONF,
     ],
 )
-def test_profile_moderation_rejects_every_non_pass_result(
+def test_profile_moderation_allows_every_non_reject_result(
     app, monkeypatch, check_result
 ):
     from flaskr.api.check.dto import CheckResultDTO
@@ -367,6 +363,41 @@ def test_profile_moderation_rejects_every_non_pass_result(
     with app.app_context():
         user_bid = f"profile-moderation-{check_result}"
         _create_user(user_bid, learner_profile="existing profile")
+        replace_learner_profile(
+            app,
+            user_id=user_bid,
+            learner_profile="Please call me Accepted Name.",
+        )
+        loaded = get_learner_profile(user_id=user_bid)
+        stored = UserInfo.query.filter_by(user_bid=user_bid).one()
+        state = UserOnboardingState.query.filter_by(user_bid=user_bid).first()
+
+    assert loaded["learner_profile"] == "Please call me Accepted Name."
+    assert stored.nickname == "Accepted Name"
+    assert state is not None
+
+
+def test_profile_moderation_rejects_only_explicit_reject(app, monkeypatch):
+    from flaskr.api.check.dto import CheckResultDTO
+    from flaskr.service.profile.learner_profile import (
+        get_learner_profile,
+        replace_learner_profile,
+    )
+
+    monkeypatch.setattr(
+        "flaskr.service.profile.learner_profile.check_text",
+        lambda *_args, **_kwargs: CheckResultDTO(
+            check_result=CHECK_RESULT_REJECT,
+            risk_labels=[],
+            risk_label_ids=[],
+            provider="test-provider",
+            raw_data={},
+        ),
+    )
+
+    with app.app_context():
+        user_bid = "profile-moderation-reject"
+        _create_user(user_bid, learner_profile="existing profile")
         with pytest.raises(AppException) as caught_error:
             replace_learner_profile(
                 app,
@@ -377,16 +408,13 @@ def test_profile_moderation_rejects_every_non_pass_result(
         stored = UserInfo.query.filter_by(user_bid=user_bid).one()
         state = UserOnboardingState.query.filter_by(user_bid=user_bid).first()
 
+    assert caught_error.value.message == "please check the content"
     assert loaded["learner_profile"] == "existing profile"
     assert stored.nickname == "Test learner"
     assert state is None
-    expected_code = (
-        2003 if check_result in {CHECK_RESULT_UNKNOWN, CHECK_RESULT_UNCONF} else 2002
-    )
-    assert caught_error.value.code == expected_code
 
 
-def test_profile_moderation_rejects_when_provider_is_unavailable(app):
+def test_profile_moderation_allows_save_when_provider_is_unavailable(app):
     from flaskr.service.profile.learner_profile import (
         get_learner_profile,
         replace_learner_profile,
@@ -395,26 +423,20 @@ def test_profile_moderation_rejects_when_provider_is_unavailable(app):
     app.config["CHECK_PROVIDER"] = "unsupported-provider"
     with app.app_context():
         _create_user("profile-provider-unavailable", learner_profile="existing profile")
-        with pytest.raises(AppException) as caught_error:
-            replace_learner_profile(
-                app,
-                user_id="profile-provider-unavailable",
-                learner_profile="Please call me Unchecked Name.",
-            )
+        replace_learner_profile(
+            app,
+            user_id="profile-provider-unavailable",
+            learner_profile="Please call me Unchecked Name.",
+        )
         loaded = get_learner_profile(user_id="profile-provider-unavailable")
         stored = UserInfo.query.filter_by(user_bid="profile-provider-unavailable").one()
         state = UserOnboardingState.query.filter_by(
             user_bid="profile-provider-unavailable"
         ).first()
 
-    assert loaded["learner_profile"] == "existing profile"
-    assert stored.nickname == "Test learner"
-    assert state is None
-    assert caught_error.value.code == 2003
-    assert caught_error.value.message == (
-        "We could not check this introduction right now. Try again later. "
-        "Your changes have not been saved."
-    )
+    assert loaded["learner_profile"] == "Please call me Unchecked Name."
+    assert stored.nickname == "Unchecked Name"
+    assert state is not None
 
 
 def test_profile_safety_audit_redacts_local_text_and_provider_response(

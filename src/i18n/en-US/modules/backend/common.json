@@ -2,14 +2,12 @@
   "__namespace__": "server.common",
   "__flat__": {
     "backgroundNotAllowed": "Oops, illegal background.",
-    "contentCheckUnavailable": "We could not check this introduction right now. Try again later. Your changes have not been saved.",
     "dataLoadFailed": "Failed to load data, please try again later",
     "nicknameNotAllowed": "Oops, illegal nickname.",
     "operationFailed": "Service error, please try again later",
     "paramsError": "Params Error {param_message}",
     "stateInvalid": "This action is not available in the current state",
     "systemError": "System Error",
-    "textNotAllowed": "This introduction did not pass content review. Please revise it and try again.",
     "unexpectedError": "The service is temporarily unavailable. Please try again later.",
     "unknownError": "Unknown Error"
   }

@@ -2,14 +2,12 @@
   "__namespace__": "server.common",
   "__flat__": {
     "backgroundNotAllowed": "Arrière-plan non autorisé.",
-    "contentCheckUnavailable": "Impossible de vérifier cette présentation pour le moment. Réessayez plus tard. Vos modifications n’ont pas été enregistrées.",
     "dataLoadFailed": "Échec du chargement des données, veuillez réessayer plus tard",
     "nicknameNotAllowed": "Pseudonyme non autorisé.",
     "operationFailed": "Erreur du service, veuillez réessayer plus tard",
     "paramsError": "Erreur de paramètres {param_message}",
     "stateInvalid": "Cette action n'est pas disponible dans l'état actuel",
     "systemError": "Erreur système",
-    "textNotAllowed": "Cette présentation n’a pas été acceptée lors de la vérification du contenu. Modifiez-la puis réessayez.",
     "unexpectedError": "Le service est temporairement indisponible. Veuillez réessayer plus tard.",
     "unknownError": "Erreur inconnue"
   }
