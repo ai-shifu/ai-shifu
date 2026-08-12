@@ -318,7 +318,7 @@ def test_safety_rejection_preserves_existing_profile(app, monkeypatch):
     )
     with app.app_context():
         _create_user("profile-safety-reject", learner_profile="existing profile")
-        with pytest.raises(AppException):
+        with pytest.raises(AppException) as caught_error:
             replace_learner_profile(
                 app,
                 user_id="profile-safety-reject",
@@ -329,6 +329,10 @@ def test_safety_rejection_preserves_existing_profile(app, monkeypatch):
 
     assert loaded["learner_profile"] == "existing profile"
     assert stored.nickname == "Test learner"
+    assert caught_error.value.code == 2002
+    assert caught_error.value.message == (
+        "This introduction did not pass content review. Please revise it and try again."
+    )
 
 
 @pytest.mark.parametrize(
@@ -363,7 +367,7 @@ def test_profile_moderation_rejects_every_non_pass_result(
     with app.app_context():
         user_bid = f"profile-moderation-{check_result}"
         _create_user(user_bid, learner_profile="existing profile")
-        with pytest.raises(AppException):
+        with pytest.raises(AppException) as caught_error:
             replace_learner_profile(
                 app,
                 user_id=user_bid,
@@ -376,6 +380,10 @@ def test_profile_moderation_rejects_every_non_pass_result(
     assert loaded["learner_profile"] == "existing profile"
     assert stored.nickname == "Test learner"
     assert state is None
+    expected_code = (
+        2003 if check_result in {CHECK_RESULT_UNKNOWN, CHECK_RESULT_UNCONF} else 2002
+    )
+    assert caught_error.value.code == expected_code
 
 
 def test_profile_moderation_rejects_when_provider_is_unavailable(app):
@@ -387,7 +395,7 @@ def test_profile_moderation_rejects_when_provider_is_unavailable(app):
     app.config["CHECK_PROVIDER"] = "unsupported-provider"
     with app.app_context():
         _create_user("profile-provider-unavailable", learner_profile="existing profile")
-        with pytest.raises(AppException):
+        with pytest.raises(AppException) as caught_error:
             replace_learner_profile(
                 app,
                 user_id="profile-provider-unavailable",
@@ -402,6 +410,11 @@ def test_profile_moderation_rejects_when_provider_is_unavailable(app):
     assert loaded["learner_profile"] == "existing profile"
     assert stored.nickname == "Test learner"
     assert state is None
+    assert caught_error.value.code == 2003
+    assert caught_error.value.message == (
+        "We could not check this introduction right now. Try again later. "
+        "Your changes have not been saved."
+    )
 
 
 def test_profile_safety_audit_redacts_local_text_and_provider_response(

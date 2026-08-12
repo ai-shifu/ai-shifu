@@ -19,6 +19,7 @@
   "server.common.unknownError": 9999,
   "server.common.paramsError": 2001,
   "server.common.textNotAllowed": 2002,
+  "server.common.contentCheckUnavailable": 2003,
 
   "server.order.orderNotFound": 3001,
   "server.order.orderAlreadyExists": 3002,
