@@ -6,11 +6,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import {
-  clearLearnerProfile,
-  getLearnerProfile,
-  updateLearnerProfile,
-} from '@/api/learnerProfile';
+import { getLearnerProfile, updateLearnerProfile } from '@/api/learnerProfile';
 import { LEARNER_PROFILE_CHANGED_EVENT } from '@/lib/learnerProfileEvents';
 import LearnerProfileDialog from './LearnerProfileDialog';
 import enProfile from '../../../../i18n/en-US/modules/profile-onboarding.json';
@@ -34,7 +30,6 @@ let mockT = translateKey;
 let mockLanguage = 'en-US';
 
 jest.mock('@/api/learnerProfile', () => ({
-  clearLearnerProfile: jest.fn(),
   getLearnerProfile: jest.fn(),
   updateLearnerProfile: jest.fn(),
 }));
@@ -55,7 +50,6 @@ jest.mock('react-i18next', () => ({
 
 const mockGetLearnerProfile = getLearnerProfile as jest.Mock;
 const mockUpdateLearnerProfile = updateLearnerProfile as jest.Mock;
-const mockClearLearnerProfile = clearLearnerProfile as jest.Mock;
 
 const existingProfile = {
   learner_profile: 'Existing learner introduction',
@@ -75,20 +69,6 @@ const renderDialog = (
     ...overrides,
   };
   return { props, ...render(<LearnerProfileDialog {...props} />) };
-};
-
-const openClearConfirmation = async () => {
-  const trigger = screen.getByRole('button', {
-    name: 'module.profileOnboarding.dialog.moreActions',
-  });
-  trigger.focus();
-  fireEvent.keyDown(trigger, { key: 'Enter' });
-  fireEvent.click(
-    await screen.findByRole('menuitem', {
-      name: 'module.profileOnboarding.dialog.clear',
-    }),
-  );
-  return screen.findByRole('alertdialog');
 };
 
 describe('LearnerProfileDialog', () => {
@@ -129,18 +109,56 @@ describe('LearnerProfileDialog', () => {
     expect(JSON.stringify(frProfile.dialog)).not.toMatch(/\bcours\b/i);
   });
 
-  test('uses a complete placeholder for every part of the learner introduction', () => {
-    const placeholder = zhProfile.dialog.profilePlaceholder;
+  test('uses a complete everyday placeholder in every language', () => {
+    const zhPlaceholder = zhProfile.dialog.profilePlaceholder;
+    const enPlaceholder = enProfile.dialog.profilePlaceholder;
+    const frPlaceholder = frProfile.dialog.profilePlaceholder;
 
-    expect(placeholder).toContain('可以叫我');
-    expect(placeholder).toContain('产品经理');
-    expect(placeholder).toContain('用户研究');
-    expect(placeholder).toContain('想学会');
-    expect(placeholder).toContain('最困扰');
-    expect(placeholder).toContain('核心概念');
-    expect(placeholder).toContain('分步骤');
-    expect(placeholder).toContain('实际案例');
-    expect(placeholder).toContain('常见误区');
+    for (const detail of [
+      '可以叫我',
+      '工作之余学习',
+      '有一点基础',
+      '日常工作和生活',
+      '不知道从哪里开始',
+      '核心概念',
+      '分步骤',
+      '贴近日常的例子',
+      '容易踩的坑',
+    ]) {
+      expect(zhPlaceholder).toContain(detail);
+    }
+    expect(zhPlaceholder).not.toContain('产品经理');
+    expect(zhPlaceholder).not.toContain('AI 产品');
+
+    for (const detail of [
+      'call me',
+      'alongside work',
+      'know a little',
+      'everyday problems',
+      'where to begin',
+      'simple language',
+      'walk through the steps',
+      'everyday examples',
+      'common pitfalls',
+    ]) {
+      expect(enPlaceholder).toContain(detail);
+    }
+    expect(enPlaceholder).not.toContain('AI products');
+
+    for (const detail of [
+      'm’appeler',
+      'parallèle de mon travail',
+      'connais un peu',
+      'problèmes du quotidien',
+      'par où commencer',
+      'mots simples',
+      'puis les étapes',
+      'exemples familiers',
+      'pièges fréquents',
+    ]) {
+      expect(frPlaceholder).toContain(detail);
+    }
+    expect(frPlaceholder).not.toContain('produits IA');
   });
 
   test('renders the centered contextual dialog with option-three guidance and actions', async () => {
@@ -160,9 +178,6 @@ describe('LearnerProfileDialog', () => {
     });
     const primaryAction = screen.getByRole('button', {
       name: 'module.profileOnboarding.dialog.saveAndContinue',
-    });
-    const moreActions = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.moreActions',
     });
     const footer = later.parentElement;
     const overlay = Array.from(
@@ -196,7 +211,14 @@ describe('LearnerProfileDialog', () => {
     expect(overlay).toHaveClass('!bg-slate-950/45', 'backdrop-blur-[1px]');
     expect(footer).toHaveClass('sticky', 'bottom-0');
     expect(footer).toContainElement(primaryAction);
-    expect(footer).toContainElement(moreActions);
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.dialog.moreActions',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.profileOnboarding.dialog.clear'),
+    ).not.toBeInTheDocument();
   });
 
   test('adds all optional prompt chips to and focuses the same textarea', async () => {
@@ -267,42 +289,6 @@ describe('LearnerProfileDialog', () => {
       title: 'module.profileOnboarding.dialog.saveSuccess',
     });
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
-  });
-
-  test('clears from the overflow confirmation and reports failures in place', async () => {
-    const onSaved = jest.fn();
-    mockClearLearnerProfile
-      .mockRejectedValueOnce(new Error('clear request failed'))
-      .mockResolvedValueOnce({
-        learner_profile: '',
-        learner_profile_updated_at: '2026-08-11T02:00:00Z',
-        has_learner_profile: false,
-        max_length: 1000,
-      });
-    renderDialog({ onSaved });
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-
-    await openClearConfirmation();
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.confirmClear',
-      }),
-    );
-    expect(await screen.findByText('clear request failed')).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.confirmClear',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockClearLearnerProfile).toHaveBeenCalledTimes(2),
-    );
-    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole('textbox')).toHaveValue('');
-    expect(mockToast).toHaveBeenCalledWith({
-      title: 'module.profileOnboarding.dialog.clearSuccess',
-    });
   });
 
   test('keeps the editor protected after load failure and retries', async () => {
@@ -578,72 +564,5 @@ describe('LearnerProfileDialog', () => {
     expect(mockToast).not.toHaveBeenCalledWith({
       title: 'module.profileOnboarding.refreshPending',
     });
-  });
-
-  test('does not notify or pollute a new account when an old clear resolves late', async () => {
-    let resolveClear: (value: typeof existingProfile) => void = () => undefined;
-    mockGetLearnerProfile
-      .mockResolvedValueOnce(existingProfile)
-      .mockResolvedValueOnce({
-        ...existingProfile,
-        learner_profile: 'User B introduction',
-      });
-    mockClearLearnerProfile.mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveClear = resolve;
-        }),
-    );
-    const onSaved = jest.fn();
-    const onClose = jest.fn();
-    const onProfileChanged = jest.fn();
-    window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
-    const { rerender } = render(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-a'
-        onClose={onClose}
-        onSaved={onSaved}
-      />,
-    );
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    await openClearConfirmation();
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.confirmClear',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockClearLearnerProfile).toHaveBeenCalledTimes(1),
-    );
-
-    rerender(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-b'
-        onClose={onClose}
-        onSaved={onSaved}
-      />,
-    );
-    expect(
-      await screen.findByDisplayValue('User B introduction'),
-    ).toBeEnabled();
-    await act(async () => {
-      resolveClear({
-        learner_profile: '',
-        learner_profile_updated_at: '2026-08-11T03:00:00Z',
-        has_learner_profile: false,
-        max_length: 1000,
-      });
-    });
-
-    expect(screen.getByRole('textbox')).toHaveValue('User B introduction');
-    expect(onSaved).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
-    expect(onProfileChanged).not.toHaveBeenCalled();
-    expect(mockToast).not.toHaveBeenCalled();
-    window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 });

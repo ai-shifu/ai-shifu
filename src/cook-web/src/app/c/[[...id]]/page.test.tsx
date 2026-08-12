@@ -23,7 +23,6 @@ const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
 const openLearnerProfileLabel = 'open learner profile';
 const saveLearnerProfileLabel = 'save learner profile';
-const clearLearnerProfileLabel = 'clear learner profile';
 const laterLabel = 'later';
 
 interface MockChatMobileHeaderProps {
@@ -131,14 +130,6 @@ const mockLearnerProfileDialog = jest.fn(
           }}
         >
           {saveLearnerProfileLabel}
-        </button>
-        <button
-          type='button'
-          onClick={() => {
-            void onSaved?.();
-          }}
-        >
-          {clearLearnerProfileLabel}
         </button>
         <button
           type='button'
@@ -937,55 +928,6 @@ describe('ChatPage profile onboarding gate', () => {
     });
 
     expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
-    expect(screen.getByTestId('chat-ui')).toHaveAttribute(
-      'data-runtime-ready',
-      'true',
-    );
-    expect(mockCompleteProfileOnboarding).not.toHaveBeenCalled();
-  });
-
-  test('canonical clear resolves a pending gate without reopening onboarding', async () => {
-    let resolveStatus: (value: unknown) => void = () => undefined;
-    mockGetProfileOnboarding.mockReturnValue(
-      new Promise(resolve => {
-        resolveStatus = resolve;
-      }),
-    );
-
-    render(<ChatPage />);
-
-    await waitFor(() => expect(mockGetProfileOnboarding).toHaveBeenCalled());
-    fireEvent.click(
-      screen.getByRole('button', { name: openLearnerProfileLabel }),
-    );
-    fireEvent.click(
-      screen.getByRole('button', { name: clearLearnerProfileLabel }),
-    );
-
-    await waitFor(() => {
-      expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
-      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
-        'data-runtime-ready',
-        'true',
-      );
-    });
-    expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'settings',
-    );
-
-    await act(async () => {
-      resolveStatus({
-        should_show: true,
-        markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
-        current_values: {},
-      });
-    });
-    fireEvent.click(screen.getByRole('button', { name: laterLabel }));
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
-    });
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
       'true',

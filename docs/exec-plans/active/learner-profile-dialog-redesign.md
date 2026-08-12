@@ -12,8 +12,10 @@ their historical variables and runtime compatibility. When an explicit name
 can be safely recognized from the canonical profile, `user_users.nickname` is
 updated in the same transaction without adding a second editable field.
 
-The selected visual truth is the revised option-three mock at
-`/Users/sunner/.codex/generated_images/019fe96e-310e-71e1-b426-efff9e67343f/exec-8c6fc012-e17d-4cbd-99c3-4838c2409753.png`.
+The selected visual truth began with the revised option-three mock at
+`/Users/sunner/.codex/generated_images/019fe96e-310e-71e1-b426-efff9e67343f/exec-8c6fc012-e17d-4cbd-99c3-4838c2409753.png`
+and was refined by direct user feedback: the active dialog has only its
+secondary action and primary save action, with no clear or overflow control.
 
 ## Progress
 
@@ -29,6 +31,8 @@ The selected visual truth is the revised option-three mock at
       dialog while retaining the old backend wire contract for compatibility.
 - [x] 2026-08-12 06:20 CST: Add background nickname recognition and atomic
       user-info synchronization without displaying parsing metadata.
+- [x] 2026-08-12: Refine the selected visual target from direct user feedback
+      so the active dialog exposes no clear or overflow action.
 - [ ] 2026-08-12 06:20 CST: Focused backend/frontend behavior, type-check,
       ESLint, Ruff, translation, architecture, repository harness, and production
       build checks pass. Browser-rendered desktop/mobile comparison remains blocked
@@ -53,16 +57,21 @@ The selected visual truth is the revised option-three mock at
 - Eligibility and profile requests can outlive account or dialog-mode changes.
   Runtime readiness therefore has to be keyed by account, not held as a single
   boolean, and user-info refresh must reject stale token or user-ID results.
-- A canonical clear is also a handled profile mutation. It must invalidate a
-  pending legacy eligibility request even though the settings dialog stays
-  open after clearing.
+- A canonical clear remains a handled profile mutation for compatibility, but
+  the redesigned dialog no longer exposes it. The modern DELETE endpoint and
+  legacy `LearnerProfileSettingsSection` clear flow remain stable interfaces.
 
 ## Decision Log
 
 - Decision: use one shared `LearnerProfileDialog` for menu editing and
   first-time presentation.
-  Rationale: one component gives the same load, save, clear, moderation,
+  Rationale: one component gives the same load, save, moderation,
   account-switch, accessibility, and responsive behavior at every entry.
+- Decision: show only the context-appropriate secondary action and primary
+  save action in the redesigned dialog; do not expose clear or overflow UI.
+  Rationale: direct user feedback preferred a simpler active flow. The modern
+  DELETE API and legacy settings-section clear behavior stay available as
+  compatibility contracts rather than dialog actions.
 - Decision: keep exactly one stored learner-profile text and show no parsed
   nickname or derived metadata in the dialog.
   Rationale: the learner should experience name recognition as a background
@@ -94,7 +103,9 @@ collects a single natural introduction. No legacy nickname/background/style
 fields or parsed nickname are displayed. A moderated save atomically updates
 the canonical profile, profile-v2 handled state, and a conservatively derived
 account nickname; clear atomically empties the profile and nickname while
-remaining handled. Historical `sys_*` rows and old-course reads remain intact.
+remaining handled through the stable compatibility API. The redesigned dialog
+itself presents only its secondary action and save. Historical `sys_*` rows
+and old-course reads remain intact.
 
 Focused verification currently reports 83 canonical-profile backend tests, 13
 manual-activation compatibility tests, and 54 combined frontend flow/component
@@ -143,16 +154,18 @@ legacy onboarding service remains in
    recognized nickname inside the existing profile/state unit of work. Refresh
    frontend user info after accepted saves.
 6. Add focused tests for entries, responsive/accessible behavior, load/save/
-   clear/error/dismiss/account-switch behavior, nickname recognition and
-   atomicity, and legacy compatibility.
+   error/dismiss/account-switch behavior, nickname recognition and atomicity,
+   plus compatibility coverage for the modern DELETE endpoint and legacy
+   settings-section clear flow.
 7. Capture desktop and mobile implementations, compare them with the selected
    mock, fix P0-P2 differences, and record `design-qa.md` with a passing result.
 
 ## Concrete Steps
 
 - Reuse `Dialog`, `Button`, `ProfileDraftEditor`, `getLearnerProfile`,
-  `updateLearnerProfile`, `clearLearnerProfile`, `refreshUserInfo`, and
-  `learner-profile-changed`; do not add another request client.
+  `updateLearnerProfile`, `refreshUserInfo`, and `learner-profile-changed`; do
+  not add another request client. Preserve `clearLearnerProfile` for existing
+  compatibility consumers, but do not expose it in the redesigned dialog.
 - Keep the dialog header/footer visible and the body scrollable; use a centered
   approximately 720-pixel desktop surface and a near-full-height mobile sheet
   with at least 44-pixel actions.
@@ -169,8 +182,9 @@ legacy onboarding service remains in
 - Opening “学习者画像” closes the account menu, leaves the lesson visible, and
   opens a focus-managed dialog on desktop and a usable sheet on mobile.
 - The dialog contains one learner-profile textarea, complete example guidance,
-  save/dismiss/clear actions, inline error and retry states, and no editable or
-  parsed nickname/background/style controls.
+  a context-appropriate secondary action and primary save action, inline error
+  and retry states, and no clear/overflow or editable/parsed
+  nickname/background/style controls.
 - Saving a moderated profile writes profile, profile-v2 handled state, and the
   safely derived nickname atomically; no recognizable name stores an empty
   nickname. Clearing the profile clears the derived nickname and marks the
@@ -179,6 +193,9 @@ legacy onboarding service remains in
   `sys_*` rows. Existing historical rows, old backend wire contracts, old
   course variable resolution, Teaching, Ask, and preview behavior remain
   covered.
+- The modern DELETE endpoint and the legacy `LearnerProfileSettingsSection`
+  clear behavior remain stable compatibility interfaces even though the active
+  dialog does not expose a clear action.
 - Direct menu editing and first-time presentation share account-switch and
   late-response guards. Load failure is recoverable and never blocks the
   lesson.
@@ -201,9 +218,11 @@ hunk; never reset the entire worktree or touch another worktree.
   row; no schema change.
 - Backend: stable `GET|PUT|DELETE /api/user/learner-profile`, legacy
   `GET|POST /api/user/profile-onboarding[/complete]`, canonical moderation and
-  unit-of-work helpers.
+  unit-of-work helpers. DELETE remains a compatibility interface and is not an
+  action in the redesigned dialog.
 - Frontend: shared `LearnerProfileDialog`, modern learner-profile API,
   `useUserStore.refreshUserInfo`, `learner-profile-changed`, account menu and
   course onboarding gate.
-- Visual target: revised generated mock path recorded above; implementation is
+- Visual target: revised generated mock path recorded above, with the direct
+  user-feedback refinement that removes clear/overflow UI; implementation is
   verified at desktop and mobile viewports before handoff.

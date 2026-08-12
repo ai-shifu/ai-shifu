@@ -21,7 +21,9 @@
   safe-area-aware actions.
 - The approved information hierarchy is present: three optional prompt chips,
   one canonical introduction field, a three-item writing guide, reassurance,
-  secondary and primary actions, and an overflow action for clearing.
+  and only the context-appropriate secondary action plus primary save action.
+  Direct user feedback refined the selected reference by removing the clear
+  and overflow action from the active dialog.
 - Chinese, English, and French copy consistently refers to the AI teacher. The
   complete example covers form of address, background, prior knowledge, goal,
   current challenge, explanation structure, examples, and common pitfalls.
@@ -31,19 +33,24 @@
 
 ## Interaction Checks Completed
 
-- Load, retry, save, clear, discard, dismiss, duplicate-action, and stale
-  response behavior are covered by focused tests.
+- Load, retry, save, discard, dismiss, duplicate-action, and stale response
+  behavior are covered by focused dialog tests.
 - Settings and first-time presentation share the same dialog while preserving
   their distinct save/dismiss contracts.
 - Account and dialog-mode switches remount the editor so discarded text cannot
   cross scopes.
+- Compatibility tests retain the modern DELETE contract and the legacy
+  `LearnerProfileSettingsSection` clear flow; neither is exposed as an action
+  in the redesigned dialog.
 
 ## Remaining Visual QA
 
 Capture the implementation in the selected in-app browser at one desktop and
-one mobile viewport, compare both captures to the approved reference at equal
-display density, and fix any remaining P0, P1, or P2 visual differences. Also
-exercise the primary actions and confirm the browser console has no new errors.
+one mobile viewport, compare both captures to the approved reference plus the
+direct user-feedback refinement above at equal display density, and fix any
+remaining P0, P1, or P2 visual differences. Also exercise the visible
+secondary and primary actions and confirm the browser console has no new
+errors.
 
 final result: blocked
 

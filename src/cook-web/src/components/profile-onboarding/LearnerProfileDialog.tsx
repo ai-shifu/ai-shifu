@@ -1,20 +1,9 @@
 'use client';
 
 import React from 'react';
-import {
-  BriefcaseBusiness,
-  Info,
-  MoreHorizontal,
-  Target,
-  UserRound,
-  X,
-} from 'lucide-react';
+import { BriefcaseBusiness, Info, Target, UserRound, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import {
-  clearLearnerProfile,
-  getLearnerProfile,
-  updateLearnerProfile,
-} from '@/api/learnerProfile';
+import { getLearnerProfile, updateLearnerProfile } from '@/api/learnerProfile';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,12 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/DropdownMenu';
 import { useToast } from '@/hooks/useToast';
 import { notifyLearnerProfileChanged } from '@/lib/learnerProfileEvents';
 import {
@@ -80,11 +63,8 @@ export default function LearnerProfileDialog({
   const [loading, setLoading] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [clearing, setClearing] = React.useState(false);
   const [dismissing, setDismissing] = React.useState(false);
   const [error, setError] = React.useState('');
-  const [clearError, setClearError] = React.useState('');
-  const [clearOpen, setClearOpen] = React.useState(false);
   const [discardOpen, setDiscardOpen] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const translationRef = React.useRef(t);
@@ -164,9 +144,7 @@ export default function LearnerProfileDialog({
   React.useEffect(() => {
     const generation = ++generationRef.current;
     loadRequestRef.current += 1;
-    setClearOpen(false);
     setDiscardOpen(false);
-    setClearError('');
     setError('');
 
     if (!open) {
@@ -179,7 +157,6 @@ export default function LearnerProfileDialog({
     setMaxLength(DEFAULT_MAX_LENGTH);
     setLoaded(false);
     setSaving(false);
-    setClearing(false);
     setDismissing(false);
     void loadProfile(generation, scope);
 
@@ -205,7 +182,7 @@ export default function LearnerProfileDialog({
   );
 
   const saveProfile = React.useCallback(async () => {
-    if (!loaded || saving || clearing) {
+    if (!loaded || saving) {
       return;
     }
 
@@ -253,7 +230,6 @@ export default function LearnerProfileDialog({
       }
     }
   }, [
-    clearing,
     draftStorageScope,
     isCurrent,
     loaded,
@@ -266,54 +242,8 @@ export default function LearnerProfileDialog({
     toast,
   ]);
 
-  const clearProfile = React.useCallback(async () => {
-    if (saving || clearing) {
-      return;
-    }
-
-    const generation = generationRef.current;
-    const scope = draftStorageScope;
-    setClearing(true);
-    setClearError('');
-    try {
-      const response = await clearLearnerProfile();
-      if (!isCurrent(generation, scope)) {
-        return;
-      }
-      setProfile('');
-      setSavedProfile('');
-      setMaxLength(response.max_length || maxLength);
-      setClearOpen(false);
-      notifyLearnerProfileChanged();
-      toast({ title: t('module.profileOnboarding.dialog.clearSuccess') });
-      await runOnSaved(generation, scope);
-    } catch (caughtError) {
-      if (isCurrent(generation, scope)) {
-        setClearError(
-          errorMessage(
-            caughtError,
-            t('module.profileOnboarding.dialog.clearFailed'),
-          ),
-        );
-      }
-    } finally {
-      if (isCurrent(generation, scope)) {
-        setClearing(false);
-      }
-    }
-  }, [
-    clearing,
-    draftStorageScope,
-    isCurrent,
-    maxLength,
-    runOnSaved,
-    saving,
-    t,
-    toast,
-  ]);
-
   const dirty = loaded && profile.trim() !== savedProfile;
-  const busy = saving || clearing || dismissing;
+  const busy = saving || dismissing;
   const profileLength = countUnicodeCodePoints(profile.trim());
   const canSave =
     loaded &&
@@ -531,7 +461,7 @@ export default function LearnerProfileDialog({
             </div>
           </div>
 
-          <div className='sticky bottom-0 z-10 flex items-center gap-2.5 border-t bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:gap-3 sm:px-8 sm:py-5'>
+          <div className='sticky bottom-0 z-10 flex items-center gap-2.5 border-t bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:justify-end sm:gap-3 sm:px-8 sm:py-5'>
             <Button
               type='button'
               variant='outline'
@@ -543,7 +473,7 @@ export default function LearnerProfileDialog({
             </Button>
             <Button
               type='button'
-              className='min-h-11 min-w-0 flex-[1.4] sm:min-w-72 sm:flex-none'
+              className='min-h-11 min-w-0 flex-[1.4] sm:min-w-80 sm:flex-none'
               disabled={!canSave}
               onClick={() => {
                 void saveProfile();
@@ -553,86 +483,9 @@ export default function LearnerProfileDialog({
                 ? t('module.profileOnboarding.dialog.saving')
                 : primaryLabel}
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type='button'
-                  size='icon'
-                  variant='ghost'
-                  className='size-11 shrink-0 rounded-full'
-                  disabled={busy}
-                  aria-label={t('module.profileOnboarding.dialog.moreActions')}
-                >
-                  <MoreHorizontal aria-hidden='true' />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align='end'>
-                <DropdownMenuItem
-                  disabled={!loaded || !savedProfile || busy}
-                  className='min-h-11 text-destructive focus:text-destructive'
-                  onSelect={() => {
-                    setClearError('');
-                    setClearOpen(true);
-                  }}
-                >
-                  {t('module.profileOnboarding.dialog.clear')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog
-        open={clearOpen}
-        onOpenChange={nextOpen => {
-          if (!clearing) {
-            setClearOpen(nextOpen);
-            if (!nextOpen) {
-              setClearError('');
-            }
-          }
-        }}
-      >
-        <AlertDialogContent className='w-[calc(100vw-32px)] rounded-xl'>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('module.profileOnboarding.dialog.clearTitle')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('module.profileOnboarding.dialog.clearDescription')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {clearError ? (
-            <div
-              role='alert'
-              className='rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive'
-            >
-              {clearError}
-            </div>
-          ) : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className='min-h-11'
-              disabled={clearing}
-            >
-              {t('module.profileOnboarding.dialog.cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className='min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90'
-              disabled={clearing}
-              onClick={event => {
-                event.preventDefault();
-                void clearProfile();
-              }}
-            >
-              {clearing
-                ? t('module.profileOnboarding.dialog.clearing')
-                : t('module.profileOnboarding.dialog.confirmClear')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog
         open={discardOpen}
