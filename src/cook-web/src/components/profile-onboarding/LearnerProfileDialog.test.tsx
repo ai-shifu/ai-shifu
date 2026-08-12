@@ -109,21 +109,24 @@ describe('LearnerProfileDialog', () => {
     expect(JSON.stringify(frProfile.dialog)).not.toMatch(/\bcours\b/i);
   });
 
-  test('uses a complete everyday placeholder in every language', () => {
+  test('uses a concrete and accessible placeholder in every language', () => {
     const zhPlaceholder = zhProfile.dialog.profilePlaceholder;
     const enPlaceholder = enProfile.dialog.profilePlaceholder;
     const frPlaceholder = frProfile.dialog.profilePlaceholder;
 
     for (const detail of [
       '可以叫我',
-      '工作之余学习',
-      '有一点基础',
-      '日常工作和生活',
-      '不知道从哪里开始',
-      '核心概念',
-      '分步骤',
-      '贴近日常的例子',
-      '容易踩的坑',
+      '一家小店工作',
+      '用 Excel 记录',
+      '会做简单表格',
+      '月度报告',
+      '先看哪些数字',
+      '选什么图表',
+      '饮料和面包',
+      '一步一步操作',
+      '检查清单',
+      '漏算退货',
+      '混淆销量和销售额',
     ]) {
       expect(zhPlaceholder).toContain(detail);
     }
@@ -132,14 +135,18 @@ describe('LearnerProfileDialog', () => {
 
     for (const detail of [
       'call me',
-      'alongside work',
-      'know a little',
-      'everyday problems',
-      'where to begin',
-      'simple language',
-      'walk through the steps',
-      'everyday examples',
-      'common pitfalls',
+      'work at a small shop',
+      'record daily sales and stock',
+      'simple spreadsheets',
+      'monthly report',
+      'which numbers to look at first',
+      'which chart to choose',
+      'drinks and bread',
+      'step by step',
+      'checklist',
+      'missing returns',
+      'sales revenue',
+      'common mistakes',
     ]) {
       expect(enPlaceholder).toContain(detail);
     }
@@ -147,14 +154,18 @@ describe('LearnerProfileDialog', () => {
 
     for (const detail of [
       'm’appeler',
-      'parallèle de mon travail',
-      'connais un peu',
-      'problèmes du quotidien',
-      'par où commencer',
-      'mots simples',
-      'puis les étapes',
-      'exemples familiers',
-      'pièges fréquents',
+      'travaille dans un petit magasin',
+      'ventes et les stocks',
+      'tableaux simples',
+      'rapport mensuel',
+      'quels chiffres regarder en premier',
+      'quel graphique choisir',
+      'boissons et de pain',
+      'étape par étape',
+      'liste de vérification',
+      'oublier les retours',
+      'chiffre d’affaires',
+      'erreurs fréquentes',
     ]) {
       expect(frPlaceholder).toContain(detail);
     }

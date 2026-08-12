@@ -55,7 +55,7 @@
     "loading": "Loading your learning profile…",
     "onboardingTitle": "Help your AI teacher understand you",
     "profileLabel": "Introduce yourself in a few sentences",
-    "profilePlaceholder": "Example: You can call me Alex. I usually study alongside work and know a little about this topic, but many ideas are still unclear to me. I want to understand it step by step and use it to solve everyday problems at work and in life; right now, I am not sure where to begin. I would like my AI teacher to explain the core idea in simple language first, then walk through the steps, use familiar everyday examples, and point out common pitfalls.",
+    "profilePlaceholder": "Example: You can call me Alex. I work at a small shop, where I use Excel to record daily sales and stock. I can make simple spreadsheets, but I have never had formal training in data analysis. I want to learn how to spot which products sell well and create a monthly report my coworkers can easily understand. Right now, I struggle to know which numbers to look at first and which chart to choose. I would like my AI teacher to explain the goal in simple language, guide me step by step using sales records for drinks and bread, finish with a checklist, and point out common mistakes such as missing returns or mixing up the number of items sold with sales revenue.",
     "promptDescription": "Choose one to add a prompt to the same introduction below, then rewrite it however you like.",
     "promptHeading": "Not sure where to start?",
     "reassurance": "It does not have to be perfect. You can add to or adjust it at any time.",
