@@ -179,9 +179,9 @@ legacy onboarding service remains in
   with at least 44-pixel actions.
 - Provide three optional writing-prompt buttons that only focus/seed the same
   textarea. The complete placeholder must cover address, durable background,
-  existing experience, current cross-topic concerns, explanation preferences,
-  familiar scenarios, trade-offs, and likely blind spots without assuming a
-  specific subject or learning task.
+  existing experience, current cross-topic concerns, explanation and tone
+  preferences, familiar scenarios, trade-offs, and likely blind spots without
+  assuming a specific subject or learning task.
 - Do not add or regenerate a database migration. Nickname already belongs to
   `user_users`.
 - Preserve legacy endpoint payloads and historical rows; focused diff checks

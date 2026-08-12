@@ -132,6 +132,7 @@ describe('LearnerProfileDialog', () => {
       '简单的话分步骤讲解',
       '办公室和日常生活',
       '不同选择的投入和效果',
+      '语气亲切直接，不要太正式',
     ]) {
       expect(zhPlaceholder).toContain(detail);
     }
@@ -164,6 +165,7 @@ describe('LearnerProfileDialog', () => {
       'step by step',
       'office and everyday life',
       'effort and results of different options',
+      'friendly, direct tone that is not too formal',
     ]) {
       expect(enPlaceholder).toContain(detail);
     }
@@ -195,6 +197,7 @@ describe('LearnerProfileDialog', () => {
       'étape par étape',
       'bureau et de la vie quotidienne',
       'effort et des résultats de chaque option',
+      'ton chaleureux et direct, sans être trop formel',
     ]) {
       expect(frPlaceholder).toContain(detail);
     }
