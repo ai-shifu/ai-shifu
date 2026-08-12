@@ -285,6 +285,11 @@
   .footer {
     display: none;
   }
+  // Footer is hidden, so the chat area must not keep reserving space for it.
+  .chatComponents {
+    height: 100%;
+    min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
+  }
 }
 
 .previewMode {
