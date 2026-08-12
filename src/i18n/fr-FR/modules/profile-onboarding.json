@@ -30,20 +30,20 @@
     "cancel": "Annuler",
     "chips": {
       "goals": {
-        "label": "Quel est votre parcours ?",
-        "text": "Mon parcours professionnel ou scolaire est… Je connais déjà…"
+        "label": "Ce qui compte pour moi aujourd’hui",
+        "text": "En ce moment, je veux… À terme, j’espère… Ma principale difficulté est… Dans la pratique, je suis limité par…"
       },
       "identity": {
-        "label": "Comment vous appeler ?",
-        "text": "Vous pouvez m’appeler…"
+        "label": "Ma situation",
+        "text": "Vous pouvez m’appeler… Je vis à… Je travaille ou j’étudie dans… Je connais bien… mais moins…"
       },
       "teaching": {
-        "label": "Comment votre enseignant IA doit-il enseigner ?",
-        "text": "J’aimerais que mon enseignant IA adopte un ton…, explique à un rythme… avec une structure… et utilise des exemples sur…"
+        "label": "Mon style de langage préféré",
+        "text": "J’aimerais que le style de langage de mon enseignant IA soit… Je préfère les formulations… et souhaite éviter…"
       }
     },
     "close": "Fermer",
-    "description": "Cette présentation aide votre enseignant IA à comprendre votre parcours, vos objectifs, vos préférences d’apprentissage et le ton que vous appréciez, afin d’adapter sa façon d’expliquer et ses exemples dans vos différentes expériences d’apprentissage.",
+    "description": "Parlez à votre enseignant IA de votre parcours, de ce qui compte pour vous aujourd’hui et du style de langage que vous préférez. Quel que soit le sujet, il pourra adapter plus naturellement ses formulations et ses interactions à votre situation.",
     "discard": "Abandonner les modifications",
     "discardDescription": "Tout contenu non enregistré sera perdu.",
     "discardTitle": "Abandonner ces modifications ?",
@@ -54,11 +54,11 @@
     "loadFailed": "Impossible de charger ces informations. Réessayez.",
     "loading": "Chargement de votre profil d’apprentissage…",
     "onboardingTitle": "Aidez votre enseignant IA à mieux vous connaître",
-    "profileLabel": "Présentez-vous en quelques phrases",
-    "profilePlaceholder": "Exemple : Vous pouvez m’appeler Camille. Je vis à Shanghai et j’ai étudié la gestion à l’université. Depuis mon diplôme, j’occupe un emploi de bureau ordinaire où je classe des documents, écris des e-mails et prépare des tableaux. Je n’ai pas de formation technique et j’ai peu de temps après le travail, mais j’ai toujours voulu construire un projet qui m’appartienne. Aujourd’hui, j’aimerais utiliser l’IA pour organiser mes idées et compléter mes connaissances, transformer mes observations sur la vie en ville et le travail en articles et petits outils utiles, puis en faire peu à peu un projet personnel durable. Les termes nouveaux et les étapes complexes me désorientent facilement. J’aimerais donc que mon enseignant IA m’explique d’abord le lien entre un sujet et cet objectif, puis me guide étape par étape avec des mots simples, des exemples du bureau et de la vie quotidienne, et une comparaison de l’effort et des résultats de chaque option, sur un ton chaleureux et direct, sans être trop formel.",
-    "promptDescription": "Choisissez une piste pour l’ajouter à la même présentation ci-dessous, puis reformulez-la librement.",
-    "promptHeading": "Vous ne savez pas par où commencer ?",
-    "reassurance": "Cette présentation n’a pas besoin d’être parfaite. Vous pourrez la compléter ou l’ajuster à tout moment.",
+    "profileLabel": "Écrivez ce que votre enseignant IA doit retenir de vous",
+    "profilePlaceholder": "Exemple : Vous pouvez m’appeler Camille. Je vis à Shanghai et j’ai étudié la gestion à l’université. Depuis mon diplôme, j’occupe un emploi de bureau ordinaire où je classe des documents, écris des e-mails et prépare des tableaux. Je n’ai pas de formation technique et j’ai peu de temps après le travail, mais j’ai toujours voulu construire un projet qui m’appartienne. Aujourd’hui, j’aimerais utiliser l’IA pour organiser mes idées et compléter mes connaissances, transformer mes observations sur la vie en ville et le travail en articles et petits outils utiles, puis en faire peu à peu un projet personnel durable. Les termes nouveaux et les formulations complexes me désorientent facilement. Je préfère que mon enseignant IA s’exprime dans un style chaleureux, direct, simple et concis, sans être trop formel ni employer de jargon inutile.",
+    "promptDescription": "Choisissez une piste pour ajouter un début ci-dessous, puis continuez à écrire ou remplacez-le par vos propres mots.",
+    "promptHeading": "Commencez par ces trois aspects",
+    "reassurance": "Vous n’avez pas besoin de tout écrire en une fois. Commencez par l’essentiel, puis complétez ou modifiez ces informations à tout moment.",
     "retry": "Recharger",
     "save": "Enregistrer le profil",
     "saveAndContinue": "Enregistrer et continuer",
@@ -67,10 +67,10 @@
     "saveSuccess": "Profil d’apprentissage enregistré",
     "saving": "Enregistrement…",
     "settingsTitle": "Mettez à jour ce que votre enseignant IA sait de vous",
-    "writingGuideGoals": "L’objectif visé, les difficultés actuelles ou le problème que vous souhaitez résoudre",
-    "writingGuideIdentity": "La façon de vous appeler, votre parcours professionnel ou personnel, ainsi que vos connaissances ou expériences",
-    "writingGuideTeaching": "La manière dont votre enseignant IA doit expliquer : ton, rythme, niveau de détail, structure, exemples ou situations préférés",
-    "writingGuideTitle": "Conseils de rédaction (facultatif)"
+    "writingGuideGoals": "Ce qui compte pour vous : objectifs proches, aspirations à long terme, difficultés actuelles et contraintes concrètes",
+    "writingGuideIdentity": "Votre situation : la façon de vous appeler, votre ville, votre métier ou domaine d’études et votre expérience",
+    "writingGuideTeaching": "Votre style de langage préféré : par exemple chaleureux et direct, léger, concis et conversationnel, ou professionnel mais facile à comprendre, ainsi que les formulations à éviter",
+    "writingGuideTitle": "Un profil utile peut inclure"
   },
   "emptyFlow": "Aucune question de profil n’est configurée.",
   "inputPlaceholder": "Saisissez votre réponse",

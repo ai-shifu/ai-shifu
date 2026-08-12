@@ -77,9 +77,13 @@ secondary action and primary save action, with no clear or overflow control.
   Rationale: the learner should experience name recognition as a background
   consequence of a natural introduction, not as another field to manage.
 - Decision: make the example concrete through durable background, current
-  concerns, and teaching preferences rather than a course-specific task.
+  concerns, and language-style preferences rather than a course-specific task.
   Rationale: the same learner profile should give any AI teacher useful
   personalization context without implying what the learner is studying.
+- Decision: do not ask learners to prescribe teaching pace, structure,
+  examples, or interaction patterns in their profile.
+  Rationale: the learner owns personal context and language-style preferences;
+  the course teacher owns how the subject is taught.
 - Decision: portray a relatable office worker in a recognizable city, with a
   common degree and an AI-supported personal ambition.
   Rationale: direct user review preferred an ordinary, specific person whose
@@ -179,12 +183,13 @@ legacy onboarding service remains in
   with at least 44-pixel actions.
 - Provide three optional writing-prompt buttons that only focus/seed the same
   textarea. The complete placeholder must cover address, durable background,
-  existing experience, current cross-topic concerns, explanation and tone
-  preferences, familiar scenarios, trade-offs, and likely blind spots without
-  assuming a specific subject or learning task.
-- Mention tone preferences outside the placeholder as well: the dialog
-  description, teaching prompt, and writing guide must all make this capability
-  discoverable.
+  existing experience, current cross-topic concerns, practical constraints,
+  ambitions, and language-style preferences without assuming a specific
+  subject or prescribing a teaching method.
+- Mention language-style preferences outside the placeholder as well: the
+  dialog description, third writing prompt, and writing guide must make this
+  capability discoverable while leaving teaching decisions to the course
+  teacher.
 - Do not add or regenerate a database migration. Nickname already belongs to
   `user_users`.
 - Preserve legacy endpoint payloads and historical rows; focused diff checks

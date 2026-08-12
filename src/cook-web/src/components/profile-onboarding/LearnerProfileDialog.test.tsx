@@ -96,31 +96,64 @@ describe('LearnerProfileDialog', () => {
 
     expect(zhProfile.dialog.onboardingTitle).toContain('AI 老师');
     expect(zhProfile.dialog.description).toContain('AI 老师');
-    expect(zhProfile.dialog.description).toContain('喜欢的交流语气');
-    expect(zhProfile.dialog.chips.teaching.label).toContain('AI 老师怎么教');
+    expect(zhProfile.dialog.description).toContain('喜欢的语言风格');
+    expect(zhProfile.dialog.promptHeading).toBe('可以从这三方面写起');
+    expect(zhProfile.dialog.chips.identity.label).toBe('我的情况');
+    expect(zhProfile.dialog.chips.goals.label).toBe('我最近在意什么');
+    expect(zhProfile.dialog.chips.teaching.label).toBe('我喜欢的语言风格');
     expect(zhProfile.dialog.chips.teaching.text).toContain('AI 老师');
-    expect(zhProfile.dialog.chips.teaching.text).toContain('语气');
-    expect(zhProfile.dialog.writingGuideTeaching).toContain('AI 老师');
-    expect(zhProfile.dialog.writingGuideTeaching).toContain('语气');
+    expect(zhProfile.dialog.chips.teaching.text).toContain('语言风格');
+    expect(zhProfile.dialog.writingGuideTeaching).toContain('语言风格');
+    expect(zhProfile.dialog.writingGuideTeaching).toContain('希望避免的表达');
+    expect(zhProfile.dialog.profileLabel).toContain('长期了解');
     expect(JSON.stringify(zhProfile.dialog)).not.toContain('课程');
+    expect(JSON.stringify(zhProfile.dialog)).not.toMatch(
+      /节奏|结构|分步骤|多提问/,
+    );
+
     expect(enProfile.dialog.description).toContain('AI teacher');
-    expect(enProfile.dialog.description).toContain('preferred tone');
-    expect(enProfile.dialog.chips.teaching.label).toContain('AI teacher teach');
+    expect(enProfile.dialog.description).toContain('language style');
+    expect(enProfile.dialog.promptHeading).toBe('Start with these three areas');
+    expect(enProfile.dialog.chips.identity.label).toBe('About me');
+    expect(enProfile.dialog.chips.goals.label).toBe('What matters to me now');
+    expect(enProfile.dialog.chips.teaching.label).toBe(
+      'My preferred language style',
+    );
     expect(enProfile.dialog.chips.teaching.text).toContain('AI teacher');
-    expect(enProfile.dialog.chips.teaching.text).toContain('tone');
-    expect(enProfile.dialog.writingGuideTeaching).toContain('AI teacher');
-    expect(enProfile.dialog.writingGuideTeaching).toContain('tone');
+    expect(enProfile.dialog.chips.teaching.text).toContain('language style');
+    expect(enProfile.dialog.writingGuideTeaching).toContain('language style');
+    expect(enProfile.dialog.writingGuideTeaching).toContain(
+      'wording you want to avoid',
+    );
+    expect(enProfile.dialog.profileLabel).toContain('remember about you');
     expect(JSON.stringify(enProfile.dialog)).not.toMatch(/\bcourses?\b/i);
+    expect(JSON.stringify(enProfile.dialog)).not.toMatch(
+      /teaching pace|teaching structure|step by step|ask more questions/i,
+    );
+
     expect(frProfile.dialog.description).toContain('enseignant IA');
-    expect(frProfile.dialog.description).toContain('ton que vous appréciez');
-    expect(frProfile.dialog.chips.teaching.label).toContain(
-      'enseignant IA doit-il enseigner',
+    expect(frProfile.dialog.description).toContain('style de langage');
+    expect(frProfile.dialog.promptHeading).toBe(
+      'Commencez par ces trois aspects',
+    );
+    expect(frProfile.dialog.chips.identity.label).toBe('Ma situation');
+    expect(frProfile.dialog.chips.goals.label).toBe(
+      'Ce qui compte pour moi aujourd’hui',
+    );
+    expect(frProfile.dialog.chips.teaching.label).toBe(
+      'Mon style de langage préféré',
     );
     expect(frProfile.dialog.chips.teaching.text).toContain('enseignant IA');
-    expect(frProfile.dialog.chips.teaching.text).toContain('ton');
-    expect(frProfile.dialog.writingGuideTeaching).toContain('enseignant IA');
-    expect(frProfile.dialog.writingGuideTeaching).toContain('ton');
+    expect(frProfile.dialog.chips.teaching.text).toContain('style de langage');
+    expect(frProfile.dialog.writingGuideTeaching).toContain('style de langage');
+    expect(frProfile.dialog.writingGuideTeaching).toContain(
+      'formulations à éviter',
+    );
+    expect(frProfile.dialog.profileLabel).toContain('doit retenir de vous');
     expect(JSON.stringify(frProfile.dialog)).not.toMatch(/\bcours\b/i);
+    expect(JSON.stringify(frProfile.dialog)).not.toMatch(
+      /rythme d’enseignement|structure d’enseignement|étape par étape|poser plus de questions/i,
+    );
   });
 
   test('uses the approved relatable cross-course placeholder in every language', () => {
@@ -141,12 +174,10 @@ describe('LearnerProfileDialog', () => {
       '城市生活和职场的观察',
       '文章和小工具',
       '长期投入的个人事业',
-      '术语和复杂步骤',
-      '和这个目标有什么关系',
-      '简单的话分步骤讲解',
-      '办公室和日常生活',
-      '不同选择的投入和效果',
-      '语气亲切直接，不要太正式',
+      '术语和复杂表述',
+      '语言风格亲切直接、口语化、简洁',
+      '不要太正式',
+      '少用不必要的术语',
     ]) {
       expect(zhPlaceholder).toContain(detail);
     }
@@ -157,6 +188,9 @@ describe('LearnerProfileDialog', () => {
       '销售额',
       '产品经理',
       'AI 产品',
+      '分步骤',
+      '讲解结构',
+      '多提问',
     ]) {
       expect(zhPlaceholder).not.toContain(courseSpecificDetail);
     }
@@ -174,12 +208,10 @@ describe('LearnerProfileDialog', () => {
       'observations about city life and work',
       'useful articles and small tools',
       'personal project I can pursue for years',
-      'terminology and complicated steps',
-      'topic relates to this goal',
-      'step by step',
-      'office and everyday life',
-      'effort and results of different options',
-      'friendly, direct tone that is not too formal',
+      'terminology and complicated wording',
+      'friendly, direct, conversational, and concise language style',
+      'not too formal',
+      'avoids unnecessary jargon',
     ]) {
       expect(enPlaceholder).toContain(detail);
     }
@@ -189,6 +221,9 @@ describe('LearnerProfileDialog', () => {
       'monthly report',
       'sales revenue',
       'AI products',
+      'step by step',
+      'teaching structure',
+      'ask more questions',
     ]) {
       expect(enPlaceholder).not.toContain(courseSpecificDetail);
     }
@@ -206,12 +241,10 @@ describe('LearnerProfileDialog', () => {
       'observations sur la vie en ville et le travail',
       'articles et petits outils utiles',
       'projet personnel durable',
-      'termes nouveaux et les étapes complexes',
-      'lien entre un sujet et cet objectif',
-      'étape par étape',
-      'bureau et de la vie quotidienne',
-      'effort et des résultats de chaque option',
-      'ton chaleureux et direct, sans être trop formel',
+      'termes nouveaux et les formulations complexes',
+      'style chaleureux, direct, simple et concis',
+      'sans être trop formel',
+      'jargon inutile',
     ]) {
       expect(frPlaceholder).toContain(detail);
     }
@@ -221,6 +254,9 @@ describe('LearnerProfileDialog', () => {
       'rapport mensuel',
       'chiffre d’affaires',
       'produits IA',
+      'étape par étape',
+      'structure d’enseignement',
+      'poser plus de questions',
     ]) {
       expect(frPlaceholder).not.toContain(courseSpecificDetail);
     }

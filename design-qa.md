@@ -26,12 +26,11 @@
   and overflow action from the active dialog.
 - Chinese, English, and French copy consistently refers to the AI teacher. The
   approved example presents a relatable office worker in Shanghai, a common
-  university background, an AI-supported personal ambition, and teaching
-  preferences, including tone, that any subject can reuse instead of assuming
-  a course task.
-- The dialog description, teaching prompt, and writing guide also name tone as
-  an editable preference, so the capability is discoverable without reading
-  the full example.
+  university background, an AI-supported personal ambition, and a preferred
+  language style that any subject can reuse instead of assuming a course task.
+- The dialog description, third prompt, and writing guide make language style
+  discoverable without asking the learner to set teaching pace, structure,
+  examples, or interaction patterns; those remain the course teacher’s domain.
 - Component tests assert the structural properties above, focus behavior,
   minimum action height, and dialog semantics. These checks do not replace a
   browser-rendered pixel comparison.

@@ -30,20 +30,20 @@
     "cancel": "Cancel",
     "chips": {
       "goals": {
-        "label": "What's your background?",
-        "text": "My work or study background is… I already understand…"
+        "label": "What matters to me now",
+        "text": "Right now, I want to… Ultimately, I hope to… My biggest challenge is… In practice, I am limited by…"
       },
       "identity": {
-        "label": "What should we call you?",
-        "text": "You can call me…"
+        "label": "About me",
+        "text": "You can call me… I live in… I work or study in… I am familiar with… but know less about…"
       },
       "teaching": {
-        "label": "How should your AI teacher teach?",
-        "text": "I would like my AI teacher to use a… tone, explain at a… pace with a… structure, and use examples about…"
+        "label": "My preferred language style",
+        "text": "I would like my AI teacher's language style to be… Please use more… wording and avoid…"
       }
     },
     "close": "Close",
-    "description": "This introduction helps your AI teacher understand your background, goals, learning preferences, and preferred tone, so you receive explanations and examples delivered in a way that fits you better across learning experiences.",
+    "description": "Tell your AI teacher about your background, what matters to you now, and the language style you prefer. Whatever you learn, it can relate its wording and interactions more naturally to your situation.",
     "discard": "Discard changes",
     "discardDescription": "Anything you have not saved will be lost.",
     "discardTitle": "Discard these changes?",
@@ -54,11 +54,11 @@
     "loadFailed": "Could not load these details. Try again.",
     "loading": "Loading your learning profile…",
     "onboardingTitle": "Help your AI teacher understand you",
-    "profileLabel": "Introduce yourself in a few sentences",
-    "profilePlaceholder": "Example: You can call me Alex. I live in Shanghai and studied business administration at university. Since graduating, I have had a regular office job, mostly organizing documents, writing emails, and making spreadsheets. I do not have a technical background and have limited time after work, but I have always wanted to build something of my own. Recently, I hope to use AI to organize my ideas and fill gaps in my knowledge, turning my observations about city life and work into useful articles and small tools, and gradually developing a personal project I can pursue for years. New terminology and complicated steps can easily overwhelm me, so I would like my AI teacher to first explain how a topic relates to this goal, then teach it step by step in plain language with examples from office and everyday life, and compare the effort and results of different options. Please use a friendly, direct tone that is not too formal.",
-    "promptDescription": "Choose one to add a prompt to the same introduction below, then rewrite it however you like.",
-    "promptHeading": "Not sure where to start?",
-    "reassurance": "It does not have to be perfect. You can add to or adjust it at any time.",
+    "profileLabel": "Write what you want your AI teacher to remember about you",
+    "profilePlaceholder": "Example: You can call me Alex. I live in Shanghai and studied business administration at university. Since graduating, I have had a regular office job, mostly organizing documents, writing emails, and making spreadsheets. I do not have a technical background and have limited time after work, but I have always wanted to build something of my own. Recently, I hope to use AI to organize my ideas and fill gaps in my knowledge, turning my observations about city life and work into useful articles and small tools, and gradually developing a personal project I can pursue for years. New terminology and complicated wording can easily overwhelm me. I prefer my AI teacher to use a friendly, direct, conversational, and concise language style that is not too formal and avoids unnecessary jargon.",
+    "promptDescription": "Choose one to add an opening below, then continue writing or replace it with your own words.",
+    "promptHeading": "Start with these three areas",
+    "reassurance": "You do not need to write everything at once. Start with what matters most, then add to or change it at any time.",
     "retry": "Reload",
     "save": "Save profile",
     "saveAndContinue": "Save and continue",
@@ -67,10 +67,10 @@
     "saveSuccess": "Learning profile saved",
     "saving": "Saving…",
     "settingsTitle": "Update what your AI teacher knows about you",
-    "writingGuideGoals": "The goal you want to reach, your current challenges, or the problem you want to solve",
-    "writingGuideIdentity": "What to call you, your work or life background, and what you already know or have experienced",
-    "writingGuideTeaching": "How you want your AI teacher to explain things, including tone, pace, detail, structure, and preferred examples or scenarios",
-    "writingGuideTitle": "Writing guide (optional)"
+    "writingGuideGoals": "What matters to you: short-term goals, long-term ambitions, current challenges, and practical constraints",
+    "writingGuideIdentity": "About you: what to call you, your city, work or field of study, and relevant experience",
+    "writingGuideTeaching": "Your preferred language style: for example friendly and direct, lighthearted, concise and conversational, or professional but easy to understand, plus wording you want to avoid",
+    "writingGuideTitle": "A useful profile can include"
   },
   "emptyFlow": "No profile questions are configured.",
   "inputPlaceholder": "Type your answer",
