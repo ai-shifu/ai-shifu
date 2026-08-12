@@ -467,9 +467,13 @@ def _load_legacy_learner_profile_values(user: UserEntity) -> dict[str, str]:
 def get_learner_profile(*, user_id: str) -> dict[str, Any]:
     user = load_learner_profile_user(user_id)
     serialized = serialize_learner_profile(user)
+    has_handled_profile = (
+        not serialized["has_learner_profile"]
+        and load_learner_profile_state(user.user_bid) is not None
+    )
     serialized["legacy_profile_values"] = (
         {}
-        if serialized["has_learner_profile"]
+        if serialized["has_learner_profile"] or has_handled_profile
         else _load_legacy_learner_profile_values(user)
     )
     return serialized

@@ -15,7 +15,9 @@ updated in the same transaction without adding a second editable field.
 The selected visual truth began with the revised option-three mock at
 `docs/assets/learner-profile-dialog-approved-reference.png`
 and was refined by direct user feedback: the active dialog has only its
-secondary action and primary save action, with no clear or overflow control.
+secondary action and primary save action, with no separate clear or overflow
+control. Deliberately emptying a loaded draft and choosing save performs the
+canonical clear through that primary action.
 
 ## Progress
 
@@ -32,7 +34,7 @@ secondary action and primary save action, with no clear or overflow control.
 - [x] 2026-08-12 06:20 CST: Add background nickname recognition and atomic
       user-info synchronization without displaying parsing metadata.
 - [x] 2026-08-12: Refine the selected visual target from direct user feedback
-      so the active dialog exposes no clear or overflow action.
+      so the active dialog exposes no separate clear or overflow control.
 - [x] 2026-08-12 16:05 CST: Tighten desktop header/body/footer spacing and the
       empty editor height. The selected in-app browser measured the open dialog
       body at `575px` for both client and scroll height with `scrollTop = 0`, so
@@ -51,10 +53,14 @@ secondary action and primary save action, with no clear or overflow control.
       settings that learner requests personalize only within the human
       teacher's course design; failure and delayed-refresh feedback remain
       visible.
+- [x] 2026-08-13: Let learners deliberately empty a loaded profile and save
+      that choice through the existing DELETE contract. Reuse the existing
+      profile-v2 handled state so legacy values seed only never-handled
+      profiles and do not reappear after an explicit clear.
 - [ ] 2026-08-12 06:20 CST: Focused backend/frontend behavior, type-check,
-      ESLint, Ruff, translation, architecture, repository harness, and production
-      build checks pass. Desktop browser verification is complete; mobile
-      comparison and visible interaction exercise remain.
+      ESLint, Ruff, translation, architecture, repository harness, and
+      production build checks pass. Desktop browser verification is complete;
+      mobile comparison and visible interaction exercise remain.
 
 ## Surprises & Discoveries
 
@@ -75,9 +81,10 @@ secondary action and primary save action, with no clear or overflow control.
 - Eligibility and profile requests can outlive account or dialog-mode changes.
   Runtime readiness therefore has to be keyed by account, not held as a single
   boolean, and user-info refresh must reject stale token or user-ID results.
-- A canonical clear remains a handled profile mutation for compatibility, but
-  the redesigned dialog no longer exposes it. The modern DELETE endpoint and
-  legacy `LearnerProfileSettingsSection` clear flow remain stable interfaces.
+- A canonical clear remains a handled profile mutation for compatibility. The
+  redesigned dialog offers no separate clear control; deleting all loaded text
+  and pressing save invokes the modern DELETE endpoint. The legacy
+  `LearnerProfileSettingsSection` clear flow remains a stable interface.
 - MarkdownFlow 0.3.1 accepts one `document_prompt` string and places it in its
   existing system-message assembly, so the three-block envelope requires no
   provider or library API change. Its tags express composition semantics rather
@@ -92,8 +99,8 @@ secondary action and primary save action, with no clear or overflow control.
 - Decision: show only the context-appropriate secondary action and primary
   save action in the redesigned dialog; do not expose clear or overflow UI.
   Rationale: direct user feedback preferred a simpler active flow. The modern
-  DELETE API and legacy settings-section clear behavior stay available as
-  compatibility contracts rather than dialog actions.
+  DELETE API backs an intentionally empty save, while the legacy
+  settings-section clear behavior stays available as a compatibility contract.
 - Decision: keep exactly one stored learner-profile text and show no parsed
   nickname or derived metadata in the dialog.
   Rationale: the learner should experience name recognition as a background
@@ -125,12 +132,15 @@ secondary action and primary save action, with no clear or overflow control.
   their definitions, rows, endpoints, parser, or runtime resolution.
   Rationale: old courses and rolling deployments still depend on those
   contracts.
-- Decision: when the canonical profile is empty, expose only the latest global
-  values of the three legacy variables to the current user and compose them
-  into a localized, editable draft without auto-saving it.
+- Decision: when the canonical profile is empty and no fixed profile-v2 state
+  exists, expose only the latest global values of the three legacy variables
+  to the current user and compose them into a localized, editable draft without
+  auto-saving it. Once the existing profile-v2 state records an explicit clear,
+  keep the editor empty instead of restoring those legacy values.
   Rationale: existing learners start from information they already provided,
-  while canonical profiles remain authoritative and course-scoped legacy data
-  never leaks into the new cross-course profile.
+  while an explicit empty save remains durable without adding new persistence;
+  canonical profiles remain authoritative and course-scoped legacy data never
+  leaks into the new cross-course profile.
 - Decision: when a canonical profile is available, serialize the effective
   `document_prompt` as a platform-owned composition contract followed by an
   unmodified teacher-authored Course Prompt block and a JSON-encoded learner
@@ -251,7 +261,7 @@ legacy onboarding service remains in
 - The dialog contains one learner-profile textarea, complete cross-course
   example guidance,
   a context-appropriate secondary action and primary save action, inline error
-  and retry states, and no clear/overflow or editable/parsed
+  and retry states, and no separate clear/overflow or editable/parsed
   nickname/background/style controls.
 - Saving a moderated profile writes profile, profile-v2 handled state, and the
   safely derived nickname atomically; no recognizable name stores an empty
@@ -262,8 +272,9 @@ legacy onboarding service remains in
   course variable resolution, Teaching, Ask, and preview behavior remain
   covered.
 - The modern DELETE endpoint and the legacy `LearnerProfileSettingsSection`
-  clear behavior remain stable compatibility interfaces even though the active
-  dialog does not expose a clear action.
+  clear behavior remain stable compatibility interfaces. The active dialog
+  invokes DELETE only when a learner deliberately empties a loaded draft and
+  presses its normal save action; it exposes no separate clear control.
 - Direct menu editing and first-time presentation share account-switch and
   late-response guards. Load failure is recoverable and never blocks the
   lesson.
@@ -286,8 +297,8 @@ hunk; never reset the entire worktree or touch another worktree.
   row; no schema change.
 - Backend: stable `GET|PUT|DELETE /api/user/learner-profile`, legacy
   `GET|POST /api/user/profile-onboarding[/complete]`, canonical moderation and
-  unit-of-work helpers. DELETE remains a compatibility interface and is not an
-  action in the redesigned dialog.
+  unit-of-work helpers. DELETE remains a compatibility interface used by the
+  redesigned dialog's deliberately empty save, without adding a clear button.
 - Frontend: shared `LearnerProfileDialog`, modern learner-profile API,
   `useUserStore.refreshUserInfo`, `learner-profile-changed`, account menu and
   course onboarding gate.

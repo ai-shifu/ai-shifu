@@ -42,13 +42,17 @@
 
 - Load, retry, save, discard, dismiss, duplicate-action, and stale response
   behavior are covered by focused dialog tests.
+- Deleting every character from a loaded profile keeps the normal save action
+  available and clears the canonical profile without adding a separate clear
+  button; an initially empty editor still cannot send a no-op clear.
 - Settings and first-time presentation share the same dialog while preserving
   their distinct save/dismiss contracts.
 - Account and dialog-mode switches remount the editor so discarded text cannot
   cross scopes.
 - Compatibility tests retain the modern DELETE contract and the legacy
-  `LearnerProfileSettingsSection` clear flow; neither is exposed as an action
-  in the redesigned dialog.
+  `LearnerProfileSettingsSection` clear flow. The redesigned dialog has no
+  separate clear action, but its normal save action uses DELETE for a
+  deliberately emptied loaded draft.
 
 ## Remaining Visual QA
 

@@ -3,7 +3,11 @@
 import React from 'react';
 import { BriefcaseBusiness, Info, Target, UserRound, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { getLearnerProfile, updateLearnerProfile } from '@/api/learnerProfile';
+import {
+  clearLearnerProfile,
+  getLearnerProfile,
+  updateLearnerProfile,
+} from '@/api/learnerProfile';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -194,9 +198,11 @@ export default function LearnerProfileDialog({
     }
 
     const normalized = profile.trim();
-    if (!normalized) {
-      setError(t('module.profileOnboarding.dialog.emptyProfile'));
-      textareaRef.current?.focus();
+    const clearingLoadedProfile =
+      !normalized &&
+      Boolean(initialProfile.trim()) &&
+      normalized !== initialProfile;
+    if (!normalized && !clearingLoadedProfile) {
       return;
     }
     if (countUnicodeCodePoints(normalized) > maxLength) {
@@ -209,7 +215,9 @@ export default function LearnerProfileDialog({
     setSaving(true);
     setError('');
     try {
-      const response = await updateLearnerProfile(normalized);
+      const response = clearingLoadedProfile
+        ? await clearLearnerProfile()
+        : await updateLearnerProfile(normalized);
       if (!isCurrent(generation, scope)) {
         return;
       }
@@ -238,6 +246,7 @@ export default function LearnerProfileDialog({
     }
   }, [
     draftStorageScope,
+    initialProfile,
     isCurrent,
     loaded,
     maxLength,
@@ -252,14 +261,15 @@ export default function LearnerProfileDialog({
   const dirty = loaded && normalizedProfile !== initialProfile;
   const busy = saving || dismissing;
   const profileLength = countUnicodeCodePoints(normalizedProfile);
-  const canExplainEmptySettingsProfile =
-    mode === 'settings' && !normalizedProfile && Boolean(savedProfile);
+  const canClearLoadedProfile =
+    !normalizedProfile && Boolean(initialProfile.trim()) && dirty;
+  const canSaveProfile =
+    Boolean(normalizedProfile) && normalizedProfile !== savedProfile;
   const canSave =
     loaded &&
     !busy &&
-    (Boolean(normalizedProfile) || canExplainEmptySettingsProfile) &&
     profileLength <= maxLength &&
-    normalizedProfile !== savedProfile;
+    (canSaveProfile || canClearLoadedProfile);
 
   const dismiss = React.useCallback(async () => {
     if (busy) {

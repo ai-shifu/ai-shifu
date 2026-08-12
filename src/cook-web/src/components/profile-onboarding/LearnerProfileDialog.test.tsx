@@ -6,7 +6,11 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { getLearnerProfile, updateLearnerProfile } from '@/api/learnerProfile';
+import {
+  clearLearnerProfile,
+  getLearnerProfile,
+  updateLearnerProfile,
+} from '@/api/learnerProfile';
 import { LEARNER_PROFILE_CHANGED_EVENT } from '@/lib/learnerProfileEvents';
 import LearnerProfileDialog from './LearnerProfileDialog';
 import enProfile from '../../../../i18n/en-US/modules/profile-onboarding.json';
@@ -30,6 +34,7 @@ let mockT = translateKey;
 let mockLanguage = 'en-US';
 
 jest.mock('@/api/learnerProfile', () => ({
+  clearLearnerProfile: jest.fn(),
   getLearnerProfile: jest.fn(),
   updateLearnerProfile: jest.fn(),
 }));
@@ -48,6 +53,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+const mockClearLearnerProfile = clearLearnerProfile as jest.Mock;
 const mockGetLearnerProfile = getLearnerProfile as jest.Mock;
 const mockUpdateLearnerProfile = updateLearnerProfile as jest.Mock;
 
@@ -55,6 +61,13 @@ const existingProfile = {
   learner_profile: 'Existing learner introduction',
   learner_profile_updated_at: '2026-08-11T01:00:00Z',
   has_learner_profile: true,
+  max_length: 1000,
+};
+
+const clearedProfile = {
+  learner_profile: '',
+  learner_profile_updated_at: null,
+  has_learner_profile: false,
   max_length: 1000,
 };
 
@@ -76,6 +89,7 @@ describe('LearnerProfileDialog', () => {
     jest.clearAllMocks();
     mockT = translateKey;
     mockLanguage = 'en-US';
+    mockClearLearnerProfile.mockResolvedValue(clearedProfile);
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
   });
 
@@ -300,7 +314,7 @@ describe('LearnerProfileDialog', () => {
     }
   });
 
-  test('prefills an empty canonical profile from legacy system variables', async () => {
+  test('lets onboarding clear a legacy-prefilled draft and save it as handled', async () => {
     mockT = (key, params) => {
       const value = String(params?.value || '');
       const legacyPrefill = {
@@ -321,30 +335,29 @@ describe('LearnerProfileDialog', () => {
         sys_user_style: '亲切直接',
       },
     });
-    const { props } = renderDialog();
+    const onSaved = jest.fn();
+    const { props } = renderDialog({ mode: 'onboarding', onSaved });
 
     await waitFor(() => {
       expect(screen.getByRole('textbox')).toHaveValue(
         '可以叫我 小林。\n我的背景：办公室工作\n我喜欢的语言风格：亲切直接',
       );
     });
-    expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    ).toBeEnabled();
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.cancel',
-      }),
-    );
-    await waitFor(() => {
-      expect(props.onClose).toHaveBeenCalledWith('dismiss');
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveAndContinue',
     });
-    expect(
-      screen.queryByText('module.profileOnboarding.dialog.discardTitle'),
-    ).not.toBeInTheDocument();
+    expect(save).toBeEnabled();
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '' } });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+
+    await waitFor(() => {
+      expect(mockClearLearnerProfile).toHaveBeenCalledTimes(1);
+      expect(props.onClose).toHaveBeenCalledWith('saved');
+    });
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
   test('keeps an existing canonical profile instead of legacy values', async () => {
@@ -497,8 +510,19 @@ describe('LearnerProfileDialog', () => {
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
-  test('shows the empty-profile guidance after deleting an existing profile', async () => {
-    renderDialog();
+  test('clears a saved profile, refreshes consumers, and closes in order', async () => {
+    const calls: string[] = [];
+    const onClose = jest.fn((reason: 'dismiss' | 'saved') => {
+      calls.push(`close:${reason}`);
+    });
+    const onSaved = jest.fn(() => {
+      calls.push('saved');
+    });
+    const onProfileChanged = jest.fn(() => {
+      calls.push('event');
+    });
+    window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
+    renderDialog({ onClose, onSaved });
     const editor = await screen.findByDisplayValue(
       existingProfile.learner_profile,
     );
@@ -511,10 +535,62 @@ describe('LearnerProfileDialog', () => {
     expect(save).toBeEnabled();
     fireEvent.click(save);
 
-    expect(
-      screen.getByText('module.profileOnboarding.dialog.emptyProfile'),
-    ).toBeInTheDocument();
-    expect(editor).toHaveFocus();
+    await waitFor(() => {
+      expect(mockClearLearnerProfile).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledWith('saved');
+    });
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onProfileChanged).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(['event', 'saved', 'close:saved']);
+    expect(mockToast).not.toHaveBeenCalled();
+    window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
+  });
+
+  test('keeps the dialog open when clearing a profile fails', async () => {
+    mockClearLearnerProfile.mockRejectedValueOnce(
+      new Error('clear request failed'),
+    );
+    const onSaved = jest.fn();
+    const onClose = jest.fn();
+    renderDialog({ onClose, onSaved });
+    const editor = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveChanges',
+    });
+
+    fireEvent.change(editor, { target: { value: '' } });
+    fireEvent.click(save);
+
+    expect(await screen.findByText('clear request failed')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(save).toBeEnabled();
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  test('does not save when both canonical and legacy profile values load empty', async () => {
+    mockGetLearnerProfile.mockResolvedValue({
+      ...clearedProfile,
+      learner_profile_updated_at: null,
+      legacy_profile_values: {},
+    });
+    renderDialog({ mode: 'onboarding' });
+    const editor = screen.getByRole('textbox');
+    await waitFor(() => expect(editor).toBeEnabled());
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveAndContinue',
+    });
+
+    expect(editor).toHaveValue('');
+    expect(save).toBeDisabled();
+    fireEvent.change(editor, { target: { value: '   ' } });
+    expect(save).toBeDisabled();
+    expect(mockClearLearnerProfile).not.toHaveBeenCalled();
     expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
   });
 
@@ -684,6 +760,70 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.queryByDisplayValue(existingProfile.learner_profile),
     ).toBeNull();
+  });
+
+  test('does not notify or close when a clear resolves after the account changes', async () => {
+    let resolveClear: (value: typeof clearedProfile) => void = () => undefined;
+    mockClearLearnerProfile.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveClear = resolve;
+        }),
+    );
+    mockGetLearnerProfile
+      .mockResolvedValueOnce(existingProfile)
+      .mockResolvedValueOnce({
+        ...existingProfile,
+        learner_profile: 'User B introduction',
+      });
+    const onSaved = jest.fn();
+    const onClose = jest.fn();
+    const onProfileChanged = jest.fn();
+    window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
+    const { rerender } = render(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-a'
+        onClose={onClose}
+        onSaved={onSaved}
+      />,
+    );
+    const editor = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+    fireEvent.change(editor, { target: { value: '' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.saveChanges',
+      }),
+    );
+    await waitFor(() =>
+      expect(mockClearLearnerProfile).toHaveBeenCalledTimes(1),
+    );
+
+    rerender(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-b'
+        onClose={onClose}
+        onSaved={onSaved}
+      />,
+    );
+    expect(
+      await screen.findByDisplayValue('User B introduction'),
+    ).toBeEnabled();
+    await act(async () => {
+      resolveClear(clearedProfile);
+    });
+
+    expect(screen.getByRole('textbox')).toHaveValue('User B introduction');
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onProfileChanged).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+    window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
   test('preserves an unsaved draft when the interface language changes', async () => {

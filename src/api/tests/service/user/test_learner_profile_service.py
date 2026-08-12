@@ -684,6 +684,7 @@ def test_clear_profile_keeps_v2_completed_and_preserves_legacy_values(app):
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_VERSION,
         clear_learner_profile,
+        get_learner_profile,
     )
 
     with app.app_context():
@@ -717,6 +718,7 @@ def test_clear_profile_keeps_v2_completed_and_preserves_legacy_values(app):
         db.session.commit()
 
         result = clear_learner_profile(user_id=user_bid)
+        loaded = get_learner_profile(user_id=user_bid)
         user = UserInfo.query.filter_by(user_bid=user_bid).one()
         state = UserOnboardingState.query.filter_by(
             user_bid=user_bid,
@@ -729,6 +731,7 @@ def test_clear_profile_keeps_v2_completed_and_preserves_legacy_values(app):
     assert result["trigger_source"] == "settings"
     assert result["learner_profile"] == ""
     assert result["learner_profile_updated_at"] is None
+    assert loaded["legacy_profile_values"] == {}
     assert user.learner_profile == ""
     assert user.learner_profile_updated_at is None
     assert user.nickname == ""
