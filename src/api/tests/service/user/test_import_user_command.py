@@ -16,7 +16,7 @@ from flaskr.util.datetime import now_utc
 
 
 @pytest.mark.parametrize("canonical_source", ["profile", "cleared-state"])
-def test_import_user_preserves_canonical_profile_nickname(
+def test_import_user_keeps_pre_profile_nickname_behavior(
     app,
     monkeypatch,
     canonical_source,
@@ -35,9 +35,10 @@ def test_import_user_preserves_canonical_profile_nickname(
     )
 
     with app.app_context():
+        mobile = "13990001001" if canonical_source == "profile" else "13990001002"
         user = create_user_entity(
             user_bid=f"import-user-{canonical_source}",
-            identify="13800138006",
+            identify=mobile,
             nickname="Canonical Name",
             learner_profile=(
                 "Please call me Canonical Name."
@@ -54,9 +55,9 @@ def test_import_user_preserves_canonical_profile_nickname(
             app,
             user_bid=user.user_bid,
             provider_name="phone",
-            subject_id="13800138006",
+            subject_id=mobile,
             subject_format="phone",
-            identifier="13800138006",
+            identifier=mobile,
             metadata={},
             verified=True,
         )
@@ -75,7 +76,7 @@ def test_import_user_preserves_canonical_profile_nickname(
 
         import_user(
             app,
-            "13800138006",
+            mobile,
             "course-for-import",
             user_nick_name="Imported Name",
         )
@@ -83,10 +84,10 @@ def test_import_user_preserves_canonical_profile_nickname(
         stored_user = db.session.get(UserInfo, user.id)
 
         assert stored_user is not None
-        assert stored_user.nickname == "Canonical Name"
+        assert stored_user.nickname == "Imported Name"
 
 
-def test_import_user_locks_canonical_profile_before_nickname_defaults(
+def test_import_user_does_not_consult_profile_state_before_nickname_defaults(
     app,
     monkeypatch,
 ):
@@ -104,9 +105,10 @@ def test_import_user_locks_canonical_profile_before_nickname_defaults(
     )
 
     with app.app_context():
+        mobile = "13990001003"
         user = create_user_entity(
             user_bid="import-user-lock-order",
-            identify="13800138007",
+            identify=mobile,
             nickname="Canonical Name",
             language="zh-CN",
             state=USER_STATE_REGISTERED,
@@ -115,9 +117,9 @@ def test_import_user_locks_canonical_profile_before_nickname_defaults(
             app,
             user_bid=user.user_bid,
             provider_name="phone",
-            subject_id="13800138007",
+            subject_id=mobile,
             subject_format="phone",
-            identifier="13800138007",
+            identifier=mobile,
             metadata={},
             verified=True,
         )
@@ -176,23 +178,16 @@ def test_import_user_locks_canonical_profile_before_nickname_defaults(
 
         import_user(
             app,
-            "13800138007",
+            mobile,
             "course-for-import",
             user_nick_name="Imported Name",
         )
 
-        profile_snapshot_reads = [
-            read
-            for read in reads_before_ensure
-            if read[0] in {"user_users", "user_onboarding_states"}
-        ]
-        assert profile_snapshot_reads[:3] == [
-            ("user_users", "13800138007", False, False),
-            ("user_users", user.user_bid, True, True),
-            ("user_onboarding_states", user.user_bid, True, True),
-        ]
+        assert not any(
+            read[0] == "user_onboarding_states" for read in reads_before_ensure
+        )
 
         db.session.expire_all()
         stored_user = db.session.get(UserInfo, user.id)
         assert stored_user is not None
-        assert stored_user.nickname == "Canonical Name"
+        assert stored_user.nickname == "Imported Name"

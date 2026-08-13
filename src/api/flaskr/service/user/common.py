@@ -84,6 +84,7 @@ def update_user_info(
         updates_profile = {}
         update_profile = False
         if name is not None:
+            updates["nickname"] = name
             updates_profile["sys_user_nickname"] = name
             update_profile = True
         if language is not None:

@@ -3,11 +3,7 @@
 import React from 'react';
 import { BriefcaseBusiness, Info, Target, UserRound, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import {
-  clearLearnerProfile,
-  getLearnerProfile,
-  updateLearnerProfile,
-} from '@/api/learnerProfile';
+import { getLearnerProfile, updateLearnerProfile } from '@/api/learnerProfile';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import {
   Dialog,
   DialogContent,
@@ -32,9 +29,14 @@ import {
   ProfileDraftEditor,
   countUnicodeCodePoints,
 } from './ProfileDraftEditor';
-import { buildLearnerProfileDraft } from './learnerProfileDraft';
+import {
+  buildLearnerProfileDraft,
+  resolveLearnerNicknameDraft,
+  type LearnerNicknameSource,
+} from './learnerProfileDraft';
 
 const DEFAULT_MAX_LENGTH = 1000;
+const DEFAULT_NICKNAME_MAX_LENGTH = 64;
 
 const PROFILE_PROMPTS = [
   { key: 'identity', Icon: UserRound },
@@ -65,7 +67,17 @@ export default function LearnerProfileDialog({
   const [profile, setProfile] = React.useState('');
   const [initialProfile, setInitialProfile] = React.useState('');
   const [savedProfile, setSavedProfile] = React.useState('');
+  const [nickname, setNickname] = React.useState('');
+  const [initialNickname, setInitialNickname] = React.useState('');
+  const [savedNickname, setSavedNickname] = React.useState<string | undefined>(
+    undefined,
+  );
+  const [nicknameSource, setNicknameSource] =
+    React.useState<LearnerNicknameSource>('unavailable');
   const [maxLength, setMaxLength] = React.useState(DEFAULT_MAX_LENGTH);
+  const [nicknameMaxLength, setNicknameMaxLength] = React.useState(
+    DEFAULT_NICKNAME_MAX_LENGTH,
+  );
   const [loading, setLoading] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -114,7 +126,15 @@ export default function LearnerProfileDialog({
         setProfile(nextProfile);
         setInitialProfile(nextProfile);
         setSavedProfile(response.learner_profile || '');
+        const nicknameDraft = resolveLearnerNicknameDraft(response);
+        setNickname(nicknameDraft.value);
+        setInitialNickname(nicknameDraft.value);
+        setSavedNickname(nicknameDraft.savedValue);
+        setNicknameSource(nicknameDraft.source);
         setMaxLength(response.max_length || DEFAULT_MAX_LENGTH);
+        setNicknameMaxLength(
+          response.nickname_max_length || DEFAULT_NICKNAME_MAX_LENGTH,
+        );
         setLoaded(true);
       } catch (caughtError) {
         if (
@@ -165,7 +185,12 @@ export default function LearnerProfileDialog({
     setProfile('');
     setInitialProfile('');
     setSavedProfile('');
+    setNickname('');
+    setInitialNickname('');
+    setSavedNickname(undefined);
+    setNicknameSource('unavailable');
     setMaxLength(DEFAULT_MAX_LENGTH);
+    setNicknameMaxLength(DEFAULT_NICKNAME_MAX_LENGTH);
     setLoaded(false);
     setSaving(false);
     setDismissing(false);
@@ -198,13 +223,7 @@ export default function LearnerProfileDialog({
     }
 
     const normalized = profile.trim();
-    const clearingLoadedProfile =
-      !normalized &&
-      Boolean(initialProfile.trim()) &&
-      normalized !== initialProfile;
-    if (!normalized && !clearingLoadedProfile) {
-      return;
-    }
+    const normalizedNickname = nickname.trim();
     if (countUnicodeCodePoints(normalized) > maxLength) {
       textareaRef.current?.focus();
       return;
@@ -212,12 +231,24 @@ export default function LearnerProfileDialog({
 
     const generation = generationRef.current;
     const scope = draftStorageScope;
+    const nicknameChanged = normalizedNickname !== initialNickname;
+    const nicknameNeedsMigration =
+      nicknameSource === 'legacy-migration' &&
+      normalizedNickname === initialNickname &&
+      normalizedNickname !== savedNickname;
+    if (
+      (nicknameChanged || nicknameNeedsMigration) &&
+      countUnicodeCodePoints(normalizedNickname) > nicknameMaxLength
+    ) {
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      const response = clearingLoadedProfile
-        ? await clearLearnerProfile()
-        : await updateLearnerProfile(normalized);
+      const response =
+        nicknameChanged || nicknameNeedsMigration
+          ? await updateLearnerProfile(normalized, normalizedNickname)
+          : await updateLearnerProfile(normalized);
       if (!isCurrent(generation, scope)) {
         return;
       }
@@ -225,6 +256,20 @@ export default function LearnerProfileDialog({
       setInitialProfile(response.learner_profile);
       setSavedProfile(response.learner_profile);
       setMaxLength(response.max_length || maxLength);
+      const responseNickname = resolveLearnerNicknameDraft(response);
+      const nextNickname =
+        responseNickname.savedValue === undefined
+          ? normalizedNickname
+          : responseNickname.value;
+      setNickname(nextNickname);
+      setInitialNickname(nextNickname);
+      setSavedNickname(responseNickname.savedValue);
+      setNicknameSource(
+        responseNickname.savedValue === undefined
+          ? 'legacy-compat'
+          : responseNickname.source,
+      );
+      setNicknameMaxLength(response.nickname_max_length || nicknameMaxLength);
       notifyLearnerProfileChanged();
       await runOnSaved(generation, scope);
       if (isCurrent(generation, scope)) {
@@ -246,30 +291,48 @@ export default function LearnerProfileDialog({
     }
   }, [
     draftStorageScope,
-    initialProfile,
+    initialNickname,
     isCurrent,
     loaded,
     maxLength,
+    nickname,
+    nicknameMaxLength,
+    nicknameSource,
     onClose,
     profile,
     runOnSaved,
+    savedNickname,
     saving,
     t,
   ]);
 
   const normalizedProfile = profile.trim();
-  const dirty = loaded && normalizedProfile !== initialProfile;
+  const normalizedNickname = nickname.trim();
+  const dirty =
+    loaded &&
+    (normalizedProfile !== initialProfile ||
+      normalizedNickname !== initialNickname);
   const busy = saving || dismissing;
   const profileLength = countUnicodeCodePoints(normalizedProfile);
-  const canClearLoadedProfile =
-    !normalizedProfile && Boolean(initialProfile.trim()) && dirty;
-  const canSaveProfile =
-    Boolean(normalizedProfile) && normalizedProfile !== savedProfile;
+  const nicknameLength = countUnicodeCodePoints(normalizedNickname);
+  const hasUnsavedPrefill = normalizedProfile !== savedProfile;
+  const nicknameNeedsMigration =
+    nicknameSource === 'legacy-migration' &&
+    normalizedNickname === initialNickname &&
+    normalizedNickname !== savedNickname;
+  const nicknameWillBeSaved =
+    normalizedNickname !== initialNickname || nicknameNeedsMigration;
+  const canCompleteOnboarding =
+    mode === 'onboarding' && Boolean(normalizedProfile || normalizedNickname);
   const canSave =
     loaded &&
     !busy &&
     profileLength <= maxLength &&
-    (canSaveProfile || canClearLoadedProfile);
+    (!nicknameWillBeSaved || nicknameLength <= nicknameMaxLength) &&
+    (dirty ||
+      hasUnsavedPrefill ||
+      nicknameNeedsMigration ||
+      canCompleteOnboarding);
 
   const dismiss = React.useCallback(async () => {
     if (busy) {
@@ -349,7 +412,7 @@ export default function LearnerProfileDialog({
         <DialogContent
           showClose={false}
           overlayClassName='!bg-slate-950/45 backdrop-blur-[1px]'
-          className='bottom-0 left-3 top-auto flex h-[calc(100dvh-96px)] w-[calc(100vw-24px)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-t-3xl border-b-0 p-0 sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[min(90dvh,800px)] sm:w-[calc(100vw-48px)] sm:max-w-[680px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border'
+          className='bottom-0 left-3 top-auto flex h-[calc(100dvh-96px)] w-[calc(100vw-24px)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-t-3xl border-b-0 p-0 sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[min(97dvh,800px)] sm:w-[calc(100vw-48px)] sm:max-w-[680px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border'
         >
           <div
             data-testid='learner-profile-mobile-handle'
@@ -388,14 +451,37 @@ export default function LearnerProfileDialog({
           </div>
 
           <div className='min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-8 sm:pb-5'>
-            <div className='space-y-5 sm:space-y-4'>
+            <div className='space-y-5 sm:space-y-3'>
+              <div className='space-y-1.5 sm:grid sm:grid-cols-[minmax(0,180px)_1fr] sm:items-center sm:gap-3 sm:space-y-0'>
+                <label
+                  htmlFor='learner-profile-dialog-nickname'
+                  className='text-sm font-medium text-foreground/80'
+                >
+                  {t('module.profileOnboarding.dialog.nicknameLabel')}
+                </label>
+                <Input
+                  id='learner-profile-dialog-nickname'
+                  className='h-10 rounded-lg shadow-none focus-visible:ring-2 focus-visible:ring-primary/30'
+                  value={nickname}
+                  maxLength={nicknameMaxLength}
+                  disabled={!loaded || busy}
+                  placeholder={t(
+                    'module.profileOnboarding.dialog.nicknamePlaceholder',
+                  )}
+                  onChange={event => {
+                    setNickname(event.target.value);
+                    setError('');
+                  }}
+                />
+              </div>
+
               <div className='flex flex-wrap justify-center gap-2 sm:gap-3'>
                 {PROFILE_PROMPTS.map(({ key, Icon }) => (
                   <Button
                     key={key}
                     type='button'
                     variant='outline'
-                    className='h-auto min-h-11 rounded-full border-primary/10 bg-primary/[0.06] px-4 py-2 text-left text-primary whitespace-normal hover:bg-primary/10 hover:text-primary'
+                    className='h-auto min-h-11 rounded-full border-primary/10 bg-primary/[0.06] px-4 py-2 text-left text-primary whitespace-normal hover:bg-primary/10 hover:text-primary sm:min-h-10 sm:py-1.5'
                     disabled={!loaded || busy}
                     onClick={() => insertPrompt(key)}
                   >
@@ -408,7 +494,9 @@ export default function LearnerProfileDialog({
               <ProfileDraftEditor
                 inputId='learner-profile-dialog-draft'
                 textareaRef={textareaRef}
-                textareaClassName='min-h-[215px] resize-none rounded-xl border-border px-4 py-3 leading-6 shadow-none focus-visible:ring-primary/30 sm:min-h-[168px]'
+                textareaClassName='min-h-[112px] resize-none rounded-xl border-border px-4 py-3 leading-6 shadow-none focus-visible:ring-primary/30'
+                minRows={4}
+                maxRows={8}
                 value={profile}
                 maxLength={maxLength}
                 disabled={!loaded || busy}
@@ -453,7 +541,7 @@ export default function LearnerProfileDialog({
 
               <section
                 data-testid='learner-profile-writing-guide'
-                className='rounded-xl bg-primary/[0.07] px-4 py-4 text-sm leading-6 sm:px-5 sm:py-3'
+                className='rounded-xl bg-primary/[0.07] px-4 py-4 text-sm leading-6 sm:px-5 sm:py-2.5 sm:leading-5'
               >
                 <h3 className='font-semibold text-primary'>
                   {t('module.profileOnboarding.dialog.writingGuideTitle')}

@@ -6,11 +6,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import {
-  clearLearnerProfile,
-  getLearnerProfile,
-  updateLearnerProfile,
-} from '@/api/learnerProfile';
+import { getLearnerProfile, updateLearnerProfile } from '@/api/learnerProfile';
 import { LEARNER_PROFILE_CHANGED_EVENT } from '@/lib/learnerProfileEvents';
 import LearnerProfileDialog from './LearnerProfileDialog';
 import enProfile from '../../../../i18n/en-US/modules/profile-onboarding.json';
@@ -34,7 +30,6 @@ let mockT = translateKey;
 let mockLanguage = 'en-US';
 
 jest.mock('@/api/learnerProfile', () => ({
-  clearLearnerProfile: jest.fn(),
   getLearnerProfile: jest.fn(),
   updateLearnerProfile: jest.fn(),
 }));
@@ -53,7 +48,6 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-const mockClearLearnerProfile = clearLearnerProfile as jest.Mock;
 const mockGetLearnerProfile = getLearnerProfile as jest.Mock;
 const mockUpdateLearnerProfile = updateLearnerProfile as jest.Mock;
 
@@ -62,6 +56,8 @@ const existingProfile = {
   learner_profile_updated_at: '2026-08-11T01:00:00Z',
   has_learner_profile: true,
   max_length: 1000,
+  nickname: 'Alex',
+  nickname_max_length: 64,
 };
 
 const clearedProfile = {
@@ -69,6 +65,8 @@ const clearedProfile = {
   learner_profile_updated_at: null,
   has_learner_profile: false,
   max_length: 1000,
+  nickname: 'Alex',
+  nickname_max_length: 64,
 };
 
 const renderDialog = (
@@ -89,15 +87,17 @@ describe('LearnerProfileDialog', () => {
     jest.clearAllMocks();
     mockT = translateKey;
     mockLanguage = 'en-US';
-    mockClearLearnerProfile.mockResolvedValue(clearedProfile);
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
   });
 
-  test('shows one canonical introduction without legacy fields or parsed nickname UI', async () => {
+  test('shows an explicit optional nickname without parsing it from the introduction', async () => {
     renderDialog({ mode: 'onboarding' });
 
     await screen.findByDisplayValue(existingProfile.learner_profile);
-    expect(screen.getAllByRole('textbox')).toHaveLength(1);
+    expect(screen.getAllByRole('textbox')).toHaveLength(2);
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+    ).toHaveValue('Alex');
     expect(screen.queryByText('sys_user_nickname')).not.toBeInTheDocument();
     expect(screen.queryByText('sys_user_background')).not.toBeInTheDocument();
     expect(screen.queryByText('sys_user_style')).not.toBeInTheDocument();
@@ -127,6 +127,9 @@ describe('LearnerProfileDialog', () => {
     expect(zhProfile.dialog.writingGuideTeaching).toContain('语言风格');
     expect(zhProfile.dialog.writingGuideTeaching).toContain('希望避免的表达');
     expect(zhProfile.dialog.settingsTitle).toBe('向 AI 老师介绍你自己');
+    expect(zhProfile.dialog.nicknameLabel).toBe('AI 老师怎么称呼你（选填）');
+    expect(zhProfile.dialog.chips.identity.text).not.toContain('叫我');
+    expect(zhProfile.dialog.writingGuideIdentity).not.toContain('称呼');
     expect(zhProfile.dialog.profileLabel).toBe(
       '写下你希望 AI 老师长期知道的事',
     );
@@ -140,6 +143,10 @@ describe('LearnerProfileDialog', () => {
     expect(enProfile.dialog.settingsTitle).toBe(
       'Introduce yourself to your AI teacher',
     );
+    expect(enProfile.dialog.nicknameLabel).toContain('AI teacher');
+    expect(enProfile.dialog.nicknameLabel).toContain('optional');
+    expect(enProfile.dialog.chips.identity.text).not.toContain('call me');
+    expect(enProfile.dialog.writingGuideIdentity).not.toContain('call you');
     expect(enProfile.dialog.promptHeading).toBe('Start with these three areas');
     expect(enProfile.dialog.writingGuideTitle).toBe('You can include');
     expect(enProfile.dialog.chips.identity.label).toBe('About me');
@@ -164,6 +171,10 @@ describe('LearnerProfileDialog', () => {
     expect(frProfile.dialog.settingsTitle).toBe(
       'Présentez-vous à votre enseignant IA',
     );
+    expect(frProfile.dialog.nicknameLabel).toContain('enseignant IA');
+    expect(frProfile.dialog.nicknameLabel).toContain('facultatif');
+    expect(frProfile.dialog.chips.identity.text).not.toContain('appeler');
+    expect(frProfile.dialog.writingGuideIdentity).not.toContain('appeler');
     expect(frProfile.dialog.promptHeading).toBe(
       'Commencez par ces trois aspects',
     );
@@ -223,7 +234,6 @@ describe('LearnerProfileDialog', () => {
     const frPlaceholder = frProfile.dialog.profilePlaceholder;
 
     for (const detail of [
-      '可以叫我',
       '住在上海',
       '大学学工商管理',
       '普通的办公室工作',
@@ -242,6 +252,7 @@ describe('LearnerProfileDialog', () => {
     ]) {
       expect(zhPlaceholder).toContain(detail);
     }
+    expect(zhPlaceholder).not.toContain('可以叫我');
     for (const courseSpecificDetail of [
       'Excel',
       '数据分析',
@@ -257,7 +268,6 @@ describe('LearnerProfileDialog', () => {
     }
 
     for (const detail of [
-      'call me',
       'live in Shanghai',
       'studied business administration',
       'regular office job',
@@ -276,6 +286,7 @@ describe('LearnerProfileDialog', () => {
     ]) {
       expect(enPlaceholder).toContain(detail);
     }
+    expect(enPlaceholder).not.toContain('call me');
     for (const courseSpecificDetail of [
       'Excel',
       'data analysis',
@@ -290,7 +301,6 @@ describe('LearnerProfileDialog', () => {
     }
 
     for (const detail of [
-      'm’appeler',
       'vis à Shanghai',
       'étudié la gestion à l’université',
       'emploi de bureau ordinaire',
@@ -309,6 +319,7 @@ describe('LearnerProfileDialog', () => {
     ]) {
       expect(frPlaceholder).toContain(detail);
     }
+    expect(frPlaceholder).not.toContain('m’appeler');
     for (const courseSpecificDetail of [
       'Excel',
       'analyse de données',
@@ -323,11 +334,10 @@ describe('LearnerProfileDialog', () => {
     }
   });
 
-  test('lets onboarding clear a legacy-prefilled draft and save it as handled', async () => {
+  test('keeps a legacy nickname in its field while clearing prefilled profile text', async () => {
     mockT = (key, params) => {
       const value = String(params?.value || '');
       const legacyPrefill = {
-        'module.profileOnboarding.dialog.legacyPrefill.nickname': `可以叫我 ${value}。`,
         'module.profileOnboarding.dialog.legacyPrefill.background': `我的背景：${value}`,
         'module.profileOnboarding.dialog.legacyPrefill.style': `我喜欢的语言风格：${value}`,
       };
@@ -344,29 +354,154 @@ describe('LearnerProfileDialog', () => {
         sys_user_style: '亲切直接',
       },
     });
+    mockUpdateLearnerProfile.mockResolvedValue({
+      ...clearedProfile,
+      nickname: '小林',
+    });
     const onSaved = jest.fn();
     const { props } = renderDialog({ mode: 'onboarding', onSaved });
 
     await waitFor(() => {
-      expect(screen.getByRole('textbox')).toHaveValue(
-        '可以叫我 小林。\n我的背景：办公室工作\n我喜欢的语言风格：亲切直接',
-      );
+      expect(
+        screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
+      ).toHaveValue('我的背景：办公室工作\n我喜欢的语言风格：亲切直接');
     });
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+    ).toHaveValue('小林');
     const save = screen.getByRole('button', {
       name: 'module.profileOnboarding.dialog.saveAndContinue',
     });
     expect(save).toBeEnabled();
 
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: '' } });
+    fireEvent.change(
+      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
+      { target: { value: '' } },
+    );
     expect(save).toBeEnabled();
     fireEvent.click(save);
 
     await waitFor(() => {
-      expect(mockClearLearnerProfile).toHaveBeenCalledTimes(1);
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('');
       expect(props.onClose).toHaveBeenCalledWith('saved');
     });
-    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
     expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  test('migrates a displayed legacy nickname only when the new backend declares canonical state', async () => {
+    const legacyFallbackResponse = {
+      ...clearedProfile,
+      nickname: '',
+      legacy_profile_values: {
+        sys_user_nickname: '小林',
+      },
+    };
+    const canonicalResponse = {
+      ...clearedProfile,
+      nickname: '小林',
+      legacy_profile_values: {},
+    };
+    mockGetLearnerProfile
+      .mockResolvedValueOnce(legacyFallbackResponse)
+      .mockResolvedValueOnce(canonicalResponse);
+    mockUpdateLearnerProfile.mockResolvedValue(canonicalResponse);
+    const onClose = jest.fn();
+    const firstRender = renderDialog({ onClose });
+
+    expect(await screen.findByDisplayValue('小林')).toBeEnabled();
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveChanges',
+    });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+
+    await waitFor(() => {
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('', '小林');
+      expect(onClose).toHaveBeenCalledWith('saved');
+    });
+    firstRender.unmount();
+
+    const reopenedClose = jest.fn();
+    renderDialog({ onClose: reopenedClose });
+    expect(await screen.findByDisplayValue('小林')).toBeEnabled();
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.saveChanges',
+      }),
+    ).toBeDisabled();
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.dialog.cancel',
+        }),
+      );
+    });
+    expect(reopenedClose).toHaveBeenCalledWith('dismiss');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  test('does not treat a new-backend legacy nickname prefill as a discardable edit', async () => {
+    mockGetLearnerProfile.mockResolvedValue({
+      ...clearedProfile,
+      nickname: '',
+      legacy_profile_values: {
+        sys_user_nickname: '小林',
+      },
+    });
+    const onClose = jest.fn();
+    renderDialog({ onClose });
+
+    expect(await screen.findByDisplayValue('小林')).toBeEnabled();
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.dialog.cancel',
+        }),
+      );
+    });
+
+    expect(onClose).toHaveBeenCalledWith('dismiss');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+  });
+
+  test('shows but does not auto-migrate a legacy nickname from an older backend', async () => {
+    mockGetLearnerProfile.mockResolvedValue({
+      learner_profile: '',
+      learner_profile_updated_at: null,
+      has_learner_profile: false,
+      max_length: 1000,
+      legacy_profile_values: {
+        sys_user_nickname: '小林',
+      },
+    });
+    mockUpdateLearnerProfile.mockResolvedValue({
+      learner_profile: 'New introduction',
+      learner_profile_updated_at: null,
+      has_learner_profile: true,
+      max_length: 1000,
+    });
+    renderDialog();
+
+    expect(await screen.findByDisplayValue('小林')).toBeEnabled();
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveChanges',
+    });
+    expect(save).toBeDisabled();
+    fireEvent.change(
+      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
+      { target: { value: 'New introduction' } },
+    );
+    fireEvent.click(save);
+
+    await waitFor(() => {
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('New introduction');
+    });
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalledWith(
+      'New introduction',
+      '小林',
+    );
   });
 
   test('keeps an existing canonical profile instead of legacy values', async () => {
@@ -383,6 +518,10 @@ describe('LearnerProfileDialog', () => {
 
     await screen.findByDisplayValue(existingProfile.learner_profile);
     expect(screen.queryByDisplayValue(/旧背景/)).not.toBeInTheDocument();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+    ).toHaveValue('Alex');
+    expect(screen.queryByDisplayValue('旧称呼')).not.toBeInTheDocument();
   });
 
   test('renders the aligned contextual dialog with option-three guidance and actions', async () => {
@@ -390,7 +529,9 @@ describe('LearnerProfileDialog', () => {
 
     await screen.findByDisplayValue(existingProfile.learner_profile);
     const dialog = screen.getByRole('dialog');
-    const editor = screen.getByRole('textbox');
+    const editor = screen.getByLabelText(
+      'module.profileOnboarding.dialog.profileLabel',
+    );
     const heading = screen.getByText(
       'module.profileOnboarding.dialog.onboardingTitle',
     );
@@ -413,10 +554,12 @@ describe('LearnerProfileDialog', () => {
 
     expect(dialog).toHaveClass(
       'h-[calc(100dvh-96px)]',
+      'sm:max-h-[min(97dvh,800px)]',
       'sm:max-w-[680px]',
       'sm:rounded-2xl',
     );
-    expect(editor).toHaveClass('min-h-[215px]', 'sm:min-h-[168px]');
+    expect(editor).toHaveClass('min-h-[112px]');
+    expect(editor).toHaveAttribute('rows', '4');
     expect(heading.parentElement).toHaveClass(
       'w-full',
       'text-left',
@@ -431,7 +574,7 @@ describe('LearnerProfileDialog', () => {
     expect(description).toHaveClass('text-left');
     expect(description).not.toHaveClass('sm:text-center');
     expect(editor.closest('.overflow-y-auto')).toHaveClass('px-5', 'sm:px-8');
-    expect(writingGuide).toHaveClass('sm:py-3');
+    expect(writingGuide).toHaveClass('sm:py-2.5', 'sm:leading-5');
     expect(dialog.querySelector('svg.lucide-sparkles')).toBeNull();
     expect(mobileHandle).toHaveClass('sm:hidden');
     expect(writingGuide).toHaveTextContent(
@@ -473,7 +616,9 @@ describe('LearnerProfileDialog', () => {
       has_learner_profile: false,
     });
     renderDialog();
-    const editor = await screen.findByRole('textbox');
+    const editor = await screen.findByLabelText(
+      'module.profileOnboarding.dialog.profileLabel',
+    );
 
     for (const prompt of ['identity', 'goals', 'teaching']) {
       fireEvent.click(
@@ -491,7 +636,7 @@ describe('LearnerProfileDialog', () => {
         'module.profileOnboarding.dialog.chips.teaching.text',
       ].join('\n'),
     );
-    expect(screen.getAllByRole('textbox')).toHaveLength(1);
+    expect(screen.getAllByRole('textbox')).toHaveLength(2);
   });
 
   test('saves, refreshes consumers, and closes in order', async () => {
@@ -534,7 +679,147 @@ describe('LearnerProfileDialog', () => {
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
-  test('clears a saved profile, refreshes consumers, and closes in order', async () => {
+  test('sends a changed nickname with the unchanged introduction', async () => {
+    mockUpdateLearnerProfile.mockResolvedValue({
+      ...existingProfile,
+      nickname: 'Riley',
+    });
+    const onClose = jest.fn();
+    renderDialog({ onClose });
+    const nickname = await screen.findByDisplayValue('Alex');
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveChanges',
+    });
+
+    expect(nickname).toHaveAttribute('maxlength', '64');
+    expect(save).toBeDisabled();
+    fireEvent.change(nickname, { target: { value: ' Riley ' } });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+
+    await waitFor(() => {
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
+        existingProfile.learner_profile,
+        'Riley',
+      );
+      expect(onClose).toHaveBeenCalledWith('saved');
+    });
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  test('sends an explicit empty nickname only after the user clears it', async () => {
+    mockUpdateLearnerProfile.mockResolvedValue({
+      ...existingProfile,
+      nickname: '',
+    });
+    renderDialog();
+    const nickname = await screen.findByDisplayValue('Alex');
+
+    fireEvent.change(nickname, { target: { value: '' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.saveChanges',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
+        existingProfile.learner_profile,
+        '',
+      );
+    });
+  });
+
+  test.each([
+    ['updates', 'Updated introduction'],
+    ['clears', ''],
+  ])(
+    '%s the introduction without resending a historical over-limit nickname',
+    async (_action, nextProfile) => {
+      const historicalNickname = 'n'.repeat(80);
+      mockGetLearnerProfile.mockResolvedValue({
+        ...existingProfile,
+        nickname: historicalNickname,
+        nickname_max_length: 64,
+      });
+      mockUpdateLearnerProfile.mockResolvedValue({
+        ...existingProfile,
+        learner_profile: nextProfile,
+        nickname: historicalNickname,
+        nickname_max_length: 64,
+      });
+      renderDialog();
+
+      const nickname = await screen.findByDisplayValue(historicalNickname);
+      const profile = screen.getByDisplayValue(existingProfile.learner_profile);
+      const save = screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.saveChanges',
+      });
+      expect(nickname).toHaveAttribute('maxlength', '64');
+
+      fireEvent.change(profile, { target: { value: nextProfile } });
+      expect(save).toBeEnabled();
+      fireEvent.click(save);
+
+      await waitFor(() => {
+        expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(nextProfile);
+      });
+      expect(mockUpdateLearnerProfile).not.toHaveBeenCalledWith(
+        nextProfile,
+        historicalNickname,
+      );
+    },
+  );
+
+  test('still blocks an actively changed nickname above the current limit', async () => {
+    const historicalNickname = 'n'.repeat(80);
+    mockGetLearnerProfile.mockResolvedValue({
+      ...existingProfile,
+      nickname: historicalNickname,
+      nickname_max_length: 64,
+    });
+    renderDialog();
+    const nickname = await screen.findByDisplayValue(historicalNickname);
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveChanges',
+    });
+
+    fireEvent.change(nickname, { target: { value: 'r'.repeat(65) } });
+
+    expect(save).toBeDisabled();
+    fireEvent.click(save);
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+  });
+
+  test('disables both fields and prevents duplicate saves while pending', async () => {
+    let resolveSave: (value: typeof existingProfile) => void = () => undefined;
+    mockUpdateLearnerProfile.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveSave = resolve;
+        }),
+    );
+    renderDialog();
+    const nickname = await screen.findByDisplayValue('Alex');
+    const profile = screen.getByDisplayValue(existingProfile.learner_profile);
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveChanges',
+    });
+
+    fireEvent.change(nickname, { target: { value: 'Riley' } });
+    fireEvent.click(save);
+    expect(nickname).toBeDisabled();
+    expect(profile).toBeDisabled();
+    expect(save).toBeDisabled();
+    fireEvent.click(save);
+    expect(mockUpdateLearnerProfile).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveSave({ ...existingProfile, nickname: 'Riley' });
+    });
+  });
+
+  test('saves an empty introduction while preserving an unchanged nickname', async () => {
     const calls: string[] = [];
     const onClose = jest.fn((reason: 'dismiss' | 'saved') => {
       calls.push(`close:${reason}`);
@@ -546,6 +831,7 @@ describe('LearnerProfileDialog', () => {
       calls.push('event');
     });
     window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
+    mockUpdateLearnerProfile.mockResolvedValue(clearedProfile);
     renderDialog({ onClose, onSaved });
     const editor = await screen.findByDisplayValue(
       existingProfile.learner_profile,
@@ -560,10 +846,12 @@ describe('LearnerProfileDialog', () => {
     fireEvent.click(save);
 
     await waitFor(() => {
-      expect(mockClearLearnerProfile).toHaveBeenCalledTimes(1);
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('');
       expect(onClose).toHaveBeenCalledWith('saved');
     });
-    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+    ).toHaveValue('Alex');
     expect(onSaved).toHaveBeenCalledTimes(1);
     expect(onProfileChanged).toHaveBeenCalledTimes(1);
     expect(calls).toEqual(['event', 'saved', 'close:saved']);
@@ -571,8 +859,8 @@ describe('LearnerProfileDialog', () => {
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
-  test('keeps the dialog open when clearing a profile fails', async () => {
-    mockClearLearnerProfile.mockRejectedValueOnce(
+  test('keeps the dialog open when saving an empty profile fails', async () => {
+    mockUpdateLearnerProfile.mockRejectedValueOnce(
       new Error('clear request failed'),
     );
     const onSaved = jest.fn();
@@ -591,7 +879,7 @@ describe('LearnerProfileDialog', () => {
     expect(await screen.findByText('clear request failed')).toBeInTheDocument();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(save).toBeEnabled();
-    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('');
     expect(onSaved).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(mockToast).not.toHaveBeenCalled();
@@ -601,10 +889,13 @@ describe('LearnerProfileDialog', () => {
     mockGetLearnerProfile.mockResolvedValue({
       ...clearedProfile,
       learner_profile_updated_at: null,
+      nickname: '',
       legacy_profile_values: {},
     });
     renderDialog({ mode: 'onboarding' });
-    const editor = screen.getByRole('textbox');
+    const editor = screen.getByLabelText(
+      'module.profileOnboarding.dialog.profileLabel',
+    );
     await waitFor(() => expect(editor).toBeEnabled());
     const save = screen.getByRole('button', {
       name: 'module.profileOnboarding.dialog.saveAndContinue',
@@ -614,7 +905,6 @@ describe('LearnerProfileDialog', () => {
     expect(save).toBeDisabled();
     fireEvent.change(editor, { target: { value: '   ' } });
     expect(save).toBeDisabled();
-    expect(mockClearLearnerProfile).not.toHaveBeenCalled();
     expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
   });
 
@@ -625,7 +915,12 @@ describe('LearnerProfileDialog', () => {
     renderDialog();
 
     expect(await screen.findByText('load request failed')).toBeInTheDocument();
-    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
+    ).toBeDisabled();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+    ).toBeDisabled();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.retry',
@@ -752,6 +1047,7 @@ describe('LearnerProfileDialog', () => {
       .mockResolvedValueOnce({
         ...existingProfile,
         learner_profile: 'User B introduction',
+        nickname: 'Bee',
       });
     const onClose = jest.fn();
     const { rerender } = render(
@@ -780,15 +1076,20 @@ describe('LearnerProfileDialog', () => {
       resolveUserA(existingProfile);
     });
 
-    expect(screen.getByRole('textbox')).toHaveValue('User B introduction');
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
+    ).toHaveValue('User B introduction');
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+    ).toHaveValue('Bee');
     expect(
       screen.queryByDisplayValue(existingProfile.learner_profile),
     ).toBeNull();
   });
 
-  test('does not notify or close when a clear resolves after the account changes', async () => {
+  test('does not apply profile or nickname save results after the account changes', async () => {
     let resolveClear: (value: typeof clearedProfile) => void = () => undefined;
-    mockClearLearnerProfile.mockImplementationOnce(
+    mockUpdateLearnerProfile.mockImplementationOnce(
       () =>
         new Promise(resolve => {
           resolveClear = resolve;
@@ -799,6 +1100,7 @@ describe('LearnerProfileDialog', () => {
       .mockResolvedValueOnce({
         ...existingProfile,
         learner_profile: 'User B introduction',
+        nickname: 'Bee',
       });
     const onSaved = jest.fn();
     const onClose = jest.fn();
@@ -817,13 +1119,20 @@ describe('LearnerProfileDialog', () => {
       existingProfile.learner_profile,
     );
     fireEvent.change(editor, { target: { value: '' } });
+    fireEvent.change(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+      { target: { value: 'Account A nickname' } },
+    );
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.saveChanges',
       }),
     );
     await waitFor(() =>
-      expect(mockClearLearnerProfile).toHaveBeenCalledTimes(1),
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
+        '',
+        'Account A nickname',
+      ),
     );
 
     rerender(
@@ -842,7 +1151,12 @@ describe('LearnerProfileDialog', () => {
       resolveClear(clearedProfile);
     });
 
-    expect(screen.getByRole('textbox')).toHaveValue('User B introduction');
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
+    ).toHaveValue('User B introduction');
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+    ).toHaveValue('Bee');
     expect(onSaved).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(onProfileChanged).not.toHaveBeenCalled();
@@ -878,9 +1192,9 @@ describe('LearnerProfileDialog', () => {
       />,
     );
 
-    expect(screen.getByRole('textbox')).toHaveValue(
-      'Unsaved learner introduction',
-    );
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
+    ).toHaveValue('Unsaved learner introduction');
     expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
   });
 

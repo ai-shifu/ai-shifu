@@ -109,17 +109,16 @@ def _add_state(
 
 
 @pytest.mark.parametrize(
-    ("source_profile", "status", "trigger_source", "expected_nickname"),
+    ("source_profile", "status", "trigger_source"),
     [
         (
             "Please call me Guest Profile. prefers diagrams",
             "completed",
             "guided",
-            "Guest Profile",
         ),
-        ("prefers diagrams", "completed", "settings", ""),
-        ("", "skipped", "settings", ""),
-        ("", "completed", "settings", ""),
+        ("prefers diagrams", "completed", "settings"),
+        ("", "skipped", "settings"),
+        ("", "completed", "settings"),
     ],
     ids=["completed-with-name", "completed-without-name", "skipped", "cleared"],
 )
@@ -129,7 +128,6 @@ def test_merge_helper_transfers_profile_and_handled_state(
     source_profile,
     status,
     trigger_source,
-    expected_nickname,
 ):
     monkeypatch.setattr(
         "flaskr.service.profile.learner_profile.check_text_content",
@@ -173,7 +171,7 @@ def test_merge_helper_transfers_profile_and_handled_state(
         else:
             assert stored_target.learner_profile_updated_at is None
         assert stored_source.learner_profile == source_profile
-        assert stored_target.nickname == expected_nickname
+        assert stored_target.nickname == "Existing account name"
         assert target_state is not None
         assert target_state.status == status
         assert target_state.trigger_source == trigger_source
@@ -217,6 +215,66 @@ def test_merge_helper_preserves_target_profile_and_state(app):
         assert target_state is not None
         assert target_state.status == "skipped"
         assert target_state.trigger_source == "settings"
+
+
+def test_merge_helper_replaces_account_identifier_fallback_with_guest_nickname(app):
+    with app.app_context():
+        source = _create_user(
+            identify=uuid.uuid4().hex,
+            nickname="Guest nickname",
+            learner_profile="guest profile",
+            learner_profile_updated_at=PROFILE_UPDATED_AT,
+        )
+        target_email = f"{uuid.uuid4().hex[:12]}@example.com"
+        target = _create_user(
+            identify=target_email,
+            nickname=target_email,
+        )
+        _add_state(source.user_bid, status="completed")
+        db.session.commit()
+
+        with transactional_session():
+            merge_learner_profile_for_sign_in(
+                source_user_id=source.user_bid,
+                target_user_id=target.user_bid,
+            )
+        db.session.commit()
+
+        stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
+        assert stored_target.learner_profile == "guest profile"
+        assert stored_target.nickname == "Guest nickname"
+
+
+def test_merge_helper_keeps_target_identifier_fallback_without_guest_nickname(app):
+    with app.app_context():
+        source_identify = uuid.uuid4().hex
+        source = _create_user(
+            identify=source_identify,
+            nickname=source_identify,
+            learner_profile="guest profile",
+            learner_profile_updated_at=PROFILE_UPDATED_AT,
+        )
+        target_email = f"{uuid.uuid4().hex[:12]}@example.com"
+        target = _create_user(
+            identify=target_email,
+            nickname=target_email,
+        )
+        _add_state(source.user_bid, status="completed")
+        db.session.commit()
+
+        with transactional_session():
+            merge_learner_profile_for_sign_in(
+                source_user_id=source.user_bid,
+                target_user_id=target.user_bid,
+            )
+        db.session.commit()
+
+        stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
+        target_state = load_learner_profile_state(target.user_bid)
+        assert stored_target.learner_profile == "guest profile"
+        assert stored_target.nickname == target_email
+        assert target_state is not None
+        assert target_state.status == "completed"
 
 
 def test_merge_helper_does_not_restore_a_profile_the_target_cleared(app):
@@ -595,10 +653,12 @@ def test_merge_helper_refreshes_a_stale_source_identity_map(app):
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
+            nickname="新名字",
             learner_profile="可以叫我新名字。current database profile",
             learner_profile_updated_at=PROFILE_UPDATED_AT,
         )
-        target = _create_user(identify=uuid.uuid4().hex)
+        target_identify = uuid.uuid4().hex
+        target = _create_user(identify=target_identify, nickname=target_identify)
         _add_state(source.user_bid, status="completed")
         source_user_id = source.user_bid
         target_user_id = target.user_bid
@@ -763,7 +823,7 @@ def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch):
         assert stored_target.learner_profile == (
             "Please call me Profile Learner. google merge sentinel"
         )
-        assert stored_target.nickname == "Profile Learner"
+        assert stored_target.nickname == "Google Learner"
         _assert_orm_utc(
             stored_target.learner_profile_updated_at,
             PROFILE_UPDATED_AT,
@@ -773,7 +833,7 @@ def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch):
         assert UserInfo.query.filter_by(user_bid=source.user_bid).one() is not None
 
 
-def test_google_sign_in_preserves_canonical_cleared_nickname(app, monkeypatch):
+def test_google_sign_in_keeps_pre_profile_display_name_behavior(app, monkeypatch):
     import flaskr.service.user.auth.providers.google as google_provider
     from flaskr.service.user import phone_flow
 
@@ -832,7 +892,7 @@ def test_google_sign_in_preserves_canonical_cleared_nickname(app, monkeypatch):
         target_state = load_learner_profile_state(target.user_bid)
         assert result.user.user_id == target.user_bid
         assert stored_target.learner_profile == ""
-        assert stored_target.nickname == ""
+        assert stored_target.nickname == "Google Learner"
         assert target_state is not None
         assert target_state.status == "completed"
         assert target_state.trigger_source == "settings"

@@ -178,7 +178,7 @@ def test_google_verified_login_does_not_downgrade_paid_user(app, monkeypatch):
             _reset_user_auth_tables()
 
 
-def test_google_existing_account_locks_profile_before_preserving_display_name(
+def test_google_existing_account_keeps_pre_profile_display_name_behavior(
     app,
     monkeypatch,
 ):
@@ -234,15 +234,11 @@ def test_google_existing_account_locks_profile_before_preserving_display_name(
                 },
             )
 
-            locking_reads = [read for read in reads if read[2]]
-            assert locking_reads[:2] == [
-                ("user_users", existing_user.user_bid, True, True),
-                ("user_onboarding_states", existing_user.user_bid, True, True),
-            ]
-            assert result.user.name == "Canonical Name"
+            assert not any(read[0] == "user_onboarding_states" for read in reads)
+            assert result.user.name == "Current Google Name"
             db.session.expire_all()
             stored = UserEntity.query.filter_by(user_bid=existing_user.user_bid).one()
-            assert stored.nickname == "Canonical Name"
+            assert stored.nickname == "Current Google Name"
         finally:
             _reset_user_auth_tables()
 

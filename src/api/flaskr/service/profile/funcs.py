@@ -9,7 +9,6 @@ from flaskr.api.check import (
 )
 from flaskr.service.common import raise_error
 from flaskr.service.profile.dtos import ProfileToSave
-from flaskr.service.profile.learner_profile import has_learner_profile_or_state
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
 from flaskr.service.user.repository import (
@@ -216,10 +215,6 @@ def save_user_profiles(
     PROFILES_LABLES = get_profile_labels()
     app.logger.info("save user profiles:%s", profiles)
     aggregate = _ensure_user_aggregate(user_id)
-    writes_nickname = any(profile.key == SYS_USER_NICKNAME for profile in profiles)
-    canonical_profile_controls_nickname = bool(
-        writes_nickname and has_learner_profile_or_state(user_id, for_update=True)
-    )
     profiles_items = get_profile_item_definition_list(app, course_id)
 
     candidate_shifus = [course_id or ""]
@@ -270,9 +265,7 @@ def save_user_profiles(
         if profile.key in PROFILES_LABLES:
             profile_lable = PROFILES_LABLES[profile.key]
             mapping = profile_lable.get("mapping")
-            if mapping and not (
-                mapping == "name" and canonical_profile_controls_nickname
-            ):
+            if mapping:
                 if profile_lable.get("items_mapping"):
                     profile.value = profile_lable["items_mapping"].get(
                         profile.value, profile.value
@@ -504,6 +497,7 @@ def update_user_profile_with_lable(
     if profiles and isinstance(profiles[0], UserProfileLabelItemDTO):
         profiles = [item.__json__() for item in profiles]
 
+    aggregate = _ensure_user_aggregate(user_id)
     profile_items = get_profile_item_definition_list(app, course_id)
 
     if not profiles:
@@ -519,11 +513,6 @@ def update_user_profile_with_lable(
     )
     if background and not check_text_content(app, user_id, background.get("value")):
         raise_error("server.common.backgroundNotAllowed")
-
-    aggregate = _ensure_user_aggregate(user_id)
-    canonical_profile_controls_nickname = bool(
-        nickname and has_learner_profile_or_state(user_id, for_update=True)
-    )
 
     candidate_shifus = [course_id or ""]
     if course_id:
@@ -570,15 +559,11 @@ def update_user_profile_with_lable(
 
         app.logger.info("profile_value:%s", profile_value)
         mapping = profile_lable.get("mapping") if profile_lable else None
-        if (
-            mapping
-            and not (mapping == "name" and canonical_profile_controls_nickname)
-            and (
-                update_all
-                or (
-                    profile_value != default_value
-                    and _current_core_value(aggregate, mapping) != profile_value
-                )
+        if mapping and (
+            update_all
+            or (
+                profile_value != default_value
+                and _current_core_value(aggregate, mapping) != profile_value
             )
         ):
             app.logger.info(

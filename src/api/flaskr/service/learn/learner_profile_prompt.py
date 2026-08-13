@@ -6,11 +6,13 @@ import json
 from functools import lru_cache
 from typing import Protocol
 
+from flaskr.service.common.phone_numbers import is_valid_sms_mobile
 from flaskr.util.prompt_loader import load_prompt_template
 
 
 class _LearnerWithProfile(Protocol):
     learner_profile: str | None
+    nickname: str | None
 
 
 LEARNER_PROFILE_PROMPT_MARKER = (
@@ -39,6 +41,49 @@ def _encode_profile_as_json_string(learner_profile: str) -> str:
         .replace("&", r"\u0026")
         .replace("{", r"\u007b")
         .replace("}", r"\u007d")
+    )
+
+
+def _preferred_address(learner: _LearnerWithProfile | None) -> str:
+    """Return an explicit display name without promoting account identifiers."""
+
+    nickname = str(getattr(learner, "nickname", None) or "").strip()
+    if (
+        not nickname
+        or len(nickname) > 64
+        or "@" in nickname
+        or is_valid_sms_mobile(nickname)
+    ):
+        return ""
+
+    nickname_key = nickname.casefold()
+    identifier_values = (
+        getattr(learner, "user_bid", None),
+        getattr(learner, "user_id", None),
+        getattr(learner, "user_identify", None),
+        getattr(learner, "identify", None),
+    )
+    if any(
+        nickname_key == str(identifier or "").strip().casefold()
+        for identifier in identifier_values
+        if str(identifier or "").strip()
+    ):
+        return ""
+    return nickname
+
+
+def _learner_context(learner: _LearnerWithProfile | None) -> str:
+    profile = str(getattr(learner, "learner_profile", None) or "").strip()
+    nickname = _preferred_address(learner)
+    if not nickname:
+        return profile
+
+    preferred_address = json.dumps(nickname, ensure_ascii=False)
+    if not profile:
+        return f"Preferred form of address (learner-authored): {preferred_address}"
+    return (
+        f"Preferred form of address (learner-authored): {preferred_address}\n"
+        f"Learner introduction:\n{profile}"
     )
 
 
@@ -100,12 +145,11 @@ def build_course_prompt(
     if not base_prompt.strip():
         return course_prompt
 
-    learner_profile = getattr(learner, "learner_profile", None) if learner else None
-    normalized_profile = str(learner_profile or "").strip()
-    if not normalized_profile:
+    learner_context = _learner_context(learner)
+    if not learner_context:
         return base_prompt
 
-    encoded_profile = _encode_profile_as_json_string(normalized_profile)
+    encoded_profile = _encode_profile_as_json_string(learner_context)
     return (
         f"{_COMPOSITION_OPEN}\n"
         f"{LEARNER_PROFILE_PROMPT_MARKER}\n"

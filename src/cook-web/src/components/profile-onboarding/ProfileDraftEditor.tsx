@@ -12,6 +12,8 @@ export function ProfileDraftEditor({
   inputId = 'learner-profile-draft',
   textareaRef,
   textareaClassName,
+  minRows = 8,
+  maxRows = 14,
   value,
   maxLength,
   disabled,
@@ -22,6 +24,8 @@ export function ProfileDraftEditor({
   inputId?: string;
   textareaRef?: React.Ref<HTMLTextAreaElement>;
   textareaClassName?: string;
+  minRows?: number;
+  maxRows?: number;
   value: string;
   maxLength: number;
   disabled: boolean;
@@ -55,8 +59,8 @@ export function ProfileDraftEditor({
         id={inputId}
         className={textareaClassName}
         value={value}
-        minRows={8}
-        maxRows={14}
+        minRows={minRows}
+        maxRows={maxRows}
         disabled={disabled}
         placeholder={
           placeholder ?? t('module.profileOnboarding.profilePlaceholder')

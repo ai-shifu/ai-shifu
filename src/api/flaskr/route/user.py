@@ -429,17 +429,21 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         payload = _request_json_object("learner_profile")
         _reject_unknown_fields(
             payload,
-            allowed_fields={"learner_profile"},
+            allowed_fields={"learner_profile", "nickname"},
             parameter_name="learner_profile",
         )
         learner_profile = payload.get("learner_profile")
         if not isinstance(learner_profile, str):
             raise_param_error("learner_profile")
+        nickname = payload.get("nickname")
+        if "nickname" in payload and not isinstance(nickname, str):
+            raise_param_error("nickname")
         return make_common_response(
             replace_learner_profile(
                 app,
                 user_id=request.user.user_id,
                 learner_profile=learner_profile,
+                nickname=nickname,
             )
         )
 

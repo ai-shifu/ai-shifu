@@ -35,7 +35,7 @@
       },
       "identity": {
         "label": "About me",
-        "text": "You can call me… I live in… I work or study in… I am familiar with… but know less about…"
+        "text": "I live in… I work or study in… I am familiar with… but know less about…"
       },
       "teaching": {
         "label": "My preferred language style",
@@ -53,14 +53,15 @@
     "later": "Maybe later",
     "legacyPrefill": {
       "background": "My background: {value}",
-      "nickname": "You can call me {value}.",
       "style": "My preferred language style: {value}"
     },
     "loadFailed": "Could not load these details. Try again.",
     "loading": "Loading your learning profile…",
+    "nicknameLabel": "What should your AI teacher call you? (optional)",
+    "nicknamePlaceholder": "For example: Alex",
     "onboardingTitle": "Help your AI teacher understand you",
     "profileLabel": "Write what you want your AI teacher to remember about you",
-    "profilePlaceholder": "Example: You can call me Alex. I live in Shanghai and studied business administration at university. Since graduating, I have had a regular office job, mostly organizing documents, writing emails, and making spreadsheets. I do not have a technical background and have limited time after work, but I have always wanted to build something of my own. Recently, I hope to use AI to organize my ideas and fill gaps in my knowledge, turning my observations about city life and work into useful articles and small tools, and gradually developing a personal project I can pursue for years. New terminology and complicated wording can easily overwhelm me. I prefer my AI teacher to use a friendly, direct, conversational, and concise language style that is not too formal and avoids unnecessary jargon.",
+    "profilePlaceholder": "Example: I live in Shanghai and studied business administration at university. Since graduating, I have had a regular office job, mostly organizing documents, writing emails, and making spreadsheets. I do not have a technical background and have limited time after work, but I have always wanted to build something of my own. Recently, I hope to use AI to organize my ideas and fill gaps in my knowledge, turning my observations about city life and work into useful articles and small tools, and gradually developing a personal project I can pursue for years. New terminology and complicated wording can easily overwhelm me. I prefer my AI teacher to use a friendly, direct, conversational, and concise language style that is not too formal and avoids unnecessary jargon.",
     "promptDescription": "Choose one to add an opening below, then continue writing or replace it with your own words.",
     "promptHeading": "Start with these three areas",
     "reassurance": "You do not need to write everything at once. Start with what matters most, then add to or change it at any time.",
@@ -73,7 +74,7 @@
     "settingsDescription": "These details help your AI teacher tailor how it addresses you, the examples it uses, and its wording. If your requests conflict with the course design set by the human teacher, the course will follow the human teacher's design.",
     "settingsTitle": "Introduce yourself to your AI teacher",
     "writingGuideGoals": "What matters to you: short-term goals, long-term ambitions, current challenges, and practical constraints",
-    "writingGuideIdentity": "About you: what to call you, your city, work or field of study, and relevant experience",
+    "writingGuideIdentity": "About you: your city, work or field of study, and relevant experience",
     "writingGuideTeaching": "Your preferred language style: for example friendly and direct, lighthearted, concise and conversational, or professional but easy to understand, plus wording you want to avoid",
     "writingGuideTitle": "You can include"
   },
@@ -82,7 +83,7 @@
   "loadFailed": "The learning profile guide could not be loaded, so it was skipped for now. Please try again later.",
   "next": "Next",
   "profileLabel": "Your background and preferences",
-  "profilePlaceholder": "For example: what to call you, your work or study background, relevant experience, preferred explanation and slide styles, and current interests",
+  "profilePlaceholder": "For example: your work or study background, relevant experience, preferred language style, and current interests",
   "refreshPending": "Your learning profile was saved. Personal info sync is still catching up, so please refresh shortly.",
   "settings": {
     "cancel": "Cancel",

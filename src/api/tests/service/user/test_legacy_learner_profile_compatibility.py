@@ -13,6 +13,7 @@ from flaskr.service.profile.funcs import (
 from flaskr.service.profile.learner_profile import (
     PROFILE_ONBOARDING_SCENE_KEY,
     PROFILE_ONBOARDING_VERSION,
+    replace_learner_profile,
 )
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.common import update_user_info
@@ -62,7 +63,7 @@ def _active_legacy_values(user_bid: str) -> list[VariableValue]:
     "writer",
     ["save", "label", "user-info"],
 )
-def test_legacy_nickname_writers_lock_current_canonical_state(
+def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
     app,
     monkeypatch,
     writer,
@@ -133,11 +134,7 @@ def test_legacy_nickname_writers_lock_current_canonical_state(
         else:
             update_user_info(app, user_dto, name="After")
 
-        locking_reads = [read for read in reads if read[2]]
-        assert locking_reads[:2] == [
-            ("user_users", user_bid, True, True),
-            ("user_onboarding_states", user_bid, True, True),
-        ]
+        assert not any(read[0] == "user_onboarding_states" for read in reads)
 
         db.session.expire_all()
         stored_user = UserInfo.query.filter_by(user_bid=user_bid).one()
@@ -221,7 +218,7 @@ def test_skipped_v2_state_preserves_legacy_profile_behavior(app, monkeypatch):
         ]
 
 
-def test_canonical_profile_keeps_legacy_nickname_rows_without_being_overwritten(
+def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(
     app,
     monkeypatch,
 ):
@@ -297,10 +294,62 @@ def test_canonical_profile_keeps_legacy_nickname_rows_without_being_overwritten(
         runtime_profiles = get_user_profiles(app, user_bid, "")
 
         assert stored_user is not None
-        assert stored_user.nickname == "Canonical Name"
+        assert stored_user.nickname == "Legacy API"
         assert [value.value for value in legacy_values] == [
             "Legacy One",
             "Legacy Two",
             "Legacy API",
         ]
-        assert runtime_profiles["sys_user_nickname"] == "Canonical Name"
+        assert runtime_profiles["sys_user_nickname"] == "Legacy API"
+
+
+def test_explicit_nickname_uses_existing_runtime_precedence_without_rewriting_legacy_rows(
+    app,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "flaskr.service.profile.learner_profile.check_text_content",
+        lambda *_args, **_kwargs: True,
+    )
+
+    with app.app_context():
+        user_bid = "explicit-nickname-legacy-runtime"
+        user = create_user_entity(
+            user_bid=user_bid,
+            identify=user_bid,
+            nickname="Old account name",
+            language="zh-CN",
+        )
+        db.session.add(
+            VariableValue(
+                variable_value_bid="explicit-nickname-legacy-row",
+                variable_bid="",
+                shifu_bid="",
+                user_bid=user_bid,
+                key="sys_user_nickname",
+                value="Legacy row name",
+            )
+        )
+        db.session.commit()
+
+        replace_learner_profile(
+            app,
+            user_id=user_bid,
+            learner_profile="",
+            nickname="Explicit account name",
+        )
+        db.session.expire_all()
+
+        stored_user = db.session.get(UserInfo, user.id)
+        legacy_values = VariableValue.query.filter_by(
+            user_bid=user_bid,
+            shifu_bid="",
+            key="sys_user_nickname",
+            deleted=0,
+        ).all()
+        runtime_profiles = get_user_profiles(app, user_bid, "")
+
+        assert stored_user is not None
+        assert stored_user.nickname == "Explicit account name"
+        assert [value.value for value in legacy_values] == ["Legacy row name"]
+        assert runtime_profiles["sys_user_nickname"] == "Explicit account name"

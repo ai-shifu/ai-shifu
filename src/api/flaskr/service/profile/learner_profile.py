@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
-import unicodedata
 from collections.abc import Callable
 from typing import Any, TypeVar
 
@@ -50,321 +48,6 @@ PROFILE_ONBOARDING_SCENE_KEY = "profile_onboarding"
 PROFILE_ONBOARDING_VERSION = "profile-v2"
 
 _T = TypeVar("_T")
-
-_NICKNAME_CAPTURE = r"[\"'“”‘’«»「」『』]?([^\n\r，,。.!！?？；;：:]{1,96})"
-_SENTENCE_BOUNDARY = r"(?:^|[\n\r，,。.!！?？；;])\s*"
-
-# A direct preference outranks an identity statement. Within the same priority,
-# the last declaration wins so natural corrections such as "My name is
-# Alexander. Please call me Alex." resolve to the requested form of address.
-_EXPLICIT_NICKNAME_PATTERNS: tuple[tuple[int, re.Pattern[str]], ...] = (
-    (
-        30,
-        re.compile(
-            _SENTENCE_BOUNDARY + r"(?:(?:关于称呼|称呼方面)\s*[，,]?\s*)?"
-            r"(?:(?:现在|以后|今后|接下来)\s*)?"
-            r"(?:(?:(?:你|大家|AI\s*老师|AI\s*师傅)\s*)?"
-            r"(?:(?:可以|可|请|就|直接|平时)\s*)?"
-            r"|(?:我\s*)?(?:希望|想让)\s*"
-            r"(?:你|大家|AI\s*老师|AI\s*师傅)?\s*)"
-            r"(?:叫我|称呼我(?:为)?|称我为)\s*[：:]?\s*" + _NICKNAME_CAPTURE,
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        30,
-        re.compile(
-            _SENTENCE_BOUNDARY
-            + r"(?:称呼|昵称|名字|姓名)\s*[：:]\s*"
-            + _NICKNAME_CAPTURE,
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        30,
-        re.compile(
-            _SENTENCE_BOUNDARY + r"(?:(?:you\s+can|please|just)\s+)?"
-            r"(?:call\s+me|address\s+me\s+as)\s+" + _NICKNAME_CAPTURE,
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        30,
-        re.compile(
-            _SENTENCE_BOUNDARY
-            + r"i\s+(?:go\s+by|(?:would\s+)?(?:like|prefer)\s+to\s+be\s+called)\s+"
-            + _NICKNAME_CAPTURE,
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        30,
-        re.compile(
-            _SENTENCE_BOUNDARY
-            + r"(?:vous\s+pouvez|tu\s+peux)\s+m['’]appeler\s+"
-            + _NICKNAME_CAPTURE,
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        30,
-        re.compile(
-            _SENTENCE_BOUNDARY + r"(?:appelez|appelle)[-\s]moi\s+" + _NICKNAME_CAPTURE,
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        30,
-        re.compile(
-            _SENTENCE_BOUNDARY + r"je\s+pr[ée]f[èe]re\s+(?:qu['’]on\s+m['’]appelle|"
-            r"(?:être|etre)\s+appel[ée]e?)\s+" + _NICKNAME_CAPTURE,
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        20,
-        re.compile(
-            _SENTENCE_BOUNDARY
-            + r"(?:我的(?:名字|姓名|昵称)\s*(?:是|叫)|我叫)\s*[：:]?\s*"
-            + _NICKNAME_CAPTURE,
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        20,
-        re.compile(
-            _SENTENCE_BOUNDARY
-            + r"(?:my\s+name\s+is|mon\s+pr[ée]nom\s+est|je\s+m['’]appelle)\s+"
-            + _NICKNAME_CAPTURE,
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        20,
-        re.compile(
-            r"(?:^|[\n\r])\s*(?:preferred\s+name|display\s+name|pr[ée]nom)\s*"
-            r"[：:]\s*" + _NICKNAME_CAPTURE,
-            re.IGNORECASE,
-        ),
-    ),
-)
-
-_NICKNAME_TRAILING_CONTEXT_PATTERNS = (
-    re.compile(
-        r"\s+(?=(?:我|本人)?(?:是|在|目前|现在|想|希望|喜欢|偏好|有|从事|正在))"
-    ),
-    re.compile(
-        r"\s+(?=(?:(?:请|多|少|先|再|不要|不用|别|帮我|给我|向我|为我)\s*)?"
-        r"(?:回答|思考|解释|告诉|举|讲|提供|生成|使用|用|提醒|说明))"
-    ),
-    re.compile(r"\s+(?=(?:上课|课堂|课程|讨论|学习|工作|生活)(?:时|中|期间|的时候))"),
-    re.compile(
-        r"(?:^|\s+)(?=(?:(?:when(?:ever)?|while)\b|"
-        r"(?:in|during)\s+(?:class|our\s+(?:class|lessons?)|"
-        r"this\s+(?:class|course)|(?:daily|everyday)\s+life)\b|"
-        r"(?:at|during)\s+work\b))",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"(?:^|\s+)(?=(?:(?:quand|lorsque)\b|"
-        r"en\s+classe\b|(?:pendant|dans)\s+(?:le|la|les|ce|cette|nos|notre)\s+"
-        r"(?:cours|classe)\b|au\s+travail\b|"
-        r"dans\s+la\s+vie\s+(?:quotidienne|de\s+tous\s+les\s+jours)\b))",
-        re.IGNORECASE,
-    ),
-    re.compile(r"\s+(?=(?:and|but)\s+i\b)", re.IGNORECASE),
-    re.compile(r"\s+(?=(?:et|mais)\s+je\b)", re.IGNORECASE),
-)
-
-_NICKNAME_TRAILING_SOFTENERS = (
-    re.compile(r"(?:就好|即可|就行|就可以|吧|哦|啦)$"),
-    re.compile(r"\s+(?:please|thanks?|thank\s+you)$", re.IGNORECASE),
-    re.compile(r"\s+(?:s['’]il\s+vous\s+pla[îi]t|merci)$", re.IGNORECASE),
-)
-
-_REJECTED_LATIN_PREFIXES = frozenset(
-    {
-        "a",
-        "about",
-        "after",
-        "an",
-        "at",
-        "before",
-        "for",
-        "if",
-        "later",
-        "never",
-        "not",
-        "on",
-        "the",
-        "to",
-        "when",
-        "whenever",
-        "again",
-        "un",
-        "une",
-        "le",
-        "la",
-        "les",
-        "quand",
-        "si",
-        "après",
-        "avant",
-        "pour",
-        "au",
-        "aux",
-        "pas",
-        "jamais",
-    }
-)
-_REJECTED_CJK_PREFIXES = (
-    "你",
-    "您",
-    "他",
-    "她",
-    "它",
-    "大家",
-    "老师",
-    "AI老师",
-    "AI 老师",
-    "AI师傅",
-    "AI 师傅",
-    "课程",
-)
-_REJECTED_CJK_INSTRUCTION_PREFIXES = (
-    "在",
-    "不",
-    "别",
-    "先",
-    "请",
-    "帮",
-    "给",
-    "让",
-    "继续",
-    "开始",
-    "停止",
-    "避免",
-    "回答",
-    "解释",
-    "告诉",
-    "记得",
-    "现在",
-    "以后",
-)
-_REJECTED_CJK_STRONG_INSTRUCTION_PREFIXES = (
-    "不要",
-    "不用",
-    "不必",
-    "不得",
-    "请勿",
-)
-_REJECTED_CJK_INSTRUCTION_TERMS = (
-    "回答",
-    "思考",
-    "解释",
-    "告诉",
-    "公开",
-    "场合",
-    "问题",
-    "之前",
-    "之后",
-    "开始",
-    "继续",
-    "停止",
-    "避免",
-    "提供",
-    "生成",
-    "使用",
-    "帮我",
-)
-_LATIN_ABBREVIATION_PREFIXES = frozenset(
-    {"dr", "mr", "mrs", "ms", "prof", "sr", "jr", "st"}
-)
-
-
-def _looks_like_cjk_instruction(candidate: str) -> bool:
-    compact_candidate = candidate.replace(" ", "")
-    if compact_candidate.startswith(_REJECTED_CJK_STRONG_INSTRUCTION_PREFIXES):
-        return True
-    if not compact_candidate.startswith(_REJECTED_CJK_INSTRUCTION_PREFIXES):
-        return False
-    return len(compact_candidate) > 3 or any(
-        term in compact_candidate for term in _REJECTED_CJK_INSTRUCTION_TERMS
-    )
-
-
-def _capture_truncated_a_latin_initialism(source: str, match: re.Match[str]) -> bool:
-    """Reject a partial capture such as ``J`` or ``Dr`` instead of guessing."""
-
-    candidate = match.group(1).strip()
-    if not re.fullmatch(r"[A-Za-z]+", candidate):
-        return False
-    looks_like_prefix = (
-        len(candidate) == 1 or candidate.casefold() in _LATIN_ABBREVIATION_PREFIXES
-    )
-    return looks_like_prefix and (
-        re.match(r"\.\s*[A-Za-zÀ-ÖØ-öø-ÿ]", source[match.end() :]) is not None
-    )
-
-
-def _normalize_nickname_candidate(raw_candidate: str) -> str | None:
-    surrounding_characters = " \t\"'“”‘’«»「」『』()[]（）【】"
-    candidate = " ".join(raw_candidate.strip().split())
-    for trailing_pattern in _NICKNAME_TRAILING_CONTEXT_PATTERNS:
-        candidate = trailing_pattern.split(candidate, maxsplit=1)[0].strip()
-    candidate = candidate.strip(surrounding_characters)
-    for softener in _NICKNAME_TRAILING_SOFTENERS:
-        candidate = softener.sub("", candidate).strip()
-    candidate = candidate.strip(surrounding_characters)
-    candidate = unicodedata.normalize("NFC", candidate)
-
-    if not candidate or len(candidate) > LEARNER_PROFILE_NICKNAME_MAX_LENGTH:
-        return None
-    if len(candidate.split()) > 6 or candidate.isdigit():
-        return None
-
-    candidate_lower = candidate.casefold()
-    if any(token in candidate_lower for token in ("@", "http://", "https://", "www.")):
-        return None
-    if sum(char.isdigit() for char in candidate) >= 7:
-        return None
-
-    first_word = candidate_lower.split(maxsplit=1)[0]
-    if first_word in _REJECTED_LATIN_PREFIXES:
-        return None
-    compact_candidate = candidate.replace(" ", "")
-    if compact_candidate.startswith(_REJECTED_CJK_PREFIXES):
-        return None
-    if _looks_like_cjk_instruction(candidate):
-        return None
-    if any(not (char.isalnum() or char in " -_'’·") for char in candidate):
-        return None
-    return candidate
-
-
-def extract_learner_profile_nickname(learner_profile: str) -> str | None:
-    """Recognize only an explicit preferred form of address from profile prose.
-
-    The profile stays the source of truth. This conservative recognizer avoids a
-    second provider call and never guesses a name from a role, email, or other
-    background detail.
-    """
-
-    source = str(learner_profile or "").strip()
-    if not source:
-        return None
-
-    candidates: list[tuple[int, int, str]] = []
-    for priority, pattern in _EXPLICIT_NICKNAME_PATTERNS:
-        for match in pattern.finditer(source):
-            if _capture_truncated_a_latin_initialism(source, match):
-                continue
-            candidate = _normalize_nickname_candidate(match.group(1))
-            if candidate is not None:
-                candidates.append((priority, match.start(), candidate))
-    if not candidates:
-        return None
-    return max(candidates, key=lambda item: (item[0], item[1]))[2]
 
 
 def _learner_profile_audit_text(learner_profile: str) -> str:
@@ -441,18 +124,32 @@ def normalize_learner_profile(raw_profile: Any) -> str:
     if not isinstance(raw_profile, str):
         raise_param_error("learner_profile")
     normalized = raw_profile.strip()
-    if not normalized or len(normalized) > LEARNER_PROFILE_MAX_LENGTH:
+    if len(normalized) > LEARNER_PROFILE_MAX_LENGTH:
         raise_param_error("learner_profile")
+    return normalized
+
+
+def normalize_learner_profile_nickname(raw_nickname: Any) -> str:
+    if not isinstance(raw_nickname, str):
+        raise_param_error("nickname")
+    normalized = raw_nickname.strip()
+    if len(normalized) > LEARNER_PROFILE_NICKNAME_MAX_LENGTH:
+        raise_param_error("nickname")
     return normalized
 
 
 def serialize_learner_profile(user: UserEntity) -> dict[str, Any]:
     profile = str(user.learner_profile or "")
+    nickname = str(user.nickname or "").strip()
+    if nickname and _nickname_matches_account_identifier(user, nickname):
+        nickname = ""
     return {
         "learner_profile": profile,
         "learner_profile_updated_at": to_utc_iso(user.learner_profile_updated_at),
         "has_learner_profile": bool(profile),
         "max_length": LEARNER_PROFILE_MAX_LENGTH,
+        "nickname": nickname,
+        "nickname_max_length": LEARNER_PROFILE_NICKNAME_MAX_LENGTH,
     }
 
 
@@ -517,9 +214,10 @@ def _load_legacy_learner_profile_values(user: UserEntity) -> dict[str, str]:
         canonical_nickname,
     ):
         latest_values[SYS_USER_NICKNAME] = canonical_nickname
-    elif legacy_nickname:
-        # A legacy variable row records an explicit user choice. Preserve that
-        # provenance even when its value happens to equal an account identifier.
+    elif legacy_nickname and not _nickname_matches_account_identifier(
+        user,
+        legacy_nickname,
+    ):
         latest_values[SYS_USER_NICKNAME] = legacy_nickname
     return latest_values
 
@@ -540,10 +238,17 @@ def get_learner_profile(*, user_id: str) -> dict[str, Any]:
 
 
 def apply_learner_profile(user: UserEntity, learner_profile: str) -> bool:
-    if str(user.learner_profile or "") == learner_profile:
+    if learner_profile:
+        if str(user.learner_profile or "") == learner_profile:
+            return False
+        user.learner_profile = learner_profile
+        user.learner_profile_updated_at = now_utc()
+        return True
+
+    if not user.learner_profile and user.learner_profile_updated_at is None:
         return False
-    user.learner_profile = learner_profile
-    user.learner_profile_updated_at = now_utc()
+    user.learner_profile = ""
+    user.learner_profile_updated_at = None
     return True
 
 
@@ -627,17 +332,35 @@ def merge_learner_profile_for_sign_in(
         for_update=True,
     )
     source_profile = str(source_user.learner_profile or "").strip()
+    source_nickname = str(source_user.nickname or "").strip()
+    if source_nickname and _nickname_matches_account_identifier(
+        source_user,
+        source_nickname,
+    ):
+        source_nickname = ""
     target_profile = str(target_user.learner_profile or "").strip()
+    target_nickname = str(target_user.nickname or "").strip()
+    target_nickname_is_fallback = bool(
+        target_nickname
+        and _nickname_matches_account_identifier(target_user, target_nickname)
+    )
+    should_copy_nickname = not target_nickname or target_nickname_is_fallback
     if source_profile and not target_profile:
         target_user.learner_profile = source_user.learner_profile
         target_user.learner_profile_updated_at = source_user.learner_profile_updated_at
-        target_user.nickname = extract_learner_profile_nickname(source_profile) or ""
+        if source_nickname and should_copy_nickname:
+            target_user.nickname = source_nickname
 
     if source_state is None:
         return
 
-    if not target_profile and not source_profile:
-        target_user.nickname = ""
+    if (
+        source_nickname
+        and not target_profile
+        and not source_profile
+        and should_copy_nickname
+    ):
+        target_user.nickname = source_nickname
 
     db.session.add(
         UserOnboardingState(
@@ -733,23 +456,33 @@ def save_learner_profile(
     user_id: str,
     learner_profile: str,
     trigger_source: str,
+    nickname: str | None = None,
 ) -> dict[str, Any]:
     normalized_trigger_source = str(trigger_source or "").strip()
     if normalized_trigger_source not in LEARNER_PROFILE_TRIGGER_SOURCES:
         raise_param_error("trigger_source")
     normalized = normalize_learner_profile(learner_profile)
-    recognized_nickname = extract_learner_profile_nickname(normalized)
-    moderation_passed = False
+    normalized_nickname = (
+        normalize_learner_profile_nickname(nickname) if nickname is not None else None
+    )
+    moderation_passed: set[str] = set()
 
     def operation() -> tuple[UserEntity, UserOnboardingState]:
-        nonlocal moderation_passed
         user = load_learner_profile_user(user_id, for_update=True)
-        if not moderation_passed:
-            if not check_text_content(app, user_id, normalized):
+        moderation_inputs = tuple(
+            dict.fromkeys(
+                value
+                for value in (normalized, normalized_nickname)
+                if value and value not in moderation_passed
+            )
+        )
+        for moderation_input in moderation_inputs:
+            if not check_text_content(app, user_id, moderation_input):
                 raise_error("server.check.checkRiskControlReject")
-            moderation_passed = True
+            moderation_passed.add(moderation_input)
         apply_learner_profile(user, normalized)
-        user.nickname = recognized_nickname or ""
+        if normalized_nickname is not None:
+            user.nickname = normalized_nickname
         state = _apply_completed_state(
             user_id=user_id,
             trigger_source=normalized_trigger_source,
@@ -768,12 +501,14 @@ def replace_learner_profile(
     *,
     user_id: str,
     learner_profile: str,
+    nickname: str | None = None,
 ) -> dict[str, Any]:
     return save_learner_profile(
         app,
         user_id=user_id,
         learner_profile=learner_profile,
         trigger_source="settings",
+        nickname=nickname,
     )
 
 
@@ -783,7 +518,6 @@ def clear_learner_profile(*, user_id: str) -> dict[str, Any]:
         if user.learner_profile or user.learner_profile_updated_at is not None:
             user.learner_profile = ""
             user.learner_profile_updated_at = None
-        user.nickname = ""
         state = _apply_completed_state(user_id=user_id, trigger_source="settings")
         return user, state
 

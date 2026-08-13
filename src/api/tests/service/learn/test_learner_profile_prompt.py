@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+import pytest
+
 from flaskr.service.learn.learner_profile_prompt import (
     LEARNER_PROFILE_PROMPT_MARKER,
     build_course_prompt,
@@ -118,6 +120,73 @@ def test_course_prompt_formats_only_teacher_authored_course_variables():
     assert "<course_prompt>\n你好，小雨\n</course_prompt>" in formatted
     assert r"\u007bsys_user_nickname\u007d" in formatted
     assert formatted.count("小雨") == 1
+
+
+def test_course_prompt_uses_explicit_nickname_without_parsing_the_introduction():
+    learner = SimpleNamespace(
+        learner_profile="I work in an office and want to build something with AI.",
+        nickname="Alex",
+        user_bid="learner-1",
+        identify="learner-1",
+    )
+
+    prompt = build_course_prompt("COURSE RULE", learner=learner)
+
+    assert prompt is not None
+    context = json.loads(
+        _extract_tag_content(
+            prompt,
+            '<learner_profile format="json-string">',
+            "</learner_profile>",
+        )
+    )
+    assert context == (
+        'Preferred form of address (learner-authored): "Alex"\n'
+        "Learner introduction:\n"
+        "I work in an office and want to build something with AI."
+    )
+
+
+def test_course_prompt_can_personalize_with_only_an_explicit_nickname():
+    prompt = build_course_prompt(
+        "COURSE RULE",
+        learner=SimpleNamespace(
+            learner_profile="",
+            nickname="小林",
+            user_bid="learner-2",
+            identify="learner-2",
+        ),
+    )
+
+    assert prompt is not None
+    assert (
+        json.loads(
+            _extract_tag_content(
+                prompt,
+                '<learner_profile format="json-string">',
+                "</learner_profile>",
+            )
+        )
+        == 'Preferred form of address (learner-authored): "小林"'
+    )
+
+
+@pytest.mark.parametrize("nickname", ["learner@example.com", "+8613800138000"])
+def test_course_prompt_does_not_expose_account_identifier_as_a_nickname(nickname):
+    course_prompt = "COURSE RULE"
+
+    assert (
+        build_course_prompt(
+            course_prompt,
+            learner=SimpleNamespace(
+                learner_profile="",
+                nickname=nickname,
+                user_bid="learner-3",
+                identify="learner@example.com",
+            ),
+        )
+        == course_prompt
+    )
 
 
 def test_course_prompt_keeps_composer_placeholder_text_in_course_source():

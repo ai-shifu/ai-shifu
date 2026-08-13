@@ -130,7 +130,7 @@ def test_parse_import_activation_entries_email_with_nickname(text, expected):
     ],
     ids=["phone-profile", "email-cleared-state"],
 )
-def test_import_activation_preserves_existing_canonical_profile_nickname(
+def test_import_activation_keeps_pre_profile_nickname_behavior(
     app,
     monkeypatch,
     contact_type,
@@ -186,10 +186,10 @@ def test_import_activation_preserves_existing_canonical_profile_nickname(
 
         assert result == {"order_bid": "import-order"}
         assert stored_user is not None
-        assert stored_user.nickname == canonical_nickname
+        assert stored_user.nickname == "Imported nickname"
 
 
-def test_import_activation_locks_canonical_profile_before_nickname_defaults(
+def test_import_activation_does_not_consult_profile_state_for_nickname_defaults(
     app,
     monkeypatch,
 ):
@@ -276,22 +276,15 @@ def test_import_activation_locks_canonical_profile_before_nickname_defaults(
             "Imported Name",
         )
 
-        profile_snapshot_reads = [
-            read
-            for read in reads_before_ensure
-            if read[0] in {"user_users", "user_onboarding_states"}
-        ]
-        assert profile_snapshot_reads[:3] == [
-            ("user_users", identifier, False, False),
-            ("user_users", user.user_bid, True, True),
-            ("user_onboarding_states", user.user_bid, True, True),
-        ]
+        assert not any(
+            read[0] == "user_onboarding_states" for read in reads_before_ensure
+        )
 
         db.session.expire_all()
         stored_user = db.session.get(UserInfo, user.id)
         assert result == {"order_bid": "import-order"}
         assert stored_user is not None
-        assert stored_user.nickname == "Canonical Name"
+        assert stored_user.nickname == "Imported Name"
 
 
 @pytest.mark.parametrize(

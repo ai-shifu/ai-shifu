@@ -35,7 +35,7 @@
       },
       "identity": {
         "label": "Ma situation",
-        "text": "Vous pouvez m’appeler… Je vis à… Je travaille ou j’étudie dans… Je connais bien… mais moins…"
+        "text": "Je vis à… Je travaille ou j’étudie dans… Je connais bien… mais moins…"
       },
       "teaching": {
         "label": "Mon style de langage préféré",
@@ -53,14 +53,15 @@
     "later": "Plus tard",
     "legacyPrefill": {
       "background": "Mon parcours : {value}",
-      "nickname": "Vous pouvez m’appeler {value}.",
       "style": "Mon style de langage préféré : {value}"
     },
     "loadFailed": "Impossible de charger ces informations. Réessayez.",
     "loading": "Chargement de votre profil d’apprentissage…",
+    "nicknameLabel": "Comment votre enseignant IA doit-il vous appeler ? (facultatif)",
+    "nicknamePlaceholder": "Par exemple : Camille",
     "onboardingTitle": "Aidez votre enseignant IA à mieux vous connaître",
     "profileLabel": "Écrivez ce que votre enseignant IA doit retenir de vous",
-    "profilePlaceholder": "Exemple : Vous pouvez m’appeler Camille. Je vis à Shanghai et j’ai étudié la gestion à l’université. Depuis mon diplôme, j’occupe un emploi de bureau ordinaire où je classe des documents, écris des e-mails et prépare des tableaux. Je n’ai pas de formation technique et j’ai peu de temps après le travail, mais j’ai toujours voulu construire un projet qui m’appartienne. Aujourd’hui, j’aimerais utiliser l’IA pour organiser mes idées et compléter mes connaissances, transformer mes observations sur la vie en ville et le travail en articles et petits outils utiles, puis en faire peu à peu un projet personnel durable. Les termes nouveaux et les formulations complexes me désorientent facilement. Je préfère que mon enseignant IA s’exprime dans un style chaleureux, direct, simple et concis, sans être trop formel ni employer de jargon inutile.",
+    "profilePlaceholder": "Exemple : Je vis à Shanghai et j’ai étudié la gestion à l’université. Depuis mon diplôme, j’occupe un emploi de bureau ordinaire où je classe des documents, écris des e-mails et prépare des tableaux. Je n’ai pas de formation technique et j’ai peu de temps après le travail, mais j’ai toujours voulu construire un projet qui m’appartienne. Aujourd’hui, j’aimerais utiliser l’IA pour organiser mes idées et compléter mes connaissances, transformer mes observations sur la vie en ville et le travail en articles et petits outils utiles, puis en faire peu à peu un projet personnel durable. Les termes nouveaux et les formulations complexes me désorientent facilement. Je préfère que mon enseignant IA s’exprime dans un style chaleureux, direct, simple et concis, sans être trop formel ni employer de jargon inutile.",
     "promptDescription": "Choisissez une piste pour ajouter un début ci-dessous, puis continuez à écrire ou remplacez-le par vos propres mots.",
     "promptHeading": "Commencez par ces trois aspects",
     "reassurance": "Vous n’avez pas besoin de tout écrire en une fois. Commencez par l’essentiel, puis complétez ou modifiez ces informations à tout moment.",
@@ -73,7 +74,7 @@
     "settingsDescription": "Ces informations aident votre enseignant IA à adapter la façon dont il s’adresse à vous, ses exemples et ses formulations. Si vos demandes vont à l’encontre du cadre défini pour le cours par l’enseignant humain, le cours suivra ce cadre.",
     "settingsTitle": "Présentez-vous à votre enseignant IA",
     "writingGuideGoals": "Ce qui compte pour vous : objectifs proches, aspirations à long terme, difficultés actuelles et contraintes concrètes",
-    "writingGuideIdentity": "Votre situation : la façon de vous appeler, votre ville, votre métier ou domaine d’études et votre expérience",
+    "writingGuideIdentity": "Votre situation : votre ville, votre métier ou domaine d’études et votre expérience",
     "writingGuideTeaching": "Votre style de langage préféré : par exemple chaleureux et direct, léger, concis et conversationnel, ou professionnel mais facile à comprendre, ainsi que les formulations à éviter",
     "writingGuideTitle": "Vous pouvez inclure"
   },
@@ -82,7 +83,7 @@
   "loadFailed": "Le guide du profil d’apprentissage n’a pas pu être chargé et a été ignoré pour le moment. Réessayez plus tard.",
   "next": "Suivant",
   "profileLabel": "Votre parcours et vos préférences",
-  "profilePlaceholder": "Par exemple : la façon de vous appeler, votre parcours professionnel ou scolaire, votre expérience, vos styles d’explication et de diapositives préférés, ainsi que vos centres d’intérêt du moment",
+  "profilePlaceholder": "Par exemple : votre parcours professionnel ou scolaire, votre expérience, votre style de langage préféré et vos centres d’intérêt du moment",
   "refreshPending": "Votre profil d’apprentissage a été enregistré. La synchronisation des informations personnelles est encore en cours, veuillez actualiser dans un instant.",
   "settings": {
     "cancel": "Annuler",

@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 import asyncio
+import json
 import sys
 import threading
 import time
@@ -1487,6 +1488,42 @@ class CoursePromptCompositionTests(unittest.TestCase):
         assert prompt is not None
         self.assertNotIn("FALLBACK RULE", prompt)
         mock_load.assert_called_once_with("user-1")
+
+    def test_formal_preview_uses_current_explicit_nickname_without_profile_text(self):
+        app = Flask("preview-course-prompt-nickname")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            document_prompt="PREVIEW COURSE RULE",
+        )
+
+        with patch.object(
+            preview_ctx,
+            "_load_learner_for_course_prompt",
+            return_value=types.SimpleNamespace(
+                learner_profile="",
+                nickname="Current Learner",
+                user_bid="user-1",
+                user_identify="user-1",
+            ),
+        ):
+            prompt = preview_ctx._resolve_document_prompt(
+                preview_request,
+                outline=None,
+                shifu=None,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+            )
+
+        assert prompt is not None
+        encoded_context = prompt.split('<learner_profile format="json-string">\n', 1)[
+            1
+        ].split("\n</learner_profile>", 1)[0]
+        self.assertEqual(
+            json.loads(encoded_context),
+            'Preferred form of address (learner-authored): "Current Learner"',
+        )
 
     def test_formal_preview_reloads_profile_for_each_request(self):
         app = Flask("preview-course-prompt-profile-refresh")

@@ -25,6 +25,8 @@ describe('learner profile api', () => {
       learner_profile_updated_at: '2026-08-03T01:02:03Z',
       has_learner_profile: true,
       max_length: 1000,
+      nickname: '小明',
+      nickname_max_length: 64,
     };
     const clearedProfile = {
       ...savedProfile,
@@ -42,9 +44,9 @@ describe('learner profile api', () => {
     (request.delete as jest.Mock).mockResolvedValue(clearedProfile);
 
     await expect(getLearnerProfile()).resolves.toEqual(savedProfile);
-    await expect(updateLearnerProfile('我是一名产品经理。')).resolves.toEqual(
-      savedProfile,
-    );
+    await expect(
+      updateLearnerProfile('我是一名产品经理。', '小明'),
+    ).resolves.toEqual(savedProfile);
     await expect(clearLearnerProfile()).resolves.toEqual(clearedProfile);
 
     expect(request.get).toHaveBeenCalledWith('/api/user/learner-profile', {
@@ -54,11 +56,22 @@ describe('learner profile api', () => {
       '/api/user/learner-profile',
       {
         learner_profile: '我是一名产品经理。',
+        nickname: '小明',
       },
       { skipErrorToast: true },
     );
     expect(request.delete).toHaveBeenCalledWith('/api/user/learner-profile', {
       skipErrorToast: true,
     });
+  });
+
+  test('preserves the nickname when an older caller only updates the profile', async () => {
+    await updateLearnerProfile('Only the introduction changes');
+
+    expect(request.put).toHaveBeenCalledWith(
+      '/api/user/learner-profile',
+      { learner_profile: 'Only the introduction changes' },
+      { skipErrorToast: true },
+    );
   });
 });

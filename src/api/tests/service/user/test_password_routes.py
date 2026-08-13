@@ -138,7 +138,7 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
         guest = create_user_entity(
             user_bid="password-anonymous-guest",
             identify="password-anonymous-guest",
-            nickname="Guest",
+            nickname="小雨",
             learner_profile=guest_profile,
             learner_profile_updated_at=profile_updated_at,
         )

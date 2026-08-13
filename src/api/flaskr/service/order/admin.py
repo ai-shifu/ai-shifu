@@ -46,7 +46,6 @@ from flaskr.service.order.raw_snapshots import (
     legacy_stripe_snapshot_query,
     native_snapshot_model,
 )
-from flaskr.service.profile.api import has_learner_profile_or_state
 from flaskr.service.promo.consts import (
     COUPON_STATUS_ACTIVE,
     COUPON_STATUS_INACTIVE,
@@ -682,22 +681,14 @@ def import_activation_order(
         if allow_empty_nickname
         else normalized_nickname or normalized_identifier
     )
+    defaults = {
+        "identify": normalized_identifier,
+        "nickname": nickname_value,
+        "state": USER_STATE_REGISTERED,
+    }
     existing_aggregate = load_user_aggregate_by_identifier(
         normalized_identifier, providers=[contact_type]
     )
-    canonical_profile_controls_nickname = bool(
-        existing_aggregate
-        and has_learner_profile_or_state(
-            existing_aggregate.user_bid,
-            for_update=True,
-        )
-    )
-    defaults = {
-        "identify": normalized_identifier,
-        "state": USER_STATE_REGISTERED,
-    }
-    if not canonical_profile_controls_nickname:
-        defaults["nickname"] = nickname_value
     aggregate, created_new_user = ensure_user_for_identifier(
         app,
         provider=contact_type,
@@ -709,6 +700,7 @@ def import_activation_order(
         raise_error("server.user.userNotFound")
 
     user_id = aggregate.user_bid
+
     existing_success_order = (
         Order.query.filter(
             Order.user_bid == user_id,
@@ -733,7 +725,7 @@ def import_activation_order(
     entity = get_user_entity_by_bid(user_id, include_deleted=True)
     if entity:
         updates = {"identify": normalized_identifier}
-        if normalized_nickname and not canonical_profile_controls_nickname:
+        if normalized_nickname:
             updates["nickname"] = normalized_nickname
         if aggregate.state == USER_STATE_UNREGISTERED:
             updates["state"] = USER_STATE_REGISTERED

@@ -5,13 +5,11 @@ from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
     get_user_entity_by_bid,
-    load_user_aggregate_by_identifier,
     update_user_entity_fields,
     upsert_credential,
 )
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.common.dtos import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
-from flaskr.service.profile.api import has_learner_profile_or_state
 from flaskr.dao import db
 
 
@@ -28,24 +26,12 @@ def import_user(
         # Ensure there is a canonical user bound to this phone number, and that
         # the canonical record tracks the phone in ``user_identify`` together
         # with the desired nickname and registered state.
-        existing_aggregate = load_user_aggregate_by_identifier(
-            normalized_mobile,
-            providers=["phone"],
-        )
-        canonical_profile_controls_nickname = bool(
-            existing_aggregate
-            and has_learner_profile_or_state(
-                existing_aggregate.user_bid,
-                for_update=True,
-            )
-        )
         defaults = {
             "identify": normalized_mobile,
+            "nickname": user_nick_name or normalized_mobile,
             "language": "en-US",
             "state": USER_STATE_REGISTERED,
         }
-        if not canonical_profile_controls_nickname:
-            defaults["nickname"] = user_nick_name or normalized_mobile
         aggregate, _ = ensure_user_for_identifier(
             app,
             provider="phone",
@@ -63,7 +49,7 @@ def import_user(
         entity = get_user_entity_by_bid(user_id, include_deleted=True)
         if entity:
             updates = {"identify": normalized_mobile}
-            if user_nick_name and not canonical_profile_controls_nickname:
+            if user_nick_name:
                 updates["nickname"] = user_nick_name
             if aggregate.state == USER_STATE_UNREGISTERED:
                 updates["state"] = USER_STATE_REGISTERED

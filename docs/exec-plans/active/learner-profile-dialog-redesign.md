@@ -5,19 +5,21 @@
 Replace the learner-facing full-page personalization settings and legacy
 three-field onboarding experience with one responsive learner-profile dialog.
 Learners stay in the active lesson, write one natural-language introduction,
-and let the AI teacher use that canonical profile across courses. The dialog
-never exposes nickname extraction or the legacy `sys_user_nickname`,
-`sys_user_background`, and `sys_user_style` variables. Existing courses keep
-their historical variables and runtime compatibility. When an explicit name
-can be safely recognized from the canonical profile, `user_users.nickname` is
-updated in the same transaction without adding a second editable field.
+and may separately provide a low-emphasis nickname for the AI teacher to use.
+The introduction and nickname are independent inputs: the service never parses
+or uses an LLM to extract a nickname from the introduction. The explicit
+nickname is stored directly in `user_users.nickname` in the same transaction as
+the canonical profile mutation. The dialog does not expose the legacy
+`sys_user_nickname`, `sys_user_background`, or `sys_user_style` variables.
+Existing courses keep their historical variables and their pre-PR
+`sys_user_nickname` write, read, and runtime-substitution behavior unchanged.
 
 The selected visual truth began with the revised option-three mock at
 `docs/assets/learner-profile-dialog-approved-reference.png`
 and was refined by direct user feedback: the active dialog has only its
 secondary action and primary save action, with no separate clear or overflow
 control. Deliberately emptying a loaded draft and choosing save performs the
-canonical clear through that primary action.
+canonical empty-profile write through PUT and keeps the independent nickname.
 
 ## Progress
 
@@ -31,15 +33,18 @@ canonical clear through that primary action.
       dialog and replace the full-page learner settings entry.
 - [x] 2026-08-12 06:20 CST: Route first-time onboarding through the canonical
       dialog while retaining the old backend wire contract for compatibility.
-- [x] 2026-08-12 06:20 CST: Add background nickname recognition and atomic
-      user-info synchronization without displaying parsing metadata.
+- [x] 2026-08-13: Replace the proposed nickname-recognition design with one
+      optional explicit nickname input. Persist it directly to
+      `user_users.nickname`; do not parse or use an LLM on the introduction,
+      and do not change the legacy `sys_user_nickname` mechanism.
 - [x] 2026-08-12: Refine the selected visual target from direct user feedback
       so the active dialog exposes no separate clear or overflow control.
-- [x] 2026-08-12 16:05 CST: Tighten desktop header/body/footer spacing and the
-      empty editor height. The selected in-app browser measured the open dialog
-      body at `575px` for both client and scroll height with `scrollTop = 0`, so
-      the complete editor, guide, reassurance, and actions fit without initial
-      scrolling; shorter viewports and longer drafts retain internal scrolling.
+- [x] 2026-08-13: Tighten desktop header/body/footer spacing and the editor
+      height after adding the nickname field. At a real `1280 x 720` in-app
+      course viewport, the open dialog body measured `490px` for both client and
+      scroll height with `scrollTop = 0`; the nickname, introduction, guide,
+      reassurance, and actions all fit without initial scrolling. Shorter
+      viewports and longer drafts retain internal scrolling.
 - [x] 2026-08-12: Replace positional Course Prompt/profile concatenation with a
       single MarkdownFlow-compatible composition envelope that identifies the
       platform, current task, course, and learner contributions by responsibility.
@@ -53,18 +58,25 @@ canonical clear through that primary action.
       settings that learner requests personalize only within the human
       teacher's course design; failure and delayed-refresh feedback remain
       visible.
-- [x] 2026-08-13: Let learners deliberately empty a loaded profile and save
-      that choice through the existing DELETE contract. Reuse the existing
-      profile-v2 handled state so legacy values seed only never-handled
-      profiles and do not reappear after an explicit clear.
+- [x] 2026-08-13: Let learners deliberately empty a loaded introduction and
+      save it through the normal PUT contract. Keep DELETE as a compatibility
+      interface that clears only the introduction and preserves the independent
+      nickname. Reuse the existing profile-v2 handled state so legacy values
+      seed only never-handled profiles and do not reappear after an explicit
+      clear; no new persistence is required.
 - [x] 2026-08-13: Rename the settings title to invite learners to introduce
       themselves, clarify the Chinese long-term field label, and remove the
       header-only max-width so the title and description share the form's left
       edge. A same-size 684 x 781 browser comparison passes in `design-qa.md`.
-- [ ] 2026-08-12 06:20 CST: Focused backend/frontend behavior, type-check,
-      ESLint, Ruff, translation, architecture, repository harness, and
-      production build checks pass. Desktop browser verification is complete;
-      mobile comparison and visible interaction exercise remain.
+- [x] 2026-08-13: Complete pre-commit verification for the explicit-nickname
+      contract: 218 focused backend tests passed with 4 skipped, 56 focused
+      frontend tests passed, TypeScript and focused ESLint passed, repository-
+      pinned Ruff 0.15.13 and Prettier passed, translation and unused-key checks
+      passed, architecture and repository harness checks passed, the migration
+      graph remained single-head, and the real desktop browser check passed.
+- [ ] 2026-08-13: Rebase onto the latest `origin/main`, repeat the focused
+      gates, update the ready PR and deployment notes, and read back CI and
+      active review threads.
 
 ## Surprises & Discoveries
 
@@ -76,19 +88,25 @@ canonical clear through that primary action.
 - First-course onboarding remains a separate legacy MarkdownFlow questionnaire
   that writes the same three `sys_*` values. Removing only the settings fields
   would leave the obsolete data-entry path active.
-- Runtime nickname substitution currently prefers `user_users.nickname` over
-  historical variable rows, so canonical nickname synchronization can preserve
-  old-course reads without creating new legacy rows.
-- The canonical profile is free-form multilingual prose. Recognition must be
-  conservative and deterministic: only explicit forms of address become the
-  account nickname, and a profile without one yields an empty derived nickname.
+- Nickname has two distinct compatibility surfaces. The redesigned canonical
+  endpoint may write the explicit value directly to `user_users.nickname`, but
+  existing `sys_user_nickname` VariableValue writers, readers, and runtime
+  substitution must behave exactly as they did before this PR. The new flow
+  must not add canonical-profile guards to those old paths. The unchanged
+  runtime precedence already projects `user_users.nickname` as the effective
+  legacy variable value, so a newly explicit account nickname is naturally
+  visible to old courses without rewriting their VariableValue rows.
+- The canonical introduction is free-form multilingual prose. Treating an
+  inferred name as account data would be surprising and nondeterministic, so
+  the explicit nickname field is the only new source for nickname changes.
 - Eligibility and profile requests can outlive account or dialog-mode changes.
   Runtime readiness therefore has to be keyed by account, not held as a single
   boolean, and user-info refresh must reject stale token or user-ID results.
 - A canonical clear remains a handled profile mutation for compatibility. The
-  redesigned dialog offers no separate clear control; deleting all loaded text
-  and pressing save invokes the modern DELETE endpoint. The legacy
-  `LearnerProfileSettingsSection` clear flow remains a stable interface.
+  redesigned dialog offers no separate clear control; deleting all loaded
+  introduction text and pressing save invokes PUT with an empty profile. The
+  DELETE endpoint remains stable for compatibility consumers, clears only the
+  profile, and never clears the independent nickname.
 - MarkdownFlow 0.3.1 accepts one `document_prompt` string and places it in its
   existing system-message assembly, so the three-block envelope requires no
   provider or library API change. Its tags express composition semantics rather
@@ -102,13 +120,18 @@ canonical clear through that primary action.
   account-switch, accessibility, and responsive behavior at every entry.
 - Decision: show only the context-appropriate secondary action and primary
   save action in the redesigned dialog; do not expose clear or overflow UI.
-  Rationale: direct user feedback preferred a simpler active flow. The modern
-  DELETE API backs an intentionally empty save, while the legacy
-  settings-section clear behavior stays available as a compatibility contract.
-- Decision: keep exactly one stored learner-profile text and show no parsed
-  nickname or derived metadata in the dialog.
-  Rationale: the learner should experience name recognition as a background
-  consequence of a natural introduction, not as another field to manage.
+  Rationale: direct user feedback preferred a simpler active flow. An
+  intentionally empty introduction uses the normal PUT save, while DELETE and
+  the legacy settings-section clear behavior stay available as compatibility
+  contracts.
+- Decision: show a separate, optional, low-emphasis nickname input alongside
+  the learner-profile introduction.
+  Rationale: nickname is explicit account data that learners should be able to
+  understand and correct. The service must never infer it from the introduction
+  or make save depend on an additional LLM call.
+- Decision: keep the nickname and personal introduction independent.
+  Rationale: an empty introduction must not clear a nickname, and changing or
+  clearing a nickname must not rewrite the introduction.
 - Decision: make the example concrete through durable background, current
   concerns, and language-style preferences rather than a course-specific task.
   Rationale: the same learner profile should give any AI teacher useful
@@ -121,34 +144,41 @@ canonical clear through that primary action.
   common degree and an AI-supported personal ambition.
   Rationale: direct user review preferred an ordinary, specific person whose
   background and goal remain useful across different subjects.
-- Decision: recognize only explicit, bounded address phrases in supported
-  languages and treat the result (including no result) as the derived account
-  nickname; clearing the canonical profile clears that derived nickname.
-  Rationale: the user explicitly made the learner profile the source of truth
-  for nickname while keeping recognition invisible in the UI. A deterministic
-  recognizer avoids a second provider call, raw-profile logging, and
-  nondeterministic save failures.
-- Decision: update `learner_profile`, its timestamp, derived nickname, and
-  profile-v2 state in the existing unit of work.
-  Rationale: moderation or database failure must not leave a half-synchronized
-  account.
-- Decision: stop new UI writes to the three legacy variables, but do not delete
-  their definitions, rows, endpoints, parser, or runtime resolution.
-  Rationale: old courses and rolling deployments still depend on those
-  contracts.
+- Decision: extend the canonical PUT with an optional `nickname` field. A
+  missing field preserves the current nickname; an explicit empty string clears
+  it; any supplied value is bounded and moderated. The profile text itself may
+  also be empty.
+  Rationale: these semantics support independent edits and rolling clients
+  without introducing a second endpoint or an ambiguous inferred value.
+- Decision: apply each provided canonical field and the profile-v2 handled
+  state inside the existing unit of work.
+  Rationale: moderation or database failure must not leave a half-saved profile
+  and nickname update.
+- Decision: stop new UI writes to the three legacy variables, but do not delete,
+  guard, or otherwise change their definitions, rows, endpoints, parser,
+  writers, readers, or runtime resolution. In particular,
+  `sys_user_nickname` retains its pre-PR behavior.
+  Rationale: old courses and rolling deployments still depend on those exact
+  contracts. The new explicit nickname write to `user_users.nickname` is an
+  additional canonical path, not a replacement for legacy behavior.
 - Decision: when the canonical profile is empty and no fixed profile-v2 state
-  exists, expose only the latest global values of the three legacy variables
-  to the current user and compose them into a localized, editable draft without
-  auto-saving it. Once the existing profile-v2 state records an explicit clear,
-  keep the editor empty instead of restoring those legacy values.
+  exists, use only the latest global legacy background/style values to compose
+  a localized, editable introduction draft without auto-saving it. Do not put
+  `sys_user_nickname` into that prose. The separate nickname input first reads a
+  safe account nickname and may fall back to an existing global legacy nickname;
+  with a new backend, the first canonical save migrates that displayed fallback
+  into `user_users.nickname` without altering its legacy row. Once the existing
+  profile-v2 state records an explicit clear, keep the editor empty instead of
+  restoring those legacy background/style values.
   Rationale: existing learners start from information they already provided,
   while an explicit empty save remains durable without adding new persistence;
   canonical profiles remain authoritative and course-scoped legacy data never
   leaks into the new cross-course profile.
-- Decision: when a canonical profile is available, serialize the effective
-  `document_prompt` as a platform-owned composition contract followed by an
-  unmodified teacher-authored Course Prompt block and a JSON-encoded learner
-  profile block.
+- Decision: when a canonical learner context is available, serialize the
+  effective `document_prompt` as a platform-owned composition contract followed
+  by an unmodified teacher-authored Course Prompt block and a JSON-encoded
+  learner-owned data block. That learner data may contain the introduction, the
+  explicit nickname, or both.
   Rationale: Course Prompts and learner profiles are both open inputs whose
   apparent conflicts cannot be eliminated in advance. The contract deliberately
   leaves course design and presentation choices to the Course Prompt and limits
@@ -156,8 +186,9 @@ canonical clear through that primary action.
   preferences may personalize execution, while embedded directives, role or
   priority claims, tool or data requests, and disclosure attempts remain inert.
   This stays compatible with MarkdownFlow's single-string `document_prompt` API.
-  With no canonical profile, the original Course Prompt remains byte-for-byte
-  unchanged.
+  The explicit nickname is also untrusted learner data and never gains
+  instruction authority. With neither an introduction nor an explicit
+  nickname, the original Course Prompt remains byte-for-byte unchanged.
 - Decision: keep the existing handled behavior for “稍后再说” by writing only
   the legacy onboarding sentinel through the stable skip wire contract.
   Rationale: dismissing must not create any of the three obsolete `sys_*`
@@ -171,27 +202,24 @@ canonical clear through that primary action.
 
 ## Outcomes & Retrospective
 
-The learner now stays inside the lesson while one shared responsive dialog
-collects a single natural introduction. No legacy nickname/background/style
-fields or parsed nickname are displayed. When that introduction is empty,
-existing global legacy values seed a localized draft that the learner can
-review, edit, and explicitly save. A moderated save atomically updates
-the canonical profile, profile-v2 handled state, and a conservatively derived
-account nickname; clear atomically empties the profile and nickname while
-remaining handled through the stable compatibility API. The redesigned dialog
-itself presents only its secondary action and save. Historical `sys_*` rows
-and old-course reads remain intact.
+The learner stays inside the lesson while one shared responsive dialog collects
+a natural introduction and, separately, an optional nickname. The dialog does
+not expose the three legacy variables and never infers nickname data from prose.
+When the canonical introduction is empty, eligible existing global legacy
+background/style values seed a localized draft that the learner can review,
+edit, and explicitly save. A moderated PUT atomically applies the profile and
+any explicitly supplied nickname while recording the existing profile-v2
+handled state. Saving an empty introduction does not clear the nickname; the
+compatibility DELETE endpoint also preserves it. Historical `sys_*` rows and
+all pre-PR `sys_user_nickname` behavior remain intact.
 
-Focused verification currently reports 83 canonical-profile backend tests, 13
-manual-activation compatibility tests, and 54 combined frontend flow/component
-tests passing, plus type-check, focused ESLint, repository-pinned Ruff 0.15.13,
-translation parity/usage, architecture, repository harness, UoW ratchet, and a
-production build. The installed local Ruff 0.16.2 makes the repository-wide
-lefthook run fail on pre-existing baseline findings; all other hook jobs pass,
-and the pinned changed-file Ruff command passes. The final browser-rendered
-desktop/mobile comparison remains blocked and is recorded in the root
-`design-qa.md`; this plan must not be marked complete until that report says
-`final result: passed`.
+The explicit-nickname implementation now passes its pre-commit behavior and
+static gates: 218 backend tests passed with 4 skipped, 56 frontend tests passed,
+and the focused type, lint, formatting, translation, architecture, repository
+harness, migration-graph, and desktop-browser checks all passed. The final
+post-rebase repetition and PR/CI readback remain before this plan can move to
+the completed archive; counts from the superseded inferred-nickname design are
+not treated as evidence for this contract.
 
 ## Context and Orientation
 
@@ -225,13 +253,14 @@ legacy onboarding service remains in
 4. Hide the three legacy variables from all new settings surfaces and stop the
    learner-profile flow from calling legacy profile updates. Preserve unrelated
    course-defined variables outside this dialog.
-5. Add conservative nickname recognition in the canonical service and apply a
-   recognized nickname inside the existing profile/state unit of work. Refresh
-   frontend user info after accepted saves.
+5. Add a low-emphasis optional nickname input. Extend canonical GET/PUT with
+   direct `user_users.nickname` semantics, never inspect the introduction for a
+   name, and refresh frontend user info after accepted nickname saves. Preserve
+   every pre-PR `sys_user_nickname` writer/read/runtime path unchanged.
 6. Add focused tests for entries, responsive/accessible behavior, load/save/
-   error/dismiss/account-switch behavior, nickname recognition and atomicity,
-   plus compatibility coverage for the modern DELETE endpoint and legacy
-   settings-section clear flow.
+   error/dismiss/account-switch behavior, independent nickname/profile edits
+   and atomicity, plus compatibility coverage for DELETE preserving nickname
+   and for the unchanged legacy nickname paths.
 7. Capture desktop and mobile implementations, compare them with the selected
    mock, fix P0-P2 differences, and record `design-qa.md` with a passing result.
 
@@ -245,40 +274,51 @@ legacy onboarding service remains in
   approximately 720-pixel desktop surface and a near-full-height mobile sheet
   with at least 44-pixel actions.
 - Provide three optional writing-prompt buttons that only focus/seed the same
-  textarea. The complete placeholder must cover address, durable background,
-  existing experience, current cross-topic concerns, practical constraints,
-  ambitions, and language-style preferences without assuming a specific
-  subject or prescribing a teaching method.
+  textarea. The complete placeholder must cover durable background, existing
+  experience, current cross-topic concerns, practical constraints, ambitions,
+  and language-style preferences without assuming a specific subject or
+  prescribing a teaching method. Nickname belongs only in its separate input.
 - Mention language-style preferences outside the placeholder as well: the
   dialog description, third writing prompt, and writing guide must make this
   capability discoverable while leaving teaching decisions to the course
   teacher.
 - Do not add or regenerate a database migration. Nickname already belongs to
   `user_users`.
+- Keep the canonical learner-profile `nickname` request member optional. Omit
+  it for an introduction-only update, send an explicit empty string to clear
+  it, and never couple it to profile-clear or DELETE behavior.
 - Preserve legacy endpoint payloads and historical rows; focused diff checks
-  must prove no accidental deletion or rewrite.
+  must prove no accidental deletion, guard, or rewrite of pre-PR
+  `sys_user_nickname` behavior. Its existing runtime precedence may expose the
+  new `user_users.nickname` value, but the canonical API must never create,
+  delete, or rewrite a legacy nickname row.
 
 ## Validation and Acceptance
 
 - Opening “学习者画像” closes the account menu, leaves the lesson visible, and
   opens a focus-managed dialog on desktop and a usable sheet on mobile.
-- The dialog contains one learner-profile textarea, complete cross-course
-  example guidance,
+- The dialog contains one learner-profile textarea, a separate optional
+  nickname input, complete cross-course example guidance,
   a context-appropriate secondary action and primary save action, inline error
-  and retry states, and no separate clear/overflow or editable/parsed
-  nickname/background/style controls.
-- Saving a moderated profile writes profile, profile-v2 handled state, and the
-  safely derived nickname atomically; no recognizable name stores an empty
-  nickname. Clearing the profile clears the derived nickname and marks the
-  profile handled.
+  and retry states, and no separate clear/overflow or editable legacy
+  background/style controls.
+- Saving writes an empty or non-empty profile, profile-v2 handled state, and any
+  explicitly supplied nickname atomically. Omitting `nickname` preserves it;
+  an explicit empty value clears it. No save path parses or sends the
+  introduction to an LLM for nickname inference.
 - New learner flows do not call legacy profile-write endpoints or create new
   `sys_*` rows. Existing historical rows, old backend wire contracts, old
   course variable resolution, Teaching, Ask, and preview behavior remain
   covered.
 - The modern DELETE endpoint and the legacy `LearnerProfileSettingsSection`
-  clear behavior remain stable compatibility interfaces. The active dialog
-  invokes DELETE only when a learner deliberately empties a loaded draft and
-  presses its normal save action; it exposes no separate clear control.
+  clear behavior remain stable compatibility interfaces. DELETE clears the
+  profile and marks it handled while preserving `user_users.nickname`. The
+  active dialog saves an empty introduction through PUT and does not invoke
+  DELETE or expose a separate clear control.
+- A course with learner context may receive the explicit nickname as bounded,
+  JSON-encoded, untrusted learner data. It has lower priority than the human
+  teacher's Course Prompt. If both profile and nickname are empty, the Course
+  Prompt remains unchanged.
 - Direct menu editing and first-time presentation share account-switch and
   late-response guards. Load failure is recoverable and never blocks the
   lesson.
@@ -301,11 +341,16 @@ hunk; never reset the entire worktree or touch another worktree.
   row; no schema change.
 - Backend: stable `GET|PUT|DELETE /api/user/learner-profile`, legacy
   `GET|POST /api/user/profile-onboarding[/complete]`, canonical moderation and
-  unit-of-work helpers. DELETE remains a compatibility interface used by the
-  redesigned dialog's deliberately empty save, without adding a clear button.
+  unit-of-work helpers. GET returns the canonical explicit nickname. PUT accepts
+  an optional `nickname`: omission preserves it and an explicit empty string
+  clears it; `learner_profile` may be empty. DELETE remains a compatibility
+  interface that clears only the profile and preserves nickname. The old
+  `sys_user_nickname` VariableValue API and runtime contract are unchanged.
 - Frontend: shared `LearnerProfileDialog`, modern learner-profile API,
   `useUserStore.refreshUserInfo`, `learner-profile-changed`, account menu and
-  course onboarding gate.
+  course onboarding gate. The dialog uses PUT for empty-profile saves and sends
+  `nickname` only when the learner changed that independent input or when a new
+  backend explicitly offers a displayed legacy nickname for one-time migration.
 - Visual target: `docs/assets/learner-profile-dialog-approved-reference.png`,
   with the direct user-feedback refinement that removes clear/overflow UI;
   implementation is verified at desktop and mobile viewports before handoff.
