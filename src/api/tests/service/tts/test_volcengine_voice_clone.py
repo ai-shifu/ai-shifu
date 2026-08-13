@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from flaskr.service.common.models import AppException
 from flaskr.service.tts import volcengine_voice_clone
 from flaskr.service.tts.volcengine_voice_clone import (
@@ -43,6 +42,7 @@ class _FakeResponse:
         ("S_xxxxxxxxxx", True),
         ("S_xxxxxxxxx", True),
         ("S_xxxx", True),
+        ("S_" + "Ab9" + "-z_7", True),  # mixed allowed character classes
         ("  S_xxxxxxxxxx  ", True),
         ("S_xx", False),  # too short
         ("AiShifu_xxxxxxxxxx", False),  # MiniMax-shaped id
