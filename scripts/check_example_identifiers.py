@@ -76,7 +76,7 @@ HOME_COURSE_ID_RE = re.compile(
 )
 FEISHU_RESOURCE_RE = re.compile(
     r"(?P<value>https?://[A-Za-z0-9.-]+\.feishu\.cn/"
-    r"(?:docx|wiki|share/base/form)/[A-Za-z0-9]+)"
+    r"(?:base|docx|sheets|wiki|share/base/form)/[A-Za-z0-9]+)"
 )
 
 MASKED_MINIMAX_VOICE_ID = "AiShifu_xxxxxxxxxx"
@@ -443,6 +443,8 @@ def run_self_test() -> None:
     suspicious_course = "1234567890abcdef" * 2
     wrong_masked_course = "y" * 32
     suspicious_doc = "https://internal." + "feishu.cn/docx/" + "AbCdEfGhIjKlMnOp"
+    suspicious_base = "https://internal." + "feishu.cn/base/" + "AbCdEfGhIjKlMnOp"
+    suspicious_sheet = "https://internal." + "feishu.cn/sheets/" + "AbCdEfGhIjKlMnOp"
 
     assert find_violations_in_text(
         "fixture.py", f'voice_id = "{suspicious_volcengine}"'
@@ -560,6 +562,8 @@ def run_self_test() -> None:
     assert not find_violations_in_text("fixture.md", f"HOME_URL=/c/{MASKED_COURSE_ID}")
     assert find_violations_in_text("fixture.ts", suspicious_doc)
     assert find_violations_in_text("fixture.md", suspicious_doc)
+    assert find_violations_in_text("fixture.md", suspicious_base)
+    assert find_violations_in_text("fixture.md", suspicious_sheet)
     assert not find_violations_in_text(
         "fixture.ts", next(iter(INTENTIONAL_PUBLIC_FEISHU_RESOURCES))
     )
