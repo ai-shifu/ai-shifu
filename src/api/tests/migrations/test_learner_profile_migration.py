@@ -14,12 +14,18 @@ MIGRATION_PATH = (
     / "versions"
     / "c8f1a2d3e4b5_add_learner_profile_to_users.py"
 )
+MERGE_MIGRATION_PATH = (
+    API_ROOT
+    / "migrations"
+    / "versions"
+    / "f9a2b3c4d5e6_merge_learner_profile_and_tts_provider_heads.py"
+)
 
 
-def _load_migration_module():
+def _load_migration_module(path=MIGRATION_PATH):
     spec = importlib.util.spec_from_file_location(
         "test_learner_profile_migration_module",
-        MIGRATION_PATH,
+        path,
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -71,3 +77,10 @@ def test_learner_profile_revision_extends_the_existing_main_head():
 
     assert migration.revision == "c8f1a2d3e4b5"
     assert migration.down_revision == "b8d5f0a2c3e4"
+
+
+def test_merge_revision_joins_learner_profile_and_tts_provider_heads():
+    migration = _load_migration_module(MERGE_MIGRATION_PATH)
+
+    assert migration.revision == "f9a2b3c4d5e6"
+    assert migration.down_revision == ("c8f1a2d3e4b5", "e7b3c9d1f5a2")

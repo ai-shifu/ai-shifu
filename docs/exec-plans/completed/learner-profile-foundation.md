@@ -26,6 +26,8 @@ questionnaire and its `sys_*` storage contract remain intact.
   lefthook.
 - [x] 2026-08-10 11:23 CST: Committed and pushed the split, then created ready
   pull request #2301.
+- [x] 2026-08-13 08:45 CST: Rebased onto main after the TTS provider migration
+  landed and added a no-DDL Alembic merge revision to restore a single head.
 
 ## Surprises & Discoveries
 
@@ -48,6 +50,9 @@ questionnaire and its `sys_*` storage contract remain intact.
 - An older backend may not expose the learner-profile endpoint during a rolling
   deployment. A failed initial profile load therefore leaves the editor
   disabled but is a no-op for the page-wide legacy settings save.
+- Main later added sibling revision `e7b3c9d1f5a2` from the same
+  `b8d5f0a2c3e4` parent. Revision `c8f1a2d3e4b5` remains unchanged; a separate
+  no-DDL merge revision joins the independent learner-profile and TTS branches.
 
 ## Decision Log
 
@@ -129,7 +134,9 @@ under `src/i18n/`.
   `route/user.py`, `context_v2.py`, `UserSettings.tsx`, `c-api/user.ts`, and
   translations.
 - Do not run `flask db migrate`; inspect and test the existing migration and
-  run Alembic head validation instead.
+  run Alembic head validation instead. If main introduces an independent
+  sibling revision, add and review an official no-DDL Alembic merge revision;
+  do not rewrite either applied schema revision.
 - Run focused pytest and Jest suites, Ruff on changed Python files,
   TypeScript type-check, ESLint, translation checks, architecture checks,
   repository harness, tool doctor, and lefthook.
@@ -146,8 +153,9 @@ legacy marker.
 
 ## Validation and Acceptance
 
-- Migration `c8f1a2d3e4b5` adds nullable profile text and update time and is the
-  single Alembic head following main's `b8d5f0a2c3e4`.
+- Migration `c8f1a2d3e4b5` adds nullable profile text and update time unchanged;
+  no-DDL revision `f9a2b3c4d5e6` merges it with main's independent
+  `e7b3c9d1f5a2` TTS migration and is the single Alembic head.
 - GET/PUT/DELETE profile routes authenticate, moderate, normalize, save, and
   clear correctly; PUT/DELETE atomically retain fixed profile-v2 handled state.
 - Legacy questionnaire payloads, parser, `sys_*` writes, and old course profile
