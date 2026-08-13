@@ -154,6 +154,21 @@ _NICKNAME_TRAILING_CONTEXT_PATTERNS = (
         r"\s+(?=(?:(?:请|多|少|先|再|不要|不用|别|帮我|给我|向我|为我)\s*)?"
         r"(?:回答|思考|解释|告诉|举|讲|提供|生成|使用|用|提醒|说明))"
     ),
+    re.compile(r"\s+(?=(?:上课|课堂|课程|讨论|学习|工作|生活)(?:时|中|期间|的时候))"),
+    re.compile(
+        r"(?:^|\s+)(?=(?:(?:when(?:ever)?|while)\b|"
+        r"(?:in|during)\s+(?:class|our\s+(?:class|lessons?)|"
+        r"this\s+(?:class|course)|(?:daily|everyday)\s+life)\b|"
+        r"(?:at|during)\s+work\b))",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:^|\s+)(?=(?:(?:quand|lorsque)\b|"
+        r"en\s+classe\b|(?:pendant|dans)\s+(?:le|la|les|ce|cette|nos|notre)\s+"
+        r"(?:cours|classe)\b|au\s+travail\b|"
+        r"dans\s+la\s+vie\s+(?:quotidienne|de\s+tous\s+les\s+jours)\b))",
+        re.IGNORECASE,
+    ),
     re.compile(r"\s+(?=(?:and|but)\s+i\b)", re.IGNORECASE),
     re.compile(r"\s+(?=(?:et|mais)\s+je\b)", re.IGNORECASE),
 )
