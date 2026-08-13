@@ -18,11 +18,11 @@ VOLCENGINE_VOICE_ID_RE = re.compile(
     r"(?![A-Za-z0-9_-])"
 )
 VOLCENGINE_VOICE_CONTEXT_RE = re.compile(
-    r"(?:\b(?:tts[_ -]?)?voice[_ -]?id\b|"
-    r"\bspeaker[_ -]?(?:id|slot)\b|"
-    r"\bvoiceIdPlaceholderVolcengine\b|"
-    r"\bquery_volcengine_voice_status\b|"
-    r"\bverify_volcengine_voice_id\b)",
+    r"(?<![A-Za-z0-9])"
+    r"(?:voice[_ -]?id|speaker[_ -]?(?:id|slots?)|"
+    r"voiceIdPlaceholderVolcengine|query_volcengine_voice_status|"
+    r"verify_volcengine_voice_id)"
+    r"(?![A-Za-z0-9])",
     re.IGNORECASE,
 )
 MASKED_VOLCENGINE_VOICE_ID_RE = re.compile(r"^S_x{4,64}$")
@@ -95,6 +95,28 @@ def _line_containing(text: str, offset: int) -> str:
     return text[start:] if end == -1 else text[start:end]
 
 
+def _volcengine_context(text: str, match: re.Match[str]) -> str:
+    value_offset = match.start("value")
+    current_line = _line_containing(text, value_offset)
+    if VOLCENGINE_VOICE_CONTEXT_RE.search(current_line):
+        return current_line
+
+    value_start = value_offset - (text.rfind("\n", 0, value_offset) + 1)
+    value_end = value_start + len(match.group("value"))
+    prefix = current_line[:value_start]
+    suffix = current_line[value_end:]
+    is_standalone_value = re.fullmatch(
+        r"\s*(?:[-*]\s*)?[`\"']?", prefix
+    ) and re.fullmatch(r"[`\"']?\s*[,;]?\s*", suffix)
+    if not is_standalone_value:
+        return current_line
+
+    current_start = text.rfind("\n", 0, value_offset) + 1
+    previous_end = max(current_start - 1, 0)
+    previous_start = text.rfind("\n", 0, previous_end) + 1
+    return text[previous_start : current_start + len(current_line)]
+
+
 def _is_test_fixture_path(path: str) -> bool:
     normalized = Path(path)
     parts = {part.lower() for part in normalized.parts}
@@ -130,9 +152,7 @@ def find_violations_in_text(path: str, text: str) -> list[IdentifierViolation]:
     violations: list[IdentifierViolation] = []
 
     for match in VOLCENGINE_VOICE_ID_RE.finditer(text):
-        if not VOLCENGINE_VOICE_CONTEXT_RE.search(
-            _line_containing(text, match.start("value"))
-        ):
+        if not VOLCENGINE_VOICE_CONTEXT_RE.search(_volcengine_context(text, match)):
             continue
         value = match.group("value")
         if MASKED_VOLCENGINE_VOICE_ID_RE.fullmatch(value):
@@ -399,6 +419,19 @@ def run_self_test() -> None:
     )
     assert find_violations_in_text(
         "fixture.md", f"Volcengine speaker ID: {suspicious_volcengine}"
+    )
+    assert find_violations_in_text(
+        "fixture.env", f"VOLCENGINE_VOICE_ID={suspicious_volcengine}"
+    )
+    assert find_violations_in_text(
+        "fixture.py",
+        f'is_volcengine_cloned_speaker_id("{suspicious_volcengine}")',
+    )
+    assert find_violations_in_text(
+        "fixture.md", f"Volcengine Voice ID:\n{suspicious_volcengine}"
+    )
+    assert not find_violations_in_text(
+        "fixture.py", f"{status_like_volcengine} = 'ready'\nvoice_id = 'other'"
     )
     assert find_violations_in_text("fixture.py", f'voice_id = "{suspicious_minimax}"')
     assert find_violations_in_text(
