@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
 from flaskr.dao import db
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.funcs import (
@@ -55,6 +56,92 @@ def _active_legacy_values(user_bid: str) -> list[VariableValue]:
         .order_by(VariableValue.id.asc())
         .all()
     )
+
+
+@pytest.mark.parametrize(
+    "writer",
+    ["save", "label", "user-info"],
+)
+def test_legacy_nickname_writers_lock_current_canonical_state(
+    app,
+    monkeypatch,
+    writer,
+):
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.check_text_content",
+        lambda *_args, **_kwargs: True,
+    )
+
+    with app.app_context():
+        user_bid = f"legacy-nickname-lock-{writer}"
+        create_user_entity(
+            user_bid=user_bid,
+            identify=user_bid,
+            nickname="Before",
+            language="en-US",
+        )
+        db.session.commit()
+        aggregate = load_user_aggregate(user_bid)
+        assert aggregate is not None
+        user_dto = build_user_info_from_aggregate(aggregate)
+
+        query_type = type(UserInfo.query)
+        original_first = query_type.first
+        reads: list[tuple[str, str, bool, bool]] = []
+
+        def track_first(query):
+            statement = str(query.statement)
+            parameters = query.statement.compile().params
+            table = (
+                "user_onboarding_states"
+                if "user_onboarding_states" in statement
+                else "user_users"
+                if "user_users" in statement
+                else "other"
+            )
+            reads.append(
+                (
+                    table,
+                    str(parameters.get("user_bid_1", "")),
+                    query._for_update_arg is not None,
+                    bool(query.load_options._populate_existing),
+                )
+            )
+            return original_first(query)
+
+        monkeypatch.setattr(query_type, "first", track_first)
+        if writer == "save":
+            save_user_profiles(
+                app,
+                user_bid,
+                "",
+                [ProfileToSave("sys_user_nickname", "After", None)],
+            )
+            db.session.commit()
+        elif writer == "label":
+            update_user_profile_with_lable(
+                app,
+                user_bid,
+                [{"key": "sys_user_nickname", "value": "After"}],
+                update_all=True,
+            )
+            db.session.commit()
+        else:
+            update_user_info(app, user_dto, name="After")
+
+        locking_reads = [read for read in reads if read[2]]
+        assert locking_reads[:2] == [
+            ("user_users", user_bid, True, True),
+            ("user_onboarding_states", user_bid, True, True),
+        ]
+
+        db.session.expire_all()
+        stored_user = UserInfo.query.filter_by(user_bid=user_bid).one()
+        assert stored_user.nickname == "After"
 
 
 def test_completed_v2_state_preserves_legacy_profile_read_write_paths(app, monkeypatch):

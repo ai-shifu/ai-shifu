@@ -216,7 +216,10 @@ def save_user_profiles(
     PROFILES_LABLES = get_profile_labels()
     app.logger.info("save user profiles:%s", profiles)
     aggregate = _ensure_user_aggregate(user_id)
-    canonical_profile_controls_nickname = has_learner_profile_or_state(user_id)
+    writes_nickname = any(profile.key == SYS_USER_NICKNAME for profile in profiles)
+    canonical_profile_controls_nickname = bool(
+        writes_nickname and has_learner_profile_or_state(user_id, for_update=True)
+    )
     profiles_items = get_profile_item_definition_list(app, course_id)
 
     candidate_shifus = [course_id or ""]
@@ -501,15 +504,13 @@ def update_user_profile_with_lable(
     if profiles and isinstance(profiles[0], UserProfileLabelItemDTO):
         profiles = [item.__json__() for item in profiles]
 
-    aggregate = _ensure_user_aggregate(user_id)
-    canonical_profile_controls_nickname = has_learner_profile_or_state(user_id)
     profile_items = get_profile_item_definition_list(app, course_id)
 
     if not profiles:
         db.session.flush()
         return True
 
-    nickname = next((p for p in profiles if p.get("key") == "sys_user_nickname"), None)
+    nickname = next((p for p in profiles if p.get("key") == SYS_USER_NICKNAME), None)
     if nickname and not check_text_content(app, user_id, nickname.get("value")):
         raise_error("server.common.nicknameNotAllowed")
 
@@ -518,6 +519,11 @@ def update_user_profile_with_lable(
     )
     if background and not check_text_content(app, user_id, background.get("value")):
         raise_error("server.common.backgroundNotAllowed")
+
+    aggregate = _ensure_user_aggregate(user_id)
+    canonical_profile_controls_nickname = bool(
+        nickname and has_learner_profile_or_state(user_id, for_update=True)
+    )
 
     candidate_shifus = [course_id or ""]
     if course_id:

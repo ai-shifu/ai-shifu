@@ -266,7 +266,8 @@ class GoogleAuthProvider(AuthProvider):
                         updates["state"] = USER_STATE_REGISTERED
                     display_name = profile.get("name")
                     if display_name and not has_learner_profile_or_state(
-                        aggregate.user_bid
+                        aggregate.user_bid,
+                        for_update=True,
                     ):
                         updates["nickname"] = display_name
                     picture = profile.get("picture")

@@ -604,9 +604,8 @@ def has_learner_profile_or_state(
     has_profile = bool(str(user.learner_profile or "").strip())
     if has_profile and not for_update:
         return True
-    return has_profile or (
-        load_learner_profile_state(user_id, for_update=for_update) is not None
-    )
+    state = load_learner_profile_state(user_id, for_update=for_update)
+    return has_profile or state is not None
 
 
 def _apply_completed_state(

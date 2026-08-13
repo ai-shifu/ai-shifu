@@ -2,7 +2,6 @@ import jwt
 from flask import Flask, has_app_context
 from flaskr.i18n import get_i18n_list
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
-from flaskr.service.profile.api import has_learner_profile_or_state
 
 from ...dao import db
 from ..common.dtos import UserInfo, UserToken
@@ -85,8 +84,6 @@ def update_user_info(
         updates_profile = {}
         update_profile = False
         if name is not None:
-            if not has_learner_profile_or_state(user.user_id):
-                updates["nickname"] = name
             updates_profile["sys_user_nickname"] = name
             update_profile = True
         if language is not None:
