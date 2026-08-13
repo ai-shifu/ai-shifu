@@ -652,11 +652,20 @@ def test_complete_atomically_writes_profile_and_fixed_v2_state(app, monkeypatch)
 def test_save_locks_user_then_state_before_writing_profile(app, monkeypatch):
     from flaskr.service.profile.learner_profile import save_learner_profile
 
-    _allow_profile_safety(monkeypatch)
     with app.app_context():
         user_bid = "profile-save-lock-order"
         _create_user(user_bid)
         read_order = _track_profile_lock_reads(monkeypatch)
+        reads_when_moderated: list[tuple[str, str, bool, bool]] = []
+
+        def allow_after_user_lock(_app, _user_id, _text):
+            reads_when_moderated.extend(read_order)
+            return True
+
+        monkeypatch.setattr(
+            "flaskr.service.profile.learner_profile.check_text_content",
+            allow_after_user_lock,
+        )
 
         result = save_learner_profile(
             app,
@@ -674,7 +683,53 @@ def test_save_locks_user_then_state_before_writing_profile(app, monkeypatch):
         ("user_users", user_bid, True, True),
         ("user_onboarding_states", user_bid, True, True),
     ]
+    assert [
+        read
+        for read in reads_when_moderated
+        if read[0] in {"user_users", "user_onboarding_states"}
+    ] == [("user_users", user_bid, True, True)]
     assert result["learner_profile"] == "Please call me Locked Learner."
+
+
+def test_save_moderates_once_when_state_creation_retries(app, monkeypatch):
+    import flaskr.service.profile.learner_profile as learner_profile
+
+    moderation_calls: list[str] = []
+    operation_calls = 0
+
+    def allow_once(_app, _user_id, text):
+        moderation_calls.append(text)
+        return True
+
+    def run_twice(operation, *, user_id):
+        nonlocal operation_calls
+        assert user_id == "profile-save-moderation-retry"
+        operation()
+        operation_calls += 1
+        result = operation()
+        operation_calls += 1
+        return result
+
+    monkeypatch.setattr(learner_profile, "check_text_content", allow_once)
+    monkeypatch.setattr(
+        learner_profile,
+        "_commit_with_state_race_retry",
+        run_twice,
+    )
+
+    with app.app_context():
+        user_bid = "profile-save-moderation-retry"
+        _create_user(user_bid)
+        result = learner_profile.save_learner_profile(
+            app,
+            user_id=user_bid,
+            learner_profile="Please call me Retry Learner.",
+            trigger_source="settings",
+        )
+
+    assert operation_calls == 2
+    assert moderation_calls == ["Please call me Retry Learner."]
+    assert result["learner_profile"] == "Please call me Retry Learner."
 
 
 def test_clear_locks_user_then_state_before_clearing_profile(app, monkeypatch):

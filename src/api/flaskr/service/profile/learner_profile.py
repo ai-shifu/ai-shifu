@@ -671,18 +671,6 @@ def _serialize_completed_state(state: UserOnboardingState) -> dict[str, Any]:
     }
 
 
-def validate_learner_profile_content(
-    app: Flask,
-    *,
-    user_id: str,
-    learner_profile: str,
-) -> str:
-    normalized = normalize_learner_profile(learner_profile)
-    if not check_text_content(app, user_id, normalized):
-        raise_error("server.check.checkRiskControlReject")
-    return normalized
-
-
 def save_learner_profile(
     app: Flask,
     *,
@@ -693,15 +681,17 @@ def save_learner_profile(
     normalized_trigger_source = str(trigger_source or "").strip()
     if normalized_trigger_source not in LEARNER_PROFILE_TRIGGER_SOURCES:
         raise_param_error("trigger_source")
-    normalized = validate_learner_profile_content(
-        app,
-        user_id=user_id,
-        learner_profile=learner_profile,
-    )
+    normalized = normalize_learner_profile(learner_profile)
     recognized_nickname = extract_learner_profile_nickname(normalized)
+    moderation_passed = False
 
     def operation() -> tuple[UserEntity, UserOnboardingState]:
+        nonlocal moderation_passed
         user = load_learner_profile_user(user_id, for_update=True)
+        if not moderation_passed:
+            if not check_text_content(app, user_id, normalized):
+                raise_error("server.check.checkRiskControlReject")
+            moderation_passed = True
         apply_learner_profile(user, normalized)
         user.nickname = recognized_nickname or ""
         state = _apply_completed_state(
