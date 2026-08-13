@@ -17,6 +17,14 @@ VOLCENGINE_VOICE_ID_RE = re.compile(
     r"(?<![A-Za-z0-9_])(?P<value>S_[A-Za-z0-9_-]{4,64})"
     r"(?![A-Za-z0-9_-])"
 )
+VOLCENGINE_VOICE_CONTEXT_RE = re.compile(
+    r"(?:\b(?:tts[_ -]?)?voice[_ -]?id\b|"
+    r"\bspeaker[_ -]?(?:id|slot)\b|"
+    r"\bvoiceIdPlaceholderVolcengine\b|"
+    r"\bquery_volcengine_voice_status\b|"
+    r"\bverify_volcengine_voice_id\b)",
+    re.IGNORECASE,
+)
 MASKED_VOLCENGINE_VOICE_ID_RE = re.compile(r"^S_x{4,64}$")
 MINIMAX_OPAQUE_VOICE_ID_RE = re.compile(
     r"(?<![A-Za-z0-9_])(?P<value>AiShifu_[0-9A-Fa-f]{12,64})"
@@ -76,6 +84,12 @@ def _line_number(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+def _line_containing(text: str, offset: int) -> str:
+    start = text.rfind("\n", 0, offset) + 1
+    end = text.find("\n", offset)
+    return text[start:] if end == -1 else text[start:end]
+
+
 def _append_match(
     violations: list[IdentifierViolation],
     *,
@@ -99,6 +113,10 @@ def find_violations_in_text(path: str, text: str) -> list[IdentifierViolation]:
     violations: list[IdentifierViolation] = []
 
     for match in VOLCENGINE_VOICE_ID_RE.finditer(text):
+        if not VOLCENGINE_VOICE_CONTEXT_RE.search(
+            _line_containing(text, match.start("value"))
+        ):
+            continue
         value = match.group("value")
         if MASKED_VOLCENGINE_VOICE_ID_RE.fullmatch(value):
             continue
@@ -275,6 +293,7 @@ def _run_self_test() -> None:
     suspicious_volcengine = "S_" + "a1b2c3d4"
     suspicious_volcengine_hyphen = "S_" + "-abcd"
     suspicious_volcengine_underscore = "S_" + "_abcd"
+    status_like_volcengine = "S_" + "READY"
     suspicious_minimax = "AiShifu_" + "0123456789ab"
     suspicious_wechat = "wx" + "1234567890abcdef"
     wrong_masked_wechat = "wx" + ("y" * 16)
@@ -291,8 +310,20 @@ def _run_self_test() -> None:
     assert not find_violations_in_text("fixture.py", 'voice_id = "S_xxxx"')
     assert not find_violations_in_text("fixture.py", 'voice_id = "S_xxxxxxxxxx"')
     assert not find_violations_in_text("fixture.py", f'voice_id = "S_{"x" * 64}"')
-    assert find_violations_in_text("fixture.py", suspicious_volcengine_hyphen)
-    assert find_violations_in_text("fixture.py", suspicious_volcengine_underscore)
+    assert find_violations_in_text(
+        "fixture.py", f'voice_id = "{suspicious_volcengine_hyphen}"'
+    )
+    assert find_violations_in_text(
+        "fixture.py", f'voice_id = "{suspicious_volcengine_underscore}"'
+    )
+    assert not find_violations_in_text("fixture.py", status_like_volcengine)
+    assert not find_violations_in_text("fixture.py", "S_ALPHA_1")
+    assert find_violations_in_text(
+        "fixture.py", f'voice_id = "{status_like_volcengine}"'
+    )
+    assert find_violations_in_text(
+        "fixture.md", f"Volcengine speaker ID: {suspicious_volcengine}"
+    )
     assert find_violations_in_text("fixture.py", f'voice_id = "{suspicious_minimax}"')
     assert not find_violations_in_text(
         "fixture.py", f'voice_id = "{MASKED_MINIMAX_VOICE_ID}"'
