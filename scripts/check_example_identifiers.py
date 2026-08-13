@@ -30,6 +30,11 @@ MINIMAX_OPAQUE_VOICE_ID_RE = re.compile(
     r"(?<![A-Za-z0-9_])(?P<value>AiShifu_[0-9A-Fa-f]{12,64})"
     r"(?![A-Za-z0-9_-])"
 )
+MINIMAX_RUNTIME_VOICE_ID_RE = re.compile(
+    r"(?<![A-Za-z0-9_-])"
+    r"(?P<value>AiShifu_[A-Za-z0-9_-]{0,55}[A-Za-z0-9])"
+    r"(?![A-Za-z0-9_-])"
+)
 WECHAT_APP_ID_RE = re.compile(
     r"(?<![A-Za-z0-9_])(?P<value>wx[0-9A-Fa-f]{16})(?![A-Za-z0-9_])"
 )
@@ -90,6 +95,18 @@ def _line_containing(text: str, offset: int) -> str:
     return text[start:] if end == -1 else text[start:end]
 
 
+def _is_test_fixture_path(path: str) -> bool:
+    normalized = Path(path)
+    parts = {part.lower() for part in normalized.parts}
+    filename = normalized.name.lower()
+    return (
+        bool(parts & {"test", "tests"})
+        or filename.startswith("test_")
+        or ".test." in filename
+        or ".spec." in filename
+    )
+
+
 def _append_match(
     violations: list[IdentifierViolation],
     *,
@@ -131,7 +148,9 @@ def find_violations_in_text(path: str, text: str) -> list[IdentifierViolation]:
             ),
         )
 
+    reported_minimax_offsets: set[int] = set()
     for match in MINIMAX_OPAQUE_VOICE_ID_RE.finditer(text):
+        reported_minimax_offsets.add(match.start("value"))
         _append_match(
             violations,
             path=path,
@@ -142,6 +161,24 @@ def find_violations_in_text(path: str, text: str) -> list[IdentifierViolation]:
                 f"looks account-scoped; use {MASKED_MINIMAX_VOICE_ID}"
             ),
         )
+
+    if not _is_test_fixture_path(path):
+        for match in MINIMAX_RUNTIME_VOICE_ID_RE.finditer(text):
+            if (
+                match.start("value") in reported_minimax_offsets
+                or match.group("value") == MASKED_MINIMAX_VOICE_ID
+            ):
+                continue
+            _append_match(
+                violations,
+                path=path,
+                text=text,
+                match=match,
+                message=(
+                    f"MiniMax Voice ID {match.group('value')!r} is not visibly "
+                    f"masked; use {MASKED_MINIMAX_VOICE_ID}"
+                ),
+            )
 
     for match in WECHAT_APP_ID_RE.finditer(text):
         _append_match(
@@ -295,6 +332,8 @@ def _run_self_test() -> None:
     suspicious_volcengine_underscore = "S_" + "_abcd"
     status_like_volcengine = "S_" + "READY"
     suspicious_minimax = "AiShifu_" + "0123456789ab"
+    suspicious_minimax_non_hex = "AiShifu_" + "abcd_20260618_x1"
+    semantic_minimax_fixture = "AiShifu_" + "ready_voice"
     suspicious_wechat = "wx" + "1234567890abcdef"
     wrong_masked_wechat = "wx" + ("y" * 16)
     suspicious_umami = "12345678-1234-4abc-8def-1234567890ab"
@@ -325,6 +364,15 @@ def _run_self_test() -> None:
         "fixture.md", f"Volcengine speaker ID: {suspicious_volcengine}"
     )
     assert find_violations_in_text("fixture.py", f'voice_id = "{suspicious_minimax}"')
+    assert find_violations_in_text(
+        "docs/fixture.md", f'voice_id = "{suspicious_minimax_non_hex}"'
+    )
+    assert not find_violations_in_text(
+        "src/api/tests/test_fixture.py", f'voice_id = "{semantic_minimax_fixture}"'
+    )
+    assert find_violations_in_text(
+        "src/api/tests/test_fixture.py", f'voice_id = "{suspicious_minimax}"'
+    )
     assert not find_violations_in_text(
         "fixture.py", f'voice_id = "{MASKED_MINIMAX_VOICE_ID}"'
     )
