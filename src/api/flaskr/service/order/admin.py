@@ -686,7 +686,11 @@ def import_activation_order(
         normalized_identifier, providers=[contact_type]
     )
     canonical_profile_controls_nickname = bool(
-        existing_aggregate and has_learner_profile_or_state(existing_aggregate.user_bid)
+        existing_aggregate
+        and has_learner_profile_or_state(
+            existing_aggregate.user_bid,
+            for_update=True,
+        )
     )
     defaults = {
         "identify": normalized_identifier,
@@ -705,8 +709,6 @@ def import_activation_order(
         raise_error("server.user.userNotFound")
 
     user_id = aggregate.user_bid
-    canonical_profile_controls_nickname = has_learner_profile_or_state(user_id)
-
     existing_success_order = (
         Order.query.filter(
             Order.user_bid == user_id,

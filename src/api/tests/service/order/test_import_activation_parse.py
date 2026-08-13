@@ -188,6 +188,111 @@ def test_import_activation_preserves_existing_canonical_profile_nickname(
         assert stored_user.nickname == canonical_nickname
 
 
+def test_import_activation_locks_canonical_profile_before_nickname_defaults(
+    app,
+    monkeypatch,
+):
+    import flaskr.service.order.admin as order_admin
+
+    _stub_activation_order_side_effects(monkeypatch)
+
+    with app.app_context():
+        identifier = "13800138008"
+        user = create_user_entity(
+            user_bid="activation-import-lock-order",
+            identify=identifier,
+            nickname="Canonical Name",
+            language="zh-CN",
+            state=USER_STATE_REGISTERED,
+        )
+        upsert_credential(
+            app,
+            user_bid=user.user_bid,
+            provider_name="phone",
+            subject_id=identifier,
+            subject_format="phone",
+            identifier=identifier,
+            metadata={},
+            verified=True,
+        )
+        db.session.add(
+            UserOnboardingState(
+                user_bid=user.user_bid,
+                scene_key=PROFILE_ONBOARDING_SCENE_KEY,
+                version=PROFILE_ONBOARDING_VERSION,
+                status="completed",
+                trigger_source="settings",
+                completed_at=PROFILE_UPDATED_AT,
+            )
+        )
+        db.session.commit()
+
+        query_type = type(UserInfo.query)
+        original_first = query_type.first
+        read_order: list[tuple[str, str, bool, bool]] = []
+        reads_before_ensure: list[tuple[str, str, bool, bool]] = []
+
+        def track_first(query):
+            statement = str(query.statement)
+            parameters = query.statement.compile().params
+            lookup_value = str(
+                parameters.get("user_bid_1") or parameters.get("user_identify_1", "")
+            )
+            table = (
+                "user_onboarding_states"
+                if "user_onboarding_states" in statement
+                else "user_users"
+                if "user_users" in statement
+                else "other"
+            )
+            read_order.append(
+                (
+                    table,
+                    lookup_value,
+                    query._for_update_arg is not None,
+                    bool(query.load_options._populate_existing),
+                )
+            )
+            return original_first(query)
+
+        original_ensure_user = order_admin.ensure_user_for_identifier
+
+        def track_ensure_user(*args, **kwargs):
+            reads_before_ensure.extend(read_order)
+            return original_ensure_user(*args, **kwargs)
+
+        monkeypatch.setattr(query_type, "first", track_first)
+        monkeypatch.setattr(
+            order_admin,
+            "ensure_user_for_identifier",
+            track_ensure_user,
+        )
+
+        result = import_activation_order(
+            app,
+            identifier,
+            "canonical-profile-course",
+            "Imported Name",
+        )
+
+        profile_snapshot_reads = [
+            read
+            for read in reads_before_ensure
+            if read[0] in {"user_users", "user_onboarding_states"}
+        ]
+        assert profile_snapshot_reads[:3] == [
+            ("user_users", identifier, False, False),
+            ("user_users", user.user_bid, True, True),
+            ("user_onboarding_states", user.user_bid, True, True),
+        ]
+
+        db.session.expire_all()
+        stored_user = db.session.get(UserInfo, user.id)
+        assert result == {"order_bid": "import-order"}
+        assert stored_user is not None
+        assert stored_user.nickname == "Canonical Name"
+
+
 @pytest.mark.parametrize(
     ("contact_type", "identifier"),
     [
