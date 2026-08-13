@@ -13,9 +13,11 @@ from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.util.uuid import generate_id
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.service.user.repository import (
+    build_user_info_from_aggregate,
     find_credential,
     get_password_hash,
     set_password_hash,
+    load_user_aggregate,
     load_user_aggregate_by_identifier,
     list_credentials,
 )
@@ -59,7 +61,7 @@ from ..service.user.onboarding import (
     complete_onboarding_scene,
 )
 from ..service.referral.service import extract_referral_post_auth_fields
-from ..service.common.dtos import OAuthStartDTO
+from ..service.common.dtos import OAuthStartDTO, UserToken
 from .common import make_common_response, bypass_token_validation, by_pass_login_func
 from flaskr.dao import db
 from flaskr.i18n import _translations, set_language
@@ -1058,6 +1060,15 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             merge_learner_profile_for_sign_in(
                 source_user_id=current_user_id,
                 target_user_id=auth_result.user.user_id,
+            )
+            refreshed = load_user_aggregate(auth_result.user.user_id)
+            if not refreshed:
+                raise_error("USER.USER_NOT_FOUND")
+            refreshed_user = build_user_info_from_aggregate(refreshed)
+            auth_result.user = refreshed_user
+            auth_result.token = UserToken(
+                userInfo=refreshed_user,
+                token=auth_result.token.token,
             )
         db.session.commit()
         run_post_auth_extensions(

@@ -131,6 +131,7 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
 
     target_phone = "15500002332"
     password = "Abcd1234"
+    guest_profile = "可以叫我小雨。password merge sentinel"
     profile_updated_at = datetime(2026, 8, 4, 5, 30, tzinfo=timezone.utc)
 
     with app.app_context():
@@ -138,7 +139,7 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
             user_bid="password-anonymous-guest",
             identify="password-anonymous-guest",
             nickname="Guest",
-            learner_profile="password merge sentinel",
+            learner_profile=guest_profile,
             learner_profile_updated_at=profile_updated_at,
         )
         guest_token = generate_token(app, guest.user_bid)
@@ -188,18 +189,21 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
 
     assert response.status_code == 200
     assert body["code"] == 0
+    assert body["data"]["token"]
     assert body["data"]["userInfo"]["user_id"] == target_user_id
+    assert body["data"]["userInfo"]["name"] == "小雨"
     with app.app_context():
         stored_target = UserInfo.query.filter_by(user_bid=target_user_id).one()
         stored_guest = UserInfo.query.filter_by(user_bid=guest_user_id).one()
         target_state = load_learner_profile_state(target_user_id)
-        assert stored_target.learner_profile == "password merge sentinel"
+        assert stored_target.learner_profile == guest_profile
+        assert stored_target.nickname == "小雨"
         assert stored_target.learner_profile_updated_at is not None
         assert (
             stored_target.learner_profile_updated_at.replace(tzinfo=timezone.utc)
             == profile_updated_at
         )
-        assert stored_guest.learner_profile == "password merge sentinel"
+        assert stored_guest.learner_profile == guest_profile
         assert target_state is not None
         assert target_state.status == "completed"
         assert target_state.trigger_source == "settings"
@@ -227,6 +231,8 @@ def test_password_login_never_merges_from_a_registered_account(test_client, app)
             2026, 8, 4, 5, 45, tzinfo=timezone.utc
         )
         target_user_id = target_token.userInfo.user_id
+        target = UserInfo.query.filter_by(user_bid=target_user_id).one()
+        target.nickname = "Existing target"
         db.session.commit()
 
     _post_json(
@@ -244,10 +250,14 @@ def test_password_login_never_merges_from_a_registered_account(test_client, app)
 
     assert response.status_code == 200
     assert body["code"] == 0
+    assert body["data"]["token"]
+    assert body["data"]["userInfo"]["user_id"] == target_user_id
+    assert body["data"]["userInfo"]["name"] == "Existing target"
     with app.app_context():
         stored_target = UserInfo.query.filter_by(user_bid=target_user_id).one()
         assert stored_target.learner_profile == ""
         assert stored_target.learner_profile_updated_at is None
+        assert stored_target.nickname == "Existing target"
 
 
 def test_password_login_ignores_invalid_and_expired_optional_tokens(test_client, app):
@@ -264,6 +274,8 @@ def test_password_login_ignores_invalid_and_expired_optional_tokens(test_client,
             app, user_id=None, phone=target_phone, code="9999"
         )
         target_user_id = target_token.userInfo.user_id
+        target = UserInfo.query.filter_by(user_bid=target_user_id).one()
+        target.nickname = "Stable target"
         guest = create_user_entity(
             user_bid="password-expired-token-guest",
             identify="password-expired-token-guest",
@@ -297,12 +309,15 @@ def test_password_login_ignores_invalid_and_expired_optional_tokens(test_client,
         )
         assert response.status_code == 200
         assert body["code"] == 0
+        assert body["data"]["token"]
         assert body["data"]["userInfo"]["user_id"] == target_user_id
+        assert body["data"]["userInfo"]["name"] == "Stable target"
 
     with app.app_context():
         stored_target = UserInfo.query.filter_by(user_bid=target_user_id).one()
         assert stored_target.learner_profile == ""
         assert stored_target.learner_profile_updated_at is None
+        assert stored_target.nickname == "Stable target"
 
 
 def test_sms_login_route_logs_in_with_phone_code(test_client):
