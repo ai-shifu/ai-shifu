@@ -127,12 +127,10 @@ describe('LearnerProfileDialog', () => {
     expect(zhProfile.dialog.writingGuideTeaching).toContain('语言风格');
     expect(zhProfile.dialog.writingGuideTeaching).toContain('希望避免的表达');
     expect(zhProfile.dialog.settingsTitle).toBe('向 AI 老师介绍你自己');
-    expect(zhProfile.dialog.nicknameLabel).toBe('AI 老师怎么称呼你（选填）');
+    expect(zhProfile.dialog.nicknameLabel).toBe('希望 AI 老师怎么称呼你');
     expect(zhProfile.dialog.chips.identity.text).not.toContain('叫我');
     expect(zhProfile.dialog.writingGuideIdentity).not.toContain('称呼');
-    expect(zhProfile.dialog.profileLabel).toBe(
-      '写下你希望 AI 老师长期知道的事',
-    );
+    expect(zhProfile.dialog.profileLabel).toBe('希望 AI 老师长期知道的事');
     expect(zhProfile.dialog.description).not.toContain('课程');
     expect(JSON.stringify(zhProfile.dialog)).not.toMatch(
       /节奏|结构|分步骤|多提问/,
