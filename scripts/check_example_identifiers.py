@@ -30,6 +30,11 @@ MINIMAX_OPAQUE_VOICE_ID_RE = re.compile(
     r"(?<![A-Za-z0-9_])(?P<value>AiShifu_[0-9A-Fa-f]{12,64})"
     r"(?![A-Za-z0-9_-])"
 )
+MINIMAX_GENERATED_VOICE_ID_RE = re.compile(
+    r"(?<![A-Za-z0-9_-])"
+    r"(?P<value>AiShifu_[A-Za-z0-9_]{1,13}_[0-9A-Fa-f]{8})"
+    r"(?![A-Za-z0-9_-])"
+)
 MINIMAX_RUNTIME_VOICE_ID_RE = re.compile(
     r"(?<![A-Za-z0-9_-])"
     r"(?P<value>AiShifu_[A-Za-z0-9_-]{0,55}[A-Za-z0-9])"
@@ -178,6 +183,21 @@ def find_violations_in_text(path: str, text: str) -> list[IdentifierViolation]:
             match=match,
             message=(
                 f"MiniMax-style opaque Voice ID {match.group('value')!r} "
+                f"looks account-scoped; use {MASKED_MINIMAX_VOICE_ID}"
+            ),
+        )
+
+    for match in MINIMAX_GENERATED_VOICE_ID_RE.finditer(text):
+        if match.start("value") in reported_minimax_offsets:
+            continue
+        reported_minimax_offsets.add(match.start("value"))
+        _append_match(
+            violations,
+            path=path,
+            text=text,
+            match=match,
+            message=(
+                f"Generated-format MiniMax Voice ID {match.group('value')!r} "
                 f"looks account-scoped; use {MASKED_MINIMAX_VOICE_ID}"
             ),
         )
@@ -390,6 +410,7 @@ def run_self_test() -> None:
     status_like_volcengine = "S_" + "READY"
     suspicious_minimax = "AiShifu_" + "0123456789ab"
     suspicious_minimax_non_hex = "AiShifu_" + "abcd_20260618_x1"
+    suspicious_minimax_generated = "AiShifu_" + "teacher_89abcdef"
     semantic_minimax_fixture = "AiShifu_" + "ready_voice"
     suspicious_wechat = "wx" + "1234567890abcdef"
     wrong_masked_wechat = "wx" + ("y" * 16)
@@ -442,6 +463,10 @@ def run_self_test() -> None:
     )
     assert find_violations_in_text(
         "src/api/tests/test_fixture.py", f'voice_id = "{suspicious_minimax}"'
+    )
+    assert find_violations_in_text(
+        "src/api/tests/test_fixture.py",
+        f'voice_id = "{suspicious_minimax_generated}"',
     )
     assert not find_violations_in_text(
         "fixture.py", f'voice_id = "{MASKED_MINIMAX_VOICE_ID}"'
