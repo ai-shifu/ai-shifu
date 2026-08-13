@@ -69,10 +69,18 @@ UMAMI_SCRIPT_URL_RE = re.compile(
     r"[\"']?\s*[:=]\s*[\"']?(?P<value>https?://[^\s\"']+)",
     re.IGNORECASE,
 )
-HOME_COURSE_ID_RE = re.compile(
-    r"(?:\bHOME_URL\s*=\s*[\"']?|[\"']?homeUrl[\"']?\s*:\s*[\"']?)"
-    r"/c/(?P<value>[A-Za-z0-9_-]{24,64})(?![A-Za-z0-9_-])",
+HOME_URL_ASSIGNMENT_RE = re.compile(
+    r"(?:\bHOME_URL|[\"']?homeUrl[\"']?)\s*[:=]\s*[\"']?"
+    r"(?P<url>[^\s\"',}]+)",
     re.IGNORECASE,
+)
+HOME_URL_COURSE_ID_RES = (
+    re.compile(r"/c/(?P<value>[A-Za-z0-9_-]{24,64})(?![A-Za-z0-9_-])"),
+    re.compile(
+        r"[?&]courseId=(?P<value>[A-Za-z0-9_-]{24,64})"
+        r"(?![A-Za-z0-9_-])",
+        re.IGNORECASE,
+    ),
 )
 FEISHU_RESOURCE_RE = re.compile(
     r"(?P<value>https?://[A-Za-z0-9.-]+\.feishu\.cn/"
@@ -287,16 +295,24 @@ def find_violations_in_text(path: str, text: str) -> list[IdentifierViolation]:
             message="Umami script example must use an example.test host",
         )
 
-    for match in HOME_COURSE_ID_RE.finditer(text):
-        if match.group("value") == MASKED_COURSE_ID:
-            continue
-        _append_match(
-            violations,
-            path=path,
-            text=text,
-            match=match,
-            message=f"HOME_URL course ID example must use {MASKED_COURSE_ID}",
-        )
+    for assignment in HOME_URL_ASSIGNMENT_RE.finditer(text):
+        url = assignment.group("url")
+        for course_id_re in HOME_URL_COURSE_ID_RES:
+            for match in course_id_re.finditer(url):
+                if match.group("value") == MASKED_COURSE_ID:
+                    continue
+                violations.append(
+                    IdentifierViolation(
+                        path=path,
+                        line=_line_number(
+                            text,
+                            assignment.start("url") + match.start("value"),
+                        ),
+                        message=(
+                            f"HOME_URL course ID example must use {MASKED_COURSE_ID}"
+                        ),
+                    )
+                )
 
     for match in FEISHU_RESOURCE_RE.finditer(text):
         if match.group("value") in INTENTIONAL_PUBLIC_FEISHU_RESOURCES:
@@ -560,6 +576,20 @@ def run_self_test() -> None:
     assert find_violations_in_text("fixture.md", f"HOME_URL=/c/{suspicious_course}")
     assert find_violations_in_text("fixture.md", f"HOME_URL=/c/{wrong_masked_course}")
     assert not find_violations_in_text("fixture.md", f"HOME_URL=/c/{MASKED_COURSE_ID}")
+    assert find_violations_in_text(
+        "fixture.md",
+        f"HOME_URL=https://app.example.test/c/{suspicious_course}",
+    )
+    assert not find_violations_in_text(
+        "fixture.md",
+        f"HOME_URL=https://app.example.test/c/{MASKED_COURSE_ID}",
+    )
+    assert find_violations_in_text(
+        "fixture.md", f"HOME_URL=/c?courseId={suspicious_course}"
+    )
+    assert not find_violations_in_text(
+        "fixture.md", f"HOME_URL=/c?courseId={MASKED_COURSE_ID}"
+    )
     assert find_violations_in_text("fixture.ts", suspicious_doc)
     assert find_violations_in_text("fixture.md", suspicious_doc)
     assert find_violations_in_text("fixture.md", suspicious_base)
