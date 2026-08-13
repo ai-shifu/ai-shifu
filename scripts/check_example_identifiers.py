@@ -46,6 +46,9 @@ MINIMAX_RUNTIME_VOICE_ID_RE = re.compile(
     r"(?P<value>AiShifu_[A-Za-z0-9_-]{0,55}[A-Za-z0-9])"
     r"(?![A-Za-z0-9_-])"
 )
+MINIMAX_SEMANTIC_TEST_VOICE_ID_RE = re.compile(
+    r"^AiShifu_[A-Za-z0-9_-]*[G-WYZg-wyz][A-Za-z0-9_-]*$"
+)
 WECHAT_APP_ID_RE = re.compile(
     r"(?<![A-Za-z0-9_])(?P<value>wx[0-9A-Fa-f]{16})(?![A-Za-z0-9_])"
 )
@@ -218,23 +221,27 @@ def find_violations_in_text(path: str, text: str) -> list[IdentifierViolation]:
             ),
         )
 
-    if not _is_test_fixture_path(path):
-        for match in MINIMAX_RUNTIME_VOICE_ID_RE.finditer(text):
-            if (
-                match.start("value") in reported_minimax_offsets
-                or match.group("value") == MASKED_MINIMAX_VOICE_ID
-            ):
-                continue
-            _append_match(
-                violations,
-                path=path,
-                text=text,
-                match=match,
-                message=(
-                    f"MiniMax Voice ID {match.group('value')!r} is not visibly "
-                    f"masked; use {MASKED_MINIMAX_VOICE_ID}"
-                ),
-            )
+    for match in MINIMAX_RUNTIME_VOICE_ID_RE.finditer(text):
+        value = match.group("value")
+        is_semantic_test_fixture = _is_test_fixture_path(
+            path
+        ) and MINIMAX_SEMANTIC_TEST_VOICE_ID_RE.fullmatch(value)
+        if (
+            match.start("value") in reported_minimax_offsets
+            or value == MASKED_MINIMAX_VOICE_ID
+            or is_semantic_test_fixture
+        ):
+            continue
+        _append_match(
+            violations,
+            path=path,
+            text=text,
+            match=match,
+            message=(
+                f"MiniMax Voice ID {value!r} is not visibly masked; "
+                f"use {MASKED_MINIMAX_VOICE_ID}"
+            ),
+        )
 
     for match in WECHAT_APP_ID_RE.finditer(text):
         _append_match(
@@ -491,6 +498,10 @@ def run_self_test() -> None:
     assert find_violations_in_text("fixture.py", f'voice_id = "{suspicious_minimax}"')
     assert find_violations_in_text(
         "docs/fixture.md", f'voice_id = "{suspicious_minimax_non_hex}"'
+    )
+    assert find_violations_in_text(
+        "src/api/tests/test_fixture.py",
+        f'voice_id = "{suspicious_minimax_non_hex}"',
     )
     assert not find_violations_in_text(
         "src/api/tests/test_fixture.py", f'voice_id = "{semantic_minimax_fixture}"'
