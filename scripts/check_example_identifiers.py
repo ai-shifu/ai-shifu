@@ -44,14 +44,14 @@ WECHAT_APP_ID_EXAMPLE_RE = re.compile(
     r"(?P<value>wx[A-Za-z0-9_-]{16})(?![A-Za-z0-9_-])"
 )
 UMAMI_SITE_ID_RE = re.compile(
-    r"(?:umamiWebsiteId|NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID)"
+    r"(?:umamiWebsiteId|(?:NEXT_PUBLIC_)?ANALYTICS_UMAMI_SITE_ID)"
     r"[\"']?\s*[:=]\s*[\"']?"
     r"(?P<value>[A-Za-z0-9]{8}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-"
     r"[A-Za-z0-9]{4}-[A-Za-z0-9]{12})",
     re.IGNORECASE,
 )
 UMAMI_SCRIPT_URL_RE = re.compile(
-    r"(?:umamiScriptSrc|NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT)"
+    r"(?:umamiScriptSrc|(?:NEXT_PUBLIC_)?ANALYTICS_UMAMI_SCRIPT)"
     r"[\"']?\s*[:=]\s*[\"']?(?P<value>https?://[^\s\"']+)",
     re.IGNORECASE,
 )
@@ -397,10 +397,23 @@ def _run_self_test() -> None:
         f"NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID={MASKED_UMAMI_SITE_ID}",
     )
     assert find_violations_in_text(
+        "fixture.env", f"ANALYTICS_UMAMI_SITE_ID={suspicious_umami}"
+    )
+    assert not find_violations_in_text(
+        "fixture.env", f"ANALYTICS_UMAMI_SITE_ID={MASKED_UMAMI_SITE_ID}"
+    )
+    assert find_violations_in_text(
         "fixture.md", f"umamiScriptSrc: {suspicious_umami_script}"
     )
     assert not find_violations_in_text(
         "fixture.md", "umamiScriptSrc: https://analytics.example.test/script.js"
+    )
+    assert find_violations_in_text(
+        "fixture.env", f"ANALYTICS_UMAMI_SCRIPT={suspicious_umami_script}"
+    )
+    assert not find_violations_in_text(
+        "fixture.env",
+        "ANALYTICS_UMAMI_SCRIPT=https://analytics.example.test/script.js",
     )
     assert find_violations_in_text("fixture.md", f"HOME_URL=/c/{suspicious_course}")
     assert find_violations_in_text("fixture.md", f"HOME_URL=/c/{wrong_masked_course}")
