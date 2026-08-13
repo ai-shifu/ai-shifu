@@ -17,7 +17,10 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.check_risk.api import add_risk_control_result
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.common.phone_numbers import (
+    is_valid_sms_mobile,
+    normalize_phone_identifier,
+)
 from flaskr.service.profile.constants import (
     LEGACY_LEARNER_PROFILE_KEYS,
     SYS_USER_NICKNAME,
@@ -453,6 +456,36 @@ def serialize_learner_profile(user: UserEntity) -> dict[str, Any]:
     }
 
 
+def _identifier_variants(value: Any) -> set[str]:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return set()
+
+    variants = {normalized.casefold()}
+    normalized_phone = normalize_phone_identifier(normalized)
+    if is_valid_sms_mobile(normalized_phone):
+        variants.add(normalized_phone.casefold())
+    return variants
+
+
+def _nickname_matches_account_identifier(user: UserEntity, nickname: str) -> bool:
+    nickname_variants = _identifier_variants(nickname)
+    if not nickname_variants:
+        return False
+
+    account_identifiers = _identifier_variants(user.user_bid)
+    account_identifiers.update(_identifier_variants(user.user_identify))
+    credentials = AuthCredential.query.filter(
+        AuthCredential.user_bid == user.user_bid,
+        AuthCredential.provider_name.in_(["phone", "email"]),
+        AuthCredential.deleted == 0,
+    ).all()
+    for credential in credentials:
+        account_identifiers.update(_identifier_variants(credential.identifier))
+        account_identifiers.update(_identifier_variants(credential.subject_id))
+    return not nickname_variants.isdisjoint(account_identifiers)
+
+
 def _load_legacy_learner_profile_values(user: UserEntity) -> dict[str, str]:
     rows = (
         VariableValue.query.filter(
@@ -465,20 +498,29 @@ def _load_legacy_learner_profile_values(user: UserEntity) -> dict[str, str]:
         .all()
     )
     latest_values: dict[str, str] = {}
+    legacy_nickname = ""
     seen_keys: set[str] = set()
     for row in rows:
         if row.key in seen_keys:
             continue
         seen_keys.add(row.key)
-        if row.key == SYS_USER_NICKNAME:
-            continue
         value = str(row.value or "").strip()
+        if row.key == SYS_USER_NICKNAME:
+            legacy_nickname = value
+            continue
         if value:
             latest_values[row.key] = value
 
     canonical_nickname = str(user.nickname or "").strip()
-    if canonical_nickname:
+    if canonical_nickname and not _nickname_matches_account_identifier(
+        user,
+        canonical_nickname,
+    ):
         latest_values[SYS_USER_NICKNAME] = canonical_nickname
+    elif legacy_nickname:
+        # A legacy variable row records an explicit user choice. Preserve that
+        # provenance even when its value happens to equal an account identifier.
+        latest_values[SYS_USER_NICKNAME] = legacy_nickname
     return latest_values
 
 

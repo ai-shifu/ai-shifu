@@ -8,6 +8,7 @@ from flaskr.dao import db
 from flaskr.service.profile.learner_profile import (
     PROFILE_ONBOARDING_SCENE_KEY,
     PROFILE_ONBOARDING_VERSION,
+    get_learner_profile,
 )
 from flaskr.service.common.models import AppException
 from flaskr.service.order.admin import (
@@ -324,3 +325,47 @@ def test_import_activation_keeps_nickname_behavior_for_new_users(
         assert result == {"order_bid": "import-order"}
         assert stored_user is not None
         assert stored_user.nickname == "Imported nickname"
+        assert (
+            get_learner_profile(user_id=stored_user.user_bid)["legacy_profile_values"][
+                "sys_user_nickname"
+            ]
+            == "Imported nickname"
+        )
+
+
+@pytest.mark.parametrize(
+    ("contact_type", "identifier"),
+    [
+        ("phone", "13800138006"),
+        ("email", "fallback-profile@example.com"),
+    ],
+)
+def test_import_activation_identifier_fallback_is_not_profile_prefill(
+    app,
+    monkeypatch,
+    contact_type,
+    identifier,
+):
+    _stub_activation_order_side_effects(monkeypatch)
+
+    with app.app_context():
+        result = import_activation_order(
+            app,
+            identifier,
+            "fallback-profile-course",
+            contact_type=contact_type,
+        )
+        stored_user = load_user_aggregate_by_identifier(
+            identifier,
+            providers=[contact_type],
+        )
+
+        assert result == {"order_bid": "import-order"}
+        assert stored_user is not None
+        # Keep the compatibility field unchanged while excluding its
+        # import-only fallback from the learner-owned profile draft.
+        assert stored_user.nickname == identifier
+        assert (
+            get_learner_profile(user_id=stored_user.user_bid)["legacy_profile_values"]
+            == {}
+        )

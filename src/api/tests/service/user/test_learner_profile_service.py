@@ -15,7 +15,11 @@ from flaskr.dao import db
 from flaskr.service.common.models import AppException
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.models import UserInfo, UserOnboardingState
-from flaskr.service.user.repository import create_user_entity, load_user_aggregate
+from flaskr.service.user.repository import (
+    create_user_entity,
+    load_user_aggregate,
+    upsert_credential,
+)
 
 PROFILE_UPDATED_AT = datetime(2026, 8, 1, 8, 30, tzinfo=timezone.utc)
 
@@ -28,12 +32,13 @@ def _assert_orm_utc(value: datetime | None, expected: datetime) -> None:
 def _create_user(
     user_bid: str,
     *,
+    identify: str | None = None,
     learner_profile: str = "",
     nickname: str = "Test learner",
 ) -> UserInfo:
     user = create_user_entity(
         user_bid=user_bid,
-        identify=user_bid,
+        identify=identify or user_bid,
         nickname=nickname,
         language="zh-CN",
         learner_profile=learner_profile,
@@ -159,6 +164,158 @@ def test_empty_profile_prefill_uses_canonical_nickname_and_latest_legacy_values(
         "sys_user_background": "办公室工作",
         "sys_user_style": "亲切直接",
     }
+
+
+@pytest.mark.parametrize(
+    ("identifier", "suffix"),
+    [
+        ("13800138007", "phone"),
+        ("nickname@example.com", "email"),
+    ],
+)
+def test_explicit_legacy_nickname_can_equal_account_identifier(
+    app,
+    identifier,
+    suffix,
+):
+    from flaskr.service.profile.learner_profile import get_learner_profile
+
+    with app.app_context():
+        user_bid = f"profile-explicit-{suffix}"
+        _create_user(user_bid, identify=identifier, nickname=identifier)
+        _add_profile_value(
+            value_bid=f"legacy-explicit-{suffix}",
+            user_bid=user_bid,
+            key="sys_user_nickname",
+            value=identifier,
+        )
+        db.session.commit()
+
+        loaded = get_learner_profile(user_id=user_bid)
+
+    assert loaded["legacy_profile_values"]["sys_user_nickname"] == identifier
+
+
+@pytest.mark.parametrize(
+    ("identifier", "nickname", "suffix"),
+    [
+        ("13800138007", "13900139007", "phone"),
+        ("account@example.com", "nickname@example.net", "email"),
+    ],
+)
+def test_identifier_shaped_canonical_nickname_for_different_value_is_prefilled(
+    app,
+    identifier,
+    nickname,
+    suffix,
+):
+    from flaskr.service.profile.learner_profile import get_learner_profile
+
+    with app.app_context():
+        user_bid = f"profile-shaped-{suffix}"
+        _create_user(user_bid, identify=identifier, nickname=nickname)
+        db.session.commit()
+
+        loaded = get_learner_profile(user_id=user_bid)
+
+    assert loaded["legacy_profile_values"]["sys_user_nickname"] == nickname
+
+
+@pytest.mark.parametrize(
+    ("nickname", "suffix", "expected_nickname"),
+    [
+        ("credential@example.com", "same", None),
+        ("other@example.net", "different", "other@example.net"),
+    ],
+)
+def test_credential_identifier_filter_is_exact(
+    app,
+    nickname,
+    suffix,
+    expected_nickname,
+):
+    from flaskr.service.profile.learner_profile import get_learner_profile
+
+    with app.app_context():
+        user_bid = f"profile-credential-{suffix}"
+        _create_user(user_bid, identify=user_bid, nickname=nickname)
+        upsert_credential(
+            app,
+            user_bid=user_bid,
+            provider_name="email",
+            subject_id="credential@example.com",
+            subject_format="email",
+            identifier="credential@example.com",
+            metadata={},
+            verified=True,
+        )
+        db.session.commit()
+
+        loaded = get_learner_profile(user_id=user_bid)
+
+    assert loaded["legacy_profile_values"].get("sys_user_nickname") == expected_nickname
+
+
+def test_identifier_fallback_prefers_explicit_legacy_nickname(app):
+    from flaskr.service.profile.learner_profile import get_learner_profile
+
+    with app.app_context():
+        user_bid = "profile-identifier-with-legacy-name"
+        identifier = "legacy-name@example.com"
+        _create_user(user_bid, identify=identifier, nickname=identifier)
+        _add_profile_value(
+            value_bid="legacy-name-user-choice",
+            user_bid=user_bid,
+            key="sys_user_nickname",
+            value="小林",
+        )
+        db.session.commit()
+
+        loaded = get_learner_profile(user_id=user_bid)
+
+    assert loaded["legacy_profile_values"]["sys_user_nickname"] == "小林"
+
+
+def test_identifier_fallback_does_not_revive_cleared_legacy_nickname(app):
+    from flaskr.service.profile.learner_profile import get_learner_profile
+
+    with app.app_context():
+        user_bid = "1234567890abcdef1234567890abcdef"
+        _create_user(user_bid, identify=user_bid, nickname=user_bid)
+        _add_profile_value(
+            value_bid="legacy-uuid-name-old",
+            user_bid=user_bid,
+            key="sys_user_nickname",
+            value="旧称呼",
+        )
+        _add_profile_value(
+            value_bid="legacy-uuid-name-cleared",
+            user_bid=user_bid,
+            key="sys_user_nickname",
+            value="  ",
+        )
+        db.session.commit()
+
+        loaded = get_learner_profile(user_id=user_bid)
+
+    assert "sys_user_nickname" not in loaded["legacy_profile_values"]
+
+
+def test_user_bid_fallback_is_not_profile_prefill_after_identifier_changes(app):
+    from flaskr.service.profile.learner_profile import get_learner_profile
+
+    with app.app_context():
+        user_bid = "abcdef1234567890abcdef1234567890"
+        _create_user(
+            user_bid,
+            identify="current-account@example.com",
+            nickname=user_bid,
+        )
+        db.session.commit()
+
+        loaded = get_learner_profile(user_id=user_bid)
+
+    assert "sys_user_nickname" not in loaded["legacy_profile_values"]
 
 
 def test_empty_legacy_values_do_not_revive_older_prefill_values(app):
