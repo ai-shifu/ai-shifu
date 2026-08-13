@@ -266,28 +266,64 @@ def _repository_relative_paths() -> list[str]:
     ]
 
 
-def _staged_paths() -> set[str]:
+def _index_entries() -> list[tuple[str, str]]:
     result = subprocess.run(
-        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"],
+        ["git", "ls-files", "--stage", "-z"],
         cwd=ROOT,
         check=True,
         capture_output=True,
     )
-    return {
-        raw_path.decode("utf-8", errors="surrogateescape")
-        for raw_path in result.stdout.split(b"\0")
-        if raw_path
-    }
+    entries: list[tuple[str, str]] = []
+    for raw_entry in result.stdout.split(b"\0"):
+        if not raw_entry:
+            continue
+        metadata, raw_path = raw_entry.split(b"\t", 1)
+        mode, raw_object_id, stage = metadata.split(b" ", 2)
+        if stage != b"0" or mode == b"160000":
+            continue
+        entries.append(
+            (
+                raw_path.decode("utf-8", errors="surrogateescape"),
+                raw_object_id.decode("ascii"),
+            )
+        )
+    return entries
 
 
-def _read_staged_blob(relative_path: str) -> bytes:
+def _read_index_objects(object_ids: list[str]) -> dict[str, bytes]:
+    unique_object_ids = list(dict.fromkeys(object_ids))
+    if not unique_object_ids:
+        return {}
     result = subprocess.run(
-        ["git", "show", f":{relative_path}"],
+        ["git", "cat-file", "--batch"],
         cwd=ROOT,
         check=True,
+        input="".join(f"{object_id}\n" for object_id in unique_object_ids).encode(),
         capture_output=True,
     )
-    return result.stdout
+    objects: dict[str, bytes] = {}
+    offset = 0
+    for object_id in unique_object_ids:
+        header_end = result.stdout.find(b"\n", offset)
+        if header_end == -1:
+            raise OSError("git cat-file returned a truncated header")
+        header = result.stdout[offset:header_end].split()
+        if len(header) != 3 or header[1] != b"blob":
+            raise OSError(f"git cat-file did not return blob {object_id}")
+        size = int(header[2])
+        content_start = header_end + 1
+        content_end = content_start + size
+        if result.stdout[content_end : content_end + 1] != b"\n":
+            raise OSError("git cat-file returned a truncated blob")
+        objects[object_id] = result.stdout[content_start:content_end]
+        offset = content_end + 1
+    return objects
+
+
+def _index_candidates() -> list[tuple[str, bytes]]:
+    entries = _index_entries()
+    objects = _read_index_objects([object_id for _, object_id in entries])
+    return [(path, objects[object_id]) for path, object_id in entries]
 
 
 def find_violations(
@@ -310,17 +346,14 @@ def find_violations(
             (path.as_posix(), path.read_bytes()) for path in paths if path.is_file()
         ]
     else:
-        staged_paths = _staged_paths() if staged else set()
-        candidates = []
-        for relative_path in _repository_relative_paths():
-            path = ROOT / relative_path
-            if relative_path in staged_paths:
-                raw = _read_staged_blob(relative_path)
-            elif path.is_file():
-                raw = path.read_bytes()
-            else:
-                continue
-            candidates.append((relative_path, raw))
+        if staged:
+            candidates = _index_candidates()
+        else:
+            candidates = []
+            for relative_path in _repository_relative_paths():
+                path = ROOT / relative_path
+                if path.is_file():
+                    candidates.append((relative_path, path.read_bytes()))
 
     for path_label, raw in candidates:
         if b"\0" in raw:
@@ -439,7 +472,7 @@ def main() -> int:
     parser.add_argument(
         "--staged",
         action="store_true",
-        help="Read staged tracked files from the Git index instead of the worktree.",
+        help="Scan the complete Git index snapshot instead of the worktree.",
     )
     args = parser.parse_args()
 
