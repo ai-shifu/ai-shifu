@@ -317,6 +317,39 @@ def test_merge_helper_never_copies_from_non_guest_random_identifier(
         assert load_learner_profile_state(target.user_bid) is None
 
 
+def test_merge_helper_allows_numeric_uuid_guest_identifier(app):
+    with app.app_context():
+        numeric_uuid = uuid.UUID("12345678-9012-4567-8901-234567890123").hex
+        assert len(numeric_uuid) == 32
+        assert numeric_uuid.isdigit()
+        source = _create_user(
+            identify=numeric_uuid,
+            learner_profile="numeric uuid guest profile",
+            learner_profile_updated_at=PROFILE_UPDATED_AT,
+        )
+        target = _create_user(identify=uuid.uuid4().hex)
+        _add_state(source.user_bid, status="completed", trigger_source="settings")
+        db.session.commit()
+
+        with transactional_session():
+            merge_learner_profile_for_sign_in(
+                source_user_id=source.user_bid,
+                target_user_id=target.user_bid,
+            )
+        db.session.commit()
+
+        stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
+        assert stored_target.learner_profile == "numeric uuid guest profile"
+        _assert_orm_utc(
+            stored_target.learner_profile_updated_at,
+            PROFILE_UPDATED_AT,
+        )
+        target_state = load_learner_profile_state(target.user_bid)
+        assert target_state is not None
+        assert target_state.status == "completed"
+        assert target_state.trigger_source == "settings"
+
+
 def test_merge_helper_allows_unregistered_guest_with_wechat_credential(app):
     with app.app_context():
         source = _create_user(

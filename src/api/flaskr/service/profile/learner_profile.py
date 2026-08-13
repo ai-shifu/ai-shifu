@@ -609,10 +609,9 @@ def merge_learner_profile_for_sign_in(
         return
 
     source_identify = str(source_user.user_identify or "").strip()
-    normalized_source_phone = normalize_phone_identifier(source_identify)
     source_has_account_identifier = bool(
         "@" in source_identify
-        or normalized_source_phone.isdigit()
+        or is_valid_sms_mobile(source_identify)
         or AuthCredential.query.filter(
             AuthCredential.user_bid == normalized_source_id,
             AuthCredential.provider_name.in_(["phone", "email"]),
