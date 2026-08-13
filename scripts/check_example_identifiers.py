@@ -109,9 +109,6 @@ def _line_containing(text: str, offset: int) -> str:
 def _volcengine_context(text: str, match: re.Match[str]) -> str:
     value_offset = match.start("value")
     current_line = _line_containing(text, value_offset)
-    if VOLCENGINE_VOICE_CONTEXT_RE.search(current_line):
-        return current_line
-
     value_start = value_offset - (text.rfind("\n", 0, value_offset) + 1)
     value_end = value_start + len(match.group("value"))
     prefix = current_line[:value_start]
@@ -119,7 +116,9 @@ def _volcengine_context(text: str, match: re.Match[str]) -> str:
     is_standalone_value = re.fullmatch(
         r"\s*(?:[-*]\s*)?[`\"']?", prefix
     ) and re.fullmatch(r"[`\"']?\s*[,;]?\s*", suffix)
-    if not is_standalone_value:
+    has_voice_context = VOLCENGINE_VOICE_CONTEXT_RE.search(current_line)
+    needs_nearby_context = bool(is_standalone_value or has_voice_context)
+    if not needs_nearby_context:
         return current_line
 
     current_start = text.rfind("\n", 0, value_offset) + 1
@@ -460,6 +459,10 @@ def run_self_test() -> None:
     )
     assert find_violations_in_text(
         "fixture.env", f"VOLCENGINE_VOICE_ID={status_like_volcengine}"
+    )
+    assert find_violations_in_text(
+        "fixture.py",
+        f'provider = "volcengine"\nlast_voice_id = {status_like_volcengine}',
     )
     assert find_violations_in_text(
         "fixture.md", f"Volcengine speaker ID: {suspicious_volcengine}"
