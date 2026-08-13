@@ -612,7 +612,7 @@ def _apply_completed_state(
     user_id: str,
     trigger_source: str,
 ) -> UserOnboardingState:
-    state = load_learner_profile_state(user_id)
+    state = load_learner_profile_state(user_id, for_update=True)
     now = now_utc()
     if state is None:
         state = UserOnboardingState(
@@ -700,7 +700,7 @@ def save_learner_profile(
     recognized_nickname = extract_learner_profile_nickname(normalized)
 
     def operation() -> tuple[UserEntity, UserOnboardingState]:
-        user = load_learner_profile_user(user_id)
+        user = load_learner_profile_user(user_id, for_update=True)
         apply_learner_profile(user, normalized)
         user.nickname = recognized_nickname or ""
         state = _apply_completed_state(
@@ -732,7 +732,7 @@ def replace_learner_profile(
 
 def clear_learner_profile(*, user_id: str) -> dict[str, Any]:
     def operation() -> tuple[UserEntity, UserOnboardingState]:
-        user = load_learner_profile_user(user_id)
+        user = load_learner_profile_user(user_id, for_update=True)
         if user.learner_profile or user.learner_profile_updated_at is not None:
             user.learner_profile = ""
             user.learner_profile_updated_at = None

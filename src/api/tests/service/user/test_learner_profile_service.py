@@ -73,6 +73,35 @@ def _add_profile_value(
     return row
 
 
+def _track_profile_lock_reads(monkeypatch) -> list[tuple[str, str, bool, bool]]:
+    query_type = type(UserInfo.query)
+    original_first = query_type.first
+    read_order: list[tuple[str, str, bool, bool]] = []
+
+    def track_first(query):
+        statement = str(query.statement)
+        parameters = query.statement.compile().params
+        table = (
+            "user_onboarding_states"
+            if "user_onboarding_states" in statement
+            else "user_users"
+            if "user_users" in statement
+            else "other"
+        )
+        read_order.append(
+            (
+                table,
+                str(parameters.get("user_bid_1", "")),
+                query._for_update_arg is not None,
+                bool(query.load_options._populate_existing),
+            )
+        )
+        return original_first(query)
+
+    monkeypatch.setattr(query_type, "first", track_first)
+    return read_order
+
+
 def test_repository_aggregate_exposes_learner_profile(app):
     with app.app_context():
         _create_user("profile-aggregate", learner_profile="偏好图表和简洁表达")
@@ -618,6 +647,56 @@ def test_complete_atomically_writes_profile_and_fixed_v2_state(app, monkeypatch)
     assert state.completed_at is not None
     assert variable_values == []
     assert checked == [("profile-complete", "称呼：小明\n表达风格：简洁")]
+
+
+def test_save_locks_user_then_state_before_writing_profile(app, monkeypatch):
+    from flaskr.service.profile.learner_profile import save_learner_profile
+
+    _allow_profile_safety(monkeypatch)
+    with app.app_context():
+        user_bid = "profile-save-lock-order"
+        _create_user(user_bid)
+        read_order = _track_profile_lock_reads(monkeypatch)
+
+        result = save_learner_profile(
+            app,
+            user_id=user_bid,
+            learner_profile="Please call me Locked Learner.",
+            trigger_source="settings",
+        )
+
+    profile_snapshot_reads = [
+        read
+        for read in read_order
+        if read[0] in {"user_users", "user_onboarding_states"}
+    ]
+    assert profile_snapshot_reads[:2] == [
+        ("user_users", user_bid, True, True),
+        ("user_onboarding_states", user_bid, True, True),
+    ]
+    assert result["learner_profile"] == "Please call me Locked Learner."
+
+
+def test_clear_locks_user_then_state_before_clearing_profile(app, monkeypatch):
+    from flaskr.service.profile.learner_profile import clear_learner_profile
+
+    with app.app_context():
+        user_bid = "profile-clear-lock-order"
+        _create_user(user_bid, learner_profile="Profile to clear")
+        read_order = _track_profile_lock_reads(monkeypatch)
+
+        result = clear_learner_profile(user_id=user_bid)
+
+    profile_snapshot_reads = [
+        read
+        for read in read_order
+        if read[0] in {"user_users", "user_onboarding_states"}
+    ]
+    assert profile_snapshot_reads[:2] == [
+        ("user_users", user_bid, True, True),
+        ("user_onboarding_states", user_bid, True, True),
+    ]
+    assert result["learner_profile"] == ""
 
 
 def test_complete_preserves_legacy_variable_values_for_old_courses(app, monkeypatch):
