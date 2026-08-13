@@ -1,4 +1,12 @@
 export const MINIMAX_PROVIDER = 'minimax';
+export const VOLCENGINE_PROVIDER = 'volcengine';
+
+// Providers whose cloned voices can appear in the voice dropdown. Cloning
+// itself is operator-managed; the teacher UI only lists registered voices.
+// Cloned voices show under the teacher's normal model selection — provider-
+// specific synthesis resources (volcengine seed-icl-2.0) are inferred
+// backend-side from the voice id.
+const CLONED_VOICE_PROVIDERS = new Set([MINIMAX_PROVIDER, VOLCENGINE_PROVIDER]);
 
 export type MiniMaxVoiceCloneStatus =
   | 'queued'
@@ -17,6 +25,7 @@ export interface MiniMaxClonedVoice {
   voice_bid: string;
   voice_id: string;
   display_name: string;
+  provider?: string;
   status: MiniMaxVoiceCloneStatus | string;
   status_msg?: string;
   failure_reason?: string;
@@ -56,19 +65,42 @@ export type MiniMaxCloneSubmitBlockReason =
 const MINIMAX_CUSTOM_VOICE_ID_PATTERN =
   /^[A-Za-z](?=.{7,63}$)[A-Za-z0-9_-]*[A-Za-z0-9]$/;
 
+// Volcengine speaker slots allocated in the console look like S_v57vvPYM1.
+const VOLCENGINE_CUSTOM_VOICE_ID_PATTERN = /^S_[A-Za-z0-9_-]{4,64}$/;
+
 export function isMiniMaxProvider(providerName: string): boolean {
   return (providerName || '').trim().toLowerCase() === MINIMAX_PROVIDER;
+}
+
+export function providerSupportsClonedVoices(providerName: string): boolean {
+  return CLONED_VOICE_PROVIDERS.has((providerName || '').trim().toLowerCase());
 }
 
 export function isValidMiniMaxCustomVoiceId(voiceId: string): boolean {
   return MINIMAX_CUSTOM_VOICE_ID_PATTERN.test((voiceId || '').trim());
 }
 
-export function buildMiniMaxClonedVoiceListParams(
+export function isValidVolcengineCustomVoiceId(voiceId: string): boolean {
+  return VOLCENGINE_CUSTOM_VOICE_ID_PATTERN.test((voiceId || '').trim());
+}
+
+export function getCustomVoiceIdValidator(
+  providerName: string,
+): (voiceId: string) => boolean {
+  return (providerName || '').trim().toLowerCase() === VOLCENGINE_PROVIDER
+    ? isValidVolcengineCustomVoiceId
+    : isValidMiniMaxCustomVoiceId;
+}
+
+export function buildClonedVoiceListParams(
+  providerName: string,
   shifuId?: string,
-): Record<string, never> {
+): Record<string, string> {
+  // shifu_bid is intentionally dropped: operator-registered rows carry an
+  // empty shifu_bid, so filtering by shifu would hide them.
   void shifuId;
-  return {};
+  const provider = (providerName || '').trim().toLowerCase();
+  return provider ? { provider } : {};
 }
 
 export function shouldPreserveCustomMiniMaxVoice({
@@ -102,6 +134,7 @@ export function buildMiniMaxVoiceOptions({
   clonedVoiceLabelFormatter,
   manualLabel,
   statusLabels = {},
+  manualVoiceValidator = isValidMiniMaxCustomVoiceId,
 }: {
   builtInVoices: TTSVoiceOptionBase[];
   clonedVoices: MiniMaxClonedVoice[];
@@ -109,6 +142,7 @@ export function buildMiniMaxVoiceOptions({
   clonedVoiceLabelFormatter?: (name: string) => string;
   manualLabel: string;
   statusLabels?: Record<string, string>;
+  manualVoiceValidator?: (voiceId: string) => boolean;
 }): MiniMaxVoiceOption[] {
   const seen = new Set<string>();
   const builtInVoiceIds = new Set(
@@ -160,7 +194,7 @@ export function buildMiniMaxVoiceOptions({
   if (
     normalizedCurrent &&
     !seen.has(normalizedCurrent) &&
-    isValidMiniMaxCustomVoiceId(normalizedCurrent)
+    manualVoiceValidator(normalizedCurrent)
   ) {
     seen.add(normalizedCurrent);
     options.push({

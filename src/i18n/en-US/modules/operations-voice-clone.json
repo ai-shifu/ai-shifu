@@ -12,7 +12,7 @@
     "reserved": "Reserved"
   },
   "copySuccess": "Copied",
-  "description": "Review MiniMax voice clone job status, failure reasons, and billing results.",
+  "description": "Review the processing status, failure reasons, and billing results of cloned voice jobs.",
   "detail": {
     "audio": "Audio Summary",
     "basic": "Basic Info",
@@ -33,6 +33,7 @@
     "normalizedAudioDuration": "Processed Audio Duration",
     "owner": "Creator",
     "promptAudioDuration": "Preview Audio Duration",
+    "provider": "Provider",
     "readyAt": "Completed At",
     "retryCount": "Retry Count",
     "sourceAudioDuration": "Source Audio Duration",
@@ -83,6 +84,7 @@
     "failureReasonPlaceholder": "Failure reason",
     "minimaxStatusCode": "MiniMax Status Code",
     "minimaxStatusCodePlaceholder": "Status code",
+    "provider": "Provider",
     "reset": "Reset",
     "search": "Search",
     "status": "Job Status",
@@ -101,15 +103,20 @@
     "prev": "Previous",
     "prevAria": "Previous page"
   },
+  "providers": {
+    "minimax": "MiniMax",
+    "volcengine": "Doubao (Volcengine)"
+  },
   "register": {
     "button": "Register voice",
     "cancel": "Cancel",
     "clearTeacher": "Change",
-    "description": "After cloning a voice on the MiniMax console, register its Voice ID here and assign it to a teacher. The voice is free for the teacher; registration runs a short test synthesis to validate and keep it alive.",
+    "description": "After cloning a voice on the provider console, register the Voice ID here and assign it to a teacher. The voice is free for the teacher; registration verifies the id with the provider.",
     "displayNameLabel": "Voice name",
     "displayNamePlaceholder": "Name the teacher sees in the voice list",
     "displayNameRequired": "Please enter a voice name",
     "noResults": "No matching teacher found",
+    "providerLabel": "Provider",
     "searchButton": "Search",
     "searching": "Searching…",
     "submit": "Register",
@@ -120,8 +127,11 @@
     "teacherSearchPlaceholder": "Mobile / Email",
     "title": "Register cloned voice",
     "voiceIdHint": "Enter the Voice ID cloned on the MiniMax console.",
+    "voiceIdHintVolcengine": "Enter the speaker ID trained on the Volcengine console (an S_-prefixed voice slot).",
+    "voiceIdInvalid": "Invalid Voice ID format",
     "voiceIdLabel": "Voice ID",
     "voiceIdPlaceholder": "e.g. AiShifu_teacher_voice",
+    "voiceIdPlaceholderVolcengine": "e.g. S_v57vvPYM1",
     "voiceIdRequired": "Please enter a Voice ID"
   },
   "status": {
@@ -140,6 +150,7 @@
     "failure": "Failure Reason",
     "minimax": "MiniMax",
     "owner": "Creator",
+    "provider": "Provider",
     "status": "Status",
     "updatedAt": "Updated At",
     "voice": "Voice"

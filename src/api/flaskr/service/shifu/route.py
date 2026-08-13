@@ -2479,12 +2479,17 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
         user_id = request.user.user_id
         shifu_bid = (request.args.get("shifu_bid") or "").strip()
+        # Historical route name notwithstanding, the table now holds cloned
+        # voices of multiple providers; an empty provider returns all of them
+        # so older clients keep working.
+        provider = (request.args.get("provider") or "").strip()
         return make_common_response(
             {
                 "voices": list_minimax_cloned_voices(
                     app,
                     owner_user_bid=user_id,
                     shifu_bid=shifu_bid,
+                    provider=provider,
                 )
             }
         )

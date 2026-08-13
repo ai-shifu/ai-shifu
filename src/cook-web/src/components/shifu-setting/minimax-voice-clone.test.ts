@@ -1,11 +1,13 @@
 import {
-  buildMiniMaxClonedVoiceListParams,
+  buildClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
   executeMiniMaxVoiceAction,
   getMiniMaxCloneSubmitBlockReason,
   getMiniMaxRecordingElapsedSeconds,
   isValidMiniMaxCustomVoiceId,
+  isValidVolcengineCustomVoiceId,
   loadMiniMaxVoiceRefreshData,
+  providerSupportsClonedVoices,
   shouldPreserveCustomMiniMaxVoice,
 } from './minimax-voice-clone';
 
@@ -209,8 +211,56 @@ describe('minimax voice clone helpers', () => {
 
   it('requests owner-wide cloned voices without current shifu filtering', () => {
     expect(
-      buildMiniMaxClonedVoiceListParams('3aab99292889400f9f3c935a45ab2b0e'),
-    ).toEqual({});
+      buildClonedVoiceListParams('minimax', '3aab99292889400f9f3c935a45ab2b0e'),
+    ).toEqual({ provider: 'minimax' });
+    expect(buildClonedVoiceListParams('')).toEqual({});
+  });
+
+  it('validates volcengine speaker ids and provider cloning support', () => {
+    expect(isValidVolcengineCustomVoiceId('S_v57vvPYM1')).toBe(true);
+    expect(isValidVolcengineCustomVoiceId('AiShifu_voice_123')).toBe(false);
+    expect(isValidVolcengineCustomVoiceId('s_lowercase1')).toBe(false);
+
+    expect(providerSupportsClonedVoices('minimax')).toBe(true);
+    expect(providerSupportsClonedVoices('volcengine')).toBe(true);
+    expect(providerSupportsClonedVoices('volcengine_http')).toBe(false);
+    expect(providerSupportsClonedVoices('baidu')).toBe(false);
+  });
+
+  it('lists volcengine cloned voices alongside built-ins without model tags', () => {
+    const options = buildMiniMaxVoiceOptions({
+      builtInVoices: [{ value: 'zh_female_vv_uranus_bigtts', label: 'Vivi' }],
+      clonedVoices: [
+        {
+          voice_bid: 'vb-volc-1',
+          voice_id: 'S_v57vvPYM1',
+          display_name: '何老师的声音',
+          provider: 'volcengine',
+          status: 'ready',
+        },
+      ],
+      currentVoiceId: 'S_manualPY1',
+      manualLabel: 'Manual',
+      manualVoiceValidator: isValidVolcengineCustomVoiceId,
+    });
+
+    const cloned = options.find(option => option.value === 'S_v57vvPYM1');
+    const manual = options.find(option => option.value === 'S_manualPY1');
+    expect(cloned?.source).toBe('cloned');
+    // No resource_id annotation: cloned voices stay visible under the
+    // teacher's normal model; the clone resource is inferred backend-side.
+    expect(cloned?.resource_id).toBeUndefined();
+    expect(manual?.source).toBe('manual');
+    // A MiniMax-shaped current voice id must not survive the volcengine
+    // manual validator.
+    const rejected = buildMiniMaxVoiceOptions({
+      builtInVoices: [],
+      clonedVoices: [],
+      currentVoiceId: 'AiShifu_saved_voice_1',
+      manualLabel: 'Manual',
+      manualVoiceValidator: isValidVolcengineCustomVoiceId,
+    });
+    expect(rejected).toHaveLength(0);
   });
 
   it('allows clone submission once source recording is long enough', () => {

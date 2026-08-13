@@ -236,12 +236,18 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> 
         raising=False,
     )
 
-    def _fake_guard(_app, *, voice_id, owner_user_bid):
-        guard_calls.append({"voice_id": voice_id, "owner_user_bid": owner_user_bid})
+    def _fake_guard(_app, *, provider, voice_id, owner_user_bid):
+        guard_calls.append(
+            {
+                "provider": provider,
+                "voice_id": voice_id,
+                "owner_user_bid": owner_user_bid,
+            }
+        )
         raise AppException("voice unavailable", ERROR_CODE["server.common.paramsError"])
 
     monkeypatch.setattr(
-        "flaskr.service.shifu.tts_preview.assert_minimax_preview_voice_available",
+        "flaskr.service.shifu.tts_preview.assert_preview_cloned_voice_available",
         _fake_guard,
         raising=False,
     )
@@ -264,6 +270,7 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> 
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
     assert guard_calls == [
         {
+            "provider": "minimax",
             "voice_id": "AiShifu_missing_voice",
             "owner_user_bid": "creator-debug-tts-1",
         }

@@ -9,6 +9,7 @@ API Reference:
 - Uses custom binary protocol for frame encoding/decoding
 """
 
+import re
 import uuid
 import logging
 import threading
@@ -171,6 +172,20 @@ VOLCENGINE_MODELS = [
     {"value": "seed-icl-1.0", "label": "Seed-ICL-1.0 (resource)"},
 ]
 
+# Cloned (voice-clone 2.0) speaker slots synthesize under this resource id.
+# It is intentionally NOT in VOLCENGINE_MODELS: teachers keep their normal
+# model selection and the resource id is inferred from the S_ speaker id at
+# synthesis time (see _infer_resource_id_for_voice).
+VOLCENGINE_ICL_RESOURCE_ID = "seed-icl-2.0"
+
+# Console-allocated cloned speaker slots look like S_v57vvPYM1.
+_VOLCENGINE_CLONED_SPEAKER_RE = re.compile(r"^S_[A-Za-z0-9_-]{4,64}$")
+
+
+def is_volcengine_cloned_speaker_id(voice_id: str) -> bool:
+    return bool(_VOLCENGINE_CLONED_SPEAKER_RE.match((voice_id or "").strip()))
+
+
 # Volcengine recommended voices
 VOLCENGINE_VOICES = [
     # Seed-TTS 1.0 voices
@@ -326,6 +341,12 @@ class VolcengineTTSProvider(BaseTTSProvider):
         for voice in VOLCENGINE_VOICES:
             if voice.get("value") == voice_id:
                 return (voice.get("resource_id") or "").strip()
+
+        # Cloned speaker slots (S_xxx) are not in the static voice table but
+        # always synthesize under the voice-clone resource, regardless of the
+        # model the caller selected.
+        if is_volcengine_cloned_speaker_id(voice_id):
+            return VOLCENGINE_ICL_RESOURCE_ID
 
         return ""
 
