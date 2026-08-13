@@ -581,7 +581,10 @@
   left: 0;
   right: 0;
   margin: 0 12px;
-  transform: none;
+  transform: translate(
+    var(--slide-interaction-drag-x, 0px),
+    var(--slide-interaction-drag-y, 0px)
+  );
 }
 
 .slide-ask-overlay--with-player {

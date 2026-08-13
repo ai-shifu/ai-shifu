@@ -437,6 +437,7 @@ describe('AdminOperationCourseDetailPage', () => {
           usage_mode: 'learn',
           provider: 'qwen',
           model: 'qwen/deepseek-v4-a',
+          model_label: 'DeepSeek V4 A',
           usage_count: 2,
           model_variant_count: 2,
           consumed_credits: 17,
@@ -455,6 +456,9 @@ describe('AdminOperationCourseDetailPage', () => {
           consumed_credits: 7,
           input_tokens: 1200,
           output_tokens: 80,
+          provider: 'qwen',
+          model: 'qwen/deepseek-v4-a',
+          model_label: 'DeepSeek V4 A',
           word_count: 0,
           duration_ms: 0,
           segment_count: 0,
@@ -788,6 +792,7 @@ describe('AdminOperationCourseDetailPage', () => {
           usage_mode: 'listen',
           provider: 'volcengine',
           model: 'cancan-2.0',
+          model_label: 'Can Can 2.0',
           usage_count: 1,
           model_variant_count: 1,
           consumed_credits: 2,
@@ -812,6 +817,9 @@ describe('AdminOperationCourseDetailPage', () => {
           consumed_credits: 2,
           input_tokens: 0,
           output_tokens: 0,
+          provider: 'volcengine',
+          model: 'cancan-2.0',
+          model_label: 'Can Can 2.0',
           word_count: 180,
           duration_ms: 30000,
           segment_count: 1,
@@ -878,7 +886,7 @@ describe('AdminOperationCourseDetailPage', () => {
     ).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        'module.operationsCourse.detail.creditUsage.modelSummary.multiple',
+        'module.operationsCourse.detail.creditUsage.modelSummary.variants',
       ),
     ).toBeInTheDocument();
     expect(
@@ -958,6 +966,7 @@ describe('AdminOperationCourseDetailPage', () => {
         within(dialog).getByText('First generated output summary'),
       ).toBeInTheDocument();
     });
+    expect(within(dialog).getByText('DeepSeek V4 A')).toBeInTheDocument();
   });
 
   test('keeps zero values visible in listen usage details', async () => {
@@ -981,6 +990,7 @@ describe('AdminOperationCourseDetailPage', () => {
           usage_mode: 'listen',
           provider: 'volcengine',
           model: 'cancan-2.0',
+          model_label: 'Can Can 2.0',
           usage_count: 1,
           model_variant_count: 1,
           consumed_credits: 2,

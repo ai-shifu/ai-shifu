@@ -50,6 +50,8 @@ export default function CourseFiltersSection({
       collapsedCount={2}
       surface='card'
       layoutPreset='operations'
+      expandedActionsInline
+      expandedActionsClassName='xl:col-start-3'
       className='mb-5'
       activeFilter={
         activeQuickFilterCard

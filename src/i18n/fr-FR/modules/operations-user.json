@@ -192,7 +192,11 @@
     "mobile": "Mobile",
     "nickname": "Pseudonyme",
     "role": "Rôle",
-    "status": "Statut"
+    "status": "Statut",
+    "user": "Utilisateur",
+    "userPlaceholderEmail": "E-mail / Pseudonyme",
+    "userPlaceholderPhone": "Mobile / Pseudonyme",
+    "userPlaceholderPhoneEmail": "Mobile / E-mail / Pseudonyme"
   },
   "grantDialog": {
     "bootstrapError": "Impossible de charger la liste des forfaits. Veuillez réessayer plus tard.",

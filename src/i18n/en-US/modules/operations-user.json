@@ -192,7 +192,11 @@
     "mobile": "Mobile",
     "nickname": "Nickname",
     "role": "Role",
-    "status": "Status"
+    "status": "Status",
+    "user": "User",
+    "userPlaceholderEmail": "Email / Nickname",
+    "userPlaceholderPhone": "Mobile / Nickname",
+    "userPlaceholderPhoneEmail": "Mobile / Email / Nickname"
   },
   "grantDialog": {
     "bootstrapError": "Failed to load packages. Please try again later.",

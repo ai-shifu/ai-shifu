@@ -6,10 +6,13 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import math
+import re
 from decimal import Decimal
 from typing import Any, Dict, Optional, Sequence
 from flask import Flask
 from sqlalchemy import and_, case, false, literal, not_, or_
+from flaskr.api.llm import PROVIDER_STATES, get_current_models
+from flaskr.api.tts import get_all_provider_configs
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -153,6 +156,123 @@ def _build_course_credit_usage_model_display(provider: str, model: str) -> str:
     return normalized_provider or normalized_model
 
 
+def _format_course_credit_usage_model_label_fallback(value: str) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return ""
+    raw_label = "/".join(normalized.split("/")[1:]) if "/" in normalized else normalized
+    raw_label = re.sub(r"-\d{6,}$", "", raw_label)
+    raw_label = re.sub(r"(seed)-(\d+)-(\d+)", r"\1-\2.\3", raw_label)
+
+    special_segments = {
+        "deepseek": "DeepSeek",
+        "doubao": "Doubao",
+        "gpt": "GPT",
+        "seed": "Seed",
+        "pro": "pro",
+        "lite": "lite",
+        "flash": "Flash",
+    }
+    formatted_segments = []
+    for segment in raw_label.split("-"):
+        if not segment:
+            continue
+        lower_segment = segment.lower()
+        formatted_segments.append(
+            special_segments.get(
+                lower_segment,
+                segment[:1].upper() + segment[1:] if segment.isalpha() else segment,
+            )
+        )
+    return "-".join(formatted_segments)
+
+
+class _CourseCreditUsageModelLabelResolver:
+    def __init__(self, app: Flask):
+        self._app = app
+        self._llm_label_map: dict[tuple[str, str], str] | None = None
+        self._tts_label_map: dict[tuple[str, str], str] | None = None
+
+    def _load_llm_label_map(self) -> dict[tuple[str, str], str]:
+        if self._llm_label_map is not None:
+            return self._llm_label_map
+
+        label_by_model: dict[str, str] = {}
+        label_map: dict[tuple[str, str], str] = {}
+        try:
+            for option in get_current_models(self._app):
+                option_model = str(option.get("model", "") or "").strip()
+                label = str(option.get("display_name", "") or "").strip()
+                if option_model and label:
+                    label_by_model[option_model] = label
+                option_provider = str(option.get("provider", "") or "").strip().lower()
+                if option_provider and option_model and label:
+                    label_map[(option_provider, option_model)] = label
+
+            for provider_name, state in PROVIDER_STATES.items():
+                normalized_provider = str(provider_name or "").strip().lower()
+                if not normalized_provider:
+                    continue
+                for state_model in getattr(state, "models", []) or []:
+                    normalized_model = str(state_model or "").strip()
+                    label = label_by_model.get(normalized_model, "")
+                    if normalized_model and label:
+                        label_map[(normalized_provider, normalized_model)] = label
+        except Exception:
+            label_map = {}
+
+        self._llm_label_map = label_map
+        return label_map
+
+    def _load_tts_label_map(self) -> dict[tuple[str, str], str]:
+        if self._tts_label_map is not None:
+            return self._tts_label_map
+
+        label_map: dict[tuple[str, str], str] = {}
+        try:
+            configs = get_all_provider_configs()
+            for option in configs.get("model_options") or []:
+                option_provider = str(option.get("provider", "") or "").strip().lower()
+                option_model = str(option.get("model", "") or "").strip()
+                label = str(option.get("label", "") or "").strip()
+                if option_provider and label:
+                    label_map[(option_provider, option_model)] = label
+            for provider_config in configs.get("providers") or []:
+                option_provider = (
+                    str(provider_config.get("name", "") or "").strip().lower()
+                )
+                if not option_provider:
+                    continue
+                for option in provider_config.get("models") or []:
+                    option_model = str(option.get("value", "") or "").strip()
+                    label = str(option.get("label", "") or "").strip()
+                    if option_model and label:
+                        label_map[(option_provider, option_model)] = label
+        except Exception:
+            label_map = {}
+
+        self._tts_label_map = label_map
+        return label_map
+
+    def resolve(self, *, usage_type: int, provider: str, model: str) -> str:
+        normalized_provider = str(provider or "").strip().lower()
+        normalized_model = str(model or "").strip()
+        if not normalized_provider and not normalized_model:
+            return ""
+
+        label_map = (
+            self._load_tts_label_map()
+            if int(usage_type or 0) == BILL_USAGE_TYPE_TTS
+            else self._load_llm_label_map()
+        )
+        label = label_map.get((normalized_provider, normalized_model), "")
+        if label:
+            return label
+        return _format_course_credit_usage_model_label_fallback(
+            normalized_model or normalized_provider
+        )
+
+
 def _build_course_credit_usage_group_key(
     progress_record_bid: str,
     usage_scene: str,
@@ -188,6 +308,7 @@ def _build_operator_course_credit_usage_item(
     usage_mode: str = "",
     provider: str = "",
     model: str = "",
+    model_label: str = "",
     model_variant_count: int = 0,
     consumed_credits: Any = None,
     created_at: Any = None,
@@ -239,6 +360,7 @@ def _build_operator_course_credit_usage_item(
         usage_mode=resolved_usage_mode,
         provider=resolved_provider,
         model=resolved_model,
+        model_label=str(model_label or "").strip(),
         usage_count=max(int(usage_count or 0), 1),
         model_variant_count=max(int(model_variant_count or 0), 0),
         consumed_credits=resolved_consumed_credits,
@@ -588,6 +710,7 @@ def _load_course_credit_usage_output_summary_map(
 def _build_operator_course_credit_usage_detail_item(
     usage_row: BillUsageRecord,
     ledger_amount: Any,
+    model_label_resolver: _CourseCreditUsageModelLabelResolver,
     output_summary: Optional[str] = None,
 ) -> AdminOperationCourseCreditUsageDetailItemDTO:
     return AdminOperationCourseCreditUsageDetailItemDTO(
@@ -597,6 +720,13 @@ def _build_operator_course_credit_usage_detail_item(
         ),
         input_tokens=int(getattr(usage_row, "input", 0) or 0),
         output_tokens=int(getattr(usage_row, "output", 0) or 0),
+        provider=str(getattr(usage_row, "provider", "") or ""),
+        model=str(getattr(usage_row, "model", "") or ""),
+        model_label=model_label_resolver.resolve(
+            usage_type=int(getattr(usage_row, "usage_type", 0) or 0),
+            provider=str(getattr(usage_row, "provider", "") or ""),
+            model=str(getattr(usage_row, "model", "") or ""),
+        ),
         word_count=int(getattr(usage_row, "word_count", 0) or 0),
         duration_ms=int(getattr(usage_row, "duration_ms", 0) or 0),
         segment_count=int(getattr(usage_row, "segment_count", 0) or 0),
@@ -888,6 +1018,7 @@ def get_operator_course_credit_usages(
             outline_item_bids=visible_leaf_outline_bids,
         )
         query = _apply_course_credit_usage_filters(query, filters)
+        model_label_resolver = _CourseCreditUsageModelLabelResolver(app)
 
         if view == COURSE_CREDIT_USAGE_VIEW_RAW:
             total = query.count()
@@ -923,6 +1054,11 @@ def get_operator_course_credit_usages(
                         group_key=str(getattr(usage_row, "usage_bid", "") or ""),
                         usage_count=1,
                         usage_mode=_resolve_course_credit_usage_mode(usage_row),
+                        model_label=model_label_resolver.resolve(
+                            usage_type=int(getattr(usage_row, "usage_type", 0) or 0),
+                            provider=str(getattr(usage_row, "provider", "") or ""),
+                            model=str(getattr(usage_row, "model", "") or ""),
+                        ),
                         model_variant_count=1 if model_display else 0,
                     )
                 )
@@ -1128,6 +1264,16 @@ def get_operator_course_credit_usages(
                     usage_mode=str(getattr(row, "usage_mode", "") or ""),
                     provider=str(getattr(row, "provider", "") or ""),
                     model=str(getattr(row, "model", "") or ""),
+                    model_label=model_label_resolver.resolve(
+                        usage_type=(
+                            BILL_USAGE_TYPE_TTS
+                            if str(getattr(row, "usage_mode", "") or "")
+                            == COURSE_CREDIT_USAGE_MODE_LISTEN
+                            else 0
+                        ),
+                        provider=str(getattr(row, "provider", "") or ""),
+                        model=str(getattr(row, "model", "") or ""),
+                    ),
                     usage_count=int(getattr(row, "usage_count", 0) or 0),
                     model_variant_count=int(
                         getattr(row, "model_variant_count", 0) or 0
@@ -1210,11 +1356,13 @@ def get_operator_course_credit_usage_details(
         output_summary_map = _load_course_credit_usage_output_summary_map(
             [usage_row for usage_row, _ledger_amount in rows]
         )
+        model_label_resolver = _CourseCreditUsageModelLabelResolver(app)
         return AdminOperationCourseCreditUsageDetailListDTO(
             items=[
                 _build_operator_course_credit_usage_detail_item(
                     usage_row=usage_row,
                     ledger_amount=ledger_amount,
+                    model_label_resolver=model_label_resolver,
                     output_summary=output_summary_map.get(
                         str(getattr(usage_row, "usage_bid", "") or "").strip(),
                         "",

@@ -137,7 +137,14 @@ def yidun_check(
                 raw_data=response_json,
             )
         else:
-            app.logger.error(f"yidun check error: {response_json.get('message', '')}")
+            # Yidun's error payload uses "msg" (v5 API); "message" kept as a
+            # fallback. Include the code so auth/quota failures (e.g. 401
+            # trial expiry) are identifiable from the log alone.
+            app.logger.error(
+                "yidun check error: code=%s msg=%s",
+                response_json.get("code"),
+                response_json.get("msg") or response_json.get("message", ""),
+            )
             return CheckResultDTO(
                 check_result=CHECK_RESULT_UNKNOWN,
                 risk_labels=[],
@@ -146,7 +153,7 @@ def yidun_check(
                 raw_data=response_json,
             )
     except Exception as ex:
-        app.logger.error(f"yidun check error: {str(ex)}")
+        app.logger.error("yidun check error: %r", ex)
         return CheckResultDTO(
             check_result=CHECK_RESULT_UNKNOWN,
             risk_labels=[],

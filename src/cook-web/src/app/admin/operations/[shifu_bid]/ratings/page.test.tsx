@@ -110,13 +110,16 @@ jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
   __esModule: true,
   default: ({
     placeholder,
+    triggerAriaLabel,
     onChange,
   }: {
     placeholder: string;
+    triggerAriaLabel?: string;
     onChange: (range: { start: string; end: string }) => void;
   }) => (
     <button
       type='button'
+      aria-label={triggerAriaLabel || placeholder}
       onClick={() => onChange({ start: '2026-04-05', end: '2026-04-06' })}
     >
       {placeholder}
@@ -264,6 +267,16 @@ describe('AdminOperationCourseRatingsPage', () => {
     });
 
     expect(screen.getByText('Very helpful lesson')).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', {
+        name: 'module.operationsCourse.detail.ratings.table.lesson',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('columnheader', {
+        name: 'module.operationsCourse.detail.ratings.table.chapter',
+      }),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByText('13900001235').length).toBeGreaterThan(0);
     expect(
       screen.getAllByText('module.operationsCourse.detail.ratings.scoreValue')
@@ -578,9 +591,15 @@ describe('AdminOperationCourseRatingsPage', () => {
         target: { value: 'Chapter 1' },
       },
     );
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.operationsCourse.detail.ratings.filters.ratingTime',
+      }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.expand' }));
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsCourse.detail.ratings.filters.timePlaceholder',
+        name: 'module.operationsCourse.detail.ratings.filters.ratingTime',
       }),
     );
     fireEvent.click(

@@ -93,6 +93,7 @@
           "createdAt": "Consommé le",
           "credits": "Crédits",
           "inputTokens": "Tokens d'entrée",
+          "model": "Modèle",
           "outputSummary": "Résumé de sortie",
           "outputTokens": "Tokens de sortie",
           "ttsContent": "Contenu synthétisé",
@@ -115,7 +116,7 @@
         "userKeywordPlaceholderPhone": "Mobile / Pseudonyme"
       },
       "modelSummary": {
-        "multiple": "{model} et {count} modèles"
+        "variants": "{count} variantes"
       },
       "modes": {
         "ask": "Relance",
@@ -367,6 +368,8 @@
   "filters": {
     "courseId": "ID du cours",
     "courseName": "Nom du cours",
+    "courseQuery": "Cours",
+    "courseQueryPlaceholder": "ID du cours / Nom du cours",
     "createdAt": "Créé le",
     "creator": "Créateur",
     "creatorEmailOrUserBid": "E-mail du créateur",

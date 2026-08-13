@@ -33,6 +33,11 @@ alwaysApply: true
 - For complex design work, create an ExecPlan under `docs/exec-plans/active/`
   and maintain it according to `PLANS.md`.
 
+- When creating a Git worktree, copy existing local `.env` files from the
+  source checkout into matching paths in the new worktree before starting
+  services. Preserve permissions, never commit the copies, and do not
+  overwrite worktree-specific environment files.
+
 - When a branch already has an open PR, keep the PR title and description in
   sync with the latest code changes so they accurately describe the current
   implementation and verification state.

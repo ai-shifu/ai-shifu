@@ -727,6 +727,7 @@ const ListenModeSlideRenderer = ({
   const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
     DEFAULT_LISTEN_MOBILE_VIEW_MODE,
   );
+  const [slideInteractionResetKey, setSlideInteractionResetKey] = useState(0);
   const [fullscreenPortalContainer, setFullscreenPortalContainer] =
     useState<HTMLElement | null>(null);
   const [currentStepBlockBid, setCurrentStepBlockBid] = useState('');
@@ -741,6 +742,8 @@ const ListenModeSlideRenderer = ({
     useState('');
   const mobileAskActionRef = useRef<HTMLButtonElement | null>(null);
   const desktopAskActionRef = useRef<HTMLButtonElement | null>(null);
+  const mobileViewModeRef = useRef<MobileViewMode>(mobileViewMode);
+  const mobileViewportOrientationRef = useRef('');
   const playerCustomActionSetActiveRef = useRef<(active: boolean) => void>(
     () => {},
   );
@@ -913,25 +916,35 @@ const ListenModeSlideRenderer = ({
   );
   const renderedElementList = useMemo(
     () =>
-      !disableInteractionEdits
-        ? elementList
-        : elementList.map(element => {
-            if (element.type !== 'interaction') {
-              return element;
-            }
-
-            const interactionContent =
-              typeof element.content === 'string' ? element.content : '';
-            if (isSystemInteractionContent(interactionContent)) {
-              return element;
-            }
-
-            return {
+      elementList.map(element => {
+        let nextElement = element;
+        if (disableInteractionEdits && element.type === 'interaction') {
+          const interactionContent =
+            typeof element.content === 'string' ? element.content : '';
+          if (!isSystemInteractionContent(interactionContent)) {
+            nextElement = {
               ...element,
               readonly: true,
             };
-          }),
-    [disableInteractionEdits, elementList],
+          }
+        }
+
+        if (
+          !mobileStyle ||
+          slideInteractionResetKey === 0 ||
+          element.type !== 'interaction'
+        ) {
+          return nextElement;
+        }
+
+        return nextElement === element ? { ...element } : nextElement;
+      }),
+    [
+      disableInteractionEdits,
+      elementList,
+      mobileStyle,
+      slideInteractionResetKey,
+    ],
   );
   const markerStepList = useMemo(
     () => renderedElementList.filter(element => Boolean(element.is_marker)),
@@ -1161,6 +1174,13 @@ const ListenModeSlideRenderer = ({
     });
     playerCustomActionSetActiveRef.current(false);
   }, []);
+
+  const resetMobileSlideViewport = useCallback(() => {
+    setIsMobileAskOpen(false);
+    setIsMobileAskPanelMounted(false);
+    handlePlayerCustomActionClose();
+    setSlideInteractionResetKey(prevKey => prevKey + 1);
+  }, [handlePlayerCustomActionClose]);
 
   useEffect(() => {
     if (!isAskActionDisabled) {
@@ -1502,11 +1522,74 @@ const ListenModeSlideRenderer = ({
 
   useEffect(() => {
     if (!mobileStyle) {
+      mobileViewportOrientationRef.current = '';
       return;
     }
     setIsMobileAskOpen(false);
     setIsMobileAskPanelMounted(false);
   }, [mobileStyle]);
+
+  useEffect(() => {
+    if (!mobileStyle || typeof window === 'undefined') {
+      mobileViewportOrientationRef.current = '';
+      return;
+    }
+
+    const getViewportOrientation = () =>
+      window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+
+    mobileViewportOrientationRef.current = getViewportOrientation();
+    let animationFrameId = 0;
+
+    let shouldForceReset = false;
+
+    const handleViewportChange = (forceReset = false) => {
+      shouldForceReset = shouldForceReset || forceReset;
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+
+      animationFrameId = window.requestAnimationFrame(() => {
+        animationFrameId = 0;
+        const forceNextReset = shouldForceReset;
+        shouldForceReset = false;
+        const nextOrientation = getViewportOrientation();
+        if (
+          !forceNextReset &&
+          mobileViewportOrientationRef.current === nextOrientation
+        ) {
+          return;
+        }
+
+        mobileViewportOrientationRef.current = nextOrientation;
+        resetMobileSlideViewport();
+      });
+    };
+
+    const handleOrientationChange = () => {
+      handleViewportChange(true);
+    };
+    const handleResize = () => {
+      handleViewportChange(false);
+    };
+    const screenOrientation = window.screen.orientation;
+
+    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('resize', handleResize);
+    screenOrientation?.addEventListener?.('change', handleOrientationChange);
+
+    return () => {
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      window.removeEventListener('resize', handleResize);
+      screenOrientation?.removeEventListener?.(
+        'change',
+        handleOrientationChange,
+      );
+    };
+  }, [mobileStyle, resetMobileSlideViewport]);
 
   useEffect(() => {
     if (!mobileStyle) {
@@ -1803,9 +1886,22 @@ const ListenModeSlideRenderer = ({
     }),
     [fullscreenHeaderContent],
   );
-  const handleMobileViewModeChange = useCallback((viewMode: MobileViewMode) => {
-    setMobileViewMode(viewMode);
-  }, []);
+  const handleMobileViewModeChange = useCallback(
+    (viewMode: MobileViewMode) => {
+      if (mobileViewModeRef.current === viewMode) {
+        return;
+      }
+
+      mobileViewModeRef.current = viewMode;
+      setMobileViewMode(viewMode);
+      resetMobileSlideViewport();
+    },
+    [resetMobileSlideViewport],
+  );
+
+  useEffect(() => {
+    mobileViewModeRef.current = mobileViewMode;
+  }, [mobileViewMode]);
 
   useEffect(() => {
     onMobileViewModeChange?.(mobileViewMode);
