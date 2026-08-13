@@ -197,7 +197,7 @@ def find_violations_in_text(path: str, text: str) -> list[IdentifierViolation]:
     return violations
 
 
-def _repository_files() -> list[Path]:
+def _repository_relative_paths() -> list[str]:
     result = subprocess.run(
         ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
         cwd=ROOT,
@@ -205,29 +205,69 @@ def _repository_files() -> list[Path]:
         capture_output=True,
     )
     return [
-        ROOT / raw_path.decode("utf-8", errors="surrogateescape")
+        raw_path.decode("utf-8", errors="surrogateescape")
         for raw_path in result.stdout.split(b"\0")
         if raw_path
     ]
 
 
-def find_violations(paths: list[Path] | None = None) -> list[IdentifierViolation]:
+def _staged_paths() -> set[str]:
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+    return {
+        raw_path.decode("utf-8", errors="surrogateescape")
+        for raw_path in result.stdout.split(b"\0")
+        if raw_path
+    }
+
+
+def _read_staged_blob(relative_path: str) -> bytes:
+    result = subprocess.run(
+        ["git", "show", f":{relative_path}"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+    return result.stdout
+
+
+def find_violations(
+    paths: list[Path] | None = None,
+    *,
+    staged: bool = False,
+) -> list[IdentifierViolation]:
     """Scan repository text files, or the explicitly supplied paths."""
 
     violations: list[IdentifierViolation] = []
-    files = paths if paths is not None else _repository_files()
-    for path in files:
-        if not path.is_file():
-            continue
-        raw = path.read_bytes()
+    if paths is not None and staged:
+        raise ValueError("explicit paths cannot be combined with staged content")
+
+    if paths is not None:
+        candidates = [
+            (path.as_posix(), path.read_bytes()) for path in paths if path.is_file()
+        ]
+    else:
+        staged_paths = _staged_paths() if staged else set()
+        candidates = []
+        for relative_path in _repository_relative_paths():
+            path = ROOT / relative_path
+            if relative_path in staged_paths:
+                raw = _read_staged_blob(relative_path)
+            elif path.is_file():
+                raw = path.read_bytes()
+            else:
+                continue
+            candidates.append((relative_path, raw))
+
+    for path_label, raw in candidates:
         if b"\0" in raw:
             continue
         text = raw.decode("utf-8", errors="replace")
-        try:
-            relative_path = path.relative_to(ROOT).as_posix()
-        except ValueError:
-            relative_path = path.as_posix()
-        violations.extend(find_violations_in_text(relative_path, text))
+        violations.extend(find_violations_in_text(path_label, text))
     return sorted(violations)
 
 
@@ -300,13 +340,18 @@ def main() -> int:
         action="store_true",
         help="Run deterministic checker fixtures before scanning the repository.",
     )
+    parser.add_argument(
+        "--staged",
+        action="store_true",
+        help="Read staged tracked files from the Git index instead of the worktree.",
+    )
     args = parser.parse_args()
 
     if args.self_test:
         _run_self_test()
 
     try:
-        violations = find_violations()
+        violations = find_violations(staged=args.staged)
     except (OSError, subprocess.CalledProcessError) as exc:
         print(f"Identifier example validation could not run: {exc}", file=sys.stderr)
         return 1
