@@ -358,7 +358,7 @@ export default function LearnerProfileDialog({
           />
 
           <div className='sticky top-0 z-10 bg-background px-5 pb-4 pt-5 sm:px-8 sm:pb-3 sm:pt-6'>
-            <DialogHeader className='mx-auto max-w-[560px] space-y-3 text-center sm:space-y-2'>
+            <DialogHeader className='w-full space-y-3 text-left sm:space-y-2 sm:pr-12'>
               <DialogTitle className='text-2xl font-bold leading-8 tracking-tight sm:text-[28px] sm:leading-9'>
                 {t(
                   mode === 'onboarding'
@@ -366,7 +366,7 @@ export default function LearnerProfileDialog({
                     : 'module.profileOnboarding.dialog.settingsTitle',
                 )}
               </DialogTitle>
-              <DialogDescription className='text-left text-sm leading-6 sm:text-center sm:text-base'>
+              <DialogDescription className='text-left text-sm leading-6 sm:text-base'>
                 {t(
                   mode === 'settings'
                     ? 'module.profileOnboarding.dialog.settingsDescription'

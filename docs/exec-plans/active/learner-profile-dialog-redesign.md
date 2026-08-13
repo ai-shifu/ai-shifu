@@ -57,6 +57,10 @@ canonical clear through that primary action.
       that choice through the existing DELETE contract. Reuse the existing
       profile-v2 handled state so legacy values seed only never-handled
       profiles and do not reappear after an explicit clear.
+- [x] 2026-08-13: Rename the settings title to invite learners to introduce
+      themselves, clarify the Chinese long-term field label, and remove the
+      header-only max-width so the title and description share the form's left
+      edge. A same-size 684 x 781 browser comparison passes in `design-qa.md`.
 - [ ] 2026-08-12 06:20 CST: Focused backend/frontend behavior, type-check,
       ESLint, Ruff, translation, architecture, repository harness, and
       production build checks pass. Desktop browser verification is complete;

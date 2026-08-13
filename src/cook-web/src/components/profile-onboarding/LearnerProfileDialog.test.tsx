@@ -126,7 +126,10 @@ describe('LearnerProfileDialog', () => {
     expect(zhProfile.dialog.chips.teaching.text).toContain('语言风格');
     expect(zhProfile.dialog.writingGuideTeaching).toContain('语言风格');
     expect(zhProfile.dialog.writingGuideTeaching).toContain('希望避免的表达');
-    expect(zhProfile.dialog.profileLabel).toContain('长期了解');
+    expect(zhProfile.dialog.settingsTitle).toBe('向 AI 老师介绍你自己');
+    expect(zhProfile.dialog.profileLabel).toBe(
+      '写下你希望 AI 老师长期知道的事',
+    );
     expect(zhProfile.dialog.description).not.toContain('课程');
     expect(JSON.stringify(zhProfile.dialog)).not.toMatch(
       /节奏|结构|分步骤|多提问/,
@@ -134,6 +137,9 @@ describe('LearnerProfileDialog', () => {
 
     expect(enProfile.dialog.description).toContain('AI teacher');
     expect(enProfile.dialog.description).toContain('language style');
+    expect(enProfile.dialog.settingsTitle).toBe(
+      'Introduce yourself to your AI teacher',
+    );
     expect(enProfile.dialog.promptHeading).toBe('Start with these three areas');
     expect(enProfile.dialog.writingGuideTitle).toBe('You can include');
     expect(enProfile.dialog.chips.identity.label).toBe('About me');
@@ -155,6 +161,9 @@ describe('LearnerProfileDialog', () => {
 
     expect(frProfile.dialog.description).toContain('enseignant IA');
     expect(frProfile.dialog.description).toContain('style de langage');
+    expect(frProfile.dialog.settingsTitle).toBe(
+      'Présentez-vous à votre enseignant IA',
+    );
     expect(frProfile.dialog.promptHeading).toBe(
       'Commencez par ces trois aspects',
     );
@@ -376,7 +385,7 @@ describe('LearnerProfileDialog', () => {
     expect(screen.queryByDisplayValue(/旧背景/)).not.toBeInTheDocument();
   });
 
-  test('renders the centered contextual dialog with option-three guidance and actions', async () => {
+  test('renders the aligned contextual dialog with option-three guidance and actions', async () => {
     renderDialog({ mode: 'onboarding' });
 
     await screen.findByDisplayValue(existingProfile.learner_profile);
@@ -384,6 +393,9 @@ describe('LearnerProfileDialog', () => {
     const editor = screen.getByRole('textbox');
     const heading = screen.getByText(
       'module.profileOnboarding.dialog.onboardingTitle',
+    );
+    const description = screen.getByText(
+      'module.profileOnboarding.dialog.description',
     );
     const writingGuide = screen.getByTestId('learner-profile-writing-guide');
     const reassurance = screen.getByTestId('learner-profile-reassurance');
@@ -405,9 +417,21 @@ describe('LearnerProfileDialog', () => {
       'sm:rounded-2xl',
     );
     expect(editor).toHaveClass('min-h-[215px]', 'sm:min-h-[168px]');
-    expect(heading.parentElement).toHaveClass('sm:space-y-2');
+    expect(heading.parentElement).toHaveClass(
+      'w-full',
+      'text-left',
+      'sm:space-y-2',
+    );
+    expect(heading.parentElement).not.toHaveClass(
+      'mx-auto',
+      'max-w-[560px]',
+      'text-center',
+    );
+    expect(heading.parentElement?.parentElement).toHaveClass('px-5', 'sm:px-8');
+    expect(description).toHaveClass('text-left');
+    expect(description).not.toHaveClass('sm:text-center');
+    expect(editor.closest('.overflow-y-auto')).toHaveClass('px-5', 'sm:px-8');
     expect(writingGuide).toHaveClass('sm:py-3');
-    expect(heading.parentElement).toHaveClass('text-center');
     expect(dialog.querySelector('svg.lucide-sparkles')).toBeNull();
     expect(mobileHandle).toHaveClass('sm:hidden');
     expect(writingGuide).toHaveTextContent(
