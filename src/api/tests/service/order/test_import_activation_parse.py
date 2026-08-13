@@ -336,7 +336,7 @@ def test_import_activation_keeps_nickname_behavior_for_new_users(
 @pytest.mark.parametrize(
     ("contact_type", "identifier"),
     [
-        ("phone", "13800138006"),
+        ("phone", "13987654321"),
         ("email", "fallback-profile@example.com"),
     ],
 )
