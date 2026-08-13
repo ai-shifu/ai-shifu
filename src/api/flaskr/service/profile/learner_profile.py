@@ -23,7 +23,10 @@ from flaskr.service.profile.constants import (
     SYS_USER_NICKNAME,
 )
 from flaskr.service.profile.models import VariableValue
-from flaskr.service.user.consts import USER_STATE_UNREGISTERED
+from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_VERIFIED,
+    USER_STATE_UNREGISTERED,
+)
 from flaskr.service.user.models import (
     AuthCredential,
     UserOnboardingState,
@@ -554,6 +557,7 @@ def merge_learner_profile_for_sign_in(
         or AuthCredential.query.filter(
             AuthCredential.user_bid == normalized_source_id,
             AuthCredential.provider_name.in_(["phone", "email"]),
+            AuthCredential.state == CREDENTIAL_STATE_VERIFIED,
             AuthCredential.deleted == 0,
         ).first()
     )

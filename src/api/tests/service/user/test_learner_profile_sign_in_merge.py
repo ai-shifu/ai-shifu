@@ -14,15 +14,20 @@ from flaskr.service.profile.learner_profile import (
 )
 from flaskr.service.user.auth.base import OAuthCallbackRequest
 from flaskr.service.user.auth.providers.google import GoogleAuthProvider, _encode_state
+from flaskr.service.user.common import update_user_info
 from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_UNVERIFIED,
+    CREDENTIAL_STATE_VERIFIED,
     USER_STATE_PAID,
     USER_STATE_REGISTERED,
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.user.models import UserInfo, UserOnboardingState
+from flaskr.service.user.models import AuthCredential, UserInfo, UserOnboardingState
 from flaskr.service.user.repository import (
+    build_user_info_from_aggregate,
     create_user_entity,
+    load_user_aggregate,
     transactional_session,
     upsert_credential,
 )
@@ -346,6 +351,120 @@ def test_merge_helper_allows_unregistered_guest_with_wechat_credential(app):
             PROFILE_UPDATED_AT,
         )
         assert load_learner_profile_state(target.user_bid) is not None
+
+
+@pytest.mark.parametrize("provider_name", ["phone", "email"])
+def test_merge_helper_allows_unregistered_guest_with_unverified_account_credential(
+    app,
+    provider_name,
+):
+    with app.app_context():
+        source = _create_user(
+            identify=uuid.uuid4().hex,
+            learner_profile=f"unverified {provider_name} guest profile",
+            learner_profile_updated_at=PROFILE_UPDATED_AT,
+        )
+        target = _create_user(identify=uuid.uuid4().hex)
+        identifier = (
+            f"155{uuid.uuid4().int % 10**8:08d}"
+            if provider_name == "phone"
+            else f"{uuid.uuid4().hex[:12]}@example.com"
+        )
+        _add_state(source.user_bid, status="completed", trigger_source="settings")
+        db.session.commit()
+
+        source_aggregate = load_user_aggregate(source.user_bid)
+        assert source_aggregate is not None
+        update_user_info(
+            app,
+            build_user_info_from_aggregate(source_aggregate),
+            name=None,
+            email=identifier if provider_name == "email" else None,
+            mobile=identifier if provider_name == "phone" else None,
+        )
+
+        stored_credential = AuthCredential.query.filter_by(
+            user_bid=source.user_bid,
+            provider_name=provider_name,
+            deleted=0,
+        ).one()
+        stored_source = UserInfo.query.filter_by(user_bid=source.user_bid).one()
+        assert stored_credential.state == CREDENTIAL_STATE_UNVERIFIED
+        assert stored_source.state == USER_STATE_UNREGISTERED
+        assert stored_source.user_identify == source.user_identify
+
+        with transactional_session():
+            merge_learner_profile_for_sign_in(
+                source_user_id=source.user_bid,
+                target_user_id=target.user_bid,
+            )
+        db.session.commit()
+
+        stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
+        assert stored_target.learner_profile == (
+            f"unverified {provider_name} guest profile"
+        )
+        _assert_orm_utc(
+            stored_target.learner_profile_updated_at,
+            PROFILE_UPDATED_AT,
+        )
+        target_state = load_learner_profile_state(target.user_bid)
+        assert target_state is not None
+        assert target_state.status == "completed"
+        assert target_state.trigger_source == "settings"
+
+
+@pytest.mark.parametrize("provider_name", ["phone", "email"])
+def test_merge_helper_rejects_unregistered_source_with_verified_account_credential(
+    app,
+    provider_name,
+):
+    with app.app_context():
+        source = _create_user(
+            identify=uuid.uuid4().hex,
+            learner_profile=f"verified {provider_name} account profile",
+            learner_profile_updated_at=PROFILE_UPDATED_AT,
+        )
+        target = _create_user(identify=uuid.uuid4().hex)
+        identifier = (
+            f"155{uuid.uuid4().int % 10**8:08d}"
+            if provider_name == "phone"
+            else f"{uuid.uuid4().hex[:12]}@example.com"
+        )
+        upsert_credential(
+            app,
+            user_bid=source.user_bid,
+            provider_name=provider_name,
+            subject_id=identifier,
+            subject_format=provider_name,
+            identifier=identifier,
+            metadata={},
+            verified=True,
+        )
+        _add_state(source.user_bid, status="completed", trigger_source="settings")
+        db.session.commit()
+
+        stored_credential = AuthCredential.query.filter_by(
+            user_bid=source.user_bid,
+            provider_name=provider_name,
+            deleted=0,
+        ).one()
+        stored_source = UserInfo.query.filter_by(user_bid=source.user_bid).one()
+        assert stored_credential.state == CREDENTIAL_STATE_VERIFIED
+        assert stored_source.state == USER_STATE_UNREGISTERED
+        assert stored_source.user_identify == source.user_identify
+
+        with transactional_session():
+            merge_learner_profile_for_sign_in(
+                source_user_id=source.user_bid,
+                target_user_id=target.user_bid,
+            )
+        db.session.commit()
+
+        stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
+        assert stored_target.learner_profile == ""
+        assert stored_target.learner_profile_updated_at is None
+        assert load_learner_profile_state(target.user_bid) is None
 
 
 def test_merge_helper_rolls_back_with_sign_in_transaction(app):
