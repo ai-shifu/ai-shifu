@@ -155,7 +155,7 @@ def test_minimax_untracked_custom_voice_falls_back(voice_app, monkeypatch):
         # fallback unless we can verify them through a READY local clone row.
         assert (
             learn_funcs._resolve_runtime_tts_voice_id(
-                voice_app, "minimax", "sunner-ai-shifu", shifu_bid="shifu-1"
+                voice_app, "minimax", "AiShifu_xxxxxxxxxx", shifu_bid="shifu-1"
             )
             == "default-voice"
         )
@@ -185,13 +185,13 @@ def test_volcengine_operator_registered_clone_is_kept(voice_app, monkeypatch):
         # Operator-registered rows carry an empty shifu_bid; the global ready
         # fallback is what makes them usable inside a course.
         _add_clone(
-            "", "S_v57vvPYM1", TTS_MINIMAX_CLONE_STATUS_READY, "vb-v1", "volcengine"
+            "", "S_xxxxxxxxxx", TTS_MINIMAX_CLONE_STATUS_READY, "vb-v1", "volcengine"
         )
         assert (
             learn_funcs._resolve_runtime_tts_voice_id(
-                voice_app, "volcengine", "S_v57vvPYM1", shifu_bid="shifu-1"
+                voice_app, "volcengine", "S_xxxxxxxxxx", shifu_bid="shifu-1"
             )
-            == "S_v57vvPYM1"
+            == "S_xxxxxxxxxx"
         )
 
 
@@ -202,7 +202,7 @@ def test_volcengine_unregistered_clone_falls_back(voice_app, monkeypatch):
     with voice_app.app_context():
         assert (
             learn_funcs._resolve_runtime_tts_voice_id(
-                voice_app, "volcengine", "S_unknown01", shifu_bid="shifu-1"
+                voice_app, "volcengine", "S_xxxxxxxxxxxxxxxx", shifu_bid="shifu-1"
             )
             == "default-voice"
         )
@@ -215,10 +215,10 @@ def test_volcengine_does_not_accept_minimax_clone_row(voice_app, monkeypatch):
     with voice_app.app_context():
         # A ready MiniMax row with the same id must not authorize the id under
         # volcengine — clone rows are provider-scoped.
-        _add_clone("", "S_v57vvPYM1", TTS_MINIMAX_CLONE_STATUS_READY, "vb-m1")
+        _add_clone("", "S_xxxxxxxxxx", TTS_MINIMAX_CLONE_STATUS_READY, "vb-m1")
         assert (
             learn_funcs._resolve_runtime_tts_voice_id(
-                voice_app, "volcengine", "S_v57vvPYM1", shifu_bid="shifu-1"
+                voice_app, "volcengine", "S_xxxxxxxxxx", shifu_bid="shifu-1"
             )
             == "default-voice"
         )

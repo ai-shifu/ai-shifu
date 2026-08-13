@@ -130,8 +130,8 @@
     "voiceIdHintVolcengine": "Saisissez l'identifiant de voix entraîné sur la console Volcengine (un emplacement commençant par S_).",
     "voiceIdInvalid": "Format de Voice ID invalide",
     "voiceIdLabel": "Voice ID",
-    "voiceIdPlaceholder": "ex. AiShifu_teacher_voice",
-    "voiceIdPlaceholderVolcengine": "ex. S_v57vvPYM1",
+    "voiceIdPlaceholder": "ex. AiShifu_xxxxxxxxxx",
+    "voiceIdPlaceholderVolcengine": "ex. S_xxxxxxxxxx",
     "voiceIdRequired": "Veuillez saisir un Voice ID"
   },
   "status": {

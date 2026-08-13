@@ -210,7 +210,7 @@ def test_operator_voice_clone_register_volcengine_uses_free_status_check(
         json={
             "owner_user_bid": "teacher-volc",
             "display_name": "Volc Voice",
-            "voice_id": "S_v57vvPYM1",
+            "voice_id": "S_xxxxxxxxxx",
             "provider": "volcengine",
         },
         headers={"Token": "test-token"},
@@ -220,13 +220,13 @@ def test_operator_voice_clone_register_volcengine_uses_free_status_check(
     assert payload["code"] == 0
     data = payload["data"]
     assert data["provider"] == "volcengine"
-    assert data["voice_id"] == "S_v57vvPYM1"
+    assert data["voice_id"] == "S_xxxxxxxxxx"
     assert data["status"] == TTS_MINIMAX_CLONE_STATUS_READY
     assert data["billing_status"] == TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
 
     with app.app_context():
         row = TTSMiniMaxClonedVoice.query.filter_by(
-            voice_id="S_v57vvPYM1", owner_user_bid="teacher-volc"
+            voice_id="S_xxxxxxxxxx", owner_user_bid="teacher-volc"
         ).one()
         assert row.provider == "volcengine"
         assert row.shifu_bid == ""
@@ -270,7 +270,7 @@ def test_operator_voice_clone_register_volcengine_rejects_untrained_voice(
         json={
             "owner_user_bid": "teacher-volc-3",
             "display_name": "Volc Voice",
-            "voice_id": "S_untrained01",
+            "voice_id": "S_xxxxxxxxxxxxx",
             "provider": "volcengine",
         },
         headers={"Token": "test-token"},
@@ -292,7 +292,7 @@ def test_operator_voice_clone_register_rejects_unknown_provider(
         json={
             "owner_user_bid": "teacher-volc-4",
             "display_name": "Voice",
-            "voice_id": "S_v57vvPYM1",
+            "voice_id": "S_xxxxxxxxxx",
             "provider": "tencent",
         },
         headers={"Token": "test-token"},
@@ -321,7 +321,7 @@ def test_operator_voice_clone_register_same_voice_id_across_providers(
             json={
                 "owner_user_bid": "teacher-cross",
                 "display_name": f"Voice {provider}",
-                "voice_id": "S_crossPYM1",
+                "voice_id": "S_xxxxxxxxxxxxxx",
                 "provider": provider,
             },
             headers={"Token": "test-token"},
@@ -333,7 +333,7 @@ def test_operator_voice_clone_register_same_voice_id_across_providers(
         json={
             "owner_user_bid": "teacher-cross",
             "display_name": "Voice again",
-            "voice_id": "S_crossPYM1",
+            "voice_id": "S_xxxxxxxxxxxxxx",
             "provider": "volcengine",
         },
         headers={"Token": "test-token"},
@@ -347,7 +347,7 @@ def test_operator_voice_clone_register_same_voice_id_across_providers(
         providers = {
             row.provider
             for row in TTSMiniMaxClonedVoice.query.filter_by(
-                voice_id="S_crossPYM1", deleted=0
+                voice_id="S_xxxxxxxxxxxxxx", deleted=0
             ).all()
         }
         assert providers == {"minimax", "volcengine"}
@@ -362,7 +362,7 @@ def test_teacher_voice_list_filters_by_provider(app, test_client, monkeypatch):
 
     for provider, voice_id in (
         ("minimax", "AiShifu_filter_mm"),
-        ("volcengine", "S_filterPYM1"),
+        ("volcengine", "S_xxxxxxxxxxxxxxx"),
     ):
         resp = test_client.post(
             REGISTER_PATH,
@@ -383,7 +383,7 @@ def test_teacher_voice_list_filters_by_provider(app, test_client, monkeypatch):
     volc_payload = volc_resp.get_json(force=True)
     assert volc_payload["code"] == 0
     assert [voice["voice_id"] for voice in volc_payload["data"]["voices"]] == [
-        "S_filterPYM1"
+        "S_xxxxxxxxxxxxxxx"
     ]
     assert volc_payload["data"]["voices"][0]["provider"] == "volcengine"
 
@@ -392,7 +392,7 @@ def test_teacher_voice_list_filters_by_provider(app, test_client, monkeypatch):
     assert all_payload["code"] == 0
     assert {voice["voice_id"] for voice in all_payload["data"]["voices"]} == {
         "AiShifu_filter_mm",
-        "S_filterPYM1",
+        "S_xxxxxxxxxxxxxxx",
     }
 
 

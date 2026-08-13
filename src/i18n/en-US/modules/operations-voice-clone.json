@@ -127,11 +127,11 @@
     "teacherSearchPlaceholder": "Mobile / Email",
     "title": "Register cloned voice",
     "voiceIdHint": "Enter the Voice ID cloned on the MiniMax console.",
-    "voiceIdHintVolcengine": "Enter the speaker ID trained on the Volcengine console (an S_-prefixed voice slot).",
+    "voiceIdHintVolcengine": "Enter the speaker ID trained on the Volcengine console (a voice slot beginning with S_).",
     "voiceIdInvalid": "Invalid Voice ID format",
     "voiceIdLabel": "Voice ID",
-    "voiceIdPlaceholder": "e.g. AiShifu_teacher_voice",
-    "voiceIdPlaceholderVolcengine": "e.g. S_v57vvPYM1",
+    "voiceIdPlaceholder": "e.g. AiShifu_xxxxxxxxxx",
+    "voiceIdPlaceholderVolcengine": "e.g. S_xxxxxxxxxx",
     "voiceIdRequired": "Please enter a Voice ID"
   },
   "status": {

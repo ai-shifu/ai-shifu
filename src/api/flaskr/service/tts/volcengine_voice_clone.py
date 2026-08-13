@@ -1,7 +1,7 @@
 """Volcengine (豆包声音复刻 2.0) cloned-voice verification helpers.
 
 Unlike MiniMax, the cloning itself happens outside the platform: an operator
-trains a pre-purchased console slot (``S_xxx`` speaker id) with the standalone
+trains a pre-purchased console slot (``S_xxxxxxxxxx`` speaker id) with the standalone
 toolkit, then registers the resulting id here. The platform only needs to
 verify that a speaker id is trained and usable, which the free ``mega_tts``
 status API answers — no paid test synthesis is required (Volcengine also has

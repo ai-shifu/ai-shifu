@@ -84,19 +84,19 @@ def test_volcengine_registered_clone_keeps_teacher_selected_model(app):
     (e.g. seed-tts-2.0); the clone resource id is inferred inside the
     provider, never selected as a model."""
     _prepare_tables(app)
-    _seed_ready_clone(app, provider="volcengine", voice_id="S_v57vvPYM1")
+    _seed_ready_clone(app, provider="volcengine", voice_id="S_xxxxxxxxxx")
     with app.app_context():
-        validated = _validate("volcengine", "seed-tts-2.0", "S_v57vvPYM1")
-    assert validated.voice_id == "S_v57vvPYM1"
+        validated = _validate("volcengine", "seed-tts-2.0", "S_xxxxxxxxxx")
+    assert validated.voice_id == "S_xxxxxxxxxx"
     assert validated.model == "seed-tts-2.0"
 
 
 def test_volcengine_clone_with_unlisted_model_is_rejected(app):
     _prepare_tables(app)
-    _seed_ready_clone(app, provider="volcengine", voice_id="S_v57vvPYM1")
+    _seed_ready_clone(app, provider="volcengine", voice_id="S_xxxxxxxxxx")
     with app.app_context():
         with pytest.raises(AppException) as exc_info:
-            _validate("volcengine", "seed-tts-9.9", "S_v57vvPYM1")
+            _validate("volcengine", "seed-tts-9.9", "S_xxxxxxxxxx")
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
@@ -104,7 +104,7 @@ def test_volcengine_unregistered_clone_is_rejected(app):
     _prepare_tables(app)
     with app.app_context():
         with pytest.raises(AppException) as exc_info:
-            _validate("volcengine", "seed-tts-2.0", "S_unregistered1")
+            _validate("volcengine", "seed-tts-2.0", "S_xxxxxxxxxxxx")
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 

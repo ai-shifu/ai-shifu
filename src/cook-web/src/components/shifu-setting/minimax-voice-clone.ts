@@ -65,7 +65,7 @@ export type MiniMaxCloneSubmitBlockReason =
 const MINIMAX_CUSTOM_VOICE_ID_PATTERN =
   /^[A-Za-z](?=.{7,63}$)[A-Za-z0-9_-]*[A-Za-z0-9]$/;
 
-// Volcengine speaker slots allocated in the console look like S_v57vvPYM1.
+// Volcengine speaker slots allocated in the console look like S_xxxxxxxxxx.
 const VOLCENGINE_CUSTOM_VOICE_ID_PATTERN = /^S_[A-Za-z0-9_-]{4,64}$/;
 
 export function isMiniMaxProvider(providerName: string): boolean {

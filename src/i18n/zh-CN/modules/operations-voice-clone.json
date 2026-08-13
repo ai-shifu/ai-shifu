@@ -130,8 +130,8 @@
     "voiceIdHintVolcengine": "填写在火山引擎控制台训练完成的声音 ID（S_ 开头的音色槽位）。",
     "voiceIdInvalid": "Voice ID 格式不正确",
     "voiceIdLabel": "Voice ID",
-    "voiceIdPlaceholder": "例如：AiShifu_teacher_voice",
-    "voiceIdPlaceholderVolcengine": "例如：S_v57vvPYM1",
+    "voiceIdPlaceholder": "例如：AiShifu_xxxxxxxxxx",
+    "voiceIdPlaceholderVolcengine": "例如：S_xxxxxxxxxx",
     "voiceIdRequired": "请填写 Voice ID"
   },
   "status": {
