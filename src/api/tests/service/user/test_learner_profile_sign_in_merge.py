@@ -31,6 +31,7 @@ from flaskr.service.user.repository import (
     transactional_session,
     upsert_credential,
 )
+from sqlalchemy.orm.attributes import set_committed_value
 
 PROFILE_UPDATED_AT = datetime(2026, 8, 2, 6, 30, tzinfo=timezone.utc)
 
@@ -512,7 +513,7 @@ def test_merge_helper_locks_target_then_source_profile_snapshots(app, monkeypatc
 
         query_type = type(UserInfo.query)
         original_first = query_type.first
-        read_order: list[tuple[str, str, bool]] = []
+        read_order: list[tuple[str, str, bool, bool]] = []
 
         def track_first(query):
             statement = str(query.statement)
@@ -526,7 +527,12 @@ def test_merge_helper_locks_target_then_source_profile_snapshots(app, monkeypatc
                 else "other"
             )
             read_order.append(
-                (table, user_bid, query._for_update_arg is not None),
+                (
+                    table,
+                    user_bid,
+                    query._for_update_arg is not None,
+                    bool(query.load_options._populate_existing),
+                ),
             )
             return original_first(query)
 
@@ -544,12 +550,46 @@ def test_merge_helper_locks_target_then_source_profile_snapshots(app, monkeypatc
             if read[0] in {"user_users", "user_onboarding_states"}
         ]
         assert profile_snapshot_reads[:4] == [
-            ("user_users", target.user_bid, True),
-            ("user_onboarding_states", target.user_bid, True),
-            ("user_users", source.user_bid, True),
-            ("user_onboarding_states", source.user_bid, True),
+            ("user_users", target.user_bid, True, True),
+            ("user_onboarding_states", target.user_bid, True, True),
+            ("user_users", source.user_bid, True, True),
+            ("user_onboarding_states", source.user_bid, True, True),
         ]
         assert load_learner_profile_state(target.user_bid) is not None
+
+
+def test_merge_helper_refreshes_a_stale_source_identity_map(app):
+    with app.app_context():
+        source = _create_user(
+            identify=uuid.uuid4().hex,
+            learner_profile="可以叫我新名字。current database profile",
+            learner_profile_updated_at=PROFILE_UPDATED_AT,
+        )
+        target = _create_user(identify=uuid.uuid4().hex)
+        _add_state(source.user_bid, status="completed")
+        source_user_id = source.user_bid
+        target_user_id = target.user_bid
+        db.session.commit()
+
+        set_committed_value(
+            source,
+            "learner_profile",
+            "可以叫我旧名字。stale identity-map profile",
+        )
+
+        with transactional_session():
+            merge_learner_profile_for_sign_in(
+                source_user_id=source_user_id,
+                target_user_id=target_user_id,
+            )
+        db.session.commit()
+
+        db.session.expire_all()
+        stored_target = UserInfo.query.filter_by(user_bid=target_user_id).one()
+        assert (
+            stored_target.learner_profile == "可以叫我新名字。current database profile"
+        )
+        assert stored_target.nickname == "新名字"
 
 
 def test_phone_sign_in_merges_profile_without_course_id(app, monkeypatch, caplog):

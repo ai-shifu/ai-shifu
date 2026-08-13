@@ -526,6 +526,7 @@ def merge_learner_profile_for_sign_in(
             UserEntity.user_bid == normalized_target_id,
             UserEntity.deleted == 0,
         )
+        .populate_existing()
         .with_for_update()
         .first()
     )
@@ -540,6 +541,7 @@ def merge_learner_profile_for_sign_in(
             UserEntity.user_bid == normalized_source_id,
             UserEntity.deleted == 0,
         )
+        .populate_existing()
         .with_for_update()
         .first()
     )
