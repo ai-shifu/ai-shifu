@@ -294,8 +294,12 @@ def find_violations(
     paths: list[Path] | None = None,
     *,
     staged: bool = False,
+    validate_fixtures: bool = True,
 ) -> list[IdentifierViolation]:
     """Scan repository text files, or the explicitly supplied paths."""
+
+    if validate_fixtures:
+        run_self_test()
 
     violations: list[IdentifierViolation] = []
     if paths is not None and staged:
@@ -326,7 +330,7 @@ def find_violations(
     return sorted(violations)
 
 
-def _run_self_test() -> None:
+def run_self_test() -> None:
     suspicious_volcengine = "S_" + "a1b2c3d4"
     suspicious_volcengine_hyphen = "S_" + "-abcd"
     suspicious_volcengine_underscore = "S_" + "_abcd"
@@ -440,10 +444,13 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.self_test:
-        _run_self_test()
+        run_self_test()
 
     try:
-        violations = find_violations(staged=args.staged)
+        violations = find_violations(
+            staged=args.staged,
+            validate_fixtures=not args.self_test,
+        )
     except (OSError, subprocess.CalledProcessError) as exc:
         print(f"Identifier example validation could not run: {exc}", file=sys.stderr)
         return 1
