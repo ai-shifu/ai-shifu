@@ -217,7 +217,7 @@ describe('minimax voice clone helpers', () => {
   });
 
   it('validates volcengine speaker ids and provider cloning support', () => {
-    expect(isValidVolcengineCustomVoiceId('S_v57vvPYM1')).toBe(true);
+    expect(isValidVolcengineCustomVoiceId('S_xxxxxxxxxx')).toBe(true);
     expect(isValidVolcengineCustomVoiceId('AiShifu_voice_123')).toBe(false);
     expect(isValidVolcengineCustomVoiceId('s_lowercase1')).toBe(false);
 
@@ -233,19 +233,21 @@ describe('minimax voice clone helpers', () => {
       clonedVoices: [
         {
           voice_bid: 'vb-volc-1',
-          voice_id: 'S_v57vvPYM1',
+          voice_id: 'S_xxxxxxxxxx',
           display_name: '何老师的声音',
           provider: 'volcengine',
           status: 'ready',
         },
       ],
-      currentVoiceId: 'S_manualPY1',
+      currentVoiceId: 'S_xxxxxxxxxxxxxxxxx',
       manualLabel: 'Manual',
       manualVoiceValidator: isValidVolcengineCustomVoiceId,
     });
 
-    const cloned = options.find(option => option.value === 'S_v57vvPYM1');
-    const manual = options.find(option => option.value === 'S_manualPY1');
+    const cloned = options.find(option => option.value === 'S_xxxxxxxxxx');
+    const manual = options.find(
+      option => option.value === 'S_xxxxxxxxxxxxxxxxx',
+    );
     expect(cloned?.source).toBe('cloned');
     // No resource_id annotation: cloned voices stay visible under the
     // teacher's normal model; the clone resource is inferred backend-side.

@@ -3,17 +3,20 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from build_repo_knowledge_index import (
     DOCS_ROOT,
     FRONTMATTER_FIELDS,
     GARDENING_SUMMARY_PATH,
-    GENERATED_COMMENT as KNOWLEDGE_GENERATED_COMMENT,
     build_knowledge_docs,
     parse_frontmatter,
 )
+from build_repo_knowledge_index import (
+    GENERATED_COMMENT as KNOWLEDGE_GENERATED_COMMENT,
+)
+from check_example_identifiers import find_violations as find_identifier_violations
 from generate_ai_collab_docs import (
     DOC_COMMENT,
     MAX_AGENT_LINES,
@@ -23,7 +26,6 @@ from generate_ai_collab_docs import (
     REQUIRED_HEADINGS,
     build_documents,
 )
-
 
 ROOT = Path(__file__).resolve().parents[1]
 BOUNDARY_BASELINE = DOCS_ROOT / "generated" / "architecture-boundary-baseline.json"
@@ -224,6 +226,11 @@ def check_frontmatter_docs(errors: list[str]) -> None:
                     errors.append(f"Missing frontmatter field '{field}' in {path}")
 
 
+def check_example_identifiers(errors: list[str]) -> None:
+    for violation in find_identifier_violations():
+        errors.append(str(violation))
+
+
 def main() -> int:
     errors: list[str] = []
     check_generated_ai_docs(errors)
@@ -232,6 +239,7 @@ def main() -> int:
     check_manual_rules(errors)
     check_root_docs(errors)
     check_frontmatter_docs(errors)
+    check_example_identifiers(errors)
 
     if errors:
         print("Repository harness validation failed:", file=sys.stderr)

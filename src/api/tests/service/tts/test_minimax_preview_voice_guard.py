@@ -232,7 +232,7 @@ def test_volcengine_ready_clone_owned_by_requester_is_allowed(app):
     _prepare_tables(app)
     _seed_clone(
         app,
-        voice_id="S_v57vvPYM1",
+        voice_id="S_xxxxxxxxxx",
         owner="creator-1",
         status=TTS_MINIMAX_CLONE_STATUS_READY,
         provider="volcengine",
@@ -241,7 +241,7 @@ def test_volcengine_ready_clone_owned_by_requester_is_allowed(app):
         assert_preview_cloned_voice_available(
             app,
             provider="volcengine",
-            voice_id="S_v57vvPYM1",
+            voice_id="S_xxxxxxxxxx",
             owner_user_bid="creator-1",
         )
 
@@ -250,7 +250,7 @@ def test_volcengine_ready_clone_of_another_owner_is_rejected(app):
     _prepare_tables(app)
     _seed_clone(
         app,
-        voice_id="S_w57vvPYM1",
+        voice_id="S_xxxxxxxxx",
         owner="other-creator",
         status=TTS_MINIMAX_CLONE_STATUS_READY,
         provider="volcengine",
@@ -260,7 +260,7 @@ def test_volcengine_ready_clone_of_another_owner_is_rejected(app):
             assert_preview_cloned_voice_available(
                 app,
                 provider="volcengine",
-                voice_id="S_w57vvPYM1",
+                voice_id="S_xxxxxxxxx",
                 owner_user_bid="creator-1",
             )
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
@@ -271,7 +271,7 @@ def test_volcengine_clone_row_does_not_leak_to_minimax_provider(app):
     _prepare_tables(app)
     _seed_clone(
         app,
-        voice_id="S_x57vvPYM1",
+        voice_id="S_xxxxxxxx",
         owner="creator-1",
         status=TTS_MINIMAX_CLONE_STATUS_READY,
         provider="volcengine",
@@ -281,7 +281,7 @@ def test_volcengine_clone_row_does_not_leak_to_minimax_provider(app):
             assert_preview_cloned_voice_available(
                 app,
                 provider="minimax",
-                voice_id="S_x57vvPYM1",
+                voice_id="S_xxxxxxxx",
                 owner_user_bid="creator-1",
             )
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]

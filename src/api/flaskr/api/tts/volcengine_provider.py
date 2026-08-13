@@ -178,7 +178,7 @@ VOLCENGINE_MODELS = [
 # synthesis time (see _infer_resource_id_for_voice).
 VOLCENGINE_ICL_RESOURCE_ID = "seed-icl-2.0"
 
-# Console-allocated cloned speaker slots look like S_v57vvPYM1.
+# Console-allocated cloned speaker slots look like S_xxxxxxxxxx.
 _VOLCENGINE_CLONED_SPEAKER_RE = re.compile(r"^S_[A-Za-z0-9_-]{4,64}$")
 
 
@@ -342,7 +342,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
             if voice.get("value") == voice_id:
                 return (voice.get("resource_id") or "").strip()
 
-        # Cloned speaker slots (S_xxx) are not in the static voice table but
+        # Cloned speaker slots (S_xxxxxxxxxx) are not in the static voice table but
         # always synthesize under the voice-clone resource, regardless of the
         # model the caller selected.
         if is_volcengine_cloned_speaker_id(voice_id):

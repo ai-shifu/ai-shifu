@@ -26,8 +26,6 @@ export const updateUserInfo = name => {
  * Obtain a temporary token, also required when a user logs in normally
  * @param tmp_id Client-generated id, used to exchange for a token
  * @returns
- *
- * https://agiclass.feishu.cn/docx/WyXhdgeVzoKVqDx1D4wc0eMknmg
  */
 export const registerTmp = ({ temp_id }) => {
   const { channel, wechatCode: wxcode, language } = useSystemStore.getState();

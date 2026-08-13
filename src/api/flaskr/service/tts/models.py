@@ -267,7 +267,7 @@ class TTSMiniMaxClonedVoice(db.Model):
     shifu_bid = Column(String(36), nullable=False, default="", index=True)
     display_name = Column(String(128), nullable=False, default="")
     # TTS provider that owns this cloned voice. Voice id shapes overlap across
-    # providers (an S_xxx id also matches MiniMax's rule), so the provider must
+    # providers (an S_xxxxxxxxxx id also matches MiniMax's rule), so the provider must
     # be stored explicitly rather than inferred from the id format.
     provider = Column(
         String(32),

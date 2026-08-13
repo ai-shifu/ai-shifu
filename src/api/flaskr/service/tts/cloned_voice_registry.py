@@ -3,7 +3,7 @@
 Cloned-voice asset management grew up MiniMax-only. This module carries the
 per-provider facts (custom id format, synthesis model requirement, validation
 strictness) so validation / preview / runtime code can stay free of provider
-literals. Voice id shapes overlap across providers (an ``S_xxx`` id also
+literals. Voice id shapes overlap across providers (an ``S_xxxxxxxxxx`` id also
 matches MiniMax's rule), so callers must always dispatch on the provider
 name, never on the id format.
 

@@ -202,7 +202,7 @@ def test_list_operator_voice_clones_filters_provider(app):
             shifu_bid="",
             display_name="Volc Voice",
             provider="volcengine",
-            voice_id="S_v57vvPYM1",
+            voice_id="S_xxxxxxxxxx",
             status="ready",
             billing_status="not_required",
             created_at=datetime(2026, 6, 22, 8, 0, 0),
