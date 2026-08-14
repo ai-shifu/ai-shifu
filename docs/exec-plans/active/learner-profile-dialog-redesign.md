@@ -113,6 +113,11 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       a hard acceptance gate because useful elaboration matters more than its
       exact layout. Both attempts remain review-only: they do not update learner
       business data or emit profile-change events.
+- [x] 2026-08-14: Treat a copied source paragraph followed by real expansion as
+      a recoverable model artifact: remove the exact source prefix and return
+      only the new detailed profile. The prompt also forbids copying the source
+      and limits non-imitation language to inputs that actually name a style,
+      avoiding a fabricated preference in ordinary profiles.
 - [x] 2026-08-14: Replace the optimizer's long rule manual with a compact
       transformation contract after a real learner paragraph was returned
       nearly unchanged. The new contract always rewrites prose into short,

@@ -61,6 +61,12 @@ def _is_usefully_expanded(source: str, optimized: str) -> bool:
     return True
 
 
+def _strip_source_echo(source: str, optimized: str) -> str:
+    if not optimized.startswith(source):
+        return optimized
+    return optimized[len(source) :].lstrip(" \t\r\n。.;；")
+
+
 def optimize_learner_profile(
     app: Flask,
     *,
@@ -155,6 +161,7 @@ def optimize_learner_profile(
             raw_response = "".join(chunk.result for chunk in response)
             try:
                 candidate = _parse_optimized_profile(raw_response)
+                candidate = _strip_source_echo(normalized, candidate)
                 if not _is_usefully_expanded(normalized, candidate):
                     raise _InvalidOptimizationOutput
             except _InvalidOptimizationOutput:

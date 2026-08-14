@@ -214,6 +214,56 @@ def test_useful_expansion_requires_material_detail():
         )
         is False
     )
+
+
+def test_source_echo_is_removed_before_returning_expanded_detail():
+    source = "我在教育行业工作，希望表达简洁准确。"
+    expanded = (
+        "背景与经验：我在教育行业工作，熟悉教育场景。\n"
+        "语言风格：我希望使用少量文字准确表达核心，避免冗余和歧义。"
+    )
+
+    assert optimizer._strip_source_echo(source, f"{source}。 {expanded}") == expanded
+    assert optimizer._strip_source_echo(source, expanded) == expanded
+
+
+def test_optimize_returns_only_new_detail_when_model_prefixes_the_source(
+    app, monkeypatch
+):
+    user_bid = "profile-optimize-source-echo"
+    source = "我在教育行业工作，希望表达简洁准确。"
+    expanded = (
+        "背景与经验：我在教育行业工作，熟悉教育场景。\n"
+        "语言风格：我希望使用少量文字准确表达核心，避免冗余和歧义。"
+    )
+    captured: dict = {}
+    monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
+    monkeypatch.setattr(
+        optimizer,
+        "invoke_llm",
+        _successful_llm(
+            json.dumps(
+                {"optimized_learner_profile": f"{source}。 {expanded}"},
+                ensure_ascii=False,
+            ),
+            captured,
+        ),
+    )
+    _install_trace_spies(monkeypatch, captured)
+
+    with app.app_context():
+        _create_profile_state(user_bid)
+        before = _snapshot_profile_state(user_bid)
+        result = optimizer.optimize_learner_profile(
+            app,
+            user_id=user_bid,
+            learner_profile=source,
+        )
+        db.session.expire_all()
+        after = _snapshot_profile_state(user_bid)
+
+    assert result == {"optimized_learner_profile": expanded}
+    assert after == before
     assert (
         optimizer._is_usefully_expanded(
             source,
@@ -245,11 +295,12 @@ def test_optimizer_prompt_targets_the_downstream_learner_context_contract():
         "Write mainly in the learner's language",
         "preserve natural mixed-language terms",
         "organize present categories with short labels",
-        "Do not summarize, merely polish, or return the source unchanged",
+        "Replace the source paragraph; never copy or quote it",
         "background and experience enough to guide relevant examples and terminology",
         "goals, concerns, and constraints enough to guide emphasis",
         "language-style preferences into observable expression preferences",
-        "For a named style, use high-level traits and prohibit imitation",
+        "Only when the learner names a style",
+        "never add that boundary otherwise",
         "human teacher controls the course and teaching design",
         "Exclude the learner's name or nickname",
         "Prefer useful detail over brevity",
