@@ -62,7 +62,7 @@
     "onboardingTitle": "让 AI 老师更懂你",
     "optimize": "帮我优化",
     "optimizeFailed": "暂时无法优化，你仍可以直接保存。",
-    "optimizeHint": "会把你提到的风格或人物，整理成 AI 老师更容易执行的语言要求；不会新增你的背景、目标或经历。",
+    "optimizeHint": "会把整段介绍整理得更清楚，方便 AI 老师结合你的情况调整例子、术语、重点和表达；不会新增你没有提供的信息。",
     "optimizeRejected": "这段介绍包含暂时无法保存的内容，请修改后再试。",
     "optimizeSuccess": "已优化，可继续修改。",
     "optimizeUnchanged": "这段介绍已经很清楚，可以直接保存。",

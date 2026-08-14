@@ -139,8 +139,10 @@ describe('LearnerProfileDialog', () => {
     expect(zhProfile.dialog.chips.identity.text).not.toContain('叫我');
     expect(zhProfile.dialog.writingGuideIdentity).not.toContain('称呼');
     expect(zhProfile.dialog.profileLabel).toBe('希望 AI 老师长期知道的事');
-    expect(zhProfile.dialog.optimizeHint).toContain('风格或人物');
-    expect(zhProfile.dialog.optimizeHint).toContain('背景、目标或经历');
+    expect(zhProfile.dialog.optimizeHint).toContain('整段介绍');
+    expect(zhProfile.dialog.optimizeHint).toContain('例子、术语、重点和表达');
+    expect(zhProfile.dialog.optimizeHint).toContain('不会新增你没有提供的信息');
+    expect(zhProfile.dialog.optimizeHint).not.toContain('风格或人物');
     expect(zhProfile.dialog.description).not.toContain('课程');
     expect(JSON.stringify(zhProfile.dialog)).not.toMatch(
       /节奏|结构|分步骤|多提问/,
@@ -169,12 +171,14 @@ describe('LearnerProfileDialog', () => {
       'wording you want to avoid',
     );
     expect(enProfile.dialog.profileLabel).toContain('remember about you');
+    expect(enProfile.dialog.optimizeHint).toContain('whole introduction');
     expect(enProfile.dialog.optimizeHint).toContain(
-      'language instructions your AI teacher can follow',
+      'examples, terminology, emphasis, and wording',
     );
     expect(enProfile.dialog.optimizeHint).toContain(
-      'background, goals, or experience',
+      'without adding information you did not provide',
     );
+    expect(enProfile.dialog.optimizeHint).not.toContain('style or person');
     expect(enProfile.dialog.description).not.toMatch(/\bcourses?\b/i);
     expect(JSON.stringify(enProfile.dialog)).not.toMatch(
       /teaching pace|teaching structure|step by step|ask more questions/i,
@@ -207,11 +211,15 @@ describe('LearnerProfileDialog', () => {
       'formulations à éviter',
     );
     expect(frProfile.dialog.profileLabel).toContain('doit retenir de vous');
+    expect(frProfile.dialog.optimizeHint).toContain('toute votre présentation');
     expect(frProfile.dialog.optimizeHint).toContain(
-      'consignes de langage que votre enseignant IA peut suivre',
+      'les exemples, les termes, les points à souligner et les formulations',
     );
     expect(frProfile.dialog.optimizeHint).toContain(
-      'parcours, vos objectifs ou votre expérience',
+      'sans ajouter d’informations que vous n’avez pas fournies',
+    );
+    expect(frProfile.dialog.optimizeHint).not.toContain(
+      'un style ou une personne',
     );
     expect(frProfile.dialog.description).not.toMatch(/\bcours\b/i);
     expect(JSON.stringify(frProfile.dialog)).not.toMatch(

@@ -6,9 +6,11 @@ Replace the learner-facing full-page personalization settings and legacy
 three-field onboarding experience with one responsive learner-profile dialog.
 Learners stay in the active lesson, write one natural-language introduction,
 and may separately provide a low-emphasis nickname for the AI teacher to use.
-They may optionally ask AI to optimize the introduction's expression before
-saving it. Optimization is an explicit, reversible draft-only action: it never
-persists automatically and never participates in nickname handling.
+They may optionally ask AI to organize the introduction into a durable learner
+brief that downstream course delivery can use for more relevant examples,
+terminology, emphasis, and language. Optimization is an explicit, reversible
+draft-only action: it never persists automatically and never participates in
+nickname handling.
 The introduction and nickname are independent inputs: the service never parses
 or uses an LLM to extract a nickname from the introduction. The explicit
 nickname is stored directly in `user_users.nickname` in the same transaction as
@@ -85,14 +87,17 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       Verified the 115px desktop editor remains unchanged while its scroll
       height grows from 113px to 480px, the 390 x 844 mobile editor resolves to
       135px, and the compact mobile optimizer action retains a 44px target.
-- [x] 2026-08-14: Make optimization a profile-normalization task instead of
-      generic proofreading. Free-form requests are rewritten into concise,
-      labeled first-person facts and preferences so downstream AI teachers can
-      apply them directly. Named language-style references may be expanded
-      into observable tone, rhythm, rhetorical techniques, and learning effect,
-      without imitating the named person; this never authorizes inference of
-      learner facts, goals, constraints, or experience. Every generated label,
-      expansion, and instruction uses the input's language.
+- [x] 2026-08-14: Define optimization from the real Teaching, Ask, and Preview
+      consumption contract instead of treating it as generic proofreading or a
+      style expander. It organizes every explicitly stated background fact,
+      prior experience, knowledge level, current interest, goal, concern,
+      difficulty, practical constraint, familiar context, and language
+      preference into concise learner context that can support relevant
+      examples, terminology, emphasis, and expression. A named language-style
+      reference remains one narrow interpretive expansion; it never authorizes
+      inference of personal facts or control over course content, pedagogy,
+      sequence, interactions, or format. Every generated label, expansion, and
+      instruction uses the input's language.
 - [ ] 2026-08-13: Rebase onto the latest `origin/main`, repeat the focused
       gates, update the ready PR and deployment notes, and read back CI and
       active review threads.
@@ -236,6 +241,14 @@ canonical empty-profile write through PUT and keeps the independent nickname.
   Rationale: learners retain control over personal facts, LLM latency or
   failure never blocks saving, and one in-editor result plus a single undo
   action keeps the desktop and mobile flow compact.
+- Decision: optimize for the learner profile's actual downstream use, not only
+  for prose quality or language-style expansion.
+  Rationale: Teaching, Ask, and Preview all receive the same learner data and
+  may use relevant stated facts and preferences for examples, terminology,
+  emphasis, and language style. The optimizer therefore makes background,
+  experience, current concerns, goals, difficulties, and constraints easy to
+  consume while leaving subject matter, pedagogy, sequence, interactions, and
+  output format to the human teacher's Course Prompt and the current task.
 - Decision: keep optimization draft-only and business-state-free.
   Rationale: the optimize endpoint may create the existing redacted moderation,
   usage, and Langfuse observability records, but it must not update the
@@ -298,6 +311,12 @@ visible sticky footer, and a 44px mobile optimizer target. The shared
 development backend did not yet expose the new endpoint, so browser success
 and undo remain covered by focused component tests until deployment.
 
+The optimized result is a reusable learner brief rather than a generated
+lesson plan. It keeps only learner-provided context and preferences, exposes
+them clearly enough for later course delivery to select relevant connections,
+terminology, and emphasis, and treats language-style expansion as one optional
+dimension rather than the entire optimization goal.
+
 ## Context and Orientation
 
 The learner route and onboarding gate live in
@@ -340,9 +359,10 @@ legacy onboarding service remains in
    and for the unchanged legacy nickname paths.
 7. Capture desktop and mobile implementations, compare them with the selected
    mock, fix P0-P2 differences, and record `design-qa.md` with a passing result.
-8. Add a draft-only learner-profile optimizer that returns a suggestion into
-   the same editor, supports one-step undo, and leaves direct save available
-   when optimization is skipped or fails.
+8. Add a draft-only learner-profile optimizer that organizes the whole
+   introduction for its downstream Teaching, Ask, and Preview use, returns the
+   suggestion into the same editor, supports one-step undo, and leaves direct
+   save available when optimization is skipped or fails.
 
 ## Concrete Steps
 
@@ -435,11 +455,16 @@ legacy onboarding service remains in
   other optimization failure and preserves direct save. Admission rejection
   is distinct and never enters moderation or the LLM.
 - The optimization provider receives JSON-wrapped untrusted input and returns
-  one bounded JSON string. It may reorganize only stated background, goals,
-  constraints, interests, and language-style preferences. A named style may be
-  translated into high-level, observable expression requirements, but it must
-  not infer learner facts, issue advice, imitate a named person, mix output
-  languages, or weaken the existing runtime learner-data boundary.
+  one bounded JSON string. It may reorganize only stated background,
+  experience, knowledge level, current interests, goals, concerns,
+  difficulties, constraints, familiar contexts, and language-style
+  preferences. The result should make relevant examples, terminology,
+  emphasis, and expression easier for downstream course delivery to adapt. A
+  named style may be translated into high-level, observable expression
+  requirements, but the optimizer must not infer learner facts or proficiency,
+  mandate examples, issue advice, imitate a named person, prescribe pedagogy,
+  pace, sequence, interactions, or output format, mix output languages, or
+  weaken the existing runtime learner-data boundary.
 - Focused pytest/Jest pass, followed by Ruff, type-check, ESLint, translation,
   architecture, repository harness, developer-tool, lefthook, and design-QA
   gates.
