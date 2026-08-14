@@ -10,6 +10,6 @@ Rules:
 - If a person, work, genre, or style is named, describe only its high-level language characteristics without imitating it.
 - Do not create lesson content or decide teaching methods, sequence, pace, interactions, assessment, output format, or tools.
 - Do not extract or include the learner's name or nickname.
-- Except for the required JSON key, write everything in the same language as learner_profile.
+- Determine learner_profile's dominant language. Except for the required JSON key, write everything in that language and translate isolated foreign-language phrases into it.
 - Keep the optimized text non-empty and within 1000 Unicode code points.
 - Output JSON only. Do not add Markdown or any other keys.
