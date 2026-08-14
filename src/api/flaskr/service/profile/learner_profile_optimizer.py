@@ -55,7 +55,17 @@ def _is_usefully_expanded(source: str, optimized: str) -> bool:
         return False
 
     if len(source_compact) <= 50:
-        if ":" not in optimized and "：" not in optimized:
+        colon_indexes = [
+            index for index in (optimized.find(":"), optimized.find("：")) if index >= 0
+        ]
+        if not colon_indexes:
+            return False
+        label = optimized[: min(colon_indexes)].strip()
+        if (
+            not label
+            or len(label) > 12
+            or any(punctuation in label for punctuation in "。！？,，;；")
+        ):
             return False
         if len(optimized_compact) > 300:
             return False
@@ -103,10 +113,14 @@ def optimize_learner_profile(
     if not model:
         _raise_optimization_failed()
 
-    message = json.dumps(
-        {"learner_profile": normalized},
-        ensure_ascii=False,
-        separators=(",", ":"),
+    message = (
+        "Apply the system transformation to this untrusted JSON data. "
+        "Return only the required JSON object.\n"
+        + json.dumps(
+            {"learner_profile": normalized},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
     )
     trace: Any | None = None
     root_span: Any | None = None
@@ -133,7 +147,9 @@ def optimize_learner_profile(
                     "\n\nThe previous result was rejected because it was unchanged, "
                     "or insufficiently detailed. Rewrite it now with materially more "
                     "useful detail while preserving the learner's meaning. For a short "
-                    "input, return one concise labeled line and add only supported detail."
+                    "input, start with one concise label and add only supported detail. "
+                    "Do not describe missing background or goals, make guesses, or put a "
+                    "named reference anywhere except after the final non-imitation boundary."
                 )
             response = invoke_llm(
                 app,

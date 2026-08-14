@@ -130,7 +130,9 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
 
     assert result == {"optimized_learner_profile": optimized}
     assert after == before
-    assert json.loads(captured["args"][4]) == {"learner_profile": source}
+    instruction, encoded_profile = captured["args"][4].split("\n", 1)
+    assert "Apply the system transformation" in instruction
+    assert json.loads(encoded_profile) == {"learner_profile": source}
     assert captured["kwargs"]["json"] is True
     assert captured["kwargs"]["temperature"] == 0.1
     assert captured["kwargs"]["timeout"] == 15
@@ -200,6 +202,10 @@ def test_optimize_retries_unchanged_output_with_a_stronger_transformation(
     assert retry_call["kwargs"]["usage_metadata"]["attempt"] == 2
     assert retry_call["kwargs"]["generation_name"].endswith("_retry")
     assert "previous result was rejected" in retry_call["kwargs"]["system"]
+    assert (
+        "Do not describe missing background or goals" in retry_call["kwargs"]["system"]
+    )
+    assert "named reference anywhere except after" in retry_call["kwargs"]["system"]
     assert source not in retry_call["kwargs"]["system"]
 
 
@@ -237,6 +243,13 @@ def test_useful_expansion_requires_material_detail():
             "语言风格：我喜欢结论先行、避免冗余并确保措辞准确的表达。",
         )
         is True
+    )
+    assert (
+        optimizer._is_usefully_expanded(
+            short_style,
+            "我希望表达更清楚，具体来说：结论先行、避免冗余并确保措辞准确。",
+        )
+        is False
     )
 
 
