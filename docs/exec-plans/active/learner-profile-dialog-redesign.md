@@ -98,6 +98,13 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       inference of personal facts or control over course content, pedagogy,
       sequence, interactions, or format. Natural mixed-language wording in the
       learner's own input may remain when the optimized profile is still clear.
+- [x] 2026-08-14: Shift optimization from compression to meaning-preserving
+      elaboration. The optimizer now retains every distinct stated detail,
+      expands terse or indirect meaning only when the added detail follows from
+      the learner's words, and prefers downstream usefulness over brevity. The
+      runtime composition contract actively applies relevant profile details
+      to examples, terminology, emphasis, and language style instead of merely
+      acknowledging or summarizing them; Course Prompt ownership is unchanged.
 - [x] 2026-08-14: Replace the optimizer's long rule manual with a compact
       transformation contract after a real learner paragraph was returned
       nearly unchanged. The new contract always rewrites prose into short,
