@@ -107,7 +107,10 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       learner-context lines. Repeated verification then promoted the language
       rule into an explicit top-level constraint: every foreign-language word
       or phrase is translated into the input's dominant language, with only the
-      fixed JSON key excepted.
+      fixed JSON key excepted. A named-style-only regression then added two
+      compact safeguards: omit every unstated category rather than reporting it
+      as missing, and express named references as concrete traits plus an
+      explicit non-imitation boundary, never as an instruction to imitate.
 - [ ] 2026-08-13: Rebase onto the latest `origin/main`, repeat the focused
       gates, update the ready PR and deployment notes, and read back CI and
       active review threads.
