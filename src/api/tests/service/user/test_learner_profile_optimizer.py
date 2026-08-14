@@ -214,6 +214,30 @@ def test_useful_expansion_requires_material_detail():
         )
         is False
     )
+    assert (
+        optimizer._is_usefully_expanded(
+            source,
+            "背景：我在教育行业工作，熟悉教育场景。"
+            "语言风格：我希望表达简洁、准确，优先使用常见词，必要术语要解释清楚。",
+        )
+        is True
+    )
+
+    short_style = "我喜欢简洁准确的表达。"
+    assert (
+        optimizer._is_usefully_expanded(
+            short_style,
+            "我喜欢结论先行、避免冗余并确保措辞准确的表达。",
+        )
+        is False
+    )
+    assert (
+        optimizer._is_usefully_expanded(
+            short_style,
+            "语言风格：我喜欢结论先行、避免冗余并确保措辞准确的表达。",
+        )
+        is True
+    )
 
 
 def test_source_echo_is_removed_before_returning_expanded_detail():
@@ -264,14 +288,6 @@ def test_optimize_returns_only_new_detail_when_model_prefixes_the_source(
 
     assert result == {"optimized_learner_profile": expanded}
     assert after == before
-    assert (
-        optimizer._is_usefully_expanded(
-            source,
-            "我在教育行业工作，熟悉教育场景。"
-            "我希望表达简洁、准确，优先使用常见词，必要术语要解释清楚。",
-        )
-        is True
-    )
 
 
 def test_optimizer_prompt_targets_the_downstream_learner_context_contract():
@@ -292,15 +308,17 @@ def test_optimizer_prompt_targets_the_downstream_learner_context_contract():
         "Keep every distinct stated fact and preference",
         "Add concrete clarifications and implications only when directly supported",
         "Never invent personal facts, preferences, goals, constraints",
-        "Write mainly in the learner's language",
-        "preserve natural mixed-language terms",
+        "LANGUAGE: Write every sentence in the learner's main language",
+        "preserve mixed-language terms already used in the source",
         "organize present categories with short labels",
-        "Replace the source paragraph; never copy or quote it",
+        "never copy or quote the source paragraph",
         "background and experience enough to guide relevant examples and terminology",
         "goals, concerns, and constraints enough to guide emphasis",
-        "language-style preferences into observable expression preferences",
-        "Only when the learner names a style",
-        "never add that boundary otherwise",
+        "Style-only input becomes one language-style entry",
+        "expand only tone, rhythm, rhetoric, humor, formality, density",
+        "name or title only after a final prohibition against imitation",
+        "never before it",
+        "Never invent visual, performance, interaction, or teaching-method traits",
         "human teacher controls the course and teaching design",
         "Exclude the learner's name or nickname",
         "Prefer useful detail over brevity",

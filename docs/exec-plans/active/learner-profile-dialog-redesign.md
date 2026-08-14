@@ -118,6 +118,11 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       only the new detailed profile. The prompt also forbids copying the source
       and limits non-imitation language to inputs that actually name a style,
       avoiding a fabricated preference in ordinary profiles.
+- [x] 2026-08-14: Restore the proven named-style boundary after real dev output
+      positively framed a person as an imitation target and invented visual
+      performance details. Short inputs now require one bounded labeled entry;
+      a named reference may appear only after the final non-imitation boundary,
+      and expansion is limited to observable language qualities.
 - [x] 2026-08-14: Replace the optimizer's long rule manual with a compact
       transformation contract after a real learner paragraph was returned
       nearly unchanged. The new contract always rewrites prose into short,
