@@ -151,7 +151,7 @@ def test_optimizer_prompt_targets_the_downstream_learner_context_contract():
     ).strip()
 
     assert len(optimization_prompt) <= 1600
-    assert optimization_prompt.count("\n- ") <= 7
+    assert optimization_prompt.count("\n- ") <= 6
 
     for required_contract in (
         "exactly one string field named optimized_learner_profile",
@@ -171,9 +171,6 @@ def test_optimizer_prompt_targets_the_downstream_learner_context_contract():
         "never before it or in another category",
         "human teacher controls the course and teaching design",
         "Exclude the learner's name or nickname",
-        "LANGUAGE: Use only learner_profile's dominant natural language",
-        "Translate every foreign-language word or phrase into it",
-        "the required JSON key is the only exception",
         "Never return the source unchanged",
     ):
         assert required_contract in optimization_prompt
@@ -190,6 +187,7 @@ def test_optimizer_prompt_targets_the_downstream_learner_context_contract():
     assert "Downstream use:" not in optimization_prompt
     assert "Example:" not in optimization_prompt
     assert '{"optimized_learner_profile"' not in optimization_prompt
+    assert "Translate every foreign-language word or phrase" not in optimization_prompt
 
 
 def test_optimize_rejects_moderation_without_calling_llm_or_changing_state(

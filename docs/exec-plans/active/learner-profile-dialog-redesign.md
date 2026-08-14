@@ -96,23 +96,21 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       examples, terminology, emphasis, and expression. A named language-style
       reference remains one narrow interpretive expansion; it never authorizes
       inference of personal facts or control over course content, pedagogy,
-      sequence, interactions, or format. Every generated label, expansion, and
-      instruction uses the input's language.
+      sequence, interactions, or format. Natural mixed-language wording in the
+      learner's own input may remain when the optimized profile is still clear.
 - [x] 2026-08-14: Replace the optimizer's long rule manual with a compact
       transformation contract after a real learner paragraph was returned
       nearly unchanged. The new contract always rewrites prose into short,
       labeled, standalone lines, forbids unchanged paragraph output, and keeps
-      only the minimum safety, course-ownership, language, and JSON boundaries.
+      only the minimum safety, course-ownership, and JSON boundaries.
       Real dev verification converted the reported paragraph into five labeled
-      learner-context lines. Repeated verification then promoted the language
-      rule into an explicit top-level constraint: every foreign-language word
-      or phrase is translated into the input's dominant language, with only the
-      fixed JSON key excepted. A named-style-only regression then added two
+      learner-context lines. Mixed-language terms are accepted rather than
+      translated mechanically. A named-style-only regression then added two
       compact safeguards: omit every unstated category rather than reporting it
       as missing, and express named references as concrete traits plus an
       explicit non-imitation boundary, never as an instruction to imitate.
       Further browser runs exposed over-classification and an omitted boundary,
-      so the final prompt is limited to seven rules: use the fewest categories,
+      so the final prompt is limited to six rules: use the fewest categories,
       make style-only input exactly one language-style line, and end that same
       line with a named non-imitation boundary while prohibiting positive
       instructions to emulate or borrow from the reference.
@@ -488,8 +486,8 @@ legacy onboarding service remains in
   named style may be translated into high-level, observable expression
   requirements, but the optimizer must not infer learner facts or proficiency,
   mandate examples, issue advice, imitate a named person, prescribe pedagogy,
-  pace, sequence, interactions, or output format, mix output languages, or
-  weaken the existing runtime learner-data boundary.
+  pace, sequence, interactions, or output format, or weaken the existing
+  runtime learner-data boundary. Natural mixed-language wording may remain.
 - Focused pytest/Jest pass, followed by Ruff, type-check, ESLint, translation,
   architecture, repository harness, developer-tool, lefthook, and design-QA
   gates.
