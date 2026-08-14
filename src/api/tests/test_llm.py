@@ -1,4 +1,3 @@
-# ruff: noqa: E402
 import importlib.metadata
 import json
 import os
@@ -72,21 +71,9 @@ def _install_openai_responses_stub() -> None:
 
     response_function_tool_call = type("ResponseFunctionToolCall", (), {})
     response_text_config = type("ResponseTextConfigParam", (), {})
-    setattr(
-        response_function_mod,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
-    setattr(
-        response_text_mod,
-        "ResponseTextConfigParam",
-        response_text_config,
-    )
-    setattr(
-        responses_pkg,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
+    response_function_mod.ResponseFunctionToolCall = response_function_tool_call
+    response_text_mod.ResponseTextConfigParam = response_text_config
+    responses_pkg.ResponseFunctionToolCall = response_function_tool_call
 
     sys.modules["openai.types.responses"] = responses_pkg
     sys.modules["openai.types.responses.response"] = response_mod
@@ -1360,6 +1347,269 @@ def test_invoke_llm_uses_actual_model_for_provider_params(monkeypatch, app):
     assert captured["reload_model"] == "actual-model"
     assert captured["completion_model"] == "actual-model"
     assert captured["completion_kwargs"]["temperature"] == 0.4
+
+
+def test_invoke_llm_sensitive_content_stays_in_model_and_langfuse_only(
+    monkeypatch, app, caplog
+):
+    sensitive_input = "SENSITIVE_PROFILE_INPUT"
+    sensitive_output = "SENSITIVE_PROFILE_OUTPUT"
+    captured_completion = {}
+    captured_usage = {}
+
+    def fake_completion(model, *args, **kwargs):
+        _ = args
+        captured_completion["model"] = model
+        captured_completion["kwargs"] = kwargs
+        return iter(
+            [
+                FakeResponse(
+                    "chunk-1",
+                    content=json.dumps({"optimized_learner_profile": sensitive_output}),
+                    finish_reason="stop",
+                ),
+                SimpleNamespace(
+                    id="usage",
+                    choices=[],
+                    usage=SimpleNamespace(
+                        prompt_tokens=11,
+                        completion_tokens=7,
+                        total_tokens=18,
+                    ),
+                ),
+            ]
+        )
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(
+        llm,
+        "record_llm_usage",
+        lambda *args, **kwargs: captured_usage.update(kwargs),
+    )
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "test": llm.ProviderState(
+                enabled=True,
+                params={"api_key": "test-key"},
+                models=["profile-model"],
+            )
+        },
+    )
+    monkeypatch.setattr(
+        llm,
+        "MODEL_ALIAS_MAP",
+        {"profile-model": ("test", "actual-profile-model")},
+    )
+    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"test": "TEST_API_KEY"})
+
+    span = DummySpan()
+    app.logger.addHandler(caplog.handler)
+    try:
+        caplog.clear()
+        responses = list(
+            llm.invoke_llm(
+                app=app,
+                user_id="user-1",
+                span=span,
+                model="profile-model",
+                message=json.dumps({"learner_profile": sensitive_input}),
+                system="Optimize the profile",
+                json=True,
+                sensitive_content=True,
+                usage_metadata={
+                    "feature": "profile",
+                    "output_text": "discard-me",
+                    "raw_profile": sensitive_input,
+                },
+            )
+        )
+    finally:
+        app.logger.removeHandler(caplog.handler)
+
+    response_text = "".join(response.result for response in responses)
+    assert sensitive_input in captured_completion["kwargs"]["messages"][1]["content"]
+    assert sensitive_input in span.generation_args["input"][1]["content"]
+    assert sensitive_output in response_text
+    assert sensitive_output in span.end_args["output"]
+    assert "output_text" not in captured_usage["extra"]
+    assert "raw_profile" not in captured_usage["extra"]
+    assert captured_usage["extra"]["output_chars"] == len(response_text)
+    assert sensitive_input not in caplog.text
+    assert sensitive_output not in caplog.text
+    assert "sensitive content omitted" in caplog.text
+
+
+def test_invoke_llm_sensitive_precontent_retry_omits_exception_content(
+    monkeypatch, app, caplog
+):
+    sensitive_value = "SENSITIVE_RETRY_PROFILE"
+
+    class SensitiveConnectionError(Exception):
+        pass
+
+    call_count = 0
+
+    def first_attempt():
+        raise SensitiveConnectionError(f"provider echoed {sensitive_value}")
+        yield  # pragma: no cover
+
+    def fake_completion(*args, **kwargs):
+        nonlocal call_count
+        _ = args, kwargs
+        call_count += 1
+        if call_count == 1:
+            return first_attempt()
+        return iter([FakeResponse("chunk-2", content="safe", finish_reason="stop")])
+
+    monkeypatch.setattr(
+        llm.litellm,
+        "exceptions",
+        SimpleNamespace(APIConnectionError=SensitiveConnectionError),
+        raising=False,
+    )
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(llm, "record_llm_usage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "test": llm.ProviderState(
+                enabled=True,
+                params={"api_key": "test-key"},
+                models=["profile-model"],
+            )
+        },
+    )
+    monkeypatch.setattr(
+        llm,
+        "MODEL_ALIAS_MAP",
+        {"profile-model": ("test", "actual-profile-model")},
+    )
+    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"test": "TEST_API_KEY"})
+
+    app.logger.addHandler(caplog.handler)
+    try:
+        caplog.clear()
+        responses = list(
+            llm.invoke_llm(
+                app=app,
+                user_id="user-1",
+                span=DummySpan(),
+                model="profile-model",
+                message=sensitive_value,
+                sensitive_content=True,
+            )
+        )
+    finally:
+        app.logger.removeHandler(caplog.handler)
+
+    assert [response.result for response in responses] == ["safe"]
+    assert call_count == 2
+    assert sensitive_value not in caplog.text
+    assert "error_type=SensitiveConnectionError" in caplog.text
+
+
+def test_invoke_llm_sensitive_stream_failure_ends_generation_without_log_leak(
+    monkeypatch, app, caplog
+):
+    sensitive_input = "SENSITIVE_STREAM_INPUT"
+    sensitive_partial = "SENSITIVE_STREAM_PARTIAL"
+    sensitive_exception = "SENSITIVE_STREAM_EXCEPTION"
+
+    class SensitiveStreamError(Exception):
+        pass
+
+    def failed_stream():
+        yield FakeResponse("chunk-1", content=sensitive_partial)
+        raise SensitiveStreamError(sensitive_exception)
+
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *args, **kwargs: failed_stream(),
+    )
+    monkeypatch.setattr(llm, "record_llm_usage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "test": llm.ProviderState(
+                enabled=True,
+                params={"api_key": "test-key"},
+                models=["profile-model"],
+            )
+        },
+    )
+    monkeypatch.setattr(
+        llm,
+        "MODEL_ALIAS_MAP",
+        {"profile-model": ("test", "actual-profile-model")},
+    )
+    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"test": "TEST_API_KEY"})
+
+    span = DummySpan()
+    app.logger.addHandler(caplog.handler)
+    try:
+        caplog.clear()
+        with pytest.raises(SensitiveStreamError, match=sensitive_exception):
+            list(
+                llm.invoke_llm(
+                    app=app,
+                    user_id="user-1",
+                    span=span,
+                    model="profile-model",
+                    message=sensitive_input,
+                    sensitive_content=True,
+                )
+            )
+    finally:
+        app.logger.removeHandler(caplog.handler)
+
+    assert span.end_args["output"] == sensitive_partial
+    assert span.end_args["level"] == "ERROR"
+    assert span.end_args["status_message"] == "SensitiveStreamError"
+    assert sensitive_input not in caplog.text
+    assert sensitive_partial not in caplog.text
+    assert sensitive_exception not in caplog.text
+
+
+def test_invoke_llm_sensitive_setup_failure_ends_generation_without_log_leak(
+    monkeypatch, app, caplog
+):
+    sensitive_input = "SENSITIVE_SETUP_INPUT"
+    sensitive_exception = "SENSITIVE_SETUP_EXCEPTION"
+
+    class SensitiveSetupError(Exception):
+        pass
+
+    def fail_setup(_model):
+        raise SensitiveSetupError(sensitive_exception)
+
+    monkeypatch.setattr(llm, "get_litellm_params_and_model", fail_setup)
+    span = DummySpan()
+    app.logger.addHandler(caplog.handler)
+    try:
+        caplog.clear()
+        with pytest.raises(SensitiveSetupError, match=sensitive_exception):
+            list(
+                llm.invoke_llm(
+                    app=app,
+                    user_id="user-1",
+                    span=span,
+                    model="profile-model",
+                    message=sensitive_input,
+                    sensitive_content=True,
+                )
+            )
+    finally:
+        app.logger.removeHandler(caplog.handler)
+
+    assert span.end_args["level"] == "ERROR"
+    assert span.end_args["status_message"] == "SensitiveSetupError"
+    assert sensitive_input not in caplog.text
+    assert sensitive_exception not in caplog.text
 
 
 def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(monkeypatch, app):

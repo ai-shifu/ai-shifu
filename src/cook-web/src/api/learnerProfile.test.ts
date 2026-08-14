@@ -2,6 +2,7 @@ import request from '@/lib/request';
 import {
   clearLearnerProfile,
   getLearnerProfile,
+  optimizeLearnerProfile,
   updateLearnerProfile,
 } from './learnerProfile';
 
@@ -9,6 +10,7 @@ jest.mock('@/lib/request', () => ({
   __esModule: true,
   default: {
     get: jest.fn(),
+    post: jest.fn(),
     put: jest.fn(),
     delete: jest.fn(),
   },
@@ -71,6 +73,23 @@ describe('learner profile api', () => {
     expect(request.put).toHaveBeenCalledWith(
       '/api/user/learner-profile',
       { learner_profile: 'Only the introduction changes' },
+      { skipErrorToast: true },
+    );
+  });
+
+  test('requests an optimized draft without showing a global error toast', async () => {
+    const optimized = {
+      optimized_learner_profile: 'A clearer learner introduction',
+    };
+    (request.post as jest.Mock).mockResolvedValue(optimized);
+
+    await expect(
+      optimizeLearnerProfile('My learner introduction'),
+    ).resolves.toEqual(optimized);
+
+    expect(request.post).toHaveBeenCalledWith(
+      '/api/user/learner-profile/optimize',
+      { learner_profile: 'My learner introduction' },
       { skipErrorToast: true },
     );
   });

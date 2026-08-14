@@ -1,26 +1,15 @@
-from flask import Flask, request, make_response, current_app
 from functools import wraps
+from ipaddress import IPv6Address, ip_address, ip_network
 
-from flaskr.service.common.models import raise_param_error, raise_error
-from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
-from flaskr.service.user.password_utils import (
-    hash_password,
-    verify_password,
-    validate_password_strength,
-)
-from flaskr.service.user.models import AuthCredential
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
-from flaskr.util.uuid import generate_id
+from flask import Flask, current_app, make_response, request
+
+from flaskr.common.log import omit_sensitive_body_logging
 from flaskr.common.shifu_context import with_shifu_context
-from flaskr.service.user.repository import (
-    build_user_info_from_aggregate,
-    find_credential,
-    get_password_hash,
-    set_password_hash,
-    load_user_aggregate,
-    load_user_aggregate_by_identifier,
-    list_credentials,
-)
+from flaskr.dao import db
+from flaskr.i18n import _translations, set_language
+from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
@@ -30,12 +19,49 @@ from flaskr.service.profile.learner_profile import (
     get_learner_profile,
     replace_learner_profile,
 )
-from flaskr.service.profile.api import merge_learner_profile_for_sign_in
+from flaskr.service.profile.learner_profile_optimizer import optimize_learner_profile
+from flaskr.service.profile.learner_profile_optimizer_admission import (
+    learner_profile_optimization_admission,
+)
 from flaskr.service.profile.onboarding import (
     complete_profile_onboarding,
     get_profile_onboarding_status,
 )
-from ..service.user.common import validate_user, update_user_info
+from flaskr.service.user.captcha import (
+    create_captcha_challenge,
+    verify_captcha_code,
+)
+from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.password_utils import (
+    hash_password,
+    validate_password_strength,
+    verify_password,
+)
+from flaskr.service.user.repository import (
+    build_user_info_from_aggregate,
+    find_credential,
+    get_password_hash,
+    list_credentials,
+    load_user_aggregate,
+    load_user_aggregate_by_identifier,
+    set_password_hash,
+)
+from flaskr.service.user.verification_codes import consume_verification_code
+from flaskr.util.uuid import generate_id
+
+from ..service.common.dtos import OAuthStartDTO, UserToken
+from ..service.feedback.funs import submit_feedback
+from ..service.referral.service import extract_referral_post_auth_fields
+from ..service.user.auth import get_provider
+from ..service.user.auth.base import OAuthCallbackRequest, VerificationRequest
+from ..service.user.common import update_user_info, validate_user
+from ..service.user.onboarding import (
+    ONBOARDING_VERSION,
+    build_onboarding_status,
+    complete_onboarding_scene,
+)
+from ..service.user.post_auth import PostAuthContext, run_post_auth_extensions
 from ..service.user.user import (
     generate_temp_user,
     update_user_open_id,
@@ -46,26 +72,7 @@ from ..service.user.utils import (
     send_email_code,
     send_sms_code,
 )
-from flaskr.service.user.captcha import (
-    create_captcha_challenge,
-    verify_captcha_code,
-)
-from flaskr.service.user.verification_codes import consume_verification_code
-from ..service.feedback.funs import submit_feedback
-from ..service.user.auth import get_provider
-from ..service.user.auth.base import OAuthCallbackRequest, VerificationRequest
-from ..service.user.post_auth import PostAuthContext, run_post_auth_extensions
-from ..service.user.onboarding import (
-    ONBOARDING_VERSION,
-    build_onboarding_status,
-    complete_onboarding_scene,
-)
-from ..service.referral.service import extract_referral_post_auth_fields
-from ..service.common.dtos import OAuthStartDTO, UserToken
-from .common import make_common_response, bypass_token_validation, by_pass_login_func
-from flaskr.dao import db
-from flaskr.i18n import _translations, set_language
-
+from .common import by_pass_login_func, bypass_token_validation, make_common_response
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 
@@ -163,6 +170,38 @@ def _request_client_ip() -> str:
     if "X-Forwarded-For" in request.headers:
         return request.headers["X-Forwarded-For"].split(",")[0].strip()
     return str(request.remote_addr or "").strip()
+
+
+def _trusted_request_client_ip(app: Flask) -> str:
+    """Resolve a cost-control IP without trusting client-controlled forwarding."""
+
+    direct_peer = str(request.remote_addr or "").strip()
+    configured = str(app.config.get("TRUSTED_REVERSE_PROXY_ADDRESSES", "") or "")
+    try:
+        peer_ip = ip_address(direct_peer)
+    except ValueError:
+        return direct_peer
+    trusted_peer = False
+    for configured_scope in configured.split(","):
+        configured_scope = configured_scope.strip()
+        if not configured_scope:
+            continue
+        try:
+            if peer_ip in ip_network(configured_scope, strict=False):
+                trusted_peer = True
+                break
+        except ValueError:
+            continue
+    client_ip = peer_ip
+    if trusted_peer:
+        real_ip = str(request.headers.get("X-Real-IP", "") or "").strip()
+        try:
+            client_ip = ip_address(real_ip)
+        except ValueError:
+            pass
+    if isinstance(client_ip, IPv6Address):
+        return str(ip_network(f"{client_ip}/64", strict=False))
+    return str(client_ip)
 
 
 def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
@@ -451,6 +490,31 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     def clear_learner_profile_api():
         """Clear the profile while keeping profile-v2 handled."""
         return make_common_response(clear_learner_profile(user_id=request.user.user_id))
+
+    @app.route(path_prefix + "/learner-profile/optimize", methods=["POST"])
+    @omit_sensitive_body_logging
+    def optimize_learner_profile_api():
+        """Return an LLM-optimized draft without saving profile state."""
+        payload = _request_json_object("learner_profile")
+        _reject_unknown_fields(
+            payload,
+            allowed_fields={"learner_profile"},
+            parameter_name="learner_profile",
+        )
+        learner_profile = payload.get("learner_profile")
+        if not isinstance(learner_profile, str):
+            raise_param_error("learner_profile")
+        with learner_profile_optimization_admission(
+            app,
+            user_id=request.user.user_id,
+            client_ip=_trusted_request_client_ip(app),
+        ):
+            result = optimize_learner_profile(
+                app,
+                user_id=request.user.user_id,
+                learner_profile=learner_profile,
+            )
+        return make_common_response(result)
 
     @app.route(path_prefix + "/require_tmp", methods=["POST"])
     @bypass_token_validation

@@ -1,5 +1,7 @@
 import request from '@/lib/request';
 
+export const LEARNER_PROFILE_OPTIMIZATION_REJECTED_CODE = 1022;
+
 export type LearnerProfile = {
   learner_profile: string;
   learner_profile_updated_at: string | null;
@@ -13,6 +15,10 @@ export type LearnerProfile = {
       string
     >
   >;
+};
+
+export type OptimizedLearnerProfile = {
+  optimized_learner_profile: string;
 };
 
 export const getLearnerProfile = (): Promise<LearnerProfile> => {
@@ -32,6 +38,16 @@ export const updateLearnerProfile = (
   return request.put('/api/user/learner-profile', payload, {
     skipErrorToast: true,
   });
+};
+
+export const optimizeLearnerProfile = (
+  learnerProfile: string,
+): Promise<OptimizedLearnerProfile> => {
+  return request.post(
+    '/api/user/learner-profile/optimize',
+    { learner_profile: learnerProfile },
+    { skipErrorToast: true },
+  );
 };
 
 export const clearLearnerProfile = (): Promise<LearnerProfile> => {

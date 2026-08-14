@@ -14,6 +14,9 @@ export function ProfileDraftEditor({
   textareaClassName,
   minRows = 8,
   maxRows = 14,
+  autoResize = true,
+  footerStart,
+  descriptionId,
   value,
   maxLength,
   disabled,
@@ -26,6 +29,9 @@ export function ProfileDraftEditor({
   textareaClassName?: string;
   minRows?: number;
   maxRows?: number;
+  autoResize?: boolean;
+  footerStart?: React.ReactNode;
+  descriptionId?: string;
   value: string;
   maxLength: number;
   disabled: boolean;
@@ -59,24 +65,37 @@ export function ProfileDraftEditor({
         id={inputId}
         className={textareaClassName}
         value={value}
-        minRows={minRows}
-        maxRows={maxRows}
+        rows={minRows}
+        minRows={autoResize ? minRows : undefined}
+        maxRows={autoResize ? maxRows : undefined}
         disabled={disabled}
         placeholder={
           placeholder ?? t('module.profileOnboarding.profilePlaceholder')
         }
-        aria-describedby={`${inputId}-character-count`}
+        aria-describedby={[descriptionId, `${inputId}-character-count`]
+          .filter(Boolean)
+          .join(' ')}
         onChange={event => onChange(event.target.value)}
       />
       <div
-        id={`${inputId}-character-count`}
         className={cn(
-          'text-right text-xs text-muted-foreground',
-          length > maxLength && 'font-medium text-destructive',
+          'flex items-start justify-between gap-3',
+          !footerStart && 'justify-end',
         )}
-        aria-live='polite'
       >
-        {characterCountText}
+        {footerStart ? (
+          <div className='min-w-0 flex-1'>{footerStart}</div>
+        ) : null}
+        <div
+          id={`${inputId}-character-count`}
+          className={cn(
+            'shrink-0 text-right text-xs text-muted-foreground',
+            length > maxLength && 'font-medium text-destructive',
+          )}
+          aria-live='polite'
+        >
+          {characterCountText}
+        </div>
       </div>
     </div>
   );

@@ -1,11 +1,13 @@
 import asyncio
+import logging
 import os
 import time
+from collections.abc import Callable, Generator
 from dataclasses import dataclass, field, replace
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
-from decimal import Decimal, InvalidOperation, ROUND_CEILING
-import logging
+from decimal import ROUND_CEILING, Decimal, InvalidOperation
+from typing import Any
+
 import requests
 
 # litellm fetches its model cost map from GitHub at import time by default,
@@ -14,8 +16,9 @@ import requests
 # override by exporting LITELLM_LOCAL_MODEL_COST_MAP=False before startup.
 os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 
-import litellm  # noqa: E402
+import litellm
 from flask import Flask, current_app
+
 from flaskr.api.langfuse import (
     LangfuseObservationHandle,
     build_langfuse_observation_link,
@@ -27,9 +30,6 @@ from flaskr.common.config import (
     get_explicit_env_override,
     parse_llm_model_max_output_tokens,
 )
-from flaskr.service.config import get_config
-from flaskr.util.datetime import now_utc
-from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
@@ -39,12 +39,15 @@ from flaskr.service.billing.rate_references import (
     format_credit_multiplier,
     load_llm_credit_1x_unit_cost,
 )
+from flaskr.service.common.models import raise_error_with_args
+from flaskr.service.config import get_config
 from flaskr.service.metering import UsageContext, record_llm_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_LLM,
     normalize_usage_scene,
 )
+from flaskr.util.datetime import now_utc
 
 logger = logging.getLogger(__name__)
 
@@ -88,34 +91,35 @@ class ProviderConfig:
     prefix: str = ""
     fetch_models: bool = True
     filter_fn: Callable[[str], bool] | None = None
-    static_models: List[str] = field(default_factory=list)
-    extra_models: List[str] = field(default_factory=list)
-    wildcard_prefixes: Tuple[str, ...] = ()
+    static_models: list[str] = field(default_factory=list)
+    extra_models: list[str] = field(default_factory=list)
+    wildcard_prefixes: tuple[str, ...] = ()
     config_hint: str = ""
     custom_llm_provider: str | None = None
-    model_loader: Optional[
+    model_loader: (
         Callable[
-            ["ProviderConfig", Dict[str, str], Optional[str]],
-            List[Union[str, Tuple[str, str]]],
+            ["ProviderConfig", dict[str, str], str | None], list[str | tuple[str, str]]
         ]
-    ] = None
-    reload_params: Optional[Callable[[str, float], Dict[str, Any]]] = None
+        | None
+    ) = None
+    reload_params: Callable[[str, float], dict[str, Any]] | None = None
 
 
 @dataclass
 class ProviderState:
     enabled: bool
-    params: Optional[Dict[str, str]]
-    models: List[str]
+    params: dict[str, str] | None
+    models: list[str]
     prefix: str = ""
-    wildcard_prefixes: Tuple[str, ...] = ()
-    reload_params: Optional[Callable[[str, float], Dict[str, Any]]] = None
+    wildcard_prefixes: tuple[str, ...] = ()
+    reload_params: Callable[[str, float], dict[str, Any]] | None = None
 
 
-MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
-PROVIDER_STATES: Dict[str, ProviderState] = {}
-MODEL_MAX_OUTPUT_TOKENS: Dict[str, int] = {}
+MODEL_ALIAS_MAP: dict[str, tuple[str, str]] = {}
+PROVIDER_STATES: dict[str, ProviderState] = {}
+MODEL_MAX_OUTPUT_TOKENS: dict[str, int] = {}
 _USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
+_SENSITIVE_USAGE_METADATA_KEYS = frozenset({"feature", "input_chars", "output_chars"})
 
 
 def _log(level: str, message: str) -> None:
@@ -167,9 +171,9 @@ def _extract_input_cache(usage: Any) -> int:
 
 
 def _attach_usage_output_text(
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     response_text: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Store a bounded response excerpt for operator usage detail summaries."""
 
     normalized_response_text = str(response_text or "").strip()
@@ -294,7 +298,7 @@ def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
     return allowed, display_names
 
 
-def _load_and_register_model_max_output_tokens() -> Dict[str, int]:
+def _load_and_register_model_max_output_tokens() -> dict[str, int]:
     raw_limits = get_config("LLM_MODEL_MAX_OUTPUT_TOKENS", "")
     try:
         limits = parse_llm_model_max_output_tokens(raw_limits)
@@ -326,10 +330,10 @@ def _load_and_register_model_max_output_tokens() -> Dict[str, int]:
 
 
 def _register_provider_models(
-    config: ProviderConfig, raw_models: List[Union[str, Tuple[str, str]]]
-) -> List[str]:
+    config: ProviderConfig, raw_models: list[str | tuple[str, str]]
+) -> list[str]:
     seen = set()
-    display_models: List[str] = []
+    display_models: list[str] = []
     for model_id in raw_models:
         actual_model = None
         if isinstance(model_id, tuple):
@@ -372,7 +376,7 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
             _log_info(
                 "Skipping GEMINI_API_URL override to use LiteLLM default endpoint"
             )
-    params: Dict[str, str] = {"api_key": api_key}
+    params: dict[str, str] = {"api_key": api_key}
     if base_url:
         params["api_base"] = base_url
     if config.custom_llm_provider:
@@ -380,7 +384,7 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     if config.model_loader:
         raw_models = config.model_loader(config, params, base_url)
     else:
-        raw_models: List[Union[str, Tuple[str, str]]] = list(config.static_models)
+        raw_models: list[str | tuple[str, str]] = list(config.static_models)
         if config.fetch_models:
             try:
                 fetched_models = _fetch_provider_models(api_key, base_url)
@@ -437,6 +441,8 @@ def _stream_litellm_completion(
     messages: list,
     params: dict,
     kwargs: dict,
+    *,
+    sensitive_content: bool = False,
 ):
     try:
         # Routed ids are the application-level identity. LiteLLM completion uses
@@ -458,9 +464,17 @@ def _stream_litellm_completion(
                 kwargs["max_tokens"] = min(requested_max_tokens, max_tokens)
             else:
                 kwargs["max_tokens"] = max_tokens
-        app.logger.info(
-            f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
-        )
+        if sensitive_content:
+            app.logger.info(
+                "stream_litellm_completion: model=%s message_count=%s "
+                "sensitive_content=true",
+                model,
+                len(messages),
+            )
+        else:
+            app.logger.info(
+                f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
+            )
         return litellm.completion(
             model=model,
             messages=messages,
@@ -469,11 +483,17 @@ def _stream_litellm_completion(
             **kwargs,
         )
     except Exception as exc:
-        _log_warning(f"LiteLLM completion failed for {model}: {exc}")
+        if sensitive_content:
+            _log_warning(
+                f"LiteLLM completion failed for {model}: "
+                f"error_type={type(exc).__name__}"
+            )
+        else:
+            _log_warning(f"LiteLLM completion failed for {model}: {exc}")
         raise_error_with_args(
             "server.llm.requestFailed",
             model=model,
-            message=str(exc),
+            message=(type(exc).__name__ if sensitive_content else str(exc)),
         )
 
 
@@ -508,6 +528,8 @@ def _iter_stream_with_precontent_retry(
     messages: list,
     params: dict,
     kwargs: dict,
+    *,
+    sensitive_content: bool = False,
 ):
     """Yield litellm stream chunks, re-issuing the request when the stream
     dies on a connection-level error before any content token arrived.
@@ -523,14 +545,25 @@ def _iter_stream_with_precontent_retry(
     """
     attempts = 0
     while True:
-        response = _stream_litellm_completion(
-            app,
-            requested_model,
-            invoke_model,
-            messages,
-            params,
-            kwargs,
-        )
+        if sensitive_content:
+            response = _stream_litellm_completion(
+                app,
+                requested_model,
+                invoke_model,
+                messages,
+                params,
+                kwargs,
+                sensitive_content=True,
+            )
+        else:
+            response = _stream_litellm_completion(
+                app,
+                requested_model,
+                invoke_model,
+                messages,
+                params,
+                kwargs,
+            )
         saw_content = False
         pending_reasoning_chunks = []
         try:
@@ -561,14 +594,17 @@ def _iter_stream_with_precontent_retry(
                 or not isinstance(exc, retryable)
             ):
                 raise
+            error_detail = (
+                f"error_type={type(exc).__name__}" if sensitive_content else str(exc)
+            )
             _log_warning(
                 f"LLM stream for {invoke_model} failed before first content "
                 f"(attempt {attempts}/{_STREAM_PRECONTENT_RETRY_ATTEMPTS + 1}); "
-                f"reissuing request: {exc}"
+                f"reissuing request: {error_detail}"
             )
 
 
-def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
+def _resolve_provider_for_model(model: str) -> tuple[str | None, str]:
     alias = MODEL_ALIAS_MAP.get(model)
     if alias:
         return alias
@@ -583,9 +619,9 @@ def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
 
 
 def _load_gemini_models(
-    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
-) -> List[Union[str, Tuple[str, str]]]:
-    models: List[Union[str, Tuple[str, str]]] = []
+    config: ProviderConfig, params: dict[str, str], base_url: str | None
+) -> list[str | tuple[str, str]]:
+    models: list[str | tuple[str, str]] = []
     api_key = params.get("api_key")
     if not api_key:
         return models
@@ -620,8 +656,8 @@ def _load_gemini_models(
 
 
 def _load_deepseek_models(
-    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
-) -> List[Union[str, Tuple[str, str]]]:
+    config: ProviderConfig, params: dict[str, str], base_url: str | None
+) -> list[str | tuple[str, str]]:
     api_key = params.get("api_key", "")
     try:
         return _fetch_provider_models(api_key, base_url)
@@ -643,7 +679,7 @@ DEEPSEEK_FALLBACK_MODELS = [
 ]
 
 
-def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_openai_params(model_id: str, temperature: float) -> dict[str, Any]:
     if model_id.startswith("gpt-5"):
         try:
             model_info = litellm.get_model_info(
@@ -710,11 +746,11 @@ def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
-def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_gemini_params(model_id: str, temperature: float) -> dict[str, Any]:
     # Gemini thinking is controlled via LiteLLM's reasoning_effort mapping. Some
     # Gemini model ids are not included in LiteLLM's supported-params table yet,
     # so explicitly allow reasoning_effort for Gemini requests.
-    params: Dict[str, Any] = {
+    params: dict[str, Any] = {
         "temperature": temperature,
         "allowed_openai_params": ["reasoning_effort"],
     }
@@ -732,7 +768,7 @@ def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
     return params
 
 
-def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_ark_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "thinking": {"type": "disabled"},
@@ -742,21 +778,21 @@ def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
-def _reload_silicon_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_silicon_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "extra_body": {"enable_thinking": False},
     }
 
 
-def _reload_qwen_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_qwen_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "extra_body": {"enable_thinking": False},
     }
 
 
-def _reload_deepseek_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_deepseek_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "reasoning_effort": "none",
@@ -846,7 +882,7 @@ def _apply_provider_params(
     kwargs.update(applied_params)
 
 
-LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
+LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
     ProviderConfig(
         key="openai",
         api_key_env="OPENAI_API_KEY",
@@ -930,7 +966,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ),
 ]
 
-PROVIDER_CONFIG_HINTS: Dict[str, str] = {}
+PROVIDER_CONFIG_HINTS: dict[str, str] = {}
 for config in LITELLM_PROVIDER_CONFIGS:
     PROVIDER_STATES[config.key] = _init_litellm_provider(config)
     PROVIDER_CONFIG_HINTS[config.key] = config.config_hint or config.api_key_env
@@ -989,12 +1025,13 @@ def invoke_llm(
     system: str = None,
     json: bool = False,
     generation_name: str = "invoke_llm",
-    usage_context: Optional[UsageContext] = None,
-    usage_scene: Optional[Union[str, int]] = None,
-    billable: Optional[int] = None,
-    request_id: Optional[str] = None,
-    trace_id: Optional[str] = None,
-    usage_metadata: Optional[Dict[str, Any]] = None,
+    usage_context: UsageContext | None = None,
+    usage_scene: str | int | None = None,
+    billable: int | None = None,
+    request_id: str | None = None,
+    trace_id: str | None = None,
+    usage_metadata: dict[str, Any] | None = None,
+    sensitive_content: bool = False,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     stream_flag = bool(kwargs.get("stream", True))
@@ -1006,6 +1043,12 @@ def invoke_llm(
     request_id = request_id or kwargs.pop("request_id", None) or get_request_id()
     trace_id = resolve_langfuse_trace_id(span, trace_id or kwargs.pop("trace_id", None))
     usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
+    if sensitive_content:
+        usage_metadata = {
+            key: value
+            for key, value in usage_metadata.items()
+            if key in _SENSITIVE_USAGE_METADATA_KEYS
+        }
     model = model.strip()
     generation_input = []
     if system:
@@ -1032,68 +1075,95 @@ def invoke_llm(
     input_cache_tokens = 0
     provider_name = ""
     start_time = time.monotonic()
-    params, invoke_model, reload_params = get_litellm_params_and_model(model)
     start_completion_time = None
-    if params:
-        provider_key, _normalized = _resolve_provider_for_model(model)
-        provider_name = provider_key or ""
-        messages = []
-        if system:
-            messages.append({"content": system, "role": "system"})
-        messages.append({"content": message, "role": "user"})
-        if json:
-            kwargs["response_format"] = {"type": "json_object"}
-        kwargs["stream_options"] = {"include_usage": True}
-        if reload_params:
-            _apply_provider_params(
-                kwargs,
-                reload_params(invoke_model, float(kwargs.get("temperature", 0.3))),
-            )
-        else:
-            kwargs.update(
-                {
-                    "temperature": float(kwargs.get("temperature", 0.3)),
-                }
-            )
-        response = _iter_stream_with_precontent_retry(
-            app,
-            model,
-            invoke_model,
-            messages,
-            params,
-            kwargs,
-        )
-
-        for res in response:
-            if start_completion_time is None:
-                start_completion_time = now_utc()
-            if len(res.choices):
-                reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
-            if len(res.choices) and res.choices[0].delta.content:
-                response_text += res.choices[0].delta.content
-                yield LLMStreamResponse(
-                    res.id,
-                    True if res.choices[0].finish_reason else False,
-                    False,
-                    res.choices[0].delta.content,
-                    res.choices[0].finish_reason,
-                    None,
+    try:
+        params, invoke_model, reload_params = get_litellm_params_and_model(model)
+        if params:
+            provider_key, _normalized = _resolve_provider_for_model(model)
+            provider_name = provider_key or ""
+            messages = []
+            if system:
+                messages.append({"content": system, "role": "system"})
+            messages.append({"content": message, "role": "user"})
+            if json:
+                kwargs["response_format"] = {"type": "json_object"}
+            kwargs["stream_options"] = {"include_usage": True}
+            if reload_params:
+                _apply_provider_params(
+                    kwargs,
+                    reload_params(invoke_model, float(kwargs.get("temperature", 0.3))),
                 )
-            res_usage = getattr(res, "usage", None)
-            if res_usage:
-                input_cache_tokens = _extract_input_cache(res_usage)
-                usage = {
-                    "input": res_usage.prompt_tokens,
-                    "output": res_usage.completion_tokens,
-                    "total": res_usage.total_tokens,
-                }
-    else:
-        raise_error_with_args(
-            "server.llm.modelNotSupported",
-            model=model,
-        )
+            else:
+                kwargs.update(
+                    {
+                        "temperature": float(kwargs.get("temperature", 0.3)),
+                    }
+                )
+            response = _iter_stream_with_precontent_retry(
+                app,
+                model,
+                invoke_model,
+                messages,
+                params,
+                kwargs,
+                sensitive_content=sensitive_content,
+            )
 
-    app.logger.info(f"invoke_llm response: {response_text} ")
+            for res in response:
+                if start_completion_time is None:
+                    start_completion_time = now_utc()
+                if len(res.choices):
+                    reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
+                if len(res.choices) and res.choices[0].delta.content:
+                    response_text += res.choices[0].delta.content
+                    yield LLMStreamResponse(
+                        res.id,
+                        True if res.choices[0].finish_reason else False,
+                        False,
+                        res.choices[0].delta.content,
+                        res.choices[0].finish_reason,
+                        None,
+                    )
+                res_usage = getattr(res, "usage", None)
+                if res_usage:
+                    input_cache_tokens = _extract_input_cache(res_usage)
+                    usage = {
+                        "input": res_usage.prompt_tokens,
+                        "output": res_usage.completion_tokens,
+                        "total": res_usage.total_tokens,
+                    }
+        else:
+            raise_error_with_args(
+                "server.llm.modelNotSupported",
+                model=model,
+            )
+    except Exception as exc:
+        try:
+            generation.end(
+                input=generation_input,
+                output=_build_langfuse_llm_output(response_text, reasoning_text),
+                metadata=kwargs,
+                completion_start_time=start_completion_time,
+                level="ERROR",
+                status_message=type(exc).__name__,
+            )
+        except Exception as finalize_exc:
+            app.logger.warning(
+                "Failed to finalize errored LLM generation | model=%s | "
+                "generation_name=%s | error_type=%s",
+                model,
+                generation_name,
+                type(finalize_exc).__name__,
+            )
+        raise
+
+    if sensitive_content:
+        app.logger.info(
+            "invoke_llm response: <sensitive content omitted> chars=%s",
+            len(response_text),
+        )
+    else:
+        app.logger.info(f"invoke_llm response: {response_text} ")
     if usage is None:
         app.logger.info("invoke_llm usage: None")
     else:
@@ -1119,7 +1189,11 @@ def invoke_llm(
     usage_metadata.setdefault("generation_name", generation_name)
     if "temperature" in kwargs:
         usage_metadata.setdefault("temperature", kwargs.get("temperature"))
-    usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
+    if sensitive_content:
+        usage_metadata.pop("output_text", None)
+        usage_metadata["output_chars"] = len(response_text)
+    else:
+        usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
     if usage is None:
         usage_metadata.setdefault("usage_source", "missing")
         record_llm_usage(
@@ -1172,12 +1246,12 @@ def chat_llm(
     messages: list,
     json: bool = False,
     generation_name: str = "user_follow_ask",
-    usage_context: Optional[UsageContext] = None,
-    usage_scene: Optional[Union[str, int]] = None,
-    billable: Optional[int] = None,
-    request_id: Optional[str] = None,
-    trace_id: Optional[str] = None,
-    usage_metadata: Optional[Dict[str, Any]] = None,
+    usage_context: UsageContext | None = None,
+    usage_scene: str | int | None = None,
+    billable: int | None = None,
+    request_id: str | None = None,
+    trace_id: str | None = None,
+    usage_metadata: dict[str, Any] | None = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     app.logger.info(f"chat_llm [{model}] {messages} ,json:{json} ,kwargs:{kwargs}")

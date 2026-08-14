@@ -1,10 +1,15 @@
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity
+
+
+@contextmanager
+def nullcontext_admission(*_args, **_kwargs):
+    yield
 
 
 def _create_user(user_bid: str = "user-onboarding") -> None:
@@ -331,3 +336,107 @@ def test_learner_profile_update_omits_optional_nickname(monkeypatch, test_client
             "nickname": None,
         }
     ]
+
+
+def test_learner_profile_optimize_route_delegates_without_persistence(
+    monkeypatch, test_client
+):
+    dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: dummy_user,
+        raising=False,
+    )
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.route.user.optimize_learner_profile",
+        lambda _app, **kwargs: (
+            calls.append(kwargs) or {"optimized_learner_profile": "optimized profile"}
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.learner_profile_optimization_admission",
+        nullcontext_admission,
+    )
+
+    response = test_client.post(
+        "/api/user/learner-profile/optimize",
+        headers={"Token": "token"},
+        json={"learner_profile": "source profile"},
+    )
+
+    assert response.get_json(force=True) == {
+        "code": 0,
+        "message": "success",
+        "data": {"optimized_learner_profile": "optimized profile"},
+    }
+    assert calls == [
+        {
+            "user_id": "learner-profile-user",
+            "learner_profile": "source profile",
+        }
+    ]
+
+
+def test_learner_profile_optimize_route_omits_sensitive_bodies_from_logs(
+    monkeypatch, test_client, app, caplog
+):
+    sensitive_input = "SENSITIVE_OPTIMIZE_ROUTE_INPUT"
+    sensitive_output = "SENSITIVE_OPTIMIZE_ROUTE_OUTPUT"
+    dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: dummy_user,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.optimize_learner_profile",
+        lambda _app, **_kwargs: {"optimized_learner_profile": sensitive_output},
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.learner_profile_optimization_admission",
+        nullcontext_admission,
+    )
+
+    app.logger.addHandler(caplog.handler)
+    try:
+        caplog.clear()
+        response = test_client.post(
+            "/api/user/learner-profile/optimize",
+            headers={"Token": "token"},
+            json={"learner_profile": sensitive_input},
+        )
+    finally:
+        app.logger.removeHandler(caplog.handler)
+
+    assert response.get_json(force=True)["code"] == 0
+    assert sensitive_input not in caplog.text
+    assert sensitive_output not in caplog.text
+    assert "Request body: <sensitive body omitted>" in caplog.text
+    assert "Response: <sensitive body omitted>" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        [],
+        {"learner_profile": 123},
+        {"learner_profile": "ok", "unknown": True},
+    ],
+)
+def test_learner_profile_optimize_route_rejects_invalid_shapes(
+    monkeypatch, test_client, payload
+):
+    dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: dummy_user,
+        raising=False,
+    )
+    kwargs = {"headers": {"Token": "token"}}
+    if payload is not None:
+        kwargs["json"] = payload
+    response = test_client.post("/api/user/learner-profile/optimize", **kwargs)
+
+    assert response.get_json(force=True)["code"] != 0

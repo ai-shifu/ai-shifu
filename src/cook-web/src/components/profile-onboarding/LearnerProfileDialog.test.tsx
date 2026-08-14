@@ -6,7 +6,11 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { getLearnerProfile, updateLearnerProfile } from '@/api/learnerProfile';
+import {
+  getLearnerProfile,
+  optimizeLearnerProfile,
+  updateLearnerProfile,
+} from '@/api/learnerProfile';
 import { LEARNER_PROFILE_CHANGED_EVENT } from '@/lib/learnerProfileEvents';
 import LearnerProfileDialog from './LearnerProfileDialog';
 import enProfile from '../../../../i18n/en-US/modules/profile-onboarding.json';
@@ -31,6 +35,8 @@ let mockLanguage = 'en-US';
 
 jest.mock('@/api/learnerProfile', () => ({
   getLearnerProfile: jest.fn(),
+  LEARNER_PROFILE_OPTIMIZATION_REJECTED_CODE: 1022,
+  optimizeLearnerProfile: jest.fn(),
   updateLearnerProfile: jest.fn(),
 }));
 
@@ -49,6 +55,7 @@ jest.mock('react-i18next', () => ({
 }));
 
 const mockGetLearnerProfile = getLearnerProfile as jest.Mock;
+const mockOptimizeLearnerProfile = optimizeLearnerProfile as jest.Mock;
 const mockUpdateLearnerProfile = updateLearnerProfile as jest.Mock;
 
 const existingProfile = {
@@ -88,6 +95,7 @@ describe('LearnerProfileDialog', () => {
     mockT = translateKey;
     mockLanguage = 'en-US';
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
+    mockOptimizeLearnerProfile.mockReset();
   });
 
   test('shows an explicit optional nickname without parsing it from the introduction', async () => {
@@ -226,110 +234,28 @@ describe('LearnerProfileDialog', () => {
     expect(frProfile.dialog.settingsDescription).toContain('suivra ce cadre');
   });
 
-  test('uses the approved relatable cross-course placeholder in every language', () => {
-    const zhPlaceholder = zhProfile.dialog.profilePlaceholder;
-    const enPlaceholder = enProfile.dialog.profilePlaceholder;
-    const frPlaceholder = frProfile.dialog.profilePlaceholder;
-
-    for (const detail of [
-      '住在上海',
-      '大学学工商管理',
-      '普通的办公室工作',
-      '整理资料、写邮件、做表格',
-      '没有技术背景',
-      '下班后的时间也不多',
-      '属于自己的事',
-      '借助 AI 整理想法、补足知识',
-      '城市生活和职场的观察',
-      '文章和小工具',
-      '长期投入的个人事业',
-      '术语和复杂表述',
-      '语言风格亲切直接、口语化、简洁',
-      '不要太正式',
-      '少用不必要的术语',
-    ]) {
-      expect(zhPlaceholder).toContain(detail);
-    }
-    expect(zhPlaceholder).not.toContain('可以叫我');
-    for (const courseSpecificDetail of [
-      'Excel',
-      '数据分析',
-      '月度报告',
-      '销售额',
-      '产品经理',
-      'AI 产品',
-      '分步骤',
-      '讲解结构',
-      '多提问',
-    ]) {
-      expect(zhPlaceholder).not.toContain(courseSpecificDetail);
-    }
-
-    for (const detail of [
-      'live in Shanghai',
-      'studied business administration',
-      'regular office job',
-      'organizing documents, writing emails, and making spreadsheets',
-      'do not have a technical background',
-      'limited time after work',
-      'something of my own',
-      'use AI to organize my ideas and fill gaps in my knowledge',
-      'observations about city life and work',
-      'useful articles and small tools',
-      'personal project I can pursue for years',
-      'terminology and complicated wording',
-      'friendly, direct, conversational, and concise language style',
-      'not too formal',
-      'avoids unnecessary jargon',
-    ]) {
-      expect(enPlaceholder).toContain(detail);
-    }
-    expect(enPlaceholder).not.toContain('call me');
-    for (const courseSpecificDetail of [
-      'Excel',
-      'data analysis',
-      'monthly report',
-      'sales revenue',
-      'AI products',
-      'step by step',
-      'teaching structure',
-      'ask more questions',
-    ]) {
-      expect(enPlaceholder).not.toContain(courseSpecificDetail);
-    }
-
-    for (const detail of [
-      'vis à Shanghai',
-      'étudié la gestion à l’université',
-      'emploi de bureau ordinaire',
-      'classe des documents, écris des e-mails et prépare des tableaux',
-      'pas de formation technique',
-      'peu de temps après le travail',
-      'projet qui m’appartienne',
-      'utiliser l’IA pour organiser mes idées et compléter mes connaissances',
-      'observations sur la vie en ville et le travail',
-      'articles et petits outils utiles',
-      'projet personnel durable',
-      'termes nouveaux et les formulations complexes',
-      'style chaleureux, direct, simple et concis',
-      'sans être trop formel',
-      'jargon inutile',
-    ]) {
-      expect(frPlaceholder).toContain(detail);
-    }
-    expect(frPlaceholder).not.toContain('m’appeler');
-    for (const courseSpecificDetail of [
-      'Excel',
-      'analyse de données',
-      'rapport mensuel',
-      'chiffre d’affaires',
-      'produits IA',
-      'étape par étape',
-      'structure d’enseignement',
-      'poser plus de questions',
-    ]) {
-      expect(frPlaceholder).not.toContain(courseSpecificDetail);
-    }
+  test('uses the approved concise cross-course placeholder in every language', () => {
+    expect(zhProfile.dialog.profilePlaceholder).toBe(
+      '例如：我在上海做办公室工作，大学学的是工商管理。最近想用 AI 把自己的想法做成文章和小工具。希望 AI 老师表达亲切直接、简洁易懂，少用术语。',
+    );
+    expect(enProfile.dialog.profilePlaceholder).toContain(
+      'I work in an office in Shanghai',
+    );
+    expect(enProfile.dialog.profilePlaceholder).toContain(
+      'turn my ideas into articles and small tools',
+    );
+    expect(enProfile.dialog.profilePlaceholder).toContain(
+      'friendly, direct, concise, and easy to understand',
+    );
+    expect(frProfile.dialog.profilePlaceholder).toContain(
+      'Je travaille dans un bureau à Shanghai',
+    );
+    expect(frProfile.dialog.profilePlaceholder).toContain(
+      'transformer mes idées en articles et en petits outils',
+    );
+    expect(frProfile.dialog.profilePlaceholder).toContain(
+      'chaleureuse, directe, concise et facile à comprendre',
+    );
   });
 
   test('keeps a legacy nickname in its field while clearing prefilled profile text', async () => {
@@ -556,8 +482,25 @@ describe('LearnerProfileDialog', () => {
       'sm:max-w-[680px]',
       'sm:rounded-2xl',
     );
-    expect(editor).toHaveClass('min-h-[112px]');
+    expect(editor).toHaveClass(
+      'h-[clamp(7rem,16dvh,11rem)]',
+      'min-h-[clamp(7rem,16dvh,11rem)]',
+      'max-h-[clamp(7rem,16dvh,11rem)]',
+      'overflow-y-auto',
+      'resize-none',
+    );
     expect(editor).toHaveAttribute('rows', '4');
+    expect(editor.style.height).toBe('');
+    expect(editor.style.maxHeight).toBe('');
+    const optimizeButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.optimize',
+    });
+    const optimizationFooter = optimizeButton.closest('.flex.items-start');
+    expect(optimizeButton).toHaveClass('min-h-11', 'sm:min-h-8');
+    expect(optimizationFooter).toHaveTextContent('29 / 1000');
+    expect(optimizationFooter).toHaveTextContent(
+      'module.profileOnboarding.dialog.optimizeHint',
+    );
     expect(heading.parentElement).toHaveClass(
       'w-full',
       'text-left',
@@ -571,7 +514,11 @@ describe('LearnerProfileDialog', () => {
     expect(heading.parentElement?.parentElement).toHaveClass('px-5', 'sm:px-8');
     expect(description).toHaveClass('text-left');
     expect(description).not.toHaveClass('sm:text-center');
-    expect(editor.closest('.overflow-y-auto')).toHaveClass('px-5', 'sm:px-8');
+    expect(editor.parentElement?.parentElement?.parentElement).toHaveClass(
+      'overflow-y-auto',
+      'px-5',
+      'sm:px-8',
+    );
     expect(writingGuide).toHaveClass('sm:py-2.5', 'sm:leading-5');
     expect(dialog.querySelector('svg.lucide-sparkles')).toBeNull();
     expect(mobileHandle).toHaveClass('sm:hidden');
@@ -637,6 +584,339 @@ describe('LearnerProfileDialog', () => {
     expect(screen.getAllByRole('textbox')).toHaveLength(2);
   });
 
+  test('optimizes the current draft in place and lets the user undo it', async () => {
+    mockOptimizeLearnerProfile.mockResolvedValue({
+      optimized_learner_profile: 'A clearer learner introduction',
+    });
+    const onProfileChanged = jest.fn();
+    window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
+    renderDialog();
+    const editor = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.optimizeHint'),
+    ).toHaveAttribute('aria-live', 'polite');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockOptimizeLearnerProfile).toHaveBeenCalledWith(
+        existingProfile.learner_profile,
+      );
+      expect(editor).toHaveValue('A clearer learner introduction');
+    });
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.optimizeSuccess'),
+    ).toBeInTheDocument();
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+
+    const undoButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.undoOptimize',
+    });
+    expect(undoButton).toHaveClass('min-h-11', 'sm:min-h-8');
+    fireEvent.click(undoButton);
+    expect(editor).toHaveValue(existingProfile.learner_profile);
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.dialog.undoOptimize',
+      }),
+    ).not.toBeInTheDocument();
+
+    mockOptimizeLearnerProfile.mockResolvedValue({
+      optimized_learner_profile: 'A clearer learner introduction',
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    );
+    await screen.findByDisplayValue('A clearer learner introduction');
+    fireEvent.change(editor, {
+      target: { value: 'My manually adjusted introduction' },
+    });
+    expect(editor).toHaveValue('My manually adjusted introduction');
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.optimizeHint'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.dialog.undoOptimize',
+      }),
+    ).not.toBeInTheDocument();
+    expect(onProfileChanged).not.toHaveBeenCalled();
+    window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
+  });
+
+  test('locks only profile actions while optimization is pending and prevents duplicates', async () => {
+    let resolveOptimization: (value: {
+      optimized_learner_profile: string;
+    }) => void = () => undefined;
+    mockOptimizeLearnerProfile.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveOptimization = resolve;
+        }),
+    );
+    renderDialog();
+    const editor = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+    const nickname = screen.getByDisplayValue('Alex');
+    const optimize = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.optimize',
+    });
+
+    fireEvent.click(optimize);
+
+    expect(editor).toBeDisabled();
+    expect(nickname).toBeEnabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.chips.identity.label',
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.saveChanges',
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.cancel',
+      }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.close',
+      }),
+    ).toBeEnabled();
+    const pendingOptimize = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.optimizing',
+    });
+    expect(pendingOptimize).toBeDisabled();
+    fireEvent.click(pendingOptimize);
+    expect(mockOptimizeLearnerProfile).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(nickname, { target: { value: 'Riley' } });
+    await act(async () => {
+      resolveOptimization({
+        optimized_learner_profile: 'Optimized while nickname changes',
+      });
+    });
+    expect(editor).toHaveValue('Optimized while nickname changes');
+    expect(nickname).toHaveValue('Riley');
+  });
+
+  test('keeps the draft savable after a technical optimization failure', async () => {
+    mockOptimizeLearnerProfile.mockRejectedValueOnce(
+      Object.assign(new Error('optimization unavailable'), { code: 1021 }),
+    );
+    mockUpdateLearnerProfile.mockResolvedValue({
+      ...existingProfile,
+      learner_profile: 'My new draft',
+    });
+    renderDialog();
+    const editor = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+    fireEvent.change(editor, { target: { value: 'My new draft' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.profileOnboarding.dialog.optimizeFailed'),
+    ).toBeInTheDocument();
+    expect(editor).toHaveValue('My new draft');
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveChanges',
+    });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+
+    await waitFor(() => {
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('My new draft');
+    });
+  });
+
+  test('shows a revise-first message when profile moderation rejects optimization', async () => {
+    mockOptimizeLearnerProfile.mockRejectedValueOnce(
+      Object.assign(new Error('profile rejected'), { code: 1022 }),
+    );
+    renderDialog();
+    const editor = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.dialog.optimizeRejected',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.profileOnboarding.dialog.optimizeFailed'),
+    ).not.toBeInTheDocument();
+    expect(editor).toHaveValue(existingProfile.learner_profile);
+  });
+
+  test('reports when the draft is already clear without changing it', async () => {
+    mockOptimizeLearnerProfile.mockResolvedValue({
+      optimized_learner_profile: `  ${existingProfile.learner_profile}  `,
+    });
+    renderDialog();
+    const editor = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.dialog.optimizeUnchanged',
+      ),
+    ).toBeInTheDocument();
+    expect(editor).toHaveValue(existingProfile.learner_profile);
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.dialog.undoOptimize',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not apply a late optimization result after the account changes', async () => {
+    let resolveOptimization: (value: {
+      optimized_learner_profile: string;
+    }) => void = () => undefined;
+    mockOptimizeLearnerProfile.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveOptimization = resolve;
+        }),
+    );
+    mockGetLearnerProfile
+      .mockResolvedValueOnce(existingProfile)
+      .mockResolvedValueOnce({
+        ...existingProfile,
+        learner_profile: 'User B introduction',
+        nickname: 'Bee',
+      });
+    const onClose = jest.fn();
+    const { rerender } = render(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-a'
+        onClose={onClose}
+      />,
+    );
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    );
+
+    rerender(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-b'
+        onClose={onClose}
+      />,
+    );
+    expect(
+      await screen.findByDisplayValue('User B introduction'),
+    ).toBeEnabled();
+    await act(async () => {
+      resolveOptimization({
+        optimized_learner_profile: 'Late optimized user A introduction',
+      });
+    });
+
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
+    ).toHaveValue('User B introduction');
+    expect(
+      screen.queryByDisplayValue('Late optimized user A introduction'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not apply a late optimization result after the dialog closes', async () => {
+    let resolveOptimization: (value: {
+      optimized_learner_profile: string;
+    }) => void = () => undefined;
+    mockOptimizeLearnerProfile.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveOptimization = resolve;
+        }),
+    );
+    const onClose = jest.fn();
+    const { rerender } = render(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-a'
+        onClose={onClose}
+      />,
+    );
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    );
+
+    rerender(
+      <LearnerProfileDialog
+        open={false}
+        mode='settings'
+        draftStorageScope='user-a'
+        onClose={onClose}
+      />,
+    );
+    await act(async () => {
+      resolveOptimization({
+        optimized_learner_profile: 'Late optimized closed introduction',
+      });
+    });
+    rerender(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-a'
+        onClose={onClose}
+      />,
+    );
+
+    expect(
+      await screen.findByDisplayValue(existingProfile.learner_profile),
+    ).toBeEnabled();
+    expect(
+      screen.queryByDisplayValue('Late optimized closed introduction'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.optimizeHint'),
+    ).toBeInTheDocument();
+  });
+
   test('saves, refreshes consumers, and closes in order', async () => {
     const calls: string[] = [];
     const onClose = jest.fn((reason: 'dismiss' | 'saved') => {
@@ -674,6 +954,7 @@ describe('LearnerProfileDialog', () => {
     expect(onClose).toHaveBeenCalledWith('saved');
     expect(onProfileChanged).toHaveBeenCalledTimes(1);
     expect(mockToast).not.toHaveBeenCalled();
+    expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
     window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 

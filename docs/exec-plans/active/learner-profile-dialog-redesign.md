@@ -6,6 +6,9 @@ Replace the learner-facing full-page personalization settings and legacy
 three-field onboarding experience with one responsive learner-profile dialog.
 Learners stay in the active lesson, write one natural-language introduction,
 and may separately provide a low-emphasis nickname for the AI teacher to use.
+They may optionally ask AI to optimize the introduction's expression before
+saving it. Optimization is an explicit, reversible draft-only action: it never
+persists automatically and never participates in nickname handling.
 The introduction and nickname are independent inputs: the service never parses
 or uses an LLM to extract a nickname from the introduction. The explicit
 nickname is stored directly in `user_users.nickname` in the same transaction as
@@ -35,8 +38,10 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       dialog while retaining the old backend wire contract for compatibility.
 - [x] 2026-08-13: Replace the proposed nickname-recognition design with one
       optional explicit nickname input. Persist it directly to
-      `user_users.nickname`; do not parse or use an LLM on the introduction,
-      and do not change the legacy `sys_user_nickname` mechanism.
+      `user_users.nickname`; never parse or use an LLM to infer a nickname from
+      the introduction, and do not change the legacy `sys_user_nickname`
+      mechanism. The separate optional optimizer may rewrite only the
+      introduction after an explicit learner action.
 - [x] 2026-08-12: Refine the selected visual target from direct user feedback
       so the active dialog exposes no separate clear or overflow control.
 - [x] 2026-08-13: Tighten desktop header/body/footer spacing and the editor
@@ -74,6 +79,12 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       pinned Ruff 0.15.13 and Prettier passed, translation and unused-key checks
       passed, architecture and repository harness checks passed, the migration
       graph remained single-head, and the real desktop browser check passed.
+- [x] 2026-08-14: Make the introduction editor content-independent in height
+      while adapting it to the available viewport, and add an optional,
+      reversible AI optimization action with no learner business-data writes.
+      Verified the 115px desktop editor remains unchanged while its scroll
+      height grows from 113px to 480px, the 390 x 844 mobile editor resolves to
+      135px, and the compact mobile optimizer action retains a 44px target.
 - [ ] 2026-08-13: Rebase onto the latest `origin/main`, repeat the focused
       gates, update the ready PR and deployment notes, and read back CI and
       active review threads.
@@ -111,6 +122,19 @@ canonical empty-profile write through PUT and keeps the independent nickname.
   existing system-message assembly, so the three-block envelope requires no
   provider or library API change. Its tags express composition semantics rather
   than a separate transport-level security boundary.
+- The shared textarea auto-resizes only when `minRows` or `maxRows` is passed.
+  The active dialog can therefore use a viewport-relative CSS height and
+  internal scrolling without changing the legacy settings editor or the shared
+  textarea's default behavior.
+- The shared LLM path records usage and Langfuse observations. Profile
+  optimization must opt into sensitive-content logging so ordinary logs and
+  local usage metadata contain only counts and status, while the existing
+  Langfuse policy retains the complete model input and output.
+- Temporary and registered users can both reach the optimizer, so a disabled
+  frontend button is not cost or capacity admission. The backend must enforce
+  per-user and trusted network-scope request and in-flight limits before
+  moderation and model execution without trusting client-supplied forwarding
+  headers.
 
 ## Decision Log
 
@@ -199,6 +223,38 @@ canonical empty-profile write through PUT and keeps the independent nickname.
   learners still need to know that their context and language preferences do
   not override the human teacher's course design. Save failures, refresh
   delays, and compatibility clear confirmations retain explicit feedback.
+- Decision: make profile optimization an optional button labeled “帮我优化”
+  rather than a mandatory save step or a background rewrite.
+  Rationale: learners retain control over personal facts, LLM latency or
+  failure never blocks saving, and one in-editor result plus a single undo
+  action keeps the desktop and mobile flow compact.
+- Decision: keep optimization draft-only and business-state-free.
+  Rationale: the optimize endpoint may create the existing redacted moderation,
+  usage, and Langfuse observability records, but it must not update the
+  canonical profile, nickname, timestamps, profile-v2 handled state, or client
+  profile-changed events. Only the existing PUT persists a learner-confirmed
+  draft.
+- Decision: keep optimization observable but sensitive.
+  Rationale: the endpoint omits request and response bodies from the ordinary
+  HTTP logger, and the LLM call opts into metadata-only transport and local
+  usage records. Moderation audit, bill-usage token metadata, and Langfuse
+  traces remain the allowed observability writes; Langfuse intentionally keeps
+  the full model input and output. Failed child generations and their root
+  trace are finalized instead of being left open.
+- Decision: bound optimizer cost and concurrency on the server.
+  Rationale: temporary and registered users can both reach the endpoint.
+  Per-user and trusted network-scope rate limits plus in-flight caps run before
+  moderation and LLM work; frontend state is only a usability guard, not an
+  admission boundary. Only a direct peer listed in
+  `TRUSTED_REVERSE_PROXY_ADDRESSES` may supply the proxy-overwritten
+  `X-Real-IP`; client-controlled `X-Forwarded-For` is ignored, and IPv6 scopes
+  are grouped by `/64`. Configured Redis fails closed, while an environment
+  with no Redis uses a process-local fallback intended for local development.
+- Decision: make the editor height stable for a given viewport, not a single
+  fixed pixel value.
+  Rationale: `clamp(7rem, 16dvh, 11rem)` uses more room when available while
+  preventing entered content from shifting the dialog; overflow stays inside
+  the editor.
 
 ## Outcomes & Retrospective
 
@@ -220,6 +276,19 @@ harness, migration-graph, and desktop-browser checks all passed. The final
 post-rebase repetition and PR/CI readback remain before this plan can move to
 the completed archive; counts from the superseded inferred-nickname design are
 not treated as evidence for this contract.
+
+The optional optimizer is implemented without a schema change or learner
+business-state mutation. Its final focused gates passed with 112 backend tests
+and 1 skip, 166 related Learner Profile/Teaching/Ask tests and 4 skips, and 60
+frontend tests plus 17 onboarding-gate tests. TypeScript, focused ESLint,
+repository-pinned Ruff,
+Prettier, translation and unused-key checks, architecture boundaries,
+repository harness, developer-tool checks, and `git diff --check` also passed.
+Browser QA at 1280 x 720, 1487 x 1058, and 390 x 844 confirmed stable editor
+height, internal scrolling, the compact failure fallback, close/discard, a
+visible sticky footer, and a 44px mobile optimizer target. The shared
+development backend did not yet expose the new endpoint, so browser success
+and undo remain covered by focused component tests until deployment.
 
 ## Context and Orientation
 
@@ -263,6 +332,9 @@ legacy onboarding service remains in
    and for the unchanged legacy nickname paths.
 7. Capture desktop and mobile implementations, compare them with the selected
    mock, fix P0-P2 differences, and record `design-qa.md` with a passing result.
+8. Add a draft-only learner-profile optimizer that returns a suggestion into
+   the same editor, supports one-step undo, and leaves direct save available
+   when optimization is skipped or fails.
 
 ## Concrete Steps
 
@@ -273,6 +345,29 @@ legacy onboarding service remains in
 - Keep the dialog header/footer visible and the body scrollable; use a centered
   approximately 720-pixel desktop surface and a near-full-height mobile sheet
   with at least 44-pixel actions.
+- Give the active introduction editor a content-independent
+  `clamp(7rem, 16dvh, 11rem)` height, disable manual resize, and keep overflow
+  keyboard-, pointer-, and touch-scrollable inside the field. Do not change the
+  legacy settings editor's auto-resize behavior.
+- Place “帮我优化” and the character count on one compact row. Replace the
+  current draft in the same editor only after a successful, current-account
+  response; keep one in-memory undo value, never auto-save, and keep close and
+  cancel available while optimization is pending.
+- Call the shared LLM path with `DEFAULT_LLM_MODEL`, JSON response mode,
+  temperature `0.1`, a 15-second provider timeout, and at most 1200 output
+  tokens. Accept only an exact one-key JSON object containing a non-empty
+  optimized string no longer than 1000 characters.
+- Distinguish an explicit moderation rejection from a technical optimization
+  failure. Rejection asks the learner to revise before retrying; provider,
+  timeout, malformed-response, unsupported-old-backend, or other technical
+  failures preserve the current draft and ordinary save path.
+- Omit optimizer request/response bodies and sensitive LLM input/output from
+  ordinary logs and local usage `extra`, while retaining length, status, model,
+  token metadata, and the established full-content Langfuse trace. Close child
+  generation observations on both success and failure.
+- Apply server-side per-user and trusted network-scope rate and in-flight
+  admission before moderation and LLM execution. Client-supplied forwarding
+  headers cannot select a new quota bucket.
 - Provide three optional writing-prompt buttons that only focus/seed the same
   textarea. The complete placeholder must cover durable background, existing
   experience, current cross-topic concerns, practical constraints, ambitions,
@@ -322,6 +417,19 @@ legacy onboarding service remains in
 - Direct menu editing and first-time presentation share account-switch and
   late-response guards. Load failure is recoverable and never blocks the
   lesson.
+- Optimization accepts only a non-empty in-limit draft, does not touch the
+  nickname, and never emits a profile-changed event. Success remains editable
+  and requires the ordinary save button; failure or an old-backend 404 leaves
+  the original draft and save action available. Late responses after close,
+  unmount, or account change are ignored.
+- Error `1022` represents an explicit moderation rejection and asks the learner
+  to revise. Error `1021` represents provider, timeout, malformed-response, or
+  other optimization failure and preserves direct save. Admission rejection
+  is distinct and never enters moderation or the LLM.
+- The optimization provider receives JSON-wrapped untrusted input and returns
+  one bounded JSON string. It may reorganize only stated background, goals,
+  constraints, interests, and language-style preferences; it must not infer
+  facts, issue advice, or weaken the existing runtime learner-data boundary.
 - Focused pytest/Jest pass, followed by Ruff, type-check, ESLint, translation,
   architecture, repository harness, developer-tool, lefthook, and design-QA
   gates.
@@ -346,6 +454,14 @@ hunk; never reset the entire worktree or touch another worktree.
   clears it; `learner_profile` may be empty. DELETE remains a compatibility
   interface that clears only the profile and preserves nickname. The old
   `sys_user_nickname` VariableValue API and runtime contract are unchanged.
+- Backend addition: authenticated
+  `POST /api/user/learner-profile/optimize` accepts only
+  `{ "learner_profile": string }` and returns only
+  `{ "optimized_learner_profile": string }` inside the shared response
+  envelope. It performs no learner business-state writes and has no schema
+  dependency. It uses `DEFAULT_LLM_MODEL` with bounded JSON generation,
+  distinct rejection/technical/admission errors, sensitive-content logging,
+  and server-side request/in-flight admission.
 - Frontend: shared `LearnerProfileDialog`, modern learner-profile API,
   `useUserStore.refreshUserInfo`, `learner-profile-changed`, account menu and
   course onboarding gate. The dialog uses PUT for empty-profile saves and sends

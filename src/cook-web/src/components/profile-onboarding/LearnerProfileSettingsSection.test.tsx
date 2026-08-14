@@ -129,6 +129,8 @@ describe('LearnerProfileSettingsSection', () => {
     render(<LearnerProfileSettingsSection />);
 
     const editor = await screen.findByDisplayValue('现有学习画像');
+    expect(editor).toHaveAttribute('rows', '8');
+    expect(editor).not.toHaveClass('h-[clamp(7rem,16dvh,11rem)]');
     fireEvent.change(editor, { target: { value: '更新后的学习画像' } });
     fireEvent.click(
       screen.getByRole('button', {

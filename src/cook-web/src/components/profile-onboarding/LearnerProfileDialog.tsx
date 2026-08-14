@@ -3,7 +3,12 @@
 import React from 'react';
 import { BriefcaseBusiness, Info, Target, UserRound, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { getLearnerProfile, updateLearnerProfile } from '@/api/learnerProfile';
+import {
+  getLearnerProfile,
+  LEARNER_PROFILE_OPTIMIZATION_REJECTED_CODE,
+  optimizeLearnerProfile,
+  updateLearnerProfile,
+} from '@/api/learnerProfile';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +57,13 @@ type LearnerProfileDialogProps = {
   onSaved?: () => void | Promise<void>;
 };
 
+type OptimizationStatus =
+  | 'idle'
+  | 'success'
+  | 'unchanged'
+  | 'rejected'
+  | 'error';
+
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
 
@@ -83,6 +95,12 @@ export default function LearnerProfileDialog({
   const [saving, setSaving] = React.useState(false);
   const [dismissing, setDismissing] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [optimizing, setOptimizing] = React.useState(false);
+  const [optimizationStatus, setOptimizationStatus] =
+    React.useState<OptimizationStatus>('idle');
+  const [optimizationOriginal, setOptimizationOriginal] = React.useState<
+    string | null
+  >(null);
   const [discardOpen, setDiscardOpen] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const translationRef = React.useRef(t);
@@ -91,6 +109,7 @@ export default function LearnerProfileDialog({
   const scopeRef = React.useRef(draftStorageScope);
   const generationRef = React.useRef(0);
   const loadRequestRef = React.useRef(0);
+  const optimizeRequestRef = React.useRef(0);
 
   openRef.current = open;
   scopeRef.current = draftStorageScope;
@@ -104,6 +123,11 @@ export default function LearnerProfileDialog({
       scopeRef.current === scope,
     [],
   );
+
+  const resetOptimization = React.useCallback(() => {
+    setOptimizationStatus('idle');
+    setOptimizationOriginal(null);
+  }, []);
 
   const loadProfile = React.useCallback(
     async (generation: number, scope: string) => {
@@ -135,6 +159,7 @@ export default function LearnerProfileDialog({
         setNicknameMaxLength(
           response.nickname_max_length || DEFAULT_NICKNAME_MAX_LENGTH,
         );
+        resetOptimization();
         setLoaded(true);
       } catch (caughtError) {
         if (
@@ -159,7 +184,7 @@ export default function LearnerProfileDialog({
         }
       }
     },
-    [isCurrent],
+    [isCurrent, resetOptimization],
   );
 
   React.useEffect(() => {
@@ -168,14 +193,18 @@ export default function LearnerProfileDialog({
       mountedRef.current = false;
       generationRef.current += 1;
       loadRequestRef.current += 1;
+      optimizeRequestRef.current += 1;
     };
   }, []);
 
   React.useEffect(() => {
     const generation = ++generationRef.current;
     loadRequestRef.current += 1;
+    optimizeRequestRef.current += 1;
     setDiscardOpen(false);
     setError('');
+    setOptimizing(false);
+    resetOptimization();
 
     if (!open) {
       return;
@@ -201,8 +230,9 @@ export default function LearnerProfileDialog({
         generationRef.current += 1;
       }
       loadRequestRef.current += 1;
+      optimizeRequestRef.current += 1;
     };
-  }, [draftStorageScope, loadProfile, open]);
+  }, [draftStorageScope, loadProfile, open, resetOptimization]);
 
   const runOnSaved = React.useCallback(
     async (generation: number, scope: string) => {
@@ -218,7 +248,7 @@ export default function LearnerProfileDialog({
   );
 
   const saveProfile = React.useCallback(async () => {
-    if (!loaded || saving) {
+    if (!loaded || saving || optimizing) {
       return;
     }
 
@@ -270,6 +300,7 @@ export default function LearnerProfileDialog({
           : responseNickname.source,
       );
       setNicknameMaxLength(response.nickname_max_length || nicknameMaxLength);
+      resetOptimization();
       notifyLearnerProfileChanged();
       await runOnSaved(generation, scope);
       if (isCurrent(generation, scope)) {
@@ -299,7 +330,9 @@ export default function LearnerProfileDialog({
     nicknameMaxLength,
     nicknameSource,
     onClose,
+    optimizing,
     profile,
+    resetOptimization,
     runOnSaved,
     savedNickname,
     saving,
@@ -327,6 +360,7 @@ export default function LearnerProfileDialog({
   const canSave =
     loaded &&
     !busy &&
+    !optimizing &&
     profileLength <= maxLength &&
     (!nicknameWillBeSaved || nicknameLength <= nicknameMaxLength) &&
     (dirty ||
@@ -340,6 +374,8 @@ export default function LearnerProfileDialog({
     }
     const generation = generationRef.current;
     const scope = draftStorageScope;
+    optimizeRequestRef.current += 1;
+    setOptimizing(false);
     setDismissing(true);
     setError('');
     try {
@@ -379,11 +415,95 @@ export default function LearnerProfileDialog({
       setProfile(current =>
         current.trim() ? `${current.trimEnd()}\n${insertion}` : insertion,
       );
+      resetOptimization();
       setError('');
       textareaRef.current?.focus();
     },
-    [t],
+    [resetOptimization, t],
   );
+
+  const optimizeProfile = React.useCallback(async () => {
+    const normalized = profile.trim();
+    if (
+      !loaded ||
+      busy ||
+      optimizing ||
+      !normalized ||
+      countUnicodeCodePoints(normalized) > maxLength
+    ) {
+      return;
+    }
+
+    const request = ++optimizeRequestRef.current;
+    const generation = generationRef.current;
+    const scope = draftStorageScope;
+    const original = profile;
+    setOptimizing(true);
+    setOptimizationStatus('idle');
+    setOptimizationOriginal(null);
+    setError('');
+
+    try {
+      const response = await optimizeLearnerProfile(normalized);
+      if (
+        !isCurrent(generation, scope) ||
+        request !== optimizeRequestRef.current
+      ) {
+        return;
+      }
+
+      const optimized = response?.optimized_learner_profile?.trim();
+      if (!optimized || countUnicodeCodePoints(optimized) > maxLength) {
+        throw new Error('Invalid learner profile optimization response');
+      }
+
+      if (optimized === normalized) {
+        setOptimizationStatus('unchanged');
+        return;
+      }
+
+      setProfile(optimized);
+      setOptimizationOriginal(original);
+      setOptimizationStatus('success');
+    } catch (caughtError) {
+      if (
+        isCurrent(generation, scope) &&
+        request === optimizeRequestRef.current
+      ) {
+        const code = (caughtError as { code?: number } | null)?.code;
+        setOptimizationStatus(
+          code === LEARNER_PROFILE_OPTIMIZATION_REJECTED_CODE
+            ? 'rejected'
+            : 'error',
+        );
+      }
+    } finally {
+      if (
+        isCurrent(generation, scope) &&
+        request === optimizeRequestRef.current
+      ) {
+        setOptimizing(false);
+      }
+    }
+  }, [
+    busy,
+    draftStorageScope,
+    isCurrent,
+    loaded,
+    maxLength,
+    optimizing,
+    profile,
+  ]);
+
+  const undoOptimization = React.useCallback(() => {
+    if (optimizationOriginal === null) {
+      return;
+    }
+    setProfile(optimizationOriginal);
+    resetOptimization();
+    setError('');
+    textareaRef.current?.focus();
+  }, [optimizationOriginal, resetOptimization]);
 
   const retryLoad = React.useCallback(() => {
     const generation = generationRef.current;
@@ -482,7 +602,7 @@ export default function LearnerProfileDialog({
                     type='button'
                     variant='outline'
                     className='h-auto min-h-11 rounded-full border-primary/10 bg-primary/[0.06] px-4 py-2 text-left text-primary whitespace-normal hover:bg-primary/10 hover:text-primary sm:min-h-10 sm:py-1.5'
-                    disabled={!loaded || busy}
+                    disabled={!loaded || busy || optimizing}
                     onClick={() => insertPrompt(key)}
                   >
                     <Icon aria-hidden='true' />
@@ -494,18 +614,73 @@ export default function LearnerProfileDialog({
               <ProfileDraftEditor
                 inputId='learner-profile-dialog-draft'
                 textareaRef={textareaRef}
-                textareaClassName='min-h-[112px] resize-none rounded-xl border-border px-4 py-3 leading-6 shadow-none focus-visible:ring-primary/30'
+                textareaClassName='h-[clamp(7rem,16dvh,11rem)] min-h-[clamp(7rem,16dvh,11rem)] max-h-[clamp(7rem,16dvh,11rem)] resize-none overflow-y-auto rounded-xl border-border px-4 py-3 leading-6 shadow-none focus-visible:ring-primary/30'
                 minRows={4}
-                maxRows={8}
+                autoResize={false}
                 value={profile}
                 maxLength={maxLength}
-                disabled={!loaded || busy}
+                disabled={!loaded || busy || optimizing}
                 label={t('module.profileOnboarding.dialog.profileLabel')}
                 placeholder={t(
                   'module.profileOnboarding.dialog.profilePlaceholder',
                 )}
+                descriptionId='learner-profile-optimization-status'
+                footerStart={
+                  <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+                    <Button
+                      type='button'
+                      size='sm'
+                      variant='outline'
+                      className='min-h-11 shrink-0 px-3 text-xs sm:min-h-8'
+                      disabled={
+                        !loaded ||
+                        busy ||
+                        optimizing ||
+                        !normalizedProfile ||
+                        profileLength > maxLength
+                      }
+                      onClick={() => {
+                        void optimizeProfile();
+                      }}
+                    >
+                      {optimizing
+                        ? t('module.profileOnboarding.dialog.optimizing')
+                        : t('module.profileOnboarding.dialog.optimize')}
+                    </Button>
+                    <span
+                      id='learner-profile-optimization-status'
+                      className='min-w-0 text-xs leading-5 text-muted-foreground'
+                      aria-live='polite'
+                    >
+                      {t(
+                        optimizationStatus === 'success'
+                          ? 'module.profileOnboarding.dialog.optimizeSuccess'
+                          : optimizationStatus === 'unchanged'
+                            ? 'module.profileOnboarding.dialog.optimizeUnchanged'
+                            : optimizationStatus === 'rejected'
+                              ? 'module.profileOnboarding.dialog.optimizeRejected'
+                              : optimizationStatus === 'error'
+                                ? 'module.profileOnboarding.dialog.optimizeFailed'
+                                : 'module.profileOnboarding.dialog.optimizeHint',
+                      )}
+                    </span>
+                    {optimizationStatus === 'success' &&
+                    optimizationOriginal !== null ? (
+                      <Button
+                        type='button'
+                        size='sm'
+                        variant='link'
+                        className='h-auto min-h-11 shrink-0 px-1 py-2 text-xs sm:min-h-8 sm:py-0'
+                        onClick={undoOptimization}
+                      >
+                        {t('module.profileOnboarding.dialog.undoOptimize')}
+                      </Button>
+                    ) : null}
+                  </div>
+                }
                 onChange={value => {
                   setProfile(value);
+                  resetOptimization();
                   setError('');
                 }}
               />

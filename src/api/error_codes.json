@@ -15,6 +15,9 @@
   "server.user.passwordTooShort": 1018,
   "server.user.passwordNeedsLetter": 1019,
   "server.user.passwordNeedsDigit": 1020,
+  "server.profile.learnerProfileOptimizationFailed": 1021,
+  "server.profile.learnerProfileOptimizationRejected": 1022,
+  "server.profile.learnerProfileOptimizationRateLimited": 1023,
 
   "server.common.unknownError": 9999,
   "server.common.paramsError": 2001,
