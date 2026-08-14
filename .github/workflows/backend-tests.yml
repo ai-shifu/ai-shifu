@@ -147,6 +147,7 @@ jobs:
               print(f"Selected targets: {targets_list}")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
               env_file.write(f"SKIP_BACKEND_TESTS={'1' if skip_run else '0'}\n")
+              env_file.write(f"FORCE_FULL_TESTS={'1' if full_run else '0'}\n")
               env_file.write(f"TEST_TARGETS={targets_list}\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
               summary.write("### Backend test targets (PR)\n")
@@ -155,6 +156,11 @@ jobs:
                   summary.write("- Reason: control-plane or tooling-only backend changes.\n")
               else:
                   summary.write(f"- Targets: `{targets_list}`\n")
+                  if full_run:
+                      summary.write(
+                          "- Mode: full run without testmon deselection "
+                          "(changed files invalidate the whole suite).\n"
+                      )
           PY
 
       - name: Skip backend tests (PR control-plane only)
@@ -163,10 +169,19 @@ jobs:
           echo "Skipping backend tests because the PR only changed backend control-plane or tooling files."
 
       - name: Run tests (PR incremental)
-        if: github.event_name == 'pull_request' && env.SKIP_BACKEND_TESTS != '1'
+        if: github.event_name == 'pull_request' && env.SKIP_BACKEND_TESTS != '1' && env.FORCE_FULL_TESTS != '1'
         working-directory: src/api
         run: |
           python -m pytest --testmon $TEST_TARGETS
+
+      # Full runs must bypass testmon selection: a newly added file (e.g. a
+      # migration) is not in any recorded test fingerprint, so --testmon would
+      # deselect the tests that should exercise it.
+      - name: Run tests (PR full, no testmon deselect)
+        if: github.event_name == 'pull_request' && env.SKIP_BACKEND_TESTS != '1' && env.FORCE_FULL_TESTS == '1'
+        working-directory: src/api
+        run: |
+          python -m pytest --testmon-noselect $TEST_TARGETS
 
       - name: Run tests with coverage (main/full)
         if: github.event_name != 'pull_request'
