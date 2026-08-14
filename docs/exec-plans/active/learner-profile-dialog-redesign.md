@@ -98,6 +98,11 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       inference of personal facts or control over course content, pedagogy,
       sequence, interactions, or format. Every generated label, expansion, and
       instruction uses the input's language.
+- [x] 2026-08-14: Replace the optimizer's long rule manual with a compact
+      transformation contract after a real learner paragraph was returned
+      nearly unchanged. The new contract always rewrites prose into short,
+      labeled, standalone lines, forbids unchanged paragraph output, and keeps
+      only the minimum safety, course-ownership, language, and JSON boundaries.
 - [ ] 2026-08-13: Rebase onto the latest `origin/main`, repeat the focused
       gates, update the ready PR and deployment notes, and read back CI and
       active review threads.
@@ -249,6 +254,13 @@ canonical empty-profile write through PUT and keeps the independent nickname.
   experience, current concerns, goals, difficulties, and constraints easy to
   consume while leaving subject matter, pedagogy, sequence, interactions, and
   output format to the human teacher's Course Prompt and the current task.
+- Decision: express the optimizer contract as one mandatory transformation,
+  not a catalog of downstream mechanisms and overlapping exceptions.
+  Rationale: the longer prompt made copying an already-readable paragraph the
+  model's safest response. The compact contract now requires one localized
+  category per standalone line and explicitly disallows returning the source
+  paragraph unchanged, while the runtime composition prompt continues to own
+  the detailed Course Prompt and learner-data relationship.
 - Decision: keep optimization draft-only and business-state-free.
   Rationale: the optimize endpoint may create the existing redacted moderation,
   usage, and Langfuse observability records, but it must not update the
