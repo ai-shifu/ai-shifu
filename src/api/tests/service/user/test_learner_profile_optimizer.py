@@ -89,7 +89,7 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
     source = "我希望你使用周星驰的喜剧风格来给我讲课。"
     optimized = (
         "请用无厘头、反差强烈、节奏明快的喜剧方式讲课：多用夸张比喻、意外转折和"
-        "一本正经的荒诞表达，让知识点既好懂又好记；但不要直接模仿周星驰本人或复刻其经典台词。"
+        "一本正经的荒诞表达，让知识点既好懂又好记。"
     )
     captured: dict = {}
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
@@ -134,11 +134,17 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
         "When a language-style preference names a recognizable person"
         in captured["kwargs"]["system"]
     )
+    assert "Except for the required JSON key" in captured["kwargs"]["system"]
+    assert "every human-readable element" in captured["kwargs"]["system"]
+    assert "only in that language" in captured["kwargs"]["system"]
+    assert "Example:" not in captured["kwargs"]["system"]
+    assert '{"optimized_learner_profile"' not in captured["kwargs"]["system"]
+    assert source not in captured["kwargs"]["system"]
+    assert optimized not in captured["kwargs"]["system"]
     assert (
-        'optimized_learner_profile: "请用无厘头、反差强烈、节奏明快的喜剧方式讲课：'
-        in captured["kwargs"]["system"]
+        "Explicitly prohibit copying signature lines, catchphrases, or recognizable passages"
+        not in captured["kwargs"]["system"]
     )
-    assert "不要直接模仿周星驰本人或复刻其经典台词" in captured["kwargs"]["system"]
     assert "Preserve named references as written" not in captured["kwargs"]["system"]
     assert (
         "infer extra qualities from the reference" not in captured["kwargs"]["system"]
