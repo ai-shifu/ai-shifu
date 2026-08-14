@@ -42,7 +42,7 @@ tools that must already be on `PATH`. One-time setup:
 
 ```bash
 brew install lefthook
-pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0
+pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
 (cd src/cook-web && npm ci)   # provides prettier + eslint
 lefthook install
 ```
