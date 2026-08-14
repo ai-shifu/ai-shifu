@@ -87,18 +87,18 @@ def _install_openai_responses_stub() -> None:
 _install_litellm_stub()
 _install_openai_responses_stub()
 
-from flaskr.api import llm
-from flaskr.dao import db
-from flaskr.service.billing.consts import (
+from flaskr.api import llm  # noqa: E402
+from flaskr.dao import db  # noqa: E402
+from flaskr.service.billing.consts import (  # noqa: E402
     BILLING_METRIC_LLM_CACHE_TOKENS,
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     CREDIT_ROUNDING_MODE_CEIL,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
-from flaskr.service.billing.models import CreditUsageRate
-from flaskr.service.common import credit_rate_references
-from flaskr.service.metering.consts import (
+from flaskr.service.billing.models import CreditUsageRate  # noqa: E402
+from flaskr.service.common import credit_rate_references  # noqa: E402
+from flaskr.service.metering.consts import (  # noqa: E402
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
