@@ -125,6 +125,12 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
         "Do not extract, invent, or otherwise process a nickname"
         in captured["kwargs"]["system"]
     )
+    assert "Rewrite rather than merely proofread" in captured["kwargs"]["system"]
+    assert "Preferred language style" in captured["kwargs"]["system"]
+    assert (
+        'optimized_learner_profile: "我喜欢的语言风格：轻松幽默。"'
+        in captured["kwargs"]["system"]
+    )
     assert source in captured["trace_create"]["trace_payload"]["input"].values()
     assert optimized in captured["trace_finalize"]["trace_payload"]["output"].values()
 

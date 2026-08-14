@@ -85,6 +85,11 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       Verified the 115px desktop editor remains unchanged while its scroll
       height grows from 113px to 480px, the 390 x 844 mobile editor resolves to
       135px, and the compact mobile optimizer action retains a 44px target.
+- [x] 2026-08-14: Make optimization a profile-normalization task instead of
+      generic proofreading. Free-form requests are rewritten into concise,
+      labeled first-person facts and preferences so downstream AI teachers can
+      apply them directly; named references are preserved without adding or
+      inferring traits.
 - [ ] 2026-08-13: Rebase onto the latest `origin/main`, repeat the focused
       gates, update the ready PR and deployment notes, and read back CI and
       active review threads.
