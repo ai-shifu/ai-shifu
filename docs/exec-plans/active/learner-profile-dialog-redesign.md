@@ -130,6 +130,13 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       profiles stay on the complete-profile contract. The focused prompt
       produces one bounded labeled line and forbids commentary about absent
       profile fields.
+- [x] 2026-08-14: Make supported detail, not surface rewriting, the primary
+      optimizer objective. The compact contract now expands each explicit
+      signal with its stated context, boundaries, and directly supported
+      implications so the downstream learner-data contract can apply it more
+      consistently. It also prevents inferred language ability, preferred
+      examples, learning methods, course content, or teaching formats, and
+      keeps background facts from becoming newly invented course requests.
 - [x] 2026-08-14: Replace the optimizer's long rule manual with a compact
       transformation contract after a real learner paragraph was returned
       nearly unchanged. The new contract always rewrites prose into short,
