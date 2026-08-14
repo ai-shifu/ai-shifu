@@ -1,7 +1,15 @@
 'use client';
 
 import React from 'react';
-import { BriefcaseBusiness, Info, Target, UserRound, X } from 'lucide-react';
+import {
+  BriefcaseBusiness,
+  Info,
+  Loader2,
+  Sparkles,
+  Target,
+  UserRound,
+  X,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   getLearnerProfile,
@@ -518,6 +526,23 @@ export default function LearnerProfileDialog({
     mode === 'onboarding'
       ? t('module.profileOnboarding.dialog.saveAndContinue')
       : t('module.profileOnboarding.dialog.saveChanges');
+  const optimizeDisabled =
+    !loaded ||
+    busy ||
+    optimizing ||
+    !normalizedProfile ||
+    profileLength > maxLength;
+  const optimizationDescriptionKey = !normalizedProfile
+    ? 'module.profileOnboarding.dialog.optimizeEmptyHint'
+    : optimizationStatus === 'unchanged'
+      ? 'module.profileOnboarding.dialog.optimizeUnchanged'
+      : optimizationStatus === 'rejected'
+        ? 'module.profileOnboarding.dialog.optimizeRejected'
+        : optimizationStatus === 'error'
+          ? 'module.profileOnboarding.dialog.optimizeFailed'
+          : 'module.profileOnboarding.dialog.optimizeHint';
+  const showOptimizationSuccess =
+    optimizationStatus === 'success' && optimizationOriginal !== null;
 
   return (
     <>
@@ -575,7 +600,7 @@ export default function LearnerProfileDialog({
               <div className='space-y-1.5 sm:grid sm:grid-cols-[minmax(0,180px)_1fr] sm:items-center sm:gap-3 sm:space-y-0'>
                 <label
                   htmlFor='learner-profile-dialog-nickname'
-                  className='text-sm font-medium text-foreground/80'
+                  className='text-sm font-semibold text-foreground'
                 >
                   {t('module.profileOnboarding.dialog.nicknameLabel')}
                 </label>
@@ -595,95 +620,128 @@ export default function LearnerProfileDialog({
                 />
               </div>
 
-              <div className='flex flex-wrap justify-center gap-2 sm:gap-3'>
-                {PROFILE_PROMPTS.map(({ key, Icon }) => (
-                  <Button
-                    key={key}
-                    type='button'
-                    variant='outline'
-                    className='h-auto min-h-11 rounded-full border-primary/10 bg-primary/[0.06] px-4 py-2 text-left text-primary whitespace-normal hover:bg-primary/10 hover:text-primary sm:min-h-10 sm:py-1.5'
-                    disabled={!loaded || busy || optimizing}
-                    onClick={() => insertPrompt(key)}
+              <section className='space-y-3'>
+                <div className='space-y-1'>
+                  <label
+                    htmlFor='learner-profile-dialog-draft'
+                    className='text-sm font-medium'
                   >
-                    <Icon aria-hidden='true' />
-                    {t(`module.profileOnboarding.dialog.chips.${key}.label`)}
-                  </Button>
-                ))}
-              </div>
+                    {t('module.profileOnboarding.dialog.profileLabel')}
+                  </label>
+                  <p className='text-xs leading-5 text-muted-foreground'>
+                    {t('module.profileOnboarding.dialog.promptHeading')}
+                  </p>
+                </div>
 
-              <ProfileDraftEditor
-                inputId='learner-profile-dialog-draft'
-                textareaRef={textareaRef}
-                textareaClassName='h-[clamp(7rem,16dvh,11rem)] min-h-[clamp(7rem,16dvh,11rem)] max-h-[clamp(7rem,16dvh,11rem)] resize-none overflow-y-auto rounded-xl border-border px-4 py-3 leading-6 shadow-none focus-visible:ring-primary/30'
-                minRows={4}
-                autoResize={false}
-                value={profile}
-                maxLength={maxLength}
-                disabled={!loaded || busy || optimizing}
-                label={t('module.profileOnboarding.dialog.profileLabel')}
-                placeholder={t(
-                  'module.profileOnboarding.dialog.profilePlaceholder',
-                )}
-                descriptionId='learner-profile-optimization-status'
-                footerStart={
-                  <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+                <div className='grid grid-cols-1 gap-2 sm:grid-cols-3'>
+                  {PROFILE_PROMPTS.map(({ key, Icon }) => (
                     <Button
+                      key={key}
                       type='button'
-                      size='sm'
                       variant='outline'
-                      className='min-h-11 shrink-0 px-3 text-xs sm:min-h-8'
-                      disabled={
-                        !loaded ||
-                        busy ||
-                        optimizing ||
-                        !normalizedProfile ||
-                        profileLength > maxLength
-                      }
-                      onClick={() => {
-                        void optimizeProfile();
-                      }}
+                      data-testid={`learner-profile-guidance-${key}`}
+                      className='h-auto min-h-16 items-start justify-start gap-2 rounded-xl border-primary/15 bg-primary/[0.05] px-3 py-2.5 text-left text-primary whitespace-normal hover:bg-primary/10 hover:text-primary'
+                      disabled={!loaded || busy || optimizing}
+                      onClick={() => insertPrompt(key)}
                     >
-                      {optimizing
-                        ? t('module.profileOnboarding.dialog.optimizing')
-                        : t('module.profileOnboarding.dialog.optimize')}
+                      <Icon
+                        className='mt-0.5 size-4 shrink-0'
+                        aria-hidden='true'
+                      />
+                      <span className='min-w-0'>
+                        <span className='block text-sm font-semibold leading-5'>
+                          {t(
+                            `module.profileOnboarding.dialog.chips.${key}.label`,
+                          )}
+                        </span>
+                        <span className='mt-0.5 block text-xs font-normal leading-4 text-muted-foreground'>
+                          {t(
+                            `module.profileOnboarding.dialog.chips.${key}.hint`,
+                          )}
+                        </span>
+                      </span>
                     </Button>
-                    <span
+                  ))}
+                </div>
+
+                <ProfileDraftEditor
+                  inputId='learner-profile-dialog-draft'
+                  textareaRef={textareaRef}
+                  textareaClassName='h-[clamp(7rem,16dvh,11rem)] min-h-[clamp(7rem,16dvh,11rem)] max-h-[clamp(7rem,16dvh,11rem)] resize-none overflow-y-auto rounded-xl border-border px-4 py-3 leading-6 shadow-none focus-visible:ring-primary/30'
+                  minRows={4}
+                  autoResize={false}
+                  value={profile}
+                  maxLength={maxLength}
+                  disabled={!loaded || busy || optimizing}
+                  label={null}
+                  placeholder={t(
+                    'module.profileOnboarding.dialog.profilePlaceholder',
+                  )}
+                  descriptionId='learner-profile-optimization-status'
+                  onChange={value => {
+                    setProfile(value);
+                    resetOptimization();
+                    setError('');
+                  }}
+                />
+
+                <div
+                  data-testid='learner-profile-optimization-card'
+                  className='w-full'
+                  aria-live='polite'
+                >
+                  <div className='flex h-24 items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 sm:h-20'>
+                    <p
                       id='learner-profile-optimization-status'
-                      className='min-w-0 text-xs leading-5 text-muted-foreground'
-                      aria-live='polite'
+                      className='min-w-0 flex-1 text-sm leading-5 text-foreground/80'
                     >
                       {t(
-                        optimizationStatus === 'success'
+                        showOptimizationSuccess
                           ? 'module.profileOnboarding.dialog.optimizeSuccess'
-                          : optimizationStatus === 'unchanged'
-                            ? 'module.profileOnboarding.dialog.optimizeUnchanged'
-                            : optimizationStatus === 'rejected'
-                              ? 'module.profileOnboarding.dialog.optimizeRejected'
-                              : optimizationStatus === 'error'
-                                ? 'module.profileOnboarding.dialog.optimizeFailed'
-                                : 'module.profileOnboarding.dialog.optimizeHint',
+                          : optimizationDescriptionKey,
                       )}
-                    </span>
-                    {optimizationStatus === 'success' &&
-                    optimizationOriginal !== null ? (
+                    </p>
+                    {showOptimizationSuccess ? (
                       <Button
                         type='button'
                         size='sm'
-                        variant='link'
-                        className='h-auto min-h-11 shrink-0 px-1 py-2 text-xs sm:min-h-8 sm:py-0'
+                        variant='outline'
+                        className='min-h-11 shrink-0 px-4 sm:min-h-10'
                         onClick={undoOptimization}
                       >
                         {t('module.profileOnboarding.dialog.undoOptimize')}
                       </Button>
-                    ) : null}
+                    ) : (
+                      <Button
+                        type='button'
+                        className='min-h-11 shrink-0 px-4 shadow-sm sm:min-h-10'
+                        disabled={optimizeDisabled}
+                        aria-describedby='learner-profile-optimization-status'
+                        onClick={() => {
+                          void optimizeProfile();
+                        }}
+                      >
+                        {optimizing ? (
+                          <Loader2
+                            className='size-4 animate-spin'
+                            aria-hidden='true'
+                          />
+                        ) : (
+                          <Sparkles
+                            className='size-4'
+                            aria-hidden='true'
+                          />
+                        )}
+                        {t(
+                          optimizing
+                            ? 'module.profileOnboarding.dialog.optimizing'
+                            : 'module.profileOnboarding.dialog.optimize',
+                        )}
+                      </Button>
+                    )}
                   </div>
-                }
-                onChange={value => {
-                  setProfile(value);
-                  resetOptimization();
-                  setError('');
-                }}
-              />
+                </div>
+              </section>
 
               {loading ? (
                 <div
@@ -714,29 +772,9 @@ export default function LearnerProfileDialog({
                 </div>
               ) : null}
 
-              <section
-                data-testid='learner-profile-writing-guide'
-                className='rounded-xl bg-primary/[0.07] px-4 py-4 text-sm leading-6 sm:px-5 sm:py-2.5 sm:leading-5'
-              >
-                <h3 className='font-semibold text-primary'>
-                  {t('module.profileOnboarding.dialog.writingGuideTitle')}
-                </h3>
-                <ul className='mt-1.5 list-disc space-y-0.5 pl-5 text-foreground/80'>
-                  <li>
-                    {t('module.profileOnboarding.dialog.writingGuideIdentity')}
-                  </li>
-                  <li>
-                    {t('module.profileOnboarding.dialog.writingGuideGoals')}
-                  </li>
-                  <li>
-                    {t('module.profileOnboarding.dialog.writingGuideTeaching')}
-                  </li>
-                </ul>
-              </section>
-
               <div
                 data-testid='learner-profile-reassurance'
-                className='flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2.5 text-sm leading-5 text-muted-foreground'
+                className='flex items-start gap-2 px-1 text-xs leading-5 text-muted-foreground sm:text-sm'
               >
                 <Info
                   className='mt-0.5 size-4 shrink-0 text-primary'

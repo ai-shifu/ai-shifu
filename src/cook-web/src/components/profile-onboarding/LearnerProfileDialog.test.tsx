@@ -124,110 +124,97 @@ describe('LearnerProfileDialog', () => {
 
     expect(zhProfile.dialog.onboardingTitle).toContain('AI 老师');
     expect(zhProfile.dialog.description).toContain('AI 老师');
-    expect(zhProfile.dialog.description).toContain('喜欢的语言风格');
-    expect(zhProfile.dialog.promptHeading).toBe('可以从这三方面写起');
-    expect(zhProfile.dialog.writingGuideTitle).toBe('可以包括');
-    expect(zhProfile.dialog.chips.identity.label).toBe('我的情况');
-    expect(zhProfile.dialog.chips.goals.label).toBe('我最近在意什么');
+    expect(zhProfile.dialog.description).toContain('表达偏好');
+    expect(zhProfile.dialog.promptHeading).toBe('可以从这些方面开始');
+    expect(zhProfile.dialog.chips.identity.label).toBe('我的背景');
+    expect(zhProfile.dialog.chips.identity.hint).toBe('身份、行业、职业等');
+    expect(zhProfile.dialog.chips.goals.label).toBe('我的近况');
+    expect(zhProfile.dialog.chips.goals.hint).toBe('近期状态、目标和困惑');
     expect(zhProfile.dialog.chips.teaching.label).toBe('我喜欢的语言风格');
-    expect(zhProfile.dialog.chips.teaching.text).toContain('AI 老师');
-    expect(zhProfile.dialog.chips.teaching.text).toContain('语言风格');
-    expect(zhProfile.dialog.writingGuideTeaching).toContain('语言风格');
-    expect(zhProfile.dialog.writingGuideTeaching).toContain('希望避免的表达');
+    expect(zhProfile.dialog.chips.teaching.hint).toBe(
+      '偏好的语气、表达，及禁忌',
+    );
     expect(zhProfile.dialog.settingsTitle).toBe('向 AI 老师介绍你自己');
     expect(zhProfile.dialog.nicknameLabel).toBe('希望 AI 老师怎么称呼你');
-    expect(zhProfile.dialog.chips.identity.text).not.toContain('叫我');
-    expect(zhProfile.dialog.writingGuideIdentity).not.toContain('称呼');
     expect(zhProfile.dialog.profileLabel).toBe('希望 AI 老师长期知道的事');
-    expect(zhProfile.dialog.optimizeHint).toContain('整段介绍');
-    expect(zhProfile.dialog.optimizeHint).toContain('例子、术语、重点和表达');
-    expect(zhProfile.dialog.optimizeHint).toContain('不会新增你没有提供的信息');
-    expect(zhProfile.dialog.optimizeHint).not.toContain('风格或人物');
-    expect(zhProfile.dialog.description).not.toContain('课程');
+    expect(zhProfile.dialog.optimize).toBe('帮我优化');
+    expect(zhProfile.dialog.optimizeEmptyHint).toContain('先写几句');
+    expect(zhProfile.dialog.optimizeHint).toContain('可选');
+    expect(zhProfile.dialog.optimizeHint).toContain('补充有用细节');
+    expect(zhProfile.dialog.optimizeHint).toContain('不改变原意或新增事实');
+    expect(zhProfile.dialog.description).toBe(
+      '写下你的背景、目标和表达偏好，让 AI 老师在课程中更贴近你的情况。',
+    );
+    expect(zhProfile.dialog.reassurance).toContain('真人老师');
+    expect(zhProfile.dialog.reassurance).toContain('以老师设定为准');
     expect(JSON.stringify(zhProfile.dialog)).not.toMatch(
       /节奏|结构|分步骤|多提问/,
     );
 
     expect(enProfile.dialog.description).toContain('AI teacher');
-    expect(enProfile.dialog.description).toContain('language style');
+    expect(enProfile.dialog.description).toContain('language preferences');
     expect(enProfile.dialog.settingsTitle).toBe(
       'Introduce yourself to your AI teacher',
     );
     expect(enProfile.dialog.nicknameLabel).toContain('AI teacher');
     expect(enProfile.dialog.nicknameLabel).toContain('optional');
-    expect(enProfile.dialog.chips.identity.text).not.toContain('call me');
-    expect(enProfile.dialog.writingGuideIdentity).not.toContain('call you');
-    expect(enProfile.dialog.promptHeading).toBe('Start with these three areas');
-    expect(enProfile.dialog.writingGuideTitle).toBe('You can include');
-    expect(enProfile.dialog.chips.identity.label).toBe('About me');
-    expect(enProfile.dialog.chips.goals.label).toBe('What matters to me now');
+    expect(enProfile.dialog.promptHeading).toBe('Start with any of these');
+    expect(enProfile.dialog.chips.identity.label).toBe('My background');
+    expect(enProfile.dialog.chips.identity.hint).toContain('industry');
+    expect(enProfile.dialog.chips.goals.label).toBe('My current situation');
+    expect(enProfile.dialog.chips.goals.hint).toContain('Current situation');
     expect(enProfile.dialog.chips.teaching.label).toBe(
       'My preferred language style',
     );
-    expect(enProfile.dialog.chips.teaching.text).toContain('AI teacher');
-    expect(enProfile.dialog.chips.teaching.text).toContain('language style');
-    expect(enProfile.dialog.writingGuideTeaching).toContain('language style');
-    expect(enProfile.dialog.writingGuideTeaching).toContain(
-      'wording you want to avoid',
-    );
+    expect(enProfile.dialog.chips.teaching.hint).toContain('expression');
     expect(enProfile.dialog.profileLabel).toContain('remember about you');
-    expect(enProfile.dialog.optimizeHint).toContain('whole introduction');
+    expect(enProfile.dialog.optimize).toBe('Improve with AI');
+    expect(enProfile.dialog.optimizeEmptyHint).toContain('Write a few lines');
+    expect(enProfile.dialog.optimizeHint).toContain('useful detail');
     expect(enProfile.dialog.optimizeHint).toContain(
-      'examples, terminology, emphasis, and wording',
+      'without changing your meaning or inventing facts',
     );
-    expect(enProfile.dialog.optimizeHint).toContain(
-      'without adding information you did not provide',
-    );
-    expect(enProfile.dialog.optimizeHint).not.toContain('style or person');
-    expect(enProfile.dialog.description).not.toMatch(/\bcourses?\b/i);
+    expect(enProfile.dialog.description).toContain('background, goals');
+    expect(enProfile.dialog.reassurance).toContain('human teacher');
     expect(JSON.stringify(enProfile.dialog)).not.toMatch(
       /teaching pace|teaching structure|step by step|ask more questions/i,
     );
 
     expect(frProfile.dialog.description).toContain('enseignant IA');
-    expect(frProfile.dialog.description).toContain('style de langage');
+    expect(frProfile.dialog.description).toContain('préférences de langage');
     expect(frProfile.dialog.settingsTitle).toBe(
       'Présentez-vous à votre enseignant IA',
     );
     expect(frProfile.dialog.nicknameLabel).toContain('enseignant IA');
     expect(frProfile.dialog.nicknameLabel).toContain('facultatif');
-    expect(frProfile.dialog.chips.identity.text).not.toContain('appeler');
-    expect(frProfile.dialog.writingGuideIdentity).not.toContain('appeler');
     expect(frProfile.dialog.promptHeading).toBe(
-      'Commencez par ces trois aspects',
+      'Commencez par l’un de ces aspects',
     );
-    expect(frProfile.dialog.writingGuideTitle).toBe('Vous pouvez inclure');
-    expect(frProfile.dialog.chips.identity.label).toBe('Ma situation');
-    expect(frProfile.dialog.chips.goals.label).toBe(
-      'Ce qui compte pour moi aujourd’hui',
-    );
+    expect(frProfile.dialog.chips.identity.label).toBe('Mon parcours');
+    expect(frProfile.dialog.chips.identity.hint).toContain('secteur');
+    expect(frProfile.dialog.chips.goals.label).toBe('Ma situation actuelle');
+    expect(frProfile.dialog.chips.goals.hint).toContain('Situation actuelle');
     expect(frProfile.dialog.chips.teaching.label).toBe(
       'Mon style de langage préféré',
     );
-    expect(frProfile.dialog.chips.teaching.text).toContain('enseignant IA');
-    expect(frProfile.dialog.chips.teaching.text).toContain('style de langage');
-    expect(frProfile.dialog.writingGuideTeaching).toContain('style de langage');
-    expect(frProfile.dialog.writingGuideTeaching).toContain(
-      'formulations à éviter',
-    );
+    expect(frProfile.dialog.chips.teaching.hint).toContain('expression');
     expect(frProfile.dialog.profileLabel).toContain('doit retenir de vous');
-    expect(frProfile.dialog.optimizeHint).toContain('toute votre présentation');
+    expect(frProfile.dialog.optimize).toBe('Améliorer avec l’IA');
+    expect(frProfile.dialog.optimizeEmptyHint).toContain(
+      'Écrivez quelques lignes',
+    );
+    expect(frProfile.dialog.optimizeHint).toContain('détails utiles');
     expect(frProfile.dialog.optimizeHint).toContain(
-      'les exemples, les termes, les points à souligner et les formulations',
+      'sans changer votre intention',
     );
-    expect(frProfile.dialog.optimizeHint).toContain(
-      'sans ajouter d’informations que vous n’avez pas fournies',
-    );
-    expect(frProfile.dialog.optimizeHint).not.toContain(
-      'un style ou une personne',
-    );
-    expect(frProfile.dialog.description).not.toMatch(/\bcours\b/i);
+    expect(frProfile.dialog.description).toContain('vos objectifs');
+    expect(frProfile.dialog.reassurance).toContain('enseignant humain');
     expect(JSON.stringify(frProfile.dialog)).not.toMatch(
       /rythme d’enseignement|structure d’enseignement|étape par étape|poser plus de questions/i,
     );
   });
 
-  test('explains teacher course authority only in settings mode', async () => {
+  test('keeps the header concise and moves teacher course authority to the reassurance', async () => {
     renderDialog();
 
     await screen.findByDisplayValue(existingProfile.learner_profile);
@@ -238,22 +225,23 @@ describe('LearnerProfileDialog', () => {
       screen.queryByText('module.profileOnboarding.dialog.description'),
     ).not.toBeInTheDocument();
 
-    expect(zhProfile.dialog.settingsDescription).toContain(
-      '真人老师为课程做出的设定',
+    expect(zhProfile.dialog.settingsDescription).toBe(
+      zhProfile.dialog.description,
     );
-    expect(zhProfile.dialog.settingsDescription).toContain(
-      '以真人老师的设定为准',
+    expect(zhProfile.dialog.settingsDescription).not.toContain('真人老师');
+    expect(zhProfile.dialog.reassurance).toContain('真人老师');
+    expect(enProfile.dialog.settingsDescription).toBe(
+      enProfile.dialog.description,
     );
-    expect(enProfile.dialog.settingsDescription).toContain(
-      'course design set by the human teacher',
+    expect(enProfile.dialog.settingsDescription).not.toContain('human teacher');
+    expect(enProfile.dialog.reassurance).toContain('human teacher');
+    expect(frProfile.dialog.settingsDescription).toBe(
+      frProfile.dialog.description,
     );
-    expect(enProfile.dialog.settingsDescription).toContain(
-      "follow the human teacher's design",
+    expect(frProfile.dialog.settingsDescription).not.toContain(
+      'enseignant humain',
     );
-    expect(frProfile.dialog.settingsDescription).toContain(
-      'cadre défini pour le cours par l’enseignant humain',
-    );
-    expect(frProfile.dialog.settingsDescription).toContain('suivra ce cadre');
+    expect(frProfile.dialog.reassurance).toContain('enseignant humain');
   });
 
   test('uses the approved concise cross-course placeholder in every language', () => {
@@ -470,7 +458,7 @@ describe('LearnerProfileDialog', () => {
     expect(screen.queryByDisplayValue('旧称呼')).not.toBeInTheDocument();
   });
 
-  test('renders the aligned contextual dialog with option-three guidance and actions', async () => {
+  test('renders the aligned single-flow dialog with a prominent optional optimization action', async () => {
     renderDialog({ mode: 'onboarding' });
 
     await screen.findByDisplayValue(existingProfile.learner_profile);
@@ -478,13 +466,25 @@ describe('LearnerProfileDialog', () => {
     const editor = screen.getByLabelText(
       'module.profileOnboarding.dialog.profileLabel',
     );
+    const nicknameLabel = screen.getByText(
+      'module.profileOnboarding.dialog.nicknameLabel',
+    );
     const heading = screen.getByText(
       'module.profileOnboarding.dialog.onboardingTitle',
     );
     const description = screen.getByText(
       'module.profileOnboarding.dialog.description',
     );
-    const writingGuide = screen.getByTestId('learner-profile-writing-guide');
+    const promptHeading = screen.getByText(
+      'module.profileOnboarding.dialog.promptHeading',
+    );
+    const identityPrompt = screen.getByTestId(
+      'learner-profile-guidance-identity',
+    );
+    const optimizationCard = screen.getByTestId(
+      'learner-profile-optimization-card',
+    );
+    const optimizationPanel = optimizationCard.firstElementChild;
     const reassurance = screen.getByTestId('learner-profile-reassurance');
     const mobileHandle = screen.getByTestId('learner-profile-mobile-handle');
     const later = screen.getByRole('button', {
@@ -494,6 +494,11 @@ describe('LearnerProfileDialog', () => {
       name: 'module.profileOnboarding.dialog.saveAndContinue',
     });
     const footer = later.parentElement;
+    const scrollContainer = Array.from(dialog.querySelectorAll('div')).find(
+      element =>
+        element.className.includes('min-h-0') &&
+        element.className.includes('overflow-y-auto'),
+    );
     const overlay = Array.from(
       document.body.querySelectorAll('[data-state="open"]'),
     ).find(element => element.className.includes('z-[100]'));
@@ -514,15 +519,25 @@ describe('LearnerProfileDialog', () => {
     expect(editor).toHaveAttribute('rows', '4');
     expect(editor.style.height).toBe('');
     expect(editor.style.maxHeight).toBe('');
+    expect(nicknameLabel).toHaveClass('font-semibold', 'text-foreground');
     const optimizeButton = screen.getByRole('button', {
       name: 'module.profileOnboarding.dialog.optimize',
     });
-    const optimizationFooter = optimizeButton.closest('.flex.items-start');
-    expect(optimizeButton).toHaveClass('min-h-11', 'sm:min-h-8');
-    expect(optimizationFooter).toHaveTextContent('29 / 1000');
-    expect(optimizationFooter).toHaveTextContent(
+    expect(optimizeButton).toHaveClass('min-h-11', 'shrink-0', 'shadow-sm');
+    expect(optimizeButton).not.toHaveClass('w-full');
+    expect(optimizationPanel).toHaveClass('h-24', 'sm:h-20');
+    expect(identityPrompt).toHaveClass('min-h-16', 'rounded-xl', 'items-start');
+    expect(identityPrompt).toHaveTextContent(
+      'module.profileOnboarding.dialog.chips.identity.hint',
+    );
+    expect(optimizationCard).not.toHaveTextContent('29 / 1000');
+    expect(screen.getByText('29 / 1000')).toBeInTheDocument();
+    expect(optimizationCard).toHaveTextContent(
       'module.profileOnboarding.dialog.optimizeHint',
     );
+    expect(
+      optimizationCard.querySelectorAll('svg.lucide-sparkles'),
+    ).toHaveLength(1);
     expect(heading.parentElement).toHaveClass(
       'w-full',
       'text-left',
@@ -536,29 +551,28 @@ describe('LearnerProfileDialog', () => {
     expect(heading.parentElement?.parentElement).toHaveClass('px-5', 'sm:px-8');
     expect(description).toHaveClass('text-left');
     expect(description).not.toHaveClass('sm:text-center');
-    expect(editor.parentElement?.parentElement?.parentElement).toHaveClass(
-      'overflow-y-auto',
-      'px-5',
-      'sm:px-8',
-    );
-    expect(writingGuide).toHaveClass('sm:py-2.5', 'sm:leading-5');
-    expect(dialog.querySelector('svg.lucide-sparkles')).toBeNull();
+    expect(scrollContainer).toHaveClass('overflow-y-auto', 'px-5', 'sm:px-8');
+    expect(dialog.querySelector('svg.lucide-sparkles')).not.toBeNull();
     expect(mobileHandle).toHaveClass('sm:hidden');
-    expect(writingGuide).toHaveTextContent(
-      'module.profileOnboarding.dialog.writingGuideTitle',
-    );
-    expect(writingGuide).toHaveTextContent(
-      'module.profileOnboarding.dialog.writingGuideIdentity',
-    );
-    expect(writingGuide).toHaveTextContent(
-      'module.profileOnboarding.dialog.writingGuideGoals',
-    );
-    expect(writingGuide).toHaveTextContent(
-      'module.profileOnboarding.dialog.writingGuideTeaching',
-    );
+    expect(
+      screen.queryByTestId('learner-profile-writing-guide'),
+    ).not.toBeInTheDocument();
+    expect(
+      promptHeading.compareDocumentPosition(identityPrompt) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      identityPrompt.compareDocumentPosition(editor) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      editor.compareDocumentPosition(optimizationCard) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(reassurance).toHaveTextContent(
       'module.profileOnboarding.dialog.reassurance',
     );
+    expect(reassurance).toHaveClass('px-1', 'text-xs', 'sm:text-sm');
     expect(overlay).toHaveClass('!bg-slate-950/45', 'backdrop-blur-[1px]');
     expect(footer).toHaveClass('sticky', 'bottom-0');
     expect(footer).toContainElement(primaryAction);
@@ -576,7 +590,28 @@ describe('LearnerProfileDialog', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('adds all optional prompt chips to and focuses the same textarea', async () => {
+  test('keeps the optimization card visible but disabled until the learner writes a draft', async () => {
+    mockGetLearnerProfile.mockResolvedValue(clearedProfile);
+    renderDialog();
+
+    const editor = await screen.findByLabelText(
+      'module.profileOnboarding.dialog.profileLabel',
+    );
+    const optimize = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.optimize',
+    });
+    expect(optimize).toBeDisabled();
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.optimizeEmptyHint'),
+    ).toBeInTheDocument();
+    fireEvent.change(editor, { target: { value: 'A few details about me' } });
+    expect(optimize).toBeEnabled();
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.optimizeHint'),
+    ).toBeInTheDocument();
+  });
+
+  test('keeps the guidance cards clickable and appends natural profile starters', async () => {
     mockGetLearnerProfile.mockResolvedValue({
       ...existingProfile,
       learner_profile: '',
@@ -587,22 +622,32 @@ describe('LearnerProfileDialog', () => {
       'module.profileOnboarding.dialog.profileLabel',
     );
 
-    for (const prompt of ['identity', 'goals', 'teaching']) {
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: `module.profileOnboarding.dialog.chips.${prompt}.label`,
-        }),
+    const prompts = ['identity', 'goals', 'teaching'] as const;
+    for (const prompt of prompts) {
+      const guidance = screen.getByTestId(`learner-profile-guidance-${prompt}`);
+      expect(guidance.tagName).toBe('BUTTON');
+      expect(guidance).toHaveTextContent(
+        `module.profileOnboarding.dialog.chips.${prompt}.label`,
       );
-      expect(editor).toHaveFocus();
+      expect(guidance).toHaveTextContent(
+        `module.profileOnboarding.dialog.chips.${prompt}.hint`,
+      );
     }
 
+    expect(editor).toHaveValue('');
+    fireEvent.click(screen.getByTestId('learner-profile-guidance-identity'));
     expect(editor).toHaveValue(
-      [
-        'module.profileOnboarding.dialog.chips.identity.text',
-        'module.profileOnboarding.dialog.chips.goals.text',
-        'module.profileOnboarding.dialog.chips.teaching.text',
-      ].join('\n'),
+      'module.profileOnboarding.dialog.chips.identity.text',
     );
+    fireEvent.click(screen.getByTestId('learner-profile-guidance-goals'));
+    expect(editor).toHaveValue(
+      'module.profileOnboarding.dialog.chips.identity.text\nmodule.profileOnboarding.dialog.chips.goals.text',
+    );
+    fireEvent.click(screen.getByTestId('learner-profile-guidance-teaching'));
+    expect(editor).toHaveValue(
+      'module.profileOnboarding.dialog.chips.identity.text\nmodule.profileOnboarding.dialog.chips.goals.text\nmodule.profileOnboarding.dialog.chips.teaching.text',
+    );
+    expect(editor).toHaveFocus();
     expect(screen.getAllByRole('textbox')).toHaveLength(2);
   });
 
@@ -618,8 +663,11 @@ describe('LearnerProfileDialog', () => {
     );
 
     expect(
-      screen.getByText('module.profileOnboarding.dialog.optimizeHint'),
+      screen.getByTestId('learner-profile-optimization-card'),
     ).toHaveAttribute('aria-live', 'polite');
+    expect(
+      screen.getByTestId('learner-profile-optimization-card').firstElementChild,
+    ).toHaveClass('h-24', 'sm:h-20');
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.optimize',
@@ -635,12 +683,15 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.getByText('module.profileOnboarding.dialog.optimizeSuccess'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('learner-profile-optimization-card').firstElementChild,
+    ).toHaveClass('h-24', 'sm:h-20');
     expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
 
     const undoButton = screen.getByRole('button', {
       name: 'module.profileOnboarding.dialog.undoOptimize',
     });
-    expect(undoButton).toHaveClass('min-h-11', 'sm:min-h-8');
+    expect(undoButton).toHaveClass('min-h-11', 'sm:min-h-10');
     fireEvent.click(undoButton);
     expect(editor).toHaveValue(existingProfile.learner_profile);
     expect(
@@ -698,10 +749,8 @@ describe('LearnerProfileDialog', () => {
     expect(editor).toBeDisabled();
     expect(nickname).toBeEnabled();
     expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.chips.identity.label',
-      }),
-    ).toBeDisabled();
+      screen.getByTestId('learner-profile-guidance-identity'),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.saveChanges',

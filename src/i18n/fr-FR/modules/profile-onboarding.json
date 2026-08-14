@@ -30,20 +30,23 @@
     "cancel": "Annuler",
     "chips": {
       "goals": {
-        "label": "Ce qui compte pour moi aujourd’hui",
-        "text": "En ce moment, je veux… À terme, j’espère… Ma principale difficulté est… Dans la pratique, je suis limité par…"
+        "hint": "Situation actuelle, objectifs et questions",
+        "label": "Ma situation actuelle",
+        "text": "En ce moment, je suis… Je souhaite… et ma principale question est…"
       },
       "identity": {
-        "label": "Ma situation",
-        "text": "Je vis à… Je travaille ou j’étudie dans… Je connais bien… mais moins…"
+        "hint": "Identité, secteur, métier et informations associées",
+        "label": "Mon parcours",
+        "text": "Je travaille actuellement dans… en tant que… et j’ai de l’expérience dans…"
       },
       "teaching": {
+        "hint": "Ton et expression préférés, ainsi que les sujets tabous",
         "label": "Mon style de langage préféré",
-        "text": "J’aimerais que le style de langage de mon enseignant IA soit… Je préfère les formulations… et souhaite éviter…"
+        "text": "Je préfère un ton… et une façon de m’exprimer… J’aimerais davantage de… et éviter…"
       }
     },
     "close": "Fermer",
-    "description": "Parlez à votre enseignant IA de votre parcours, de ce qui compte pour vous aujourd’hui et du style de langage que vous préférez. Quel que soit le sujet, il pourra adapter plus naturellement ses formulations et ses interactions à votre situation.",
+    "description": "Présentez votre parcours, vos objectifs et vos préférences de langage afin que votre enseignant IA rapproche davantage le contenu du cours de votre situation.",
     "discard": "Abandonner les modifications",
     "discardDescription": "Tout contenu non enregistré sera perdu.",
     "discardTitle": "Abandonner ces modifications ?",
@@ -60,31 +63,27 @@
     "nicknameLabel": "Comment votre enseignant IA doit-il vous appeler ? (facultatif)",
     "nicknamePlaceholder": "Par exemple : Camille",
     "onboardingTitle": "Aidez votre enseignant IA à mieux vous connaître",
-    "optimize": "M’aider à améliorer",
+    "optimize": "Améliorer avec l’IA",
+    "optimizeEmptyHint": "Écrivez quelques lignes, puis laissez l’IA vous aider à les améliorer.",
     "optimizeFailed": "Impossible d’améliorer ce texte pour le moment. Vous pouvez toujours l’enregistrer tel quel.",
-    "optimizeHint": "Clarifie toute votre présentation afin que votre enseignant IA puisse adapter les exemples, les termes, les points à souligner et les formulations à votre situation, sans ajouter d’informations que vous n’avez pas fournies.",
+    "optimizeHint": "Facultatif : l’IA ajoute des détails utiles et organise la formulation sans changer votre intention ni inventer de faits.",
     "optimizeRejected": "Cette présentation contient des éléments qui ne peuvent pas être enregistrés. Modifiez-la puis réessayez.",
     "optimizeSuccess": "Texte amélioré. Vous pouvez continuer à le modifier.",
     "optimizeUnchanged": "Cette présentation est déjà claire. Vous pouvez l’enregistrer telle quelle.",
     "optimizing": "Amélioration…",
     "profileLabel": "Écrivez ce que votre enseignant IA doit retenir de vous",
     "profilePlaceholder": "Exemple : Je travaille dans un bureau à Shanghai et j’ai étudié la gestion à l’université. J’aimerais maintenant utiliser l’IA pour transformer mes idées en articles et en petits outils. Je préfère que mon enseignant IA s’exprime de façon chaleureuse, directe, concise et facile à comprendre, avec peu de jargon.",
-    "promptDescription": "Choisissez une piste pour ajouter un début ci-dessous, puis continuez à écrire ou remplacez-le par vos propres mots.",
-    "promptHeading": "Commencez par ces trois aspects",
-    "reassurance": "Vous n’avez pas besoin de tout écrire en une fois. Commencez par l’essentiel, puis complétez ou modifiez ces informations à tout moment.",
+    "promptHeading": "Commencez par l’un de ces aspects",
+    "reassurance": "Vous n’avez pas besoin de tout écrire en une fois et pourrez modifier ces informations à tout moment. Si vos préférences vont à l’encontre du cadre du cours défini par l’enseignant humain, ce cadre reste prioritaire.",
     "retry": "Recharger",
     "save": "Enregistrer le profil",
     "saveAndContinue": "Enregistrer et continuer",
     "saveChanges": "Enregistrer les modifications",
     "saveFailed": "Impossible d’enregistrer votre profil. Réessayez.",
     "saving": "Enregistrement…",
-    "settingsDescription": "Ces informations aident votre enseignant IA à adapter la façon dont il s’adresse à vous, ses exemples et ses formulations. Si vos demandes vont à l’encontre du cadre défini pour le cours par l’enseignant humain, le cours suivra ce cadre.",
+    "settingsDescription": "Présentez votre parcours, vos objectifs et vos préférences de langage afin que votre enseignant IA rapproche davantage le contenu du cours de votre situation.",
     "settingsTitle": "Présentez-vous à votre enseignant IA",
-    "undoOptimize": "Annuler",
-    "writingGuideGoals": "Ce qui compte pour vous : objectifs proches, aspirations à long terme, difficultés actuelles et contraintes concrètes",
-    "writingGuideIdentity": "Votre situation : votre ville, votre métier ou domaine d’études et votre expérience",
-    "writingGuideTeaching": "Votre style de langage préféré : par exemple chaleureux et direct, léger, concis et conversationnel, ou professionnel mais facile à comprendre, ainsi que les formulations à éviter",
-    "writingGuideTitle": "Vous pouvez inclure"
+    "undoOptimize": "Annuler"
   },
   "emptyFlow": "Aucune question de profil n’est configurée.",
   "inputPlaceholder": "Saisissez votre réponse",

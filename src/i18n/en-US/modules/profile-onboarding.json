@@ -30,20 +30,23 @@
     "cancel": "Cancel",
     "chips": {
       "goals": {
-        "label": "What matters to me now",
-        "text": "Right now, I want to… Ultimately, I hope to… My biggest challenge is… In practice, I am limited by…"
+        "hint": "Current situation, goals, and questions",
+        "label": "My current situation",
+        "text": "Right now, I am… I want to… and what I am most unsure about is…"
       },
       "identity": {
-        "label": "About me",
-        "text": "I live in… I work or study in… I am familiar with… but know less about…"
+        "hint": "Identity, industry, profession, and related details",
+        "label": "My background",
+        "text": "I currently work in… as a… and have experience with…"
       },
       "teaching": {
+        "hint": "Preferred tone, expression, and taboos",
         "label": "My preferred language style",
-        "text": "I would like my AI teacher's language style to be… Please use more… wording and avoid…"
+        "text": "I prefer a… tone and way of expressing ideas. Please use more… and avoid…"
       }
     },
     "close": "Close",
-    "description": "Tell your AI teacher about your background, what matters to you now, and the language style you prefer. Whatever you learn, it can relate its wording and interactions more naturally to your situation.",
+    "description": "Share your background, goals, and language preferences so your AI teacher can connect course content more closely to your situation.",
     "discard": "Discard changes",
     "discardDescription": "Anything you have not saved will be lost.",
     "discardTitle": "Discard these changes?",
@@ -60,31 +63,27 @@
     "nicknameLabel": "What should your AI teacher call you? (optional)",
     "nicknamePlaceholder": "For example: Alex",
     "onboardingTitle": "Help your AI teacher understand you",
-    "optimize": "Help me improve",
+    "optimize": "Improve with AI",
+    "optimizeEmptyHint": "Write a few lines, then let AI help improve them.",
     "optimizeFailed": "Could not improve this right now. You can still save it as written.",
-    "optimizeHint": "Clarifies your whole introduction so your AI teacher can adapt examples, terminology, emphasis, and wording to your situation without adding information you did not provide.",
+    "optimizeHint": "Optional: AI adds useful detail and organizes the wording without changing your meaning or inventing facts.",
     "optimizeRejected": "This introduction contains content that cannot be saved. Revise it and try again.",
     "optimizeSuccess": "Improved. You can keep editing.",
     "optimizeUnchanged": "This introduction is already clear. You can save it as written.",
     "optimizing": "Improving…",
     "profileLabel": "Write what you want your AI teacher to remember about you",
     "profilePlaceholder": "Example: I work in an office in Shanghai and studied business administration at university. Recently, I have wanted to use AI to turn my ideas into articles and small tools. I prefer my AI teacher to use language that is friendly, direct, concise, and easy to understand, with little jargon.",
-    "promptDescription": "Choose one to add an opening below, then continue writing or replace it with your own words.",
-    "promptHeading": "Start with these three areas",
-    "reassurance": "You do not need to write everything at once. Start with what matters most, then add to or change it at any time.",
+    "promptHeading": "Start with any of these",
+    "reassurance": "You do not need to write everything at once; you can update it anytime. If your preferences conflict with the course design set by the human teacher, the teacher's design takes priority.",
     "retry": "Reload",
     "save": "Save profile",
     "saveAndContinue": "Save and continue",
     "saveChanges": "Save changes",
     "saveFailed": "Could not save your profile. Try again.",
     "saving": "Saving…",
-    "settingsDescription": "These details help your AI teacher tailor how it addresses you, the examples it uses, and its wording. If your requests conflict with the course design set by the human teacher, the course will follow the human teacher's design.",
+    "settingsDescription": "Share your background, goals, and language preferences so your AI teacher can connect course content more closely to your situation.",
     "settingsTitle": "Introduce yourself to your AI teacher",
-    "undoOptimize": "Undo",
-    "writingGuideGoals": "What matters to you: short-term goals, long-term ambitions, current challenges, and practical constraints",
-    "writingGuideIdentity": "About you: your city, work or field of study, and relevant experience",
-    "writingGuideTeaching": "Your preferred language style: for example friendly and direct, lighthearted, concise and conversational, or professional but easy to understand, plus wording you want to avoid",
-    "writingGuideTitle": "You can include"
+    "undoOptimize": "Undo"
   },
   "emptyFlow": "No profile questions are configured.",
   "inputPlaceholder": "Type your answer",

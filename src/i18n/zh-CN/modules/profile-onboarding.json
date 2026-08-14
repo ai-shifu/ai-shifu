@@ -30,20 +30,23 @@
     "cancel": "取消",
     "chips": {
       "goals": {
-        "label": "我最近在意什么",
-        "text": "我最近想……，希望最终能……。现在最困扰我的是……，现实中还受到……的限制。"
+        "hint": "近期状态、目标和困惑",
+        "label": "我的近况",
+        "text": "我最近的状态是……，现在想实现……，目前最困惑的是……。"
       },
       "identity": {
-        "label": "我的情况",
-        "text": "我住在……，现在从事或学习……，我对……比较熟悉，对……还不太了解。"
+        "hint": "身份、行业、职业等",
+        "label": "我的背景",
+        "text": "我目前在……行业，从事……工作，也有……方面的经历。"
       },
       "teaching": {
+        "hint": "偏好的语气、表达，及禁忌",
         "label": "我喜欢的语言风格",
-        "text": "希望 AI 老师的语言风格……，可以多用……的表达，尽量避免……。"
+        "text": "我喜欢……的语气和表达，希望多用……，并尽量避免……。"
       }
     },
     "close": "关闭",
-    "description": "告诉 AI 老师你的背景、正在关注的事，以及你喜欢的语言风格。无论学习什么，它都能更自然地结合你的情况来表达和互动。",
+    "description": "写下你的背景、目标和表达偏好，让 AI 老师在课程中更贴近你的情况。",
     "discard": "放弃修改",
     "discardDescription": "尚未保存的内容会丢失。",
     "discardTitle": "放弃这次修改吗？",
@@ -61,30 +64,26 @@
     "nicknamePlaceholder": "例如：小林",
     "onboardingTitle": "让 AI 老师更懂你",
     "optimize": "帮我优化",
+    "optimizeEmptyHint": "先写几句，就可以让 AI 帮你优化。",
     "optimizeFailed": "暂时无法优化，你仍可以直接保存。",
-    "optimizeHint": "会把整段介绍整理得更清楚，方便 AI 老师结合你的情况调整例子、术语、重点和表达；不会新增你没有提供的信息。",
+    "optimizeHint": "可选：AI 会补充有用细节、整理表达，不改变原意或新增事实。",
     "optimizeRejected": "这段介绍包含暂时无法保存的内容，请修改后再试。",
     "optimizeSuccess": "已优化，可继续修改。",
     "optimizeUnchanged": "这段介绍已经很清楚，可以直接保存。",
     "optimizing": "正在优化…",
     "profileLabel": "希望 AI 老师长期知道的事",
     "profilePlaceholder": "例如：我在上海做办公室工作，大学学的是工商管理。最近想用 AI 把自己的想法做成文章和小工具。希望 AI 老师表达亲切直接、简洁易懂，少用术语。",
-    "promptDescription": "点一下会在下方加入一段开头，你可以接着写，也可以直接自由填写。",
-    "promptHeading": "可以从这三方面写起",
-    "reassurance": "不必一次写全。先写对你最重要的，之后随时可以补充或修改。",
+    "promptHeading": "可以从这些方面开始",
+    "reassurance": "不必一次写全，之后可随时修改。与真人老师的课程设定冲突时，以老师设定为准。",
     "retry": "重新加载",
     "save": "保存画像",
     "saveAndContinue": "保存并继续",
     "saveChanges": "保存更改",
     "saveFailed": "保存失败，请重试。",
     "saving": "正在保存…",
-    "settingsDescription": "这些信息会帮助 AI 老师根据你的情况调整称呼、例子和表达方式。如果你的要求与真人老师为课程做出的设定冲突，仍以真人老师的设定为准。",
+    "settingsDescription": "写下你的背景、目标和表达偏好，让 AI 老师在课程中更贴近你的情况。",
     "settingsTitle": "向 AI 老师介绍你自己",
-    "undoOptimize": "撤销",
-    "writingGuideGoals": "你在意的事：近期目标、长期理想、当前困难和现实限制",
-    "writingGuideIdentity": "你的情况：城市、工作或专业、已有经验",
-    "writingGuideTeaching": "你喜欢的语言风格：例如亲切直接、轻松幽默、简洁口语化或专业但易懂，以及希望避免的表达",
-    "writingGuideTitle": "可以包括"
+    "undoOptimize": "撤销"
   },
   "emptyFlow": "暂未配置学习画像问题。",
   "inputPlaceholder": "请输入你的回答",

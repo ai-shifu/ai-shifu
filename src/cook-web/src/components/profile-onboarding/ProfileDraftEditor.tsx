@@ -15,7 +15,6 @@ export function ProfileDraftEditor({
   minRows = 8,
   maxRows = 14,
   autoResize = true,
-  footerStart,
   descriptionId,
   value,
   maxLength,
@@ -30,12 +29,11 @@ export function ProfileDraftEditor({
   minRows?: number;
   maxRows?: number;
   autoResize?: boolean;
-  footerStart?: React.ReactNode;
   descriptionId?: string;
   value: string;
   maxLength: number;
   disabled: boolean;
-  label?: string;
+  label?: string | null;
   placeholder?: string;
   onChange: (value: string) => void;
 }) {
@@ -54,12 +52,14 @@ export function ProfileDraftEditor({
 
   return (
     <div className='space-y-2'>
-      <label
-        htmlFor={inputId}
-        className='text-sm font-medium'
-      >
-        {label ?? t('module.profileOnboarding.profileLabel')}
-      </label>
+      {label !== null ? (
+        <label
+          htmlFor={inputId}
+          className='text-sm font-medium'
+        >
+          {label ?? t('module.profileOnboarding.profileLabel')}
+        </label>
+      ) : null}
       <Textarea
         ref={textareaRef}
         id={inputId}
@@ -77,15 +77,7 @@ export function ProfileDraftEditor({
           .join(' ')}
         onChange={event => onChange(event.target.value)}
       />
-      <div
-        className={cn(
-          'flex items-start justify-between gap-3',
-          !footerStart && 'justify-end',
-        )}
-      >
-        {footerStart ? (
-          <div className='min-w-0 flex-1'>{footerStart}</div>
-        ) : null}
+      <div className='flex justify-end'>
         <div
           id={`${inputId}-character-count`}
           className={cn(
