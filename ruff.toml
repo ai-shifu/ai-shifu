@@ -1,0 +1,10 @@
+# Repo-wide Ruff configuration (used by lefthook.yml and .github/workflows/lint.yml).
+#
+# The lint rule set is pinned explicitly to E4/E7/E9/F. Ruff 0.16 broadened its
+# built-in default rule selection, which would surface thousands of new
+# violations across this repo; pinning keeps the enforced rule set stable and
+# independent of the installed Ruff version. Widening the rule set is a
+# deliberate follow-up decision, not a side effect of a version bump.
+
+[lint]
+select = ["E4", "E7", "E9", "F"]

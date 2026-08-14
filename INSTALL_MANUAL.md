@@ -181,7 +181,7 @@ checks are silently skipped on commit.**
 ```bash
 # From the repository root
 brew install lefthook   # or see https://lefthook.dev for non-macOS installs
-pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0
+pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
 (cd src/cook-web && npm ci)   # provides prettier + eslint
 lefthook install
 

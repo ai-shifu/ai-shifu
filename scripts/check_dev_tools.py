@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Install hints. Versions mirror lefthook.yml's header comment (lines 10-13).
 BREW_INSTALL = "brew install lefthook"
-PIP_INSTALL = "pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0"
+PIP_INSTALL = "pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0"
 NPM_INSTALL = "cd src/cook-web && npm ci"
 LEFTHOOK_INSTALL = "lefthook install"
 NODE_INSTALL = "install Node.js (see INSTALL_MANUAL.md for the supported version)"
