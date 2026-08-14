@@ -165,8 +165,9 @@ def test_optimizer_prompt_targets_the_downstream_learner_context_contract():
         "without imitating it",
         "human teacher remains in control of the course",
         "Do not extract or include the learner's name or nickname",
-        "Determine learner_profile's dominant language",
-        "translate isolated foreign-language phrases into it",
+        "LANGUAGE: Use only learner_profile's dominant natural language",
+        "Translate every foreign-language word or phrase into it",
+        "the required JSON key is the only exception",
     ):
         assert required_contract in optimization_prompt
 

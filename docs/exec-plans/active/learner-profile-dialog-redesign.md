@@ -104,9 +104,10 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       labeled, standalone lines, forbids unchanged paragraph output, and keeps
       only the minimum safety, course-ownership, language, and JSON boundaries.
       Real dev verification converted the reported paragraph into five labeled
-      learner-context lines; the language rule was then tightened so isolated
-      foreign-language fragments are translated into the input's dominant
-      language as well.
+      learner-context lines. Repeated verification then promoted the language
+      rule into an explicit top-level constraint: every foreign-language word
+      or phrase is translated into the input's dominant language, with only the
+      fixed JSON key excepted.
 - [ ] 2026-08-13: Rebase onto the latest `origin/main`, repeat the focused
       gates, update the ready PR and deployment notes, and read back CI and
       active review threads.
