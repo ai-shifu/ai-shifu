@@ -123,6 +123,13 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       performance details. Short inputs now require one bounded labeled entry;
       a named reference may appear only after the final non-imitation boundary,
       and expansion is limited to observable language qualities.
+- [x] 2026-08-14: Split short single-preference inputs from full-profile
+      optimization after the general prompt repeatedly over-classified a
+      named-style request. The same endpoint now selects a compact one-category
+      prompt only for style-reference shorthand; ordinary short or long
+      profiles stay on the complete-profile contract. The focused prompt
+      produces one bounded labeled line and forbids commentary about absent
+      profile fields.
 - [x] 2026-08-14: Replace the optimizer's long rule manual with a compact
       transformation contract after a real learner paragraph was returned
       nearly unchanged. The new contract always rewrites prose into short,

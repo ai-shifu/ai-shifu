@@ -22,6 +22,20 @@ LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS = 15
 LEARNER_PROFILE_OPTIMIZATION_MAX_TOKENS = 1200
 LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME = "learner_profile_optimize"
 LEARNER_PROFILE_OPTIMIZATION_ATTEMPTS = 2
+_STYLE_WORDS = ("风格", "style")
+_STYLE_REFERENCE_WORDS = (
+    "用",
+    "像",
+    "参考",
+    "模仿",
+    "仿照",
+    "in the style of",
+    "style of",
+    "like",
+    "à la manière",
+    "dans le style de",
+    "style de",
+)
 
 
 class _InvalidOptimizationOutput(ValueError):
@@ -83,6 +97,13 @@ def _strip_source_echo(source: str, optimized: str) -> str:
     return optimized[len(source) :].lstrip(" \t\r\n。.;；")
 
 
+def _uses_short_style_prompt(source: str) -> bool:
+    normalized = source.casefold()
+    return any(word in normalized for word in _STYLE_WORDS) and any(
+        word in normalized for word in _STYLE_REFERENCE_WORDS
+    )
+
+
 def optimize_learner_profile(
     app: Flask,
     *,
@@ -139,7 +160,12 @@ def optimize_learner_profile(
                 "input": {"learner_profile": normalized},
             },
         )
-        base_system_prompt = load_prompt_template("learner_profile_optimizer").strip()
+        prompt_name = (
+            "learner_profile_optimizer_short"
+            if _uses_short_style_prompt(normalized)
+            else "learner_profile_optimizer"
+        )
+        base_system_prompt = load_prompt_template(prompt_name).strip()
         for attempt in range(LEARNER_PROFILE_OPTIMIZATION_ATTEMPTS):
             system_prompt = base_system_prompt
             if attempt:

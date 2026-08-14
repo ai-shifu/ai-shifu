@@ -355,6 +355,49 @@ def test_optimizer_prompt_targets_the_downstream_learner_context_contract():
     assert "Translate every foreign-language word or phrase" not in optimization_prompt
 
 
+def test_short_optimizer_prompt_stays_focused_on_one_supported_preference():
+    short_prompt = optimizer.load_prompt_template(
+        "learner_profile_optimizer_short"
+    ).strip()
+
+    assert len(short_prompt) <= 1200
+    assert short_prompt.count("\n- ") <= 5
+    for required_contract in (
+        "exactly one labeled learner preference",
+        "concrete, observable detail",
+        "exactly one string field named optimized_learner_profile",
+        "Use the learner's main language",
+        "preserve mixed-language terms already in the source",
+        "Start with a short label and colon",
+        "write one line only",
+        "Expand only the category stated in the input",
+        "Never mention missing background, goals, constraints, or other categories",
+        "convert it only into tone, rhythm, rhetoric, humor, formality, density",
+        "name or title only after a final prohibition against imitation",
+        "never before it",
+        "Never invent visual, performance, interaction, or teaching-method traits",
+        "Exclude the learner's name or nickname",
+    ):
+        assert required_contract in short_prompt
+    assert "Example:" not in short_prompt
+    assert '{"optimized_learner_profile"' not in short_prompt
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("我希望你能用周星驰的喜剧风格讲课", True),
+        ("Teach in the style of a dry British comedy", True),
+        ("请使用简洁、准确的表达", False),
+        ("我做过大学老师和产品运营，现在创业，喜欢简洁准确的表达", False),
+    ],
+)
+def test_short_style_prompt_is_selected_only_for_style_reference_shorthand(
+    source, expected
+):
+    assert optimizer._uses_short_style_prompt(source) is expected
+
+
 def test_optimize_rejects_moderation_without_calling_llm_or_changing_state(
     app, monkeypatch
 ):
