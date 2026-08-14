@@ -86,8 +86,11 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
     app, monkeypatch
 ):
     user_bid = "profile-optimize-success"
-    source = "我在上海做办公室工作，希望表达简洁。SENSITIVE_PROFILE_INPUT"
-    optimized = "我在上海从事办公室工作，希望 AI 老师表达简洁。"
+    source = "我希望你使用周星驰的喜剧风格来给我讲课。"
+    optimized = (
+        "请用无厘头、反差强烈、节奏明快的喜剧方式讲课：多用夸张比喻、意外转折和"
+        "一本正经的荒诞表达，让知识点既好懂又好记；但不要直接模仿周星驰本人或复刻其经典台词。"
+    )
     captured: dict = {}
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
     monkeypatch.setattr(
@@ -126,10 +129,19 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
         in captured["kwargs"]["system"]
     )
     assert "Rewrite rather than merely proofread" in captured["kwargs"]["system"]
-    assert "Preferred language style" in captured["kwargs"]["system"]
+    assert "language-style requirements" in captured["kwargs"]["system"]
     assert (
-        'optimized_learner_profile: "我喜欢的语言风格：轻松幽默。"'
+        "When a language-style preference names a recognizable person"
         in captured["kwargs"]["system"]
+    )
+    assert (
+        'optimized_learner_profile: "请用无厘头、反差强烈、节奏明快的喜剧方式讲课：'
+        in captured["kwargs"]["system"]
+    )
+    assert "不要直接模仿周星驰本人或复刻其经典台词" in captured["kwargs"]["system"]
+    assert "Preserve named references as written" not in captured["kwargs"]["system"]
+    assert (
+        "infer extra qualities from the reference" not in captured["kwargs"]["system"]
     )
     assert source in captured["trace_create"]["trace_payload"]["input"].values()
     assert optimized in captured["trace_finalize"]["trace_payload"]["output"].values()

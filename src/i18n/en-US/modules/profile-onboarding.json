@@ -62,7 +62,7 @@
     "onboardingTitle": "Help your AI teacher understand you",
     "optimize": "Help me improve",
     "optimizeFailed": "Could not improve this right now. You can still save it as written.",
-    "optimizeHint": "Only improves the wording. It will not add new information.",
+    "optimizeHint": "Turns a style or person you mention into language instructions your AI teacher can follow. It will not add facts about your background, goals, or experience.",
     "optimizeRejected": "This introduction contains content that cannot be saved. Revise it and try again.",
     "optimizeSuccess": "Improved. You can keep editing.",
     "optimizeUnchanged": "This introduction is already clear. You can save it as written.",

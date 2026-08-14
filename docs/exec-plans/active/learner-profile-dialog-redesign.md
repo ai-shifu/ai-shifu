@@ -88,8 +88,10 @@ canonical empty-profile write through PUT and keeps the independent nickname.
 - [x] 2026-08-14: Make optimization a profile-normalization task instead of
       generic proofreading. Free-form requests are rewritten into concise,
       labeled first-person facts and preferences so downstream AI teachers can
-      apply them directly; named references are preserved without adding or
-      inferring traits.
+      apply them directly. Named language-style references may be expanded
+      into observable tone, rhythm, rhetorical techniques, and learning effect,
+      with explicit no-imitation and no-signature-line boundaries; this never
+      authorizes inference of learner facts, goals, constraints, or experience.
 - [ ] 2026-08-13: Rebase onto the latest `origin/main`, repeat the focused
       gates, update the ready PR and deployment notes, and read back CI and
       active review threads.
@@ -433,8 +435,10 @@ legacy onboarding service remains in
   is distinct and never enters moderation or the LLM.
 - The optimization provider receives JSON-wrapped untrusted input and returns
   one bounded JSON string. It may reorganize only stated background, goals,
-  constraints, interests, and language-style preferences; it must not infer
-  facts, issue advice, or weaken the existing runtime learner-data boundary.
+  constraints, interests, and language-style preferences. A named style may be
+  translated into high-level, observable expression requirements, but it must
+  not infer learner facts, issue advice, imitate a named person, copy signature
+  lines, or weaken the existing runtime learner-data boundary.
 - Focused pytest/Jest pass, followed by Ruff, type-check, ESLint, translation,
   architecture, repository harness, developer-tool, lefthook, and design-QA
   gates.

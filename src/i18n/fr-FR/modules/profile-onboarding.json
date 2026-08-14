@@ -62,7 +62,7 @@
     "onboardingTitle": "Aidez votre enseignant IA à mieux vous connaître",
     "optimize": "M’aider à améliorer",
     "optimizeFailed": "Impossible d’améliorer ce texte pour le moment. Vous pouvez toujours l’enregistrer tel quel.",
-    "optimizeHint": "Seule la formulation sera améliorée, sans ajouter de nouvelles informations.",
+    "optimizeHint": "Transforme un style ou une personne que vous mentionnez en consignes de langage que votre enseignant IA peut suivre, sans ajouter de faits sur votre parcours, vos objectifs ou votre expérience.",
     "optimizeRejected": "Cette présentation contient des éléments qui ne peuvent pas être enregistrés. Modifiez-la puis réessayez.",
     "optimizeSuccess": "Texte amélioré. Vous pouvez continuer à le modifier.",
     "optimizeUnchanged": "Cette présentation est déjà claire. Vous pouvez l’enregistrer telle quelle.",
