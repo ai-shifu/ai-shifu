@@ -105,6 +105,12 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       runtime composition contract actively applies relevant profile details
       to examples, terminology, emphasis, and language style instead of merely
       acknowledging or summarizing them; Course Prompt ownership is unchanged.
+- [x] 2026-08-14: Stop accepting no-op optimization responses. The service now
+      requires labeled structure and material detail beyond the source, asks
+      the model once more with a concise correction when the first response is
+      unchanged or insufficient, and returns the existing optimization failure
+      only if the second result still fails. Both attempts remain review-only:
+      they do not update learner business data or emit profile-change events.
 - [x] 2026-08-14: Replace the optimizer's long rule manual with a compact
       transformation contract after a real learner paragraph was returned
       nearly unchanged. The new contract always rewrites prose into short,

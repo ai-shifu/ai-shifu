@@ -21,6 +21,11 @@ from flaskr.util.prompt_loader import load_prompt_template
 LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS = 15
 LEARNER_PROFILE_OPTIMIZATION_MAX_TOKENS = 1200
 LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME = "learner_profile_optimize"
+LEARNER_PROFILE_OPTIMIZATION_ATTEMPTS = 2
+
+
+class _InvalidOptimizationOutput(ValueError):
+    pass
 
 
 def _raise_optimization_failed() -> None:
@@ -28,16 +33,38 @@ def _raise_optimization_failed() -> None:
 
 
 def _parse_optimized_profile(raw_response: str) -> str:
-    payload = json.loads(raw_response)
+    try:
+        payload = json.loads(raw_response)
+    except json.JSONDecodeError as exc:
+        raise _InvalidOptimizationOutput from exc
     if not isinstance(payload, dict) or set(payload) != {"optimized_learner_profile"}:
-        _raise_optimization_failed()
+        raise _InvalidOptimizationOutput
     optimized_profile = payload.get("optimized_learner_profile")
     if not isinstance(optimized_profile, str):
-        _raise_optimization_failed()
-    normalized = normalize_learner_profile(optimized_profile)
-    if not normalized:
-        _raise_optimization_failed()
+        raise _InvalidOptimizationOutput
+    normalized = optimized_profile.strip()
+    if not normalized or len(normalized) > 1000:
+        raise _InvalidOptimizationOutput
     return normalized
+
+
+def _is_usefully_expanded(source: str, optimized: str) -> bool:
+    source_compact = "".join(source.split())
+    optimized_compact = "".join(optimized.split())
+    if source_compact.casefold() == optimized_compact.casefold():
+        return False
+
+    lines = [line.strip() for line in optimized.splitlines() if line.strip()]
+    if not lines or any(":" not in line and "：" not in line for line in lines):
+        return False
+    if len(source_compact) >= 50 and len(lines) < 2:
+        return False
+
+    if len(source_compact) <= 850:
+        minimum_growth = max(12, min(80, len(source_compact) // 10))
+        if len(optimized_compact) < len(source_compact) + minimum_growth:
+            return False
+    return True
 
 
 def optimize_learner_profile(
@@ -92,33 +119,65 @@ def optimize_learner_profile(
                 "input": {"learner_profile": normalized},
             },
         )
-        response = invoke_llm(
-            app,
-            user_id,
-            root_span,
-            model,
-            message,
-            system=load_prompt_template("learner_profile_optimizer").strip(),
-            json=True,
-            generation_name=LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME,
-            usage_context=UsageContext(
-                user_bid=user_id,
+        base_system_prompt = load_prompt_template("learner_profile_optimizer").strip()
+        for attempt in range(LEARNER_PROFILE_OPTIMIZATION_ATTEMPTS):
+            system_prompt = base_system_prompt
+            if attempt:
+                system_prompt += (
+                    "\n\nThe previous result was rejected because it was unchanged, "
+                    "insufficiently detailed, or not structured as labeled lines. "
+                    "Rewrite it now with materially more useful detail while preserving "
+                    "the learner's meaning."
+                )
+            response = invoke_llm(
+                app,
+                user_id,
+                root_span,
+                model,
+                message,
+                system=system_prompt,
+                json=True,
+                generation_name=(
+                    LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME
+                    if not attempt
+                    else f"{LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME}_retry"
+                ),
+                usage_context=UsageContext(
+                    user_bid=user_id,
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                    billable=0,
+                ),
                 usage_scene=BILL_USAGE_SCENE_PROD,
                 billable=0,
-            ),
-            usage_scene=BILL_USAGE_SCENE_PROD,
-            billable=0,
-            usage_metadata={
-                "feature": "learner_profile_optimization",
-                "input_chars": len(normalized),
-            },
-            sensitive_content=True,
-            temperature=0.1,
-            timeout=LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS,
-            max_tokens=LEARNER_PROFILE_OPTIMIZATION_MAX_TOKENS,
-        )
-        raw_response = "".join(chunk.result for chunk in response)
-        optimized_profile = _parse_optimized_profile(raw_response)
+                usage_metadata={
+                    "feature": "learner_profile_optimization",
+                    "input_chars": len(normalized),
+                    "attempt": attempt + 1,
+                },
+                sensitive_content=True,
+                temperature=0.1,
+                timeout=LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS,
+                max_tokens=LEARNER_PROFILE_OPTIMIZATION_MAX_TOKENS,
+            )
+            raw_response = "".join(chunk.result for chunk in response)
+            try:
+                candidate = _parse_optimized_profile(raw_response)
+                if not _is_usefully_expanded(normalized, candidate):
+                    raise _InvalidOptimizationOutput
+            except _InvalidOptimizationOutput:
+                app.logger.info(
+                    "Learner profile optimization output rejected | "
+                    "user_id=%s | input_chars=%s | output_chars=%s | attempt=%s",
+                    user_id,
+                    len(normalized),
+                    len(raw_response),
+                    attempt + 1,
+                )
+                if attempt + 1 < LEARNER_PROFILE_OPTIMIZATION_ATTEMPTS:
+                    continue
+                raise
+            optimized_profile = candidate
+            break
     except Exception as exc:
         app.logger.warning(
             "Learner profile optimization failed | user_id=%s | "

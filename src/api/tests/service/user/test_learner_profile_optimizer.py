@@ -67,6 +67,14 @@ def _successful_llm(raw_output: str, captured: dict):
     return invoke
 
 
+def _sequenced_llm(raw_outputs: list[str], captured: dict):
+    def invoke(*args, **kwargs):
+        captured.setdefault("calls", []).append({"args": args, "kwargs": kwargs})
+        yield SimpleNamespace(result=raw_outputs[len(captured["calls"]) - 1])
+
+    return invoke
+
+
 def _install_trace_spies(monkeypatch, captured: dict) -> None:
     trace = object()
     root_span = object()
@@ -130,6 +138,7 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
     assert captured["kwargs"]["usage_scene"] == BILL_USAGE_SCENE_PROD
     assert captured["kwargs"]["billable"] == 0
     assert captured["kwargs"]["usage_context"].billable == 0
+    assert captured["kwargs"]["usage_metadata"]["attempt"] == 1
     system_prompt = captured["kwargs"]["system"]
     assert (
         system_prompt
@@ -140,6 +149,79 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
     assert optimized not in system_prompt
     assert source in captured["trace_create"]["trace_payload"]["input"].values()
     assert optimized in captured["trace_finalize"]["trace_payload"]["output"].values()
+
+
+def test_optimize_retries_unchanged_output_with_a_stronger_transformation(
+    app, monkeypatch
+):
+    user_bid = "profile-optimize-retry-unchanged"
+    source = (
+        "我做过大学老师和互联网产品运营，现在创业，希望公司活下去。"
+        "我喜欢非常简洁、准确的表达。"
+    )
+    optimized = (
+        "背景与经验：我有大学教学和互联网产品运营经验，熟悉教育与产品实践场景。\n"
+        "当前身份与目标：我现在正在创业，最关注公司的生存和持续经营。\n"
+        "语言风格：我偏好先给明确结论，再用少量必要文字解释；表达要简洁、准确，避免冗余和歧义。"
+    )
+    captured: dict = {}
+    monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
+    monkeypatch.setattr(
+        optimizer,
+        "invoke_llm",
+        _sequenced_llm(
+            [
+                json.dumps({"optimized_learner_profile": source}, ensure_ascii=False),
+                json.dumps(
+                    {"optimized_learner_profile": optimized}, ensure_ascii=False
+                ),
+            ],
+            captured,
+        ),
+    )
+    _install_trace_spies(monkeypatch, captured)
+
+    with app.app_context():
+        _create_profile_state(user_bid)
+        before = _snapshot_profile_state(user_bid)
+        result = optimizer.optimize_learner_profile(
+            app,
+            user_id=user_bid,
+            learner_profile=source,
+        )
+        db.session.expire_all()
+        after = _snapshot_profile_state(user_bid)
+
+    assert result == {"optimized_learner_profile": optimized}
+    assert after == before
+    assert len(captured["calls"]) == 2
+    first_call, retry_call = captured["calls"]
+    assert first_call["kwargs"]["usage_metadata"]["attempt"] == 1
+    assert retry_call["kwargs"]["usage_metadata"]["attempt"] == 2
+    assert retry_call["kwargs"]["generation_name"].endswith("_retry")
+    assert "previous result was rejected" in retry_call["kwargs"]["system"]
+    assert source not in retry_call["kwargs"]["system"]
+
+
+def test_useful_expansion_requires_structure_and_material_detail():
+    source = "我在教育行业工作，希望表达简洁准确，并且少用术语。"
+
+    assert optimizer._is_usefully_expanded(source, source) is False
+    assert (
+        optimizer._is_usefully_expanded(
+            source,
+            "我在教育行业工作，希望表达简洁、准确、少用术语。",
+        )
+        is False
+    )
+    assert (
+        optimizer._is_usefully_expanded(
+            source,
+            "背景：我在教育行业工作，熟悉教育场景。\n"
+            "语言风格：我希望表达简洁、准确，优先使用常见词，必要术语要解释清楚。",
+        )
+        is True
+    )
 
 
 def test_optimizer_prompt_targets_the_downstream_learner_context_contract():
@@ -237,7 +319,13 @@ def test_optimize_provider_unavailable_moderation_still_allows_llm(app, monkeypa
         optimizer,
         "invoke_llm",
         _successful_llm(
-            json.dumps({"optimized_learner_profile": "Optimized profile"}),
+            json.dumps(
+                {
+                    "optimized_learner_profile": (
+                        "Background: I use this profile when moderation is unavailable."
+                    )
+                }
+            ),
             captured,
         ),
     )
@@ -258,7 +346,11 @@ def test_optimize_provider_unavailable_moderation_still_allows_llm(app, monkeypa
             check_strategy="check_learner_profile",
         ).one()
 
-    assert result == {"optimized_learner_profile": "Optimized profile"}
+    assert result == {
+        "optimized_learner_profile": (
+            "Background: I use this profile when moderation is unavailable."
+        )
+    }
     assert "args" in captured
     assert after == before
     assert audit.check_result == CHECK_RESULT_UNKNOWN
