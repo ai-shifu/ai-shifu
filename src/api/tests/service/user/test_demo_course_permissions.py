@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import datetime
+from flaskr.util.datetime import now_utc
 from decimal import Decimal
 
 from flaskr.dao import db
@@ -9,7 +9,7 @@ from flaskr.service.user.utils import ensure_demo_course_permissions
 
 
 def _seed_published_shifu(shifu_bid: str) -> None:
-    now = datetime.utcnow()
+    now = now_utc()
     db.session.add(
         PublishedShifu(
             shifu_bid=shifu_bid,

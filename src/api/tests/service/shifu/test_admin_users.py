@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -191,7 +192,7 @@ def _build_active_window(
     start_days_ago: int = 14,
     end_days_ahead: int = 30,
 ) -> tuple[datetime, datetime]:
-    now = datetime.now().replace(microsecond=0)
+    now = now_utc().replace(microsecond=0)
     return now - timedelta(days=start_days_ago), now + timedelta(days=end_days_ahead)
 
 
@@ -2615,9 +2616,7 @@ def test_get_operator_user_credits_excludes_topup_from_available_without_subscri
     app,
 ):
     with app.app_context():
-        manual_grant_expires_at = datetime.now().replace(microsecond=0) + timedelta(
-            days=3
-        )
+        manual_grant_expires_at = now_utc().replace(microsecond=0) + timedelta(days=3)
         active_start_at = manual_grant_expires_at - timedelta(days=10)
         _seed_user(
             app,
@@ -3538,8 +3537,8 @@ def test_grant_operator_user_package_upgrades_active_pingxx_subscription(app):
             subscription_bid="sub-package-grant-pingxx-upgrade",
             product_bid="bill-product-plan-monthly",
             billing_provider="pingxx",
-            current_period_start_at=datetime.now() - timedelta(days=1),
-            current_period_end_at=datetime.now() + timedelta(days=29),
+            current_period_start_at=now_utc() - timedelta(days=1),
+            current_period_end_at=now_utc() + timedelta(days=29),
         )
 
         result = grant_operator_user_package(
@@ -3607,8 +3606,8 @@ def test_grant_operator_user_package_rejects_active_stripe_subscription(app):
             billing_provider="stripe",
             provider_subscription_id="sub_provider_package_grant_stripe_conflict",
             provider_customer_id="cus_package_grant_stripe_conflict",
-            current_period_start_at=datetime.now() - timedelta(days=1),
-            current_period_end_at=datetime.now() + timedelta(days=29),
+            current_period_start_at=now_utc() - timedelta(days=1),
+            current_period_end_at=now_utc() + timedelta(days=29),
         )
 
         with pytest.raises(AppException) as exc_info:

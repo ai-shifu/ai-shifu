@@ -123,7 +123,7 @@ def _stream_sse_response(
             if terminal_event_factory is not None:
                 yield _to_sse_data_line(terminal_event_factory())
         except Exception as exc:
-            app.logger.error(error_log, exc_info=True)
+            app.logger.exception(error_log)
             if is_protocol_interrupt_error(exc):
                 invalidate_session(source="learn stream_sse_response desync")
             if error_event_factory is None:
@@ -163,10 +163,10 @@ def _stream_passthrough_response(
                 app.logger.info(close_log)
                 invalidate_session(source="learn stream_passthrough_response close")
                 return
-            app.logger.error(error_log, exc_info=True)
+            app.logger.exception(error_log)
             raise
         except Exception as exc:
-            app.logger.error(error_log, exc_info=True)
+            app.logger.exception(error_log)
             if is_protocol_interrupt_error(exc):
                 invalidate_session(source="learn stream_passthrough_response desync")
             raise

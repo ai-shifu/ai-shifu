@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from flaskr.util.datetime import now_utc
 import uuid
 
 from sqlalchemy.exc import IntegrityError
@@ -29,9 +30,9 @@ def _create_user(
         state=1,
         is_creator=1 if is_creator else 0,
         is_operator=1 if is_operator else 0,
-        created_at=created_at or datetime.now(),
+        created_at=created_at or now_utc(),
         creator_activated_at=creator_activated_at,
-        updated_at=created_at or datetime.now(),
+        updated_at=created_at or now_utc(),
     )
     db.session.add(user)
     return user

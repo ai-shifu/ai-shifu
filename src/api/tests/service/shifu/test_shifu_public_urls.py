@@ -1,4 +1,5 @@
 from __future__ import annotations
+from flaskr.util.datetime import now_utc
 
 import json
 from decimal import Decimal
@@ -243,7 +244,7 @@ def _seed_white_label(
     custom_domain_enabled: bool = True,
     binding_status: int | None = None,
 ) -> None:
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     from flaskr.service.billing.consts import (
         BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
@@ -264,7 +265,7 @@ def _seed_white_label(
     with app.app_context():
         BillingDomainBinding.query.filter_by(creator_bid=creator_bid).delete()
         BillingEntitlement.query.filter_by(creator_bid=creator_bid).delete()
-        now = datetime.now()
+        now = now_utc()
         dao.db.session.add(
             BillingEntitlement(
                 entitlement_bid=f"ent-{creator_bid}",

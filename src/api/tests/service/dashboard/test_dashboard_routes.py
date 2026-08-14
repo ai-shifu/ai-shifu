@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from flaskr.util.datetime import now_utc
 from types import SimpleNamespace
 
 import pytest
@@ -91,7 +92,7 @@ class TestDashboardRoutes:
         created_at: datetime | None = None,
         published_created_at: datetime | None = None,
     ) -> None:
-        draft_created_at = created_at or datetime.utcnow()
+        draft_created_at = created_at or now_utc()
         publish_time = published_created_at or draft_created_at
         db.session.add(
             DraftShifu(
@@ -149,7 +150,7 @@ class TestDashboardRoutes:
         hidden: int = 0,
         created_at: datetime | None = None,
     ) -> None:
-        now = created_at or datetime.utcnow()
+        now = created_at or now_utc()
         db.session.add(
             PublishedOutlineItem(
                 outline_item_bid=outline_item_bid,
@@ -943,7 +944,7 @@ class TestDashboardRoutes:
 
         draft_created_at = datetime(2025, 1, 1, 8, 0, 0)
         published_created_at = datetime(2025, 2, 1, 9, 0, 0)
-        recent_now = datetime.utcnow().replace(microsecond=0)
+        recent_now = now_utc().replace(microsecond=0)
         old_activity = recent_now - timedelta(days=10)
 
         with app.app_context():
@@ -1720,7 +1721,7 @@ class TestDashboardRoutes:
     ):
         self._mock_request_user(monkeypatch)
 
-        now = datetime.utcnow().replace(microsecond=0)
+        now = now_utc().replace(microsecond=0)
         with app.app_context():
             self._seed_dashboard_user(
                 user_bid="learner-followup-1",
@@ -1961,7 +1962,7 @@ class TestDashboardRoutes:
     ):
         self._mock_request_user(monkeypatch)
 
-        now = datetime.utcnow().replace(microsecond=0)
+        now = now_utc().replace(microsecond=0)
         with app.app_context():
             self._seed_dashboard_user(
                 user_bid="learner-followup-page",
@@ -2243,7 +2244,7 @@ class TestDashboardRoutes:
                 position="1.2",
             )
 
-            now = datetime.utcnow()
+            now = now_utc()
             db.session.add_all(
                 [
                     LearnProgressRecord(

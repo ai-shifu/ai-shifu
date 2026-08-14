@@ -760,7 +760,7 @@ def finalize_daily_ledger_summary_task(
     app = _create_task_app()
     normalized_stat_date = _normalize_bid(stat_date)
     if not normalized_stat_date:
-        normalized_stat_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        normalized_stat_date = (now_utc() - timedelta(days=1)).strftime("%Y-%m-%d")
     payload = finalize_daily_ledger_summary(
         app,
         stat_date=normalized_stat_date,

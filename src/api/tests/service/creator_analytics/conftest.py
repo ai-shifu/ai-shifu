@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from flaskr.util.datetime import now_utc
 from types import SimpleNamespace
 from typing import Optional
 
@@ -88,7 +89,7 @@ def seed_owned_course(
     title: str = "Untitled",
     deleted: int = 0,
 ) -> None:
-    now = datetime.utcnow()
+    now = now_utc()
     db.session.add(
         DraftShifu(
             shifu_bid=shifu_bid,
@@ -126,7 +127,7 @@ def seed_published_shifu(
     needs both the draft and the published version of a course (e.g. to cover
     the "draft title diverges from published title after rename" scenario)."""
 
-    now = datetime.utcnow()
+    now = now_utc()
     db.session.add(
         PublishedShifu(
             shifu_bid=shifu_bid,
@@ -161,7 +162,7 @@ def seed_progress(
     outline_item_bid: str = "outline-1",
     progress_record_bid: Optional[str] = None,
 ) -> str:
-    now = datetime.utcnow()
+    now = now_utc()
     record_bid = progress_record_bid or f"pr-{shifu_bid}-{user_bid}-{status}"
     db.session.add(
         LearnProgressRecord(
@@ -186,7 +187,7 @@ def seed_archive(
     user_bid: str,
     archived: int = 0,
 ) -> None:
-    now = datetime.utcnow()
+    now = now_utc()
     db.session.add(
         ShifuUserArchive(
             shifu_bid=shifu_bid,
@@ -213,7 +214,7 @@ def seed_generated_block(
     status: int = 1,
 ) -> str:
     bid = generated_block_bid or f"gb-{shifu_bid}-{user_bid}-{type}-{content[:8]}"
-    now = datetime.utcnow()
+    now = now_utc()
     db.session.add(
         LearnGeneratedBlock(
             generated_block_bid=bid,
@@ -285,7 +286,7 @@ def seed_bill_usage_record(
             usage_scene=usage_scene,
             provider=provider,
             model=model,
-            created_at=created_at or datetime.utcnow(),
+            created_at=created_at or now_utc(),
             deleted=deleted,
         )
     )
@@ -327,7 +328,7 @@ def seed_credit_ledger_entry(
             idempotency_key=idempotency_key or f"usage:{source_bid}:consume",
             amount=amount,
             balance_after=0,
-            created_at=created_at or datetime.utcnow(),
+            created_at=created_at or now_utc(),
             deleted=deleted,
         )
     )
@@ -355,7 +356,7 @@ def seed_bill_daily_metric(
         daily_usage_metric_bid
         or f"dm-{shifu_bid}-{stat_date}-{usage_type}-{provider}-{model}"
     )
-    now = datetime.utcnow()
+    now = now_utc()
     db.session.add(
         BillingDailyUsageMetric(
             daily_usage_metric_bid=bid,

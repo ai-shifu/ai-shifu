@@ -2103,7 +2103,7 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
         self.assertEqual(cache.store, {})
 
     def test_document_hash_change_clears(self):
-        store, cache, doc = _make_preview_store(doc="doc-A")
+        store, cache, _doc = _make_preview_store(doc="doc-A")
         self._populate(store, "doc-A", [0, 1, 2])
         self.assertEqual(store.get_context("doc-B", 3), [])
         self.assertEqual(cache.store, {})

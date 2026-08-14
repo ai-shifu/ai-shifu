@@ -61,7 +61,7 @@ class TestEnvironmentVariableFallback:
 
     def test_fallback_cached_no_repeated_warning(self, setup_app, caplog):
         """Test that cached values don't trigger repeated warnings."""
-        app, config = setup_app
+        _app, config = setup_app
 
         # First access - should log warning
         with caplog.at_level(logging.WARNING):
@@ -81,7 +81,7 @@ class TestEnvironmentVariableFallback:
 
     def test_undefined_var_not_in_env_returns_none(self, setup_app):
         """Test that undefined variables not in environment return None."""
-        app, config = setup_app
+        _app, config = setup_app
 
         # Access undefined variable that doesn't exist in environment
         value = config["NON_EXISTENT_VAR"]
@@ -91,7 +91,7 @@ class TestEnvironmentVariableFallback:
 
     def test_defined_var_no_fallback_warning(self, setup_app, caplog):
         """Test that defined variables don't trigger fallback warnings."""
-        app, config = setup_app
+        _app, config = setup_app
 
         # Access a defined variable
         with caplog.at_level(logging.WARNING):
@@ -105,7 +105,7 @@ class TestEnvironmentVariableFallback:
 
     def test_get_method_with_fallback(self, setup_app, caplog):
         """Test Config.get() method with fallback."""
-        app, config = setup_app
+        _app, config = setup_app
 
         # Test with undefined var that exists in env
         with caplog.at_level(logging.WARNING):
@@ -116,7 +116,7 @@ class TestEnvironmentVariableFallback:
 
     def test_get_method_with_default(self, setup_app):
         """Test Config.get() method with default value."""
-        app, config = setup_app
+        _app, config = setup_app
 
         # Test with non-existent var and default
         # Note: Config.get() returns the default parameter value if the key is not found
