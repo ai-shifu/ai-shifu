@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timedelta
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 from decimal import Decimal
 import json
 import os
@@ -651,7 +651,7 @@ def run_report(args: argparse.Namespace) -> dict[str, Any]:
 
     return {
         "schema_version": 1,
-        "generated_at": now.isoformat(timespec="seconds"),
+        "generated_at": to_utc_iso(now.replace(microsecond=0)),
         "window_hours": args.window_hours,
         "limit": args.limit,
         "summary": summarize(probes),
