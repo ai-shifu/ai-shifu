@@ -111,6 +111,11 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       compact safeguards: omit every unstated category rather than reporting it
       as missing, and express named references as concrete traits plus an
       explicit non-imitation boundary, never as an instruction to imitate.
+      Further browser runs exposed over-classification and an omitted boundary,
+      so the final prompt is limited to seven rules: use the fewest categories,
+      make style-only input exactly one language-style line, and end that same
+      line with a named non-imitation boundary while prohibiting positive
+      instructions to emulate or borrow from the reference.
 - [ ] 2026-08-13: Rebase onto the latest `origin/main`, repeat the focused
       gates, update the ready PR and deployment notes, and read back CI and
       active review threads.
