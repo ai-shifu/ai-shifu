@@ -1,0 +1,63 @@
+{
+  "source_distribution": {
+    "course": "跟 AI 学 AI 通识",
+    "variable": "sys_user_background",
+    "distinct_values": 200,
+    "observed_rows": 213,
+    "length_code_points": {
+      "min": 0,
+      "p25": 12,
+      "median": 24,
+      "p75": 45,
+      "max": 403
+    },
+    "privacy_note": "Internal records were used only for aggregate length bands and structural coverage. Every learner_profile below is newly authored fictional text; no learner record or fragment is sent to the model."
+  },
+  "cases": [
+    {
+      "id": "short_role_only",
+      "observed_shape": "A very short role-only answer",
+      "learner_profile": "物流调度员"
+    },
+    {
+      "id": "role_experience_goal",
+      "observed_shape": "Industry, role, years of experience, and one concrete goal",
+      "learner_profile": "我在连锁零售行业做数据分析，有 4 年经验。最近想用 AI 更快地整理报表、发现经营问题。"
+    },
+    {
+      "id": "experienced_engineer_transition",
+      "observed_shape": "Long-tenured technical role with efficiency and career-transition concerns",
+      "learner_profile": "我在工业设计领域工作了 12 年，熟悉传统项目流程。现在既想提升日常效率，也在探索新的职业方向。"
+    },
+    {
+      "id": "structured_public_sector_role",
+      "observed_shape": "A compact field-labeled answer",
+      "learner_profile": "行业：社区服务；岗位：项目协调；工作年限：9 年；当前状态：希望用 AI 提高资料整理和沟通效率。"
+    },
+    {
+      "id": "teacher_and_content_creator",
+      "observed_shape": "Two concurrent identities plus recurring production needs and a quality goal",
+      "learner_profile": "我是一名职业培训讲师，也经营一个知识分享账号，需要持续制作讲义、图文和短视频，希望用 AI 让内容更清楚、更有吸引力。"
+    },
+    {
+      "id": "frontline_workload_constraints",
+      "observed_shape": "Operational role with multiple pain points, workload constraints, and an efficiency goal",
+      "learner_profile": "我在设备运维领域做现场协调，工作五年。资料来源很多，记录格式不统一，还要频繁处理临时故障和进度汇报，时间常常不够，希望用 AI 减少重复整理。"
+    },
+    {
+      "id": "senior_manager_business_innovation",
+      "observed_shape": "Senior management background with an innovation and knowledge-product goal",
+      "learner_profile": "我在健康服务行业做管理，有十多年经验，近年主要负责跨团队项目。现在希望用 AI 改进业务流程，并把积累的方法整理成便于同事使用的材料。"
+    },
+    {
+      "id": "career_gap_exploration",
+      "observed_shape": "Current status and an open-ended exploration goal without a settled direction",
+      "learner_profile": "我目前处在职业调整期，正在学习新的数字工具，也想系统了解 AI，看看它能怎样帮助我寻找下一步方向。"
+    },
+    {
+      "id": "withholds_background",
+      "observed_shape": "A refusal to provide background information",
+      "learner_profile": "暂时不想介绍自己的背景"
+    }
+  ]
+}
