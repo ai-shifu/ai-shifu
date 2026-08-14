@@ -152,7 +152,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
     """
     with app.app_context():
         bj_time = pytz.timezone("Asia/Shanghai")
-        now = datetime.fromtimestamp(datetime.now().timestamp(), bj_time)
+        now = datetime.now(bj_time)
         buy_record: Order = Order.query.filter(Order.order_bid == order_id).first()
         if not buy_record:
             raise_error("server.order.orderNotFound")

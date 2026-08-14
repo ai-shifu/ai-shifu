@@ -253,10 +253,8 @@ def test_finalize_daily_ledger_summary_task_defaults_to_previous_day(
 
     captured: dict[str, object] = {}
 
-    class FixedDateTime(datetime):
-        @classmethod
-        def now(cls, tz=None):
-            return cls(2026, 5, 22, 2, 0, 0, tzinfo=tz)
+    def _fixed_now_utc() -> datetime:
+        return datetime(2026, 5, 22, 2, 0, 0)
 
     def _fake_finalize_daily_ledger_summary(
         app,
@@ -274,7 +272,7 @@ def test_finalize_daily_ledger_summary_task_defaults_to_previous_day(
             "finalize": True,
         }
 
-    monkeypatch.setattr("flaskr.service.billing.tasks.datetime", FixedDateTime)
+    monkeypatch.setattr("flaskr.service.billing.tasks.now_utc", _fixed_now_utc)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.finalize_daily_ledger_summary",
         _fake_finalize_daily_ledger_summary,

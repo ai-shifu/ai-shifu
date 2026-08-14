@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from flaskr.util.datetime import now_utc
 
 from flask import Flask
 import pytest
@@ -55,7 +56,7 @@ def _insert_email_credential(
     state: int = CREDENTIAL_STATE_VERIFIED,
     created_at: datetime | None = None,
 ) -> AuthCredential:
-    credential_created_at = created_at or datetime.now()
+    credential_created_at = created_at or now_utc()
     credential = AuthCredential(
         credential_bid=uuid.uuid4().hex[:32],
         user_bid=user_bid,
@@ -109,8 +110,8 @@ def _create_user(
         state=USER_STATE_REGISTERED,
     )
     entity.is_operator = 1 if is_operator else 0
-    entity.created_at = datetime.now()
-    entity.updated_at = datetime.now()
+    entity.created_at = now_utc()
+    entity.updated_at = now_utc()
     db.session.flush()
     _insert_email_credential(user_bid, email)
     db.session.commit()

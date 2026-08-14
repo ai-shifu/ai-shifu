@@ -1541,11 +1541,10 @@ def _stage_scan_notification_isolated(
     except Exception:  # noqa: BLE001 - per-item scan isolation
         # exc_info carries the exception; keep provider error strings (which
         # may echo recipient details) out of the formatted message itself.
-        app.logger.error(
+        app.logger.exception(
             "credit notification staging failed for notification_type=%s dedupe_key=%s",
             notification_type,
             dedupe_key,
-            exc_info=True,
         )
         return {
             "status": "stage_failed",
@@ -1818,7 +1817,7 @@ def scan_credit_expiring_notifications(
     creator_bid: str = "",
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    scan_now = now or datetime.now()
+    scan_now = now or now_utc()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with _maybe_app_context(app):
         policy = load_credit_notification_policy()
@@ -2184,7 +2183,7 @@ def scan_low_balance_notifications(
     creator_bid: str = "",
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    scan_now = now or datetime.now()
+    scan_now = now or now_utc()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with _maybe_app_context(app):
         policy = load_credit_notification_policy()
@@ -2529,7 +2528,7 @@ def scan_low_balance_notifications(
 
 
 def _today_bounds(now: datetime | None = None) -> tuple[datetime, datetime]:
-    resolved_now = now or datetime.now()
+    resolved_now = now or now_utc()
     start = datetime.combine(resolved_now.date(), time.min)
     end = start + timedelta(days=1)
     return start, end
@@ -2539,7 +2538,7 @@ def _is_quiet_hours(policy: dict[str, Any], now: datetime | None = None) -> bool
     quiet = policy.get("quiet_hours")
     if not isinstance(quiet, dict) or not _coerce_bool(quiet.get("enabled")):
         return False
-    current = now or datetime.now()
+    current = now or now_utc()
     timezone_name = str(quiet.get("timezone") or "").strip()
     if timezone_name:
         try:
@@ -2553,7 +2552,7 @@ def _is_quiet_hours(policy: dict[str, Any], now: datetime | None = None) -> bool
             else:
                 current = current.astimezone(policy_timezone)
         except ZoneInfoNotFoundError:
-            current = now or datetime.now()
+            current = now or now_utc()
     try:
         start_hour, start_minute = [
             int(part) for part in str(quiet.get("start")).split(":")[:2]
@@ -2961,12 +2960,11 @@ def enqueue_credit_notification(app: Flask, *, notification_bid: str) -> dict[st
             "enqueued": True,
         }
     except Exception as exc:
-        app.logger.error(
+        app.logger.exception(
             "Failed to enqueue %s for notification_bid=%s: %s",
             TASK_NAME,
             normalized_notification_bid,
             exc,
-            exc_info=True,
         )
         return {
             "status": "enqueue_failed",

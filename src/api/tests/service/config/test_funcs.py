@@ -8,7 +8,7 @@ import importlib
 import pytest
 import sys
 from unittest.mock import MagicMock, patch
-from datetime import datetime
+from flaskr.util.datetime import now_utc
 from flask import Flask
 from sqlalchemy.exc import SQLAlchemyError
 from flaskr.route import config as config_route
@@ -491,7 +491,7 @@ class TestGetConfig:
             mock_config_instance = MagicMock()
             mock_config_instance.value = "db-value"
             mock_config_instance.is_encrypted = 0
-            mock_config_instance.created_at = datetime.now()
+            mock_config_instance.created_at = now_utc()
             mock_query = MagicMock()
             mock_query.filter.return_value.order_by.return_value.first.return_value = (
                 mock_config_instance
@@ -521,7 +521,7 @@ class TestGetConfig:
             mock_config_instance = MagicMock()
             mock_config_instance.value = '{"enabled":1}'
             mock_config_instance.is_encrypted = 0
-            mock_config_instance.created_at = datetime.now()
+            mock_config_instance.created_at = now_utc()
             mock_query = MagicMock()
             mock_query.filter.return_value.order_by.return_value.first.return_value = (
                 mock_config_instance
@@ -559,7 +559,7 @@ class TestGetConfig:
             mock_config_instance = MagicMock()
             mock_config_instance.value = "encrypted-db-value"
             mock_config_instance.is_encrypted = 1
-            mock_config_instance.created_at = datetime.now()
+            mock_config_instance.created_at = now_utc()
             mock_query = MagicMock()
             mock_query.filter.return_value.order_by.return_value.first.return_value = (
                 mock_config_instance
@@ -938,7 +938,7 @@ class TestUpdateConfig:
             mock_config_instance.value = "old-value"
             mock_config_instance.is_secret = False
             mock_config_instance.remark = "old remark"
-            mock_config_instance.created_at = datetime.now()
+            mock_config_instance.created_at = now_utc()
             mock_query = MagicMock()
             mock_query.filter.return_value.order_by.return_value.first.return_value = (
                 mock_config_instance
@@ -983,7 +983,7 @@ class TestUpdateConfig:
             mock_config_instance.value = "old-encrypted-value"
             mock_config_instance.is_secret = False
             mock_config_instance.remark = "old remark"
-            mock_config_instance.created_at = datetime.now()
+            mock_config_instance.created_at = now_utc()
             mock_query = MagicMock()
             mock_query.filter.return_value.order_by.return_value.first.return_value = (
                 mock_config_instance
@@ -1033,7 +1033,7 @@ class TestUpdateConfig:
             mock_config_record.value = "old-value"
             mock_config_record.is_secret = False
             mock_config_record.remark = ""
-            mock_config_record.created_at = datetime.now()
+            mock_config_record.created_at = now_utc()
             mock_query = MagicMock()
             mock_query.filter.return_value.order_by.return_value.first.return_value = (
                 mock_config_record
@@ -1077,7 +1077,7 @@ class TestUpdateConfig:
             mock_config_record.value = "old-value"
             mock_config_record.is_secret = False
             mock_config_record.remark = ""
-            mock_config_record.created_at = datetime.now()
+            mock_config_record.created_at = now_utc()
             mock_query = MagicMock()
             mock_query.filter.return_value.order_by.return_value.first.return_value = (
                 mock_config_record

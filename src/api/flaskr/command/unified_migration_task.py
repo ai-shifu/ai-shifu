@@ -6,6 +6,7 @@ Unified Database Migration Task
 import asyncio
 import logging
 from datetime import datetime
+from flaskr.util.datetime import now_utc
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
@@ -183,8 +184,8 @@ class UnifiedMigrationTask:
                     total_records=0,
                     synced_records=0,
                     error_records=0,
-                    start_time=datetime.now(),
-                    end_time=datetime.now(),
+                    start_time=now_utc(),
+                    end_time=now_utc(),
                     errors=[str(result)],
                 )
             else:
@@ -197,7 +198,7 @@ class UnifiedMigrationTask:
     ) -> MigrationResult:
         """Migrate a single table asynchronously"""
         logger.info(f"Starting migration for table: {source_table}")
-        start_time = datetime.now()
+        start_time = now_utc()
 
         target_table = table_config["target"]
         mapping_func = table_config["mapping"]
@@ -213,7 +214,7 @@ class UnifiedMigrationTask:
                 synced_records=0,
                 error_records=0,
                 start_time=start_time,
-                end_time=datetime.now(),
+                end_time=now_utc(),
                 errors=[f"Source table {source_table} does not exist"],
             )
 
@@ -225,7 +226,7 @@ class UnifiedMigrationTask:
                 synced_records=0,
                 error_records=0,
                 start_time=start_time,
-                end_time=datetime.now(),
+                end_time=now_utc(),
                 errors=[f"Target table {target_table} does not exist"],
             )
 
@@ -277,7 +278,7 @@ class UnifiedMigrationTask:
                 error_count += self.config.batch_size
                 offset += self.config.batch_size
 
-        end_time = datetime.now()
+        end_time = now_utc()
         result = MigrationResult(
             table_name=source_table,
             total_records=total_count,
@@ -934,7 +935,7 @@ class UnifiedMigrationTask:
         report.append("=" * 80)
         report.append("UNIFIED DATABASE MIGRATION REPORT")
         report.append("=" * 80)
-        report.append(f"Generated at: {datetime.now()}")
+        report.append(f"Generated at: {now_utc()}")
         report.append("")
 
         # Migration Summary

@@ -575,7 +575,7 @@ class TestSSEElementSplitFromDB:
             sp = av.get("speakable_segments", [])
 
             # Try build_visual_segments_for_block
-            segments, pos_map = build_visual_segments_for_block(
+            segments, _pos_map = build_visual_segments_for_block(
                 raw_content=content,
                 generated_block_bid=bid,
                 av_contract=av,

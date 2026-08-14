@@ -211,7 +211,7 @@ def build_tts_preview_response(
             invalidate_session(source="tts preview stream close")
             raise
         except Exception as exc:
-            current_app.logger.error("TTS preview stream failed", exc_info=True)
+            current_app.logger.exception("TTS preview stream failed")
             cleanup_session_after(exc, source="tts preview stream error")
             raise
 

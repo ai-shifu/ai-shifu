@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
+from flaskr.util.datetime import now_utc
 from decimal import Decimal
 
 from flaskr.dao import db
@@ -29,7 +30,7 @@ def test_use_coupon_code_applies_discount(app, monkeypatch):
         )
         db.session.add(order)
 
-        now = datetime.now()
+        now = now_utc()
         coupon = Coupon(
             coupon_bid=coupon_bid,
             code=coupon_code,
@@ -88,7 +89,7 @@ def test_use_specific_all_courses_coupon_keeps_unbound_usage_course(app, monkeyp
         )
         db.session.add(order)
 
-        now = datetime.now()
+        now = now_utc()
         coupon = Coupon(
             coupon_bid=coupon_bid,
             # Keep the batch code blank so this test explicitly exercises
@@ -158,7 +159,7 @@ def test_use_coupon_code_accepts_legacy_coupon_status(app, monkeypatch):
         )
         db.session.add(order)
 
-        now = datetime.now()
+        now = now_utc()
         coupon = Coupon(
             coupon_bid=coupon_bid,
             code=coupon_code,

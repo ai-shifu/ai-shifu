@@ -1011,7 +1011,7 @@ def _yield_with_tts_error_mapping(
         app.logger.warning("%s: %s", unknown_error_log, exc)
         raise_error("server.learn.ttsRateLimited")
     except Exception:
-        app.logger.error(unknown_error_log, exc_info=True)
+        app.logger.exception(unknown_error_log)
         raise_error("server.common.unknownError")
 
 

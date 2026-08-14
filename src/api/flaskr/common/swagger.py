@@ -108,7 +108,7 @@ def get_field_schema(typ, description: str = ""):
         field_schema["type"] = "array"
         field_schema["items"] = get_field_schema(item_type)
     elif origin is dict:
-        key_type, value_type = args
+        _key_type, value_type = args
         field_schema["type"] = "object"
         field_schema["additionalProperties"] = get_field_schema(value_type)
     elif hasattr(typ, "__annotations__"):

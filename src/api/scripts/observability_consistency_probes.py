@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timedelta
+from flaskr.util.datetime import now_utc
 from decimal import Decimal
 import json
 import os
@@ -639,7 +640,7 @@ def run_report(args: argparse.Namespace) -> dict[str, Any]:
     pymysql.install_as_MySQLdb()
     dao.init_db(app)
     db = dao.db
-    now = datetime.now()
+    now = now_utc()
     since = now - timedelta(hours=args.window_hours)
     with app.app_context():
         inspector = inspect(db.session.get_bind())
