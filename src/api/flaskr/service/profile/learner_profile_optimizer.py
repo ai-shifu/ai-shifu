@@ -54,12 +54,6 @@ def _is_usefully_expanded(source: str, optimized: str) -> bool:
     if source_compact.casefold() == optimized_compact.casefold():
         return False
 
-    lines = [line.strip() for line in optimized.splitlines() if line.strip()]
-    if not lines or any(":" not in line and "：" not in line for line in lines):
-        return False
-    if len(source_compact) >= 50 and len(lines) < 2:
-        return False
-
     if len(source_compact) <= 850:
         minimum_growth = max(12, min(80, len(source_compact) // 10))
         if len(optimized_compact) < len(source_compact) + minimum_growth:
@@ -125,9 +119,8 @@ def optimize_learner_profile(
             if attempt:
                 system_prompt += (
                     "\n\nThe previous result was rejected because it was unchanged, "
-                    "insufficiently detailed, or not structured as labeled lines. "
-                    "Rewrite it now with materially more useful detail while preserving "
-                    "the learner's meaning."
+                    "or insufficiently detailed. Rewrite it now with materially more "
+                    "useful detail while preserving the learner's meaning."
                 )
             response = invoke_llm(
                 app,
