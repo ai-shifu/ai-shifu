@@ -611,7 +611,7 @@ describe('LearnerProfileDialog', () => {
     ).toBeInTheDocument();
   });
 
-  test('keeps the guidance cards clickable and appends natural profile starters', async () => {
+  test('shows informative guidance cards without changing the draft', async () => {
     mockGetLearnerProfile.mockResolvedValue({
       ...existingProfile,
       learner_profile: '',
@@ -622,10 +622,9 @@ describe('LearnerProfileDialog', () => {
       'module.profileOnboarding.dialog.profileLabel',
     );
 
-    const prompts = ['identity', 'goals', 'teaching'] as const;
-    for (const prompt of prompts) {
+    for (const prompt of ['identity', 'goals', 'teaching']) {
       const guidance = screen.getByTestId(`learner-profile-guidance-${prompt}`);
-      expect(guidance.tagName).toBe('BUTTON');
+      expect(guidance.tagName).toBe('DIV');
       expect(guidance).toHaveTextContent(
         `module.profileOnboarding.dialog.chips.${prompt}.label`,
       );
@@ -635,19 +634,11 @@ describe('LearnerProfileDialog', () => {
     }
 
     expect(editor).toHaveValue('');
-    fireEvent.click(screen.getByTestId('learner-profile-guidance-identity'));
-    expect(editor).toHaveValue(
-      'module.profileOnboarding.dialog.chips.identity.text',
-    );
-    fireEvent.click(screen.getByTestId('learner-profile-guidance-goals'));
-    expect(editor).toHaveValue(
-      'module.profileOnboarding.dialog.chips.identity.text\nmodule.profileOnboarding.dialog.chips.goals.text',
-    );
-    fireEvent.click(screen.getByTestId('learner-profile-guidance-teaching'));
-    expect(editor).toHaveValue(
-      'module.profileOnboarding.dialog.chips.identity.text\nmodule.profileOnboarding.dialog.chips.goals.text\nmodule.profileOnboarding.dialog.chips.teaching.text',
-    );
-    expect(editor).toHaveFocus();
+    expect(
+      screen
+        .queryByTestId('learner-profile-guidance-identity')
+        ?.closest('button'),
+    ).toBeNull();
     expect(screen.getAllByRole('textbox')).toHaveLength(2);
   });
 

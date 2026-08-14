@@ -31,18 +31,15 @@
     "chips": {
       "goals": {
         "hint": "Current situation, goals, and questions",
-        "label": "My current situation",
-        "text": "Right now, I am… I want to… and what I am most unsure about is…"
+        "label": "My current situation"
       },
       "identity": {
         "hint": "Identity, industry, profession, and related details",
-        "label": "My background",
-        "text": "I currently work in… as a… and have experience with…"
+        "label": "My background"
       },
       "teaching": {
         "hint": "Preferred tone, expression, and taboos",
-        "label": "My preferred language style",
-        "text": "I prefer a… tone and way of expressing ideas. Please use more… and avoid…"
+        "label": "My preferred language style"
       }
     },
     "close": "Close",

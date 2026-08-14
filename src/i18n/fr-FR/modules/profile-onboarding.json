@@ -31,18 +31,15 @@
     "chips": {
       "goals": {
         "hint": "Situation actuelle, objectifs et questions",
-        "label": "Ma situation actuelle",
-        "text": "En ce moment, je suis… Je souhaite… et ma principale question est…"
+        "label": "Ma situation actuelle"
       },
       "identity": {
         "hint": "Identité, secteur, métier et informations associées",
-        "label": "Mon parcours",
-        "text": "Je travaille actuellement dans… en tant que… et j’ai de l’expérience dans…"
+        "label": "Mon parcours"
       },
       "teaching": {
         "hint": "Ton et expression préférés, ainsi que les sujets tabous",
-        "label": "Mon style de langage préféré",
-        "text": "Je préfère un ton… et une façon de m’exprimer… J’aimerais davantage de… et éviter…"
+        "label": "Mon style de langage préféré"
       }
     },
     "close": "Fermer",

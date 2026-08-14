@@ -415,21 +415,6 @@ export default function LearnerProfileDialog({
     void dismiss();
   }, [busy, dirty, dismiss]);
 
-  const insertPrompt = React.useCallback(
-    (prompt: (typeof PROFILE_PROMPTS)[number]['key']) => {
-      const insertion = t(
-        `module.profileOnboarding.dialog.chips.${prompt}.text`,
-      );
-      setProfile(current =>
-        current.trim() ? `${current.trimEnd()}\n${insertion}` : insertion,
-      );
-      resetOptimization();
-      setError('');
-      textareaRef.current?.focus();
-    },
-    [resetOptimization, t],
-  );
-
   const optimizeProfile = React.useCallback(async () => {
     const normalized = profile.trim();
     if (
@@ -635,14 +620,10 @@ export default function LearnerProfileDialog({
 
                 <div className='grid grid-cols-1 gap-2 sm:grid-cols-3'>
                   {PROFILE_PROMPTS.map(({ key, Icon }) => (
-                    <Button
+                    <div
                       key={key}
-                      type='button'
-                      variant='outline'
                       data-testid={`learner-profile-guidance-${key}`}
-                      className='h-auto min-h-16 items-start justify-start gap-2 rounded-xl border-primary/15 bg-primary/[0.05] px-3 py-2.5 text-left text-primary whitespace-normal hover:bg-primary/10 hover:text-primary'
-                      disabled={!loaded || busy || optimizing}
-                      onClick={() => insertPrompt(key)}
+                      className='flex min-h-16 items-start gap-2 rounded-xl border border-primary/15 bg-primary/[0.05] px-3 py-2.5 text-left text-primary'
                     >
                       <Icon
                         className='mt-0.5 size-4 shrink-0'
@@ -660,7 +641,7 @@ export default function LearnerProfileDialog({
                           )}
                         </span>
                       </span>
-                    </Button>
+                    </div>
                   ))}
                 </div>
 
