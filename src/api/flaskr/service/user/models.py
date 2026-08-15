@@ -148,7 +148,7 @@ class UserInfo(db.Model):
     learner_profile_updated_at = Column(
         DateTime,
         nullable=True,
-        comment="Timestamp when the learning profile was last changed",
+        comment="Timestamp when the learner profile was last changed",
     )
     avatar = Column(String(255), nullable=False, default="", comment="User avatar")
     birthday = Column(Date, nullable=True, comment="User birthday")

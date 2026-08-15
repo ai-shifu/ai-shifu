@@ -30,7 +30,7 @@ def upgrade():
                 "learner_profile_updated_at",
                 sa.DateTime(),
                 nullable=True,
-                comment="Timestamp when the learning profile was last changed",
+                comment="Timestamp when the learner profile was last changed",
             )
         )
 
