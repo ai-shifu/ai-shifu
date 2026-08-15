@@ -23,19 +23,6 @@ from flaskr.util.prompt_loader import load_prompt_template
 LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS = 15
 LEARNER_PROFILE_OPTIMIZATION_MAX_TOKENS = 1200
 LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME = "learner_profile_optimize"
-_STYLE_WORDS = ("风格", "style")
-_STYLE_REFERENCE_WORDS = (
-    "用",
-    "像",
-    "参考",
-    "模仿",
-    "仿照",
-    "in the style of",
-    "style of",
-    "à la manière",
-    "dans le style de",
-    "style de",
-)
 
 
 class _EmptyOptimizationOutput(ValueError):
@@ -70,13 +57,6 @@ def _optimization_runtime_error_reason(exc: Exception) -> str:
     ):
         return "not_configured"
     return "failed"
-
-
-def _uses_short_style_prompt(source: str) -> bool:
-    normalized = source.casefold()
-    return any(word in normalized for word in _STYLE_WORDS) and any(
-        word in normalized for word in _STYLE_REFERENCE_WORDS
-    )
 
 
 def optimize_learner_profile(
@@ -136,14 +116,9 @@ def optimize_learner_profile(
                 "input": {"learner_profile": normalized},
             },
         )
-        prompt_name = (
-            "learner_profile_optimizer_short"
-            if _uses_short_style_prompt(normalized)
-            else "learner_profile_optimizer"
-        )
         resolved_output_language = resolve_markdownflow_output_language(output_language)
         system_prompt = (
-            f"{load_prompt_template(prompt_name).strip()}\n\n"
+            f"{load_prompt_template('learner_profile_optimizer').strip()}\n\n"
             f"OUTPUT LANGUAGE: {resolved_output_language}. Write every label and "
             "sentence in this language. Put each category on a separate line."
         )
