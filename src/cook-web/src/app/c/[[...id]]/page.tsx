@@ -37,6 +37,7 @@ import {
   completeProfileOnboarding,
   getProfileOnboarding,
   updateWxcode,
+  type ProfileOnboardingStatus,
 } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 import type { EnvStoreState } from '@/c-types/store';
@@ -62,10 +63,14 @@ import ChatMobileHeader from './Components/ChatMobileHeader';
 import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
 import { trackCourseVisitIfNeeded } from './courseVisitTracking';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
+import ProfileOnboardingModal from '@/components/profile-onboarding/ProfileOnboardingModal';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
 import { debugWarn } from '@/c-utils/debugConsole';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveLearnerErrorToast } from '@/lib/learnerError';
+import {
+  resolveLearnerErrorMessage,
+  resolveLearnerErrorToast,
+} from '@/lib/learnerError';
 import { toast } from '@/hooks/useToast';
 
 const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
@@ -405,9 +410,16 @@ export default function ChatPage() {
     })),
   );
 
-  const [learnerProfileDialogMode, setLearnerProfileDialogMode] = useState<
-    'onboarding' | 'settings' | null
-  >(null);
+  const [learnerProfileSettingsOpen, setLearnerProfileSettingsOpen] =
+    useState(false);
+  const learnerProfileSettingsOpenRef = useRef(learnerProfileSettingsOpen);
+  learnerProfileSettingsOpenRef.current = learnerProfileSettingsOpen;
+  const [profileOnboardingStatus, setProfileOnboardingStatus] =
+    useState<ProfileOnboardingStatus | null>(null);
+  const [profileOnboardingOpen, setProfileOnboardingOpen] = useState(false);
+  const [profileOnboardingSubmitting, setProfileOnboardingSubmitting] =
+    useState(false);
+  const [profileOnboardingError, setProfileOnboardingError] = useState('');
   const [profileOnboardingReadyScope, setProfileOnboardingReadyScope] =
     useState<string | null>(null);
   const profileOnboardingRuntimeReady =
@@ -420,9 +432,21 @@ export default function ChatPage() {
 
   const releaseProfileOnboarding = useCallback(() => {
     profileOnboardingEligibilityRef.current = 'complete';
-    setLearnerProfileDialogMode(null);
+    setProfileOnboardingStatus(null);
+    setProfileOnboardingOpen(false);
+    setProfileOnboardingError('');
     setProfileOnboardingReadyScope(learnerProfileScope);
   }, [learnerProfileScope]);
+
+  const resolveProfileOnboardingError = useCallback(
+    (error: unknown) => {
+      return resolveLearnerErrorMessage({
+        error: error as Partial<ErrorWithCode>,
+        fallbackMessage: t('module.profileOnboarding.submitFailed'),
+      });
+    },
+    [t],
+  );
 
   const notifyProfileOnboardingLoadFailure = useCallback(
     (error: unknown) => {
@@ -438,11 +462,21 @@ export default function ChatPage() {
     [t],
   );
 
+  const notifyProfileOnboardingRefreshDelay = useCallback(() => {
+    toast({
+      title: t('module.profileOnboarding.refreshPending'),
+    });
+  }, [t]);
+
   useEffect(() => {
     profileOnboardingRequestedScopeRef.current = null;
     profileOnboardingRequestIdRef.current += 1;
     profileOnboardingEligibilityRef.current = 'idle';
-    setLearnerProfileDialogMode(null);
+    setLearnerProfileSettingsOpen(false);
+    setProfileOnboardingStatus(null);
+    setProfileOnboardingOpen(false);
+    setProfileOnboardingSubmitting(false);
+    setProfileOnboardingError('');
     setProfileOnboardingReadyScope(null);
   }, [initialized, isLoggedIn, learnerProfileScope, previewMode]);
 
@@ -482,11 +516,13 @@ export default function ChatPage() {
         ) {
           return;
         }
-        if (status?.should_show) {
+        if (status?.should_show && status.markdownflow?.trim()) {
           profileOnboardingEligibilityRef.current = 'show';
-          setLearnerProfileDialogMode(currentMode =>
-            currentMode === 'settings' ? currentMode : 'onboarding',
-          );
+          setProfileOnboardingStatus(status);
+          setProfileOnboardingError('');
+          if (!learnerProfileSettingsOpenRef.current) {
+            setProfileOnboardingOpen(true);
+          }
           return;
         }
         profileOnboardingEligibilityRef.current = 'complete';
@@ -513,30 +549,50 @@ export default function ChatPage() {
     previewMode,
   ]);
 
-  const handleLearnerProfileDialogClose = useCallback(
-    async (reason: 'dismiss' | 'saved') => {
-      if (learnerProfileDialogMode === 'settings') {
-        if (reason === 'saved') {
-          profileOnboardingRequestIdRef.current += 1;
-          profileOnboardingRequestedScopeRef.current = learnerProfileScope;
-          profileOnboardingEligibilityRef.current = 'complete';
-          releaseProfileOnboarding();
+  const handleProfileOnboardingComplete = useCallback(
+    async (variables: Record<string, string>) => {
+      const requestScope = learnerProfileScope;
+      setProfileOnboardingSubmitting(true);
+      setProfileOnboardingError('');
+      try {
+        await completeProfileOnboarding({
+          skipped: false,
+          variables,
+        });
+        if (learnerProfileScopeRef.current !== requestScope) {
           return;
         }
-
-        setLearnerProfileDialogMode(
-          profileOnboardingEligibilityRef.current === 'show'
-            ? 'onboarding'
-            : null,
-        );
-        return;
+        await refreshUserInfo().catch(error => {
+          debugWarn('[profile-onboarding] failed to refresh user info', error);
+          notifyProfileOnboardingRefreshDelay();
+        });
+        if (learnerProfileScopeRef.current === requestScope) {
+          releaseProfileOnboarding();
+        }
+      } catch (error) {
+        if (learnerProfileScopeRef.current === requestScope) {
+          setProfileOnboardingError(resolveProfileOnboardingError(error));
+        }
+      } finally {
+        if (learnerProfileScopeRef.current === requestScope) {
+          setProfileOnboardingSubmitting(false);
+        }
       }
-      if (reason === 'saved') {
-        releaseProfileOnboarding();
-        return;
-      }
+    },
+    [
+      learnerProfileScope,
+      notifyProfileOnboardingRefreshDelay,
+      refreshUserInfo,
+      releaseProfileOnboarding,
+      resolveProfileOnboardingError,
+    ],
+  );
 
-      const requestScope = learnerProfileScope;
+  const handleProfileOnboardingSkip = useCallback(async () => {
+    const requestScope = learnerProfileScope;
+    setProfileOnboardingSubmitting(true);
+    setProfileOnboardingError('');
+    try {
       await completeProfileOnboarding({
         skipped: true,
         variables: {},
@@ -544,17 +600,40 @@ export default function ChatPage() {
       if (learnerProfileScopeRef.current === requestScope) {
         releaseProfileOnboarding();
       }
+    } catch (error) {
+      if (learnerProfileScopeRef.current === requestScope) {
+        setProfileOnboardingError(resolveProfileOnboardingError(error));
+      }
+    } finally {
+      if (learnerProfileScopeRef.current === requestScope) {
+        setProfileOnboardingSubmitting(false);
+      }
+    }
+  }, [
+    learnerProfileScope,
+    releaseProfileOnboarding,
+    resolveProfileOnboardingError,
+  ]);
+
+  const handleLearnerProfileSettingsClose = useCallback(
+    (reason: 'dismiss' | 'saved') => {
+      setLearnerProfileSettingsOpen(false);
+      if (
+        reason === 'dismiss' &&
+        profileOnboardingEligibilityRef.current === 'show'
+      ) {
+        setProfileOnboardingOpen(true);
+      }
     },
-    [learnerProfileDialogMode, learnerProfileScope, releaseProfileOnboarding],
+    [],
   );
 
   const handleLearnerProfileSaved = useCallback(async () => {
     profileOnboardingRequestIdRef.current += 1;
     profileOnboardingRequestedScopeRef.current = learnerProfileScope;
-    profileOnboardingEligibilityRef.current = 'complete';
-    setProfileOnboardingReadyScope(learnerProfileScope);
+    releaseProfileOnboarding();
     await refreshUserInfo();
-  }, [learnerProfileScope, refreshUserInfo]);
+  }, [learnerProfileScope, refreshUserInfo, releaseProfileOnboarding]);
 
   useEffect(() => {
     if (!courseName) {
@@ -841,7 +920,8 @@ export default function ChatPage() {
   // const [loginOkHandlerData, setLoginOkHandlerData] = useState(null);
 
   const onGoToSettingPersonal = useCallback(() => {
-    setLearnerProfileDialogMode('settings');
+    setProfileOnboardingOpen(false);
+    setLearnerProfileSettingsOpen(true);
     if (mobileStyle) {
       onNavClose();
     }
@@ -1066,14 +1146,26 @@ export default function ChatPage() {
 
         {initialized ? <TrackingVisit /> : null}
 
-        {learnerProfileDialogMode ? (
+        {profileOnboardingStatus ? (
+          <ProfileOnboardingModal
+            open={profileOnboardingOpen}
+            markdownflow={profileOnboardingStatus.markdownflow}
+            currentValues={profileOnboardingStatus.current_values}
+            errorMessage={profileOnboardingError}
+            submitting={profileOnboardingSubmitting}
+            onComplete={handleProfileOnboardingComplete}
+            onSkip={handleProfileOnboardingSkip}
+          />
+        ) : null}
+
+        {learnerProfileSettingsOpen ? (
           <LearnerProfileDialog
-            key={`${learnerProfileScope}:${learnerProfileDialogMode}`}
+            key={`${learnerProfileScope}:settings`}
             open
-            mode={learnerProfileDialogMode}
+            mode='settings'
             draftStorageScope={learnerProfileScope}
             onSaved={handleLearnerProfileSaved}
-            onClose={handleLearnerProfileDialogClose}
+            onClose={handleLearnerProfileSettingsClose}
           />
         ) : null}
 

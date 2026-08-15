@@ -24,6 +24,8 @@ const mockToast = jest.fn();
 const openLearnerProfileLabel = 'open learner profile';
 const saveLearnerProfileLabel = 'save learner profile';
 const laterLabel = 'later';
+const completeOnboardingLabel = 'complete onboarding';
+const skipOnboardingLabel = 'skip onboarding';
 
 interface MockChatMobileHeaderProps {
   lessonId?: string;
@@ -50,6 +52,16 @@ interface MockLearnerProfileDialogProps {
   onClose: (reason: 'dismiss' | 'saved') => void | Promise<void>;
   onSaved?: () => void | Promise<void>;
   open: boolean;
+}
+
+interface MockProfileOnboardingModalProps {
+  currentValues?: Record<string, string>;
+  errorMessage?: string;
+  markdownflow: string;
+  onComplete: (variables: Record<string, string>) => void | Promise<void>;
+  onSkip: () => void | Promise<void>;
+  open: boolean;
+  submitting?: boolean;
 }
 
 type ResetChapterEventHandler = (
@@ -150,6 +162,42 @@ const mockLearnerProfileDialog = jest.fn(
       </div>
     );
   },
+);
+const mockProfileOnboardingModal = jest.fn(
+  ({
+    currentValues,
+    errorMessage,
+    markdownflow,
+    onComplete,
+    onSkip,
+    open,
+  }: MockProfileOnboardingModalProps) =>
+    open ? (
+      <div
+        data-testid='profile-onboarding-modal'
+        data-markdownflow={markdownflow}
+        data-current-values={JSON.stringify(currentValues || {})}
+      >
+        <button
+          type='button'
+          onClick={() =>
+            onComplete({
+              sys_user_nickname: '小明',
+              sys_user_background: '教育行业',
+            })
+          }
+        >
+          {completeOnboardingLabel}
+        </button>
+        <button
+          type='button'
+          onClick={onSkip}
+        >
+          {skipOnboardingLabel}
+        </button>
+        {errorMessage ? <div role='alert'>{errorMessage}</div> : null}
+      </div>
+    ) : null,
 );
 let mockSelectedLessonId = 'lesson-1';
 let mockLessonTreeLessons = [
@@ -381,6 +429,12 @@ jest.mock('@/components/profile-onboarding/LearnerProfileDialog', () => ({
     mockLearnerProfileDialog(props),
 }));
 
+jest.mock('@/components/profile-onboarding/ProfileOnboardingModal', () => ({
+  __esModule: true,
+  default: (props: MockProfileOnboardingModalProps) =>
+    mockProfileOnboardingModal(props),
+}));
+
 describe('ChatPage profile onboarding gate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -453,7 +507,7 @@ describe('ChatPage profile onboarding gate', () => {
     });
   });
 
-  test('saves the canonical profile without writing legacy variables before starting runtime', async () => {
+  test('keeps the original guided onboarding flow before starting runtime', async () => {
     mockGetProfileOnboarding.mockResolvedValue({
       should_show: true,
       markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
@@ -462,18 +516,32 @@ describe('ChatPage profile onboarding gate', () => {
 
     render(<ChatPage />);
 
-    const dialog = await screen.findByTestId('learner-profile-dialog');
-    expect(dialog).toHaveAttribute('data-mode', 'onboarding');
-    expect(dialog).toHaveAttribute('data-scope', 'user-1');
+    const modal = await screen.findByTestId('profile-onboarding-modal');
+    expect(modal).toHaveAttribute(
+      'data-markdownflow',
+      '?[%{{sys_user_nickname}}...怎么称呼你？]',
+    );
+    expect(
+      screen.queryByTestId('learner-profile-dialog'),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
       'false',
     );
 
     fireEvent.click(
-      screen.getByRole('button', { name: saveLearnerProfileLabel }),
+      screen.getByRole('button', { name: completeOnboardingLabel }),
     );
 
+    await waitFor(() => {
+      expect(mockCompleteProfileOnboarding).toHaveBeenCalledWith({
+        skipped: false,
+        variables: {
+          sys_user_nickname: '小明',
+          sys_user_background: '教育行业',
+        },
+      });
+    });
     await waitFor(() => expect(mockRefreshUserInfo).toHaveBeenCalled());
     await waitFor(() => {
       expect(screen.getByTestId('chat-ui')).toHaveAttribute(
@@ -481,8 +549,7 @@ describe('ChatPage profile onboarding gate', () => {
         'true',
       );
     });
-    expect(mockCompleteProfileOnboarding).not.toHaveBeenCalled();
-    expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
 
     fireEvent.click(
       screen.getByRole('button', { name: openLearnerProfileLabel }),
@@ -497,7 +564,7 @@ describe('ChatPage profile onboarding gate', () => {
     });
   });
 
-  test('marks later as handled without writing any legacy profile value', async () => {
+  test('passes legacy values to the original onboarding and marks skip as handled', async () => {
     mockGetProfileOnboarding.mockResolvedValue({
       should_show: true,
       markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
@@ -510,11 +577,15 @@ describe('ChatPage profile onboarding gate', () => {
 
     render(<ChatPage />);
 
-    await screen.findByTestId('learner-profile-dialog');
-    expect(screen.queryByText('Legacy nickname')).not.toBeInTheDocument();
-    expect(screen.queryByText('Legacy background')).not.toBeInTheDocument();
-    expect(screen.queryByText('Legacy style')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: laterLabel }));
+    const modal = await screen.findByTestId('profile-onboarding-modal');
+    expect(
+      JSON.parse(modal.getAttribute('data-current-values') || '{}'),
+    ).toEqual({
+      sys_user_nickname: 'Legacy nickname',
+      sys_user_background: 'Legacy background',
+      sys_user_style: 'Legacy style',
+    });
+    fireEvent.click(screen.getByRole('button', { name: skipOnboardingLabel }));
 
     await waitFor(() => {
       expect(mockCompleteProfileOnboarding).toHaveBeenCalledWith({
@@ -656,19 +727,73 @@ describe('ChatPage profile onboarding gate', () => {
 
     render(<ChatPage />);
 
-    await screen.findByTestId('learner-profile-dialog');
+    await screen.findByTestId('profile-onboarding-modal');
 
-    fireEvent.click(screen.getByRole('button', { name: laterLabel }));
+    fireEvent.click(screen.getByRole('button', { name: skipOnboardingLabel }));
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
         '暂时无法保存稍后处理状态',
       );
     });
-    expect(screen.getByTestId('learner-profile-dialog')).toBeInTheDocument();
+    expect(screen.getByTestId('profile-onboarding-modal')).toBeInTheDocument();
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
       'false',
+    );
+  });
+
+  test('keeps the original onboarding open when guided submission fails', async () => {
+    mockGetProfileOnboarding.mockResolvedValue({
+      should_show: true,
+      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
+      current_values: {},
+    });
+    mockCompleteProfileOnboarding.mockRejectedValue(
+      new Error('昵称包含风险词'),
+    );
+
+    render(<ChatPage />);
+
+    await screen.findByTestId('profile-onboarding-modal');
+    fireEvent.click(
+      screen.getByRole('button', { name: completeOnboardingLabel }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('昵称包含风险词');
+    });
+    expect(screen.getByTestId('profile-onboarding-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+      'data-runtime-ready',
+      'false',
+    );
+  });
+
+  test('starts runtime and reports delayed user refresh after guided submission', async () => {
+    mockGetProfileOnboarding.mockResolvedValue({
+      should_show: true,
+      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
+      current_values: {},
+    });
+    mockRefreshUserInfo.mockRejectedValue(new Error('refresh delayed'));
+
+    render(<ChatPage />);
+
+    await screen.findByTestId('profile-onboarding-modal');
+    fireEvent.click(
+      screen.getByRole('button', { name: completeOnboardingLabel }),
+    );
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.profileOnboarding.refreshPending',
+      });
+    });
+    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
+    expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+      'data-runtime-ready',
+      'true',
     );
   });
 
@@ -688,7 +813,7 @@ describe('ChatPage profile onboarding gate', () => {
       'true',
     );
     expect(
-      screen.queryByTestId('learner-profile-dialog'),
+      screen.queryByTestId('profile-onboarding-modal'),
     ).not.toBeInTheDocument();
   });
 
@@ -802,7 +927,7 @@ describe('ChatPage profile onboarding gate', () => {
     );
   });
 
-  test('opens onboarding when positive eligibility arrives after settings dismiss', async () => {
+  test('opens the original onboarding when positive eligibility arrives after settings dismiss', async () => {
     let resolveStatus: (value: unknown) => void = () => undefined;
     mockGetProfileOnboarding.mockReturnValue(
       new Promise(resolve => {
@@ -829,10 +954,8 @@ describe('ChatPage profile onboarding gate', () => {
       });
     });
 
-    expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'onboarding',
-    );
+    expect(screen.getByTestId('profile-onboarding-modal')).toBeInTheDocument();
+    expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
       'false',
@@ -875,13 +998,8 @@ describe('ChatPage profile onboarding gate', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: laterLabel }));
 
-    await waitFor(() => {
-      expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-        'data-mode',
-        'onboarding',
-      );
-    });
-    expect(screen.getByLabelText('mock learner draft')).toHaveValue('');
+    await screen.findByTestId('profile-onboarding-modal');
+    expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
       'false',
@@ -928,6 +1046,7 @@ describe('ChatPage profile onboarding gate', () => {
     });
 
     expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
       'true',
@@ -944,10 +1063,9 @@ describe('ChatPage profile onboarding gate', () => {
 
     const { rerender } = render(<ChatPage />);
 
-    expect(await screen.findByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-scope',
-      'user-1',
-    );
+    expect(
+      await screen.findByTestId('profile-onboarding-modal'),
+    ).toBeInTheDocument();
     mockGetProfileOnboarding.mockResolvedValue({
       should_show: false,
       markdownflow: '',
@@ -962,6 +1080,7 @@ describe('ChatPage profile onboarding gate', () => {
 
     await waitFor(() => {
       expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(2);
+      expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
       expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
       expect(screen.getByTestId('chat-ui')).toHaveAttribute(
         'data-runtime-ready',
@@ -1049,6 +1168,7 @@ describe('ChatPage profile onboarding gate', () => {
       });
     });
 
+    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
     expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
