@@ -1,6 +1,5 @@
 import request from '@/lib/request';
 import {
-  clearLearnerProfile,
   getLearnerProfile,
   optimizeLearnerProfile,
   updateLearnerProfile,
@@ -12,7 +11,6 @@ jest.mock('@/lib/request', () => ({
     get: jest.fn(),
     post: jest.fn(),
     put: jest.fn(),
-    delete: jest.fn(),
   },
 }));
 
@@ -21,7 +19,7 @@ describe('learner profile api', () => {
     jest.clearAllMocks();
   });
 
-  test('reads, replaces, and clears the canonical learner profile', async () => {
+  test('reads and replaces the canonical learner profile', async () => {
     const savedProfile = {
       learner_profile: '我是一名产品经理。',
       learner_profile_updated_at: '2026-08-03T01:02:03Z',
@@ -30,26 +28,13 @@ describe('learner profile api', () => {
       nickname: '小明',
       nickname_max_length: 64,
     };
-    const clearedProfile = {
-      ...savedProfile,
-      learner_profile: '',
-      learner_profile_updated_at: null,
-      has_learner_profile: false,
-      legacy_profile_values: {
-        sys_user_nickname: '小明',
-        sys_user_background: '产品经理',
-        sys_user_style: '简洁',
-      },
-    };
     (request.get as jest.Mock).mockResolvedValue(savedProfile);
     (request.put as jest.Mock).mockResolvedValue(savedProfile);
-    (request.delete as jest.Mock).mockResolvedValue(clearedProfile);
 
     await expect(getLearnerProfile()).resolves.toEqual(savedProfile);
     await expect(
       updateLearnerProfile('我是一名产品经理。', '小明'),
     ).resolves.toEqual(savedProfile);
-    await expect(clearLearnerProfile()).resolves.toEqual(clearedProfile);
 
     expect(request.get).toHaveBeenCalledWith('/api/user/learner-profile', {
       skipErrorToast: true,
@@ -62,9 +47,6 @@ describe('learner profile api', () => {
       },
       { skipErrorToast: true },
     );
-    expect(request.delete).toHaveBeenCalledWith('/api/user/learner-profile', {
-      skipErrorToast: true,
-    });
   });
 
   test('preserves the nickname when an older caller only updates the profile', async () => {

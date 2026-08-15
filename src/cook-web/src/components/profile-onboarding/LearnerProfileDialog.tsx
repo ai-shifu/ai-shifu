@@ -36,7 +36,6 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useToast } from '@/hooks/useToast';
-import { notifyLearnerProfileChanged } from '@/lib/learnerProfileEvents';
 import {
   ProfileDraftEditor,
   countUnicodeCodePoints,
@@ -306,7 +305,6 @@ export default function LearnerProfileDialog({
       );
       setNicknameMaxLength(response.nickname_max_length || nicknameMaxLength);
       resetOptimization();
-      notifyLearnerProfileChanged();
       await runOnSaved(generation, scope);
       if (isCurrent(generation, scope)) {
         await onClose('saved');
@@ -652,7 +650,6 @@ export default function LearnerProfileDialog({
                   value={profile}
                   maxLength={maxLength}
                   disabled={!loaded || busy || optimizing}
-                  label={null}
                   placeholder={t(
                     'module.profileOnboarding.dialog.profilePlaceholder',
                   )}

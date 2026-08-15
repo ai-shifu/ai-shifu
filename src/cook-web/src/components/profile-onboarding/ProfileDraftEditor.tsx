@@ -19,7 +19,6 @@ export function ProfileDraftEditor({
   value,
   maxLength,
   disabled,
-  label,
   placeholder,
   onChange,
 }: {
@@ -33,8 +32,7 @@ export function ProfileDraftEditor({
   value: string;
   maxLength: number;
   disabled: boolean;
-  label?: string | null;
-  placeholder?: string;
+  placeholder: string;
   onChange: (value: string) => void;
 }) {
   const { t } = useTranslation();
@@ -52,14 +50,6 @@ export function ProfileDraftEditor({
 
   return (
     <div className='space-y-2'>
-      {label !== null ? (
-        <label
-          htmlFor={inputId}
-          className='text-sm font-medium'
-        >
-          {label ?? t('module.profileOnboarding.profileLabel')}
-        </label>
-      ) : null}
       <Textarea
         ref={textareaRef}
         id={inputId}
@@ -69,9 +59,7 @@ export function ProfileDraftEditor({
         minRows={autoResize ? minRows : undefined}
         maxRows={autoResize ? maxRows : undefined}
         disabled={disabled}
-        placeholder={
-          placeholder ?? t('module.profileOnboarding.profilePlaceholder')
-        }
+        placeholder={placeholder}
         aria-describedby={[descriptionId, `${inputId}-character-count`]
           .filter(Boolean)
           .join(' ')}

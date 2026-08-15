@@ -47,9 +47,3 @@ export const optimizeLearnerProfile = (
     { skipErrorToast: true },
   );
 };
-
-export const clearLearnerProfile = (): Promise<LearnerProfile> => {
-  return request.delete('/api/user/learner-profile', {
-    skipErrorToast: true,
-  });
-};

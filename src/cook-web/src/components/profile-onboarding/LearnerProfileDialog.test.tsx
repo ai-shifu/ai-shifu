@@ -11,7 +11,6 @@ import {
   optimizeLearnerProfile,
   updateLearnerProfile,
 } from '@/api/learnerProfile';
-import { LEARNER_PROFILE_CHANGED_EVENT } from '@/lib/learnerProfileEvents';
 import LearnerProfileDialog from './LearnerProfileDialog';
 import enProfile from '../../../../i18n/en-US/modules/profile-onboarding.json';
 import frProfile from '../../../../i18n/fr-FR/modules/profile-onboarding.json';
@@ -697,8 +696,6 @@ describe('LearnerProfileDialog', () => {
     mockOptimizeLearnerProfile.mockResolvedValue({
       optimized_learner_profile: 'A clearer learner introduction',
     });
-    const onProfileChanged = jest.fn();
-    window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
     renderDialog();
     const editor = await screen.findByDisplayValue(
       existingProfile.learner_profile,
@@ -763,8 +760,6 @@ describe('LearnerProfileDialog', () => {
         name: 'module.profileOnboarding.dialog.undoOptimize',
       }),
     ).not.toBeInTheDocument();
-    expect(onProfileChanged).not.toHaveBeenCalled();
-    window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
   test('locks only profile actions while optimization is pending and prevents duplicates', async () => {
@@ -1092,8 +1087,6 @@ describe('LearnerProfileDialog', () => {
     const onSaved = jest.fn(async () => {
       calls.push('saved');
     });
-    const onProfileChanged = jest.fn();
-    window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
     mockUpdateLearnerProfile.mockResolvedValue({
       ...existingProfile,
       learner_profile: 'Updated learner introduction',
@@ -1119,10 +1112,8 @@ describe('LearnerProfileDialog', () => {
     expect(onSaved).toHaveBeenCalledTimes(1);
     expect(calls).toEqual(['saved', 'close:saved']);
     expect(onClose).toHaveBeenCalledWith('saved');
-    expect(onProfileChanged).toHaveBeenCalledTimes(1);
     expect(mockToast).not.toHaveBeenCalled();
     expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
-    window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
   test('sends a changed nickname with the unchanged introduction', async () => {
@@ -1298,10 +1289,6 @@ describe('LearnerProfileDialog', () => {
     const onSaved = jest.fn(() => {
       calls.push('saved');
     });
-    const onProfileChanged = jest.fn(() => {
-      calls.push('event');
-    });
-    window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
     mockUpdateLearnerProfile.mockResolvedValue(clearedProfile);
     renderDialog({ onClose, onSaved });
     const editor = await screen.findByDisplayValue(
@@ -1324,10 +1311,8 @@ describe('LearnerProfileDialog', () => {
       screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
     ).toHaveValue('Alex');
     expect(onSaved).toHaveBeenCalledTimes(1);
-    expect(onProfileChanged).toHaveBeenCalledTimes(1);
-    expect(calls).toEqual(['event', 'saved', 'close:saved']);
+    expect(calls).toEqual(['saved', 'close:saved']);
     expect(mockToast).not.toHaveBeenCalled();
-    window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
   test('keeps the dialog open when saving an empty profile fails', async () => {
@@ -1575,8 +1560,6 @@ describe('LearnerProfileDialog', () => {
       });
     const onSaved = jest.fn();
     const onClose = jest.fn();
-    const onProfileChanged = jest.fn();
-    window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
     const { rerender } = render(
       <LearnerProfileDialog
         open={true}
@@ -1630,9 +1613,7 @@ describe('LearnerProfileDialog', () => {
     ).toHaveValue('Bee');
     expect(onSaved).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
-    expect(onProfileChanged).not.toHaveBeenCalled();
     expect(mockToast).not.toHaveBeenCalled();
-    window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
   test('preserves an unsaved draft when the interface language changes', async () => {
@@ -1679,8 +1660,6 @@ describe('LearnerProfileDialog', () => {
     );
     const onSaved = jest.fn();
     const onClose = jest.fn();
-    const onProfileChanged = jest.fn();
-    window.addEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
     const { unmount } = renderDialog({ onClose, onSaved });
     fireEvent.change(
       await screen.findByDisplayValue(existingProfile.learner_profile),
@@ -1705,9 +1684,7 @@ describe('LearnerProfileDialog', () => {
 
     expect(onSaved).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
-    expect(onProfileChanged).not.toHaveBeenCalled();
     expect(mockToast).not.toHaveBeenCalled();
-    window.removeEventListener(LEARNER_PROFILE_CHANGED_EVENT, onProfileChanged);
   });
 
   test('does not toast or close when a save rejects after unmount', async () => {

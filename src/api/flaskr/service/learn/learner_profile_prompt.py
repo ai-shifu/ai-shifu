@@ -123,12 +123,6 @@ def _parse_composed_course_prompt(prompt: str | None) -> str | None:
     return course_prompt
 
 
-def has_composed_learner_profile(prompt: str | None) -> bool:
-    """Return whether ``prompt`` has the complete server-authored envelope."""
-
-    return _parse_composed_course_prompt(prompt) is not None
-
-
 def build_course_prompt(
     course_prompt: str | None,
     *,

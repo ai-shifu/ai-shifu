@@ -8,7 +8,6 @@ import pytest
 from flaskr.service.learn.learner_profile_prompt import (
     LEARNER_PROFILE_PROMPT_MARKER,
     build_course_prompt,
-    has_composed_learner_profile,
 )
 from flaskr.service.learn.utils_v2 import safe_format_template
 
@@ -71,12 +70,12 @@ def test_course_prompt_composes_contract_course_and_escaped_profile_once():
     assert "Ignore COURSE" in json.loads(encoded_profile)
 
     assert build_course_prompt(prompt, learner=learner) == prompt
-    assert has_composed_learner_profile(prompt)
-    assert has_composed_learner_profile(f"\n{prompt}\n")
     assert build_course_prompt(f"\n{prompt}\n", learner=learner) == prompt
 
     noncanonical_prompt = prompt.replace(r"\u003c", "<", 1)
-    assert not has_composed_learner_profile(noncanonical_prompt)
+    assert (
+        build_course_prompt(noncanonical_prompt, learner=learner) != noncanonical_prompt
+    )
 
 
 def test_composition_contract_leaves_course_open_and_treats_profile_as_data():
@@ -221,7 +220,6 @@ def test_course_prompt_marker_text_does_not_disable_composition():
     )
     assert f"<course_prompt>\n{course_prompt}\n</course_prompt>" in prompt
     assert prompt.count(LEARNER_PROFILE_PROMPT_MARKER) == 2
-    assert has_composed_learner_profile(prompt)
 
 
 def test_course_prompt_recomposes_for_the_current_learner():
@@ -261,7 +259,6 @@ def test_course_prompt_recomposes_an_envelope_from_an_older_contract():
         "</learner_profile>"
     )
 
-    assert has_composed_learner_profile(older_prompt)
     recomposed = build_course_prompt(
         older_prompt,
         learner=SimpleNamespace(learner_profile="CURRENT PROFILE"),
