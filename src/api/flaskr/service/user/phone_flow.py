@@ -364,7 +364,10 @@ def verify_phone_code(
                 )
             else:
                 new_profiles = get_user_profile_labels(
-                    app, user_id, normalized_course_id
+                    app,
+                    user_id,
+                    normalized_course_id,
+                    include_nickname=False,
                 )
                 update_user_profile_with_lable(
                     app,

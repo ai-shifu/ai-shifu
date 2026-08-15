@@ -763,6 +763,67 @@ def test_email_sign_in_transfers_cleared_state_without_course_id(app, monkeypatc
         assert target_state.trigger_source == "settings"
 
 
+@pytest.mark.parametrize("sign_in_method", ["phone", "email"])
+def test_legacy_profile_migration_preserves_target_nickname(
+    app,
+    monkeypatch,
+    sign_in_method,
+):
+    from flaskr.service.user import email_flow, phone_flow
+
+    flow = phone_flow if sign_in_method == "phone" else email_flow
+    monkeypatch.setattr(flow, "redis", _FakeRedis())
+    monkeypatch.setattr(flow, "FIX_CHECK_CODE", "9999")
+    monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
+    monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.check_text_content",
+        lambda *_args: True,
+    )
+
+    with app.app_context():
+        identifier = (
+            f"155{uuid.uuid4().int % 10**8:08d}"
+            if sign_in_method == "phone"
+            else f"{uuid.uuid4().hex[:12]}@example.com"
+        )
+        source = _create_user(
+            identify=uuid.uuid4().hex,
+            nickname="Guest nickname",
+            learner_profile="guest profile",
+            learner_profile_updated_at=PROFILE_UPDATED_AT,
+        )
+        target = _create_user(
+            identify=identifier,
+            nickname="Target nickname",
+        )
+        _add_state(source.user_bid, status="completed")
+        db.session.commit()
+
+        if sign_in_method == "phone":
+            token, _created, _context = flow.verify_phone_code(
+                app,
+                user_id=source.user_bid,
+                phone=identifier,
+                code="9999",
+                course_id="nickname-migration-course",
+            )
+        else:
+            token, _created, _context = flow.verify_email_code(
+                app,
+                user_id=source.user_bid,
+                email=identifier,
+                code="9999",
+                course_id="nickname-migration-course",
+            )
+        db.session.commit()
+
+        stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
+        assert stored_target.learner_profile == "guest profile"
+        assert stored_target.nickname == "Target nickname"
+        assert token.userInfo.name == "Target nickname"
+
+
 def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch):
     import flaskr.service.user.auth.providers.google as google_provider
     from flaskr.service.user import phone_flow

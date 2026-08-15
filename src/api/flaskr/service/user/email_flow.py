@@ -145,7 +145,12 @@ def verify_email_code(
                 target_user_id=target_aggregate.user_bid,
             )
             if course_id is not None:
-                new_profiles = get_user_profile_labels(app, user_id, course_id)
+                new_profiles = get_user_profile_labels(
+                    app,
+                    user_id,
+                    course_id,
+                    include_nickname=False,
+                )
                 update_user_profile_with_lable(
                     app, target_aggregate.user_bid, new_profiles, False, course_id
                 )

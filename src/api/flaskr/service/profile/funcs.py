@@ -360,7 +360,11 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
 
 
 def get_user_profile_labels(
-    app: Flask, user_id: str, course_id: str
+    app: Flask,
+    user_id: str,
+    course_id: str,
+    *,
+    include_nickname: bool = True,
 ) -> UserProfileLabelDTO:
     """
     Get user profile labels
@@ -477,6 +481,10 @@ def get_user_profile_labels(
             )
         )
 
+    if not include_nickname:
+        result.profiles = [
+            profile for profile in result.profiles if profile.key != SYS_USER_NICKNAME
+        ]
     return result
 
 
