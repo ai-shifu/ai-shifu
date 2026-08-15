@@ -381,9 +381,10 @@ def test_optimizer_route_uses_real_ip_only_from_configured_proxy(
     [
         ("2001:db8:1::10", "2001:db8:1::20", 1023),
         ("2001:db8:1::10", "2001:db8:2::10", 0),
+        ("::ffff:192.0.2.10", "::ffff:192.0.2.20", 0),
     ],
 )
-def test_optimizer_route_groups_ipv6_clients_by_64_network(
+def test_optimizer_route_normalizes_ip_rate_limit_scopes(
     app,
     test_client,
     monkeypatch,

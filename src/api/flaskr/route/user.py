@@ -199,6 +199,8 @@ def _trusted_request_client_ip(app: Flask) -> str:
             client_ip = ip_address(real_ip)
         except ValueError:
             pass
+    if isinstance(client_ip, IPv6Address) and client_ip.ipv4_mapped is not None:
+        return str(client_ip.ipv4_mapped)
     if isinstance(client_ip, IPv6Address):
         return str(ip_network(f"{client_ip}/64", strict=False))
     return str(client_ip)
