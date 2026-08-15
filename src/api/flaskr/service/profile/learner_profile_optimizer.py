@@ -31,7 +31,6 @@ _STYLE_REFERENCE_WORDS = (
     "仿照",
     "in the style of",
     "style of",
-    "like",
     "à la manière",
     "dans le style de",
     "style de",

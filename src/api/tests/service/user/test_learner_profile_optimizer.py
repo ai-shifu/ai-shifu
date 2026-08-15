@@ -314,6 +314,7 @@ def test_short_optimizer_prompt_stays_focused_on_one_supported_preference():
     [
         ("我希望你能用周星驰的喜剧风格讲课", True),
         ("Teach in the style of a dry British comedy", True),
+        ("I like concise teaching style", False),
         ("请使用简洁、准确的表达", False),
         ("我做过大学老师和产品运营，现在创业，喜欢简洁准确的表达", False),
     ],
