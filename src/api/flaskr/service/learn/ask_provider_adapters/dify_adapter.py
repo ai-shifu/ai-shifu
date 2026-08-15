@@ -16,36 +16,12 @@ from .base import (
     AskProviderTimeoutError,
 )
 from .common import (
+    build_message_transcript,
     extract_text,
     iter_sse_payloads,
     provider_timeout_seconds,
     raise_for_provider_response,
 )
-
-
-def _build_dify_query(user_query: str, messages: list[dict[str, Any]]) -> str:
-    if not isinstance(messages, list) or not messages:
-        return user_query
-
-    role_map = {
-        "system": "system",
-        "user": "user",
-        "assistant": "assistant",
-    }
-    transcript_lines: list[str] = []
-    for message in messages:
-        if not isinstance(message, dict):
-            continue
-        role = role_map.get(str(message.get("role") or "").strip().lower())
-        content = str(message.get("content") or "").strip()
-        if not role or not content:
-            continue
-        transcript_lines.append(f"[{role}]\n{content}")
-
-    if not transcript_lines:
-        return user_query
-
-    return "\n\n".join(transcript_lines)
 
 
 class DifyAskProviderAdapter:
@@ -72,7 +48,7 @@ class DifyAskProviderAdapter:
                 "dify base_url/api_key are required in ask_provider_config.config"
             )
 
-        contextual_query = _build_dify_query(user_query, messages)
+        contextual_query = build_message_transcript(user_query, messages)
         payload: dict[str, Any] = {
             "query": contextual_query,
             "user": user_id,

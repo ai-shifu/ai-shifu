@@ -15,7 +15,12 @@ from .base import (
     AskProviderRuntime,
     AskProviderTimeoutError,
 )
-from .common import extract_text, provider_timeout_seconds, raise_for_provider_response
+from .common import (
+    build_message_transcript,
+    extract_text,
+    provider_timeout_seconds,
+    raise_for_provider_response,
+)
 
 
 DEFAULT_COZE_WORKFLOW_BASE_URL = "https://api.coze.cn"
@@ -192,7 +197,7 @@ class CozeWorkflowAskProviderAdapter:
         provider_config: dict[str, Any],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
-        _ = (app, user_id, messages, runtime)
+        _ = (app, user_id, runtime)
         config = provider_config.get("config") or {}
         if not isinstance(config, dict):
             config = {}
@@ -208,7 +213,7 @@ class CozeWorkflowAskProviderAdapter:
         query_key = str(config.get("query_key") or "query").strip() or "query"
         parameters = config.get("parameters")
         payload_parameters = dict(parameters) if isinstance(parameters, dict) else {}
-        payload_parameters[query_key] = user_query
+        payload_parameters[query_key] = build_message_transcript(user_query, messages)
 
         payload: dict[str, Any] = {
             "workflow_id": workflow_id,

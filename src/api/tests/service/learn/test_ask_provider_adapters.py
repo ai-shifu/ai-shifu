@@ -228,7 +228,10 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
             app=app,
             user_id="user-1",
             user_query="hello workflow",
-            messages=[],
+            messages=[
+                {"role": "system", "content": "course and learner context"},
+                {"role": "user", "content": "hello workflow"},
+            ],
             provider_config={
                 "config": {
                     "api_key": "test-key",
@@ -241,7 +244,9 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
     assert request_state["url"] == "https://api.coze.cn/v1/workflow/run"
     assert request_state["json"] == {
         "workflow_id": "workflow-1",
-        "parameters": {"query": "hello workflow"},
+        "parameters": {
+            "query": ("[system]\ncourse and learner context\n\n[user]\nhello workflow")
+        },
     }
     assert request_state["headers"]["Authorization"] == "Bearer test-key"
     assert len(chunks) == 1
@@ -359,6 +364,7 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
 
     def _fake_post(url, **kwargs):
         request_state["url"] = url
+        request_state["json"] = kwargs.get("json")
         return _FakeResponse(
             lines=[
                 'data: {"event":"message","content":"ok"}',
@@ -373,7 +379,10 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
             app=app,
             user_id="user-1",
             user_query="hello",
-            messages=[],
+            messages=[
+                {"role": "system", "content": "course and learner context"},
+                {"role": "user", "content": "hello"},
+            ],
             provider_config={
                 "config": {
                     "api_key": "test-key",
@@ -384,6 +393,14 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
     )
 
     assert request_state["url"] == "https://api.coze.cn/v3/chat"
+    assert request_state["json"]["additional_messages"] == [
+        {
+            "role": "user",
+            "content": "[system]\ncourse and learner context",
+            "content_type": "text",
+        },
+        {"role": "user", "content": "hello", "content_type": "text"},
+    ]
     assert [chunk.content for chunk in chunks] == ["ok"]
 
 

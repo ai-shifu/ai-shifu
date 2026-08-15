@@ -25,6 +25,31 @@ from .common import (
 DEFAULT_COZE_BASE_URL = "https://api.coze.cn"
 
 
+def _build_additional_messages(
+    user_query: str,
+    messages: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    """Map effective Ask context to Coze's user/assistant message contract."""
+
+    additional_messages: list[dict[str, str]] = []
+    for message in messages if isinstance(messages, list) else []:
+        if not isinstance(message, dict):
+            continue
+        source_role = str(message.get("role") or "").strip().lower()
+        content = str(message.get("content") or "").strip()
+        if not content or source_role not in {"system", "user", "assistant"}:
+            continue
+        role = "assistant" if source_role == "assistant" else "user"
+        if source_role == "system":
+            content = f"[system]\n{content}"
+        additional_messages.append(
+            {"role": role, "content": content, "content_type": "text"}
+        )
+    if additional_messages:
+        return additional_messages
+    return [{"role": "user", "content": user_query, "content_type": "text"}]
+
+
 class CozeAskProviderAdapter:
     provider = ASK_PROVIDER_COZE
 
@@ -62,13 +87,7 @@ class CozeAskProviderAdapter:
         payload: dict[str, Any] = {
             "stream": True,
             "user_id": user_id,
-            "additional_messages": [
-                {
-                    "role": "user",
-                    "content": user_query,
-                    "content_type": "text",
-                }
-            ],
+            "additional_messages": _build_additional_messages(user_query, messages),
         }
         if bot_id:
             payload["bot_id"] = bot_id
