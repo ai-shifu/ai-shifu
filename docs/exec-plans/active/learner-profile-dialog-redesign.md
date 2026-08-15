@@ -324,15 +324,13 @@ canonical empty-profile write through PUT and keeps the independent nickname.
   traces remain the allowed observability writes; Langfuse intentionally keeps
   the full model input and output. Failed child generations and their root
   trace are finalized instead of being left open.
-- Decision: bound optimizer cost and concurrency on the server.
-  Rationale: temporary and registered users can both reach the endpoint.
-  Per-user and trusted network-scope rate limits plus in-flight caps run before
-  moderation and LLM work; frontend state is only a usability guard, not an
-  admission boundary. Only a direct peer listed in
-  `TRUSTED_REVERSE_PROXY_ADDRESSES` may supply the proxy-overwritten
-  `X-Real-IP`; client-controlled `X-Forwarded-For` is ignored, and IPv6 scopes
-  are grouped by `/64`. Configured Redis fails closed, while an environment
-  with no Redis uses a process-local fallback intended for local development.
+- Decision: prevent duplicate optimizer work with one per-user in-flight slot.
+  Rationale: the server rejects a second optimization while the same learner's
+  first request is still running. This mirrors the learning runtime's simple
+  concurrency guard without adding feature-specific rate limits, IP trust
+  configuration, or deployment tuning. Configured Redis fails closed, while an
+  environment with no Redis uses a process-local fallback intended for local
+  development.
 - Decision: make the editor height stable for a given viewport, not a single
   fixed pixel value.
   Rationale: `clamp(7rem, 16dvh, 11rem)` uses more room when available while

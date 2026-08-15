@@ -180,58 +180,6 @@ ENV_VARS: dict[str, EnvVar] = {
         description="Maximum concurrent follow-up (ask) requests per (user, outline) that can run alongside the main lesson stream.",
         group="app",
     ),
-    "LEARNER_PROFILE_OPTIMIZE_USER_RATE_LIMIT": EnvVar(
-        name="LEARNER_PROFILE_OPTIMIZE_USER_RATE_LIMIT",
-        default=5,
-        type=int,
-        description="Maximum learner-profile optimization requests per user per minute.",
-        group="app",
-        validator=lambda x: int(x) > 0,
-    ),
-    "LEARNER_PROFILE_OPTIMIZE_IP_RATE_LIMIT": EnvVar(
-        name="LEARNER_PROFILE_OPTIMIZE_IP_RATE_LIMIT",
-        default=20,
-        type=int,
-        description="Maximum learner-profile optimization requests per client IP per minute.",
-        group="app",
-        validator=lambda x: int(x) > 0,
-    ),
-    "LEARNER_PROFILE_OPTIMIZE_USER_CONCURRENCY": EnvVar(
-        name="LEARNER_PROFILE_OPTIMIZE_USER_CONCURRENCY",
-        default=1,
-        type=int,
-        description="Maximum concurrent learner-profile optimizations per user.",
-        group="app",
-        validator=lambda x: int(x) > 0,
-    ),
-    "LEARNER_PROFILE_OPTIMIZE_IP_CONCURRENCY": EnvVar(
-        name="LEARNER_PROFILE_OPTIMIZE_IP_CONCURRENCY",
-        default=4,
-        type=int,
-        description="Maximum concurrent learner-profile optimizations per client IP.",
-        group="app",
-        validator=lambda x: int(x) > 0,
-    ),
-    "LEARNER_PROFILE_OPTIMIZE_IN_FLIGHT_TTL_SECONDS": EnvVar(
-        name="LEARNER_PROFILE_OPTIMIZE_IN_FLIGHT_TTL_SECONDS",
-        default=360,
-        type=int,
-        description=(
-            "Leak-protection lifetime for learner-profile optimization concurrency "
-            "leases; keep above the API worker timeout."
-        ),
-        group="app",
-        validator=lambda x: int(x) >= 360,
-    ),
-    "TRUSTED_REVERSE_PROXY_ADDRESSES": EnvVar(
-        name="TRUSTED_REVERSE_PROXY_ADDRESSES",
-        default="127.0.0.1,::1,172.16.0.0/12",
-        description=(
-            "Comma-separated direct proxy IPs or CIDRs allowed to supply "
-            "X-Real-IP for security-sensitive request scopes."
-        ),
-        group="app",
-    ),
     "SHIFU_PERMISSION_CACHE_EXPIRE": EnvVar(
         name="SHIFU_PERMISSION_CACHE_EXPIRE",
         default=300,

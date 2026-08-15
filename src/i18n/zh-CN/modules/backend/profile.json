@@ -11,7 +11,7 @@
     "learnerProfileOptimizationFailed": "AI 优化服务出错，请稍后重试",
     "learnerProfileOptimizationModerationFailed": "内容审核服务暂时不可用，请稍后重试",
     "learnerProfileOptimizationNotConfigured": "尚未配置个人资料优化模型，请联系管理员",
-    "learnerProfileOptimizationRateLimited": "优化请求过于频繁，请稍后重试",
+    "learnerProfileOptimizationRateLimited": "已有优化请求正在处理中，请稍后重试",
     "learnerProfileOptimizationRejected": "这段介绍包含不合规内容，请修改后重试",
     "learnerProfileOptimizationTimedOut": "AI 优化请求超时，请重试",
     "nickname": "昵称",

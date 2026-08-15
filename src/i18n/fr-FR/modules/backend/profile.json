@@ -11,7 +11,7 @@
     "learnerProfileOptimizationFailed": "Le service d’optimisation par IA a rencontré une erreur. Réessayez plus tard.",
     "learnerProfileOptimizationModerationFailed": "La vérification du contenu est temporairement indisponible. Réessayez plus tard.",
     "learnerProfileOptimizationNotConfigured": "Aucun modèle d’optimisation du profil n’est configuré. Contactez un administrateur.",
-    "learnerProfileOptimizationRateLimited": "Trop de demandes d’optimisation ont été envoyées. Réessayez plus tard.",
+    "learnerProfileOptimizationRateLimited": "Une demande d’optimisation est déjà en cours. Réessayez dans un instant.",
     "learnerProfileOptimizationRejected": "Cette présentation contient du contenu non autorisé. Modifiez-la, puis réessayez.",
     "learnerProfileOptimizationTimedOut": "La demande d’optimisation par IA a expiré. Réessayez.",
     "nickname": "Pseudonyme",

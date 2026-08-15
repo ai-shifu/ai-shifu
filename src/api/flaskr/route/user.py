@@ -1,5 +1,4 @@
 from functools import wraps
-from ipaddress import IPv6Address, ip_address, ip_network
 
 from flask import Flask, current_app, make_response, request
 
@@ -170,40 +169,6 @@ def _request_client_ip() -> str:
     if "X-Forwarded-For" in request.headers:
         return request.headers["X-Forwarded-For"].split(",")[0].strip()
     return str(request.remote_addr or "").strip()
-
-
-def _trusted_request_client_ip(app: Flask) -> str:
-    """Resolve a cost-control IP without trusting client-controlled forwarding."""
-
-    direct_peer = str(request.remote_addr or "").strip()
-    configured = str(app.config.get("TRUSTED_REVERSE_PROXY_ADDRESSES", "") or "")
-    try:
-        peer_ip = ip_address(direct_peer)
-    except ValueError:
-        return direct_peer
-    trusted_peer = False
-    for configured_scope in configured.split(","):
-        configured_scope = configured_scope.strip()
-        if not configured_scope:
-            continue
-        try:
-            if peer_ip in ip_network(configured_scope, strict=False):
-                trusted_peer = True
-                break
-        except ValueError:
-            continue
-    client_ip = peer_ip
-    if trusted_peer:
-        real_ip = str(request.headers.get("X-Real-IP", "") or "").strip()
-        try:
-            client_ip = ip_address(real_ip)
-        except ValueError:
-            pass
-    if isinstance(client_ip, IPv6Address) and client_ip.ipv4_mapped is not None:
-        return str(client_ip.ipv4_mapped)
-    if isinstance(client_ip, IPv6Address):
-        return str(ip_network(f"{client_ip}/64", strict=False))
-    return str(client_ip)
 
 
 def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
@@ -512,7 +477,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         with learner_profile_optimization_admission(
             app,
             user_id=request.user.user_id,
-            client_ip=_trusted_request_client_ip(app),
         ):
             result = optimize_learner_profile(
                 app,

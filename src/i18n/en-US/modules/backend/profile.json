@@ -11,7 +11,7 @@
     "learnerProfileOptimizationFailed": "The AI optimization service encountered an error. Please try again later.",
     "learnerProfileOptimizationModerationFailed": "Content review is temporarily unavailable. Please try again later.",
     "learnerProfileOptimizationNotConfigured": "No profile optimization model is configured. Please contact an administrator.",
-    "learnerProfileOptimizationRateLimited": "Too many optimization requests. Please try again later.",
+    "learnerProfileOptimizationRateLimited": "An optimization request is already in progress. Please try again shortly.",
     "learnerProfileOptimizationRejected": "This introduction contains disallowed content. Please revise it and try again.",
     "learnerProfileOptimizationTimedOut": "The AI optimization request timed out. Please try again.",
     "nickname": "Nickname",
