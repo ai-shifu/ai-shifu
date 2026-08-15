@@ -437,7 +437,7 @@ def test_optimize_rejects_empty_model_output_without_changing_state(
         db.session.expire_all()
         after = _snapshot_profile_state(user_bid)
 
-    assert raised.value.code == 1027
+    assert raised.value.code == 1026
     assert "returned no optimized content" in raised.value.message
     assert after == before
     assert captured["trace_finalize"]["root_span"] is not None
@@ -562,7 +562,7 @@ def test_optimize_reports_moderation_failure_reason_without_calling_llm(
             learner_profile="Valid source profile",
         )
 
-    assert raised.value.code == 1028
+    assert raised.value.code == 1027
     assert "Content review is temporarily unavailable" in raised.value.message
     assert invoked is False
 
