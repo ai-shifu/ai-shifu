@@ -1087,7 +1087,7 @@ describe('LearnerProfileDialog', () => {
       name: 'module.profileOnboarding.dialog.saveChanges',
     });
 
-    expect(nickname).toHaveAttribute('maxlength', '64');
+    expect(nickname).not.toHaveAttribute('maxlength');
     expect(save).toBeDisabled();
     fireEvent.change(nickname, { target: { value: ' Riley ' } });
     expect(save).toBeEnabled();
@@ -1101,6 +1101,31 @@ describe('LearnerProfileDialog', () => {
       expect(onClose).toHaveBeenCalledWith('saved');
     });
     expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  test('counts supplementary Unicode nickname characters as code points', async () => {
+    const nicknameValue = '😀'.repeat(64);
+    mockUpdateLearnerProfile.mockResolvedValue({
+      ...existingProfile,
+      nickname: nicknameValue,
+    });
+    renderDialog();
+    const nickname = await screen.findByDisplayValue('Alex');
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveChanges',
+    });
+
+    expect(nickname).not.toHaveAttribute('maxlength');
+    fireEvent.change(nickname, { target: { value: nicknameValue } });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+
+    await waitFor(() => {
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
+        existingProfile.learner_profile,
+        nicknameValue,
+      );
+    });
   });
 
   test('sends an explicit empty nickname only after the user clears it', async () => {
@@ -1151,7 +1176,7 @@ describe('LearnerProfileDialog', () => {
       const save = screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.saveChanges',
       });
-      expect(nickname).toHaveAttribute('maxlength', '64');
+      expect(nickname).not.toHaveAttribute('maxlength');
 
       fireEvent.change(profile, { target: { value: nextProfile } });
       expect(save).toBeEnabled();
@@ -1180,7 +1205,7 @@ describe('LearnerProfileDialog', () => {
       name: 'module.profileOnboarding.dialog.saveChanges',
     });
 
-    fireEvent.change(nickname, { target: { value: 'r'.repeat(65) } });
+    fireEvent.change(nickname, { target: { value: '😀'.repeat(65) } });
 
     expect(save).toBeDisabled();
     fireEvent.click(save);

@@ -592,7 +592,6 @@ export default function LearnerProfileDialog({
                   id='learner-profile-dialog-nickname'
                   className='h-10 rounded-lg shadow-none focus-visible:ring-2 focus-visible:ring-primary/30'
                   value={nickname}
-                  maxLength={nicknameMaxLength}
                   disabled={!loaded || busy}
                   placeholder={t(
                     'module.profileOnboarding.dialog.nicknamePlaceholder',
