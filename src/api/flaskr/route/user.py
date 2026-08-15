@@ -198,15 +198,9 @@ def optional_token_validation(f):
 
 
 def _best_effort_password_login_user(app: Flask):
-    """Resolve an optional merge source without blocking credential recovery."""
+    """Resolve the explicitly authenticated guest without blocking login."""
 
-    token = request.cookies.get("token", None)
-    if not token:
-        token = request.args.get("token", None)
-    if not token:
-        token = request.headers.get("Token", None)
-    if not token and request.is_json:
-        token = request.get_json().get("token", None)
+    token = request.headers.get("Token", None)
     if not token:
         return None
 

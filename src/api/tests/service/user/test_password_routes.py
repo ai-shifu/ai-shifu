@@ -180,10 +180,45 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
         assert target_before_login.learner_profile == ""
         assert load_learner_profile_state(target_user_id) is None
 
+    login_payload = {"identifier": target_phone, "password": password}
+    response, body = _post_json(
+        test_client,
+        f"/api/user/login_password?token={guest_token}",
+        login_payload,
+    )
+    assert response.status_code == 200
+    assert body["code"] == 0
+
     response, body = _post_json(
         test_client,
         "/api/user/login_password",
-        {"identifier": target_phone, "password": password},
+        {**login_payload, "token": guest_token},
+    )
+    assert response.status_code == 200
+    assert body["code"] == 0
+
+    test_client.set_cookie("token", guest_token)
+    response, body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        login_payload,
+    )
+    test_client.delete_cookie("token")
+    assert response.status_code == 200
+    assert body["code"] == 0
+
+    with app.app_context():
+        target_before_header_login = UserInfo.query.filter_by(
+            user_bid=target_user_id
+        ).one()
+        assert target_before_header_login.learner_profile == ""
+        assert target_before_header_login.nickname == ""
+        assert load_learner_profile_state(target_user_id) is None
+
+    response, body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        login_payload,
         headers={"Token": guest_token},
     )
 
