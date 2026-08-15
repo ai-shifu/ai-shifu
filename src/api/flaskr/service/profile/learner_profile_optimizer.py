@@ -12,7 +12,8 @@ from flaskr.api.langfuse import (
 from flaskr.api.llm import invoke_llm
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.service.common.models import AppException, raise_error, raise_param_error
-from flaskr.service.metering.api import BILL_USAGE_SCENE_PROD, UsageContext
+from flaskr.service.metering.api import UsageContext
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.service.profile.learner_profile import (
     check_text_content,
     normalize_learner_profile,
