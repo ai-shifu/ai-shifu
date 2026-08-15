@@ -23,6 +23,31 @@ from .common import (
 )
 
 
+def _build_dify_query(user_query: str, messages: list[dict[str, Any]]) -> str:
+    if not isinstance(messages, list) or not messages:
+        return user_query
+
+    role_map = {
+        "system": "system",
+        "user": "user",
+        "assistant": "assistant",
+    }
+    transcript_lines: list[str] = []
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        role = role_map.get(str(message.get("role") or "").strip().lower())
+        content = str(message.get("content") or "").strip()
+        if not role or not content:
+            continue
+        transcript_lines.append(f"[{role}]\n{content}")
+
+    if not transcript_lines:
+        return user_query
+
+    return "\n\n".join(transcript_lines)
+
+
 class DifyAskProviderAdapter:
     provider = ASK_PROVIDER_DIFY
 
@@ -47,8 +72,9 @@ class DifyAskProviderAdapter:
                 "dify base_url/api_key are required in ask_provider_config.config"
             )
 
+        contextual_query = _build_dify_query(user_query, messages)
         payload: dict[str, Any] = {
-            "query": user_query,
+            "query": contextual_query,
             "user": user_id,
             "response_mode": "streaming",
             "auto_generate_name": False,

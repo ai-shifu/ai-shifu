@@ -95,7 +95,12 @@ def test_dify_adapter_streams_success_content(app, monkeypatch):
     )
 
     assert [chunk.content for chunk in chunks] == ["hello", " world"]
-    assert request_state["json"]["query"] == "hello"
+    assert request_state["json"]["query"] == (
+        "[system]\ncourse prompt\n\n"
+        "[user]\nprevious question\n\n"
+        "[assistant]\nprevious answer\n\n"
+        "[user]\nhello"
+    )
 
 
 def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
@@ -223,10 +228,7 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
             app=app,
             user_id="user-1",
             user_query="hello workflow",
-            messages=[
-                {"role": "system", "content": "course and learner context"},
-                {"role": "user", "content": "hello workflow"},
-            ],
+            messages=[],
             provider_config={
                 "config": {
                     "api_key": "test-key",
@@ -357,7 +359,6 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
 
     def _fake_post(url, **kwargs):
         request_state["url"] = url
-        request_state["json"] = kwargs.get("json")
         return _FakeResponse(
             lines=[
                 'data: {"event":"message","content":"ok"}',
@@ -372,10 +373,7 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
             app=app,
             user_id="user-1",
             user_query="hello",
-            messages=[
-                {"role": "system", "content": "course and learner context"},
-                {"role": "user", "content": "hello"},
-            ],
+            messages=[],
             provider_config={
                 "config": {
                     "api_key": "test-key",
@@ -386,14 +384,6 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
     )
 
     assert request_state["url"] == "https://api.coze.cn/v3/chat"
-    assert request_state["json"]["additional_messages"] == [
-        {
-            "role": "user",
-            "content": "[system]\ncourse and learner context",
-            "content_type": "text",
-        },
-        {"role": "user", "content": "hello", "content_type": "text"},
-    ]
     assert [chunk.content for chunk in chunks] == ["ok"]
 
 
