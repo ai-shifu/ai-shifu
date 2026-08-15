@@ -323,6 +323,56 @@ describe('LearnerProfileDialog', () => {
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
+  test('rebuilds legacy profile prefill after an empty save and reopen', async () => {
+    mockT = (key, params) => {
+      const value = String(params?.value || '');
+      const legacyPrefill = {
+        'module.profileOnboarding.dialog.legacyPrefill.background': `我的背景：${value}`,
+        'module.profileOnboarding.dialog.legacyPrefill.style': `我喜欢的语言风格：${value}`,
+      };
+      return legacyPrefill[key as keyof typeof legacyPrefill] ?? key;
+    };
+    const emptyProfileWithLegacyPrefill = {
+      ...clearedProfile,
+      legacy_profile_values: {
+        sys_user_background: '办公室工作',
+        sys_user_style: '亲切直接',
+      },
+    };
+    mockGetLearnerProfile.mockResolvedValue(emptyProfileWithLegacyPrefill);
+    mockUpdateLearnerProfile.mockResolvedValue(clearedProfile);
+
+    const firstRender = renderDialog();
+    const profileInput = screen.getByLabelText(
+      'module.profileOnboarding.dialog.profileLabel',
+    );
+    await waitFor(() => {
+      expect(profileInput).toHaveValue(
+        '我的背景：办公室工作\n我喜欢的语言风格：亲切直接',
+      );
+    });
+    fireEvent.change(profileInput, { target: { value: '' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.saveChanges',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('');
+      expect(firstRender.props.onClose).toHaveBeenCalledWith('saved');
+    });
+    firstRender.unmount();
+
+    renderDialog();
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
+      ).toHaveValue('我的背景：办公室工作\n我喜欢的语言风格：亲切直接');
+    });
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(2);
+  });
+
   test('migrates a displayed legacy nickname only when the new backend declares canonical state', async () => {
     const legacyFallbackResponse = {
       ...clearedProfile,

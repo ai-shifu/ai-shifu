@@ -192,15 +192,16 @@ def _load_legacy_learner_profile_values(user: UserEntity) -> dict[str, str]:
 def get_learner_profile(*, user_id: str) -> dict[str, Any]:
     user = load_learner_profile_user(user_id)
     serialized = serialize_learner_profile(user)
-    has_handled_profile = (
-        not serialized["has_learner_profile"]
-        and load_learner_profile_state(user.user_bid) is not None
-    )
-    serialized["legacy_profile_values"] = (
-        {}
-        if serialized["has_learner_profile"] or has_handled_profile
-        else _load_legacy_learner_profile_values(user)
-    )
+    if serialized["has_learner_profile"]:
+        serialized["legacy_profile_values"] = {}
+        return serialized
+
+    legacy_profile_values = _load_legacy_learner_profile_values(user)
+    if load_learner_profile_state(user.user_bid) is not None:
+        # Background and style rebuild an empty profile draft on every open.
+        # Nickname remains independent and must not be revived after handling.
+        legacy_profile_values.pop(SYS_USER_NICKNAME, None)
+    serialized["legacy_profile_values"] = legacy_profile_values
     return serialized
 
 

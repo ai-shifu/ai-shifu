@@ -1085,7 +1085,7 @@ def test_complete_preserves_legacy_variable_values_for_old_courses(app, monkeypa
     }
 
 
-def test_clear_profile_keeps_v2_completed_and_preserves_legacy_values(app):
+def test_clear_profile_keeps_v2_completed_and_returns_legacy_prefill(app):
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_VERSION,
@@ -1137,7 +1137,10 @@ def test_clear_profile_keeps_v2_completed_and_preserves_legacy_values(app):
     assert result["trigger_source"] == "settings"
     assert result["learner_profile"] == ""
     assert result["learner_profile_updated_at"] is None
-    assert loaded["legacy_profile_values"] == {}
+    assert loaded["legacy_profile_values"] == {
+        "sys_user_background": "旧全局背景",
+        "sys_user_style": "旧全局风格",
+    }
     assert user.learner_profile == ""
     assert user.learner_profile_updated_at is None
     assert user.nickname == "Test learner"
@@ -1148,6 +1151,60 @@ def test_clear_profile_keeps_v2_completed_and_preserves_legacy_values(app):
         ("", "sys_user_nickname"): 0,
         ("course-1", "sys_user_style"): 0,
     }
+
+
+def test_empty_profile_save_returns_legacy_prefill_on_next_get(app, monkeypatch):
+    from flaskr.service.profile.learner_profile import (
+        PROFILE_ONBOARDING_SCENE_KEY,
+        PROFILE_ONBOARDING_VERSION,
+        get_learner_profile,
+        replace_learner_profile,
+    )
+
+    checked = _allow_profile_safety(monkeypatch)
+    with app.app_context():
+        user_bid = "profile-empty-save-prefill"
+        _create_user(user_bid, learner_profile="existing profile", nickname="")
+        _add_profile_value(
+            value_bid="empty-save-background",
+            user_bid=user_bid,
+            key="sys_user_background",
+            value="办公室工作",
+        )
+        _add_profile_value(
+            value_bid="empty-save-style",
+            user_bid=user_bid,
+            key="sys_user_style",
+            value="亲切直接",
+        )
+        _add_profile_value(
+            value_bid="empty-save-nickname",
+            user_bid=user_bid,
+            key="sys_user_nickname",
+            value="旧称呼",
+        )
+        db.session.commit()
+
+        saved = replace_learner_profile(
+            app,
+            user_id=user_bid,
+            learner_profile="",
+        )
+        loaded = get_learner_profile(user_id=user_bid)
+        state = UserOnboardingState.query.filter_by(
+            user_bid=user_bid,
+            scene_key=PROFILE_ONBOARDING_SCENE_KEY,
+            version=PROFILE_ONBOARDING_VERSION,
+        ).one()
+
+    assert saved["learner_profile"] == ""
+    assert loaded["learner_profile"] == ""
+    assert loaded["legacy_profile_values"] == {
+        "sys_user_background": "办公室工作",
+        "sys_user_style": "亲切直接",
+    }
+    assert state.status == "completed"
+    assert checked == []
 
 
 def test_repeated_completion_preserves_profile_and_state_timestamps(app, monkeypatch):

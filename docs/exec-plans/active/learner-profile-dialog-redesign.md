@@ -93,6 +93,10 @@ legacy `sys_*` variables or make profile optimization a persistence action.
 - Canonical PUT accepts an empty introduction, preserves an omitted nickname,
   and clears a supplied empty nickname. DELETE remains a compatibility API that
   clears only the introduction and preserves nickname.
+- Whenever the stored introduction is empty, GET exposes legacy background and
+  style values so the frontend rebuilds the draft on every dialog open. Saving
+  an empty introduction does not suppress that future prefill; nickname stays
+  independent and is not revived from a handled legacy value.
 - Profile, nickname, timestamps, and profile-v2 handled state update atomically
   on a successful save. Stale account, unmounted, or closed-dialog responses do
   not update the UI.
