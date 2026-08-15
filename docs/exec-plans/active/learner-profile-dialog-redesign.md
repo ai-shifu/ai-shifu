@@ -444,7 +444,7 @@ legacy onboarding service remains in
   response; keep one in-memory undo value, never auto-save, and keep close and
   cancel available while optimization is pending.
 - Call the shared LLM path with `DEFAULT_LLM_MODEL`, JSON response mode,
-  temperature `0.1`, a 15-second provider timeout, and at most 1200 output
+  temperature `0.5`, a 15-second provider timeout, and at most 1200 output
   tokens. Read the non-empty string field `optimized_learner_profile`; tolerate
   extra response fields and return the model string without trimming, length
   rejection, quality scoring, source-prefix removal, or retry.

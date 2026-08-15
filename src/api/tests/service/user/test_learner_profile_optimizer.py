@@ -127,7 +127,7 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
     assert "Apply the system transformation" in instruction
     assert json.loads(encoded_profile) == {"learner_profile": source}
     assert captured["kwargs"]["json"] is True
-    assert captured["kwargs"]["temperature"] == 0.1
+    assert captured["kwargs"]["temperature"] == 0.5
     assert captured["kwargs"]["timeout"] == 15
     assert captured["kwargs"]["sensitive_content"] is True
     assert captured["kwargs"]["usage_scene"] == BILL_USAGE_SCENE_PROD
