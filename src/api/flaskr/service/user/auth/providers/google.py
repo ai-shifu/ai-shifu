@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import secrets
 import time
-from typing import Any
+from typing import Any, Dict
 
-import jwt
 from authlib.integrations.requests_client import OAuth2Session
+import jwt
+from typing import Optional
+
 from flask import current_app, request
+
 from flaskr.common.public_urls import build_google_oauth_callback_url
-from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.user.auth.base import (
@@ -19,7 +21,6 @@ from flaskr.service.user.auth.base import (
     OAuthCallbackRequest,
 )
 from flaskr.service.user.auth.factory import has_provider, register_provider
-from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
@@ -32,10 +33,12 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
 )
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.utils import (
-    ensure_admin_creator_and_demo_permissions,
     generate_token,
+    ensure_admin_creator_and_demo_permissions,
 )
+from flaskr.service.common.dtos import UserToken
 
 AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
@@ -45,7 +48,7 @@ USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
 STATE_TTL = 900
 
 
-def _encode_state(app, payload: dict[str, Any]) -> str:
+def _encode_state(app, payload: Dict[str, Any]) -> str:
     now = int(time.time())
     token = jwt.encode(
         {
@@ -60,7 +63,7 @@ def _encode_state(app, payload: dict[str, Any]) -> str:
     return token
 
 
-def _decode_state(app, state: str) -> dict[str, Any] | None:
+def _decode_state(app, state: str) -> Optional[Dict[str, Any]]:
     try:
         decoded = jwt.decode(state, app.config["SECRET_KEY"], algorithms=["HS256"])
     except jwt.exceptions.ExpiredSignatureError:
@@ -71,7 +74,7 @@ def _decode_state(app, state: str) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
-def _extract_browser_language() -> str | None:
+def _extract_browser_language() -> Optional[str]:
     """Extract a reasonable UI language from the incoming request.
 
     Priority:
@@ -102,7 +105,7 @@ def _extract_browser_language() -> str | None:
     return f"{primary}-{region}"
 
 
-def _resolve_redirect_uri(app, explicit_uri: str | None = None) -> str:
+def _resolve_redirect_uri(app, explicit_uri: Optional[str] = None) -> str:
     del app, explicit_uri
     return build_google_oauth_callback_url()
 
@@ -131,7 +134,7 @@ class GoogleAuthProvider(AuthProvider):
             redirect_uri=redirect_uri,
         )
 
-    def begin_oauth(self, app, metadata: dict[str, Any]) -> dict[str, Any]:
+    def begin_oauth(self, app, metadata: Dict[str, Any]) -> Dict[str, Any]:
         redirect_uri = _resolve_redirect_uri(app, metadata.get("redirect_uri"))
         login_context = metadata.get("login_context")
         session = self._create_session(app, redirect_uri)
@@ -145,13 +148,13 @@ class GoogleAuthProvider(AuthProvider):
         # flow we only need an authorization code to fetch basic profile info.
         # Forcing "prompt=consent" and "access_type=offline" can add extra Google
         # interstitial/confirmation steps and degrades UX.
-        create_url_kwargs: dict[str, Any] = {}
+        create_url_kwargs: Dict[str, Any] = {}
         # Google respects both "hl" and (for some flows) "ui_locales".
         if ui_language:
             create_url_kwargs["hl"] = ui_language
             create_url_kwargs["ui_locales"] = ui_language
 
-        state_payload: dict[str, Any] = {
+        state_payload: Dict[str, Any] = {
             "redirect_uri": redirect_uri,
             "login_context": login_context,
         }
@@ -187,7 +190,7 @@ class GoogleAuthProvider(AuthProvider):
 
         redirect_uri = None
         login_context = None
-        language: str | None = None
+        language: Optional[str] = None
         try:
             redirect_uri = state_payload.get("redirect_uri")
             login_context = state_payload.get("login_context")
@@ -255,7 +258,7 @@ class GoogleAuthProvider(AuthProvider):
                     aggregate.user_bid, include_deleted=True
                 )
                 if entity:
-                    updates: dict[str, Any] = {"identify": email}
+                    updates: Dict[str, Any] = {"identify": email}
                     if email_verified and aggregate.state in (
                         USER_STATE_UNREGISTERED,
                         0,

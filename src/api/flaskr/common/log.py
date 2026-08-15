@@ -1,16 +1,16 @@
 import logging
 import os
+from flask import Flask, current_app, request
+import uuid
+from logging.handlers import TimedRotatingFileHandler
 import socket
 import threading
 import time
-import uuid
 from datetime import datetime
-from logging.handlers import TimedRotatingFileHandler
+import pytz
 
 import colorlog
-import pytz
 import requests
-from flask import Flask, current_app, request
 
 from .observability import current_trace_ids
 from .request_context import thread_local
@@ -222,7 +222,7 @@ def init_log(app: Flask) -> Flask:
                 response_data = response.get_data(as_text=True)
                 app.logger.info(f"Response: {response_data}")
         except Exception as e:
-            app.logger.error(f"Error logging response: {e!s}")
+            app.logger.error(f"Error logging response: {str(e)}")
         return response
 
     host_name = socket.gethostname()

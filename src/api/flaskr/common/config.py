@@ -1,17 +1,17 @@
-import json
-import logging
 import os
 import re
-from collections.abc import Callable
+import json
+import logging
 from dataclasses import dataclass, field
-from typing import Any
-
-from flask import Config as FlaskConfig
+from typing import Any, Optional, Callable, Dict, List, Type
 from flask import Flask
+from flask import Config as FlaskConfig
 
 
 class EnvironmentConfigError(Exception):
     """Exception raised for environment configuration errors."""
+
+    pass
 
 
 @dataclass
@@ -22,12 +22,12 @@ class EnvVar:
     required: bool = False  # Whether variable must be explicitly set in environment
     default: Any = None  # Default value if not set (only if required=False)
     example: Any = None  # Optional value to emit in generated example files
-    type: type = str  # Using Type annotation to avoid conflict
+    type: Type = str  # Using Type annotation to avoid conflict
     description: str = ""
-    validator: Callable[[Any], bool] | None = None
+    validator: Optional[Callable[[Any], bool]] = None
     secret: bool = False
     group: str = "general"
-    depends_on: list[str] = field(default_factory=list)
+    depends_on: List[str] = field(default_factory=list)
 
     def __post_init__(self):
         """Validate EnvVar configuration after initialization."""
@@ -104,7 +104,7 @@ def _is_valid_rpm_limits_json(value: Any) -> bool:
     return True
 
 
-def parse_llm_model_max_output_tokens(value: Any) -> dict[str, int]:
+def parse_llm_model_max_output_tokens(value: Any) -> Dict[str, int]:
     """Parse a routed model id -> maximum output token JSON map."""
 
     if value in (None, ""):
@@ -119,7 +119,7 @@ def parse_llm_model_max_output_tokens(value: Any) -> dict[str, int]:
     if not isinstance(candidate, dict):
         raise ValueError("must be a JSON object")
 
-    parsed: dict[str, int] = {}
+    parsed: Dict[str, int] = {}
     for model, max_output_tokens in candidate.items():
         if not isinstance(model, str) or not model.strip():
             raise ValueError("model ids must be non-empty strings")
@@ -145,7 +145,7 @@ def _is_valid_llm_model_max_output_tokens_json(value: Any) -> bool:
 
 
 # Environment variable registry
-ENV_VARS: dict[str, EnvVar] = {
+ENV_VARS: Dict[str, EnvVar] = {
     # Application Configuration
     "LOGGING_PATH": EnvVar(
         name="LOGGING_PATH",
@@ -1754,7 +1754,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
 }
 
 # Derived Redis prefixes built from REDIS_KEY_PREFIX
-REDIS_KEY_SUFFIXES: dict[str, str] = {
+REDIS_KEY_SUFFIXES: Dict[str, str] = {
     "REDIS_KEY_PREFIX_USER": "user:",
     "REDIS_KEY_PREFIX_RESET_PWD": "reset_pwd:",
     "REDIS_KEY_PREFIX_PHONE": "phone:",
@@ -1772,9 +1772,9 @@ REDIS_KEY_SUFFIXES: dict[str, str] = {
 class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
-    def __init__(self, env_vars: dict[str, EnvVar]):
+    def __init__(self, env_vars: Dict[str, EnvVar]):
         self.env_vars = env_vars
-        self._cache: dict[str, Any] = {}
+        self._cache: Dict[str, Any] = {}
         self._validated = False
 
     def validate_environment(self, allow_conversion_errors: bool = False) -> None:
@@ -1829,7 +1829,7 @@ class EnhancedConfig:
                 except Exception as e:
                     # For optional fields, log and continue; required fields remain fatal
                     if env_var.required or not allow_conversion_errors:
-                        validation_errors.append(f"- {var_name}: {e!s}")
+                        validation_errors.append(f"- {var_name}: {str(e)}")
                     else:
                         logging.getLogger(__name__).warning(
                             "Non-fatal config conversion issue for %s: %s",
@@ -1870,7 +1870,7 @@ class EnhancedConfig:
                     logger.warning(
                         f"Failed to convert environment variable '{key}' with value '{value}' "
                         f"to type {env_var.type.__name__}. Using default value '{env_var.default}'. "
-                        f"Error: {e!s}"
+                        f"Error: {str(e)}"
                     )
                     value = env_var.default
             # Apply interpolation
@@ -1911,7 +1911,7 @@ class EnhancedConfig:
         except (TypeError, ValueError):
             return 0.0
 
-    def get_list(self, key: str) -> list[str]:
+    def get_list(self, key: str) -> List[str]:
         """Get list configuration value (comma-separated)."""
         value = self.get(key)
         if value is None:
@@ -2200,7 +2200,7 @@ class Config(FlaskConfig):
         """Get float configuration value."""
         return self.enhanced.get_float(key)
 
-    def get_list(self, key: str) -> list[str]:
+    def get_list(self, key: str) -> List[str]:
         """Get list configuration value."""
         return self.enhanced.get_list(key)
 
@@ -2253,7 +2253,7 @@ def has_explicit_env_override(key: str) -> bool:
     return key in os.environ
 
 
-def get_explicit_env_override(key: str) -> str | None:
+def get_explicit_env_override(key: str) -> Optional[str]:
     """Return the raw environment value for a config key, or None when unset.
 
     Unlike ``get_config``, this never substitutes the registry default and

@@ -1,13 +1,13 @@
-import jwt
 from flask import Flask, has_app_context
-from flaskr.i18n import get_i18n_list
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
 
-from ...dao import db
+from typing import Optional
+
+import jwt
+
+from flaskr.i18n import get_i18n_list
 from ..common.dtos import UserInfo, UserToken
 from ..common.models import raise_error
-from ..profile.dtos import ProfileToSave
-from ..profile.funcs import save_user_profiles
+from ...dao import db
 from .auth import get_provider
 from .auth.base import VerificationRequest
 from .repository import (
@@ -17,6 +17,9 @@ from .repository import (
     update_user_entity_fields,
     upsert_credential,
 )
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from ..profile.funcs import save_user_profiles
+from ..profile.dtos import ProfileToSave
 from .token_store import token_store
 
 
@@ -153,7 +156,7 @@ def verify_sms_code(
     chekcode: str,
     course_id: str = None,
     language: str = None,
-    login_context: str | None = None,
+    login_context: Optional[str] = None,
 ) -> UserToken:
     provider = get_provider("phone")
     request = VerificationRequest(
