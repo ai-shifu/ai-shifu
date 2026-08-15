@@ -1218,6 +1218,7 @@ describe('LearnerProfileDialog', () => {
         name: 'module.profileOnboarding.dialog.saveChanges',
       });
       expect(nickname).not.toHaveAttribute('maxlength');
+      expect(screen.queryByText('80 / 64 over limit')).not.toBeInTheDocument();
 
       fireEvent.change(profile, { target: { value: nextProfile } });
       expect(save).toBeEnabled();
@@ -1249,8 +1250,16 @@ describe('LearnerProfileDialog', () => {
     fireEvent.change(nickname, { target: { value: '😀'.repeat(65) } });
 
     expect(save).toBeDisabled();
+    expect(nickname).toHaveAttribute('aria-invalid', 'true');
+    expect(nickname).toHaveAccessibleDescription('65 / 64 over limit');
+    expect(screen.getByRole('alert')).toHaveTextContent('65 / 64 over limit');
     fireEvent.click(save);
     expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+
+    fireEvent.change(nickname, { target: { value: '😀'.repeat(64) } });
+    expect(save).toBeEnabled();
+    expect(nickname).not.toHaveAttribute('aria-invalid');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   test('disables both fields and prevents duplicate saves while pending', async () => {

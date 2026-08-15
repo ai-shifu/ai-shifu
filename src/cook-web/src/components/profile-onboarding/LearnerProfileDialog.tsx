@@ -358,6 +358,8 @@ export default function LearnerProfileDialog({
     normalizedNickname !== savedNickname;
   const nicknameWillBeSaved =
     normalizedNickname !== initialNickname || nicknameNeedsMigration;
+  const nicknameOverLimit =
+    nicknameWillBeSaved && nicknameLength > nicknameMaxLength;
   const canCompleteOnboarding =
     mode === 'onboarding' && Boolean(normalizedProfile || normalizedNickname);
   const canSave =
@@ -365,7 +367,7 @@ export default function LearnerProfileDialog({
     !busy &&
     !optimizing &&
     profileLength <= maxLength &&
-    (!nicknameWillBeSaved || nicknameLength <= nicknameMaxLength) &&
+    !nicknameOverLimit &&
     (dirty ||
       hasUnsavedPrefill ||
       nicknameNeedsMigration ||
@@ -586,19 +588,39 @@ export default function LearnerProfileDialog({
                 >
                   {t('module.profileOnboarding.dialog.nicknameLabel')}
                 </label>
-                <Input
-                  id='learner-profile-dialog-nickname'
-                  className='h-10 rounded-lg shadow-none focus-visible:ring-2 focus-visible:ring-primary/30'
-                  value={nickname}
-                  disabled={!loaded || busy}
-                  placeholder={t(
-                    'module.profileOnboarding.dialog.nicknamePlaceholder',
-                  )}
-                  onChange={event => {
-                    setNickname(event.target.value);
-                    setError('');
-                  }}
-                />
+                <div className='space-y-1'>
+                  <Input
+                    id='learner-profile-dialog-nickname'
+                    className='h-10 rounded-lg shadow-none focus-visible:ring-2 focus-visible:ring-primary/30'
+                    value={nickname}
+                    disabled={!loaded || busy}
+                    aria-invalid={nicknameOverLimit || undefined}
+                    aria-describedby={
+                      nicknameOverLimit
+                        ? 'learner-profile-dialog-nickname-error'
+                        : undefined
+                    }
+                    placeholder={t(
+                      'module.profileOnboarding.dialog.nicknamePlaceholder',
+                    )}
+                    onChange={event => {
+                      setNickname(event.target.value);
+                      setError('');
+                    }}
+                  />
+                  {nicknameOverLimit ? (
+                    <p
+                      id='learner-profile-dialog-nickname-error'
+                      role='alert'
+                      className='text-xs leading-5 text-destructive'
+                    >
+                      {t('module.profileOnboarding.characterCountOverLimit', {
+                        count: nicknameLength,
+                        max: nicknameMaxLength,
+                      })}
+                    </p>
+                  ) : null}
+                </div>
               </div>
 
               <section className='space-y-3'>
