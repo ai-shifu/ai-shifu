@@ -418,6 +418,52 @@ def test_learner_profile_optimize_route_omits_sensitive_bodies_from_logs(
 
 
 @pytest.mark.parametrize(
+    ("method", "service_name", "request_json"),
+    [
+        ("GET", "get_learner_profile", None),
+        (
+            "PUT",
+            "replace_learner_profile",
+            {"learner_profile": "SENSITIVE_PROFILE_REQUEST"},
+        ),
+        ("DELETE", "clear_learner_profile", None),
+    ],
+)
+def test_learner_profile_routes_omit_sensitive_bodies_from_logs(
+    monkeypatch, test_client, app, caplog, method, service_name, request_json
+):
+    sensitive_response = "SENSITIVE_PROFILE_RESPONSE"
+    dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: dummy_user,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        f"flaskr.route.user.{service_name}",
+        lambda *_args, **_kwargs: {"learner_profile": sensitive_response},
+    )
+
+    app.logger.addHandler(caplog.handler)
+    try:
+        caplog.clear()
+        response = test_client.open(
+            "/api/user/learner-profile",
+            method=method,
+            headers={"Token": "token"},
+            json=request_json,
+        )
+    finally:
+        app.logger.removeHandler(caplog.handler)
+
+    assert response.get_json(force=True)["code"] == 0
+    assert sensitive_response not in caplog.text
+    if request_json:
+        assert request_json["learner_profile"] not in caplog.text
+    assert "Response: <sensitive body omitted>" in caplog.text
+
+
+@pytest.mark.parametrize(
     "payload",
     [
         None,
