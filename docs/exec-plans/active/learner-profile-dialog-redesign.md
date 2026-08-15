@@ -443,15 +443,19 @@ legacy onboarding service remains in
   current draft in the same editor only after a successful, current-account
   response; keep one in-memory undo value, never auto-save, and keep close and
   cancel available while optimization is pending.
-- Call the shared LLM path with `DEFAULT_LLM_MODEL`, JSON response mode,
-  temperature `0.5`, a 15-second provider timeout, and at most 1200 output
-  tokens. Read the non-empty string field `optimized_learner_profile`; tolerate
-  extra response fields and return the model string without trimming, length
-  rejection, quality scoring, source-prefix removal, or retry.
+- Call the shared LLM path with `DEFAULT_LLM_MODEL`, temperature `0.5`, a
+  15-second provider timeout, and at most 1200 output tokens. Accept the
+  non-empty plain-text model response exactly as returned, without trimming,
+  length rejection, quality scoring, source-prefix removal, JSON parsing, or
+  retry. Keep the authenticated API response envelope unchanged.
+- Resolve the output language from the current user's stored system-language
+  setting, not from the profile prose. Every label and sentence uses that
+  language, mixed-language source terms may remain, and every category starts
+  on its own line.
 - Distinguish an explicit moderation rejection from a technical optimization
   failure. Rejection asks the learner to revise before retrying; model routing,
-  timeout, malformed response, empty response, moderation service failure,
-  rate limiting, provider failure, and unsupported-old-backend responses each
+  timeout, empty response, moderation service failure, rate limiting, provider
+  failure, and unsupported-old-backend responses each
   preserve the current draft and show an accurate reason.
 - Omit optimizer request/response bodies and sensitive LLM input/output from
   ordinary logs and local usage `extra`, while retaining length, status, model,
@@ -517,15 +521,17 @@ legacy onboarding service remains in
   unmount, or account change are ignored.
 - Errors distinguish provider/runtime failure (`1021`), explicit moderation
   rejection (`1022`), admission rejection (`1023`), missing model routing
-  (`1024`), timeout (`1025`), malformed response (`1026`), empty response
-  (`1027`), and moderation service failure (`1028`). Every failure preserves
+  (`1024`), timeout (`1025`), empty response (`1027`), and moderation service
+  failure (`1028`). Every failure preserves
   direct save; admission rejection never enters moderation or the LLM.
 - The optimization provider receives JSON-wrapped untrusted input and returns
-  a JSON string field which the service returns unchanged. It may reorganize
-  only stated background, experience, knowledge level, current interests,
-  goals, concerns, difficulties, constraints, familiar contexts, and
-  language-style preferences. The result should make relevant examples, terminology,
-  emphasis, and expression easier for downstream course delivery to adapt. A
+  plain text which the service returns unchanged inside the stable API JSON
+  envelope. The current user's stored system language controls every generated
+  label and sentence, and every category begins on its own line. It may
+  reorganize only stated background, experience, knowledge level, current
+  interests, goals, concerns, difficulties, constraints, familiar contexts,
+  and language-style preferences. The result should make relevant examples,
+  terminology, emphasis, and expression easier for downstream course delivery. A
   named style may be translated into high-level, observable expression
   requirements, but the optimizer must not infer learner facts or proficiency,
   mandate examples, issue advice, imitate a named person, prescribe pedagogy,
@@ -560,7 +566,7 @@ hunk; never reset the entire worktree or touch another worktree.
   `{ "learner_profile": string }` and returns only
   `{ "optimized_learner_profile": string }` inside the shared response
   envelope. It performs no learner business-state writes and has no schema
-  dependency. It uses `DEFAULT_LLM_MODEL` with bounded JSON generation,
+  dependency. It uses `DEFAULT_LLM_MODEL` with bounded plain-text generation,
   distinct rejection/technical/admission errors, sensitive-content logging,
   and server-side request/in-flight admission.
 - Frontend: shared `LearnerProfileDialog`, modern learner-profile API,

@@ -329,6 +329,7 @@ def test_optimizer_route_ignores_spoofed_forwarded_ip_for_admission_scope(
     assert second.get_json(force=True)["code"] == 1023
     assert len(calls) == 1
     assert calls[0]["learner_profile"] == sensitive_profile
+    assert calls[0]["output_language"] == "en-US"
     assert sensitive_profile not in caplog.text
 
 

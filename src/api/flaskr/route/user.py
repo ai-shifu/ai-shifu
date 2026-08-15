@@ -513,6 +513,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 app,
                 user_id=request.user.user_id,
                 learner_profile=learner_profile,
+                output_language=getattr(request.user, "language", None),
             )
         return make_common_response(result)
 

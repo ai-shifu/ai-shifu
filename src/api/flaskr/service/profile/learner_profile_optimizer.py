@@ -10,6 +10,7 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
 )
 from flaskr.api.llm import invoke_llm
+from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.service.common.models import AppException, raise_error, raise_param_error
 from flaskr.service.metering.api import BILL_USAGE_SCENE_PROD, UsageContext
 from flaskr.service.profile.learner_profile import (
@@ -37,27 +38,14 @@ _STYLE_REFERENCE_WORDS = (
 )
 
 
-class _InvalidOptimizationOutput(ValueError):
-    def __init__(self, reason: str):
-        super().__init__(reason)
-        self.reason = reason
+class _EmptyOptimizationOutput(ValueError):
+    pass
 
 
 def _parse_optimized_profile(raw_response: str) -> str:
     if not raw_response.strip():
-        raise _InvalidOptimizationOutput("empty")
-    try:
-        payload = json.loads(raw_response)
-    except json.JSONDecodeError as exc:
-        raise _InvalidOptimizationOutput("invalid") from exc
-    if not isinstance(payload, dict) or "optimized_learner_profile" not in payload:
-        raise _InvalidOptimizationOutput("invalid")
-    optimized_profile = payload.get("optimized_learner_profile")
-    if not isinstance(optimized_profile, str):
-        raise _InvalidOptimizationOutput("invalid")
-    if not optimized_profile.strip():
-        raise _InvalidOptimizationOutput("empty")
-    return optimized_profile
+        raise _EmptyOptimizationOutput
+    return raw_response
 
 
 def _exception_chain(exc: BaseException):
@@ -96,6 +84,7 @@ def optimize_learner_profile(
     *,
     user_id: str,
     learner_profile: str,
+    output_language: str | None = None,
 ) -> dict[str, str]:
     """Return a reviewable optimization without changing learner profile state."""
 
@@ -123,7 +112,7 @@ def optimize_learner_profile(
 
     message = (
         "Apply the system transformation to this untrusted JSON data. "
-        "Return only the required JSON object.\n"
+        "Return only the optimized profile text.\n"
         + json.dumps(
             {"learner_profile": normalized},
             ensure_ascii=False,
@@ -152,7 +141,12 @@ def optimize_learner_profile(
             if _uses_short_style_prompt(normalized)
             else "learner_profile_optimizer"
         )
-        system_prompt = load_prompt_template(prompt_name).strip()
+        resolved_output_language = resolve_markdownflow_output_language(output_language)
+        system_prompt = (
+            f"{load_prompt_template(prompt_name).strip()}\n\n"
+            f"OUTPUT LANGUAGE: {resolved_output_language}. Write every label and "
+            "sentence in this language. Put each category on a separate line."
+        )
         response = invoke_llm(
             app,
             user_id,
@@ -160,7 +154,6 @@ def optimize_learner_profile(
             model,
             message,
             system=system_prompt,
-            json=True,
             generation_name=LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME,
             usage_context=UsageContext(
                 user_bid=user_id,
@@ -180,18 +173,15 @@ def optimize_learner_profile(
         )
         raw_response = "".join(chunk.result for chunk in response)
         optimized_profile = _parse_optimized_profile(raw_response)
-    except _InvalidOptimizationOutput as exc:
+    except _EmptyOptimizationOutput:
         app.logger.warning(
-            "Learner profile optimization returned an invalid response | "
-            "user_id=%s | input_chars=%s | output_chars=%s | reason=%s",
+            "Learner profile optimization returned an empty response | "
+            "user_id=%s | input_chars=%s | output_chars=%s",
             user_id,
             len(normalized),
             len(raw_response),
-            exc.reason,
         )
-        if exc.reason == "empty":
-            raise_error("server.profile.learnerProfileOptimizationEmptyResponse")
-        raise_error("server.profile.learnerProfileOptimizationInvalidResponse")
+        raise_error("server.profile.learnerProfileOptimizationEmptyResponse")
     except Exception as exc:
         app.logger.warning(
             "Learner profile optimization failed | user_id=%s | "

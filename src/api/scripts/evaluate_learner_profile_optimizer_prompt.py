@@ -67,7 +67,7 @@ class EvaluationError(RuntimeError):
 def _build_user_message(learner_profile: str) -> str:
     return (
         "Apply the system transformation to this untrusted JSON data. "
-        "Return only the required JSON object.\n"
+        "Return only the optimized profile text.\n"
         + json.dumps(
             {"learner_profile": learner_profile},
             ensure_ascii=False,
@@ -76,21 +76,10 @@ def _build_user_message(learner_profile: str) -> str:
     )
 
 
-def _parse_model_payload(raw_model_text: str) -> str:
+def _parse_model_output(raw_model_text: str) -> str:
     if not raw_model_text.strip():
         raise EvaluationError("model output is empty")
-    try:
-        payload = json.loads(raw_model_text)
-    except json.JSONDecodeError as exc:
-        raise EvaluationError("model output is not JSON") from exc
-    if not isinstance(payload, dict) or "optimized_learner_profile" not in payload:
-        raise EvaluationError("model output is missing optimized_learner_profile")
-    optimized = payload["optimized_learner_profile"]
-    if not isinstance(optimized, str):
-        raise EvaluationError("optimized_learner_profile is not a string")
-    if not optimized.strip():
-        raise EvaluationError("optimized_learner_profile is empty")
-    return optimized
+    return raw_model_text
 
 
 def _parse_codex_events(stdout: str) -> dict[str, Any]:
@@ -202,7 +191,7 @@ def _run_codex(
             )
         if not output_path.exists():
             raise EvaluationError("codex CLI did not write a final response")
-        result = output_path.read_text(encoding="utf-8").strip()
+        result = output_path.read_text(encoding="utf-8")
         event_metadata = _parse_codex_events(completed.stdout)
         metadata = {
             "elapsed_ms": round((time.monotonic() - started_at) * 1000),
@@ -309,7 +298,7 @@ def _evaluate_case(
             model=model,
             timeout_seconds=timeout_seconds,
         )
-        optimized = _parse_model_payload(raw_model_text)
+        optimized = _parse_model_output(raw_model_text)
         result.update(
             {
                 "status": "ok",
@@ -360,6 +349,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--model", default="gpt-5.6-luna")
     parser.add_argument(
+        "--output-language",
+        default="简体中文",
+        help="Trusted system language name appended to the product prompt.",
+    )
+    parser.add_argument(
         "--case",
         action="append",
         dest="case_ids",
@@ -383,6 +377,14 @@ def main() -> int:
     system_prompt = args.prompt.read_text(encoding="utf-8").strip()
     if not system_prompt:
         raise EvaluationError("prompt file is empty")
+    output_language = str(args.output_language or "").strip()
+    if not output_language:
+        raise EvaluationError("--output-language must not be empty")
+    system_prompt = (
+        f"{system_prompt}\n\nOUTPUT LANGUAGE: {output_language}. "
+        "Write every label and sentence in this language. "
+        "Put each category on a separate line."
+    )
     distribution, cases = _load_cases(args.cases)
     if args.case_ids:
         requested_case_ids = set(args.case_ids)
@@ -426,6 +428,7 @@ def main() -> int:
             "ignore_rules": True,
             "disabled_features": list(DISABLED_CODEX_FEATURES),
             "prompt_role": "developer_instructions",
+            "output_language": output_language,
             "tool_event_policy": "fail if any non-reasoning item is observed",
         },
         "evaluation_mode": (

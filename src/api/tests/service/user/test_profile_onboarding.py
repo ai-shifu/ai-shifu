@@ -374,6 +374,7 @@ def test_learner_profile_optimize_route_delegates_without_persistence(
         {
             "user_id": "learner-profile-user",
             "learner_profile": "source profile",
+            "output_language": "zh-CN",
         }
     ]
 

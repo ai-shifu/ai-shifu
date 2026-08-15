@@ -9,7 +9,6 @@
     "language": "Language",
     "learnerProfileOptimizationEmptyResponse": "The AI returned no optimized content. Please try again.",
     "learnerProfileOptimizationFailed": "The AI optimization service encountered an error. Please try again later.",
-    "learnerProfileOptimizationInvalidResponse": "The AI returned an invalid response format. Please try again.",
     "learnerProfileOptimizationModerationFailed": "Content review is temporarily unavailable. Please try again later.",
     "learnerProfileOptimizationNotConfigured": "No profile optimization model is configured. Please contact an administrator.",
     "learnerProfileOptimizationRateLimited": "Too many optimization requests. Please try again later.",

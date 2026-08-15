@@ -3654,7 +3654,6 @@ export type I18nKey =
   | 'server.profile.language'
   | 'server.profile.learnerProfileOptimizationEmptyResponse'
   | 'server.profile.learnerProfileOptimizationFailed'
-  | 'server.profile.learnerProfileOptimizationInvalidResponse'
   | 'server.profile.learnerProfileOptimizationModerationFailed'
   | 'server.profile.learnerProfileOptimizationNotConfigured'
   | 'server.profile.learnerProfileOptimizationRateLimited'

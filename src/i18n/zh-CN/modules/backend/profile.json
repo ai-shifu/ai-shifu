@@ -9,7 +9,6 @@
     "language": "语言",
     "learnerProfileOptimizationEmptyResponse": "AI 没有返回优化后的内容，请重试",
     "learnerProfileOptimizationFailed": "AI 优化服务出错，请稍后重试",
-    "learnerProfileOptimizationInvalidResponse": "AI 返回的结果格式不正确，请重试",
     "learnerProfileOptimizationModerationFailed": "内容审核服务暂时不可用，请稍后重试",
     "learnerProfileOptimizationNotConfigured": "尚未配置个人资料优化模型，请联系管理员",
     "learnerProfileOptimizationRateLimited": "优化请求过于频繁，请稍后重试",

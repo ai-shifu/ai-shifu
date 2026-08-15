@@ -9,7 +9,6 @@
     "language": "Langue",
     "learnerProfileOptimizationEmptyResponse": "L’IA n’a renvoyé aucun contenu optimisé. Réessayez.",
     "learnerProfileOptimizationFailed": "Le service d’optimisation par IA a rencontré une erreur. Réessayez plus tard.",
-    "learnerProfileOptimizationInvalidResponse": "L’IA a renvoyé un format de réponse incorrect. Réessayez.",
     "learnerProfileOptimizationModerationFailed": "La vérification du contenu est temporairement indisponible. Réessayez plus tard.",
     "learnerProfileOptimizationNotConfigured": "Aucun modèle d’optimisation du profil n’est configuré. Contactez un administrateur.",
     "learnerProfileOptimizationRateLimited": "Trop de demandes d’optimisation ont été envoyées. Réessayez plus tard.",
