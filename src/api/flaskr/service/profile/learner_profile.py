@@ -239,8 +239,8 @@ def merge_learner_profile_for_sign_in(
     *,
     source_user_id: str,
     target_user_id: str,
-) -> None:
-    """Copy canonical profile state into an existing signed-in account transaction."""
+) -> bool:
+    """Copy canonical profile state and report whether legacy nickname may migrate."""
 
     normalized_source_id = str(source_user_id or "").strip()
     normalized_target_id = str(target_user_id or "").strip()
@@ -249,7 +249,7 @@ def merge_learner_profile_for_sign_in(
         or not normalized_target_id
         or normalized_source_id == normalized_target_id
     ):
-        return
+        return False
 
     target_user = (
         UserEntity.query.filter(
@@ -261,10 +261,10 @@ def merge_learner_profile_for_sign_in(
         .first()
     )
     if target_user is None:
-        return
+        return False
 
     if load_learner_profile_state(normalized_target_id, for_update=True) is not None:
-        return
+        return False
 
     source_user = (
         UserEntity.query.filter(
@@ -276,10 +276,10 @@ def merge_learner_profile_for_sign_in(
         .first()
     )
     if source_user is None:
-        return
+        return False
 
     if source_user.state != USER_STATE_UNREGISTERED:
-        return
+        return False
 
     source_identify = str(source_user.user_identify or "").strip()
     source_has_account_identifier = bool(
@@ -293,7 +293,7 @@ def merge_learner_profile_for_sign_in(
         ).first()
     )
     if source_has_account_identifier:
-        return
+        return False
 
     source_state = load_learner_profile_state(
         normalized_source_id,
@@ -320,7 +320,7 @@ def merge_learner_profile_for_sign_in(
             target_user.nickname = source_nickname
 
     if source_state is None:
-        return
+        return bool(source_nickname and not source_profile and should_copy_nickname)
 
     if (
         source_nickname
@@ -340,6 +340,7 @@ def merge_learner_profile_for_sign_in(
             completed_at=source_state.completed_at,
         )
     )
+    return False
 
 
 def has_learner_profile_or_state(

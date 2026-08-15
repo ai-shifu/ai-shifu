@@ -140,7 +140,7 @@ def verify_email_code(
             target_aggregate = origin_aggregate
 
         if target_aggregate and user_id and target_aggregate.user_bid != user_id:
-            merge_learner_profile_for_sign_in(
+            include_legacy_nickname = merge_learner_profile_for_sign_in(
                 source_user_id=user_id,
                 target_user_id=target_aggregate.user_bid,
             )
@@ -149,7 +149,7 @@ def verify_email_code(
                     app,
                     user_id,
                     course_id,
-                    include_nickname=False,
+                    include_nickname=include_legacy_nickname,
                 )
                 update_user_profile_with_lable(
                     app, target_aggregate.user_bid, new_profiles, False, course_id

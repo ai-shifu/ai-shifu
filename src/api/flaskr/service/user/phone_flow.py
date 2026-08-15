@@ -352,7 +352,7 @@ def verify_phone_code(
                 target_aggregate.user_bid,
                 normalized_course_id,
             )
-            merge_learner_profile_for_sign_in(
+            include_legacy_nickname = merge_learner_profile_for_sign_in(
                 source_user_id=user_id,
                 target_user_id=target_aggregate.user_bid,
             )
@@ -367,7 +367,7 @@ def verify_phone_code(
                     app,
                     user_id,
                     normalized_course_id,
-                    include_nickname=False,
+                    include_nickname=include_legacy_nickname,
                 )
                 update_user_profile_with_lable(
                     app,
