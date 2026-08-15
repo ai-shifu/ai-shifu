@@ -19,12 +19,11 @@ the canonical profile mutation. The dialog does not expose the legacy
 Existing courses keep their historical variables and their pre-PR
 `sys_user_nickname` write, read, and runtime-substitution behavior unchanged.
 
-The selected visual truth began with the revised option-three mock at
-`docs/assets/learner-profile-dialog-approved-reference.png`
-and was refined by direct user feedback: the active dialog has only its
-secondary action and primary save action, with no separate clear or overflow
-control. Deliberately emptying a loaded draft and choosing save performs the
-canonical empty-profile write through PUT and keeps the independent nickname.
+The visual design was refined by direct user feedback: the active dialog has
+only its secondary action and primary save action, with no separate clear or
+overflow control. Deliberately emptying a loaded draft and choosing save
+performs the canonical empty-profile write through PUT and keeps the
+independent nickname.
 
 ## Progress
 
@@ -572,6 +571,5 @@ hunk; never reset the entire worktree or touch another worktree.
   course onboarding gate. The dialog uses PUT for empty-profile saves and sends
   `nickname` only when the learner changed that independent input or when a new
   backend explicitly offers a displayed legacy nickname for one-time migration.
-- Visual target: `docs/assets/learner-profile-dialog-approved-reference.png`,
-  with the direct user-feedback refinement that removes clear/overflow UI;
-  implementation is verified at desktop and mobile viewports before handoff.
+- Implementation is verified at desktop and mobile viewports before handoff,
+  including the direct user-feedback refinement that removes clear/overflow UI.

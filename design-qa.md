@@ -2,9 +2,6 @@
 
 ## Evidence
 
-- Reference: `docs/assets/learner-profile-dialog-approved-reference.png`
-- Reference pixels: 1487 x 1058. The image contains the approved desktop
-  dialog and mobile bottom-sheet composition side by side.
 - Local implementation: `http://localhost:3000`, rendered against the existing
   development API from the current course route.
 - Browser choice: the Codex Desktop in-app browser, following the Product
@@ -13,8 +10,6 @@
   `/private/tmp/learner-profile-optimizer-desktop-1280x720.png`,
   `/private/tmp/learner-profile-optimizer-desktop-1487x1058.png`, and
   `/private/tmp/learner-profile-optimizer-mobile-390x844.png`.
-- Combined reference/implementation comparison input:
-  `/private/tmp/learner-profile-optimizer-reference-comparison.png`.
 - Browser console: no application errors. One existing Tailwind CDN warning
   was present in the course page and is unrelated to this dialog.
 
