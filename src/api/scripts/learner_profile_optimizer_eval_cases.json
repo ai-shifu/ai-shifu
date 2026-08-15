@@ -10,8 +10,7 @@
       "median": 24,
       "p75": 45,
       "max": 403
-    },
-    "privacy_note": "Internal records were used only for aggregate length bands and structural coverage. Every learner_profile below is newly authored fictional text; no learner record or fragment is sent to the model."
+    }
   },
   "cases": [
     {

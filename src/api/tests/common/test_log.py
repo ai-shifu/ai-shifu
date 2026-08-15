@@ -1,50 +1,13 @@
 import logging
 
 import requests
-from flask import Flask, jsonify
-from flaskr.common.log import FeishuLogHandler, init_log, omit_sensitive_body_logging
+
+from flaskr.common.log import FeishuLogHandler
 
 
 class _FailingResponse:
     def raise_for_status(self):
         raise requests.exceptions.HTTPError("400 Client Error")
-
-
-def test_sensitive_route_omits_request_and_response_bodies_from_logs(caplog, tmp_path):
-    sensitive_input = "SENSITIVE_PROFILE_INPUT"
-    sensitive_output = "SENSITIVE_PROFILE_OUTPUT"
-    public_value = "PUBLIC_BODY_VALUE"
-    local_app = Flask(__name__)
-    local_app.config["LOGGING_PATH"] = str(tmp_path / "app.log")
-    init_log(local_app)
-
-    @local_app.post("/sensitive")
-    @omit_sensitive_body_logging
-    def sensitive_route():
-        return jsonify({"value": sensitive_output})
-
-    @local_app.post("/ordinary")
-    def ordinary_route():
-        return jsonify({"value": public_value})
-
-    local_app.logger.addHandler(caplog.handler)
-    try:
-        caplog.clear()
-        with local_app.test_client() as client:
-            sensitive_response = client.post(
-                "/sensitive", json={"value": sensitive_input}
-            )
-            ordinary_response = client.post("/ordinary", json={"value": public_value})
-    finally:
-        local_app.logger.removeHandler(caplog.handler)
-
-    assert sensitive_response.status_code == 200
-    assert ordinary_response.status_code == 200
-    assert sensitive_input not in caplog.text
-    assert sensitive_output not in caplog.text
-    assert public_value in caplog.text
-    assert "Request body: <sensitive body omitted>" in caplog.text
-    assert "Response: <sensitive body omitted>" in caplog.text
 
 
 def test_feishu_log_handler_does_not_reemit_webhook_failures(monkeypatch):

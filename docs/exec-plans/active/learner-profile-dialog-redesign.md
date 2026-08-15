@@ -105,9 +105,7 @@ legacy `sys_*` variables or make profile optimization a persistence action.
 - Optimization success remains editable and requires the normal Save action;
   undo restores the original in-memory draft. Failure, rejection, or an old
   backend leaves the draft and direct Save action available.
-- The optimizer receives JSON-wrapped untrusted input, returns plain text,
-  records metadata-only ordinary logs and local usage, and retains the existing
-  full-content Langfuse trace policy.
+- The optimizer receives JSON-wrapped untrusted input and returns plain text.
 - Course prompts receive canonical learner data only as JSON-encoded untrusted
   context. Learner data can personalize examples, terminology, emphasis,
   address, and language style but cannot override course design, teaching

@@ -165,7 +165,6 @@ def optimize_learner_profile(
                 "feature": "learner_profile_optimization",
                 "input_chars": len(normalized),
             },
-            sensitive_content=True,
             temperature=0.5,
             timeout=LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS,
             max_tokens=LEARNER_PROFILE_OPTIMIZATION_MAX_TOKENS,

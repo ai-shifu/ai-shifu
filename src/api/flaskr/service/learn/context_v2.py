@@ -94,7 +94,6 @@ from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
-    has_composed_learner_profile,
 )
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
 from flaskr.service.profile.profile_manage import (
@@ -820,14 +819,11 @@ class RunScriptPreviewContextV2:
             outline_bid,
             user_bid,
         )
-        normalized_document_prompt = (document_prompt or "").strip()
         self.app.logger.info(
-            "preview document prompt resolved | shifu_bid=%s | outline_bid=%s | "
-            "has_prompt=%s | learner_profile_attached=%s",
+            "preview document prompt | shifu_bid=%s | outline_bid=%s | prompt=%s",
             shifu_bid,
             outline_bid,
-            bool(normalized_document_prompt),
-            has_composed_learner_profile(normalized_document_prompt),
+            (document_prompt or "").strip(),
         )
         model, temperature = self._resolve_llm_settings(preview_request, outline, shifu)
         document = preview_request.get_document() or (
@@ -911,14 +907,18 @@ class RunScriptPreviewContextV2:
         sent_prompt_chunks: list[str] = []
         preview_trace_input: str | None = None
         try:
+            final_payload = preview_request.model_dump()
+            final_payload["content"] = document
+            final_payload["document_prompt"] = document_prompt
+            final_payload["model"] = model
+            final_payload["temperature"] = temperature
+            final_payload["variables"] = resolved_variables
             self.app.logger.info(
-                "preview payload prepared | shifu_bid=%s | outline_bid=%s | "
-                "user_bid=%s | has_prompt=%s | learner_profile_attached=%s",
+                "preview final payload | shifu_bid=%s | outline_bid=%s | user_bid=%s | payload=%s",
                 shifu_bid,
                 outline_bid,
                 user_bid,
-                bool(normalized_document_prompt),
-                has_composed_learner_profile(normalized_document_prompt),
+                json.dumps(final_payload, ensure_ascii=False),
             )
 
             context_store = _PreviewContextStore(

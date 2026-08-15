@@ -138,21 +138,19 @@ def get_fmt_prompt(
     Returns:
         str: Fmt prompt
     """
-    app.logger.info(
-        "format prompt | has_template=%s | template_chars=%s",
-        bool(profile_tmplate),
-        len(profile_tmplate),
-    )
+    app.logger.info("raw prompt:" + profile_tmplate)
+    propmpt_keys = []
     profiles = {}
 
     profiles = dict(get_user_profiles(app, user_id, course_id) or {})
     if profile_overrides:
         profiles.update(profile_overrides)
-    profile_key_count = len(profiles)
+    propmpt_keys = list(profiles.keys())
     if input:
         profiles["sys_user_input"] = input
-        profile_key_count += 1
-    app.logger.info("profile bindings available | key_count=%s", profile_key_count)
+        propmpt_keys.append("sys_user_input")
+    app.logger.info(propmpt_keys)
+    app.logger.info(profiles)
     keys = extract_variables(profile_tmplate)
     fmt_keys = {}
     for key in keys:
@@ -160,20 +158,12 @@ def get_fmt_prompt(
             fmt_keys[key] = profiles[key]
         else:
             app.logger.info("key not found:" + key + " ,user_id:" + user_id)
-    app.logger.info(
-        "profile bindings substituted | key_count=%s | requested_key_count=%s",
-        len(fmt_keys),
-        len(keys),
-    )
+    app.logger.info(fmt_keys)
     if not keys:
         prompt = input if not profile_tmplate else profile_tmplate
     else:
         prompt = safe_format_template(profile_tmplate, fmt_keys)
-    app.logger.info(
-        "formatted prompt | prompt_chars=%s | variable_count=%s",
-        len(prompt),
-        len(fmt_keys),
-    )
+    app.logger.info(f"fomat input:{prompt}")
     return prompt
 
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Callable
 from typing import Any, TypeVar
 
@@ -50,39 +48,8 @@ PROFILE_ONBOARDING_VERSION = "profile-v2"
 _T = TypeVar("_T")
 
 
-def _learner_profile_audit_text(learner_profile: str) -> str:
-    """Return linkage metadata without duplicating the learner's profile text."""
-
-    return json.dumps(
-        {
-            "content": "[redacted]",
-            "sha256": hashlib.sha256(learner_profile.encode("utf-8")).hexdigest(),
-            "unicode_code_points": len(learner_profile),
-        },
-        ensure_ascii=True,
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-
-
-def _learner_profile_audit_response(result: Any) -> str:
-    """Allowlist moderation verdict details and discard the provider raw payload."""
-
-    return json.dumps(
-        {
-            "risk_label_ids": list(getattr(result, "risk_label_ids", []) or []),
-            "risk_labels": [
-                str(label) for label in (getattr(result, "risk_labels", []) or [])
-            ],
-        },
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-
-
 def check_text_content(app: Flask, user_id: str, learner_profile: str) -> bool:
-    """Moderate a profile while keeping its canonical row as the only local raw copy."""
+    """Moderate a learner profile and record the result."""
 
     check_id = generate_id(app)
     result = check_text(app, check_id, learner_profile, user_id)
@@ -90,10 +57,10 @@ def check_text_content(app: Flask, user_id: str, learner_profile: str) -> bool:
         app,
         check_id,
         user_id,
-        _learner_profile_audit_text(learner_profile),
+        learner_profile,
         result.provider,
         result.check_result,
-        _learner_profile_audit_response(result),
+        str(result.raw_data),
         1 if result.check_result == CHECK_RESULT_PASS else 0,
         LEARNER_PROFILE_CHECK_STRATEGY,
     )

@@ -12,7 +12,6 @@ from flaskr.service.user.models import AuthCredential
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.util.uuid import generate_id
 from flaskr.common.shifu_context import with_shifu_context
-from flaskr.common.log import omit_sensitive_body_logging
 from flaskr.service.user.repository import (
     find_credential,
     get_password_hash,
@@ -423,13 +422,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(result)
 
     @app.route(path_prefix + "/learner-profile", methods=["GET"])
-    @omit_sensitive_body_logging
     def learner_profile_api():
         """Return the current user's canonical learning profile."""
         return make_common_response(get_learner_profile(user_id=request.user.user_id))
 
     @app.route(path_prefix + "/learner-profile", methods=["PUT"])
-    @omit_sensitive_body_logging
     def update_learner_profile_api():
         """Replace the current user's canonical learning profile."""
         payload = _request_json_object("learner_profile")
@@ -454,13 +451,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/learner-profile", methods=["DELETE"])
-    @omit_sensitive_body_logging
     def clear_learner_profile_api():
         """Clear the profile while keeping profile-v2 handled."""
         return make_common_response(clear_learner_profile(user_id=request.user.user_id))
 
     @app.route(path_prefix + "/learner-profile/optimize", methods=["POST"])
-    @omit_sensitive_body_logging
     def optimize_learner_profile_api():
         """Return an LLM-optimized draft without saving profile state."""
         payload = _request_json_object("learner_profile")

@@ -440,14 +440,8 @@ def handle_input_ask(
     }
     llm_messages.append(user_message)
     provider_messages.append(user_message)
-    app.logger.info(
-        "ask messages prepared | llm_message_count=%s | "
-        "provider_message_count=%s | llm_has_system=%s | provider_has_system=%s",
-        len(llm_messages),
-        len(provider_messages),
-        any(message.get("role") == "system" for message in llm_messages),
-        any(message.get("role") == "system" for message in provider_messages),
-    )
+    app.logger.info(f"llm_messages: {llm_messages}")
+    app.logger.info(f"provider_messages: {provider_messages}")
 
     # Get model for follow-up Q&A
     follow_up_model = follow_up_info.ask_model

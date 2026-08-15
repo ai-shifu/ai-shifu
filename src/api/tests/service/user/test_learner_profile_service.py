@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from datetime import datetime, timezone
 
 import pytest
@@ -749,9 +747,7 @@ def test_profile_moderation_allows_save_when_provider_is_unavailable(app):
     assert state is not None
 
 
-def test_profile_safety_audit_redacts_local_text_and_provider_response(
-    app, monkeypatch
-):
+def test_profile_safety_audit_records_text_and_provider_response(app, monkeypatch):
     from flaskr.api.check.dto import CHECK_RESULT_PASS, CheckResultDTO
     from flaskr.service.check_risk.models import RiskControlResult
     from flaskr.service.profile.learner_profile import replace_learner_profile
@@ -774,34 +770,24 @@ def test_profile_safety_audit_redacts_local_text_and_provider_response(
     )
 
     with app.app_context():
-        _create_user("profile-redacted-audit")
+        _create_user("profile-audit")
         replace_learner_profile(
             app,
-            user_id="profile-redacted-audit",
+            user_id="profile-audit",
             learner_profile=profile,
         )
-        audit_row = RiskControlResult.query.filter_by(
-            user_id="profile-redacted-audit"
-        ).one()
+        audit_row = RiskControlResult.query.filter_by(user_id="profile-audit").one()
 
     assert checked["text"] == profile
-    assert checked["user_id"] == "profile-redacted-audit"
+    assert checked["user_id"] == "profile-audit"
     assert audit_row.chat_id == checked["check_id"]
     assert audit_row.check_vendor == "test-provider"
     assert audit_row.check_result == CHECK_RESULT_PASS
     assert audit_row.check_strategy == "check_learner_profile"
-    assert profile not in audit_row.text
-    assert profile not in audit_row.check_resp
-    assert "private-provider-id" not in audit_row.check_resp
-    assert json.loads(audit_row.text) == {
-        "content": "[redacted]",
-        "sha256": hashlib.sha256(profile.encode("utf-8")).hexdigest(),
-        "unicode_code_points": len(profile),
-    }
-    assert json.loads(audit_row.check_resp) == {
-        "risk_label_ids": [100],
-        "risk_labels": ["safe-label"],
-    }
+    assert audit_row.text == profile
+    assert audit_row.check_resp == str(
+        {"echo": profile, "provider_request_id": "private-provider-id"}
+    )
 
 
 def test_legacy_status_hides_for_canonical_profile_or_fixed_v2_state(app, monkeypatch):

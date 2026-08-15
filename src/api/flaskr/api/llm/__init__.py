@@ -116,7 +116,6 @@ MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
 PROVIDER_STATES: Dict[str, ProviderState] = {}
 MODEL_MAX_OUTPUT_TOKENS: Dict[str, int] = {}
 _USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
-_SENSITIVE_USAGE_METADATA_KEYS = frozenset({"feature", "input_chars", "output_chars"})
 
 
 def _log(level: str, message: str) -> None:
@@ -438,8 +437,6 @@ def _stream_litellm_completion(
     messages: list,
     params: dict,
     kwargs: dict,
-    *,
-    sensitive_content: bool = False,
 ):
     try:
         # Routed ids are the application-level identity. LiteLLM completion uses
@@ -461,17 +458,9 @@ def _stream_litellm_completion(
                 kwargs["max_tokens"] = min(requested_max_tokens, max_tokens)
             else:
                 kwargs["max_tokens"] = max_tokens
-        if sensitive_content:
-            app.logger.info(
-                "stream_litellm_completion: model=%s message_count=%s "
-                "sensitive_content=true",
-                model,
-                len(messages),
-            )
-        else:
-            app.logger.info(
-                f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
-            )
+        app.logger.info(
+            f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
+        )
         return litellm.completion(
             model=model,
             messages=messages,
@@ -480,17 +469,11 @@ def _stream_litellm_completion(
             **kwargs,
         )
     except Exception as exc:
-        if sensitive_content:
-            _log_warning(
-                f"LiteLLM completion failed for {model}: "
-                f"error_type={type(exc).__name__}"
-            )
-        else:
-            _log_warning(f"LiteLLM completion failed for {model}: {exc}")
+        _log_warning(f"LiteLLM completion failed for {model}: {exc}")
         raise_error_with_args(
             "server.llm.requestFailed",
             model=model,
-            message=(type(exc).__name__ if sensitive_content else str(exc)),
+            message=str(exc),
         )
 
 
@@ -525,8 +508,6 @@ def _iter_stream_with_precontent_retry(
     messages: list,
     params: dict,
     kwargs: dict,
-    *,
-    sensitive_content: bool = False,
 ):
     """Yield litellm stream chunks, re-issuing the request when the stream
     dies on a connection-level error before any content token arrived.
@@ -549,7 +530,6 @@ def _iter_stream_with_precontent_retry(
             messages,
             params,
             kwargs,
-            sensitive_content=sensitive_content,
         )
         saw_content = False
         pending_reasoning_chunks = []
@@ -581,13 +561,10 @@ def _iter_stream_with_precontent_retry(
                 or not isinstance(exc, retryable)
             ):
                 raise
-            error_detail = (
-                f"error_type={type(exc).__name__}" if sensitive_content else str(exc)
-            )
             _log_warning(
                 f"LLM stream for {invoke_model} failed before first content "
                 f"(attempt {attempts}/{_STREAM_PRECONTENT_RETRY_ATTEMPTS + 1}); "
-                f"reissuing request: {error_detail}"
+                f"reissuing request: {exc}"
             )
 
 
@@ -1018,7 +995,6 @@ def invoke_llm(
     request_id: Optional[str] = None,
     trace_id: Optional[str] = None,
     usage_metadata: Optional[Dict[str, Any]] = None,
-    sensitive_content: bool = False,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     stream_flag = bool(kwargs.get("stream", True))
@@ -1030,12 +1006,6 @@ def invoke_llm(
     request_id = request_id or kwargs.pop("request_id", None) or get_request_id()
     trace_id = resolve_langfuse_trace_id(span, trace_id or kwargs.pop("trace_id", None))
     usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
-    if sensitive_content:
-        usage_metadata = {
-            key: value
-            for key, value in usage_metadata.items()
-            if key in _SENSITIVE_USAGE_METADATA_KEYS
-        }
     model = model.strip()
     generation_input = []
     if system:
@@ -1062,95 +1032,68 @@ def invoke_llm(
     input_cache_tokens = 0
     provider_name = ""
     start_time = time.monotonic()
+    params, invoke_model, reload_params = get_litellm_params_and_model(model)
     start_completion_time = None
-    try:
-        params, invoke_model, reload_params = get_litellm_params_and_model(model)
-        if params:
-            provider_key, _normalized = _resolve_provider_for_model(model)
-            provider_name = provider_key or ""
-            messages = []
-            if system:
-                messages.append({"content": system, "role": "system"})
-            messages.append({"content": message, "role": "user"})
-            if json:
-                kwargs["response_format"] = {"type": "json_object"}
-            kwargs["stream_options"] = {"include_usage": True}
-            if reload_params:
-                _apply_provider_params(
-                    kwargs,
-                    reload_params(invoke_model, float(kwargs.get("temperature", 0.3))),
-                )
-            else:
-                kwargs.update(
-                    {
-                        "temperature": float(kwargs.get("temperature", 0.3)),
-                    }
-                )
-            response = _iter_stream_with_precontent_retry(
-                app,
-                model,
-                invoke_model,
-                messages,
-                params,
+    if params:
+        provider_key, _normalized = _resolve_provider_for_model(model)
+        provider_name = provider_key or ""
+        messages = []
+        if system:
+            messages.append({"content": system, "role": "system"})
+        messages.append({"content": message, "role": "user"})
+        if json:
+            kwargs["response_format"] = {"type": "json_object"}
+        kwargs["stream_options"] = {"include_usage": True}
+        if reload_params:
+            _apply_provider_params(
                 kwargs,
-                sensitive_content=sensitive_content,
+                reload_params(invoke_model, float(kwargs.get("temperature", 0.3))),
             )
-
-            for res in response:
-                if start_completion_time is None:
-                    start_completion_time = now_utc()
-                if len(res.choices):
-                    reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
-                if len(res.choices) and res.choices[0].delta.content:
-                    response_text += res.choices[0].delta.content
-                    yield LLMStreamResponse(
-                        res.id,
-                        True if res.choices[0].finish_reason else False,
-                        False,
-                        res.choices[0].delta.content,
-                        res.choices[0].finish_reason,
-                        None,
-                    )
-                res_usage = getattr(res, "usage", None)
-                if res_usage:
-                    input_cache_tokens = _extract_input_cache(res_usage)
-                    usage = {
-                        "input": res_usage.prompt_tokens,
-                        "output": res_usage.completion_tokens,
-                        "total": res_usage.total_tokens,
-                    }
         else:
-            raise_error_with_args(
-                "server.llm.modelNotSupported",
-                model=model,
+            kwargs.update(
+                {
+                    "temperature": float(kwargs.get("temperature", 0.3)),
+                }
             )
-    except Exception as exc:
-        try:
-            generation.end(
-                input=generation_input,
-                output=_build_langfuse_llm_output(response_text, reasoning_text),
-                metadata=kwargs,
-                completion_start_time=start_completion_time,
-                level="ERROR",
-                status_message=type(exc).__name__,
-            )
-        except Exception as finalize_exc:
-            app.logger.warning(
-                "Failed to finalize errored LLM generation | model=%s | "
-                "generation_name=%s | error_type=%s",
-                model,
-                generation_name,
-                type(finalize_exc).__name__,
-            )
-        raise
-
-    if sensitive_content:
-        app.logger.info(
-            "invoke_llm response: <sensitive content omitted> chars=%s",
-            len(response_text),
+        response = _iter_stream_with_precontent_retry(
+            app,
+            model,
+            invoke_model,
+            messages,
+            params,
+            kwargs,
         )
+
+        for res in response:
+            if start_completion_time is None:
+                start_completion_time = now_utc()
+            if len(res.choices):
+                reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
+            if len(res.choices) and res.choices[0].delta.content:
+                response_text += res.choices[0].delta.content
+                yield LLMStreamResponse(
+                    res.id,
+                    True if res.choices[0].finish_reason else False,
+                    False,
+                    res.choices[0].delta.content,
+                    res.choices[0].finish_reason,
+                    None,
+                )
+            res_usage = getattr(res, "usage", None)
+            if res_usage:
+                input_cache_tokens = _extract_input_cache(res_usage)
+                usage = {
+                    "input": res_usage.prompt_tokens,
+                    "output": res_usage.completion_tokens,
+                    "total": res_usage.total_tokens,
+                }
     else:
-        app.logger.info(f"invoke_llm response: {response_text} ")
+        raise_error_with_args(
+            "server.llm.modelNotSupported",
+            model=model,
+        )
+
+    app.logger.info(f"invoke_llm response: {response_text} ")
     if usage is None:
         app.logger.info("invoke_llm usage: None")
     else:
@@ -1176,11 +1119,7 @@ def invoke_llm(
     usage_metadata.setdefault("generation_name", generation_name)
     if "temperature" in kwargs:
         usage_metadata.setdefault("temperature", kwargs.get("temperature"))
-    if sensitive_content:
-        usage_metadata.pop("output_text", None)
-        usage_metadata["output_chars"] = len(response_text)
-    else:
-        usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
+    usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
     if usage is None:
         usage_metadata.setdefault("usage_source", "missing")
         record_llm_usage(

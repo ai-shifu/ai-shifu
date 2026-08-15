@@ -1,6 +1,6 @@
 import logging
 import os
-from flask import Flask, current_app, request
+from flask import Flask, request
 import uuid
 from logging.handlers import TimedRotatingFileHandler
 import socket
@@ -8,29 +8,11 @@ import threading
 import time
 from datetime import datetime
 import pytz
-
 import colorlog
 import requests
 
 from .observability import current_trace_ids
 from .request_context import thread_local
-
-_SENSITIVE_BODY_LOGGING_ATTR = "_ai_shifu_sensitive_body_logging"
-
-
-def omit_sensitive_body_logging(view_func):
-    """Mark one route so ordinary request/response logs omit its body."""
-
-    setattr(view_func, _SENSITIVE_BODY_LOGGING_ATTR, True)
-    return view_func
-
-
-def _current_endpoint_omits_sensitive_body() -> bool:
-    endpoint = request.endpoint
-    if not endpoint:
-        return False
-    view_func = current_app.view_functions.get(endpoint)
-    return bool(getattr(view_func, _SENSITIVE_BODY_LOGGING_ATTR, False))
 
 
 class AppLoggerProxy:
@@ -177,23 +159,20 @@ def init_log(app: Flask) -> Flask:
         thread_local.client_ip = user_ip
         if request.method == "POST":
             try:
-                if _current_endpoint_omits_sensitive_body():
-                    app.logger.info("Request body: <sensitive body omitted>")
+                request_body = {}
+                if request.files:
+                    request_body["File Upload"] = "File Upload"
+                elif request.is_json:
+                    request_body["JSON"] = request.get_json(silent=True)
+                elif request.form:
+                    request_body["Form"] = request.form.to_dict()
+                elif request.args:
+                    request_body["Args"] = request.args.to_dict()
+                elif request.form:
+                    request_body["Form"] = request.form.to_dict()
                 else:
-                    request_body = {}
-                    if request.files:
-                        request_body["File Upload"] = "File Upload"
-                    elif request.is_json:
-                        request_body["JSON"] = request.get_json(silent=True)
-                    elif request.form:
-                        request_body["Form"] = request.form.to_dict()
-                    elif request.args:
-                        request_body["Args"] = request.args.to_dict()
-                    elif request.form:
-                        request_body["Form"] = request.form.to_dict()
-                    else:
-                        request_body["Raw"] = request.get_data(as_text=True)
-                    app.logger.info(f"Request body: {request_body}")
+                    request_body["Raw"] = request.get_data(as_text=True)
+                app.logger.info(f"Request body: {request_body}")
             except Exception as e:
                 app.logger.error(f"Failed to get request body: {e}")
         else:
@@ -216,11 +195,8 @@ def init_log(app: Flask) -> Flask:
             if response.direct_passthrough:
                 app.logger.info("Response: <streaming response omitted>")
                 return response
-            if _current_endpoint_omits_sensitive_body():
-                app.logger.info("Response: <sensitive body omitted>")
-            else:
-                response_data = response.get_data(as_text=True)
-                app.logger.info(f"Response: {response_data}")
+            response_data = response.get_data(as_text=True)
+            app.logger.info(f"Response: {response_data}")
         except Exception as e:
             app.logger.error(f"Error logging response: {str(e)}")
         return response

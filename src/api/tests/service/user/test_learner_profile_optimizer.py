@@ -126,7 +126,6 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
     assert "json" not in captured["kwargs"]
     assert captured["kwargs"]["temperature"] == 0.5
     assert captured["kwargs"]["timeout"] == 15
-    assert captured["kwargs"]["sensitive_content"] is True
     assert captured["kwargs"]["usage_scene"] == BILL_USAGE_SCENE_PROD
     assert captured["kwargs"]["billable"] == 0
     assert captured["kwargs"]["usage_context"].billable == 0
@@ -395,8 +394,7 @@ def test_optimize_provider_unavailable_moderation_still_allows_llm(app, monkeypa
     assert after == before
     assert audit.check_result == CHECK_RESULT_UNKNOWN
     assert audit.is_pass == 0
-    assert source not in audit.text
-    assert '"content":"[redacted]"' in audit.text
+    assert audit.text == source
 
 
 def test_optimize_missing_default_model_does_not_call_llm_or_change_state(
