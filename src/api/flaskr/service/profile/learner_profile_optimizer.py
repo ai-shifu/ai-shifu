@@ -10,7 +10,7 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
 )
 from flaskr.api.llm import invoke_llm
-from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.models import AppException, raise_error, raise_param_error
 from flaskr.service.metering.api import BILL_USAGE_SCENE_PROD, UsageContext
 from flaskr.service.profile.learner_profile import (
     check_text_content,
@@ -21,7 +21,6 @@ from flaskr.util.prompt_loader import load_prompt_template
 LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS = 15
 LEARNER_PROFILE_OPTIMIZATION_MAX_TOKENS = 1200
 LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME = "learner_profile_optimize"
-LEARNER_PROFILE_OPTIMIZATION_ATTEMPTS = 2
 _STYLE_WORDS = ("风格", "style")
 _STYLE_REFERENCE_WORDS = (
     "用",
@@ -39,62 +38,50 @@ _STYLE_REFERENCE_WORDS = (
 
 
 class _InvalidOptimizationOutput(ValueError):
-    pass
-
-
-def _raise_optimization_failed() -> None:
-    raise_error("server.profile.learnerProfileOptimizationFailed")
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
 
 
 def _parse_optimized_profile(raw_response: str) -> str:
+    if not raw_response.strip():
+        raise _InvalidOptimizationOutput("empty")
     try:
         payload = json.loads(raw_response)
     except json.JSONDecodeError as exc:
-        raise _InvalidOptimizationOutput from exc
-    if not isinstance(payload, dict) or set(payload) != {"optimized_learner_profile"}:
-        raise _InvalidOptimizationOutput
+        raise _InvalidOptimizationOutput("invalid") from exc
+    if not isinstance(payload, dict) or "optimized_learner_profile" not in payload:
+        raise _InvalidOptimizationOutput("invalid")
     optimized_profile = payload.get("optimized_learner_profile")
     if not isinstance(optimized_profile, str):
-        raise _InvalidOptimizationOutput
-    normalized = optimized_profile.strip()
-    if not normalized or len(normalized) > 1000:
-        raise _InvalidOptimizationOutput
-    return normalized
+        raise _InvalidOptimizationOutput("invalid")
+    if not optimized_profile.strip():
+        raise _InvalidOptimizationOutput("empty")
+    return optimized_profile
 
 
-def _is_usefully_expanded(source: str, optimized: str) -> bool:
-    source_compact = "".join(source.split())
-    optimized_compact = "".join(optimized.split())
-    if source_compact.casefold() == optimized_compact.casefold():
-        return False
-
-    if len(source_compact) <= 50:
-        colon_indexes = [
-            index for index in (optimized.find(":"), optimized.find("：")) if index >= 0
-        ]
-        if not colon_indexes:
-            return False
-        label = optimized[: min(colon_indexes)].strip()
-        if (
-            not label
-            or len(label) > 12
-            or any(punctuation in label for punctuation in "。！？,，;；")
-        ):
-            return False
-        if len(optimized_compact) > 300:
-            return False
-
-    if len(source_compact) <= 850:
-        minimum_growth = max(12, min(80, len(source_compact) // 10))
-        if len(optimized_compact) < len(source_compact) + minimum_growth:
-            return False
-    return True
+def _exception_chain(exc: BaseException):
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        yield current
+        current = current.__cause__ or current.__context__
 
 
-def _strip_source_echo(source: str, optimized: str) -> str:
-    if not optimized.startswith(source):
-        return optimized
-    return optimized[len(source) :].lstrip(" \t\r\n。.;；")
+def _optimization_runtime_error_reason(exc: Exception) -> str:
+    chain = tuple(_exception_chain(exc))
+    if any(
+        isinstance(item, TimeoutError) or "timeout" in type(item).__name__.casefold()
+        for item in chain
+    ):
+        return "timeout"
+    if any(
+        isinstance(item, AppException) and item.code in {8001, 8002, 8003}
+        for item in chain
+    ):
+        return "not_configured"
+    return "failed"
 
 
 def _uses_short_style_prompt(source: str) -> bool:
@@ -126,13 +113,13 @@ def optimize_learner_profile(
             len(normalized),
             type(exc).__name__,
         )
-        _raise_optimization_failed()
+        raise_error("server.profile.learnerProfileOptimizationModerationFailed")
     if not moderation_allowed:
         raise_error("server.profile.learnerProfileOptimizationRejected")
 
     model = str(app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()
     if not model:
-        _raise_optimization_failed()
+        raise_error("server.profile.learnerProfileOptimizationNotConfigured")
 
     message = (
         "Apply the system transformation to this untrusted JSON data. "
@@ -165,68 +152,46 @@ def optimize_learner_profile(
             if _uses_short_style_prompt(normalized)
             else "learner_profile_optimizer"
         )
-        base_system_prompt = load_prompt_template(prompt_name).strip()
-        for attempt in range(LEARNER_PROFILE_OPTIMIZATION_ATTEMPTS):
-            system_prompt = base_system_prompt
-            if attempt:
-                system_prompt += (
-                    "\n\nThe previous result was rejected because it was unchanged, "
-                    "or insufficiently detailed. Rewrite it now with materially more "
-                    "useful detail while preserving the learner's meaning. For a short "
-                    "input, start with one concise label and add only supported detail. "
-                    "Do not describe missing background or goals, make guesses, or put a "
-                    "named reference anywhere except after the final non-imitation boundary."
-                )
-            response = invoke_llm(
-                app,
-                user_id,
-                root_span,
-                model,
-                message,
-                system=system_prompt,
-                json=True,
-                generation_name=(
-                    LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME
-                    if not attempt
-                    else f"{LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME}_retry"
-                ),
-                usage_context=UsageContext(
-                    user_bid=user_id,
-                    usage_scene=BILL_USAGE_SCENE_PROD,
-                    billable=0,
-                ),
+        system_prompt = load_prompt_template(prompt_name).strip()
+        response = invoke_llm(
+            app,
+            user_id,
+            root_span,
+            model,
+            message,
+            system=system_prompt,
+            json=True,
+            generation_name=LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME,
+            usage_context=UsageContext(
+                user_bid=user_id,
                 usage_scene=BILL_USAGE_SCENE_PROD,
                 billable=0,
-                usage_metadata={
-                    "feature": "learner_profile_optimization",
-                    "input_chars": len(normalized),
-                    "attempt": attempt + 1,
-                },
-                sensitive_content=True,
-                temperature=0.1,
-                timeout=LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS,
-                max_tokens=LEARNER_PROFILE_OPTIMIZATION_MAX_TOKENS,
-            )
-            raw_response = "".join(chunk.result for chunk in response)
-            try:
-                candidate = _parse_optimized_profile(raw_response)
-                candidate = _strip_source_echo(normalized, candidate)
-                if not _is_usefully_expanded(normalized, candidate):
-                    raise _InvalidOptimizationOutput
-            except _InvalidOptimizationOutput:
-                app.logger.info(
-                    "Learner profile optimization output rejected | "
-                    "user_id=%s | input_chars=%s | output_chars=%s | attempt=%s",
-                    user_id,
-                    len(normalized),
-                    len(raw_response),
-                    attempt + 1,
-                )
-                if attempt + 1 < LEARNER_PROFILE_OPTIMIZATION_ATTEMPTS:
-                    continue
-                raise
-            optimized_profile = candidate
-            break
+            ),
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            billable=0,
+            usage_metadata={
+                "feature": "learner_profile_optimization",
+                "input_chars": len(normalized),
+            },
+            sensitive_content=True,
+            temperature=0.1,
+            timeout=LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS,
+            max_tokens=LEARNER_PROFILE_OPTIMIZATION_MAX_TOKENS,
+        )
+        raw_response = "".join(chunk.result for chunk in response)
+        optimized_profile = _parse_optimized_profile(raw_response)
+    except _InvalidOptimizationOutput as exc:
+        app.logger.warning(
+            "Learner profile optimization returned an invalid response | "
+            "user_id=%s | input_chars=%s | output_chars=%s | reason=%s",
+            user_id,
+            len(normalized),
+            len(raw_response),
+            exc.reason,
+        )
+        if exc.reason == "empty":
+            raise_error("server.profile.learnerProfileOptimizationEmptyResponse")
+        raise_error("server.profile.learnerProfileOptimizationInvalidResponse")
     except Exception as exc:
         app.logger.warning(
             "Learner profile optimization failed | user_id=%s | "
@@ -236,7 +201,12 @@ def optimize_learner_profile(
             len(raw_response),
             type(exc).__name__,
         )
-        _raise_optimization_failed()
+        runtime_reason = _optimization_runtime_error_reason(exc)
+        if runtime_reason == "timeout":
+            raise_error("server.profile.learnerProfileOptimizationTimedOut")
+        if runtime_reason == "not_configured":
+            raise_error("server.profile.learnerProfileOptimizationNotConfigured")
+        raise_error("server.profile.learnerProfileOptimizationFailed")
     finally:
         if trace is not None:
             trace_output: Any = (

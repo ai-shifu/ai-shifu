@@ -28,7 +28,7 @@ API_DIR = SCRIPT_DIR.parent
 DEFAULT_PROMPT_PATH = API_DIR / "prompts" / "learner_profile_optimizer.md"
 DEFAULT_CASES_PATH = SCRIPT_DIR / "learner_profile_optimizer_eval_cases.json"
 DEFAULT_OUTPUT_DIR = Path("/private/tmp")
-MAX_OPTIMIZED_PROFILE_CHARS = 1000
+MAX_LEARNER_PROFILE_CHARS = 1000
 ALLOWED_CODEX_ITEM_TYPES = {"agent_message", "reasoning"}
 DISABLED_CODEX_FEATURES = (
     "apps",
@@ -77,22 +77,19 @@ def _build_user_message(learner_profile: str) -> str:
 
 
 def _parse_model_payload(raw_model_text: str) -> str:
+    if not raw_model_text.strip():
+        raise EvaluationError("model output is empty")
     try:
         payload = json.loads(raw_model_text)
     except json.JSONDecodeError as exc:
         raise EvaluationError("model output is not JSON") from exc
-    if not isinstance(payload, dict) or set(payload) != {"optimized_learner_profile"}:
-        raise EvaluationError("model output does not match the exact-key schema")
+    if not isinstance(payload, dict) or "optimized_learner_profile" not in payload:
+        raise EvaluationError("model output is missing optimized_learner_profile")
     optimized = payload["optimized_learner_profile"]
     if not isinstance(optimized, str):
         raise EvaluationError("optimized_learner_profile is not a string")
-    optimized = optimized.strip()
-    if not optimized:
+    if not optimized.strip():
         raise EvaluationError("optimized_learner_profile is empty")
-    if len(optimized) > MAX_OPTIMIZED_PROFILE_CHARS:
-        raise EvaluationError(
-            "optimized_learner_profile exceeds the 1000-character limit"
-        )
     return optimized
 
 
@@ -139,45 +136,6 @@ def _parse_codex_events(stdout: str) -> dict[str, Any]:
         "warnings": warnings,
         "usage": usage,
     }
-
-
-def _strip_source_echo(source: str, optimized: str) -> str:
-    """Mirror the production service's leading source-echo removal."""
-
-    if not optimized.startswith(source):
-        return optimized
-    return optimized[len(source) :].lstrip(" \t\r\n。.;；")
-
-
-def _would_pass_current_service_gate(source: str, optimized: str) -> bool:
-    """Mirror the production service's material-expansion gate."""
-
-    source_compact = "".join(source.split())
-    optimized_compact = "".join(optimized.split())
-    if source_compact.casefold() == optimized_compact.casefold():
-        return False
-
-    if len(source_compact) <= 50:
-        colon_indexes = [
-            index for index in (optimized.find(":"), optimized.find("：")) if index >= 0
-        ]
-        if not colon_indexes:
-            return False
-        label = optimized[: min(colon_indexes)].strip()
-        if (
-            not label
-            or len(label) > 12
-            or any(punctuation in label for punctuation in "。！？,，;；")
-        ):
-            return False
-        if len(optimized_compact) > 300:
-            return False
-
-    if len(source_compact) <= 850:
-        minimum_growth = max(12, min(80, len(source_compact) // 10))
-        if len(optimized_compact) < len(source_compact) + minimum_growth:
-            return False
-    return True
 
 
 def _run_codex(
@@ -313,11 +271,16 @@ def _load_cases(path: Path) -> tuple[dict[str, Any], list[dict[str, str]]]:
             raise EvaluationError(
                 "every case requires non-empty id, observed_shape, and learner_profile"
             )
+        normalized_profile = learner_profile.strip()
+        if len(normalized_profile) > MAX_LEARNER_PROFILE_CHARS:
+            raise EvaluationError(
+                "learner_profile exceeds the production 1000-character input limit"
+            )
         normalized_cases.append(
             {
                 "id": case_id.strip(),
                 "observed_shape": observed_shape.strip(),
-                "learner_profile": learner_profile.strip(),
+                "learner_profile": normalized_profile,
             }
         )
     return payload.get("source_distribution", {}), normalized_cases
@@ -346,8 +309,7 @@ def _evaluate_case(
             model=model,
             timeout_seconds=timeout_seconds,
         )
-        parsed = _parse_model_payload(raw_model_text)
-        optimized = _strip_source_echo(source, parsed)
+        optimized = _parse_model_payload(raw_model_text)
         result.update(
             {
                 "status": "ok",
@@ -355,10 +317,7 @@ def _evaluate_case(
                 "optimized_profile": optimized,
                 "output_chars": len(optimized),
                 "growth_chars": len(optimized) - len(source),
-                "source_echo_removed": parsed != optimized,
-                "would_pass_current_service_gate": (
-                    _would_pass_current_service_gate(source, optimized)
-                ),
+                "matches_source": optimized == source,
                 "runner_metadata": runner_metadata,
             }
         )
@@ -367,7 +326,6 @@ def _evaluate_case(
             {
                 "status": "error",
                 "error": str(exc),
-                "would_pass_current_service_gate": False,
             }
         )
     return result
@@ -452,9 +410,7 @@ def main() -> int:
                 tasks,
             )
         )
-    passed = sum(
-        result.get("would_pass_current_service_gate") is True for result in results
-    )
+    valid_outputs = sum(result["status"] == "ok" for result in results)
     output_path = args.output or _default_output_path()
     cases_bytes = args.cases.read_bytes()
     report = {
@@ -490,9 +446,8 @@ def main() -> int:
         "source_distribution": distribution,
         "summary": {
             "runs": len(results),
-            "valid_outputs": sum(result["status"] == "ok" for result in results),
-            "current_service_gate_passes": passed,
-            "current_service_gate_failures": len(results) - passed,
+            "valid_outputs": valid_outputs,
+            "errors": len(results) - valid_outputs,
         },
         "results": results,
     }
@@ -500,15 +455,7 @@ def main() -> int:
     _write_private_report(output_path, report)
     print(json.dumps(report["summary"], ensure_ascii=False))
     print(f"Report: {output_path}")
-    return (
-        0
-        if all(
-            result["status"] == "ok"
-            and result["would_pass_current_service_gate"] is True
-            for result in results
-        )
-        else 1
-    )
+    return 0 if all(result["status"] == "ok" for result in results) else 1
 
 
 if __name__ == "__main__":

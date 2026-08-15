@@ -13,7 +13,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import {
   getLearnerProfile,
-  LEARNER_PROFILE_OPTIMIZATION_REJECTED_CODE,
   optimizeLearnerProfile,
   updateLearnerProfile,
 } from '@/api/learnerProfile';
@@ -65,12 +64,7 @@ type LearnerProfileDialogProps = {
   onSaved?: () => void | Promise<void>;
 };
 
-type OptimizationStatus =
-  | 'idle'
-  | 'success'
-  | 'unchanged'
-  | 'rejected'
-  | 'error';
+type OptimizationStatus = 'idle' | 'success' | 'error';
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
@@ -106,6 +100,8 @@ export default function LearnerProfileDialog({
   const [optimizing, setOptimizing] = React.useState(false);
   const [optimizationStatus, setOptimizationStatus] =
     React.useState<OptimizationStatus>('idle');
+  const [optimizationErrorMessage, setOptimizationErrorMessage] =
+    React.useState('');
   const [optimizationOriginal, setOptimizationOriginal] = React.useState<
     string | null
   >(null);
@@ -134,6 +130,7 @@ export default function LearnerProfileDialog({
 
   const resetOptimization = React.useCallback(() => {
     setOptimizationStatus('idle');
+    setOptimizationErrorMessage('');
     setOptimizationOriginal(null);
   }, []);
 
@@ -433,6 +430,7 @@ export default function LearnerProfileDialog({
     const original = profile;
     setOptimizing(true);
     setOptimizationStatus('idle');
+    setOptimizationErrorMessage('');
     setOptimizationOriginal(null);
     setError('');
 
@@ -445,14 +443,16 @@ export default function LearnerProfileDialog({
         return;
       }
 
-      const optimized = response?.optimized_learner_profile?.trim();
-      if (!optimized || countUnicodeCodePoints(optimized) > maxLength) {
-        throw new Error('Invalid learner profile optimization response');
+      const optimized = response?.optimized_learner_profile;
+      if (typeof optimized !== 'string') {
+        throw new Error(
+          t('module.profileOnboarding.dialog.optimizeInvalidResponse'),
+        );
       }
-
-      if (optimized === normalized) {
-        setOptimizationStatus('unchanged');
-        return;
+      if (!optimized.trim()) {
+        throw new Error(
+          t('module.profileOnboarding.dialog.optimizeEmptyResponse'),
+        );
       }
 
       setProfile(optimized);
@@ -463,12 +463,13 @@ export default function LearnerProfileDialog({
         isCurrent(generation, scope) &&
         request === optimizeRequestRef.current
       ) {
-        const code = (caughtError as { code?: number } | null)?.code;
-        setOptimizationStatus(
-          code === LEARNER_PROFILE_OPTIMIZATION_REJECTED_CODE
-            ? 'rejected'
-            : 'error',
+        setOptimizationErrorMessage(
+          errorMessage(
+            caughtError,
+            t('module.profileOnboarding.dialog.optimizeFailed'),
+          ),
         );
+        setOptimizationStatus('error');
       }
     } finally {
       if (
@@ -486,6 +487,7 @@ export default function LearnerProfileDialog({
     maxLength,
     optimizing,
     profile,
+    t,
   ]);
 
   const undoOptimization = React.useCallback(() => {
@@ -517,15 +519,12 @@ export default function LearnerProfileDialog({
     optimizing ||
     !normalizedProfile ||
     profileLength > maxLength;
-  const optimizationDescriptionKey = !normalizedProfile
-    ? 'module.profileOnboarding.dialog.optimizeEmptyHint'
-    : optimizationStatus === 'unchanged'
-      ? 'module.profileOnboarding.dialog.optimizeUnchanged'
-      : optimizationStatus === 'rejected'
-        ? 'module.profileOnboarding.dialog.optimizeRejected'
-        : optimizationStatus === 'error'
-          ? 'module.profileOnboarding.dialog.optimizeFailed'
-          : 'module.profileOnboarding.dialog.optimizeHint';
+  const optimizationDescription = !normalizedProfile
+    ? t('module.profileOnboarding.dialog.optimizeEmptyHint')
+    : optimizationStatus === 'error'
+      ? optimizationErrorMessage ||
+        t('module.profileOnboarding.dialog.optimizeFailed')
+      : t('module.profileOnboarding.dialog.optimizeHint');
   const showOptimizationSuccess =
     optimizationStatus === 'success' && optimizationOriginal !== null;
 
@@ -676,11 +675,9 @@ export default function LearnerProfileDialog({
                       id='learner-profile-optimization-status'
                       className='min-w-0 flex-1 text-sm leading-5 text-foreground/80'
                     >
-                      {t(
-                        showOptimizationSuccess
-                          ? 'module.profileOnboarding.dialog.optimizeSuccess'
-                          : optimizationDescriptionKey,
-                      )}
+                      {showOptimizationSuccess
+                        ? t('module.profileOnboarding.dialog.optimizeSuccess')
+                        : optimizationDescription}
                     </p>
                     {showOptimizationSuccess ? (
                       <Button

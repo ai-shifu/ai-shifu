@@ -105,19 +105,15 @@ canonical empty-profile write through PUT and keeps the independent nickname.
       runtime composition contract actively applies relevant profile details
       to examples, terminology, emphasis, and language style instead of merely
       acknowledging or summarizing them; Course Prompt ownership is unchanged.
-- [x] 2026-08-14: Stop accepting no-op optimization responses. The service now
-      requires material detail beyond the source, asks the model once more with
-      a concise correction when the first response is unchanged or
-      insufficient, and returns the existing optimization failure only if the
-      second result still fails. Labels remain a model instruction rather than
-      a hard acceptance gate because useful elaboration matters more than its
-      exact layout. Both attempts remain review-only: they do not update learner
-      business data or emit profile-change events.
-- [x] 2026-08-14: Treat a copied source paragraph followed by real expansion as
-      a recoverable model artifact: remove the exact source prefix and return
-      only the new detailed profile. The prompt also forbids copying the source
-      and limits non-imitation language to inputs that actually name a style,
-      avoiding a fabricated preference in ordinary profiles.
+- [x] 2026-08-15: Remove output-quality enforcement from the optimizer service.
+      The service now makes one model call and returns the string field exactly
+      as produced, even when it is unchanged, short, unlabeled, source-prefixed,
+      or longer than the profile save limit. Only missing/invalid protocol data,
+      an empty result, moderation failure/rejection, missing model routing,
+      timeout, rate limiting, or provider failure is reported as an error, with
+      a distinct user-facing reason. The frontend likewise preserves model
+      whitespace and displays the backend reason instead of replacing it with
+      one generic message.
 - [x] 2026-08-14: Restore the proven named-style boundary after real dev output
       positively framed a person as an imitation target and invented visual
       performance details. Short inputs now require one bounded labeled entry;
@@ -294,8 +290,9 @@ canonical empty-profile write through PUT and keeps the independent nickname.
   learners still need to know that their context and language preferences do
   not override the human teacher's course design. Save failures, refresh
   delays, and compatibility clear confirmations retain explicit feedback.
-- Decision: make profile optimization an optional button labeled “帮我优化”
-  rather than a mandatory save step or a background rewrite.
+- Decision: expose profile optimization as a separate button labeled “帮我优化”
+  rather than a mandatory save step or a background rewrite. Do not label the
+  feature as optional in learner-facing copy.
   Rationale: learners retain control over personal facts, LLM latency or
   failure never blocks saving, and one in-editor result plus a single undo
   action keeps the desktop and mobile flow compact.
@@ -448,12 +445,14 @@ legacy onboarding service remains in
   cancel available while optimization is pending.
 - Call the shared LLM path with `DEFAULT_LLM_MODEL`, JSON response mode,
   temperature `0.1`, a 15-second provider timeout, and at most 1200 output
-  tokens. Accept only an exact one-key JSON object containing a non-empty
-  optimized string no longer than 1000 characters.
+  tokens. Read the non-empty string field `optimized_learner_profile`; tolerate
+  extra response fields and return the model string without trimming, length
+  rejection, quality scoring, source-prefix removal, or retry.
 - Distinguish an explicit moderation rejection from a technical optimization
-  failure. Rejection asks the learner to revise before retrying; provider,
-  timeout, malformed-response, unsupported-old-backend, or other technical
-  failures preserve the current draft and ordinary save path.
+  failure. Rejection asks the learner to revise before retrying; model routing,
+  timeout, malformed response, empty response, moderation service failure,
+  rate limiting, provider failure, and unsupported-old-backend responses each
+  preserve the current draft and show an accurate reason.
 - Omit optimizer request/response bodies and sensitive LLM input/output from
   ordinary logs and local usage `extra`, while retaining length, status, model,
   token metadata, and the established full-content Langfuse trace. Close child
@@ -461,11 +460,12 @@ legacy onboarding service remains in
 - Apply server-side per-user and trusted network-scope rate and in-flight
   admission before moderation and LLM execution. Client-supplied forwarding
   headers cannot select a new quota bucket.
-- Provide three optional writing-prompt buttons that only focus/seed the same
-  textarea. The complete placeholder must cover durable background, existing
-  experience, current cross-topic concerns, practical constraints, ambitions,
-  and language-style preferences without assuming a specific subject or
-  prescribing a teaching method. Nickname belongs only in its separate input.
+- Provide three informational guidance cards that describe useful profile
+  dimensions without modifying the textarea. The complete placeholder must
+  cover durable background, existing experience, current cross-topic concerns,
+  practical constraints, ambitions, and language-style preferences without
+  assuming a specific subject or prescribing a teaching method. Nickname
+  belongs only in its separate input.
 - Mention language-style preferences outside the placeholder as well: the
   dialog description, third writing prompt, and writing guide must make this
   capability discoverable while leaving teaching decisions to the course
@@ -515,15 +515,16 @@ legacy onboarding service remains in
   and requires the ordinary save button; failure or an old-backend 404 leaves
   the original draft and save action available. Late responses after close,
   unmount, or account change are ignored.
-- Error `1022` represents an explicit moderation rejection and asks the learner
-  to revise. Error `1021` represents provider, timeout, malformed-response, or
-  other optimization failure and preserves direct save. Admission rejection
-  is distinct and never enters moderation or the LLM.
+- Errors distinguish provider/runtime failure (`1021`), explicit moderation
+  rejection (`1022`), admission rejection (`1023`), missing model routing
+  (`1024`), timeout (`1025`), malformed response (`1026`), empty response
+  (`1027`), and moderation service failure (`1028`). Every failure preserves
+  direct save; admission rejection never enters moderation or the LLM.
 - The optimization provider receives JSON-wrapped untrusted input and returns
-  one bounded JSON string. It may reorganize only stated background,
-  experience, knowledge level, current interests, goals, concerns,
-  difficulties, constraints, familiar contexts, and language-style
-  preferences. The result should make relevant examples, terminology,
+  a JSON string field which the service returns unchanged. It may reorganize
+  only stated background, experience, knowledge level, current interests,
+  goals, concerns, difficulties, constraints, familiar contexts, and
+  language-style preferences. The result should make relevant examples, terminology,
   emphasis, and expression easier for downstream course delivery to adapt. A
   named style may be translated into high-level, observable expression
   requirements, but the optimizer must not infer learner facts or proficiency,

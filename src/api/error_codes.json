@@ -18,6 +18,11 @@
   "server.profile.learnerProfileOptimizationFailed": 1021,
   "server.profile.learnerProfileOptimizationRejected": 1022,
   "server.profile.learnerProfileOptimizationRateLimited": 1023,
+  "server.profile.learnerProfileOptimizationNotConfigured": 1024,
+  "server.profile.learnerProfileOptimizationTimedOut": 1025,
+  "server.profile.learnerProfileOptimizationInvalidResponse": 1026,
+  "server.profile.learnerProfileOptimizationEmptyResponse": 1027,
+  "server.profile.learnerProfileOptimizationModerationFailed": 1028,
 
   "server.common.unknownError": 9999,
   "server.common.paramsError": 2001,

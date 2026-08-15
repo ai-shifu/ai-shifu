@@ -35,7 +35,6 @@ let mockLanguage = 'en-US';
 
 jest.mock('@/api/learnerProfile', () => ({
   getLearnerProfile: jest.fn(),
-  LEARNER_PROFILE_OPTIMIZATION_REJECTED_CODE: 1022,
   optimizeLearnerProfile: jest.fn(),
   updateLearnerProfile: jest.fn(),
 }));
@@ -139,7 +138,7 @@ describe('LearnerProfileDialog', () => {
     expect(zhProfile.dialog.profileLabel).toBe('希望 AI 老师长期知道的事');
     expect(zhProfile.dialog.optimize).toBe('帮我优化');
     expect(zhProfile.dialog.optimizeEmptyHint).toContain('先写几句');
-    expect(zhProfile.dialog.optimizeHint).toContain('可选');
+    expect(zhProfile.dialog.optimizeHint).not.toContain('可选');
     expect(zhProfile.dialog.optimizeHint).toContain('补充有用细节');
     expect(zhProfile.dialog.optimizeHint).toContain('不改变原意或新增事实');
     expect(zhProfile.dialog.description).toBe(
@@ -171,6 +170,7 @@ describe('LearnerProfileDialog', () => {
     expect(enProfile.dialog.optimize).toBe('Improve with AI');
     expect(enProfile.dialog.optimizeEmptyHint).toContain('Write a few lines');
     expect(enProfile.dialog.optimizeHint).toContain('useful detail');
+    expect(enProfile.dialog.optimizeHint).not.toMatch(/optional/i);
     expect(enProfile.dialog.optimizeHint).toContain(
       'without changing your meaning or inventing facts',
     );
@@ -204,6 +204,7 @@ describe('LearnerProfileDialog', () => {
       'Écrivez quelques lignes',
     );
     expect(frProfile.dialog.optimizeHint).toContain('détails utiles');
+    expect(frProfile.dialog.optimizeHint).not.toMatch(/facultatif/i);
     expect(frProfile.dialog.optimizeHint).toContain(
       'sans changer votre intention',
     );
@@ -458,7 +459,7 @@ describe('LearnerProfileDialog', () => {
     expect(screen.queryByDisplayValue('旧称呼')).not.toBeInTheDocument();
   });
 
-  test('renders the aligned single-flow dialog with a prominent optional optimization action', async () => {
+  test('renders the aligned single-flow dialog with a prominent optimization action', async () => {
     renderDialog({ mode: 'onboarding' });
 
     await screen.findByDisplayValue(existingProfile.learner_profile);
@@ -776,7 +777,9 @@ describe('LearnerProfileDialog', () => {
 
   test('keeps the draft savable after a technical optimization failure', async () => {
     mockOptimizeLearnerProfile.mockRejectedValueOnce(
-      Object.assign(new Error('optimization unavailable'), { code: 1021 }),
+      Object.assign(new Error('AI optimization request timed out'), {
+        code: 1025,
+      }),
     );
     mockUpdateLearnerProfile.mockResolvedValue({
       ...existingProfile,
@@ -794,7 +797,7 @@ describe('LearnerProfileDialog', () => {
     );
 
     expect(
-      await screen.findByText('module.profileOnboarding.dialog.optimizeFailed'),
+      await screen.findByText('AI optimization request timed out'),
     ).toBeInTheDocument();
     expect(editor).toHaveValue('My new draft');
     const save = screen.getByRole('button', {
@@ -808,9 +811,11 @@ describe('LearnerProfileDialog', () => {
     });
   });
 
-  test('shows a revise-first message when profile moderation rejects optimization', async () => {
+  test('shows the backend reason when profile moderation rejects optimization', async () => {
     mockOptimizeLearnerProfile.mockRejectedValueOnce(
-      Object.assign(new Error('profile rejected'), { code: 1022 }),
+      Object.assign(new Error('Revise the profile before optimizing it'), {
+        code: 1022,
+      }),
     );
     renderDialog();
     const editor = await screen.findByDisplayValue(
@@ -824,9 +829,7 @@ describe('LearnerProfileDialog', () => {
     );
 
     expect(
-      await screen.findByText(
-        'module.profileOnboarding.dialog.optimizeRejected',
-      ),
+      await screen.findByText('Revise the profile before optimizing it'),
     ).toBeInTheDocument();
     expect(
       screen.queryByText('module.profileOnboarding.dialog.optimizeFailed'),
@@ -834,7 +837,7 @@ describe('LearnerProfileDialog', () => {
     expect(editor).toHaveValue(existingProfile.learner_profile);
   });
 
-  test('reports when the draft is already clear without changing it', async () => {
+  test('uses the model result exactly even when it only adds whitespace', async () => {
     mockOptimizeLearnerProfile.mockResolvedValue({
       optimized_learner_profile: `  ${existingProfile.learner_profile}  `,
     });
@@ -849,18 +852,70 @@ describe('LearnerProfileDialog', () => {
       }),
     );
 
+    await screen.findByText('module.profileOnboarding.dialog.optimizeSuccess');
+    expect(editor).toHaveValue(`  ${existingProfile.learner_profile}  `);
     expect(
-      await screen.findByText(
-        'module.profileOnboarding.dialog.optimizeUnchanged',
-      ),
-    ).toBeInTheDocument();
-    expect(editor).toHaveValue(existingProfile.learner_profile);
-    expect(
-      screen.queryByRole('button', {
+      screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.undoOptimize',
       }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
   });
+
+  test('shows an over-limit model result instead of treating it as an optimization error', async () => {
+    const optimized = 'x'.repeat(existingProfile.max_length + 1);
+    mockOptimizeLearnerProfile.mockResolvedValue({
+      optimized_learner_profile: optimized,
+    });
+    renderDialog();
+    const editor = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    );
+
+    await screen.findByText('module.profileOnboarding.dialog.optimizeSuccess');
+    expect(editor).toHaveValue(optimized);
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.saveChanges',
+      }),
+    ).toBeDisabled();
+  });
+
+  test.each([
+    [
+      'missing field',
+      {} as { optimized_learner_profile: string },
+      'module.profileOnboarding.dialog.optimizeInvalidResponse',
+    ],
+    [
+      'empty result',
+      { optimized_learner_profile: '   ' },
+      'module.profileOnboarding.dialog.optimizeEmptyResponse',
+    ],
+  ])(
+    'reports a defensive frontend error for a %s response',
+    async (_caseName, response, expectedMessage) => {
+      mockOptimizeLearnerProfile.mockResolvedValueOnce(response);
+      renderDialog();
+      const editor = await screen.findByDisplayValue(
+        existingProfile.learner_profile,
+      );
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.dialog.optimize',
+        }),
+      );
+
+      expect(await screen.findByText(expectedMessage)).toBeInTheDocument();
+      expect(editor).toHaveValue(existingProfile.learner_profile);
+    },
+  );
 
   test('does not apply a late optimization result after the account changes', async () => {
     let resolveOptimization: (value: {

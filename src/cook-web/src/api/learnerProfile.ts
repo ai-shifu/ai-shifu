@@ -1,7 +1,5 @@
 import request from '@/lib/request';
 
-export const LEARNER_PROFILE_OPTIMIZATION_REJECTED_CODE = 1022;
-
 export type LearnerProfile = {
   learner_profile: string;
   learner_profile_updated_at: string | null;

@@ -60,17 +60,10 @@ def _snapshot_profile_state(user_bid: str) -> tuple:
 
 def _successful_llm(raw_output: str, captured: dict):
     def invoke(*args, **kwargs):
+        captured["call_count"] = captured.get("call_count", 0) + 1
         captured["args"] = args
         captured["kwargs"] = kwargs
         yield SimpleNamespace(result=raw_output)
-
-    return invoke
-
-
-def _sequenced_llm(raw_outputs: list[str], captured: dict):
-    def invoke(*args, **kwargs):
-        captured.setdefault("calls", []).append({"args": args, "kwargs": kwargs})
-        yield SimpleNamespace(result=raw_outputs[len(captured["calls"]) - 1])
 
     return invoke
 
@@ -140,7 +133,8 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
     assert captured["kwargs"]["usage_scene"] == BILL_USAGE_SCENE_PROD
     assert captured["kwargs"]["billable"] == 0
     assert captured["kwargs"]["usage_context"].billable == 0
-    assert captured["kwargs"]["usage_metadata"]["attempt"] == 1
+    assert captured["call_count"] == 1
+    assert "attempt" not in captured["kwargs"]["usage_metadata"]
     system_prompt = captured["kwargs"]["system"]
     assert (
         system_prompt
@@ -153,126 +147,25 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
     assert optimized in captured["trace_finalize"]["trace_payload"]["output"].values()
 
 
-def test_optimize_retries_unchanged_output_with_a_stronger_transformation(
-    app, monkeypatch
-):
-    user_bid = "profile-optimize-retry-unchanged"
-    source = (
-        "我做过大学老师和互联网产品运营，现在创业，希望公司活下去。"
-        "我喜欢非常简洁、准确的表达。"
-    )
-    optimized = (
-        "背景与经验：我有大学教学和互联网产品运营经验，熟悉教育与产品实践场景。\n"
-        "当前身份与目标：我现在正在创业，最关注公司的生存和持续经营。\n"
-        "语言风格：我偏好先给明确结论，再用少量必要文字解释；表达要简洁、准确，避免冗余和歧义。"
-    )
-    captured: dict = {}
-    monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
-    monkeypatch.setattr(
-        optimizer,
-        "invoke_llm",
-        _sequenced_llm(
-            [
-                json.dumps({"optimized_learner_profile": source}, ensure_ascii=False),
-                json.dumps(
-                    {"optimized_learner_profile": optimized}, ensure_ascii=False
-                ),
-            ],
-            captured,
+@pytest.mark.parametrize(
+    ("case_suffix", "optimized"),
+    [
+        ("unchanged", "我在教育行业工作，希望表达简洁准确。"),
+        ("short", "简洁准确。"),
+        ("unlabeled", "我在教育行业工作，也希望表达简洁准确。"),
+        (
+            "source-prefix",
+            "我在教育行业工作，希望表达简洁准确。\n补充：我熟悉教育场景。",
         ),
-    )
-    _install_trace_spies(monkeypatch, captured)
-
-    with app.app_context():
-        _create_profile_state(user_bid)
-        before = _snapshot_profile_state(user_bid)
-        result = optimizer.optimize_learner_profile(
-            app,
-            user_id=user_bid,
-            learner_profile=source,
-        )
-        db.session.expire_all()
-        after = _snapshot_profile_state(user_bid)
-
-    assert result == {"optimized_learner_profile": optimized}
-    assert after == before
-    assert len(captured["calls"]) == 2
-    first_call, retry_call = captured["calls"]
-    assert first_call["kwargs"]["usage_metadata"]["attempt"] == 1
-    assert retry_call["kwargs"]["usage_metadata"]["attempt"] == 2
-    assert retry_call["kwargs"]["generation_name"].endswith("_retry")
-    assert "previous result was rejected" in retry_call["kwargs"]["system"]
-    assert (
-        "Do not describe missing background or goals" in retry_call["kwargs"]["system"]
-    )
-    assert "named reference anywhere except after" in retry_call["kwargs"]["system"]
-    assert source not in retry_call["kwargs"]["system"]
-
-
-def test_useful_expansion_requires_material_detail():
-    source = "我在教育行业工作，希望表达简洁准确，并且少用术语。"
-
-    assert optimizer._is_usefully_expanded(source, source) is False
-    assert (
-        optimizer._is_usefully_expanded(
-            source,
-            "我在教育行业工作，希望表达简洁、准确、少用术语。",
-        )
-        is False
-    )
-    assert (
-        optimizer._is_usefully_expanded(
-            source,
-            "背景：我在教育行业工作，熟悉教育场景。"
-            "语言风格：我希望表达简洁、准确，优先使用常见词，必要术语要解释清楚。",
-        )
-        is True
-    )
-
-    short_style = "我喜欢简洁准确的表达。"
-    assert (
-        optimizer._is_usefully_expanded(
-            short_style,
-            "我喜欢结论先行、避免冗余并确保措辞准确的表达。",
-        )
-        is False
-    )
-    assert (
-        optimizer._is_usefully_expanded(
-            short_style,
-            "语言风格：我喜欢结论先行、避免冗余并确保措辞准确的表达。",
-        )
-        is True
-    )
-    assert (
-        optimizer._is_usefully_expanded(
-            short_style,
-            "我希望表达更清楚，具体来说：结论先行、避免冗余并确保措辞准确。",
-        )
-        is False
-    )
-
-
-def test_source_echo_is_removed_before_returning_expanded_detail():
-    source = "我在教育行业工作，希望表达简洁准确。"
-    expanded = (
-        "背景与经验：我在教育行业工作，熟悉教育场景。\n"
-        "语言风格：我希望使用少量文字准确表达核心，避免冗余和歧义。"
-    )
-
-    assert optimizer._strip_source_echo(source, f"{source}。 {expanded}") == expanded
-    assert optimizer._strip_source_echo(source, expanded) == expanded
-
-
-def test_optimize_returns_only_new_detail_when_model_prefixes_the_source(
-    app, monkeypatch
+        ("over-limit", "x" * 1001),
+        ("whitespace", "  保留模型两侧空格  "),
+    ],
+)
+def test_optimize_returns_model_text_without_quality_postprocessing(
+    app, monkeypatch, case_suffix, optimized
 ):
-    user_bid = "profile-optimize-source-echo"
+    user_bid = f"profile-optimize-low-quality-{case_suffix}"
     source = "我在教育行业工作，希望表达简洁准确。"
-    expanded = (
-        "背景与经验：我在教育行业工作，熟悉教育场景。\n"
-        "语言风格：我希望使用少量文字准确表达核心，避免冗余和歧义。"
-    )
     captured: dict = {}
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
     monkeypatch.setattr(
@@ -280,7 +173,10 @@ def test_optimize_returns_only_new_detail_when_model_prefixes_the_source(
         "invoke_llm",
         _successful_llm(
             json.dumps(
-                {"optimized_learner_profile": f"{source}。 {expanded}"},
+                {
+                    "optimized_learner_profile": optimized,
+                    "ignored_extra_key": "accepted",
+                },
                 ensure_ascii=False,
             ),
             captured,
@@ -299,8 +195,10 @@ def test_optimize_returns_only_new_detail_when_model_prefixes_the_source(
         db.session.expire_all()
         after = _snapshot_profile_state(user_bid)
 
-    assert result == {"optimized_learner_profile": expanded}
+    assert result == {"optimized_learner_profile": optimized}
     assert after == before
+    assert captured["call_count"] == 1
+    assert captured["kwargs"]["generation_name"] == "learner_profile_optimize"
 
 
 def test_optimizer_prompt_targets_the_downstream_learner_context_contract():
@@ -505,23 +403,33 @@ def test_optimize_missing_default_model_does_not_call_llm_or_change_state(
         db.session.expire_all()
         after = _snapshot_profile_state(user_bid)
 
-    assert raised.value.code == 1021
+    assert raised.value.code == 1024
+    assert "No profile optimization model is configured" in raised.value.message
     assert invoked is False
     assert after == before
 
 
 @pytest.mark.parametrize(
-    "raw_output",
+    ("raw_output", "expected_code", "expected_message"),
     [
-        "not json",
-        "[]",
-        json.dumps({"optimized_learner_profile": "ok", "extra": True}),
-        json.dumps({"optimized_learner_profile": ""}),
-        json.dumps({"optimized_learner_profile": "x" * 1001}),
+        ("not json", 1026, "invalid response format"),
+        ("[]", 1026, "invalid response format"),
+        (json.dumps({"other": "value"}), 1026, "invalid response format"),
+        (
+            json.dumps({"optimized_learner_profile": 123}),
+            1026,
+            "invalid response format",
+        ),
+        ("", 1027, "returned no optimized content"),
+        (
+            json.dumps({"optimized_learner_profile": "   "}),
+            1027,
+            "returned no optimized content",
+        ),
     ],
 )
 def test_optimize_rejects_invalid_model_output_without_changing_state(
-    app, monkeypatch, raw_output
+    app, monkeypatch, raw_output, expected_code, expected_message
 ):
     digest = hashlib.sha256(raw_output.encode("utf-8")).hexdigest()[:8]
     user_bid = f"profile-optimize-invalid-{digest}"
@@ -546,7 +454,8 @@ def test_optimize_rejects_invalid_model_output_without_changing_state(
         db.session.expire_all()
         after = _snapshot_profile_state(user_bid)
 
-    assert raised.value.code == 1021
+    assert raised.value.code == expected_code
+    assert expected_message in raised.value.message
     assert after == before
     assert captured["trace_finalize"]["root_span"] is not None
 
@@ -575,9 +484,104 @@ def test_optimize_timeout_finalizes_trace_without_changing_state(app, monkeypatc
         db.session.expire_all()
         after = _snapshot_profile_state(user_bid)
 
-    assert raised.value.code == 1021
+    assert raised.value.code == 1025
+    assert "timed out" in raised.value.message
     assert after == before
     assert captured["trace_finalize"]["root_span"] is not None
+
+
+def test_optimize_reports_a_wrapped_timeout_as_timeout(app, monkeypatch):
+    user_bid = "profile-optimize-wrapped-timeout"
+    monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
+
+    def timeout_invoke(*_args, **_kwargs):
+        try:
+            raise TimeoutError("provider timeout")
+        except TimeoutError as exc:
+            raise AppException("wrapped provider failure", 9999) from exc
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(optimizer, "invoke_llm", timeout_invoke)
+
+    with app.app_context(), pytest.raises(AppException) as raised:
+        optimizer.optimize_learner_profile(
+            app,
+            user_id=user_bid,
+            learner_profile="Valid source profile",
+        )
+
+    assert raised.value.code == 1025
+    assert "timed out" in raised.value.message
+
+
+@pytest.mark.parametrize(
+    ("provider_error", "expected_code", "expected_message"),
+    [
+        (RuntimeError("provider unavailable"), 1021, "encountered an error"),
+        (
+            AppException("model route unavailable", 8002),
+            1024,
+            "No profile optimization model is configured",
+        ),
+    ],
+)
+def test_optimize_reports_runtime_failure_reason_without_changing_state(
+    app, monkeypatch, provider_error, expected_code, expected_message
+):
+    user_bid = f"profile-optimize-runtime-error-{expected_code}"
+    captured: dict = {}
+    monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
+
+    def failed_invoke(*_args, **_kwargs):
+        raise provider_error
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(optimizer, "invoke_llm", failed_invoke)
+    _install_trace_spies(monkeypatch, captured)
+
+    with app.app_context():
+        _create_profile_state(user_bid)
+        before = _snapshot_profile_state(user_bid)
+        with pytest.raises(AppException) as raised:
+            optimizer.optimize_learner_profile(
+                app,
+                user_id=user_bid,
+                learner_profile="Valid source profile",
+            )
+        db.session.expire_all()
+        after = _snapshot_profile_state(user_bid)
+
+    assert raised.value.code == expected_code
+    assert expected_message in raised.value.message
+    assert after == before
+
+
+def test_optimize_reports_moderation_failure_reason_without_calling_llm(
+    app, monkeypatch
+):
+    invoked = False
+
+    def failed_moderation(*_args):
+        raise RuntimeError("moderation unavailable")
+
+    def unexpected_invoke(*_args, **_kwargs):
+        nonlocal invoked
+        invoked = True
+        yield SimpleNamespace(result="unexpected")
+
+    monkeypatch.setattr(optimizer, "check_text_content", failed_moderation)
+    monkeypatch.setattr(optimizer, "invoke_llm", unexpected_invoke)
+
+    with app.app_context(), pytest.raises(AppException) as raised:
+        optimizer.optimize_learner_profile(
+            app,
+            user_id="profile-optimize-moderation-error",
+            learner_profile="Valid source profile",
+        )
+
+    assert raised.value.code == 1028
+    assert "Content review is temporarily unavailable" in raised.value.message
+    assert invoked is False
 
 
 @pytest.mark.parametrize("learner_profile", ["", "   ", "x" * 1001])
