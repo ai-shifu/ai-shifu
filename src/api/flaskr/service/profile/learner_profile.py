@@ -469,11 +469,20 @@ def save_learner_profile(
 
     def operation() -> tuple[UserEntity, UserOnboardingState]:
         user = load_learner_profile_user(user_id, for_update=True)
+        current_profile = str(user.learner_profile or "").strip()
+        current_nickname = str(user.nickname or "").strip()
         moderation_inputs = tuple(
             dict.fromkeys(
                 value
-                for value in (normalized, normalized_nickname)
-                if value and value not in moderation_passed
+                for value, changed in (
+                    (normalized, normalized != current_profile),
+                    (
+                        normalized_nickname,
+                        normalized_nickname is not None
+                        and normalized_nickname != current_nickname,
+                    ),
+                )
+                if changed and value and value not in moderation_passed
             )
         )
         for moderation_input in moderation_inputs:

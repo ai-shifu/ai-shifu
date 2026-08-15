@@ -428,7 +428,6 @@ def test_replace_and_clear_learner_profile(app, monkeypatch):
     assert checked == [
         ("profile-replace", "称呼：小明\n幻灯片风格：留白多"),
         ("profile-replace", "小明"),
-        ("profile-replace", "称呼：小明\n幻灯片风格：留白多"),
     ]
 
 
@@ -897,6 +896,43 @@ def test_complete_atomically_writes_profile_and_fixed_v2_state(app, monkeypatch)
         ("profile-complete", "称呼：小明\n表达风格：简洁"),
         ("profile-complete", "小明"),
     ]
+
+
+@pytest.mark.parametrize(
+    ("learner_profile", "nickname", "expected_checked"),
+    [
+        ("Existing profile", "New nickname", ["New nickname"]),
+        ("Updated profile", "Existing nickname", ["Updated profile"]),
+        ("Existing profile", "Existing nickname", []),
+    ],
+)
+def test_save_moderates_only_changed_nonempty_fields(
+    app,
+    monkeypatch,
+    learner_profile,
+    nickname,
+    expected_checked,
+):
+    from flaskr.service.profile.learner_profile import save_learner_profile
+
+    checked = _allow_profile_safety(monkeypatch)
+    with app.app_context():
+        user_bid = f"profile-moderate-changed-{len(expected_checked)}-{nickname}"
+        _create_user(
+            user_bid,
+            learner_profile="Existing profile",
+            nickname="Existing nickname",
+        )
+
+        save_learner_profile(
+            app,
+            user_id=user_bid,
+            learner_profile=learner_profile,
+            trigger_source="settings",
+            nickname=nickname,
+        )
+
+    assert checked == [(user_bid, value) for value in expected_checked]
 
 
 def test_save_locks_user_then_state_before_writing_profile(app, monkeypatch):
