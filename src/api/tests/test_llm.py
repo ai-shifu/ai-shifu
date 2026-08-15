@@ -1904,11 +1904,21 @@ def _patch_retryable_stream_errors(monkeypatch):
 def _patch_scripted_streams(monkeypatch, scripts):
     """Each call to _stream_litellm_completion consumes the next script;
     a script is a list of chunks and/or exceptions raised in order."""
-    calls = {"count": 0}
+    calls = {"count": 0, "sensitive_content": []}
 
-    def _factory(_app, _requested, _invoke, _messages, _params, _kwargs):
+    def _factory(
+        _app,
+        _requested,
+        _invoke,
+        _messages,
+        _params,
+        _kwargs,
+        *,
+        sensitive_content=False,
+    ):
         script = scripts[min(calls["count"], len(scripts) - 1)]
         calls["count"] += 1
+        calls["sensitive_content"].append(sensitive_content)
 
         def _gen():
             for item in script:
@@ -1922,10 +1932,16 @@ def _patch_scripted_streams(monkeypatch, scripts):
     return calls
 
 
-def _collect_retry_stream(app):
+def _collect_retry_stream(app, *, sensitive_content=False):
     return list(
         llm._iter_stream_with_precontent_retry(
-            app, "qwen/test-model", "test-model", [], {}, {}
+            app,
+            "qwen/test-model",
+            "test-model",
+            [],
+            {},
+            {},
+            sensitive_content=sensitive_content,
         )
     )
 
@@ -1949,6 +1965,16 @@ def test_stream_retries_connection_error_before_first_content(
 
     assert [c.choices[0].delta.content for c in chunks] == ["hello", " world"]
     assert calls["count"] == 2
+    assert calls["sensitive_content"] == [False, False]
+
+
+def test_stream_retry_forwards_sensitive_content(monkeypatch, app):
+    _patch_retryable_stream_errors(monkeypatch)
+    calls = _patch_scripted_streams(monkeypatch, [[_stream_chunk("safe")]])
+
+    _collect_retry_stream(app, sensitive_content=True)
+
+    assert calls["sensitive_content"] == [True]
 
 
 def test_stream_retry_discards_reasoning_from_failed_attempt(monkeypatch, app):

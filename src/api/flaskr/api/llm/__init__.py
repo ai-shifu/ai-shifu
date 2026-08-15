@@ -542,25 +542,15 @@ def _iter_stream_with_precontent_retry(
     """
     attempts = 0
     while True:
-        if sensitive_content:
-            response = _stream_litellm_completion(
-                app,
-                requested_model,
-                invoke_model,
-                messages,
-                params,
-                kwargs,
-                sensitive_content=True,
-            )
-        else:
-            response = _stream_litellm_completion(
-                app,
-                requested_model,
-                invoke_model,
-                messages,
-                params,
-                kwargs,
-            )
+        response = _stream_litellm_completion(
+            app,
+            requested_model,
+            invoke_model,
+            messages,
+            params,
+            kwargs,
+            sensitive_content=sensitive_content,
+        )
         saw_content = False
         pending_reasoning_chunks = []
         try:
