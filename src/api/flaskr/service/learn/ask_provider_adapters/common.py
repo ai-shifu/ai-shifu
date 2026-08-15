@@ -21,31 +21,6 @@ KNOWLEDGE_RULE_PLACEHOLDER = "{knowledge_rule}"
 KNOWLEDGE_SECTION_PLACEHOLDER = "{knowledge_section}"
 
 
-def build_message_transcript(
-    user_query: str,
-    messages: list[dict[str, Any]],
-) -> str:
-    """Serialize role-preserving context for providers with one text input."""
-
-    if not isinstance(messages, list) or not messages:
-        return user_query
-
-    role_map = {
-        "system": "system",
-        "user": "user",
-        "assistant": "assistant",
-    }
-    transcript: list[str] = []
-    for message in messages:
-        if not isinstance(message, dict):
-            continue
-        role = role_map.get(str(message.get("role") or "").strip().lower())
-        content = str(message.get("content") or "").strip()
-        if role and content:
-            transcript.append(f"[{role}]\n{content}")
-    return "\n\n".join(transcript) or user_query
-
-
 @lru_cache(maxsize=1)
 def _knowledge_rule_template() -> str:
     return load_prompt_template("ask_knowledge_rule")

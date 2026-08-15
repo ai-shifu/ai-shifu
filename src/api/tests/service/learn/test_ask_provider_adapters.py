@@ -95,12 +95,7 @@ def test_dify_adapter_streams_success_content(app, monkeypatch):
     )
 
     assert [chunk.content for chunk in chunks] == ["hello", " world"]
-    assert request_state["json"]["query"] == (
-        "[system]\ncourse prompt\n\n"
-        "[user]\nprevious question\n\n"
-        "[assistant]\nprevious answer\n\n"
-        "[user]\nhello"
-    )
+    assert request_state["json"]["query"] == "hello"
 
 
 def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
@@ -244,9 +239,7 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
     assert request_state["url"] == "https://api.coze.cn/v1/workflow/run"
     assert request_state["json"] == {
         "workflow_id": "workflow-1",
-        "parameters": {
-            "query": ("[system]\ncourse and learner context\n\n[user]\nhello workflow")
-        },
+        "parameters": {"query": "hello workflow"},
     }
     assert request_state["headers"]["Authorization"] == "Bearer test-key"
     assert len(chunks) == 1

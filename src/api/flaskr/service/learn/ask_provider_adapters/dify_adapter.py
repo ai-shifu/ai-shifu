@@ -16,7 +16,6 @@ from .base import (
     AskProviderTimeoutError,
 )
 from .common import (
-    build_message_transcript,
     extract_text,
     iter_sse_payloads,
     provider_timeout_seconds,
@@ -48,9 +47,8 @@ class DifyAskProviderAdapter:
                 "dify base_url/api_key are required in ask_provider_config.config"
             )
 
-        contextual_query = build_message_transcript(user_query, messages)
         payload: dict[str, Any] = {
-            "query": contextual_query,
+            "query": user_query,
             "user": user_id,
             "response_mode": "streaming",
             "auto_generate_name": False,
