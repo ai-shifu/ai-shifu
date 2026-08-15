@@ -2986,8 +2986,6 @@ export type I18nKey =
   | 'module.preview.missingApiBaseUrl'
   | 'module.preview.previewAll'
   | 'module.preview.previewModeBanner'
-  | 'module.preview.previewModeBannerWithProfile'
-  | 'module.preview.previewModeBannerWithoutProfile'
   | 'module.preview.requestFailed'
   | 'module.preview.streamError'
   | 'module.profileOnboarding.admin.allowedVariables'

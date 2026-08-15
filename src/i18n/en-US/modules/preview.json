@@ -7,8 +7,6 @@
   "missingApiBaseUrl": "The current environment is misconfigured. Please try again later.",
   "previewAll": "Preview Draft",
   "previewModeBanner": "Previewing a course draft. Students will see updates only after publication.<editLink>Edit course</editLink>",
-  "previewModeBannerWithProfile": "Previewing a course draft. Students will see updates only after publication. Preview and live learning follow the same personalization rules; you have saved a general introduction.<editLink>Edit course</editLink>",
-  "previewModeBannerWithoutProfile": "Previewing a course draft. Students will see updates only after publication. Preview and live learning follow the same personalization rules; you have not saved a general introduction.<editLink>Edit course</editLink>",
   "requestFailed": "Preview failed. Please try again later.",
   "streamError": "The preview connection was interrupted. Please try again."
 }
