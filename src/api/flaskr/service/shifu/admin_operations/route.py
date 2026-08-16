@@ -4,8 +4,6 @@ import re
 from datetime import UTC, datetime
 
 from flask import Flask, request
-from pydantic import ValidationError
-
 from flaskr.common.config import get_config
 from flaskr.i18n import get_current_language, get_i18n_list
 from flaskr.route.common import make_common_response
@@ -111,6 +109,7 @@ from flaskr.service.shifu.admin_operations.voice_clones import (
     list_operator_voice_clones,
     register_operator_voice_clone,
 )
+from pydantic import ValidationError
 
 MAX_CONTACT_LENGTH = 320
 PHONE_PATTERN = re.compile(r"^\d{11}$")
