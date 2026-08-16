@@ -394,6 +394,7 @@ export const getRunMessage = (
       requestToken: token || '',
       requestId: traceHeaders.requestId,
       harnessRunId: traceHeaders.harnessRunId,
+      creditInsufficientAudience: preview_mode ? 'teacher' : 'learner',
     },
     onHandled: error => {
       dispatchSseBusinessError(source, error);
@@ -410,6 +411,7 @@ const createSseSource = (
   payload: Record<string, unknown>,
   onMessage: (data: any) => void,
   onError?: (error: unknown) => void,
+  creditInsufficientAudience: 'learner' | 'teacher' = 'learner',
 ) => {
   const token = useUserStore.getState().getToken();
   const traceHeaders = buildTraceHeaders({
@@ -450,6 +452,7 @@ const createSseSource = (
       requestToken: token || '',
       requestId: traceHeaders.requestId,
       harnessRunId: traceHeaders.harnessRunId,
+      creditInsufficientAudience,
     },
     onHandled: error => {
       dispatchSseBusinessError(source, error);
@@ -471,7 +474,13 @@ export const streamGeneratedBlockAudio = ({
 }: StreamGeneratedBlockAudioParams) => {
   const baseURL = getResolvedBaseURL();
   const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}&listen=${listen}`;
-  return createSseSource(url, {}, onMessage, onError);
+  return createSseSource(
+    url,
+    {},
+    onMessage,
+    onError,
+    preview_mode ? 'teacher' : 'learner',
+  );
 };
 
 /**

@@ -987,5 +987,34 @@ describe('AskBlock', () => {
         }),
       );
     });
+
+    it('uses the permanent course-specific learner notice for credit errors', async () => {
+      renderAskBlock();
+
+      fireEvent.change(screen.getByLabelText('ask-input'), {
+        target: { value: 'credit question' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+      await waitFor(() => expect(activeRun).toBeDefined());
+
+      await act(async () => {
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.ERROR,
+          content: { code: 7101 },
+        });
+      });
+
+      expect(toast).not.toHaveBeenCalled();
+      expect(toastOnce).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dedupeKey: 'credit-insufficient:learner:7101',
+          dedupeWindowMs: Number.POSITIVE_INFINITY,
+          title: 'module.billing.creditInsufficient.learner',
+          duration: 0,
+          action: undefined,
+        }),
+      );
+    });
   });
 });

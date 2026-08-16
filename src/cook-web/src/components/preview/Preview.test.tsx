@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import PreviewSettingsModal from './Preview';
+import { showCreditInsufficientToast } from '@/lib/creditInsufficientToast';
 
 const mockSaveMdflow = jest.fn();
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
@@ -20,6 +21,11 @@ jest.mock('@/api', () => ({
 
 jest.mock('@/hooks/useBillingData', () => ({
   useBillingOverview: jest.fn(),
+}));
+
+jest.mock('@/lib/creditInsufficientToast', () => ({
+  DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE: 7125,
+  showCreditInsufficientToast: jest.fn(),
 }));
 
 jest.mock('@/c-store', () => ({
@@ -61,7 +67,7 @@ describe('PreviewSettingsModal', () => {
     mockCurrentNode.depth = 1;
   });
 
-  it('disables preview when billing softlimit blocks debug', () => {
+  it('shows a permanent purchase toast when billing softlimit blocks debug', () => {
     mockUseBillingOverview.mockReturnValue({
       data: {
         debug_allowed: false,
@@ -73,12 +79,16 @@ describe('PreviewSettingsModal', () => {
     const previewButton = screen.getByRole('button', {
       name: /module.preview.previewAll/,
     });
-    expect(previewButton).toBeDisabled();
+    expect(previewButton).toHaveAttribute('aria-disabled', 'true');
 
     fireEvent.click(previewButton);
 
     expect(mockSaveMdflow).not.toHaveBeenCalled();
     expect(api.previewShifu).not.toHaveBeenCalled();
+    expect(showCreditInsufficientToast).toHaveBeenCalledWith({
+      audience: 'teacher',
+      code: 7125,
+    });
   });
 
   it('disables preview while billing overview is loading', () => {

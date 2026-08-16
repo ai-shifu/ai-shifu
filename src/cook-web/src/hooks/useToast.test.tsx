@@ -96,6 +96,38 @@ describe('toastOnce', () => {
     expect(second.id).toBe(first.id);
   });
 
+  it('suppresses permanent duplicates until the previous toast is dismissed', () => {
+    jest.useFakeTimers();
+    const first = toastOnce({
+      dedupeKey: 'credit-insufficient:teacher:7101',
+      dedupeWindowMs: Number.POSITIVE_INFINITY,
+      title: 'first',
+      duration: 0,
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+
+    const duplicate = toastOnce({
+      dedupeKey: 'credit-insufficient:teacher:7101',
+      dedupeWindowMs: Number.POSITIVE_INFINITY,
+      title: 'duplicate',
+      duration: 0,
+    });
+    expect(duplicate.id).toBe(first.id);
+
+    act(() => first.dismiss());
+    const afterDismiss = toastOnce({
+      dedupeKey: 'credit-insufficient:teacher:7101',
+      dedupeWindowMs: Number.POSITIVE_INFINITY,
+      title: 'after dismiss',
+      duration: 0,
+    });
+    expect(afterDismiss.id).not.toBe(first.id);
+    jest.useRealTimers();
+  });
+
   it('re-shows a deduped toast after the previous toast is dismissed', () => {
     const first = toastOnce({
       dedupeKey: 'ai-service-unavailable',

@@ -182,7 +182,7 @@ describe('LessonPreview billing action', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.shifu.previewArea.goToBilling',
+        name: 'module.billing.alerts.actions.checkoutTopup',
       }),
     );
 

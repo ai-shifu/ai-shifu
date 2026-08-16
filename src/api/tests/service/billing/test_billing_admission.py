@@ -283,7 +283,9 @@ def test_admit_creator_usage_rejects_missing_credits(
             usage_scene=BILL_USAGE_SCENE_PREVIEW,
         )
 
-    assert exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"]
+    assert (
+        exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"] == 7101
+    )
 
 
 def test_admit_creator_usage_skips_credit_checks_when_billing_disabled(
