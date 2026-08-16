@@ -239,6 +239,12 @@ describe('MainMenuModal', () => {
 
       expect(positions.every(position => position >= 0)).toBe(true);
       expect(positions).toEqual([...positions].sort((a, b) => a - b));
+      expect(
+        screen.getByRole('button', { name: 'module.settings.setPassword' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: sceneLabel }),
+      ).toBeInTheDocument();
       excludedSceneLabels.forEach(excludedSceneLabel => {
         expect(screen.queryByText(excludedSceneLabel)).not.toBeInTheDocument();
       });
@@ -259,7 +265,9 @@ describe('MainMenuModal', () => {
       screen.queryByText('component.menus.navigationMenus.createCourse'),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('module.settings.setPassword'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.settings.setPassword' }),
+    );
 
     expect(screen.getByTestId('set-password-modal')).toBeInTheDocument();
     expect(mockTrackEvent).toHaveBeenCalledWith('USER_MENU_SET_PASSWORD', {});
@@ -301,7 +309,9 @@ describe('MainMenuModal', () => {
     );
 
     fireEvent.click(
-      screen.getByText('component.menus.navigationMenus.onboardingGuide'),
+      screen.getByRole('button', {
+        name: 'component.menus.navigationMenus.onboardingGuide',
+      }),
     );
 
     expect(calls).toEqual(['replay-onboarding', 'close-menu']);

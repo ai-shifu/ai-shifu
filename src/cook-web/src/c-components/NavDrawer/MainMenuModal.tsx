@@ -114,7 +114,8 @@ const MainMenuModal = ({
     onClose?.(evt);
   };
   const setPasswordRow = canSetPassword ? (
-    <div
+    <button
+      type='button'
       className={cn(styles.mainMenuModalRow, 'px-2.5')}
       onClick={onSetPasswordClick}
       title={t('module.settings.setPassword')}
@@ -124,7 +125,7 @@ const MainMenuModal = ({
         size={16}
       />
       <div className={styles.rowTitle}>{t('module.settings.setPassword')}</div>
-    </div>
+    </button>
   ) : null;
 
   const onReplayOnboardingClick = (evt: React.MouseEvent) => {
@@ -134,7 +135,8 @@ const MainMenuModal = ({
     onClose?.(evt);
   };
   const replayOnboardingRow = (
-    <div
+    <button
+      type='button'
       className={cn(styles.mainMenuModalRow, 'px-2.5')}
       onClick={onReplayOnboardingClick}
       title={t('component.menus.navigationMenus.onboardingGuide')}
@@ -146,7 +148,7 @@ const MainMenuModal = ({
       <div className={styles.rowTitle}>
         {t('component.menus.navigationMenus.onboardingGuide')}
       </div>
-    </div>
+    </button>
   );
 
   const onAdminEntryClick = (evt: React.MouseEvent) => {
@@ -248,7 +250,8 @@ const MainMenuModal = ({
           </button>
           {setPasswordRow}
           {surface === 'learner' ? (
-            <div
+            <button
+              type='button'
               className={cn(styles.mainMenuModalRow, 'px-2.5')}
               onClick={onAdminEntryClick}
             >
@@ -268,7 +271,7 @@ const MainMenuModal = ({
                   ? t('component.menus.navigationMenus.adminConsole')
                   : t('component.menus.navigationMenus.createCourse')}
               </div>
-            </div>
+            </button>
           ) : (
             replayOnboardingRow
           )}
