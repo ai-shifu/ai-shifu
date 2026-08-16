@@ -7,6 +7,7 @@ import LessonUpdateNotice from '../LessonUpdateNotice';
 
 const mockUseChatLogicHook = jest.fn();
 let mockCourseAvatar = '';
+let mockIsCurrentUserCourseOwner = false;
 let mockLearningMode = 'listen';
 let mockLogoHorizontal = '';
 let mockLogoWideUrl = '';
@@ -28,6 +29,7 @@ jest.mock('react-i18next', () => {
     'module.chat.lessonUpdateRetakeAction': '重修',
     'module.lesson.reset.confirmContent': '重修会清空本节学习数据。确定重修？',
     'module.lesson.reset.confirmTitle': '确认重修',
+    'module.billing.alerts.actions.checkoutTopup': '购买积分',
   };
 
   return {
@@ -159,6 +161,7 @@ jest.mock('@/c-store/useCourseStore', () => ({
     selector({
       courseAvatar: mockCourseAvatar,
       courseName: '测试课程',
+      isCurrentUserCourseOwner: mockIsCurrentUserCourseOwner,
       courseTtsEnabled: true,
       openPayModal: jest.fn(),
       payModalResult: null,
@@ -326,6 +329,7 @@ const setMockChatLogicItems = (items: Array<Record<string, unknown>>) => {
 const createNewChatComponentsElement = (
   onLessonUpdateNoticeVisibilityChange: jest.Mock,
   onLessonPdfActionChange: jest.Mock,
+  previewMode = false,
 ) => (
   <AppContext.Provider
     value={{
@@ -351,6 +355,7 @@ const createNewChatComponentsElement = (
         onLessonUpdateNoticeVisibilityChange
       }
       onLessonPdfActionChange={onLessonPdfActionChange}
+      previewMode={previewMode}
     />
   </AppContext.Provider>
 );
@@ -359,12 +364,14 @@ const renderNewChatComponents = (
   onLessonUpdateNoticeVisibilityChange = jest.fn(),
   onLessonPdfActionChange = jest.fn(),
   items: Array<Record<string, unknown>> = [],
+  previewMode = false,
 ) => {
   setMockChatLogicItems(items);
   const renderElement = () =>
     createNewChatComponentsElement(
       onLessonUpdateNoticeVisibilityChange,
       onLessonPdfActionChange,
+      previewMode,
     );
   const renderResult = render(renderElement());
 
@@ -399,6 +406,7 @@ describe('NewChatComponents', () => {
       hash: '#follow-up',
     });
     mockCourseAvatar = '';
+    mockIsCurrentUserCourseOwner = false;
     mockLearningMode = 'listen';
     mockLogoHorizontal = '';
     mockLogoWideUrl = '';
@@ -459,6 +467,36 @@ describe('NewChatComponents', () => {
     expect(
       screen.queryByText('本节课程已更新，建议重修'),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows the credit purchase action only to the course owner in preview mode', () => {
+    mockLearningMode = 'read';
+    const creditError = [
+      {
+        business_code: 7101,
+        content: '积分不足',
+        element_bid: 'credit-error',
+        type: 'error',
+      },
+    ];
+
+    const collaboratorView = renderNewChatComponents(
+      jest.fn(),
+      jest.fn(),
+      creditError,
+      true,
+    );
+    expect(
+      screen.queryByRole('button', { name: '购买积分' }),
+    ).not.toBeInTheDocument();
+
+    mockIsCurrentUserCourseOwner = true;
+    collaboratorView.unmount();
+    renderNewChatComponents(jest.fn(), jest.fn(), creditError, true);
+
+    expect(
+      screen.getByRole('button', { name: '购买积分' }),
+    ).toBeInTheDocument();
   });
 
   it('finishes visible read content immediately when the page becomes hidden', async () => {
