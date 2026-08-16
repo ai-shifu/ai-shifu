@@ -688,10 +688,109 @@ describe('ProfileOnboardingConversation', () => {
     );
   });
 
-  test.each([
-    'transient_markdownflow_session_not_found',
-    'transient_markdownflow_invalid',
-  ])('does not offer retry for non-retryable SSE error %s', async errorCode => {
+  test('recovers an expired Redis session with a fresh session and request', async () => {
+    const createSession = jest
+      .fn()
+      .mockResolvedValueOnce({
+        session_id: 'stale-session',
+        block_index: 2,
+      })
+      .mockResolvedValueOnce({
+        session_id: 'fresh-session',
+        block_index: 7,
+      });
+    const onError = jest.fn();
+    const onRetry = jest.fn();
+    const onSessionStarted = jest.fn();
+    const runSession = jest
+      .fn()
+      .mockImplementationOnce(({ onMessage }) => {
+        queueMicrotask(() => {
+          onMessage({
+            type: 'element',
+            content: {
+              element_bid: 'stale-session-question',
+              element_type: 'interaction',
+              content: '?[%{{profile_goal}}...你的学习目标是什么？]',
+            },
+          });
+          onMessage({
+            type: 'done',
+            is_terminal: true,
+            content: { done: false, next_block_index: 3 },
+          });
+        });
+        return { close: jest.fn() };
+      })
+      .mockImplementationOnce(({ onMessage }) => {
+        queueMicrotask(() => {
+          onMessage({
+            type: 'error',
+            content: 'transient_markdownflow_session_not_found',
+          });
+        });
+        return { close: jest.fn() };
+      })
+      .mockImplementationOnce(() => ({ close: jest.fn() }));
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={createSession}
+        runSession={runSession}
+        onSessionStarted={onSessionStarted}
+        onDraftReady={jest.fn()}
+        onError={onError}
+        onRetry={onRetry}
+      />,
+    );
+
+    await screen.findByText('?[%{{profile_goal}}...你的学习目标是什么？]');
+    fireEvent.click(
+      screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+    );
+
+    const retryButton = await screen.findByRole('button', {
+      name: 'module.profileOnboarding.guided.retry',
+    });
+    expect(onError).toHaveBeenCalledWith(
+      new Error('module.profileOnboarding.guided.retryableError'),
+    );
+    expect(runSession.mock.calls[1][0]).toEqual(
+      expect.objectContaining({
+        sessionId: 'stale-session',
+        expectedBlockIndex: 3,
+        requestId: expect.any(String),
+        userInput: { profile_goal: ['学会 AI'] },
+      }),
+    );
+
+    fireEvent.click(retryButton);
+
+    await waitFor(() => expect(createSession).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(3));
+    expect(runSession.mock.calls[2][0]).toEqual(
+      expect.objectContaining({
+        sessionId: 'fresh-session',
+        expectedBlockIndex: 7,
+        requestId: expect.any(String),
+        userInput: undefined,
+      }),
+    );
+    expect(runSession.mock.calls[2][0].requestId).not.toBe(
+      runSession.mock.calls[1][0].requestId,
+    );
+    expect(onSessionStarted.mock.calls).toEqual([
+      ['stale-session'],
+      ['fresh-session'],
+    ]);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByText('?[%{{profile_goal}}...你的学习目标是什么？]'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not offer retry for an invalid MarkdownFlow SSE error', async () => {
+    const errorCode = 'transient_markdownflow_invalid';
     const onError = jest.fn();
     const runSession = jest.fn(({ onMessage }) => {
       queueMicrotask(() => onMessage({ type: 'error', content: errorCode }));
