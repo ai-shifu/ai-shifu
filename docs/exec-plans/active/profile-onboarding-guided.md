@@ -2,7 +2,7 @@
 
 ## Purpose / Big Picture
 
-Deliver the second stacked learner-profile PR on `sunner/profile-onboarding-guided`, based on the final PR1 branch. Learners answer the teacher's MarkdownFlow questions, review the generated plain-text learner profile, and can defer only through an explicit low-emphasis action. The release preserves the established legacy onboarding protocol during backend-first rollout.
+Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1 has merged, so the final publication base is `main` at merge commit `020f0392138e8c1cc9c619add1896a39b86b50fd`. Learners answer the teacher's MarkdownFlow questions, review the generated plain-text learner profile, and can defer only through an explicit low-emphasis action. The release preserves the established legacy onboarding protocol during backend-first rollout.
 
 ## Progress
 
@@ -19,7 +19,10 @@ Deliver the second stacked learner-profile PR on `sunner/profile-onboarding-guid
 - [x] 2026-08-16 14:25 CST: Passed 374 backend tests (4 skipped), 125 focused frontend tests, TypeScript, ESLint, Prettier, Ruff, translations, architecture, repository harness, `git diff --check`, and the complete lefthook pre-commit gate.
 - [x] 2026-08-16 14:28 CST: Re-ran browser QA at 1280x720, 390x844, 320x568 in French, and 844x390 for guided, review, and retryable-error states; retained five screenshots under `/private/tmp/profile-onboarding-pr2-visual/` and removed every temporary harness route and browser cache.
 - [x] 2026-08-16 14:43 CST: Rebased all 15 PR2 commits without patch drift onto the rewritten PR1 head `7ea970ae4`, then passed 264 backend regression tests, all 125 focused frontend tests, TypeScript, changed-file lint/format, translations, architecture, repository harness, and the full pre-commit gate on that base.
-- [ ] 2026-08-16: Force-push the rebased ready PR with a lease, close the verified review threads, pass fresh CI, and complete the organic feedback window.
+- [x] 2026-08-16 15:30 CST: Closed the next natural-review group in independent commits: shortened abandoned run locks, classified interrupted SSE database sessions, bounded preview payloads by the publish limit, projected variable-free legacy interactions, made settings refresh best-effort after durable completion, and enforced one shared-Redis active session per owner and purpose.
+- [x] 2026-08-16 15:40 CST: Rebased all 22 PR2 commits without patch drift from the final PR1 head onto merged `main` commit `020f0392138e8c1cc9c619add1896a39b86b50fd`; verified exact ancestry and a clean worktree before the final review fixes.
+- [x] 2026-08-16 15:50 CST: Closed the three post-merge review findings as independent changes: projected legacy-incompatible official variable markers, serialized skip with canonical completion locks, and protected unsaved profile/nickname edits before a settings rerun.
+- [ ] 2026-08-16: Pass final local gates, force-push the rebased ready PR with a lease, close the verified review threads, pass fresh CI, and complete the organic feedback window.
 
 ## Surprises & Discoveries
 
@@ -31,10 +34,12 @@ Deliver the second stacked learner-profile PR on `sunner/profile-onboarding-guid
 - Use `331a54f531` only as implementation source, never as a wholesale tree replacement.
 - Preserve the modern `service/profile/api.py`, `api/learnerProfile.ts`, and shared `ProfileDraftEditor` from PR1.
 - Keep the PR2 frontend limited to guided/settings onboarding; preserve the canonical backend's dormant `pasted` completion trigger so PR3 can add import UX without another wire-contract change.
+- Preserve the required fresh legacy `should_show=true` contract by projecting only the legacy top-level MarkdownFlow response; persisted/admin/V2 documents remain the official original.
+- Treat one active Redis session per owner and purpose as a session-lifecycle invariant, not as a dedicated rate-limit or cohort subsystem.
 
 ## Outcomes & Retrospective
 
-The ready stacked PR is active again after PR1 rewrote its history and natural review produced three actionable compatibility findings. The implementation and independent review fixes have been replayed onto current PR1 without restoring deleted settings components. Local code, regression, static, repository, and browser gates are complete; publication, fresh CI, and the final organic feedback window remain.
+PR1 is merged and the complete PR2 commit series now sits directly on the resulting `main` commit without patch drift. Natural review findings have been handled in independent fixes while retaining the dual protocol, official MarkdownFlow source, Redis isolation, PR1 learner-profile/sign-in safeguards, and guided-only frontend. Browser QA remains valid; final local gates, publication of the rebased head, fresh CI, and the last organic feedback window remain.
 
 ## Context and Orientation
 
@@ -70,5 +75,5 @@ Changes are isolated to this branch. Re-running tests and generators is safe. If
 
 - Existing legacy learner endpoints retain top-level `enabled`, `should_show`, `markdownflow`, `allowed_variable_keys`, and `current_values`.
 - V2 is nested under `profile_v2` with a contract version and guided/settings actions.
-- Redis sessions are scoped by owner and purpose; MarkdownFlow runtime/parser is the authoritative interaction engine.
+- Redis sessions are scoped by owner and purpose, with one active-session pointer per scope; MarkdownFlow runtime/parser is the authoritative interaction engine.
 - Deploy backend before frontend so old clients continue operating during rollout.
