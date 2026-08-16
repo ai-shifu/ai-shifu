@@ -133,6 +133,55 @@ describe('listenModeUtils', () => {
     expect(missingBids).toEqual(['generated-block-1', 'generated-block-2']);
   });
 
+  it('does not re-request a generated block when a sibling already has audio', () => {
+    const missingBids = getMissingListenModeAudioBlockBids([
+      createContentItem({
+        element_bid: 'narration-1',
+        generated_block_bid: 'generated-block-1',
+        is_speakable: true,
+        audioTracks: [
+          {
+            position: 0,
+            audioUrl: 'https://example.com/audio.mp3',
+          },
+        ],
+      }),
+      createContentItem({
+        element_bid: 'html-slide-1',
+        generated_block_bid: 'generated-block-1',
+        element_type: 'html',
+        content: '<section><h1>计算机的定义</h1></section>',
+        is_speakable: false,
+      }),
+    ]);
+
+    expect(missingBids).toEqual([]);
+  });
+
+  it('keeps requesting missing speakable siblings during listen-mode backfill', () => {
+    const missingBids = getMissingListenModeAudioBlockBids([
+      createContentItem({
+        element_bid: 'narration-1',
+        generated_block_bid: 'generated-block-1',
+        is_speakable: true,
+        audioTracks: [
+          {
+            position: 0,
+            audioUrl: 'https://example.com/audio.mp3',
+          },
+        ],
+      }),
+      createContentItem({
+        element_bid: 'narration-2',
+        generated_block_bid: 'generated-block-1',
+        is_speakable: true,
+        audioTracks: [],
+      }),
+    ]);
+
+    expect(missingBids).toEqual(['generated-block-1']);
+  });
+
   it('treats streaming audio tracks as playable during listen-mode backfill', () => {
     const item = createContentItem({
       audioTracks: [
@@ -266,6 +315,64 @@ describe('listenModeUtils', () => {
       ),
     ).toBe(false);
   });
+
+  it('allows html slides with visible text to use generated-block tts fallback', () => {
+    expect(
+      isListenModeAudioBackfillCandidate(
+        createContentItem({
+          element_bid: 'html-slide-1',
+          generated_block_bid: 'generated-block-1',
+          element_type: 'html',
+          content:
+            '<section><h1>计算机的定义</h1><p>存储程序，自动高速。</p></section>',
+          is_speakable: false,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not use html tts fallback for visual markup without visible text', () => {
+    expect(
+      isListenModeAudioBackfillCandidate(
+        createContentItem({
+          element_bid: 'html-slide-1',
+          generated_block_bid: 'generated-block-1',
+          element_type: 'html',
+          content: '<section><img src="/cover.png" /></section>',
+          is_speakable: false,
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    [
+      'script',
+      '<section><script>const visible = "read this";</script></section>',
+    ],
+    ['style', '<section><style>.hero { display: flex; }</style></section>'],
+    [
+      'template',
+      '<section><template>Hidden fallback text</template></section>',
+    ],
+    ['unclosed script', '<section><script>const visible = "read this";'],
+    ['unclosed style', '<section><style>.hero { display: flex; }'],
+    ['unclosed template', '<section><template>Hidden fallback text'],
+  ])(
+    'does not use html tts fallback for %s-only hidden content',
+    (_caseName, content) => {
+      const item = createContentItem({
+        element_bid: 'html-slide-1',
+        generated_block_bid: 'generated-block-1',
+        element_type: 'html',
+        content,
+        is_speakable: false,
+      });
+
+      expect(canRequestListenModeTtsForItem(item)).toBe(false);
+      expect(isListenModeAudioBackfillCandidate(item)).toBe(false);
+    },
+  );
 
   it('does not make very short content a listen-mode backfill candidate', () => {
     expect(

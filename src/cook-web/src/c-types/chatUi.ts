@@ -43,6 +43,7 @@ export interface ChatContentItem {
   audioTracks?: AudioTrack[];
   isAudioStreaming?: boolean;
   isAudioBackfillReady?: boolean;
+  listenAudioBackfillMode?: 'listen' | 'block';
   audioDurationMs?: number;
   listenSlides?: ListenSlideData[];
   element_type?: ElementType;
