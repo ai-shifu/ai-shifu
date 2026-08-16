@@ -44,8 +44,8 @@ type MainMenuModalProps = {
   style?: CSSProperties;
   mobileStyle?: boolean;
   className?: string;
-  onPersonalInfoClick?: () => void;
-  isAdmin?: boolean;
+  onPersonalInfoClick: () => void;
+  surface: 'learner' | 'admin';
 };
 
 const MainMenuModal = ({
@@ -55,7 +55,7 @@ const MainMenuModal = ({
   mobileStyle = false,
   className = '',
   onPersonalInfoClick,
-  isAdmin = false,
+  surface,
 }: MainMenuModalProps) => {
   const { t } = useTranslation();
 
@@ -96,7 +96,7 @@ const MainMenuModal = ({
     }
 
     onClose?.(evt);
-    onPersonalInfoClick?.();
+    onPersonalInfoClick();
   };
 
   const [setPasswordModalOpen, setSetPasswordModalOpen] = useState(false);
@@ -230,52 +230,47 @@ const MainMenuModal = ({
           className={styles.mainMenuModal}
           ref={htmlRef}
         >
-          {!isAdmin ? (
-            <>
-              <button
-                type='button'
-                className={cn(styles.mainMenuModalRow, 'px-2.5')}
-                onClick={_onPersonalInfoClick}
-              >
-                <Image
+          <button
+            type='button'
+            className={cn(styles.mainMenuModalRow, 'px-2.5')}
+            onClick={_onPersonalInfoClick}
+          >
+            <Image
+              className={styles.rowIcon}
+              width={16}
+              height={16}
+              src={imgPersonal.src}
+              alt=''
+            />
+            <div className={styles.rowTitle}>
+              {t('component.menus.navigationMenus.personalInfo')}
+            </div>
+          </button>
+          {setPasswordRow}
+          {surface === 'learner' ? (
+            <div
+              className={cn(styles.mainMenuModalRow, 'px-2.5')}
+              onClick={onAdminEntryClick}
+            >
+              {isCreator ? (
+                <Monitor
                   className={styles.rowIcon}
-                  width={16}
-                  height={16}
-                  src={imgPersonal.src}
-                  alt=''
+                  size={16}
                 />
-                <div className={styles.rowTitle}>
-                  {t('component.menus.navigationMenus.personalInfo')}
-                </div>
-              </button>
-              {setPasswordRow}
-              <div
-                className={cn(styles.mainMenuModalRow, 'px-2.5')}
-                onClick={onAdminEntryClick}
-              >
-                {isCreator ? (
-                  <Monitor
-                    className={styles.rowIcon}
-                    size={16}
-                  />
-                ) : (
-                  <BookPlus
-                    className={styles.rowIcon}
-                    size={16}
-                  />
-                )}
-                <div className={styles.rowTitle}>
-                  {isCreator
-                    ? t('component.menus.navigationMenus.adminConsole')
-                    : t('component.menus.navigationMenus.createCourse')}
-                </div>
+              ) : (
+                <BookPlus
+                  className={styles.rowIcon}
+                  size={16}
+                />
+              )}
+              <div className={styles.rowTitle}>
+                {isCreator
+                  ? t('component.menus.navigationMenus.adminConsole')
+                  : t('component.menus.navigationMenus.createCourse')}
               </div>
-            </>
+            </div>
           ) : (
-            <>
-              {setPasswordRow}
-              {replayOnboardingRow}
-            </>
+            replayOnboardingRow
           )}
 
           <div className={styles.languageRow}>

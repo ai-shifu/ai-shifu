@@ -175,19 +175,58 @@ describe('MainMenuModal', () => {
     mockEnvState.loginMethodsEnabled = ['password', 'phone'];
   });
 
-  test('shows set password entry in admin menu and opens the modal', () => {
+  test.each([
+    {
+      surface: 'learner' as const,
+      sceneLabel: 'component.menus.navigationMenus.createCourse',
+      excludedSceneLabel: 'module.onboarding.common.replay',
+    },
+    {
+      surface: 'admin' as const,
+      sceneLabel: 'module.onboarding.common.replay',
+      excludedSceneLabel: 'component.menus.navigationMenus.createCourse',
+    },
+  ])(
+    'renders shared rows in order with only the $surface scene entry',
+    ({ surface, sceneLabel, excludedSceneLabel }) => {
+      render(
+        <MainMenuModal
+          open
+          onClose={jest.fn()}
+          onPersonalInfoClick={jest.fn()}
+          surface={surface}
+        />,
+      );
+
+      const personalInfoButton = screen.getByRole('button', {
+        name: 'component.menus.navigationMenus.personalInfo',
+      });
+      const menuText = personalInfoButton.parentElement?.textContent ?? '';
+      const expectedLabels = [
+        'component.menus.navigationMenus.personalInfo',
+        'module.settings.setPassword',
+        sceneLabel,
+        'component.menus.navigationMenus.language',
+        'module.user.logout',
+      ];
+      const positions = expectedLabels.map(label => menuText.indexOf(label));
+
+      expect(positions.every(position => position >= 0)).toBe(true);
+      expect(positions).toEqual([...positions].sort((a, b) => a - b));
+      expect(screen.queryByText(excludedSceneLabel)).not.toBeInTheDocument();
+    },
+  );
+
+  test('opens set password from the unified admin menu', () => {
     render(
       <MainMenuModal
         open
         onClose={jest.fn()}
         onPersonalInfoClick={jest.fn()}
-        isAdmin
+        surface='admin'
       />,
     );
 
-    expect(
-      screen.queryByText('component.menus.navigationMenus.personalInfo'),
-    ).not.toBeInTheDocument();
     expect(
       screen.queryByText('component.menus.navigationMenus.createCourse'),
     ).not.toBeInTheDocument();
@@ -198,6 +237,49 @@ describe('MainMenuModal', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith('USER_MENU_SET_PASSWORD', {});
   });
 
+  test('shows the admin console learner entry for teachers', () => {
+    mockUserStoreState.userInfo = {
+      mobile: '13800000000',
+      email: 'user@example.com',
+      is_creator: true,
+    };
+
+    render(
+      <MainMenuModal
+        open
+        onClose={jest.fn()}
+        onPersonalInfoClick={jest.fn()}
+        surface='learner'
+      />,
+    );
+
+    expect(
+      screen.getByText('component.menus.navigationMenus.adminConsole'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('component.menus.navigationMenus.createCourse'),
+    ).not.toBeInTheDocument();
+  });
+
+  test.each(['learner', 'admin'] as const)(
+    'shows login instead of logout on the %s surface for guests',
+    surface => {
+      mockUserStoreState.isLoggedIn = false;
+
+      render(
+        <MainMenuModal
+          open
+          onClose={jest.fn()}
+          onPersonalInfoClick={jest.fn()}
+          surface={surface}
+        />,
+      );
+
+      expect(screen.getByText('module.user.login')).toBeInTheDocument();
+      expect(screen.queryByText('module.user.logout')).not.toBeInTheDocument();
+    },
+  );
+
   test('replays onboarding from the admin menu and closes the modal', () => {
     const onClose = jest.fn();
 
@@ -206,7 +288,7 @@ describe('MainMenuModal', () => {
         open
         onClose={onClose}
         onPersonalInfoClick={jest.fn()}
-        isAdmin
+        surface='admin'
       />,
     );
 
@@ -216,20 +298,15 @@ describe('MainMenuModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  test('hides set password entry in admin menu when no password login or contact method is available', () => {
+  test('hides set password entry when password login is unavailable', () => {
     mockEnvState.loginMethodsEnabled = ['phone'];
-    mockUserStoreState.userInfo = {
-      mobile: '',
-      email: '',
-      is_creator: false,
-    };
 
     render(
       <MainMenuModal
         open
         onClose={jest.fn()}
         onPersonalInfoClick={jest.fn()}
-        isAdmin
+        surface='admin'
       />,
     );
 
@@ -250,7 +327,7 @@ describe('MainMenuModal', () => {
         open
         onClose={jest.fn()}
         onPersonalInfoClick={jest.fn()}
-        isAdmin
+        surface='admin'
       />,
     );
 
@@ -267,6 +344,7 @@ describe('MainMenuModal', () => {
         open
         onClose={() => calls.push('close-menu')}
         onPersonalInfoClick={() => calls.push('open-profile')}
+        surface='admin'
       />,
     );
 
