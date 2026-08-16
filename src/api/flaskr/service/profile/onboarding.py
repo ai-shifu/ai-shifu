@@ -160,11 +160,8 @@ def _normalize_submitted_variables(raw_variables: Any) -> dict[str, str]:
         return {}
     if not isinstance(raw_variables, dict):
         raise_param_error("variables")
-    invalid_keys = set(raw_variables).difference(
-        ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS
-    )
-    if invalid_keys:
-        raise_param_error("variables")
+    # Old clients submit every variable declared by the configured MarkdownFlow.
+    # Keep that wire compatible while persisting only the historical sys_* fields.
     return {
         key: str(value or "").strip()
         for key, value in raw_variables.items()
