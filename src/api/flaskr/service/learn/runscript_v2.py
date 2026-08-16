@@ -502,6 +502,9 @@ def run_script_inner(
         except BreakException:
             _finalize_langfuse_if_available(run_script_context)
             db.session.commit()
+            yield from _iter_audio_backfill_ready_events(
+                ready_element_bids_by_block_bid
+            )
             app.logger.info("BreakException")
         except GeneratorExit:
             # The close lands at an arbitrary yield point (client disconnect),
