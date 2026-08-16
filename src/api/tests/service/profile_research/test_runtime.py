@@ -19,6 +19,8 @@ from flaskr.service.profile_research import api
 from flaskr.service.profile_research.runtime import (
     PROFILE_ONBOARDING_PREVIEW_PURPOSE,
     PROFILE_ONBOARDING_PURPOSE,
+    PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS,
+    PROFILE_RESEARCH_SESSION_TTL_SECONDS,
     ProfileResearchError,
     ProfileResearchRuntime,
     ProfileResearchSessionNotFound,
@@ -492,6 +494,41 @@ def test_delete_uses_the_run_lock_before_removing_a_session():
     )
     with pytest.raises(ProfileResearchSessionNotFound):
         runtime.store.load(session["session_id"])
+
+
+def test_run_lock_lease_has_worker_cleanup_headroom_without_using_session_ttl():
+    app = Flask("profile-research-lock-lease")
+    app.config["REDIS_KEY_PREFIX"] = "test:"
+    lock_calls = []
+    expected_lock = object()
+
+    def record_lock(key, *, timeout=None, blocking_timeout=None):
+        lock_calls.append(
+            {
+                "key": key,
+                "timeout": timeout,
+                "blocking_timeout": blocking_timeout,
+            }
+        )
+        return expected_lock
+
+    store = _ProfileResearchSessionStore(
+        app,
+        cache=SimpleNamespace(lock=record_lock),
+    )
+
+    assert store.lock("session-1") is expected_lock
+    assert lock_calls == [
+        {
+            "key": "test:profile_research:session-1:lock",
+            "timeout": 6 * 60,
+            "blocking_timeout": 0,
+        }
+    ]
+    assert 5 * 60 < PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS
+    assert (
+        PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS < PROFILE_RESEARCH_SESSION_TTL_SECONDS
+    )
 
 
 def test_content_context_keeps_the_exact_prompt_built_by_markdownflow():
