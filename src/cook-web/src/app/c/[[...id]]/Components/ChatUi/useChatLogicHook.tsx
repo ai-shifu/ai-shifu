@@ -3220,9 +3220,11 @@ function useChatLogicHook({
     async (
       elementBid: string,
       options: RequestAudioForBlockOptions = {},
-    ): Promise<AudioCompleteData | null> => {
+    ): Promise<AudioCompleteData | null | undefined> => {
+      // `undefined` marks "never attempted" so callers can tell a cancelled or
+      // de-duplicated request apart from a real synthesis failure.
       if (!elementBid) {
-        return null;
+        return undefined;
       }
 
       const {
@@ -3245,12 +3247,12 @@ function useChatLogicHook({
 
       if (!allowTtsStreaming) {
         notifyStreamSettled();
-        return null;
+        return undefined;
       }
 
       if (!shouldApplyResult()) {
         notifyStreamSettled();
-        return null;
+        return undefined;
       }
 
       const existingItem = findAudioTargetItem(
@@ -3274,8 +3276,10 @@ function useChatLogicHook({
       }
 
       if (ttsSseRef.current[sourceBlockBid]) {
+        // Another stream for this block is already in flight; de-duplicating is
+        // not a failure, so the caller must be able to retry later.
         notifyStreamSettled();
-        return null;
+        return undefined;
       }
 
       setTrackedContentList(prev =>
@@ -3316,7 +3320,7 @@ function useChatLogicHook({
           }
         };
 
-        const resolveOnce = (value: AudioCompleteData | null) => {
+        const resolveOnce = (value: AudioCompleteData | null | undefined) => {
           if (hasResolved) {
             return;
           }
@@ -3370,7 +3374,11 @@ function useChatLogicHook({
           if (updateState) {
             markAudioStreamSettled();
           }
-          resolveOnce(null);
+          // Cancellation is not a synthesis failure. Submitting an interaction
+          // tears down every in-flight TTS stream, so resolving as `null` here
+          // would permanently blacklist those blocks and silence all narration
+          // generated after the answer.
+          resolveOnce(undefined);
           closeTtsStream(sourceBlockBid);
           notifyStreamSettled();
         };

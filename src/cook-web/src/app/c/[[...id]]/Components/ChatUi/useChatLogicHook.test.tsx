@@ -1250,6 +1250,70 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(stoppedItem?.audioTracks?.[0]?.isAudioStreaming).toBe(false);
   });
 
+  it('resolves cancelled and de-duplicated audio requests as undefined rather than a failure', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'text',
+          content: 'History content without audio',
+          generated_block_bid: 'generated-block-skip-1',
+          element_bid: 'element-skip-1',
+          element_index: 0,
+          like_status: 'none',
+          user_input: '',
+          is_speakable: true,
+          is_renderable: true,
+          is_marker: false,
+          is_new: false,
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const closeTtsSource = jest.fn();
+    mockStreamGeneratedBlockAudio.mockImplementation(() => ({
+      close: closeTtsSource,
+    }));
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let firstRequest: Promise<unknown> | undefined;
+    act(() => {
+      firstRequest = result.current.requestAudioForBlock('element-skip-1', {
+        listen: true,
+      });
+    });
+
+    await waitFor(() =>
+      expect(mockStreamGeneratedBlockAudio).toHaveBeenCalled(),
+    );
+
+    // A second request while the first stream is still in flight is de-duplicated.
+    // That is not a failure, so it must stay retryable.
+    let duplicateRequest: Promise<unknown> | undefined;
+    act(() => {
+      duplicateRequest = result.current.requestAudioForBlock('element-skip-1', {
+        listen: true,
+      });
+    });
+    await expect(duplicateRequest).resolves.toBeUndefined();
+
+    // Answering an interaction tears down every in-flight TTS stream. The
+    // cancelled request must not be reported as a synthesis failure, otherwise
+    // the block is blacklisted and its narration is silenced for good.
+    await act(async () => {
+      stopAllActiveLessonStreams();
+      await firstRequest;
+    });
+    await expect(firstRequest).resolves.toBeUndefined();
+  });
+
   it('keeps an active read run open when presentation mode changes', async () => {
     const { result, rerender } = renderHook(
       ({ isListenMode }) =>

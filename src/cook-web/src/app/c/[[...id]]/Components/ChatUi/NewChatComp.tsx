@@ -941,7 +941,8 @@ export const NewChatComponents = ({
         })
           .then(result => {
             if (listenAudioBackfillLessonIdRef.current !== lessonIdAtRequest) {
-              return null;
+              // Superseded by a lesson switch, not a synthesis failure.
+              return undefined;
             }
 
             return result;
@@ -953,8 +954,13 @@ export const NewChatComponents = ({
       }
 
       const hasGeneratedAudio = results.some(Boolean);
+      // Only a `null` result means synthesis was attempted and failed.
+      // `undefined` means it was never attempted (cancelled, superseded, or
+      // de-duplicated), and must stay retryable — otherwise answering an
+      // interaction, which cancels every in-flight stream, would permanently
+      // blacklist the blocks whose narration follows the answer.
       const failedBlockBids = prioritizedBlockBids.filter(
-        (_, index) => !results[index],
+        (_, index) => results[index] === null,
       );
       failedBlockBids.forEach(blockBid => {
         listenAudioBackfillFailedBlockBidsRef.current.add(blockBid);
