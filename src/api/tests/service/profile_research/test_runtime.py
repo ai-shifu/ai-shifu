@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import ast
 import inspect
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from flask import Flask
+from sqlalchemy.exc import ResourceClosedError
+
 from flaskr import dao
 from flaskr.api.langfuse import MockClient
 from flaskr.common.cache_provider import (
@@ -15,7 +18,7 @@ from flaskr.common.cache_provider import (
     redis_cache,
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
-from flaskr.service.profile_research import api
+from flaskr.service.profile_research import api, runtime as profile_research_runtime
 from flaskr.service.profile_research.runtime import (
     PROFILE_ONBOARDING_PREVIEW_PURPOSE,
     PROFILE_ONBOARDING_PURPOSE,
@@ -768,9 +771,17 @@ def test_llm_provider_uses_shared_non_billable_route_without_redaction(monkeypat
 
 def test_sse_response_emits_public_error_without_course_dtos(monkeypatch):
     app = Flask("profile-research-sse")
+    releases = []
+    invalidations = []
     monkeypatch.setattr(
-        "flaskr.service.profile_research.runtime._release_stream_db_session",
-        lambda _app: None,
+        profile_research_runtime,
+        "release_session_classified",
+        lambda *, source: releases.append(source),
+    )
+    monkeypatch.setattr(
+        profile_research_runtime,
+        "invalidate_session",
+        lambda *, source, session=None: invalidations.append(source) or True,
     )
 
     def fail():
@@ -789,6 +800,116 @@ def test_sse_response_emits_public_error_without_course_dtos(monkeypatch):
     assert "private detail" not in body
     assert '"event_type": "error"' in body
     assert '"event_type": "done"' not in body
+    assert invalidations == []
+    assert releases == ["profile research stream", "profile research stream"]
+
+
+def test_sse_response_normal_completion_releases_without_invalidation(monkeypatch):
+    app = Flask("profile-research-sse-normal")
+    releases = []
+    invalidations = []
+
+    def record_release(*, source):
+        releases.append((source, sys.exc_info()[1]))
+
+    monkeypatch.setattr(
+        profile_research_runtime,
+        "release_session_classified",
+        record_release,
+    )
+    monkeypatch.setattr(
+        profile_research_runtime,
+        "invalidate_session",
+        lambda *, source, session=None: invalidations.append(source) or True,
+    )
+
+    def events():
+        yield {"event_type": "done", "is_terminal": True}
+
+    with app.test_request_context("/"):
+        response = build_profile_research_sse_response(
+            app,
+            event_iter_factory=events,
+            log_context="test",
+        )
+        body = "".join(response.response)
+
+    assert '"event_type": "done"' in body
+    assert invalidations == []
+    assert releases == [
+        ("profile research stream", None),
+        ("profile research stream", None),
+    ]
+
+
+def test_sse_disconnect_reaches_classified_release_with_generator_exit(monkeypatch):
+    app = Flask("profile-research-sse-close")
+    releases = []
+
+    def record_release(*, source):
+        releases.append((source, sys.exc_info()[1]))
+
+    monkeypatch.setattr(
+        profile_research_runtime,
+        "release_session_classified",
+        record_release,
+    )
+
+    def events():
+        yield {"event_type": "content", "is_terminal": False}
+        yield {"event_type": "done", "is_terminal": True}
+
+    with app.test_request_context("/"):
+        response = build_profile_research_sse_response(
+            app,
+            event_iter_factory=events,
+            log_context="test",
+        )
+        stream = iter(response.response)
+        next(stream)
+        stream.close()
+
+    assert releases[0] == ("profile research stream", None)
+    assert releases[1][0] == "profile research stream"
+    assert isinstance(releases[1][1], GeneratorExit)
+
+
+def test_sse_protocol_error_invalidates_before_final_release(monkeypatch):
+    app = Flask("profile-research-sse-protocol-error")
+    cleanup_events = []
+
+    monkeypatch.setattr(
+        profile_research_runtime,
+        "release_session_classified",
+        lambda *, source: cleanup_events.append(("release", source)),
+    )
+    monkeypatch.setattr(
+        profile_research_runtime,
+        "invalidate_session",
+        lambda *, source, session=None: (
+            cleanup_events.append(("invalidate", source)) or True
+        ),
+    )
+
+    def events():
+        yield {"event_type": "content", "is_terminal": False}
+        raise ResourceClosedError("private protocol detail")
+
+    with app.test_request_context("/"):
+        response = build_profile_research_sse_response(
+            app,
+            event_iter_factory=events,
+            log_context="test",
+        )
+        body = "".join(response.response)
+
+    assert "transient_markdownflow_error" in body
+    assert "private protocol detail" not in body
+    assert cleanup_events == [
+        ("release", "profile research stream"),
+        ("invalidate", "profile research stream protocol interrupt"),
+        ("release", "profile research stream"),
+    ]
 
 
 def test_public_api_exports_profile_research_boundary():
