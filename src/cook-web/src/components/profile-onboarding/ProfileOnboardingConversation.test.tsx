@@ -6,11 +6,17 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import ProfileOnboardingConversation, {
   resolveProfileDraftFromRunEvent,
 } from './ProfileOnboardingConversation';
 
 const ANSWER_GUIDED_QUESTION_LABEL = 'answer guided question';
+const DEFAULT_RENDERER_SUBMISSION: OnSendContentParams = {
+  variableName: 'profile_goal',
+  inputText: '学会 AI',
+};
+let mockRendererSubmission: OnSendContentParams = DEFAULT_RENDERER_SUBMISSION;
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -30,7 +36,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
       readonly?: boolean;
       userInput?: string;
     }>;
-    onSend: (value: { variableName: string; inputText: string }) => void;
+    onSend: (value: OnSendContentParams) => void;
   }) => (
     <div>
       {initialContentList.map((item, index) => (
@@ -45,9 +51,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
           disabled={initialContentList.some(
             item => !item.isFinished && item.readonly,
           )}
-          onClick={() =>
-            onSend({ variableName: 'profile_goal', inputText: '学会 AI' })
-          }
+          onClick={() => onSend(mockRendererSubmission)}
         >
           {ANSWER_GUIDED_QUESTION_LABEL}
         </button>
@@ -57,6 +61,123 @@ jest.mock('markdown-flow-ui/renderer', () => ({
 }));
 
 describe('ProfileOnboardingConversation', () => {
+  beforeEach(() => {
+    mockRendererSubmission = DEFAULT_RENDERER_SUBMISSION;
+  });
+
+  test('preserves official button values while keeping their display normalized', async () => {
+    mockRendererSubmission = {
+      variableName: 'style',
+      buttonText: ' brief ',
+    };
+    const runSession = jest.fn(({ onMessage }) => {
+      if (runSession.mock.calls.length === 1) {
+        queueMicrotask(() => {
+          onMessage({
+            type: 'element',
+            content: {
+              element_bid: 'interaction-spaced-button-value',
+              element_type: 'interaction',
+              content: '?[%{{style}}Short// brief ]',
+            },
+          });
+          onMessage({
+            type: 'done',
+            is_terminal: true,
+            content: { done: false, next_block_index: 1 },
+          });
+        });
+      }
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-spaced-value' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: ANSWER_GUIDED_QUESTION_LABEL,
+      }),
+    );
+
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
+    expect(runSession.mock.calls[1][0]).toEqual(
+      expect.objectContaining({
+        userInput: { style: [' brief '] },
+      }),
+    );
+    expect(screen.getByText('brief')).toBeInTheDocument();
+  });
+
+  test('ignores invalid button values and still trims free-text answers', async () => {
+    mockRendererSubmission = {
+      variableName: 'style',
+      buttonText: '   ',
+    };
+    const runSession = jest.fn(({ onMessage }) => {
+      if (runSession.mock.calls.length === 1) {
+        queueMicrotask(() => {
+          onMessage({
+            type: 'element',
+            content: {
+              element_bid: 'interaction-invalid-button-value',
+              element_type: 'interaction',
+              content: '?[%{{style}}...How should lessons be explained?]',
+            },
+          });
+          onMessage({
+            type: 'done',
+            is_terminal: true,
+            content: { done: false, next_block_index: 1 },
+          });
+        });
+      }
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-invalid-value' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    const answerButton = await screen.findByRole('button', {
+      name: ANSWER_GUIDED_QUESTION_LABEL,
+    });
+    fireEvent.click(answerButton);
+    expect(runSession).toHaveBeenCalledTimes(1);
+
+    mockRendererSubmission = {
+      variableName: 'style',
+      buttonText: null as unknown as string,
+    };
+    fireEvent.click(answerButton);
+    expect(runSession).toHaveBeenCalledTimes(1);
+
+    mockRendererSubmission = {
+      variableName: 'style',
+      inputText: '  Explain with examples  ',
+    };
+    fireEvent.click(answerButton);
+
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
+    expect(runSession.mock.calls[1][0]).toEqual(
+      expect.objectContaining({
+        userInput: { style: ['Explain with examples'] },
+      }),
+    );
+    expect(screen.getByText('Explain with examples')).toBeInTheDocument();
+  });
+
   test('keeps an interaction read-only until its terminal done cursor arrives', async () => {
     let firstOnMessage: ((event: Record<string, unknown>) => void) | undefined;
     const runSession = jest.fn(({ onMessage }) => {
