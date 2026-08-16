@@ -56,10 +56,12 @@ from flaskr.route.common import make_common_response, bypass_token_validation, f
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
 from flaskr.service.billing.admission import admit_creator_usage
-from flaskr.service.billing.api import assert_creator_debug_allowed
+from flaskr.service.billing.api import (
+    admit_creator_preview_usage,
+    assert_creator_debug_allowed,
+)
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
-    BILL_USAGE_SCENE_PREVIEW,
 )
 from functools import wraps
 from enum import Enum
@@ -342,11 +344,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     def _admit_creator_preview_usage_for_shifu(shifu_bid: str) -> None:
         if is_builtin_demo_shifu(app, shifu_bid):
             return
-        admit_creator_usage(
-            app,
-            shifu_bid=shifu_bid,
-            usage_scene=BILL_USAGE_SCENE_PREVIEW,
-        )
+        admit_creator_preview_usage(app, shifu_bid=shifu_bid)
 
     def _validate_contacts(contact_type: str, contacts: list[str]) -> list[str]:
         """Validate and deduplicate contact identifiers."""

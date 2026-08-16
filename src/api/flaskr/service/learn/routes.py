@@ -16,6 +16,7 @@ from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import get_current_language
 from flaskr.route.common import make_common_response, bypass_token_validation
 from flaskr.service.billing.admission import admit_creator_usage
+from flaskr.service.billing.api import admit_creator_preview_usage
 from flaskr.service.common.models import AppException, raise_param_error
 from flaskr.service.learn.learn_funcs import (
     get_shifu_info,
@@ -227,6 +228,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     def _admit_creator_usage_for_shifu(shifu_bid: str, usage_scene: int) -> None:
         if is_builtin_demo_shifu(app, shifu_bid):
+            return None
+        if usage_scene == BILL_USAGE_SCENE_PREVIEW:
+            admit_creator_preview_usage(app, shifu_bid=shifu_bid)
             return None
         admit_creator_usage(
             app,
