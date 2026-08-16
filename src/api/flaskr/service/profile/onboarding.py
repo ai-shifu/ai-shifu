@@ -129,6 +129,57 @@ def _extract_official_interaction_raw_variable(content: str) -> str:
     return stripped_content[len(_MARKDOWNFLOW_VARIABLE_PREFIX) : marker_end]
 
 
+def _strip_retiring_web_whitespace(value: str) -> str:
+    """Match the old parser's JavaScript trim for projected button values."""
+
+    start = 0
+    end = len(value)
+    while start < end and (value[start].isspace() or value[start] == "\ufeff"):
+        start += 1
+    while end > start and (value[end - 1].isspace() or value[end - 1] == "\ufeff"):
+        end -= 1
+    return value[start:end]
+
+
+def _plan_legacy_interaction_button_projection(
+    *, parsed_interaction: dict[str, Any]
+) -> tuple[list[str], bool] | None:
+    """Plan the exact subset of official buttons the old parser can represent."""
+
+    buttons = parsed_interaction.get("buttons")
+    if not isinstance(buttons, list) or not buttons:
+        return None
+
+    projected_values: list[str] = []
+    requires_synthetic_variable = bool(parsed_interaction.get("is_multi_select"))
+    for button in buttons:
+        if not isinstance(button, dict):
+            return None
+        display = button.get("display")
+        value = button.get("value")
+        if not isinstance(display, str) or not isinstance(value, str):
+            return None
+        projected_value = _strip_retiring_web_whitespace(value)
+        projected_values.append(projected_value)
+        if projected_value != value or not projected_value or "|" in projected_value:
+            requires_synthetic_variable = True
+
+    # The retiring parser treats one option (or a leading ellipsis) as a text
+    # prompt rather than as a button choice, so it cannot preserve that answer.
+    if len(projected_values) < 2 or projected_values[0].startswith("..."):
+        requires_synthetic_variable = True
+
+    return projected_values, requires_synthetic_variable
+
+
+def _render_legacy_interaction_button_values(
+    *, projected_values: list[str], variable_name: str
+) -> str:
+    """Render values as old-parser choices, omitting unsupported free text."""
+
+    return f"?[%{{{{{variable_name}}}}} {' | '.join(projected_values)}]"
+
+
 def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
     """Give the one-release legacy wire assignment-shaped interactions."""
 
@@ -147,10 +198,17 @@ def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
         content = str(block.content)
         if block.block_type == BlockType.INTERACTION:
             parsed_interaction = interaction_parser.parse(content)
+            button_projection = _plan_legacy_interaction_button_projection(
+                parsed_interaction=parsed_interaction,
+            )
+            buttons_require_synthetic_variable = bool(
+                button_projection and button_projection[1]
+            )
             variable_name = parsed_interaction.get("variable")
             official_variable = (
                 variable_name if isinstance(variable_name, str) else None
             )
+            legacy_variable = official_variable
             raw_variable = (
                 _extract_official_interaction_raw_variable(content)
                 if official_variable is not None
@@ -160,6 +218,7 @@ def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
                 official_variable is None
                 or raw_variable != official_variable
                 or not _is_legacy_profile_onboarding_variable_safe(official_variable)
+                or buttons_require_synthetic_variable
             ):
                 base_name = f"{_LEGACY_ANSWER_VARIABLE_PREFIX}{synthetic_index}"
                 synthetic_name = base_name
@@ -169,10 +228,18 @@ def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
                     collision_index += 1
                 existing_variables.add(synthetic_name)
                 synthetic_index += 1
+                legacy_variable = synthetic_name
                 content = _replace_legacy_interaction_variable(
                     content,
                     raw_variable=raw_variable,
                     synthetic_name=synthetic_name,
+                )
+                changed = True
+            assert legacy_variable is not None
+            if button_projection is not None:
+                content = _render_legacy_interaction_button_values(
+                    projected_values=button_projection[0],
+                    variable_name=legacy_variable,
                 )
                 changed = True
         projected_blocks.append(content)
