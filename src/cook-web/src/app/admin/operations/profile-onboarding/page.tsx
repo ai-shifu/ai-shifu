@@ -63,12 +63,22 @@ export default function ProfileOnboardingAdminPage() {
     void api
       .getAdminOperationProfileOnboardingConfig({})
       .then((response: ProfileOnboardingConfig) => {
-        setEnabled(Boolean(response.enabled));
-        setMarkdownflow(response.markdownflow ?? defaultMarkdownflow);
-        setDocumentPrompt(response.document_prompt ?? defaultDocumentPrompt);
-        setConfigRevision(
-          Number(response.config_revision ?? response.version ?? 0),
+        const loadedRevision = Number(
+          response.config_revision ?? response.version ?? 0,
         );
+        const hasStoredConfiguration = loadedRevision > 0;
+        setEnabled(Boolean(response.enabled));
+        setMarkdownflow(
+          hasStoredConfiguration
+            ? (response.markdownflow ?? defaultMarkdownflow)
+            : response.markdownflow || defaultMarkdownflow,
+        );
+        setDocumentPrompt(
+          hasStoredConfiguration
+            ? (response.document_prompt ?? defaultDocumentPrompt)
+            : response.document_prompt || defaultDocumentPrompt,
+        );
+        setConfigRevision(loadedRevision);
         setUpdatedBy(response.updated_by || '');
         setUpdatedAt(response.updated_at || '');
         setError('');
