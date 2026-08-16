@@ -73,16 +73,42 @@ def load_profile_onboarding_config_payload() -> dict[str, object]:
         return _default_config_payload()
 
 
-def save_profile_onboarding_config_payload(
-    app: Flask, payload: dict[str, object], *, updated_by: str
-) -> None:
-    """Persist profile onboarding config payload."""
+def build_profile_onboarding_config_payload(
+    *,
+    enabled: bool,
+    markdownflow: str,
+    document_prompt: str,
+    revision: int,
+    updated_by: str,
+) -> dict[str, Any]:
+    """Build the canonical persisted onboarding configuration."""
+    return {
+        "enabled": enabled,
+        "markdownflow": markdownflow,
+        "document_prompt": document_prompt,
+        "revision": revision,
+        "updated_by": updated_by,
+        "updated_at": _now_iso(),
+    }
+
+
+def validate_profile_onboarding_config_payload_size(
+    payload: dict[str, Any],
+) -> str:
+    """Serialize and enforce the persisted configuration byte limit."""
     serialized_payload = json.dumps(payload, ensure_ascii=False)
     if (
         len(serialized_payload.encode("utf-8"))
         > PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES
     ):
         raise_param_error("profile_onboarding_config")
+    return serialized_payload
+
+
+def save_profile_onboarding_config_payload(
+    app: Flask, payload: dict[str, Any], *, updated_by: str
+) -> None:
+    serialized_payload = validate_profile_onboarding_config_payload_size(payload)
     add_config(
         app,
         PROFILE_ONBOARDING_CONFIG_KEY,
@@ -152,14 +178,13 @@ def update_profile_onboarding_config(
         validate_profile_onboarding_markdownflow(markdownflow)
     elif payload.get("enabled", False):
         raise_param_error("markdownflow")
-    next_payload = {
-        "enabled": bool(payload.get("enabled", False)),
-        "markdownflow": markdownflow,
-        "document_prompt": document_prompt,
-        "revision": int(existing.get("revision") or 0) + 1,
-        "updated_by": operator_user_bid or "system",
-        "updated_at": _now_iso(),
-    }
+    next_payload = build_profile_onboarding_config_payload(
+        enabled=bool(payload.get("enabled", False)),
+        markdownflow=markdownflow,
+        document_prompt=document_prompt,
+        revision=int(existing.get("revision") or 0) + 1,
+        updated_by=operator_user_bid or "system",
+    )
     save_profile_onboarding_config_payload(
         app, next_payload, updated_by=operator_user_bid or "system"
     )
