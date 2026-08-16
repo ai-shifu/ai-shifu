@@ -91,7 +91,7 @@
     "undoOptimize": "Annuler"
   },
   "guided": {
-    "description": "Plus votre professeur IA vous connaît, plus le cours est facile à comprendre. Environ 1 minute.",
+    "description": "Plus votre enseignant IA vous connaît, plus le cours est facile à comprendre. Environ 1 minute.",
     "missingDraft": "Nous n’avons pas pu terminer la synthèse. Répondez de nouveau aux questions.",
     "retry": "Réessayer",
     "retryableError": "La connexion a été interrompue. Votre réponse est conservée. Réessayez.",
@@ -106,7 +106,7 @@
   "profilePlaceholder": "Par exemple : la façon de vous appeler, votre parcours professionnel ou scolaire, votre expérience, vos styles d’explication et de diapositives préférés, ainsi que vos centres d’intérêt du moment",
   "refreshPending": "Enregistré. Le cours est en cours de mise à jour ; actualisez la page dans un instant.",
   "review": {
-    "description": "Votre professeur IA s’en servira pour adapter la forme et le contenu du cours.",
+    "description": "Votre enseignant IA s’en servira pour adapter la forme et le contenu du cours.",
     "profileLabel": "À propos de vous",
     "profilePlaceholder": "Complétez ou modifiez ce texte",
     "title": "Vérifiez une dernière fois"
@@ -141,5 +141,5 @@
   },
   "submitFailed": "Nous n’avons pas pu enregistrer vos informations. Votre contenu est conservé. Réessayez.",
   "submitting": "Enregistrement…",
-  "title": "Aidez votre professeur IA à vous connaître"
+  "title": "Aidez votre enseignant IA à vous connaître"
 }
