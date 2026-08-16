@@ -39,7 +39,6 @@ from sqlalchemy.exc import IntegrityError
 
 _T = TypeVar("_T")
 _LEGACY_ANSWER_VARIABLE_PREFIX = "__profile_onboarding_legacy_answer_"
-_MARKDOWNFLOW_BLOCK_SEPARATOR = "\n\n---\n\n"
 _MARKDOWNFLOW_VARIABLE_PREFIX = "?[%{{"
 
 
@@ -190,12 +189,20 @@ def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
         for variable in flow.extract_variables()
         if str(variable).strip()
     }
-    projected_blocks: list[str] = []
+    projected_parts: list[str] = []
+    document_cursor = 0
     synthetic_index = 0
     changed = False
 
     for block in flow.get_all_blocks():
-        content = str(block.content)
+        original_content = str(block.content)
+        block_start = document.find(original_content, document_cursor)
+        if block_start < 0:
+            raise ValueError("official MarkdownFlow block cannot be projected")
+        block_end = block_start + len(original_content)
+        projected_parts.append(document[document_cursor:block_start])
+
+        content = original_content
         if block.block_type == BlockType.INTERACTION:
             parsed_interaction = interaction_parser.parse(content)
             button_projection = _plan_legacy_interaction_button_projection(
@@ -242,11 +249,13 @@ def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
                     variable_name=legacy_variable,
                 )
                 changed = True
-        projected_blocks.append(content)
+        projected_parts.append(content)
+        document_cursor = block_end
 
     if not changed:
         return document
-    return _MARKDOWNFLOW_BLOCK_SEPARATOR.join(projected_blocks)
+    projected_parts.append(document[document_cursor:])
+    return "".join(projected_parts)
 
 
 def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]:
