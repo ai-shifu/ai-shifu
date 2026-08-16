@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 
@@ -149,33 +151,52 @@ def test_profile_onboarding_config_rejects_oversized_document_prompt(app, monkey
     assert saved_payloads == []
 
 
-def test_profile_onboarding_config_rejects_combined_utf8_payload_over_text_limit(
+def test_profile_onboarding_config_size_limit_uses_exact_serialized_utf8_bytes(
     app, monkeypatch
 ):
     from flaskr.service.common import profile_onboarding as module
 
     saved_values: list[str] = []
+    monkeypatch.setattr(module, "_now_iso", lambda: "2026-08-16T00:00:00Z")
     monkeypatch.setattr(
         module,
         "add_config",
         lambda _app, _key, value, **_kwargs: saved_values.append(value),
     )
-    payload = module.normalize_profile_onboarding_config_payload(
-        {"markdownflow": "测" * 22_000}
+    markdownflow_prefix = "?[Continue]\n\n---\n\n"
+    payload = module.build_profile_onboarding_config_payload(
+        enabled=False,
+        markdownflow=markdownflow_prefix,
+        document_prompt="",
+        revision=1,
+        updated_by="operator-1",
     )
+    base_size = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+    remaining_bytes = module.PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES - base_size
+    payload["markdownflow"] += "测" * (remaining_bytes // 3)
+    payload["markdownflow"] += "x" * (remaining_bytes % 3)
+
+    module.save_profile_onboarding_config_payload(
+        app,
+        payload,
+        updated_by="operator-1",
+    )
+    oversized_payload = {
+        **payload,
+        "markdownflow": payload["markdownflow"] + "测",
+    }
 
     with pytest.raises(Exception) as exc_info:
         module.save_profile_onboarding_config_payload(
-            app,
-            payload,
-            updated_by="operator-1",
+            app, oversized_payload, updated_by="operator-1"
         )
 
-    assert (
-        len(payload["markdownflow"]) < module.PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES
+    assert len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) == (
+        module.PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES
     )
+    assert len(oversized_payload["markdownflow"]) == len(payload["markdownflow"]) + 1
     assert "profile_onboarding_config" in str(exc_info.value)
-    assert saved_values == []
+    assert saved_values == [json.dumps(payload, ensure_ascii=False)]
 
 
 @pytest.mark.parametrize(
