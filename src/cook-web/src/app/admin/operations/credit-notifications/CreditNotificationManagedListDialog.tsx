@@ -92,7 +92,8 @@ export function CreditNotificationManagedListDialog({
                         {contactValue}
                       </p>
                       <p className='mt-0.5 truncate text-xs text-muted-foreground'>
-                        {item.nickname || t('module.user.defaultUserName')}
+                        {item.nickname?.trim() ||
+                          t('module.user.defaultUserName')}
                       </p>
                     </div>
                     {canDelete ? (

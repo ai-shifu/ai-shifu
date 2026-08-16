@@ -1059,7 +1059,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
               creator_bid: 'creator-1',
               mobile: '13800000000',
               email: '',
-              nickname: '',
+              nickname: '   ',
             },
           ],
         },
