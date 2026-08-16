@@ -591,7 +591,7 @@ export default function LearnerProfileDialog({
                 <div className='space-y-1'>
                   <Input
                     id='learner-profile-dialog-nickname'
-                    className='h-10 rounded-lg shadow-none focus-visible:ring-2 focus-visible:ring-primary/30'
+                    className='h-10 rounded-lg shadow-none'
                     value={nickname}
                     disabled={!loaded || busy}
                     aria-invalid={nicknameOverLimit || undefined}
@@ -666,7 +666,7 @@ export default function LearnerProfileDialog({
                 <ProfileDraftEditor
                   inputId='learner-profile-dialog-draft'
                   textareaRef={textareaRef}
-                  textareaClassName='h-[clamp(7rem,16dvh,11rem)] min-h-[clamp(7rem,16dvh,11rem)] max-h-[clamp(7rem,16dvh,11rem)] resize-none overflow-y-auto rounded-xl border-border px-4 py-3 leading-6 shadow-none focus-visible:ring-primary/30'
+                  textareaClassName='h-[clamp(7rem,16dvh,11rem)] min-h-[clamp(7rem,16dvh,11rem)] max-h-[clamp(7rem,16dvh,11rem)] resize-none overflow-y-auto rounded-xl border-border px-4 py-3 leading-6 shadow-none'
                   minRows={4}
                   autoResize={false}
                   value={profile}
