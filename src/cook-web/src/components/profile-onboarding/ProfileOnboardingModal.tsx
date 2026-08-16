@@ -511,7 +511,6 @@ export default function ProfileOnboardingModal({
                       value={draft}
                       maxLength={maxLength}
                       disabled={isBusy}
-                      label={t('module.profileOnboarding.review.profileLabel')}
                       placeholder={t(
                         'module.profileOnboarding.review.profilePlaceholder',
                       )}

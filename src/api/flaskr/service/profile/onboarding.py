@@ -37,6 +37,7 @@ from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.models import UserOnboardingState
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+from sqlalchemy.exc import IntegrityError
 
 _T = TypeVar("_T")
 
