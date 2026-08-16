@@ -1515,9 +1515,8 @@ describe('LearnerProfileDialog', () => {
       ...existingProfile,
       learner_profile: 'Updated through guided questions',
     };
-    mockGetLearnerProfile
-      .mockResolvedValueOnce(existingProfile)
-      .mockResolvedValueOnce(rerunProfile);
+    mockGetLearnerProfile.mockResolvedValueOnce(existingProfile);
+    mockCompleteGuidedProfileOnboarding.mockResolvedValueOnce(rerunProfile);
 
     renderDialog({ onSaved });
 
@@ -1562,7 +1561,41 @@ describe('LearnerProfileDialog', () => {
       screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
     ).toHaveValue('Alex');
     expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
+  });
+
+  test('closes a durably completed settings rerun when the parent refresh fails', async () => {
+    const onSaved = jest.fn().mockRejectedValue(new Error('refresh failed'));
+    mockCompleteGuidedProfileOnboarding.mockResolvedValueOnce({
+      ...existingProfile,
+      learner_profile: 'Saved before refresh failed',
+    });
+
+    renderDialog({ onSaved });
+
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: COMPLETE_SETTINGS_RERUN_LABEL }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
+      expect(onSaved).toHaveBeenCalledTimes(1);
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.profileOnboarding.refreshPending',
+      });
+    });
+    expect(
+      screen.getByDisplayValue('Saved before refresh failed'),
+    ).toBeInTheDocument();
+    expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledTimes(1);
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
   });
 
   test('closes a deferred settings rerun locally without completing it', async () => {
