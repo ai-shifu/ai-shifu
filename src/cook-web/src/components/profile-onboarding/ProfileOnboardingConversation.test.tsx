@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import ProfileOnboardingConversation, {
+  isProfileOnboardingSubmissionWithinLimits,
   resolveProfileDraftFromRunEvent,
 } from './ProfileOnboardingConversation';
 
@@ -63,6 +64,119 @@ jest.mock('markdown-flow-ui/renderer', () => ({
 describe('ProfileOnboardingConversation', () => {
   beforeEach(() => {
     mockRendererSubmission = DEFAULT_RENDERER_SUBMISSION;
+  });
+
+  test('matches backend run-input limits using Unicode code points', () => {
+    const emoji = '🧠';
+    const oneHundredValues = Array.from({ length: 100 }, (_, index) =>
+      String.fromCodePoint(0x1000 + index),
+    );
+
+    expect(
+      isProfileOnboardingSubmissionWithinLimits('v'.repeat(256), [
+        emoji.repeat(4_000),
+      ]),
+    ).toBe(true);
+    expect(
+      isProfileOnboardingSubmissionWithinLimits('v'.repeat(257), ['answer']),
+    ).toBe(false);
+    expect(
+      isProfileOnboardingSubmissionWithinLimits('profile_goal', [
+        emoji.repeat(4_001),
+      ]),
+    ).toBe(false);
+    expect(
+      isProfileOnboardingSubmissionWithinLimits(
+        'profile_goal',
+        oneHundredValues,
+      ),
+    ).toBe(true);
+    expect(
+      isProfileOnboardingSubmissionWithinLimits('profile_goal', [
+        ...oneHundredValues,
+        'extra',
+      ]),
+    ).toBe(false);
+    expect(
+      isProfileOnboardingSubmissionWithinLimits('profile_goal', [
+        'a'.repeat(4_000),
+        'b'.repeat(4_000),
+        'c'.repeat(2_000),
+      ]),
+    ).toBe(true);
+    expect(
+      isProfileOnboardingSubmissionWithinLimits('profile_goal', [
+        'a'.repeat(4_000),
+        'b'.repeat(4_000),
+        'c'.repeat(2_001),
+      ]),
+    ).toBe(false);
+  });
+
+  test('keeps an over-limit Unicode answer editable until a valid correction', async () => {
+    const onError = jest.fn();
+    mockRendererSubmission = {
+      variableName: 'profile_goal',
+      inputText: '🧠'.repeat(4_001),
+    };
+    const runSession = jest.fn(({ onMessage }) => {
+      if (runSession.mock.calls.length === 1) {
+        queueMicrotask(() => {
+          onMessage({
+            type: 'element',
+            content: {
+              element_bid: 'interaction-over-limit-answer',
+              element_type: 'interaction',
+              content: '?[%{{profile_goal}}...What would you like to learn?]',
+            },
+          });
+          onMessage({
+            type: 'done',
+            is_terminal: true,
+            content: { done: false, next_block_index: 1 },
+          });
+        });
+      }
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-input-limit' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={onError}
+      />,
+    );
+
+    const answerButton = await screen.findByRole('button', {
+      name: ANSWER_GUIDED_QUESTION_LABEL,
+    });
+    fireEvent.click(answerButton);
+
+    expect(runSession).toHaveBeenCalledTimes(1);
+    expect(answerButton).toBeEnabled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'module.profileOnboarding.guided.inputLimitError',
+    );
+    expect(onError).not.toHaveBeenCalled();
+
+    mockRendererSubmission = {
+      variableName: 'profile_goal',
+      inputText: 'Learn practical AI skills',
+    };
+    fireEvent.click(answerButton);
+
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
+    expect(runSession.mock.calls[1][0]).toEqual(
+      expect.objectContaining({
+        expectedBlockIndex: 1,
+        userInput: { profile_goal: ['Learn practical AI skills'] },
+      }),
+    );
+    expect(
+      screen.queryByText('module.profileOnboarding.guided.inputLimitError'),
+    ).not.toBeInTheDocument();
   });
 
   test('preserves official button values while keeping their display normalized', async () => {

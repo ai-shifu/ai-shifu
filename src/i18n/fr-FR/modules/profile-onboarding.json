@@ -92,6 +92,7 @@
   },
   "guided": {
     "description": "Plus votre enseignant IA vous connaît, plus le cours est facile à comprendre. Environ 1 minute.",
+    "inputLimitError": "Cette réponse est trop longue ou comporte trop de choix. Raccourcissez-la, puis renvoyez-la ; vous pouvez continuer à la modifier.",
     "missingDraft": "Nous n’avons pas pu terminer la synthèse. Répondez de nouveau aux questions.",
     "retry": "Réessayer",
     "retryableError": "La connexion a été interrompue. Votre réponse est conservée. Réessayez.",

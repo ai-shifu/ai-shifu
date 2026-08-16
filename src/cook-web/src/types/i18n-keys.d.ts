@@ -3029,6 +3029,7 @@ export type I18nKey =
   | 'module.profileOnboarding.dialog.settingsTitle'
   | 'module.profileOnboarding.dialog.undoOptimize'
   | 'module.profileOnboarding.guided.description'
+  | 'module.profileOnboarding.guided.inputLimitError'
   | 'module.profileOnboarding.guided.missingDraft'
   | 'module.profileOnboarding.guided.retry'
   | 'module.profileOnboarding.guided.retryableError'
