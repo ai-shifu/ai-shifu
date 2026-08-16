@@ -141,6 +141,17 @@ const existingProfile = {
   nickname_max_length: 64,
 };
 
+const availableSettingsOnboardingStatus = {
+  contract_version: 'profile-v2',
+  enabled: true,
+  guided_available: true,
+  should_show: false,
+  presentation: 'hidden',
+  handled: true,
+  legacy_handled: false,
+  ...existingProfile,
+};
+
 const clearedProfile = {
   learner_profile: '',
   learner_profile_updated_at: null,
@@ -169,16 +180,9 @@ describe('LearnerProfileDialog', () => {
     mockT = translateKey;
     mockLanguage = 'en-US';
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue({
-      contract_version: 'profile-v2',
-      enabled: true,
-      guided_available: true,
-      should_show: false,
-      presentation: 'hidden',
-      handled: true,
-      legacy_handled: false,
-      ...existingProfile,
-    });
+    mockGetProfileOnboardingV2.mockResolvedValue(
+      availableSettingsOnboardingStatus,
+    );
     mockCompleteGuidedProfileOnboarding.mockResolvedValue(existingProfile);
     mockOptimizeLearnerProfile.mockReset();
   });
@@ -1460,6 +1464,70 @@ describe('LearnerProfileDialog', () => {
     expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
   });
 
+  test('keeps profile editing independent from pending rerun availability', async () => {
+    let resolveOnboardingStatus: (
+      value: typeof availableSettingsOnboardingStatus,
+    ) => void = () => undefined;
+    mockGetProfileOnboardingV2.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveOnboardingStatus = resolve;
+        }),
+    );
+    mockUpdateLearnerProfile.mockResolvedValueOnce({
+      ...existingProfile,
+      learner_profile: 'Edited while rerun availability is pending',
+    });
+    const onClose = jest.fn();
+    renderDialog({ onClose });
+
+    const editor = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+    const nickname = screen.getByDisplayValue('Alex');
+    const save = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.saveChanges',
+    });
+    expect(editor).toBeEnabled();
+    expect(nickname).toBeEnabled();
+    expect(
+      screen.queryByText('module.profileOnboarding.dialog.loading'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(editor, {
+      target: { value: 'Edited while rerun availability is pending' },
+    });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+
+    await waitFor(() => {
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
+        'Edited while rerun availability is pending',
+      );
+      expect(onClose).toHaveBeenCalledWith('saved');
+    });
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveOnboardingStatus(availableSettingsOnboardingStatus);
+    });
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    ).toBeEnabled();
+  });
+
   test('keeps the editor protected after load failure and retries', async () => {
     mockGetLearnerProfile
       .mockRejectedValueOnce(new Error('load request failed'))
@@ -1861,6 +1929,86 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.queryByDisplayValue(existingProfile.learner_profile),
     ).toBeNull();
+  });
+
+  test('ignores stale rerun availability after the account scope changes', async () => {
+    let resolveUserAStatus: (
+      value: typeof availableSettingsOnboardingStatus,
+    ) => void = () => undefined;
+    mockGetProfileOnboardingV2
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveUserAStatus = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({
+        ...availableSettingsOnboardingStatus,
+        enabled: false,
+        guided_available: false,
+        learner_profile: 'User B introduction',
+        nickname: 'Bee',
+      });
+    mockGetLearnerProfile
+      .mockResolvedValueOnce(existingProfile)
+      .mockResolvedValueOnce({
+        ...existingProfile,
+        learner_profile: 'User B introduction',
+        nickname: 'Bee',
+      });
+    const onClose = jest.fn();
+    const { rerender } = render(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-a'
+        onClose={onClose}
+      />,
+    );
+
+    expect(
+      await screen.findByDisplayValue(existingProfile.learner_profile),
+    ).toBeEnabled();
+    await waitFor(() =>
+      expect(mockGetProfileOnboardingV2).toHaveBeenCalledTimes(1),
+    );
+
+    rerender(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-b'
+        onClose={onClose}
+      />,
+    );
+
+    expect(
+      await screen.findByDisplayValue('User B introduction'),
+    ).toBeEnabled();
+    await waitFor(() =>
+      expect(mockGetProfileOnboardingV2).toHaveBeenCalledTimes(2),
+    );
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveUserAStatus(availableSettingsOnboardingStatus);
+    });
+
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
+    ).toHaveValue('User B introduction');
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+    ).toHaveValue('Bee');
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    ).not.toBeInTheDocument();
   });
 
   test('does not apply profile or nickname save results after the account changes', async () => {
