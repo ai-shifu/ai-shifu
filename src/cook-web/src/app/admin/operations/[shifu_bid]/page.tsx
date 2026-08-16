@@ -751,17 +751,13 @@ export default function AdminOperationCourseDetailPage() {
         chapter.modifier_email ||
         chapter.modifier_user_bid ||
         emptyValue;
-      const secondary =
-        chapter.modifier_nickname &&
-        chapter.modifier_nickname !== t('module.user.defaultUserName')
-          ? chapter.modifier_nickname
-          : '';
+      const secondary = chapter.modifier_nickname?.trim() || '';
       return {
         primary,
         secondary,
       };
     },
-    [emptyValue, t],
+    [emptyValue],
   );
 
   const creatorDisplay = useMemo(() => {
@@ -770,13 +766,10 @@ export default function AdminOperationCourseDetailPage() {
       detail.basic_info.creator_email ||
       detail.basic_info.creator_user_bid ||
       emptyValue;
-    const secondary = detail.basic_info.creator_nickname || '';
+    const secondary = detail.basic_info.creator_nickname?.trim() || '';
     return {
       primary,
-      secondary:
-        secondary && secondary !== t('module.user.defaultUserName')
-          ? secondary
-          : '',
+      secondary,
     };
   }, [
     detail.basic_info.creator_email,
@@ -784,7 +777,6 @@ export default function AdminOperationCourseDetailPage() {
     detail.basic_info.creator_nickname,
     detail.basic_info.creator_user_bid,
     emptyValue,
-    t,
   ]);
 
   const metricCards = useMemo(

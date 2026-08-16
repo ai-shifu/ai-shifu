@@ -472,13 +472,8 @@ export default function AdminDashboardCourseFollowUpsPage() {
   );
 
   const resolveUserSecondary = useCallback(
-    (item: DashboardCourseFollowUpItem) => {
-      const nickname = item.nickname?.trim() || '';
-      if (!nickname || nickname === defaultUserName) {
-        return '';
-      }
-      return nickname;
-    },
+    (item: DashboardCourseFollowUpItem) =>
+      item.nickname?.trim() || defaultUserName,
     [defaultUserName],
   );
 
