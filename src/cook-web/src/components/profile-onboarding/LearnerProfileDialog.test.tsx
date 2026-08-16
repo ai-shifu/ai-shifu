@@ -20,6 +20,8 @@ import zhProfile from '../../../../i18n/zh-CN/modules/profile-onboarding.json';
 
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
+const COMPLETE_SETTINGS_RERUN_LABEL = 'complete settings rerun';
+const DEFER_SETTINGS_RERUN_LABEL = 'defer settings rerun';
 const translateKey = (
   key: string,
   params?: Record<string, string | number>,
@@ -71,13 +73,13 @@ const mockProfileOnboardingModal = jest.fn(
             )
           }
         >
-          complete settings rerun
+          {COMPLETE_SETTINGS_RERUN_LABEL}
         </button>
         <button
           type='button'
           onClick={() => void onSkip('0123456789abcdef0123456789abcdef')}
         >
-          defer settings rerun
+          {DEFER_SETTINGS_RERUN_LABEL}
         </button>
       </div>
     ) : null,
@@ -1543,7 +1545,7 @@ describe('LearnerProfileDialog', () => {
     );
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'complete settings rerun' }),
+      screen.getByRole('button', { name: COMPLETE_SETTINGS_RERUN_LABEL }),
     );
 
     await waitFor(() => {
@@ -1573,7 +1575,7 @@ describe('LearnerProfileDialog', () => {
       }),
     );
     fireEvent.click(
-      screen.getByRole('button', { name: 'defer settings rerun' }),
+      screen.getByRole('button', { name: DEFER_SETTINGS_RERUN_LABEL }),
     );
 
     expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
