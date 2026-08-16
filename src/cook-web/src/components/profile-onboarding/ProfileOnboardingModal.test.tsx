@@ -163,7 +163,7 @@ describe('ProfileOnboardingModal guided-only flow', () => {
       'The better your AI teacher knows you, the easier the lessons are to understand. About 1 minute.',
     );
     expect(frProfile.guided.description).toBe(
-      'Plus votre professeur IA vous connaît, plus le cours est facile à comprendre. Environ 1 minute.',
+      'Plus votre enseignant IA vous connaît, plus le cours est facile à comprendre. Environ 1 minute.',
     );
     expect('upgradeDescription' in zhProfile).toBe(false);
     expect('upgradeDescription' in enProfile).toBe(false);
