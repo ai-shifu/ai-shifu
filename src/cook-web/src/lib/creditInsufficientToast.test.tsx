@@ -49,6 +49,7 @@ describe('credit insufficient toast', () => {
         dedupeWindowMs: Number.POSITIVE_INFINITY,
         title: '当前课程的积分不足，暂时无法继续生成内容，请联系课程老师。',
         duration: 0,
+        dismissOnNavigation: true,
         action: undefined,
       }),
     );
@@ -68,6 +69,7 @@ describe('credit insufficient toast', () => {
       expect.objectContaining({
         title,
         duration: 0,
+        dismissOnNavigation: true,
         dedupeWindowMs: Number.POSITIVE_INFINITY,
       }),
     );

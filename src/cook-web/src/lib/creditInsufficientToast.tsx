@@ -52,6 +52,7 @@ export const showCreditInsufficientToast = ({
     title: getCreditInsufficientMessage(audience, code),
     variant: 'destructive',
     duration: 0,
+    dismissOnNavigation: true,
     action:
       audience === 'teacher' ? (
         <ToastAction
