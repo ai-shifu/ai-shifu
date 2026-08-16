@@ -40,7 +40,10 @@ _ALLOWED_PURPOSES = frozenset(
 )
 
 PROFILE_RESEARCH_SESSION_TTL_SECONDS = 30 * 60
-PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS = 30 * 60
+# All supported API entrypoints configure a 300-second Gunicorn worker timeout.
+# Leave one minute of headroom without making a hard-killed run keep its session
+# busy for the rest of the conversation lifetime.
+PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS = 6 * 60
 _SESSION_SCHEMA_VERSION = 1
 _MAX_DOCUMENT_CODEPOINTS = 100_000
 _MAX_BLOCK_COUNT = 100
