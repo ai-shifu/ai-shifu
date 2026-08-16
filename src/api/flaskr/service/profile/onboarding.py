@@ -34,9 +34,12 @@ from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.models import UserOnboardingState
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+from markdown_flow import BlockType, InteractionParser, MarkdownFlow
 from sqlalchemy.exc import IntegrityError
 
 _T = TypeVar("_T")
+_LEGACY_ANSWER_VARIABLE_PREFIX = "__profile_onboarding_legacy_answer_"
+_MARKDOWNFLOW_BLOCK_SEPARATOR = "\n\n---\n\n"
 
 
 def _now_iso() -> str:
@@ -84,6 +87,45 @@ def _current_values_for_response(app: Flask, user_id: str) -> dict[str, str]:
     }
 
 
+def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
+    """Give the one-release legacy wire assignment-shaped interactions."""
+
+    flow = MarkdownFlow(document=document)
+    interaction_parser = InteractionParser()
+    existing_variables = {
+        str(variable).strip()
+        for variable in flow.extract_variables()
+        if str(variable).strip()
+    }
+    projected_blocks: list[str] = []
+    synthetic_index = 0
+    changed = False
+
+    for block in flow.get_all_blocks():
+        content = str(block.content)
+        if block.block_type == BlockType.INTERACTION:
+            parsed_interaction = interaction_parser.parse(content)
+            variable_name = parsed_interaction.get("variable")
+            if not isinstance(variable_name, str) or not variable_name.strip():
+                base_name = f"{_LEGACY_ANSWER_VARIABLE_PREFIX}{synthetic_index}"
+                synthetic_name = base_name
+                collision_index = 1
+                while synthetic_name in existing_variables:
+                    synthetic_name = f"{base_name}_{collision_index}"
+                    collision_index += 1
+                existing_variables.add(synthetic_name)
+                synthetic_index += 1
+                # The official parser established the ?[...] shape. Preserve the
+                # interaction body and add only the assignment legacy UI requires.
+                content = f"?[%{{{{{synthetic_name}}}}}{content.strip()[2:]}"
+                changed = True
+        projected_blocks.append(content)
+
+    if not changed:
+        return document
+    return _MARKDOWNFLOW_BLOCK_SEPARATOR.join(projected_blocks)
+
+
 def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]:
     try:
         config_payload = load_profile_onboarding_config_payload()
@@ -94,9 +136,13 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
     configured_enabled = bool(config_payload.get("enabled"))
     markdownflow = str(config_payload.get("markdownflow") or "").strip()
     guided_available = configured_enabled and bool(markdownflow)
+    legacy_markdownflow = markdownflow
     if guided_available:
         try:
             validate_profile_onboarding_markdownflow(markdownflow)
+            legacy_markdownflow = _project_legacy_profile_onboarding_markdownflow(
+                markdownflow
+            )
         except Exception:
             app.logger.warning("profile onboarding config is invalid", exc_info=True)
             guided_available = False
@@ -147,7 +193,7 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
         "should_show": guided_available
         and not legacy_handled
         and not canonical_handled,
-        "markdownflow": markdownflow,
+        "markdownflow": legacy_markdownflow,
         "allowed_variable_keys": list(ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS),
         "current_values": _current_values_for_response(app, user_id),
         "contract_version": PROFILE_ONBOARDING_VERSION,
