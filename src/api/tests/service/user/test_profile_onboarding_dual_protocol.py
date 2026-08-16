@@ -96,7 +96,8 @@ def test_legacy_projection_handles_mixed_interactions_without_collisions():
         "Welcome.\n\n---\n\n"
         "?[%{{__profile_onboarding_legacy_answer_0}}...Assigned question]\n\n---\n\n"
         "?[%{{learning_goal}}...Safe assigned question]\n\n---\n\n"
-        "?[%{{__profile_onboarding_legacy_answer_0_1}}...Unsafe assigned question]\n\n---\n\n"
+        "?[%{{__profile_onboarding_legacy_answer_0_1}}"
+        "...Unsafe assigned question]\n\n---\n\n"
         "?[%{{__profile_onboarding_legacy_answer_1}}Continue]"
     )
     assert set(validate_profile_research_document(projected)["variables"]) == {
@@ -568,6 +569,42 @@ def test_late_v2_skip_never_downgrades_a_completed_profile(app, monkeypatch):
     assert skipped["skipped"] is False
     assert state.status == "completed"
     assert state.trigger_source == "guided"
+
+
+def test_v2_skip_locks_user_then_state_before_deciding_status(app, monkeypatch):
+    from flaskr.service.profile import onboarding as onboarding_module
+
+    lock_reads: list[tuple[str, bool]] = []
+    original_load_user = onboarding_module.load_learner_profile_user
+    original_load_state = onboarding_module.load_learner_profile_state
+
+    def load_user(user_id: str, *, for_update: bool = False):
+        lock_reads.append(("user", for_update))
+        return original_load_user(user_id, for_update=for_update)
+
+    def load_state(user_id: str, *, for_update: bool = False):
+        lock_reads.append(("state", for_update))
+        return original_load_state(user_id, for_update=for_update)
+
+    with app.app_context():
+        user_id = "protocol-skip-lock-order"
+        _create_user(user_id, learner_profile="Keep the completed profile.")
+        monkeypatch.setattr(
+            onboarding_module,
+            "load_learner_profile_user",
+            load_user,
+        )
+        monkeypatch.setattr(
+            onboarding_module,
+            "load_learner_profile_state",
+            load_state,
+        )
+
+        result = onboarding_module.skip_profile_onboarding_v2(user_id=user_id)
+
+    assert lock_reads[:2] == [("user", True), ("state", True)]
+    assert result["status"] == "completed"
+    assert result["skipped"] is False
 
 
 def test_v2_complete_accepts_dormant_canonical_pasted_trigger(app, monkeypatch):
