@@ -246,7 +246,10 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
       source,
       expect.objectContaining({
-        meta: expect.objectContaining({ skipErrorToast: true }),
+        meta: expect.objectContaining({
+          skipErrorToast: true,
+          creditInsufficientAudience: 'teacher',
+        }),
       }),
     );
 

@@ -79,6 +79,11 @@ import {
 } from '@/lib/aiServiceError';
 import { debugWarn } from '@/c-utils/debugConsole';
 import {
+  getCreditInsufficientMessage,
+  isCreditInsufficientBusinessCode,
+  showCreditInsufficientToast,
+} from '@/lib/creditInsufficientToast';
+import {
   buildElementContentItem as buildChatElementContentItem,
   isAskOrAnswerElementType,
   normalizeCanonicalChatContentList,
@@ -99,8 +104,6 @@ const RUN_STREAM_IDLE_TIMEOUT_MS = 15000;
 const MOBILE_RUN_STREAM_IDLE_TIMEOUT_MS = 60000;
 const TTS_BACKFILL_IDLE_TIMEOUT_MS = 120000;
 const STREAM_TIMEOUT_ITEM_BID_PREFIX = 'stream-timeout-error';
-const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
-
 export { ChatContentItemType };
 export type { ChatContentItem };
 
@@ -1411,36 +1414,49 @@ function useChatLogicHook({
                   : typeof rawContent?.code === 'number'
                     ? rawContent.code
                     : undefined;
-              const resolvedErrorToast = resolveLearnerErrorToast({
-                message: errorContent,
-                fallbackMessage: t('module.chat.requestFailed'),
-              });
-              const displayErrorToast = resolveAiServiceErrorToast({
-                message: resolvedErrorToast.message,
-                fallbackMessage: t('module.chat.requestFailed'),
-                includeUnknown: true,
-              });
-
-              if (displayErrorToast.isAiServiceUnavailable) {
-                toastOnce({
-                  dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
-                  dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
-                  title: displayErrorToast.message,
-                  variant: resolvedErrorToast.variant,
-                  duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+              const isCreditError =
+                isCreditInsufficientBusinessCode(businessCode);
+              if (isCreditError && businessCode !== undefined) {
+                showCreditInsufficientToast({
+                  audience: effectivePreviewMode ? 'teacher' : 'learner',
+                  code: businessCode,
                 });
               } else {
-                toast({
-                  title: displayErrorToast.message,
-                  variant: resolvedErrorToast.variant,
+                const resolvedErrorToast = resolveLearnerErrorToast({
+                  message: errorContent,
+                  fallbackMessage: t('module.chat.requestFailed'),
                 });
+                const displayErrorToast = resolveAiServiceErrorToast({
+                  message: resolvedErrorToast.message,
+                  fallbackMessage: t('module.chat.requestFailed'),
+                  includeUnknown: true,
+                });
+
+                if (displayErrorToast.isAiServiceUnavailable) {
+                  toastOnce({
+                    dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
+                    dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
+                    title: displayErrorToast.message,
+                    variant: resolvedErrorToast.variant,
+                    duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+                  });
+                } else {
+                  toast({
+                    title: displayErrorToast.message,
+                    variant: resolvedErrorToast.variant,
+                  });
+                }
               }
               if (
                 effectivePreviewMode &&
-                businessCode === CREDIT_INSUFFICIENT_ERROR_CODE &&
+                isCreditError &&
+                businessCode !== undefined &&
                 errorContent
               ) {
-                appendRunBusinessError(errorContent, businessCode);
+                appendRunBusinessError(
+                  getCreditInsufficientMessage('teacher', businessCode),
+                  businessCode,
+                );
               }
               return;
             }
@@ -1984,36 +2000,13 @@ function useChatLogicHook({
           )?.detail;
           if (
             effectivePreviewMode &&
-            businessError?.code === CREDIT_INSUFFICIENT_ERROR_CODE &&
+            isCreditInsufficientBusinessCode(businessError?.code) &&
             businessError?.message?.trim()
           ) {
-            const resolvedErrorToast = resolveLearnerErrorToast({
-              message: businessError.message.trim(),
-              fallbackMessage: t('module.chat.requestFailed'),
-            });
-            const displayErrorToast = resolveAiServiceErrorToast({
-              message: resolvedErrorToast.message,
-              fallbackMessage: t('module.chat.requestFailed'),
-              includeUnknown: true,
-            });
-            if (displayErrorToast.isAiServiceUnavailable) {
-              toastOnce({
-                dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
-                dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
-                title: displayErrorToast.message,
-                variant: resolvedErrorToast.variant,
-                duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
-              });
-            } else {
-              toast({
-                title: displayErrorToast.message,
-                variant: resolvedErrorToast.variant,
-              });
-            }
             cleanupRunStreamState();
             setHasRunFailed(true);
             appendRunBusinessError(
-              businessError.message.trim(),
+              getCreditInsufficientMessage('teacher', businessError.code),
               businessError.code,
             );
             return;

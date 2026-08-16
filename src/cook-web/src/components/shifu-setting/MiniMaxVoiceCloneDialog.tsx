@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import Link from 'next/link';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -12,6 +13,12 @@ import api from '@/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
+import type { ErrorWithCode } from '@/lib/request';
+import {
+  isCreditInsufficientBusinessCode,
+  showCreditInsufficientToast,
+} from '@/lib/creditInsufficientToast';
 import {
   Dialog,
   DialogContent,
@@ -255,16 +262,25 @@ export default function MiniMaxVoiceCloneDialog({
       formData.append('source_audio', sourceFile);
       const created = (await api.submitMinimaxTtsVoiceClone(formData, {
         skipErrorToast: true,
+        creditInsufficientAudience: 'teacher',
       })) as MiniMaxClonedVoice;
       onVoiceChange(created);
       pollVoice(created);
       await onRefreshCost();
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : t('module.shifuSetting.minimaxCloneSubmitFailed'),
-      );
+      const businessCode = (error as ErrorWithCode | undefined)?.code;
+      if (isCreditInsufficientBusinessCode(businessCode)) {
+        showCreditInsufficientToast({
+          audience: 'teacher',
+          code: businessCode,
+        });
+      } else {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : t('module.shifuSetting.minimaxCloneSubmitFailed'),
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -395,8 +411,20 @@ export default function MiniMaxVoiceCloneDialog({
           <div className='flex items-center justify-between text-sm'>
             <span className='text-muted-foreground'>{costText}</span>
             {cloneCost?.can_submit === false ? (
-              <span className='text-destructive'>
-                {t('module.shifuSetting.minimaxCloneInsufficientCredits')}
+              <span className='flex items-center gap-2 text-destructive'>
+                <span>
+                  {t('module.shifuSetting.minimaxCloneInsufficientCredits')}
+                </span>
+                <Button
+                  asChild
+                  variant='link'
+                  size='sm'
+                  className='h-auto p-0 text-destructive'
+                >
+                  <Link href={BILLING_PACKAGES_HREF}>
+                    {t('module.billing.alerts.actions.checkoutTopup')}
+                  </Link>
+                </Button>
               </span>
             ) : null}
           </div>

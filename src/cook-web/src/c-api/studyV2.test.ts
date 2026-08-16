@@ -3,7 +3,8 @@ import {
   clearPendingRequestLanguage,
   setPendingRequestLanguage,
 } from '@/lib/request-language';
-import { getRunMessage } from './studyV2';
+import { getRunMessage, streamGeneratedBlockAudio } from './studyV2';
+import { attachSseBusinessResponseFallback } from '@/lib/request';
 
 jest.mock('sse.js', () => ({
   SSE: jest.fn().mockImplementation(() => ({
@@ -87,6 +88,33 @@ describe('getRunMessage language snapshot', () => {
       listen: false,
     });
     expect(source.stream).toHaveBeenCalledTimes(1);
+    expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
+      source,
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          creditInsufficientAudience: 'learner',
+        }),
+      }),
+    );
+  });
+
+  test('marks preview runs as teacher credit errors', () => {
+    const source = getRunMessage(
+      'course-1',
+      'lesson-1',
+      true,
+      { input: 'hello' },
+      jest.fn(),
+    );
+
+    expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
+      source,
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          creditInsufficientAudience: 'teacher',
+        }),
+      }),
+    );
   });
 
   test('keeps an explicit request language as the immutable run snapshot', () => {
@@ -118,4 +146,28 @@ describe('getRunMessage language snapshot', () => {
     expect(options.headers['Accept-Language']).toBe('fr-FR');
     expect(JSON.parse(options.payload).language).toBe('fr-FR');
   });
+
+  test.each([
+    [false, 'learner'],
+    [true, 'teacher'],
+  ] as const)(
+    'marks generated-block TTS preview=%s with the %s audience',
+    (previewMode, audience) => {
+      const source = streamGeneratedBlockAudio({
+        shifu_bid: 'course-1',
+        generated_block_bid: 'block-1',
+        preview_mode: previewMode,
+        onMessage: jest.fn(),
+      });
+
+      expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
+        source,
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            creditInsufficientAudience: audience,
+          }),
+        }),
+      );
+    },
+  );
 });

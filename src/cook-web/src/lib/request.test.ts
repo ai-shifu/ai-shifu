@@ -1,5 +1,5 @@
 import { waitFor } from '@testing-library/react';
-import { toast } from '@/hooks/useToast';
+import { toast, toastOnce } from '@/hooks/useToast';
 import i18n from 'i18next';
 import {
   Request,
@@ -21,6 +21,7 @@ import {
 
 jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
+  toastOnce: jest.fn(),
 }));
 
 jest.mock('@/store', () => ({
@@ -157,6 +158,28 @@ describe('request SSE business fallback', () => {
         variant: 'destructive',
       }),
     );
+  });
+
+  test('routes credit errors through the explicit learner audience', async () => {
+    await expect(
+      handleBusinessCode(
+        {
+          code: 7101,
+          message: 'server message',
+        },
+        '',
+        { creditInsufficientAudience: 'learner' },
+      ),
+    ).rejects.toMatchObject({ code: 7101, toastHandled: true });
+
+    expect(toastOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dedupeKey: 'credit-insufficient:learner:7101',
+        duration: 0,
+        action: undefined,
+      }),
+    );
+    expect(toast).not.toHaveBeenCalled();
   });
 
   test('falls back to serviceUnavailable for server request failures', async () => {

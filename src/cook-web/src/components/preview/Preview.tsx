@@ -9,6 +9,10 @@ import { useTracking } from '@/c-common/hooks/useTracking';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
 import { buildAbsoluteUrlWithLessonId } from '@/c-utils/urlUtils';
+import {
+  DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
+  showCreditInsufficientToast,
+} from '@/lib/creditInsufficientToast';
 
 type PreviewSettingsModalProps = {
   targetId?: string;
@@ -21,11 +25,23 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
   const [loading, setLoading] = useState(false);
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
   const { data: billingOverview } = useBillingOverview();
+  const debugBlockedByCredits =
+    billingEnabled && billingOverview?.debug_allowed === false;
   const debugAllowed =
     !billingEnabled || billingOverview?.debug_allowed === true;
 
   const handleStartPreview = async () => {
-    if (loading || !debugAllowed) {
+    if (loading) {
+      return;
+    }
+    if (debugBlockedByCredits) {
+      showCreditInsufficientToast({
+        audience: 'teacher',
+        code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
+      });
+      return;
+    }
+    if (!debugAllowed) {
       return;
     }
 
@@ -37,11 +53,16 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
       trackEvent('creator_shifu_preview_click', {
         shifu_bid: currentShifu?.bid || '',
       });
-      const result = await api.previewShifu({
-        shifu_bid: currentShifu?.bid || '',
-        skip: false,
-        variables: {},
-      });
+      const result = await api.previewShifu(
+        {
+          shifu_bid: currentShifu?.bid || '',
+          skip: false,
+          variables: {},
+        },
+        {
+          creditInsufficientAudience: 'teacher',
+        },
+      );
       if (result) {
         const currentLessonId =
           (currentNode?.depth ?? 0) > 0 ? currentNode?.bid : undefined;
@@ -67,17 +88,13 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
       <Button
         variant='ghost'
         size='sm'
-        className='h-8 px-2 text-xs font-normal'
+        className='h-8 px-2 text-xs font-normal aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
         onClick={handleStartPreview}
-        disabled={loading || !debugAllowed}
+        disabled={loading || (!debugAllowed && !debugBlockedByCredits)}
+        aria-disabled={debugBlockedByCredits}
         loading={loading}
         icon={Eye}
         iconClassName='h-4 w-4'
-        title={
-          debugAllowed
-            ? undefined
-            : t('module.preview.debugDisabledBySoftLimit')
-        }
       >
         <span className='title'>{t('module.preview.previewAll')}</span>
       </Button>

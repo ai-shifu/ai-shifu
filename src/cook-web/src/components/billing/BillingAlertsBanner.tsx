@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import {
   ExclamationTriangleIcon,
   InformationCircleIcon,
@@ -9,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import type { BillingAlert } from '@/types/billing';
 import { registerBillingTranslationUsage } from '@/lib/billing';
+import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
 
 type BillingAlertsBannerProps = {
   alerts: BillingAlert[];
@@ -90,7 +92,7 @@ export function BillingAlertsBanner({
               data-testid='billing-alert-low-balance'
             >
               <Info className='mt-0.5 h-5 w-5 shrink-0 text-[var(--base-foreground,#0A0A0A)]' />
-              <div className='space-y-1'>
+              <div className='flex-1 space-y-1'>
                 <p className='text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
                   {t('module.billing.alerts.lowBalanceTitle')}
                 </p>
@@ -98,6 +100,16 @@ export function BillingAlertsBanner({
                   {t('module.billing.alerts.lowBalanceDescription')}
                 </p>
               </div>
+              <Button
+                asChild
+                variant='link'
+                size='sm'
+                className='h-auto shrink-0 p-0'
+              >
+                <Link href={BILLING_PACKAGES_HREF}>
+                  {t('module.billing.alerts.actions.checkoutTopup')}
+                </Link>
+              </Button>
             </div>
           );
         }

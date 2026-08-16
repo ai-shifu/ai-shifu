@@ -1545,8 +1545,8 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
-  it('uses the deduped friendly toast for preview credit errors with AI-service details', async () => {
-    renderHook(
+  it('does not duplicate the global credit toast for preview fallback errors', async () => {
+    const { result } = renderHook(
       () =>
         useChatLogicHook({
           ...buildBaseParams(),
@@ -1573,14 +1573,15 @@ describe('useChatLogicHook stream cleanup', () => {
         title: expect.stringContaining('deepseek'),
       }),
     );
-    expect(toastOnce).toHaveBeenCalledWith(
-      expect.objectContaining({
-        dedupeKey: 'ai-service-unavailable',
-        title: 'module.chat.contentGenerationUnavailable',
-        variant: 'destructive',
-        duration: 8000,
-      }),
-    );
+    expect(toastOnce).not.toHaveBeenCalled();
+    expect(
+      result.current.items.find(
+        item => item.type === ChatContentItemType.ERROR,
+      ),
+    ).toMatchObject({
+      business_code: 7101,
+      content: 'module.billing.creditInsufficient.teacher',
+    });
   });
 
   it('uses the longer run stream idle timeout on mobile', async () => {
