@@ -101,31 +101,6 @@ class BillingWebhookResult:
         yield self.status_code
 
 
-def handle_billing_stripe_webhook(
-    app: Flask,
-    raw_body: bytes,
-    sig_header: str,
-) -> BillingWebhookResult:
-    """Handle Stripe billing webhooks using the shared provider verifier."""
-
-    provider = get_payment_provider("stripe")
-    try:
-        notification: PaymentNotificationResult = provider.verify_webhook(
-            headers={"Stripe-Signature": sig_header},
-            raw_body=raw_body,
-            app=app,
-        )
-    except Exception as exc:  # pragma: no cover - verified via route tests
-        app.logger.exception("Stripe billing webhook verification failed: %s", exc)
-        return BillingWebhookResult(
-            status="error",
-            message=str(exc),
-            status_code=400,
-        )
-
-    return apply_billing_stripe_notification(app, notification)
-
-
 def apply_billing_stripe_notification(
     app: Flask,
     notification: PaymentNotificationResult,
@@ -383,25 +358,6 @@ def handle_billing_alipay_webhook(
         app.logger.exception("Alipay billing webhook verification failed: %s", exc)
         return BillingWebhookResult(status="error", message=str(exc), status_code=400)
     return apply_billing_native_notification(app, "alipay", notification)
-
-
-def handle_billing_wechatpay_webhook(
-    app: Flask,
-    *,
-    raw_body: bytes,
-    headers: dict[str, str],
-) -> BillingWebhookResult:
-    provider = get_payment_provider("wechatpay")
-    try:
-        notification = provider.verify_webhook(
-            headers=headers,
-            raw_body=raw_body,
-            app=app,
-        )
-    except Exception as exc:  # pragma: no cover - route-level verification path
-        app.logger.exception("WeChat Pay billing webhook verification failed: %s", exc)
-        return BillingWebhookResult(status="error", message=str(exc), status_code=400)
-    return apply_billing_native_notification(app, "wechatpay", notification)
 
 
 def apply_billing_native_notification(

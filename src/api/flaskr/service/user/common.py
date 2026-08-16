@@ -1,15 +1,12 @@
 from flask import Flask, has_app_context
 
-from typing import Optional
 
 import jwt
 
 from flaskr.i18n import get_i18n_list
-from ..common.dtos import UserInfo, UserToken
+from ..common.dtos import UserInfo
 from ..common.models import raise_error
 from ...dao import db
-from .auth import get_provider
-from .auth.base import VerificationRequest
 from .repository import (
     build_user_info_from_aggregate,
     get_user_entity_by_bid,
@@ -147,27 +144,3 @@ def update_user_info(
         if not refreshed:
             raise_error("USER.USER_NOT_FOUND")
         return build_user_info_from_aggregate(refreshed)
-
-
-def verify_sms_code(
-    app: Flask,
-    user_id,
-    phone: str,
-    chekcode: str,
-    course_id: str = None,
-    language: str = None,
-    login_context: Optional[str] = None,
-) -> UserToken:
-    provider = get_provider("phone")
-    request = VerificationRequest(
-        identifier=phone,
-        code=chekcode,
-        metadata={
-            "user_id": user_id,
-            "course_id": course_id,
-            "language": language,
-            "login_context": login_context,
-        },
-    )
-    auth_result = provider.verify(app, request)
-    return auth_result.token

@@ -248,19 +248,6 @@ function countChildren<T>(items: TreeItem<T>[], count = 0): number {
   }, count);
 }
 
-export function getChildCount<T extends Record<string, any>>(
-  items: TreeItems<T>,
-  id: UniqueIdentifier,
-) {
-  if (!id) {
-    return 0;
-  }
-
-  const item = findItemDeep(items, id);
-
-  return item ? countChildren(item.children ?? []) : 0;
-}
-
 export function removeChildrenOf<T>(
   items: FlattenedItem<T>[],
   ids: UniqueIdentifier[],

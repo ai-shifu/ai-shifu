@@ -1,10 +1,5 @@
 import React from 'react';
-
-export type ReactChangeEvent = React.ChangeEvent<
-  HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
->;
 export type ReactMouseEvent = React.MouseEvent<HTMLElement, MouseEvent>;
-export type ReactKeyboardEvent = React.KeyboardEvent<HTMLElement>;
 
 export interface ApiResponse<T = any> {
   code: number;
@@ -22,19 +17,4 @@ export interface UserInfo {
   is_creator?: boolean;
   is_operator?: boolean;
   [key: string]: any;
-}
-
-export interface CourseInfo {
-  course_id: string;
-  course_name: string;
-  course_desc: string;
-  course_keywords: string;
-  course_price: number;
-  [key: string]: any;
-}
-
-export interface RouteParams {
-  courseId?: string;
-  lessonId?: string;
-  [key: string]: string | undefined;
 }

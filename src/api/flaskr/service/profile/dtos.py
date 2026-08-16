@@ -85,19 +85,6 @@ DEFAULT_COLOR_SETTINGS = [
 
 
 @register_schema_to_swagger
-class ProfileValueDto:
-    name: str
-    value: str
-
-    def __init__(self, name: str, value: str):
-        self.name = name
-        self.value = value
-
-    def __json__(self):
-        return {"name": self.name, "value": self.value}
-
-
-@register_schema_to_swagger
 class ProfileToSave:
     key: str
     value: str

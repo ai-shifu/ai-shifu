@@ -51,21 +51,6 @@ export type ReferralInviteEventType =
   | 'invite_code_entered'
   | 'registration_submitted';
 
-export type ReferralInviteEventPayload = {
-  event_type: ReferralInviteEventType;
-  invite_code?: string;
-  landing_path?: string;
-  session_id?: string;
-  frontend_session_id?: string;
-  entry_source?: ReferralEntrySource;
-};
-
-export type ReferralInviteEventResponse = {
-  success: boolean;
-  session_id: string;
-  recognized: boolean;
-};
-
 export type AdminReferralUserSummary = {
   user_bid?: string;
   nickname?: string;
@@ -176,13 +161,6 @@ export type AdminReferralCampaignInvitationListResponse = {
   page_count: number;
 };
 
-export type AdminReferralStatusPayload = {
-  relation_status?: 'abnormal_reviewing' | 'canceled';
-  abnormal_status?: 'normal' | 'reviewing' | 'confirmed_abnormal';
-  reward_status?: 'frozen' | 'canceled';
-  operator_note?: string;
-};
-
 export const REFERRAL_RELATION_STATUS = {
   registered: 7831,
   rewardGenerated: 7832,
@@ -192,12 +170,6 @@ export const REFERRAL_RELATION_STATUS = {
   rewardSkippedCap: 7836,
   abnormalReviewing: 7837,
   canceled: 7838,
-} as const;
-
-export const REFERRAL_ABNORMAL_STATUS = {
-  normal: 7841,
-  reviewing: 7842,
-  confirmedAbnormal: 7843,
 } as const;
 
 export const REFERRAL_REWARD_STATUS = {

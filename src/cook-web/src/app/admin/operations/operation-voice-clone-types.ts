@@ -55,12 +55,5 @@ export type AdminOperationVoiceCloneFilters = {
   minimax_status_code: string;
 };
 
-export type AdminOperationVoiceCloneRegisterRequest = {
-  owner_user_bid: string;
-  display_name: string;
-  voice_id: string;
-  provider: string;
-};
-
 export const VOICE_CLONE_PROVIDERS = ['minimax', 'volcengine'] as const;
 export type VoiceCloneProvider = (typeof VOICE_CLONE_PROVIDERS)[number];

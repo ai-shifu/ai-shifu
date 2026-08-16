@@ -1,5 +1,3 @@
-import type { AdminOperationCourseUserItem } from '../operation-course-types';
-
 export type CourseUserPaymentStatus = 'all' | 'paid' | 'unpaid';
 
 export type CourseUserFilters = {
@@ -37,11 +35,4 @@ export const createCourseUserFilters = (): CourseUserFilters => ({
   userRole: 'all',
   learningStatus: 'all',
   paymentStatus: 'all',
-});
-
-export const getCourseUserLearningProgress = (
-  courseUser: AdminOperationCourseUserItem,
-) => ({
-  learnedLessonCount: courseUser.learned_lesson_count,
-  totalLessonCount: courseUser.total_lesson_count,
 });

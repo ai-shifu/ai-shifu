@@ -575,18 +575,6 @@ export const formatValue = (value?: string | null) => {
   return normalized || EMPTY_LABEL;
 };
 
-export const formatTemplateParams = (
-  value: Record<string, unknown>,
-): string => {
-  const entries = Object.entries(value || {})
-    .filter(([key]) => key.trim())
-    .sort(([left], [right]) => left.localeCompare(right));
-  if (!entries.length) {
-    return EMPTY_LABEL;
-  }
-  return JSON.stringify(Object.fromEntries(entries));
-};
-
 export const formatPlaceholderToken = (placeholder: string): string =>
   ['${', placeholder, '}'].join('');
 

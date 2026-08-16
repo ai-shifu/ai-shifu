@@ -15,7 +15,6 @@ export const FRAME_LAYOUT_MOBILE = 10;
  */
 export const FRAME_LAYOUT_PC_WIDTH = 1080;
 export const FRAME_LAYOUT_PAD_INTENSIVE_WIDTH = 800;
-export const FRAME_LAYOUT_MOBILE_WIDTH = 480;
 
 const MOBILE_USER_AGENT_PATTERN =
   /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
@@ -63,7 +62,6 @@ export const calcFrameLayout = selector => {
  * Theme options
  */
 export const THEME_LIGHT = 'light';
-export const THEME_DARK = 'dark';
 
 export const CHAT_TYPEWRITER_SPEED_MS = 30;
 

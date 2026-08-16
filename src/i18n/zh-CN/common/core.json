@@ -10,8 +10,6 @@
   "cancel": "取消",
   "close": "关闭",
   "collapse": "收起",
-  "companyAddress": "北京朝阳区望京东煌大厦19层163室",
-  "companyName": "北京潺潺山木科技有限公司",
   "confirm": "确认",
   "courseManagement": "课程管理",
   "createBlankShifu": "新建课程",
@@ -22,10 +20,8 @@
   "default": "默认",
   "errorSaveFailed": "保存失败：服务器响应无效",
   "expand": "展开",
-  "follow": "关注",
   "home": "首页",
   "legalFallbackEnglishNotice": "法语法律文件暂未提供。下方英文版本为当前参考版本。",
-  "logout": "退出",
   "mobileUnsupportedDescription": "请前往 PC 端查看",
   "mobileUnsupportedTitle": "本页面暂不支持移动端",
   "more": "更多",
@@ -47,25 +43,11 @@
   "serviceUnavailable": "服务暂不可用，请稍后重试",
   "settings": "设置",
   "shifu": "课程",
-  "shortcut": {
-    "key": {
-      "cmd": "⌘",
-      "ctrl": "Ctrl",
-      "shift": "⇧",
-      "space": "空格"
-    },
-    "title": {
-      "ask": "追问",
-      "continue": "继续（无需用户输入或选择时）",
-      "shortcut": "显示快捷方式"
-    }
-  },
   "submitFailed": "提交失败",
   "submitting": "提交中...",
   "unknownError": "未知错误",
   "unsupportedBrowserDescription": "当前 iOS 版本暂不支持，请升级到 iOS 16.4 或更高版本后再访问。",
   "unsupportedBrowserTitle": "当前 iOS 版本暂不支持",
   "userManagement": "用户管理",
-  "voiceCloneManagement": "克隆音色",
-  "waitingForCompletion": "敬请期待"
+  "voiceCloneManagement": "克隆音色"
 }

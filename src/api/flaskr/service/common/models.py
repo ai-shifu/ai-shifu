@@ -47,10 +47,6 @@ def _load_error_codes() -> dict[str, int]:
 ERROR_CODE = _load_error_codes()
 
 
-def register_error(error_name, error_code):
-    ERROR_CODE[error_name] = error_code
-
-
 def raise_param_error(param_message):
     raise AppException(
         _("server.common.paramsError").format(param_message=param_message),

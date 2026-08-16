@@ -97,10 +97,6 @@ const emitDebugConsole = (
   console[level](label, payload);
 };
 
-export const debugLog = (label: string, payload?: unknown) => {
-  emitDebugConsole('log', label, payload);
-};
-
 export const debugInfo = (label: string, payload?: unknown) => {
   emitDebugConsole('info', label, payload);
 };

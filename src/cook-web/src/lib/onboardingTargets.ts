@@ -16,9 +16,6 @@ export const ONBOARDING_TARGET_IDS = {
 
 const GUIDE_COURSE_TARGET_PREFIX = `${ONBOARDING_TARGET_IDS.guideCourseCard}-`;
 
-export type OnboardingTargetId =
-  (typeof ONBOARDING_TARGET_IDS)[keyof typeof ONBOARDING_TARGET_IDS];
-
 export const buildOnboardingTargetProps = (id: string) => ({
   [ONBOARDING_TARGET_ATTR]: id,
 });

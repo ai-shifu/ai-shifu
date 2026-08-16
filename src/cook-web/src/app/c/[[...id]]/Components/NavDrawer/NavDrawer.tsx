@@ -39,15 +39,6 @@ import type { LessonTree } from '../../hooks/useLessonTree';
  * 1: Rendered as a drawer
  */
 export const NAV_SHOW_TYPE_NORMAL = 0;
-export const NAV_SHOW_TYPE_DRAWER = 1;
-
-/**
- * Popup window states
- */
-export const POPUP_WINDOW_STATE_CLOSE = 0;
-export const POPUP_WINDOW_STATE_THEME = 2;
-export const POPUP_WINDOW_STATE_SETTING = 3;
-export const POPUP_WINDOW_STATE_FILING = 1;
 
 const NAV_DRAWER_MAX_WIDTH = '280px';
 const NAV_DRAWER_COLLAPSE_WIDTH = '64px';

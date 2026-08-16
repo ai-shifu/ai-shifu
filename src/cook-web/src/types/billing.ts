@@ -1,10 +1,3 @@
-export type BillingCenterTab =
-  | 'plans'
-  | 'ledger'
-  | 'orders'
-  | 'entitlements'
-  | 'reports';
-
 export type AdminBillingConsoleTab =
   | 'subscriptions'
   | 'orders'
@@ -409,8 +402,6 @@ export type BillingTrialWelcomeAckResult = {
   acknowledged_at: string | null;
 };
 
-export type BillingSubscriptionProduct = BillingPlan | BillingTrialOffer;
-
 export type CreatorBillingOverview = {
   creator_bid: string;
   wallet: BillingWalletSnapshot;
@@ -420,24 +411,6 @@ export type CreatorBillingOverview = {
   credit_status?: 'normal' | 'softlimit' | 'hardlimit';
   debug_allowed?: boolean;
   softlimit_threshold?: string | null;
-};
-
-export type BillingOrderSummary = {
-  bill_order_bid: string;
-  creator_bid: string;
-  product_bid: string;
-  subscription_bid: string | null;
-  order_type: BillingOrderType;
-  status: BillingOrderStatus;
-  payment_provider: BillingProvider;
-  payment_mode: BillingPaymentMode;
-  payable_amount: number;
-  paid_amount: number;
-  currency: string;
-  provider_reference_id: string;
-  failure_message?: string;
-  created_at: string;
-  paid_at: string | null;
 };
 
 export type BillingCheckoutResult = {
@@ -603,25 +576,6 @@ export type AdminBillingCustomizationDraft = {
     }
   >;
 };
-
-export type AdminBillingDomainBindingItem = BillingDomainBinding & {
-  creator_identify?: string;
-  creator_mobile?: string;
-  creator_nickname?: string;
-  custom_domain_enabled: boolean;
-  has_attention: boolean;
-};
-
-export type AdminBillingDailyUsageMetricItem = BillingDailyUsageMetricItem & {
-  creator_bid: string;
-  creator_mobile?: string;
-  creator_nickname?: string;
-};
-
-export type AdminBillingDailyLedgerSummaryItem =
-  BillingDailyLedgerSummaryItem & {
-    creator_bid: string;
-  };
 
 export type AdminBillingFocusAttentionReason =
   | 'high_consumption'

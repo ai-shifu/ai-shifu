@@ -111,16 +111,6 @@ export type AdminPromotionCampaignItem = {
   updated_at: string;
 };
 
-export type AdminPromotionCampaignDetail = {
-  campaign: AdminPromotionCampaignItem;
-  description: string;
-  created_user_bid: string;
-  created_user_name: string;
-  updated_user_bid: string;
-  updated_user_name: string;
-  latest_applied_at: string;
-};
-
 export type AdminPromotionCampaignRedemptionItem = {
   redemption_bid: string;
   user_bid: string;

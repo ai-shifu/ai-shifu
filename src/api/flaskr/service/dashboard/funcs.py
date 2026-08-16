@@ -114,30 +114,6 @@ def _normalize_dashboard_identifier(value: str) -> str:
     return normalized
 
 
-def _dashboard_learner_keyword_matches(
-    *,
-    keyword: str,
-    nickname: str,
-    mobile: str,
-    email: str,
-) -> bool:
-    normalized_keyword = _normalize_dashboard_identifier(keyword).lower()
-    if not normalized_keyword:
-        return True
-
-    normalized_nickname = str(nickname or "").strip().lower()
-    normalized_mobile = str(mobile or "").strip()
-    normalized_email = str(email or "").strip().lower()
-
-    if normalized_nickname and normalized_keyword in normalized_nickname:
-        return True
-    if "@" in normalized_keyword:
-        return bool(normalized_email) and normalized_keyword == normalized_email
-    if normalized_keyword.isdigit():
-        return bool(normalized_mobile) and normalized_keyword == normalized_mobile
-    return False
-
-
 def _build_dashboard_learner_keyword_filter(
     user_bid_column,
     keyword: str,
@@ -1106,39 +1082,6 @@ def _load_dashboard_course_user_map(
     }
 
 
-def _load_dashboard_course_last_learning_map(
-    shifu_bid: str,
-    user_bids: Sequence[str],
-) -> Dict[str, datetime]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    if not normalized_user_bids:
-        return {}
-
-    rows = (
-        db.session.query(
-            LearnProgressRecord.user_bid,
-            db.func.max(LearnProgressRecord.updated_at).label("last_learning_at"),
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.user_bid.in_(normalized_user_bids),
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        )
-        .group_by(LearnProgressRecord.user_bid)
-        .all()
-    )
-    return {
-        str(user_bid or "").strip(): last_learning_at
-        for user_bid, last_learning_at in rows
-        if str(user_bid or "").strip() and last_learning_at
-    }
-
-
 def _load_dashboard_course_joined_at_map(
     shifu_bid: str,
     user_bids: Sequence[str],
@@ -1246,41 +1189,6 @@ def _load_dashboard_course_learned_lesson_count_map(
     return {
         str(user_bid or "").strip(): int(learned_lesson_count or 0)
         for user_bid, learned_lesson_count in rows
-        if str(user_bid or "").strip()
-    }
-
-
-def _load_dashboard_course_follow_up_count_map(
-    shifu_bid: str,
-    user_bids: Sequence[str],
-) -> Dict[str, int]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    if not normalized_user_bids:
-        return {}
-
-    rows = (
-        db.session.query(
-            LearnGeneratedBlock.user_bid,
-            db.func.count(LearnGeneratedBlock.id).label("follow_up_count"),
-        )
-        .filter(
-            LearnGeneratedBlock.shifu_bid == shifu_bid,
-            LearnGeneratedBlock.user_bid.in_(normalized_user_bids),
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-            LearnGeneratedBlock.role == ROLE_STUDENT,
-        )
-        .group_by(LearnGeneratedBlock.user_bid)
-        .all()
-    )
-    return {
-        str(user_bid or "").strip(): int(follow_up_count or 0)
-        for user_bid, follow_up_count in rows
         if str(user_bid or "").strip()
     }
 

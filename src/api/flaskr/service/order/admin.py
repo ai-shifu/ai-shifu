@@ -227,7 +227,6 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
     if parsed.tzinfo is not None:
         parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
     return parsed
-    return None
 
 
 def _normalize_order_status_filter(value: Any) -> Optional[int]:

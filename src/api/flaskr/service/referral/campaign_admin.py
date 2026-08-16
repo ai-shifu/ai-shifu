@@ -50,12 +50,6 @@ from .models import (
 )
 
 
-REFERRAL_CAMPAIGN_STATUS_FILTERS = {
-    "active",
-    "not_started",
-    "ended",
-    "inactive",
-}
 REFERRAL_CAP_SCOPES = {
     REFERRAL_REWARD_CAP_SCOPE_NONE,
     REFERRAL_REWARD_CAP_SCOPE_PER_INVITER,

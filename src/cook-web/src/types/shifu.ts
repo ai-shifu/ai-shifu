@@ -94,12 +94,6 @@ export interface ProfileItem {
   is_hidden?: boolean;
 }
 
-export interface ProfileItemDefinition {
-  profile_id: string;
-  profile_key: string;
-  value: string;
-}
-
 export interface DraftMeta {
   revision: number;
   updated_at?: string | null;
@@ -405,14 +399,4 @@ export interface BlockDTO {
   properties: ContentDTO | ButtonDTO | InputDTO | OptionsDTO | GotoDTO;
   variable_bids: string[];
   resource_bids: string[];
-}
-
-export interface UIBlockDTO {
-  data: BlockDTO;
-  id: string;
-  onPropertiesChange: (properties: BlockDTO) => void;
-  onChanged: (changed: boolean) => void;
-  onEditChange: (isEdit: boolean) => void;
-  isEdit: boolean;
-  isChanged: boolean;
 }

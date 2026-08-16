@@ -95,11 +95,6 @@ export type AdminOperationCreditNotificationRequeueResponse = {
   message?: string;
 };
 
-export type AdminOperationCreditNotificationTemplateSyncRequest = {
-  notification_type: CreditNotificationType;
-  template_code: string;
-};
-
 export type AdminOperationCreditNotificationTemplateSyncResponse = {
   notification_template_bid?: string;
   notification_type: CreditNotificationType;

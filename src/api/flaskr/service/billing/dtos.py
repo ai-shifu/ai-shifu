@@ -305,15 +305,6 @@ class BillingDailyUsageMetricDTO(BillingBaseDTO):
 
 
 @register_schema_to_swagger
-class BillingDailyUsageMetricsPageDTO(BillingBaseDTO):
-    items: list[BillingDailyUsageMetricDTO]
-    page: int
-    page_count: int
-    page_size: int
-    total: int
-
-
-@register_schema_to_swagger
 class BillingDailyLedgerSummaryDTO(BillingBaseDTO):
     daily_ledger_summary_bid: str
     stat_date: str
@@ -323,15 +314,6 @@ class BillingDailyLedgerSummaryDTO(BillingBaseDTO):
     entry_count: int
     window_started_at: datetime | None
     window_ended_at: datetime | None
-
-
-@register_schema_to_swagger
-class BillingDailyLedgerSummaryPageDTO(BillingBaseDTO):
-    items: list[BillingDailyLedgerSummaryDTO]
-    page: int
-    page_count: int
-    page_size: int
-    total: int
 
 
 @register_schema_to_swagger
@@ -363,23 +345,6 @@ class BillingOrderSummaryDTO(BillingBaseDTO):
     failure_message: str
     created_at: datetime | None
     paid_at: datetime | None = None
-
-
-@register_schema_to_swagger
-class BillingOrderDetailDTO(BillingOrderSummaryDTO):
-    metadata: dict[str, Any] | None = None
-    failure_code: str = ""
-    refunded_at: datetime | None = None
-    failed_at: datetime | None = None
-
-
-@register_schema_to_swagger
-class BillingOrdersPageDTO(BillingBaseDTO):
-    items: list[BillingOrderSummaryDTO]
-    page: int
-    page_count: int
-    page_size: int
-    total: int
 
 
 @register_schema_to_swagger

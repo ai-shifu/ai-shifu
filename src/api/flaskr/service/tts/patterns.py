@@ -62,8 +62,6 @@ AV_SANDBOX_START = re.compile(
     re.IGNORECASE,
 )
 AV_CLOSING_BOUNDARY = re.compile(r"</[a-z][^>]*>\s*\n(?=[^\s<])", re.IGNORECASE)
-AV_SPEAKABLE_HINT = re.compile(r"<(p|li|h[1-6])\b", re.IGNORECASE)
-
 # Fixed marker validation
 FIXED_MARKER_TAIL = re.compile(r"^[\s!=]*$")
 

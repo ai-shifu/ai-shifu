@@ -4,11 +4,6 @@ const REDIRECT_KEY = 'google_oauth_redirect';
 const isBrowser = () =>
   typeof window !== 'undefined' && typeof sessionStorage !== 'undefined';
 
-export const googleOAuthKeys = {
-  state: STATE_KEY,
-  redirect: REDIRECT_KEY,
-};
-
 export function setGoogleOAuthState(value: string) {
   if (!isBrowser()) return;
   sessionStorage.setItem(STATE_KEY, value);

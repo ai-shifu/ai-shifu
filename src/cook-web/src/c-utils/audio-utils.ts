@@ -107,30 +107,6 @@ export const buildAudioSegmentUniqueKey = (
     params.segmentIndex,
   ].join(':');
 
-export interface AudioSegmentPayload {
-  segment_index?: number;
-  segmentIndex?: number;
-  audio_data?: string;
-  audioData?: string;
-  duration_ms?: number;
-  durationMs?: number;
-  is_final?: boolean;
-  isFinal?: boolean;
-  position?: number;
-  stream_element_number?: number;
-  streamElementNumber?: number;
-  stream_element_type?: string;
-  streamElementType?: string;
-  element_id?: string;
-  elementId?: string;
-  slide_id?: string;
-  slideId?: string;
-  av_contract?: Record<string, unknown> | null;
-  avContract?: Record<string, unknown> | null;
-  subtitle_cues?: unknown;
-  subtitleCues?: unknown;
-}
-
 const parseAudioPayloadObject = (
   payload: unknown,
 ): Record<string, unknown> | null => {

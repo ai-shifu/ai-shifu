@@ -571,7 +571,6 @@ apply_billing_subscription_provider_update = _apply_billing_subscription_provide
 apply_subscription_checkout_success = _apply_subscription_checkout_success
 apply_subscription_checkout_failure = _apply_subscription_checkout_failure
 merge_provider_metadata = _merge_provider_metadata
-extract_provider_event_time = _extract_provider_event_time
 coerce_datetime = _coerce_datetime
 is_stripe_checkout_paid = _is_stripe_checkout_paid
 normalize_bid = _normalize_bid

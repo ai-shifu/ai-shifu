@@ -97,8 +97,6 @@ export const SYS_INTERACTION_TYPE = {
   LOGIN: '_sys_login',
   NEXT_CHAPTER: '_sys_next_chapter',
 } as const;
-export type SysInteractionType =
-  (typeof SYS_INTERACTION_TYPE)[keyof typeof SYS_INTERACTION_TYPE];
 
 export const LESSON_FEEDBACK_VARIABLE_NAME =
   'sys_lesson_feedback_score' as const;
@@ -248,17 +246,6 @@ export interface StreamGeneratedBlockAudioParams {
   onMessage: (data: any) => void;
   onError?: (error: unknown) => void;
 }
-
-const getListenFlagFromPageUrl = (): boolean => {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  const listenParam = new URLSearchParams(window.location.search).get('listen');
-  return (
-    typeof listenParam === 'string' && listenParam.toLowerCase() === 'true'
-  );
-};
 
 const dispatchSseBusinessError = (
   source: { dispatchEvent: (event: Event) => void },
@@ -498,23 +485,6 @@ export const getLessonStudyRecord = async ({
       };
     });
 };
-
-/**
- * Like or dislike generated content
- * shifu_bid: shifu bid
- * generated_block_bid: generated content bid
- * action: action like | dislike | none
- * @param params
- * @returns
- */
-export async function postGeneratedContentAction(
-  params: PostGeneratedContentActionParams,
-): Promise<PostGeneratedContentActionData> {
-  const { shifu_bid, generated_block_bid, action } = params;
-  const url = `/api/learn/shifu/${shifu_bid}/generated-contents/${generated_block_bid}/${action}`;
-  // Use standard request wrapper; it will return response.data when code===0
-  return request.post(url, params);
-}
 
 export const checkIsRunning = async (
   shifu_bid: string,

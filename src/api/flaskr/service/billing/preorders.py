@@ -21,8 +21,6 @@ PREORDER_CHECKOUT_TYPE = "subscription_preorder"
 PREORDER_STATE_PENDING_EFFECTIVE = "pending_effective"
 PREORDER_STATE_EFFECTIVE_APPLIED = "effective_applied"
 PREORDER_STATE_ABSORBED_BY_UPGRADE = "absorbed_by_upgrade"
-PREORDER_STATE_VOIDED_ADMIN_ONLY = "voided_admin_only"
-
 PLAN_TIER_METADATA_KEY = "plan_tier"
 SUBSCRIPTION_PREORDER_ORDER_BID_KEY = "preorder_order_bid"
 SUBSCRIPTION_PREORDER_PROVIDER_KEY = "preorder_payment_provider"

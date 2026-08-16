@@ -75,8 +75,6 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 
 _DEFAULT_SENTENCE_ENDINGS = set(".!?。！？；;")
 
-_AV_SPEAKABLE_SANDBOX_ROOT_TAGS = {"div", "section", "article", "main", "template"}
-
 
 def _get_fence_ranges(raw: str) -> list[tuple[int, int]]:
     """

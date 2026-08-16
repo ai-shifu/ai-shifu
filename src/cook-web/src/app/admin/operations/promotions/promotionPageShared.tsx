@@ -166,7 +166,6 @@ export type PromotionStatusChangeTarget =
 export const PAGE_SIZE = 20;
 export const EMPTY_VALUE = '--';
 export const ALL_OPTION_VALUE = '__all__';
-export const PROMOTION_EXPIRING_SOON_DAYS = 7;
 export const COUPON_OPS_STATE_OPTIONS = [
   {
     value: 'expiring_soon',

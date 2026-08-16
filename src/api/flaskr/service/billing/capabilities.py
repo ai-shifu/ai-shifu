@@ -242,10 +242,6 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
 )
 
 
-def get_billing_capability_definitions() -> tuple[BillingCapabilityDefinition, ...]:
-    return _CAPABILITIES
-
-
 def iter_billing_capabilities() -> list[BillingCapabilityDTO]:
     payload: list[BillingCapabilityDTO] = []
     for capability in _CAPABILITIES:

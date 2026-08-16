@@ -4,9 +4,6 @@ export const PROFILE_ONBOARDING_ALLOWED_VARIABLE_KEYS = [
   'sys_user_background',
 ] as const;
 
-export type ProfileOnboardingVariableKey =
-  (typeof PROFILE_ONBOARDING_ALLOWED_VARIABLE_KEYS)[number];
-
 export type ProfileOnboardingStep = {
   id: string;
   intro: string;

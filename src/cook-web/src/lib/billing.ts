@@ -1,12 +1,9 @@
 import type {
-  BillingCapability,
-  BillingCapabilityStatus,
   BillingBucketCategory,
   BillingBucketSourceType,
   BillingCheckoutResult,
   BillingLedgerEntryType,
   BillingLedgerItem,
-  BillingMetricName,
   BillingOrderStatus,
   BillingOrderType,
   BillingPingxxChannel,
@@ -14,8 +11,6 @@ import type {
   BillingPlanInterval,
   BillingProvider,
   BillingRenewalEventStatus,
-  BillingRenewalEventSummary,
-  BillingRenewalEventType,
   BillingSubscriptionStatus,
   BillingTrialOffer,
   BillingTopupProduct,
@@ -127,85 +122,6 @@ const BILLING_STATUS_KEYS: Record<string, string> = {
   none: 'module.billing.status.none',
 };
 
-const BILLING_CAPABILITY_STATUS_KEYS: Record<BillingCapabilityStatus, string> =
-  {
-    active: 'module.billing.capabilities.status.active',
-    default_disabled: 'module.billing.capabilities.status.defaultDisabled',
-    internal_only: 'module.billing.capabilities.status.internalOnly',
-  };
-
-const BILLING_CAPABILITY_TITLE_KEYS: Record<string, string> = {
-  creator_catalog: 'module.billing.capabilities.items.creatorCatalog.title',
-  creator_subscription_checkout:
-    'module.billing.capabilities.items.creatorSubscriptionCheckout.title',
-  creator_wallet_ledger:
-    'module.billing.capabilities.items.creatorWalletLedger.title',
-  creator_orders: 'module.billing.capabilities.items.creatorOrders.title',
-  admin_subscriptions:
-    'module.billing.capabilities.items.adminSubscriptions.title',
-  admin_ledger_adjust:
-    'module.billing.capabilities.items.adminLedgerAdjust.title',
-  admin_entitlements:
-    'module.billing.capabilities.items.adminEntitlements.title',
-  admin_reports: 'module.billing.capabilities.items.adminReports.title',
-  runtime_billing_extensions:
-    'module.billing.capabilities.items.runtimeBillingExtensions.title',
-  billing_feature_flag:
-    'module.billing.capabilities.items.billingFeatureFlag.title',
-  renewal_task_queue:
-    'module.billing.capabilities.items.renewalTaskQueue.title',
-  usage_settlement: 'module.billing.capabilities.items.usageSettlement.title',
-  renewal_compensation:
-    'module.billing.capabilities.items.renewalCompensation.title',
-  provider_reconcile:
-    'module.billing.capabilities.items.providerReconcile.title',
-  wallet_bucket_expiration:
-    'module.billing.capabilities.items.walletBucketExpiration.title',
-  low_balance_alerts:
-    'module.billing.capabilities.items.lowBalanceAlerts.title',
-  daily_aggregate_rebuild:
-    'module.billing.capabilities.items.dailyAggregateRebuild.title',
-  domain_verify_refresh:
-    'module.billing.capabilities.items.domainVerifyRefresh.title',
-};
-
-const BILLING_CAPABILITY_DESCRIPTION_KEYS: Record<string, string> = {
-  creator_catalog:
-    'module.billing.capabilities.items.creatorCatalog.description',
-  creator_subscription_checkout:
-    'module.billing.capabilities.items.creatorSubscriptionCheckout.description',
-  creator_wallet_ledger:
-    'module.billing.capabilities.items.creatorWalletLedger.description',
-  creator_orders: 'module.billing.capabilities.items.creatorOrders.description',
-  admin_subscriptions:
-    'module.billing.capabilities.items.adminSubscriptions.description',
-  admin_ledger_adjust:
-    'module.billing.capabilities.items.adminLedgerAdjust.description',
-  admin_entitlements:
-    'module.billing.capabilities.items.adminEntitlements.description',
-  admin_reports: 'module.billing.capabilities.items.adminReports.description',
-  runtime_billing_extensions:
-    'module.billing.capabilities.items.runtimeBillingExtensions.description',
-  billing_feature_flag:
-    'module.billing.capabilities.items.billingFeatureFlag.description',
-  renewal_task_queue:
-    'module.billing.capabilities.items.renewalTaskQueue.description',
-  usage_settlement:
-    'module.billing.capabilities.items.usageSettlement.description',
-  renewal_compensation:
-    'module.billing.capabilities.items.renewalCompensation.description',
-  provider_reconcile:
-    'module.billing.capabilities.items.providerReconcile.description',
-  wallet_bucket_expiration:
-    'module.billing.capabilities.items.walletBucketExpiration.description',
-  low_balance_alerts:
-    'module.billing.capabilities.items.lowBalanceAlerts.description',
-  daily_aggregate_rebuild:
-    'module.billing.capabilities.items.dailyAggregateRebuild.description',
-  domain_verify_refresh:
-    'module.billing.capabilities.items.domainVerifyRefresh.description',
-};
-
 const BILLING_BUCKET_CATEGORY_KEYS: Record<BillingBucketCategory, string> = {
   subscription: 'module.billing.ledger.category.subscription',
   topup: 'module.billing.ledger.category.topup',
@@ -268,16 +184,6 @@ const BILLING_PROVIDER_KEYS: Record<BillingProvider, string> = {
   alipay: 'module.billing.catalog.labels.providerAlipay',
   wechatpay: 'module.billing.catalog.labels.providerWechatpay',
 };
-
-const BILLING_RENEWAL_EVENT_TYPE_KEYS: Record<BillingRenewalEventType, string> =
-  {
-    renewal: 'module.billing.renewal.eventType.renewal',
-    retry: 'module.billing.renewal.eventType.retry',
-    cancel_effective: 'module.billing.renewal.eventType.cancelEffective',
-    downgrade_effective: 'module.billing.renewal.eventType.downgradeEffective',
-    expire: 'module.billing.renewal.eventType.expire',
-    reconcile: 'module.billing.renewal.eventType.reconcile',
-  };
 
 const BILLING_RENEWAL_EVENT_STATUS_KEYS: Record<
   BillingRenewalEventStatus,
@@ -410,33 +316,6 @@ export function resolveBillingSubscriptionStatusLabel(
 ): string {
   const normalizedStatus = String(status || 'none');
   return t(BILLING_STATUS_KEYS[normalizedStatus] || BILLING_STATUS_KEYS.none);
-}
-
-export function resolveBillingCapabilityStatusLabel(
-  t: BillingTranslator,
-  status: BillingCapabilityStatus,
-): string {
-  return t(BILLING_CAPABILITY_STATUS_KEYS[status]);
-}
-
-export function resolveBillingCapabilityTitle(
-  t: BillingTranslator,
-  capability: BillingCapability,
-): string {
-  return t(
-    BILLING_CAPABILITY_TITLE_KEYS[capability.key] ||
-      'module.billing.capabilities.fallbackTitle',
-  );
-}
-
-export function resolveBillingCapabilityDescription(
-  t: BillingTranslator,
-  capability: BillingCapability,
-): string {
-  return t(
-    BILLING_CAPABILITY_DESCRIPTION_KEYS[capability.key] ||
-      'module.billing.capabilities.fallbackDescription',
-  );
 }
 
 export function resolveBillingProductTitle(
@@ -718,38 +597,6 @@ export function resolveBillingLedgerUsageType(
   return null;
 }
 
-export function resolveBillingUsageTypeLabel(
-  t: BillingTranslator,
-  usageType: BillingUsageType,
-): string {
-  switch (usageType) {
-    case 'tts':
-      return t('module.billing.reports.usageType.tts');
-    default:
-      return t('module.billing.reports.usageType.llm');
-  }
-}
-
-export function resolveBillingMetricLabel(
-  t: BillingTranslator,
-  metric: BillingMetricName,
-): string {
-  switch (metric) {
-    case 'llm_input_tokens':
-      return t('module.billing.reports.metric.llmInputTokens');
-    case 'llm_cache_tokens':
-      return t('module.billing.reports.metric.llmCacheTokens');
-    case 'tts_request_count':
-      return t('module.billing.reports.metric.ttsRequestCount');
-    case 'tts_output_chars':
-      return t('module.billing.reports.metric.ttsOutputChars');
-    case 'tts_input_chars':
-      return t('module.billing.reports.metric.ttsInputChars');
-    default:
-      return t('module.billing.reports.metric.llmOutputTokens');
-  }
-}
-
 export function resolveBillingOrderStatusLabel(
   t: BillingTranslator,
   status: BillingOrderStatus,
@@ -771,13 +618,6 @@ export function resolveBillingProviderLabel(
   return t(BILLING_PROVIDER_KEYS[provider]);
 }
 
-export function resolveBillingRenewalEventTypeLabel(
-  t: BillingTranslator,
-  eventType: BillingRenewalEventType,
-): string {
-  return t(BILLING_RENEWAL_EVENT_TYPE_KEYS[eventType]);
-}
-
 export function resolveBillingRenewalEventStatusLabel(
   t: BillingTranslator,
   status: BillingRenewalEventStatus,
@@ -787,28 +627,6 @@ export function resolveBillingRenewalEventStatusLabel(
 
 export function resolveBillingEmptyLabel(t: BillingTranslator): string {
   return t('module.billing.common.empty');
-}
-
-export function buildBillingRenewalContextLabel(
-  t: BillingTranslator,
-  locale: string,
-  event: BillingRenewalEventSummary | null | undefined,
-): string {
-  if (!event) {
-    return resolveBillingEmptyLabel(t);
-  }
-
-  const statusLabel = resolveBillingRenewalEventStatusLabel(t, event.status);
-  if (event.last_error) {
-    return `${statusLabel} · ${event.last_error}`;
-  }
-  if (event.scheduled_at) {
-    return `${statusLabel} · ${t('module.billing.admin.subscriptions.table.scheduled')} ${formatBillingDateTime(event.scheduled_at, locale)}`;
-  }
-  if (event.processed_at) {
-    return `${statusLabel} · ${formatBillingDateTime(event.processed_at, locale)}`;
-  }
-  return statusLabel;
 }
 
 export function openBillingCheckoutUrl(url: string): void {

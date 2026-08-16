@@ -12,13 +12,6 @@ export const PAY_CHANNELS = [
   { type: PAY_CHANNEL_STRIPE, name: 'Stripe' },
 ];
 
-export const getPayChannelOptions = () => {
-  return PAY_CHANNELS.map(item => ({
-    label: item.name,
-    value: item.type,
-  }));
-};
-
 export const ORDER_STATUS = {
   BUY_STATUS_INIT: 501,
   BUY_STATUS_SUCCESS: 502,

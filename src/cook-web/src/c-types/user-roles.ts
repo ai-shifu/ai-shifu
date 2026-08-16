@@ -14,14 +14,3 @@ export interface UserRoleInfo {
   hasValidToken: boolean;
   permissions: string[];
 }
-
-export type UserRoleChecker = {
-  getUserRole: () => UserRole;
-  getUserRoleInfo: () => UserRoleInfo;
-  isGuest: () => boolean;
-  isRegistered: () => boolean;
-  isCreator: () => boolean;
-  isAdmin: () => boolean;
-  hasPermission: (permission: string) => boolean;
-  canAccess: (requiredRole: UserRole) => boolean;
-};
