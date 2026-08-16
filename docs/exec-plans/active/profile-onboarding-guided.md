@@ -14,6 +14,8 @@ Deliver the second stacked learner-profile PR on `sunner/profile-onboarding-guid
 - [x] 2026-08-10 14:30 CST: Passed focused backend/frontend regressions, static gates, repository harness checks, and four-viewport browser QA; fixed short-height interaction clipping and the 320-pixel French mobile header found by visual inspection.
 - [x] 2026-08-10 14:50 CST: Rebased the independent implementation and review-fix commits onto final PR1 head `34b6260c6`, then verified ancestry and PR1 sign-in/profile-state preservation.
 - [x] 2026-08-10 15:05 CST: Pushed ready stacked PR #2308, passed all GitHub checks including the runtime smoke harness, and confirmed the natural review window produced no actionable threads.
+- [x] 2026-08-16 16:15 CST: Rebased the seven PR2 commits onto rewritten PR1 head `bffec9712`, preserving the latest nickname, optimizer, password handoff, identity refresh, and shared learner-profile dialog behavior.
+- [ ] 2026-08-16: Close the three naturally reported review findings with independent verified commits, refresh the ready PR, and re-run CI plus the organic feedback window.
 
 ## Surprises & Discoveries
 
@@ -28,7 +30,7 @@ Deliver the second stacked learner-profile PR on `sunner/profile-onboarding-guid
 
 ## Outcomes & Retrospective
 
-Implementation, publication, and verification are complete in ready stacked PR #2308. The final stack preserves the legacy learner/admin protocol while adding a nested V2 contract, a direct Redis-backed official MarkdownFlow runtime, and guided/review entry points in courses, settings, and admin preview. Rebase verification passed 262 focused backend tests with 4 skips, 103 focused frontend tests, 61 PR1 regression tests, TypeScript, targeted lint/format, translation parity and usage, architecture with zero new violations, the repository harness, and diff checks. Browser QA covered desktop, portrait mobile, narrow French error, and landscape guided/review states; temporary harness routes stayed outside the committed tree. GitHub backend, contract, lint, Prettier, translation, repository, security, and runtime-harness checks passed, and the organic review-thread audit found no actionable feedback.
+The ready stacked PR is active again after PR1 rewrote its history and natural review produced three actionable compatibility findings. The implementation has been replayed onto current PR1 without restoring deleted settings components; local regression, review-fix, publication, and fresh CI evidence are in progress.
 
 ## Context and Orientation
 
