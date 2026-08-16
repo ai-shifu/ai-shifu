@@ -354,12 +354,12 @@ def _commit_v2_state_with_race_retry(
 
 
 def skip_profile_onboarding_v2(*, user_id: str) -> dict[str, Any]:
-    # Reject missing/deleted users before creating the fixed state row.
-    load_learner_profile_user(user_id)
-
     def operation() -> UserOnboardingState:
-        user = load_learner_profile_user(user_id)
-        state = load_learner_profile_state(user_id)
+        # Match canonical completion's user -> state lock order. Besides
+        # serializing skip against a concurrent completion, populate_existing
+        # prevents an identity-map snapshot from downgrading durable state.
+        user = load_learner_profile_user(user_id, for_update=True)
+        state = load_learner_profile_state(user_id, for_update=True)
         if state is None:
             has_learner_profile = bool(str(user.learner_profile or "").strip())
             state = UserOnboardingState(
