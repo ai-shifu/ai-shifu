@@ -49,7 +49,9 @@ def test_profile_onboarding_config_uses_runtime_validation(app, monkeypatch):
     assert result["revision"] == 5
     assert result["config_revision"] == 5
     assert result["version"] == 5
+    assert result["markdownflow"] == document
     assert result["document_prompt"] == "Ask concise follow-up questions."
+    assert saved_payloads[0]["markdownflow"] == document
     assert result["allowed_variable_keys"] == [
         "sys_user_nickname",
         "sys_user_style",
