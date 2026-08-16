@@ -38,6 +38,10 @@ import {
   AI_SERVICE_ERROR_TOAST_KEY,
   resolveAiServiceErrorToast,
 } from '@/lib/aiServiceError';
+import {
+  isCreditInsufficientBusinessCode,
+  showCreditInsufficientToast,
+} from '@/lib/creditInsufficientToast';
 export type { AskMessage } from './askState';
 
 export interface AskBlockProps {
@@ -318,23 +322,36 @@ export default function AskBlock({
 
             const backendMessage =
               typeof response.content === 'string' ? response.content : '';
-            const displayErrorToast = resolveAiServiceErrorToast({
-              message: backendMessage,
-              fallbackMessage: t('module.chat.outputInProgress'),
-              includeUnknown: true,
-            });
-            if (displayErrorToast.isAiServiceUnavailable) {
-              toastOnce({
-                dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
-                dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
-                title: displayErrorToast.message,
-                variant: 'destructive',
-                duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+            const businessCode =
+              typeof response.code === 'number'
+                ? response.code
+                : typeof response.content?.code === 'number'
+                  ? response.content.code
+                  : undefined;
+            if (isCreditInsufficientBusinessCode(businessCode)) {
+              showCreditInsufficientToast({
+                audience: preview_mode ? 'teacher' : 'learner',
+                code: businessCode,
               });
             } else {
-              toast({
-                title: displayErrorToast.message,
+              const displayErrorToast = resolveAiServiceErrorToast({
+                message: backendMessage,
+                fallbackMessage: t('module.chat.outputInProgress'),
+                includeUnknown: true,
               });
+              if (displayErrorToast.isAiServiceUnavailable) {
+                toastOnce({
+                  dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
+                  dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
+                  title: displayErrorToast.message,
+                  variant: 'destructive',
+                  duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+                });
+              } else {
+                toast({
+                  title: displayErrorToast.message,
+                });
+              }
             }
 
             sseRef.current?.close();

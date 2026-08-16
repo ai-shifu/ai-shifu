@@ -462,6 +462,12 @@
   "common": {
     "empty": "Not available"
   },
+  "creditInsufficient": {
+    "learner": "This course does not have enough credits to generate more content. Please contact the course teacher.",
+    "purchaseActionAltText": "Open the credit purchase page",
+    "teacher": "Your credit balance is insufficient. You cannot continue right now.",
+    "teacherSoftlimit": "Your credit balance is below the reminder threshold. Debug previews are temporarily unavailable."
+  },
   "customization": {
     "actions": {
       "clear": "Clear",
