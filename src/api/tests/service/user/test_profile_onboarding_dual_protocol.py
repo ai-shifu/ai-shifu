@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from types import SimpleNamespace
 
 from flaskr.dao import db
@@ -19,6 +20,35 @@ LEGACY_UNSAFE_PROJECTED_FLOW = (
     "Welcome.\n\n---\n\n"
     "?[%{{__profile_onboarding_legacy_answer_0}}...What kind of work do you do?]"
 )
+LEGACY_DISTINCT_BUTTON_FLOW = "?[%{{sys_user_style}} Short//brief | Detailed//full]"
+LEGACY_DISTINCT_BUTTON_PROJECTED_FLOW = "?[%{{sys_user_style}} brief | full]"
+
+
+def _parse_retiring_web_step(content: str) -> dict[str, object]:
+    """Mirror the retired frontend parser's assignment and choice rules."""
+
+    interaction_match = re.fullmatch(r"\?\[([\s\S]*?)\]", content)
+    assert interaction_match is not None
+    step_match = re.fullmatch(
+        r"%\{\{\s*([^}\s]+)\s*\}\}\s*([\s\S]*)",
+        interaction_match.group(1),
+    )
+    assert step_match is not None
+    variable_name = step_match.group(1).strip()
+    rest = step_match.group(2).strip()
+    is_text_input = rest.startswith("...")
+    prompt = rest[3:].strip() if is_text_input else rest
+    options = (
+        [option.strip() for option in rest.split("|") if option.strip()]
+        if not is_text_input and "|" in rest
+        else []
+    )
+    return {
+        "variable": variable_name,
+        "options": options,
+        "prompt": "" if len(options) > 1 else prompt,
+        "type": "choice" if len(options) > 1 else "text",
+    }
 
 
 def _create_user(user_bid: str, *, learner_profile: str = "") -> None:
@@ -74,6 +104,83 @@ def test_legacy_projection_replaces_raw_names_normalized_by_official_parser():
     )
 
 
+def test_legacy_projection_uses_official_button_values_as_legacy_choices():
+    from flaskr.service.profile.onboarding import (
+        _project_legacy_profile_onboarding_markdownflow,
+    )
+    from markdown_flow import InteractionParser
+
+    projected = _project_legacy_profile_onboarding_markdownflow(
+        LEGACY_DISTINCT_BUTTON_FLOW
+    )
+
+    assert projected == LEGACY_DISTINCT_BUTTON_PROJECTED_FLOW
+    assert InteractionParser().parse(projected)["buttons"] == [
+        {"display": "brief", "value": "brief"},
+        {"display": "full", "value": "full"},
+    ]
+    assert _parse_retiring_web_step(projected) == {
+        "variable": "sys_user_style",
+        "options": ["brief", "full"],
+        "prompt": "",
+        "type": "choice",
+    }
+
+
+def test_legacy_projection_rebuilds_explicit_same_value_buttons():
+    from flaskr.service.profile.onboarding import (
+        _project_legacy_profile_onboarding_markdownflow,
+    )
+
+    projected = _project_legacy_profile_onboarding_markdownflow(
+        "?[%{{sys_user_style}} Short//Short | Detailed//Detailed]"
+    )
+
+    assert projected == "?[%{{sys_user_style}} Short | Detailed]"
+    assert _parse_retiring_web_step(projected)["options"] == [
+        "Short",
+        "Detailed",
+    ]
+
+
+def test_legacy_projection_drops_unsupported_button_free_text_question():
+    from flaskr.service.profile.onboarding import (
+        _project_legacy_profile_onboarding_markdownflow,
+    )
+
+    projected = _project_legacy_profile_onboarding_markdownflow(
+        "?[%{{sys_user_style}} Short//brief | Detailed//full | ...Other style?]"
+    )
+
+    assert projected == LEGACY_DISTINCT_BUTTON_PROJECTED_FLOW
+    legacy_step = _parse_retiring_web_step(projected)
+    assert legacy_step["options"] == ["brief", "full"]
+    assert all("Other style?" not in option for option in legacy_step["options"])
+
+
+def test_legacy_projection_isolates_values_the_old_parser_would_trim():
+    from flaskr.service.profile.onboarding import (
+        _project_legacy_profile_onboarding_markdownflow,
+    )
+
+    document = (
+        "?[%{{__profile_onboarding_legacy_answer_0}}...Reserved]"
+        "\n\n---\n\n"
+        "?[%{{sys_user_style}} Short// brief | Detailed//full]"
+    )
+
+    projected = _project_legacy_profile_onboarding_markdownflow(document)
+
+    assert projected == (
+        "?[%{{__profile_onboarding_legacy_answer_0}}...Reserved]"
+        "\n\n---\n\n"
+        "?[%{{__profile_onboarding_legacy_answer_0_1}} brief | full]"
+    )
+    legacy_step = _parse_retiring_web_step(projected.split("\n\n---\n\n")[1])
+    assert legacy_step["variable"] == "__profile_onboarding_legacy_answer_0_1"
+    assert legacy_step["options"] == ["brief", "full"]
+
+
 def test_legacy_projection_handles_mixed_interactions_without_collisions():
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
@@ -86,8 +193,8 @@ def test_legacy_projection_handles_mixed_interactions_without_collisions():
         "Welcome.\n\n---\n\n"
         "?[%{{__profile_onboarding_legacy_answer_0}}...Assigned question]\n\n---\n\n"
         "?[%{{learning_goal}}...Safe assigned question]\n\n---\n\n"
-        "?[%{{job role}}...Unsafe assigned question]\n\n---\n\n"
-        "?[Continue]"
+        "?[%{{job role}} Teacher//teacher | Student//student]\n\n---\n\n"
+        "?[Continue//continue | Later//later]"
     )
 
     projected = _project_legacy_profile_onboarding_markdownflow(document)
@@ -97,8 +204,8 @@ def test_legacy_projection_handles_mixed_interactions_without_collisions():
         "?[%{{__profile_onboarding_legacy_answer_0}}...Assigned question]\n\n---\n\n"
         "?[%{{learning_goal}}...Safe assigned question]\n\n---\n\n"
         "?[%{{__profile_onboarding_legacy_answer_0_1}}"
-        "...Unsafe assigned question]\n\n---\n\n"
-        "?[%{{__profile_onboarding_legacy_answer_1}}Continue]"
+        " teacher | student]\n\n---\n\n"
+        "?[%{{__profile_onboarding_legacy_answer_1}} continue | later]"
     )
     assert set(validate_profile_research_document(projected)["variables"]) == {
         "__profile_onboarding_legacy_answer_0",
@@ -106,6 +213,143 @@ def test_legacy_projection_handles_mixed_interactions_without_collisions():
         "__profile_onboarding_legacy_answer_0_1",
         "__profile_onboarding_legacy_answer_1",
     }
+
+
+def test_legacy_button_projection_completion_keeps_protocol_storage_isolated(
+    app, monkeypatch, test_client
+):
+    from flaskr.service.common.profile_onboarding import (
+        PROFILE_ONBOARDING_STATE_KEY,
+    )
+    from flaskr.service.profile.onboarding import get_profile_onboarding_status
+
+    document = (
+        f"{LEGACY_DISTINCT_BUTTON_FLOW}\n\n---\n\n?[Continue//continue | Later//later]"
+    )
+    config = {
+        "enabled": True,
+        "markdownflow": document,
+        "revision": 12,
+    }
+    _set_config(monkeypatch, config)
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: SimpleNamespace(
+            user_id="protocol-button-values",
+            language="en-US",
+            is_operator=False,
+        ),
+    )
+
+    with app.app_context():
+        _create_user("protocol-button-values")
+        fresh = get_profile_onboarding_status(
+            app,
+            user_id="protocol-button-values",
+        )
+
+    response = test_client.post(
+        "/api/user/profile-onboarding/complete",
+        headers={"Token": "token"},
+        json={
+            "skipped": False,
+            "variables": {
+                "sys_user_style": "brief",
+                "__profile_onboarding_legacy_answer_0": "continue",
+            },
+        },
+    )
+
+    with app.app_context():
+        user = UserInfo.query.filter_by(user_bid="protocol-button-values").one()
+        values = {
+            row.key: row.value
+            for row in VariableValue.query.filter_by(
+                user_bid="protocol-button-values",
+                deleted=0,
+            ).all()
+        }
+        v2_state = UserOnboardingState.query.filter_by(
+            user_bid="protocol-button-values"
+        ).first()
+
+    body = response.get_json(force=True)
+    assert body["code"] == 0
+    assert body["data"]["variables"] == {"sys_user_style": "brief"}
+    assert user.learner_profile == ""
+    assert values["sys_user_style"] == "brief"
+    assert set(values) == {"sys_user_style", PROFILE_ONBOARDING_STATE_KEY}
+    assert v2_state is None
+
+    assert fresh["markdownflow"] == (
+        f"{LEGACY_DISTINCT_BUTTON_PROJECTED_FLOW}\n\n---\n\n"
+        "?[%{{__profile_onboarding_legacy_answer_0}} continue | later]"
+    )
+    assert fresh["profile_v2"]["guided_available"] is True
+    assert config["markdownflow"] == document
+
+
+def test_legacy_trimmed_button_projection_cannot_write_system_profile(
+    app, monkeypatch, test_client
+):
+    from flaskr.service.common.profile_onboarding import (
+        PROFILE_ONBOARDING_STATE_KEY,
+    )
+    from flaskr.service.profile.onboarding import get_profile_onboarding_status
+
+    document = "?[%{{sys_user_style}} Short// brief | Detailed//full]"
+    _set_config(
+        monkeypatch,
+        {
+            "enabled": True,
+            "markdownflow": document,
+            "revision": 13,
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: SimpleNamespace(
+            user_id="protocol-spaced-button-value",
+            language="en-US",
+            is_operator=False,
+        ),
+    )
+
+    with app.app_context():
+        _create_user("protocol-spaced-button-value")
+        fresh = get_profile_onboarding_status(
+            app,
+            user_id="protocol-spaced-button-value",
+        )
+
+    assert fresh["markdownflow"] == (
+        "?[%{{__profile_onboarding_legacy_answer_0}} brief | full]"
+    )
+    legacy_step = _parse_retiring_web_step(fresh["markdownflow"])
+    synthetic_variable = str(legacy_step["variable"])
+
+    response = test_client.post(
+        "/api/user/profile-onboarding/complete",
+        headers={"Token": "token"},
+        json={
+            "skipped": False,
+            "variables": {synthetic_variable: "brief"},
+        },
+    )
+
+    with app.app_context():
+        values = {
+            row.key: row.value
+            for row in VariableValue.query.filter_by(
+                user_bid="protocol-spaced-button-value",
+                deleted=0,
+            ).all()
+        }
+
+    body = response.get_json(force=True)
+    assert body["code"] == 0
+    assert body["data"]["variables"] == {}
+    assert set(values) == {PROFILE_ONBOARDING_STATE_KEY}
 
 
 def test_legacy_projection_failure_keeps_status_fail_open(app, monkeypatch):
