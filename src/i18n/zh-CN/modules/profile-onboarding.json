@@ -92,6 +92,7 @@
   },
   "guided": {
     "description": "AI 老师越了解你，讲的课就越容易听懂。大约 1 分钟。",
+    "inputLimitError": "回答太长或选择太多，请精简后再提交。你的回答仍可继续修改。",
     "missingDraft": "没能完成内容整理，请重新回答问题。",
     "retry": "再试一次",
     "retryableError": "连接中断了，你的回答还在，请再试一次。",
