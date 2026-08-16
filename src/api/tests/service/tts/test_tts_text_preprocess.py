@@ -210,3 +210,114 @@ def test_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatch):
     assert any("这是后续讲解。" in t for t in captured)
     assert all("picx.zhimg.com" not in t for t in captured)
     assert all("![" not in t for t in captured)
+
+
+def test_preprocess_for_tts_removes_interaction_block(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    # Real production content: the interaction block leaked into the narrated
+    # text element and its options were synthesized as if they were lesson text.
+    text = (
+        "好，咱们先不急着背，先看看你现在的底子在哪。你心里最没底的是哪一块？\n\n"
+        "?[概念还含糊 | 会算但老错 | 几乎空白]"
+    )
+    cleaned = preprocess_for_tts(text)
+
+    assert "你心里最没底的是哪一块？" in cleaned
+    assert "?[" not in cleaned
+    assert "概念还含糊" not in cleaned
+    assert "几乎空白" not in cleaned
+
+
+def test_preprocess_for_tts_removes_interaction_block_with_variable(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    text = "这节讲完了。\n\n?[%{{l04_check}} 概念清楚了 | 会做题了 | 还得再练]"
+    cleaned = preprocess_for_tts(text)
+
+    assert "这节讲完了。" in cleaned
+    assert "?[" not in cleaned
+    assert "l04_check" not in cleaned
+    assert "概念清楚了" not in cleaned
+
+
+def test_preprocess_for_tts_removes_interaction_block_variants(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    # Assert each payload is gone, not just the `?[` marker: a regression could
+    # leave the option text behind and still satisfy a marker-only check.
+    for block, forbidden in (
+        ("?[下一节//_sys_next_chapter]", ("下一节", "_sys_next_chapter")),
+        ("?[...填写例子]", ("填写例子",)),
+        ("?[填写形式]", ("填写形式",)),
+        ("?[]", ()),
+    ):
+        cleaned = preprocess_for_tts(f"讲解正文。\n\n{block}")
+
+        assert "讲解正文。" in cleaned
+        assert "?[" not in cleaned
+        for fragment in forbidden:
+            assert fragment not in cleaned
+
+
+def test_preprocess_for_tts_strips_incomplete_interaction_tail(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    # A streaming chunk can end mid-block; half an option list must not be read.
+    text = "先摸个底。\n\n?[概念还含糊 | 会算但"
+    cleaned = preprocess_for_tts(text)
+
+    assert cleaned == "先摸个底。"
+    assert "?[" not in cleaned
+    assert "概念还含糊" not in cleaned
+
+
+def test_preprocess_for_tts_removes_unresolved_variable_placeholders(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    text = "同学 {{sys_user_nickname}} 你好，欢迎回来 %{{preserved}}。"
+    cleaned = preprocess_for_tts(text)
+
+    assert "你好" in cleaned
+    assert "{{" not in cleaned
+    assert "sys_user_nickname" not in cleaned
+    assert "preserved" not in cleaned
+
+
+def test_preprocess_for_tts_keeps_regular_markdown_links(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    # `?[` is MarkdownFlow syntax; a plain markdown link must keep its label.
+    text = "详见 [官方文档](https://example.com/docs)。"
+    cleaned = preprocess_for_tts(text)
+
+    assert "官方文档" in cleaned
+    assert "example.com" not in cleaned
+
+
+def test_preprocess_for_tts_keeps_markdown_link_directly_after_question_mark(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    # `?[label](url)` is a markdown link preceded by a question mark, not an
+    # interaction block. Dropping just the label would strand the URL, and the
+    # synthesizer would spell the address out loud.
+    text = "想了解更多吗?[官方文档](https://example.com/docs)。"
+    cleaned = preprocess_for_tts(text)
+
+    assert "官方文档" in cleaned
+    assert "example.com" not in cleaned
+    assert "https" not in cleaned
