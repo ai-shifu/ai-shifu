@@ -221,6 +221,28 @@ describe('ProfileOnboardingAdminPage', () => {
     });
   });
 
+  test('shows localized starter values for a virgin configuration', async () => {
+    mockGetConfig.mockResolvedValue({
+      enabled: false,
+      markdownflow: '',
+      document_prompt: '',
+      config_revision: 0,
+      updated_by: '',
+      updated_at: '',
+    });
+
+    render(<ProfileOnboardingAdminPage />);
+
+    expect(
+      await screen.findByLabelText(
+        'module.profileOnboarding.admin.markdownflow',
+      ),
+    ).toHaveValue('module.profileOnboarding.admin.defaultMarkdownflow');
+    expect(
+      screen.getByLabelText('module.profileOnboarding.admin.documentPrompt'),
+    ).toHaveValue('module.profileOnboarding.admin.defaultDocumentPrompt');
+  });
+
   test('accepts the legacy version alias and compatibility allowlist', async () => {
     mockGetConfig.mockResolvedValue({
       enabled: false,
