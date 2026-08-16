@@ -33,6 +33,7 @@
   "characterCount": "已输入 {count} / {max} 字",
   "characterCountOverLimit": "已输入 {count} 字，最多 {max} 字，请精简后再保存。",
   "complete": "确认并保存",
+  "completeCompact": "保存",
   "dialog": {
     "cancel": "取消",
     "chips": {
@@ -89,7 +90,6 @@
     "settingsTitle": "向 AI 老师介绍你自己",
     "undoOptimize": "撤销"
   },
-  "completeCompact": "保存",
   "guided": {
     "description": "AI 老师越了解你，讲的课就越容易听懂。大约 1 分钟。",
     "missingDraft": "没能完成内容整理，请重新回答问题。",
