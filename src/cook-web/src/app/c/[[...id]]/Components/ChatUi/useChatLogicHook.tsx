@@ -20,6 +20,7 @@ import {
   StudyRecordItem,
   LikeStatus,
   AudioCompleteData,
+  AudioSegmentData,
   type ListenSlideData,
   type ElementType,
   getRunMessage,
@@ -103,6 +104,122 @@ const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
 export { ChatContentItemType };
 export type { ChatContentItem };
+
+const findAudioTargetItem = (items: ChatContentItem[], bid: string) => {
+  if (!bid) {
+    return undefined;
+  }
+
+  for (const item of items) {
+    if (item.element_bid === bid || item.generated_block_bid === bid) {
+      return item;
+    }
+
+    const askMessage = item.ask_list?.find(
+      message =>
+        message.element_bid === bid || message.generated_block_bid === bid,
+    );
+    if (askMessage) {
+      return askMessage;
+    }
+  }
+
+  return undefined;
+};
+
+const mapNestedAskMessages = (
+  items: ChatContentItem[],
+  shouldUpdate: (message: ChatContentItem) => boolean,
+  updateMessage: (message: ChatContentItem) => ChatContentItem,
+) =>
+  items.map(item => {
+    if (!Array.isArray(item.ask_list)) {
+      return item;
+    }
+
+    let hasChanges = false;
+    const nextAskList = item.ask_list.map(message => {
+      if (!shouldUpdate(message)) {
+        return message;
+      }
+      hasChanges = true;
+      return updateMessage(message);
+    });
+
+    if (!hasChanges) {
+      return item;
+    }
+
+    return {
+      ...item,
+      ask_list: nextAskList,
+    };
+  });
+
+const updateNestedAskMessageAudioStreaming = (
+  items: ChatContentItem[],
+  targetElementBid: string,
+  sourceBlockBid: string,
+  isAudioStreaming: boolean,
+) =>
+  mapNestedAskMessages(
+    items,
+    message =>
+      Boolean(targetElementBid && message.element_bid === targetElementBid) ||
+      Boolean(sourceBlockBid && message.generated_block_bid === sourceBlockBid),
+    message => ({
+      ...message,
+      ...(isAudioStreaming
+        ? {
+            audioTracks: [],
+            audioUrl: undefined,
+            audioDurationMs: undefined,
+          }
+        : {
+            audioTracks: (message.audioTracks ?? []).map(track => ({
+              ...track,
+              isAudioStreaming: false,
+            })),
+          }),
+      isAudioStreaming,
+    }),
+  );
+
+const upsertNestedAskAudioSegment = (
+  items: ChatContentItem[],
+  elementBid: string,
+  segment: AudioSegmentData,
+) =>
+  mapNestedAskMessages(
+    items,
+    message =>
+      message.element_bid === elementBid ||
+      message.generated_block_bid === elementBid,
+    message =>
+      upsertAudioSegment(
+        [message],
+        message.element_bid || elementBid,
+        segment,
+      )[0] ?? message,
+  );
+
+const upsertNestedAskAudioComplete = (
+  items: ChatContentItem[],
+  elementBid: string,
+  complete: Partial<AudioCompleteData>,
+) =>
+  mapNestedAskMessages(
+    items,
+    message =>
+      message.element_bid === elementBid ||
+      message.generated_block_bid === elementBid,
+    message =>
+      upsertAudioComplete(
+        [message],
+        message.element_bid || elementBid,
+        complete,
+      )[0] ?? message,
+  );
 
 /**
  * useChatLogicHook orchestrates the streaming chat lifecycle for lesson content.
@@ -194,6 +311,7 @@ function useChatLogicHook({
   const contentListRef = useRef<ChatContentItem[]>([]);
   const currentContentRef = useRef<string>('');
   const currentBlockIdRef = useRef<string | null>(null);
+  const pendingInteractionAnchorBidRef = useRef('');
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
   const sseRef = useRef<any>(null);
   const sseRunSerialRef = useRef(0);
@@ -265,11 +383,7 @@ function useChatLogicHook({
   }, []);
 
   const resolveAudioBlockTarget = useCallback((bid: string) => {
-    const item = contentListRef.current.find(
-      contentItem =>
-        contentItem.element_bid === bid ||
-        contentItem.generated_block_bid === bid,
-    );
+    const item = findAudioTargetItem(contentListRef.current, bid);
 
     return {
       elementBid: item?.element_bid || bid,
@@ -498,19 +612,32 @@ function useChatLogicHook({
         typeof payload.ask_element_bid === 'string'
           ? payload.ask_element_bid
           : '';
-      if (!payloadAskElementBid) {
+      if (payloadAskElementBid) {
+        const matchedAskBlock = items.find(
+          item =>
+            item.type === ChatContentItemType.ASK &&
+            Array.isArray(item.ask_list) &&
+            item.ask_list.some(
+              askMessage => askMessage.element_bid === payloadAskElementBid,
+            ),
+        );
+        if (matchedAskBlock?.parent_element_bid) {
+          return matchedAskBlock.parent_element_bid;
+        }
+      }
+
+      const pendingInteractionAnchorBid =
+        pendingInteractionAnchorBidRef.current;
+      if (!pendingInteractionAnchorBid) {
         return '';
       }
 
-      const matchedAskBlock = items.find(
+      const pendingInteraction = items.find(
         item =>
-          item.type === ChatContentItemType.ASK &&
-          Array.isArray(item.ask_list) &&
-          item.ask_list.some(
-            askMessage => askMessage.element_bid === payloadAskElementBid,
-          ),
+          item.element_bid === pendingInteractionAnchorBid &&
+          item.type === ChatContentItemType.INTERACTION,
       );
-      return matchedAskBlock?.parent_element_bid || '';
+      return pendingInteraction?.element_bid || '';
     },
     [],
   );
@@ -2477,19 +2604,24 @@ function useChatLogicHook({
       options?: { truncateFollowingItems?: boolean },
     ): { newList: ChatContentItem[]; needChangeItemIndex: number } => {
       const newList = [...contentListRef.current];
-      // first find the item with the same variable value
-      let needChangeItemIndex = newList.findIndex(item =>
-        item.content?.includes(params.variableName || ''),
+      let needChangeItemIndex = newList.findIndex(
+        item => item.element_bid === blockBid,
       );
-      // if has multiple items with the same variable value, we need to find the item with the same blockBid
-      const sameVariableValueItems =
-        newList.filter(item =>
-          item.content?.includes(params.variableName || ''),
-        ) || [];
-      if (sameVariableValueItems.length > 1) {
-        needChangeItemIndex = newList.findIndex(
-          item => item.element_bid === blockBid,
+      const variableName = params.variableName;
+      if (variableName) {
+        // first find the item with the same variable value
+        const variableMatchIndex = newList.findIndex(item =>
+          item.content?.includes(variableName),
         );
+        // if has multiple items with the same variable value, we need to find the item with the same blockBid
+        const sameVariableValueItems =
+          newList.filter(item => item.content?.includes(variableName)) || [];
+        needChangeItemIndex =
+          sameVariableValueItems.length > 1
+            ? needChangeItemIndex
+            : variableMatchIndex >= 0
+              ? variableMatchIndex
+              : needChangeItemIndex;
       }
       if (needChangeItemIndex !== -1) {
         newList[needChangeItemIndex] = {
@@ -2812,6 +2944,10 @@ function useChatLogicHook({
         setTrackedContentList(newList);
       }
 
+      pendingInteractionAnchorBidRef.current =
+        currentInteractionItem?.type === ChatContentItemType.INTERACTION
+          ? blockBid
+          : '';
       isTypeFinishedRef.current = false;
 
       const { values } = resolveInteractionSubmission(content);
@@ -3117,10 +3253,9 @@ function useChatLogicHook({
         return null;
       }
 
-      const existingItem = contentListRef.current.find(
-        item =>
-          item.element_bid === targetElementBid ||
-          item.generated_block_bid === sourceBlockBid,
+      const existingItem = findAudioTargetItem(
+        contentListRef.current,
+        targetElementBid,
       );
       const cachedTrack = getAudioTrackByPosition(
         existingItem?.audioTracks ?? [],
@@ -3144,19 +3279,24 @@ function useChatLogicHook({
       }
 
       setTrackedContentList(prev =>
-        prev.map(item => {
-          if (!matchItemBid(item, targetElementBid)) {
-            return item;
-          }
+        updateNestedAskMessageAudioStreaming(
+          prev.map(item => {
+            if (!matchItemBid(item, targetElementBid)) {
+              return item;
+            }
 
-          return {
-            ...item,
-            audioTracks: [],
-            audioUrl: undefined,
-            audioDurationMs: undefined,
-            isAudioStreaming: true,
-          };
-        }),
+            return {
+              ...item,
+              audioTracks: [],
+              audioUrl: undefined,
+              audioDurationMs: undefined,
+              isAudioStreaming: true,
+            };
+          }),
+          targetElementBid,
+          sourceBlockBid,
+          true,
+        ),
       );
 
       return new Promise((resolve, reject) => {
@@ -3189,23 +3329,31 @@ function useChatLogicHook({
             return;
           }
           setTrackedContentList(prev =>
-            prev.map(item => {
-              const isSourceBlockItem =
-                Boolean(sourceBlockBid) &&
-                item.type === ChatContentItemType.CONTENT &&
-                item.generated_block_bid === sourceBlockBid;
-              if (!matchItemBid(item, targetElementBid) && !isSourceBlockItem) {
-                return item;
-              }
-              return {
-                ...item,
-                isAudioStreaming: false,
-                audioTracks: (item.audioTracks ?? []).map(track => ({
-                  ...track,
+            updateNestedAskMessageAudioStreaming(
+              prev.map(item => {
+                const isSourceBlockItem =
+                  Boolean(sourceBlockBid) &&
+                  item.type === ChatContentItemType.CONTENT &&
+                  item.generated_block_bid === sourceBlockBid;
+                if (
+                  !matchItemBid(item, targetElementBid) &&
+                  !isSourceBlockItem
+                ) {
+                  return item;
+                }
+                return {
+                  ...item,
                   isAudioStreaming: false,
-                })),
-              };
-            }),
+                  audioTracks: (item.audioTracks ?? []).map(track => ({
+                    ...track,
+                    isAudioStreaming: false,
+                  })),
+                };
+              }),
+              targetElementBid,
+              sourceBlockBid,
+              false,
+            ),
           );
         };
 
@@ -3298,11 +3446,16 @@ function useChatLogicHook({
               }
               const audioTargetElementBid =
                 resolveAudioEventTargetElementBid(audioSegment);
+              const audioSegmentData = toAudioSegmentData(audioSegment);
               setTrackedContentList(prevState =>
-                upsertAudioSegment(
-                  prevState,
+                upsertNestedAskAudioSegment(
+                  upsertAudioSegment(
+                    prevState,
+                    audioTargetElementBid,
+                    audioSegmentData,
+                  ),
                   audioTargetElementBid,
-                  toAudioSegmentData(audioSegment),
+                  audioSegmentData,
                 ),
               );
               return;
@@ -3323,8 +3476,12 @@ function useChatLogicHook({
               const audioTargetElementBid =
                 resolveAudioEventTargetElementBid(audioComplete);
               setTrackedContentList(prevState =>
-                upsertAudioComplete(
-                  prevState,
+                upsertNestedAskAudioComplete(
+                  upsertAudioComplete(
+                    prevState,
+                    audioTargetElementBid,
+                    audioComplete,
+                  ),
                   audioTargetElementBid,
                   audioComplete,
                 ),

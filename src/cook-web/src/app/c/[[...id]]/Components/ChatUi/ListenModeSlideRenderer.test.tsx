@@ -344,6 +344,93 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
+  it('keeps a resolved interaction stable when feedback narration is appended', () => {
+    const chatRef = createChatRef();
+    const baseItems: ChatContentItem[] = [
+      {
+        type: 'content',
+        content: 'Hello',
+        element_bid: 'content-1',
+        is_speakable: true,
+      },
+      {
+        type: 'interaction',
+        content: '?[1945 年 | 1946 年 | 1947 年]',
+        element_bid: 'interaction-1',
+        is_renderable: false,
+      },
+    ];
+
+    const { rerender } = render(
+      <ListenModeSlideRenderer
+        items={baseItems}
+        mobileStyle={false}
+        chatRef={chatRef}
+      />,
+    );
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={[
+          baseItems[0],
+          {
+            ...baseItems[1],
+            user_input: '1946 年',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={chatRef}
+      />,
+    );
+
+    const resolvedSlideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    const resolvedInteraction = resolvedSlideProps?.elementList?.find(
+      element => element.blockBid === 'interaction-1',
+    );
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={[
+          baseItems[0],
+          {
+            ...baseItems[1],
+            user_input: '1946 年',
+          },
+          {
+            type: 'content',
+            content: '答对了，继续看下一个坑。',
+            element_bid: 'feedback-answer-1',
+            generated_block_bid: 'feedback-generated-1',
+            is_speakable: true,
+            audioUrl: '/feedback.mp3',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={chatRef}
+      />,
+    );
+
+    const appendedSlideProps = getMockSlide().mock.calls.at(-1)?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    const appendedInteraction = appendedSlideProps?.elementList?.find(
+      element => element.blockBid === 'interaction-1',
+    );
+    const feedbackElement = appendedSlideProps?.elementList?.find(
+      element => element.blockBid === 'feedback-answer-1',
+    );
+
+    expect(appendedInteraction).toBe(resolvedInteraction);
+    expect(feedbackElement).toEqual(
+      expect.objectContaining({
+        type: 'text',
+        audio_url: '/feedback.mp3',
+      }),
+    );
+  });
+
   it('keeps resolved button-and-input interactions editable and forwards reselection', () => {
     const onSend = jest.fn();
     render(

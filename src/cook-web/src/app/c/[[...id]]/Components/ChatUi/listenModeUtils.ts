@@ -19,6 +19,8 @@ const MARKDOWN_VIDEO_IFRAME_PATTERN =
 const MIN_LISTEN_MODE_TTS_TEXT_LENGTH = 2;
 const CUSTOM_BUTTON_RE =
   /<custom-button-after-content\b[\s\S]*?<\/custom-button-after-content>/gi;
+const HTML_NON_VISIBLE_CONTENT_RE =
+  /<(script|style|template)\b[^>]*>(?:[\s\S]*?<\/\1\s*>|[\s\S]*$)/gi;
 const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
 const HTML_TAG_RE = /<\/?\s*[a-zA-Z][a-zA-Z0-9:_-]*\b[^>]*>/g;
 const HTML_SPACE_ENTITY_RE = /&(?:nbsp|ensp|emsp|thinsp|zwnj|zwj);/gi;
@@ -27,6 +29,7 @@ const SPEAKABLE_TEXT_RE = /[\p{L}\p{N}]/u;
 const normalizeListenModeSpeakableText = (content?: string) =>
   String(content ?? '')
     .replace(CUSTOM_BUTTON_RE, ' ')
+    .replace(HTML_NON_VISIBLE_CONTENT_RE, ' ')
     .replace(HTML_COMMENT_RE, ' ')
     .replace(HTML_TAG_RE, ' ')
     .replace(HTML_SPACE_ENTITY_RE, ' ')
@@ -39,6 +42,13 @@ const hasListenModeSpeakableText = (content?: string) => {
     SPEAKABLE_TEXT_RE.test(text)
   );
 };
+
+const isHtmlSlideFallbackTtsCandidate = (item?: ChatContentItem | null) =>
+  Boolean(
+    item?.element_type === 'html' &&
+    item.generated_block_bid?.trim() &&
+    hasListenModeSpeakableText(item.content),
+  );
 
 export const sortByPosition = <T extends { position?: number }>(
   list: T[] = [],
@@ -291,6 +301,7 @@ export const canRequestListenModeTtsForItem = (
 
   return Boolean(
     (item.is_speakable === true && hasListenModeSpeakableText(item.content)) ||
+    isHtmlSlideFallbackTtsCandidate(item) ||
     item.audio_url ||
     item.audioUrl ||
     item.isAudioStreaming ||
@@ -321,7 +332,8 @@ export const isListenModeAudioBackfillCandidate = (
   }
 
   return (
-    item.is_speakable !== false && hasListenModeSpeakableText(item.content)
+    (item.is_speakable !== false && hasListenModeSpeakableText(item.content)) ||
+    isHtmlSlideFallbackTtsCandidate(item)
   );
 };
 
@@ -332,14 +344,46 @@ export const isListenModeAudioBackfillReady = (item?: ChatContentItem | null) =>
     hasPlayableListenAudioForItem(item),
   );
 
+const resolveListenModeAudioBackfillRequestBid = (
+  item?: ChatContentItem | null,
+) => item?.generated_block_bid?.trim() || item?.element_bid?.trim() || '';
+
 export const getMissingListenModeAudioBlockBids = (
   items: ChatContentItem[],
 ) => {
   const seen = new Set<string>();
   const missingBids: string[] = [];
+  const playableRequestBids = new Set<string>();
 
   items.forEach(item => {
     if (!isListenModeAudioBackfillCandidate(item)) {
+      return;
+    }
+
+    if (!hasPlayableListenAudioForItem(item)) {
+      return;
+    }
+
+    const requestBid = resolveListenModeAudioBackfillRequestBid(item);
+    if (requestBid) {
+      playableRequestBids.add(requestBid);
+    }
+  });
+
+  items.forEach(item => {
+    if (!isListenModeAudioBackfillCandidate(item)) {
+      return;
+    }
+
+    const requestBid = resolveListenModeAudioBackfillRequestBid(item);
+    if (!requestBid) {
+      return;
+    }
+
+    if (
+      isHtmlSlideFallbackTtsCandidate(item) &&
+      playableRequestBids.has(requestBid)
+    ) {
       return;
     }
 
@@ -347,9 +391,7 @@ export const getMissingListenModeAudioBlockBids = (
       return;
     }
 
-    const requestBid =
-      item.generated_block_bid?.trim() || item.element_bid?.trim();
-    if (!requestBid || seen.has(requestBid)) {
+    if (seen.has(requestBid)) {
       return;
     }
 
