@@ -64,6 +64,44 @@ const NON_RETRYABLE_RUNTIME_ERROR_CODES = new Set([
 const SESSION_NOT_FOUND_RUNTIME_ERROR_CODE =
   'transient_markdownflow_session_not_found';
 
+const resolveProfileOnboardingSubmission = (content: OnSendContentParams) => {
+  const selectedValues = Array.isArray(content.selectedValues)
+    ? content.selectedValues.filter(
+        (value): value is string => typeof value === 'string',
+      )
+    : [];
+  const inputText =
+    typeof content.inputText === 'string' ? content.inputText : undefined;
+  const buttonText =
+    typeof content.buttonText === 'string' ? content.buttonText : undefined;
+  // MarkdownFlow carries configured option values in buttonText/selectedValues.
+  // Keep those exact for runtime matching while normalizing only their display.
+  const { userInput } = resolveInteractionSubmission({
+    selectedValues,
+    inputText,
+    buttonText,
+  });
+  const values: string[] = [];
+  const seen = new Set<string>();
+  const addValue = (value: string | undefined, trim: boolean) => {
+    if (value === undefined || !value.trim()) {
+      return;
+    }
+    const submittedValue = trim ? value.trim() : value;
+    if (seen.has(submittedValue)) {
+      return;
+    }
+    seen.add(submittedValue);
+    values.push(submittedValue);
+  };
+
+  selectedValues.forEach(value => addValue(value, false));
+  addValue(inputText, true);
+  addValue(buttonText, false);
+
+  return { values, userInput };
+};
+
 const asObject = (value: unknown): Record<string, unknown> | null => {
   if (value && typeof value === 'object') {
     return value as Record<string, unknown>;
@@ -497,7 +535,7 @@ export default function ProfileOnboardingConversation({
     if (disabledRef.current || runInFlightRef.current) {
       return;
     }
-    const { values, userInput } = resolveInteractionSubmission(content);
+    const { values, userInput } = resolveProfileOnboardingSubmission(content);
     if (!values.length) {
       return;
     }
