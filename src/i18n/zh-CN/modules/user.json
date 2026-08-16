@@ -2,7 +2,7 @@
   "__namespace__": "module.user",
   "confirmLogoutContent": "确认退出登录吗？",
   "confirmLogoutTitle": "确认退出登录？",
-  "defaultUserName": "默认名称",
+  "defaultUserName": "匿名用户",
   "gender": {
     "female": "女性",
     "male": "男性",

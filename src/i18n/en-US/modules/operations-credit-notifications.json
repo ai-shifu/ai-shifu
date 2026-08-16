@@ -91,7 +91,6 @@
       "blockedSummary": "{count} blocked teachers",
       "delete": "Delete",
       "duplicateBlockedCreators": "The input is already in the blocked list.",
-      "emptyNickname": "No nickname",
       "emptyPreview": "No details yet",
       "emptyResult": "No matching results.",
       "invalidBlockedCreators": "Unrecognized content: {values}",

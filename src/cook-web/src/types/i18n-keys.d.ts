@@ -1673,7 +1673,6 @@ export type I18nKey =
   | 'module.operationsCreditNotifications.config.listDialog.blockedSummary'
   | 'module.operationsCreditNotifications.config.listDialog.delete'
   | 'module.operationsCreditNotifications.config.listDialog.duplicateBlockedCreators'
-  | 'module.operationsCreditNotifications.config.listDialog.emptyNickname'
   | 'module.operationsCreditNotifications.config.listDialog.emptyPreview'
   | 'module.operationsCreditNotifications.config.listDialog.emptyResult'
   | 'module.operationsCreditNotifications.config.listDialog.invalidBlockedCreators'

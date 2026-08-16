@@ -1044,7 +1044,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     });
   });
 
-  it('opens blocked creators dialog and removes an item from the draft list', async () => {
+  it('uses the shared anonymous user label and removes an item from the draft list', async () => {
     mockGetConfig.mockResolvedValueOnce({
       enabled: false,
       blacklist: {
@@ -1059,7 +1059,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
               creator_bid: 'creator-1',
               mobile: '13800000000',
               email: '',
-              nickname: 'Creator One',
+              nickname: '',
             },
           ],
         },
@@ -1081,7 +1081,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
         'module.operationsCreditNotifications.config.fields.blockedCreatorList',
       ).length,
     ).toBeGreaterThan(1);
-    expect(screen.getByText('Creator One')).toBeInTheDocument();
+    expect(screen.getByText('module.user.defaultUserName')).toBeInTheDocument();
 
     fireEvent.change(
       screen.getByPlaceholderText(
