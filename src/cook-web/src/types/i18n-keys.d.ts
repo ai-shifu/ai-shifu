@@ -93,6 +93,7 @@ export type I18nKey =
   | 'component.menus.navigationMenus.language'
   | 'component.menus.navigationMenus.onboardingGuide'
   | 'component.menus.navigationMenus.personalInfo'
+  | 'component.navigation.contactUs'
   | 'component.outlineTree.cancel'
   | 'component.outlineTree.confirm'
   | 'component.outlineTree.confirmDelete'

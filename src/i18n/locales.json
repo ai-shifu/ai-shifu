@@ -21,6 +21,7 @@
     "component.createShifuDialog",
     "component.header",
     "component.menus",
+    "component.navigation",
     "component.outlineTree",
     "module.auth",
     "module.billing",
