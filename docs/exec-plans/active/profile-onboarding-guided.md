@@ -15,7 +15,10 @@ Deliver the second stacked learner-profile PR on `sunner/profile-onboarding-guid
 - [x] 2026-08-10 14:50 CST: Rebased the independent implementation and review-fix commits onto final PR1 head `34b6260c6`, then verified ancestry and PR1 sign-in/profile-state preservation.
 - [x] 2026-08-10 15:05 CST: Pushed ready stacked PR #2308, passed all GitHub checks including the runtime smoke harness, and confirmed the natural review window produced no actionable threads.
 - [x] 2026-08-16 16:15 CST: Rebased the seven PR2 commits onto rewritten PR1 head `bffec9712`, preserving the latest nickname, optimizer, password handoff, identity refresh, and shared learner-profile dialog behavior.
-- [ ] 2026-08-16: Close the three naturally reported review findings with independent verified commits, refresh the ready PR, and re-run CI plus the organic feedback window.
+- [x] 2026-08-16 18:35 CST: Closed the three naturally reported review findings in independent commits: rejected unanswerable interactions before save/session creation, recovered expired Redis sessions through a fresh guided session, and kept legacy clients compatible with arbitrary official MarkdownFlow variables while persisting only historical `sys_*` fields.
+- [x] 2026-08-16 18:45 CST: Passed 374 backend tests (4 skipped), 125 focused frontend tests, TypeScript, ESLint, Prettier, Ruff, translations, architecture, repository harness, `git diff --check`, and the complete lefthook pre-commit gate.
+- [x] 2026-08-16 19:20 CST: Re-ran browser QA at 1280x720, 390x844, 320x568 in French, and 844x390 for guided, review, and retryable-error states; retained five screenshots under `/private/tmp/profile-onboarding-pr2-visual/` and removed every temporary harness route and browser cache.
+- [ ] 2026-08-16: Force-push the rebased ready PR with a lease, close the verified review threads, pass fresh CI, and complete the organic feedback window.
 
 ## Surprises & Discoveries
 
@@ -30,7 +33,7 @@ Deliver the second stacked learner-profile PR on `sunner/profile-onboarding-guid
 
 ## Outcomes & Retrospective
 
-The ready stacked PR is active again after PR1 rewrote its history and natural review produced three actionable compatibility findings. The implementation has been replayed onto current PR1 without restoring deleted settings components; local regression, review-fix, publication, and fresh CI evidence are in progress.
+The ready stacked PR is active again after PR1 rewrote its history and natural review produced three actionable compatibility findings. The implementation and independent review fixes have been replayed onto current PR1 without restoring deleted settings components. Local code, regression, static, repository, and browser gates are complete; publication, fresh CI, and the final organic feedback window remain.
 
 ## Context and Orientation
 
