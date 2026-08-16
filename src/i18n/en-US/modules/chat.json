@@ -40,6 +40,7 @@
   "listenModeTtsDisabled": "Listen mode is not enabled for this course.",
   "listenPlaybackSpeedAriaLabel": "Playback speed: {speed}",
   "listenPlaybackSpeedLabel": "Playback speed",
+  "loading": "Loading…",
   "markdownFlow": "MarkdownFlow",
   "noMoreLessons": "You've completed all available sections.",
   "openCatalog": "Open catalog",

@@ -221,6 +221,9 @@ API_SPEC = DocSpec(
         "Use `FLASK_APP=app.py` from `src/api/` for Flask commands, and update "
         "module imports so new models or routes participate in the app factory "
         "and migration discovery paths.",
+        "Define the intended schema in SQLAlchemy models first, then generate "
+        "schema revisions with `FLASK_APP=app.py flask db migrate -m "
+        '"message"` and review the candidate migration before accepting it.',
         "Keep database models aligned with the project conventions: business keys "
         "before foreign references, indexed `_bid` columns, soft-delete flags "
         "when applicable, and timestamp fields with server defaults.",
@@ -236,6 +239,10 @@ API_SPEC = DocSpec(
         "provider wrappers, or service utilities already cover the use case.",
         "Do not edit applied migration files. Generate a new Alembic revision and "
         "review it before committing any schema change.",
+        "Do not use SQLAlchemy or Flask-SQLAlchemy `create_all()` calls, or "
+        "custom schema-introspection guards, as a substitute for versioned "
+        "Alembic migrations. Add a narrowly scoped guard only when a documented "
+        "non-transactional DDL recovery requirement makes it necessary.",
         "Do not add hard database foreign-key constraints for business-key "
         "relationships unless the architecture decision changes explicitly.",
         "Do not bypass the LiteLLM wrapper or shared backend helper layers when "
@@ -1731,10 +1738,14 @@ def build_documents() -> dict[Path, str]:
                 "abstractions.",
                 "Keep shared translations in `src/i18n/` and use backend helpers "
                 "instead of inventing per-service translation or error patterns.",
-                "Generate and review new Alembic migrations instead of editing "
-                "applied revisions, do not add hard business-key foreign-key "
-                "constraints, and keep OpenAI-compatible providers behind the "
-                "LiteLLM and shared helper layers.",
+                "Define schema changes in SQLAlchemy models, generate and review "
+                "Alembic revisions with `flask db migrate`, and do not use "
+                "`create_all()` or custom schema-introspection guards as a "
+                "substitute for versioned migrations. Add a narrowly scoped "
+                "guard only for a documented non-transactional DDL recovery "
+                "requirement. Do not edit applied revisions, add hard "
+                "business-key foreign-key constraints, or bypass the LiteLLM "
+                "and shared provider layers.",
             ),
             always_apply=False,
         ),
@@ -1865,9 +1876,14 @@ def build_documents() -> dict[Path, str]:
                 "configuration helpers before creating new abstractions.",
                 "Keep backend translations in shared JSON namespaces under "
                 "`src/i18n/`, not in ad-hoc Python translation modules.",
-                "Generate new migrations instead of editing applied ones, do not "
-                "add hard business-key foreign-key constraints, and keep "
-                "OpenAI-compatible providers behind LiteLLM and shared helpers.",
+                "Define schema changes in SQLAlchemy models, generate and review "
+                "Alembic revisions with `flask db migrate`, and do not use "
+                "`create_all()` or custom schema-introspection guards as a "
+                "substitute for versioned migrations. Add a narrowly scoped "
+                "guard only for a documented non-transactional DDL recovery "
+                "requirement. Do not edit applied revisions, add hard "
+                "business-key foreign-key constraints, or bypass LiteLLM and "
+                "shared provider helpers.",
             ),
         ),
         ROOT

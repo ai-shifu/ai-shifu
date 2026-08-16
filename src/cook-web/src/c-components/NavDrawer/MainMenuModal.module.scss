@@ -27,8 +27,14 @@
 
   .mainMenuModalRow {
     display: flex;
+    width: 100%;
     flex-flow: row nowrap;
     align-items: center;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
     padding-top: 10px;
     padding-bottom: 10px;
     cursor: pointer;

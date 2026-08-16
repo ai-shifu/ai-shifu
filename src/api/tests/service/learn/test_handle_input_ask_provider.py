@@ -561,6 +561,8 @@ def test_handle_input_ask_provider_response_skips_llm(app, monkeypatch):
 
 def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkeypatch):
     from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn import utils_v2
+    from flaskr.service.learn.learner_profile_prompt import build_course_prompt
 
     ask_provider_config = {
         "provider": "dify",
@@ -584,10 +586,32 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
     )
     monkeypatch.setattr(module, "chat_llm", lambda *_args, **_kwargs: iter([]))
 
+    learner_profile = "ASK LEARNER PROFILE"
+    effective_course_prompt = build_course_prompt(
+        "COURSE_PROMPT",
+        learner=types.SimpleNamespace(learner_profile=learner_profile),
+    )
+    assert effective_course_prompt is not None
+    assert "<composition_contract>" in effective_course_prompt
+    assert "<course_prompt>\nCOURSE_PROMPT\n</course_prompt>" in effective_course_prompt
+    assert (
+        '<learner_profile format="json-string">\n'
+        f'"{learner_profile}"\n</learner_profile>' in effective_course_prompt
+    )
+    context = _Context()
+    context.get_system_prompt = lambda _outline_bid: effective_course_prompt
+    monkeypatch.setattr(
+        utils_v2,
+        "get_user_profiles",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(module, "get_fmt_prompt", utils_v2.get_fmt_prompt)
+    dummy_trace = _DummyTrace()
+
     events = list(
         module.handle_input_ask(
             app=app,
-            context=_Context(),
+            context=context,
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
             input="hello",
@@ -598,7 +622,7 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
                 position=1,
             ),
             trace_args={"output": ""},
-            trace=_DummyTrace(),
+            trace=dummy_trace,
         )
     )
 
@@ -613,11 +637,16 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
         if event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
     )
     assert len(captured["messages"]) == 2
-    assert captured["messages"][0] == {"role": "system", "content": "COURSE_PROMPT"}
+    assert captured["messages"][0] == {
+        "role": "system",
+        "content": effective_course_prompt,
+    }
     assert captured["messages"][1]["role"] == "user"
     user_content = captured["messages"][1]["content"]
     assert user_content.endswith("hello")
     assert "plain text or standard Markdown" in user_content
+    provider_generation_input = dummy_trace.last_span.generations[0].kwargs["input"]
+    assert learner_profile in provider_generation_input["messages"][0]["content"]
 
 
 def test_handle_input_ask_formats_provider_prompt_with_request_language(

@@ -22,8 +22,66 @@
     "updatedBy": "Updated By",
     "version": "Version"
   },
+  "characterCount": "{count} / {max} characters",
+  "characterCountOverLimit": "{count} characters entered; the limit is {max}. Shorten the text before saving.",
   "complete": "Finish",
   "description": "Answer a few questions so the course can address you naturally.",
+  "dialog": {
+    "cancel": "Cancel",
+    "chips": {
+      "goals": {
+        "hint": "Current situation, goals, and questions",
+        "label": "My current situation"
+      },
+      "identity": {
+        "hint": "Identity, industry, profession, and related details",
+        "label": "My background"
+      },
+      "teaching": {
+        "hint": "Preferred tone, expression, and taboos",
+        "label": "My preferred language style"
+      }
+    },
+    "close": "Close",
+    "description": "Share your background, goals, and language preferences so your AI teacher can connect course content more closely to your situation.",
+    "discard": "Discard changes",
+    "discardDescription": "Anything you have not saved will be lost.",
+    "discardTitle": "Discard these changes?",
+    "dismissFailed": "Could not complete that action. Try again.",
+    "emptyProfile": "This introduction cannot be empty. Add a few details before saving.",
+    "keepEditing": "Keep editing",
+    "later": "Maybe later",
+    "legacyPrefill": {
+      "background": "My background: {value}",
+      "style": "My preferred language style: {value}"
+    },
+    "loadFailed": "Could not load these details. Try again.",
+    "loading": "Loading your learning profile…",
+    "nicknameLabel": "What should your AI teacher call you? (optional)",
+    "nicknamePlaceholder": "For example: Alex",
+    "onboardingTitle": "Help your AI teacher understand you",
+    "optimize": "Improve with AI",
+    "optimizeEmptyHint": "Write a few lines, then let AI help improve them.",
+    "optimizeEmptyResponse": "The AI returned no optimized content. Please try again.",
+    "optimizeFailed": "Could not improve this right now. You can still save it as written.",
+    "optimizeHint": "AI adds useful detail and organizes the wording without changing your meaning or inventing facts.",
+    "optimizeInvalidResponse": "The AI returned an invalid response format. Please try again.",
+    "optimizeSuccess": "Improved. You can keep editing.",
+    "optimizing": "Improving…",
+    "profileLabel": "Write what you want your AI teacher to remember about you",
+    "profilePlaceholder": "Example: I work in an office in Shanghai and studied business administration at university. Recently, I have wanted to use AI to turn my ideas into articles and small tools. I prefer my AI teacher to use language that is friendly, direct, concise, and easy to understand, with little jargon.",
+    "promptHeading": "Start with any of these",
+    "reassurance": "You do not need to write everything at once; you can update it anytime. If your preferences conflict with the course design set by the human teacher, the teacher's design takes priority.",
+    "retry": "Reload",
+    "save": "Save profile",
+    "saveAndContinue": "Save and continue",
+    "saveChanges": "Save changes",
+    "saveFailed": "Could not save your profile. Try again.",
+    "saving": "Saving…",
+    "settingsDescription": "Share your background, goals, and language preferences so your AI teacher can connect course content more closely to your situation.",
+    "settingsTitle": "Introduce yourself to your AI teacher",
+    "undoOptimize": "Undo"
+  },
   "emptyFlow": "No profile questions are configured.",
   "inputPlaceholder": "Type your answer",
   "loadFailed": "The learning profile guide could not be loaded, so it was skipped for now. Please try again later.",

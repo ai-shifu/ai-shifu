@@ -44,7 +44,6 @@ type MainMenuModalProps = {
   style?: CSSProperties;
   mobileStyle?: boolean;
   className?: string;
-  onBasicInfoClick?: () => void;
   onPersonalInfoClick?: () => void;
   isAdmin?: boolean;
 };
@@ -55,7 +54,6 @@ const MainMenuModal = ({
   style = {},
   mobileStyle = false,
   className = '',
-  onBasicInfoClick,
   onPersonalInfoClick,
   isAdmin = false,
 }: MainMenuModalProps) => {
@@ -87,19 +85,9 @@ const MainMenuModal = ({
 
   const { trackEvent } = useTracking();
 
-  const onUserInfoClick = () => {
-    trackEvent(EVENT_NAMES.USER_MENU_BASIC_INFO, {});
-    if (!isLoggedIn) {
-      trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu' });
-      shifu.loginTools.openLogin();
-      return;
-    }
-    onBasicInfoClick?.();
-  };
-
-  void onUserInfoClick;
-
-  const _onPersonalInfoClick = () => {
+  const _onPersonalInfoClick = (evt: ReactMouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
     trackEvent(EVENT_NAMES.USER_MENU_PERSONALIZED, {});
     if (!isLoggedIn) {
       trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu' });
@@ -107,6 +95,7 @@ const MainMenuModal = ({
       return;
     }
 
+    onClose?.(evt);
     onPersonalInfoClick?.();
   };
 
@@ -243,7 +232,8 @@ const MainMenuModal = ({
         >
           {!isAdmin ? (
             <>
-              <div
+              <button
+                type='button'
                 className={cn(styles.mainMenuModalRow, 'px-2.5')}
                 onClick={_onPersonalInfoClick}
               >
@@ -257,7 +247,7 @@ const MainMenuModal = ({
                 <div className={styles.rowTitle}>
                   {t('component.menus.navigationMenus.personalInfo')}
                 </div>
-              </div>
+              </button>
               {setPasswordRow}
               <div
                 className={cn(styles.mainMenuModalRow, 'px-2.5')}

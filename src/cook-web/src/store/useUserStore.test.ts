@@ -97,4 +97,122 @@ describe('useUserStore.initUser', () => {
     expect(mockIdentifyUmamiUser).not.toHaveBeenCalled();
     expect(mockChangeLanguage).not.toHaveBeenCalled();
   });
+
+  test('ignores a refresh response after the signed-in account changes', async () => {
+    let resolveRefresh: (value: {
+      user_id: string;
+      name: string;
+      language: string;
+    }) => void = () => undefined;
+    mockTokenState = {
+      token: 'token-a',
+      faked: false,
+    };
+    useUserStore.setState({
+      userInfo: {
+        user_id: 'user-a',
+        name: 'Account A',
+        language: 'zh-CN',
+      },
+    });
+    mockGetUserInfo.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveRefresh = resolve;
+      }),
+    );
+
+    const pendingRefresh = useUserStore.getState().refreshUserInfo();
+    mockTokenState = {
+      token: 'token-b',
+      faked: false,
+    };
+    useUserStore.setState({
+      userInfo: {
+        user_id: 'user-b',
+        name: 'Account B',
+        language: 'en-US',
+      },
+    });
+    resolveRefresh({
+      user_id: 'user-a',
+      name: 'Late Account A',
+      language: 'zh-CN',
+    });
+    await pendingRefresh;
+
+    expect(useUserStore.getState().userInfo).toMatchObject({
+      user_id: 'user-b',
+      name: 'Account B',
+    });
+    expect(mockIdentifyUmamiUser).not.toHaveBeenCalled();
+    expect(mockChangeLanguage).not.toHaveBeenCalled();
+  });
+
+  test('ignores a refresh failure after the signed-in account changes', async () => {
+    let rejectRefresh: (reason: Error) => void = () => undefined;
+    mockTokenState = {
+      token: 'token-a',
+      faked: false,
+    };
+    mockGetUserInfo.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectRefresh = reject;
+      }),
+    );
+
+    const pendingRefresh = useUserStore.getState().refreshUserInfo();
+    mockTokenState = {
+      token: 'token-b',
+      faked: false,
+    };
+    rejectRefresh(new Error('Late Account A refresh failed'));
+
+    await expect(pendingRefresh).resolves.toBeUndefined();
+  });
+
+  test('ignores a refresh response after user identity changes with the same token', async () => {
+    let resolveRefresh: (value: {
+      user_id: string;
+      name: string;
+      language: string;
+    }) => void = () => undefined;
+    mockTokenState = {
+      token: 'shared-token',
+      faked: false,
+    };
+    useUserStore.setState({
+      userInfo: {
+        user_id: 'user-a',
+        name: 'Account A',
+        language: 'zh-CN',
+      },
+    });
+    mockGetUserInfo.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveRefresh = resolve;
+      }),
+    );
+
+    const pendingRefresh = useUserStore.getState().refreshUserInfo();
+    useUserStore.setState({
+      userInfo: {
+        user_id: 'user-b',
+        name: 'Account B',
+        language: 'en-US',
+      },
+    });
+    resolveRefresh({
+      user_id: 'user-a',
+      name: 'Late Account A',
+      language: 'zh-CN',
+    });
+    await pendingRefresh;
+
+    expect(useUserStore.getState().userInfo).toMatchObject({
+      user_id: 'user-b',
+      name: 'Account B',
+    });
+    expect(mockIdentifyUmamiUser).not.toHaveBeenCalled();
+    expect(mockChangeLanguage).not.toHaveBeenCalled();
+  });
 });

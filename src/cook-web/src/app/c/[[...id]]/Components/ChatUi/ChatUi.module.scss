@@ -244,10 +244,6 @@
     .chatComponents {
       padding-top: 104px;
     }
-
-    .UserSettings {
-      margin-top: 104px;
-    }
   }
 
   &.classroomMode {
@@ -259,17 +255,47 @@
     }
   }
 
-  .chatComponentsHidden {
-    overflow-y: hidden;
-    display: none;
+  .runtimePlaceholder {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-right: 24px;
+    padding-left: 24px;
   }
 
-  .UserSettings {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    z-index: 2;
-    margin-top: 64px;
+  .runtimePlaceholderCard {
+    width: min(680px, 100%);
+    margin-top: clamp(72px, 14vh, 160px);
+    padding: 28px;
+    border: 1px solid var(--base-border, #e5e7eb);
+    border-radius: 16px;
+    background: var(--base-background, #fff);
+    box-shadow: 0 8px 30px rgb(15 23 42 / 5%);
+  }
+
+  .runtimePlaceholderLineLong,
+  .runtimePlaceholderLineMedium,
+  .runtimePlaceholderLineShort {
+    height: 12px;
+    border-radius: 999px;
+    background: var(--base-muted, #f1f5f9);
+  }
+
+  .runtimePlaceholderLineMedium,
+  .runtimePlaceholderLineShort {
+    margin-top: 16px;
+  }
+
+  .runtimePlaceholderLineLong {
+    width: 86%;
+  }
+
+  .runtimePlaceholderLineMedium {
+    width: 64%;
+  }
+
+  .runtimePlaceholderLineShort {
+    width: 42%;
   }
 }
 

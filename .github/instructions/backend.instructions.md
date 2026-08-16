@@ -20,6 +20,9 @@ applyTo: "src/api/**/*.py,src/api/**/*.md,src/i18n/**/*.json"
 - Keep backend translations in shared JSON namespaces under `src/i18n/`, not
   in ad-hoc Python translation modules.
 
-- Generate new migrations instead of editing applied ones, do not add hard
-  business-key foreign-key constraints, and keep OpenAI-compatible providers
-  behind LiteLLM and shared helpers.
+- Define schema changes in SQLAlchemy models, generate and review Alembic
+  revisions with `flask db migrate`, and do not use `create_all()` or custom
+  schema-introspection guards as a substitute for versioned migrations. Add a
+  narrowly scoped guard only for a documented non-transactional DDL recovery
+  requirement. Do not edit applied revisions, add hard business-key
+  foreign-key constraints, or bypass LiteLLM and shared provider helpers.

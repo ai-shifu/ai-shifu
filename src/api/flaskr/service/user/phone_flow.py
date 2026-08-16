@@ -15,6 +15,7 @@ from sqlalchemy import text
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.consts import LEARN_STATUS_RESET
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.shifu.models import PublishedShifu, DraftShifu
 from flaskr.service.user.consts import (
     USER_STATE_REGISTERED,
@@ -351,6 +352,10 @@ def verify_phone_code(
                 target_aggregate.user_bid,
                 normalized_course_id,
             )
+            include_legacy_nickname = merge_learner_profile_for_sign_in(
+                source_user_id=user_id,
+                target_user_id=target_aggregate.user_bid,
+            )
             if normalized_course_id is None:
                 app.logger.warning(
                     "verify_phone_code skip_study_migration missing_course_id origin_user_id=%s target_user_id=%s",
@@ -359,7 +364,10 @@ def verify_phone_code(
                 )
             else:
                 new_profiles = get_user_profile_labels(
-                    app, user_id, normalized_course_id
+                    app,
+                    user_id,
+                    normalized_course_id,
+                    include_nickname=include_legacy_nickname,
                 )
                 update_user_profile_with_lable(
                     app,
