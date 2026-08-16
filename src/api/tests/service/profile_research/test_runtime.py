@@ -116,6 +116,20 @@ def test_validation_rejects_interaction_variable_longer_than_runtime_input_key()
 
 
 @pytest.mark.parametrize(
+    "document",
+    [
+        "?[]",
+        "?[ | ]",
+        "?[...]",
+        "?[%{{learning_goal}}]",
+    ],
+)
+def test_validation_rejects_interactions_without_answerable_input(document):
+    with pytest.raises(ProfileResearchValidationError, match="answerable input"):
+        validate_profile_research_document(document)
+
+
+@pytest.mark.parametrize(
     "user_input",
     [
         {f"key-{index}": [""] for index in range(101)},
