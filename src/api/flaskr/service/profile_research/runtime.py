@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 from collections.abc import Callable, Generator, Iterable, Mapping
 from dataclasses import dataclass, field
@@ -76,6 +77,20 @@ class ProfileResearchSessionNotFound(ProfileResearchError):
 
 class ProfileResearchSessionBusy(ProfileResearchError):
     public_code = "transient_markdownflow_session_busy"
+
+
+@contextlib.contextmanager
+def _hold_profile_research_lock(lock):
+    if lock is None:
+        yield
+        return
+    if not bool(lock.acquire(blocking=False)):
+        raise ProfileResearchSessionBusy("session is busy")
+    try:
+        yield
+    finally:
+        with contextlib.suppress(Exception):
+            lock.release()
 
 
 def _normalize_variables(raw: Any) -> dict[str, str | list[str]]:
@@ -290,12 +305,18 @@ class _ProfileResearchSessionStore:
     def _key(self, session_id: str) -> str:
         return f"{self._key_prefix}{session_id}"
 
+    def _active_key(self, user_bid: str, purpose: str) -> str:
+        owner = str(user_bid or "").strip().encode("utf-8")
+        owner_digest = hashlib.sha256(owner).hexdigest()
+        return f"{self._key_prefix}active:{str(purpose).strip()}:{owner_digest}"
+
     def save(self, session: _ProfileResearchSession) -> None:
         self._cache.setex(
             self._key(session.session_id),
             self._ttl_seconds,
             json.dumps(session.to_cache_payload(), ensure_ascii=False),
         )
+        self.refresh_active(session)
 
     def load(self, session_id: str) -> _ProfileResearchSession:
         raw = self._cache.get(self._key(session_id))
@@ -314,9 +335,40 @@ class _ProfileResearchSessionStore:
     def delete(self, session_id: str) -> None:
         self._cache.delete(self._key(session_id))
 
+    def active_session_id(self, *, user_bid: str, purpose: str) -> str | None:
+        raw = self._cache.get(self._active_key(user_bid, purpose))
+        if raw is None:
+            return None
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        normalized = str(raw).strip()
+        return normalized or None
+
+    def refresh_active(self, session: _ProfileResearchSession) -> None:
+        self._cache.setex(
+            self._active_key(session.user_bid, session.purpose),
+            self._ttl_seconds,
+            session.session_id,
+        )
+
+    def clear_active(self, session: _ProfileResearchSession) -> None:
+        active_session_id = self.active_session_id(
+            user_bid=session.user_bid,
+            purpose=session.purpose,
+        )
+        if active_session_id == session.session_id:
+            self._cache.delete(self._active_key(session.user_bid, session.purpose))
+
     def lock(self, session_id: str):
         return self._cache.lock(
             f"{self._key(session_id)}:lock",
+            timeout=PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS,
+            blocking_timeout=0,
+        )
+
+    def owner_lock(self, *, user_bid: str, purpose: str):
+        return self._cache.lock(
+            f"{self._active_key(user_bid, purpose)}:lock",
             timeout=PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS,
             blocking_timeout=0,
         )
@@ -608,8 +660,52 @@ class ProfileResearchRuntime:
             block_count=len(blocks),
             profile_draft_block_index=len(blocks) - 1,
         )
-        self.store.save(session)
+        owner_lock = self.store.owner_lock(
+            user_bid=session.user_bid,
+            purpose=session.purpose,
+        )
+        with _hold_profile_research_lock(owner_lock):
+            previous_session_id = self.store.active_session_id(
+                user_bid=session.user_bid,
+                purpose=session.purpose,
+            )
+            previous_lock = (
+                self.store.lock(previous_session_id) if previous_session_id else None
+            )
+            with _hold_profile_research_lock(previous_lock):
+                previous_session = None
+                if previous_session_id:
+                    try:
+                        previous_session = self.store.load(previous_session_id)
+                    except ProfileResearchSessionNotFound:
+                        pass
+                self.store.save(session)
+                if (
+                    previous_session
+                    and previous_session.session_id != session.session_id
+                    and (previous_session.user_bid, previous_session.purpose)
+                    == (session.user_bid, session.purpose)
+                ):
+                    self.store.delete(previous_session.session_id)
         return session.to_view()
+
+    def _resolve_existing_session_purpose(
+        self,
+        *,
+        user_bid: str,
+        session_id: str,
+        expected_purpose: str | None,
+    ) -> str:
+        normalized_purpose = str(expected_purpose or "").strip()
+        if not normalized_purpose:
+            normalized_purpose = self._load_authorized_session(
+                user_bid=user_bid,
+                session_id=session_id,
+                expected_purpose=None,
+            ).purpose
+        if normalized_purpose not in _ALLOWED_PURPOSES:
+            raise ProfileResearchSessionNotFound("session not found")
+        return normalized_purpose
 
     def _load_authorized_session(
         self,
@@ -636,19 +732,26 @@ class ProfileResearchRuntime:
         expected_purpose: str | None,
     ) -> None:
         normalized_session_id = str(session_id or "").strip()
-        lock = self.store.lock(normalized_session_id)
-        if not bool(lock.acquire(blocking=False)):
-            raise ProfileResearchSessionBusy("session is busy")
-        try:
-            session = self._load_authorized_session(
-                user_bid=user_bid,
-                session_id=normalized_session_id,
-                expected_purpose=expected_purpose,
-            )
-            self.store.delete(session.session_id)
-        finally:
-            with contextlib.suppress(Exception):
-                lock.release()
+        normalized_user_bid = str(user_bid or "").strip()
+        normalized_purpose = self._resolve_existing_session_purpose(
+            user_bid=normalized_user_bid,
+            session_id=normalized_session_id,
+            expected_purpose=expected_purpose,
+        )
+        owner_lock = self.store.owner_lock(
+            user_bid=normalized_user_bid,
+            purpose=normalized_purpose,
+        )
+        with _hold_profile_research_lock(owner_lock):
+            session_lock = self.store.lock(normalized_session_id)
+            with _hold_profile_research_lock(session_lock):
+                session = self._load_authorized_session(
+                    user_bid=normalized_user_bid,
+                    session_id=normalized_session_id,
+                    expected_purpose=normalized_purpose,
+                )
+                self.store.delete(session.session_id)
+                self.store.clear_active(session)
 
     def _build_flow(
         self,
@@ -785,15 +888,42 @@ class ProfileResearchRuntime:
         request_id: str | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         normalized_session_id = str(session_id or "").strip()
-        lock = self.store.lock(normalized_session_id)
-        if not bool(lock.acquire(blocking=False)):
+        normalized_user_bid = str(user_bid or "").strip()
+        normalized_purpose = self._resolve_existing_session_purpose(
+            user_bid=normalized_user_bid,
+            session_id=normalized_session_id,
+            expected_purpose=expected_purpose,
+        )
+        owner_lock = self.store.owner_lock(
+            user_bid=normalized_user_bid,
+            purpose=normalized_purpose,
+        )
+        if not bool(owner_lock.acquire(blocking=False)):
             raise ProfileResearchSessionBusy("session is busy")
         try:
+            lock = self.store.lock(normalized_session_id)
+            if not bool(lock.acquire(blocking=False)):
+                raise ProfileResearchSessionBusy("session is busy")
+        except BaseException:
+            with contextlib.suppress(Exception):
+                owner_lock.release()
+            raise
+        try:
             session = self._load_authorized_session(
-                user_bid=user_bid,
+                user_bid=normalized_user_bid,
                 session_id=normalized_session_id,
-                expected_purpose=expected_purpose,
+                expected_purpose=normalized_purpose,
             )
+            active_session_id = self.store.active_session_id(
+                user_bid=session.user_bid,
+                purpose=session.purpose,
+            )
+            if active_session_id is None:
+                # Sessions created by old workers do not have an active pointer.
+                # Claim them on first run while holding the owner-purpose lock.
+                self.store.refresh_active(session)
+            elif active_session_id != session.session_id:
+                raise ProfileResearchSessionNotFound("session not found")
             normalized_user_input = _normalize_user_input(user_input)
             replay = self._replay_or_validate_request(
                 session,
@@ -997,6 +1127,8 @@ class ProfileResearchRuntime:
         finally:
             with contextlib.suppress(Exception):
                 lock.release()
+            with contextlib.suppress(Exception):
+                owner_lock.release()
 
 
 def start_profile_research_session(
