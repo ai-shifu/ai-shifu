@@ -114,6 +114,7 @@ describe('credit insufficient toast', () => {
     [false, false, 'learner'],
     [true, true, 'teacher'],
     [true, false, 'teacher-collaborator'],
+    [true, null, null],
   ] as const)(
     'resolves preview=%s owner=%s to %s',
     (previewMode, isCurrentUserCourseOwner, expectedAudience) => {
