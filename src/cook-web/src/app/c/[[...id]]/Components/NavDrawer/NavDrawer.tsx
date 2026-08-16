@@ -89,7 +89,7 @@ const NavDrawer = ({
   onChapterCollapse,
   onLessonSelect,
   onTryLessonSelect,
-  onPersonalInfoClick,
+  onPersonalInfoClick = () => {},
 }: NavDrawerProps) => {
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const [delayedIsLoggedIn, setDelayedIsLoggedIn] = useState(isLoggedIn);
@@ -212,6 +212,7 @@ const NavDrawer = ({
           className={popupWindowClassname()}
           mobileStyle={frameLayout === FRAME_LAYOUT_MOBILE}
           onPersonalInfoClick={onPersonalInfoClick}
+          surface='learner'
         />
         <FeedbackModal
           open={feedbackModalOpen}
