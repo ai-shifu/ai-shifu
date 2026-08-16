@@ -120,7 +120,13 @@ jest.mock('react-i18next', () => ({
     const cacheKey = ns || 'translation';
     if (!mockTranslationCache.has(cacheKey)) {
       mockTranslationCache.set(cacheKey, {
-        t: (key: string) => (ns && ns !== 'translation' ? `${ns}.${key}` : key),
+        t: (key: string) => {
+          const translatedKey =
+            ns && ns !== 'translation' ? `${ns}.${key}` : key;
+          return translatedKey === 'module.user.defaultUserName'
+            ? 'Anonymous User'
+            : translatedKey;
+        },
       });
     }
     return {
@@ -667,6 +673,21 @@ describe('AdminOperationCourseDetailPage', () => {
         name: 'module.operationsCourse.title',
       }),
     ).toHaveAttribute('href', '/admin/operations');
+  });
+
+  test('preserves a real nickname that matches the localized fallback', async () => {
+    const detail = await mockGetAdminOperationCourseDetail();
+    mockGetAdminOperationCourseDetail.mockResolvedValueOnce({
+      ...detail,
+      basic_info: {
+        ...detail.basic_info,
+        creator_nickname: 'Anonymous User',
+      },
+    });
+
+    render(<AdminOperationCourseDetailPage />);
+
+    expect(await screen.findByText('Anonymous User')).toBeInTheDocument();
   });
 
   test('converts course detail metadata timestamps to the browser timezone', async () => {

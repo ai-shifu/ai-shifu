@@ -294,7 +294,6 @@ const resolvePrimaryAccount = ({
  * t('module.operationsCourse.detail.followUps.emptyValue')
  * t('module.operationsCourse.detail.followUps.turnIndex')
  * t('module.operationsCourse.detail.followUps.turnIndexHelp')
- * t('module.user.defaultUserName')
  */
 export default function AdminOperationCourseFollowUpsPage() {
   const router = useRouter();
@@ -316,7 +315,6 @@ export default function AdminOperationCourseFollowUpsPage() {
   const followUpDetailLoadErrorMessage = t(
     'module.operationsCourse.messages.loadFollowUpDetailFailed',
   );
-  const defaultUserName = t('module.user.defaultUserName');
   const contactMode = useMemo<ContactMode>(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
@@ -570,14 +568,8 @@ export default function AdminOperationCourseFollowUpsPage() {
   );
 
   const resolveUserSecondary = useCallback(
-    (item: AdminOperationCourseFollowUpItem) => {
-      const nickname = item.nickname?.trim() || '';
-      if (!nickname || nickname === defaultUserName) {
-        return '';
-      }
-      return nickname;
-    },
-    [defaultUserName],
+    (item: AdminOperationCourseFollowUpItem) => item.nickname?.trim() || '',
+    [],
   );
 
   const handleSearch = useCallback(() => {
@@ -1169,7 +1161,6 @@ export default function AdminOperationCourseFollowUpsPage() {
         error={detailError}
         emptyValue={emptyValue}
         contactMode={contactMode}
-        defaultUserName={defaultUserName}
         resolveLessonDisplay={resolveDetailLessonDisplay}
         resolveOutlineFieldLabel={resolveDetailOutlineFieldLabel}
         onRetry={fetchFollowUpDetail}

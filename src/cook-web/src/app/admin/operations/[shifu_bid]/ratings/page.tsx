@@ -267,7 +267,6 @@ export default function AdminOperationCourseRatingsPage() {
   );
   const emptyValue = tOperations('detail.ratings.emptyValue');
   const clearLabel = t('common.core.close');
-  const defaultUserName = t('module.user.defaultUserName');
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
   const contactMode = useMemo<ContactMode>(
@@ -450,14 +449,8 @@ export default function AdminOperationCourseRatingsPage() {
   );
 
   const resolveUserSecondary = useCallback(
-    (item: AdminOperationCourseRatingItem) => {
-      const nickname = item.nickname?.trim() || '';
-      if (!nickname || nickname === defaultUserName) {
-        return '';
-      }
-      return nickname;
-    },
-    [defaultUserName],
+    (item: AdminOperationCourseRatingItem) => item.nickname?.trim() || '',
+    [],
   );
 
   const resolveRatingModeLabel = useCallback(

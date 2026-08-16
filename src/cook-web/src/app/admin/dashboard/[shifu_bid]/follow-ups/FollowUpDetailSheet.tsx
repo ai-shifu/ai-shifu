@@ -31,7 +31,6 @@ type FollowUpDetailSheetProps = {
   error: ErrorState | null;
   emptyValue: string;
   contactMode: ContactMode;
-  defaultUserName: string;
   resolveLessonDisplay: (values: {
     lessonTitle?: string;
     chapterTitle?: string;
@@ -163,7 +162,6 @@ export default function FollowUpDetailSheet({
   error,
   emptyValue,
   contactMode,
-  defaultUserName,
   resolveLessonDisplay,
   onRetry,
   onOpenChange,
@@ -193,11 +191,8 @@ export default function FollowUpDetailSheet({
   );
   const nickname = useMemo(() => {
     const normalizedNickname = basicInfo?.nickname?.trim() || '';
-    if (!normalizedNickname || normalizedNickname === defaultUserName) {
-      return emptyValue;
-    }
-    return normalizedNickname;
-  }, [basicInfo?.nickname, defaultUserName, emptyValue]);
+    return normalizedNickname || emptyValue;
+  }, [basicInfo?.nickname, emptyValue]);
   const turnIndexLabel = useMemo(() => {
     if (basicInfo?.turn_index == null) {
       return emptyValue;
