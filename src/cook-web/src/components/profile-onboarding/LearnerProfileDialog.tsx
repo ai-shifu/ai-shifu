@@ -153,13 +153,10 @@ export default function LearnerProfileDialog({
       setLoading(true);
       setLoaded(false);
       setError('');
+      const onboardingStatusRequest =
+        mode === 'settings' ? getProfileOnboardingV2().catch(() => null) : null;
       try {
-        const [response, onboardingStatus] = await Promise.all([
-          getLearnerProfile(),
-          mode === 'settings'
-            ? getProfileOnboardingV2().catch(() => null)
-            : Promise.resolve(null),
-        ]);
+        const response = await getLearnerProfile();
         if (
           !isCurrent(generation, scope) ||
           request !== loadRequestRef.current
@@ -182,21 +179,36 @@ export default function LearnerProfileDialog({
         setNicknameMaxLength(
           response.nickname_max_length || DEFAULT_NICKNAME_MAX_LENGTH,
         );
-        const validOnboardingStatus = isProfileOnboardingV2Status(
-          onboardingStatus,
-        )
-          ? onboardingStatus
-          : null;
-        setCollectionEnabled(Boolean(validOnboardingStatus?.enabled));
-        setGuidedAvailable(Boolean(validOnboardingStatus?.guided_available));
-        setSettingsSessionEligible(
-          Boolean(
-            validOnboardingStatus?.handled ||
-            validOnboardingStatus?.has_learner_profile,
-          ),
-        );
+        setSettingsSessionEligible(Boolean(response.has_learner_profile));
         resetOptimization();
         setLoaded(true);
+        if (onboardingStatusRequest) {
+          void onboardingStatusRequest.then(onboardingStatus => {
+            if (
+              !isCurrent(generation, scope) ||
+              request !== loadRequestRef.current
+            ) {
+              return;
+            }
+            const validOnboardingStatus = isProfileOnboardingV2Status(
+              onboardingStatus,
+            )
+              ? onboardingStatus
+              : null;
+            setCollectionEnabled(Boolean(validOnboardingStatus?.enabled));
+            setGuidedAvailable(
+              Boolean(validOnboardingStatus?.guided_available),
+            );
+            setSettingsSessionEligible(
+              current =>
+                current ||
+                Boolean(
+                  validOnboardingStatus?.handled ||
+                  validOnboardingStatus?.has_learner_profile,
+                ),
+            );
+          });
+        }
         return true;
       } catch (caughtError) {
         if (
