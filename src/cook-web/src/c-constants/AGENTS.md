@@ -8,14 +8,12 @@ domain-specific frontend ownership.
 
 ## Scope
 
-- This domain owns legacy constants for course, environment, product, UI, and
-  user behavior used throughout the `c` experience.
+- This domain owns legacy course and UI constants used throughout the `c`
+  experience.
 
 - Representative files in this subtree:
   `src/cook-web/src/c-constants/uiConstants.ts`,
-  `src/cook-web/src/c-constants/env.ts`,
-  `src/cook-web/src/c-constants/courseConstants.ts`,
-  `src/cook-web/src/c-constants/productConstants.ts`
+  `src/cook-web/src/c-constants/courseConstants.ts`
 
 - Keep durable frontend rules here only when they are more specific than the
   Cook Web-wide guidance in the parent directory.
@@ -28,8 +26,8 @@ domain-specific frontend ownership.
 - Start from the local entry files and preserve how `c-constants` currently
   separates route code, shared logic, state, and utilities.
 
-- Keep shared breakpoint, environment, and product constants as the single
-  source of truth for legacy consumers.
+- Keep shared breakpoint, course, and UI constants as the single source of
+  truth for legacy consumers.
 
 - Preserve constant names and semantics when skills or stores already depend
   on them indirectly.
