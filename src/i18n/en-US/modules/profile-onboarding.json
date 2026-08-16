@@ -33,6 +33,7 @@
   "characterCount": "{count} / {max} characters",
   "characterCountOverLimit": "{count} characters entered; the limit is {max}. Shorten the text before saving.",
   "complete": "Confirm and save",
+  "completeCompact": "Save",
   "dialog": {
     "cancel": "Cancel",
     "chips": {
@@ -89,7 +90,6 @@
     "settingsTitle": "Introduce yourself to your AI teacher",
     "undoOptimize": "Undo"
   },
-  "completeCompact": "Save",
   "guided": {
     "description": "The better your AI teacher knows you, the easier the lessons are to understand. About 1 minute.",
     "missingDraft": "We could not finish organizing your answers. Please answer the questions again.",
