@@ -566,7 +566,7 @@ export default function LearnerProfileDialog({
       setRerunSubmitting(true);
       setRerunError('');
       try {
-        await completeGuidedProfileOnboarding({
+        const response = await completeGuidedProfileOnboarding({
           learner_profile: learnerProfile,
           trigger_source: 'settings',
           ...(sessionId ? { session_id: sessionId } : {}),
@@ -574,18 +574,28 @@ export default function LearnerProfileDialog({
         if (!isCurrent(generation, scope)) {
           return false;
         }
-        const refreshed = await loadProfile(generation, scope);
-        if (!refreshed || !isCurrent(generation, scope)) {
-          return false;
-        }
-        await runOnSaved(generation, scope);
-        if (!isCurrent(generation, scope)) {
-          return false;
-        }
+        const nextProfile = buildLearnerProfileDraft(
+          response,
+          translationRef.current,
+        );
+        setProfile(nextProfile);
+        setInitialProfile(nextProfile);
+        setSavedProfile(response.learner_profile || '');
+        const nicknameDraft = resolveLearnerNicknameDraft(response);
+        setNickname(nicknameDraft.value);
+        setInitialNickname(nicknameDraft.value);
+        setSavedNickname(nicknameDraft.savedValue);
+        setNicknameSource(nicknameDraft.source);
+        setMaxLength(response.max_length || maxLength);
+        setNicknameMaxLength(response.nickname_max_length || nicknameMaxLength);
+        setSettingsSessionEligible(true);
+        setError('');
+        resetOptimization();
         setRerunOpen(false);
         toast({
           title: t('module.profileOnboarding.settings.regenerateSuccess'),
         });
+        void runOnSaved(generation, scope);
         return true;
       } catch (caughtError) {
         if (isCurrent(generation, scope)) {
@@ -603,7 +613,16 @@ export default function LearnerProfileDialog({
         }
       }
     },
-    [draftStorageScope, isCurrent, loadProfile, runOnSaved, t, toast],
+    [
+      draftStorageScope,
+      isCurrent,
+      maxLength,
+      nicknameMaxLength,
+      resetOptimization,
+      runOnSaved,
+      t,
+      toast,
+    ],
   );
 
   const canRerunGuidedQuestions =
