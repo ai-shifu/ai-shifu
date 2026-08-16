@@ -41,6 +41,7 @@ type MockProfileOnboardingModalProps = {
   open: boolean;
   presentation: string;
   sessionIntent: string;
+  submitting: boolean;
   onComplete: (
     learnerProfile: string,
     source: 'guided' | 'settings',
@@ -54,6 +55,7 @@ const mockProfileOnboardingModal = jest.fn(
     open,
     presentation,
     sessionIntent,
+    submitting,
     onComplete,
     onSkip,
   }: MockProfileOnboardingModalProps) =>
@@ -65,6 +67,7 @@ const mockProfileOnboardingModal = jest.fn(
       >
         <button
           type='button'
+          disabled={submitting}
           onClick={() =>
             void onComplete(
               'Updated through guided questions',
@@ -1530,11 +1533,12 @@ describe('LearnerProfileDialog', () => {
       }),
     ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.settings.rerun',
-      }),
-    );
+    const rerun = screen.getByRole('button', {
+      name: 'module.profileOnboarding.settings.rerun',
+    });
+    expect(rerun).toBeEnabled();
+    expect(rerun).not.toHaveAttribute('aria-describedby');
+    fireEvent.click(rerun);
 
     const rerunModal = screen.getByTestId('profile-onboarding-modal');
     expect(rerunModal).toHaveAttribute('data-presentation', 'non_blocking');
@@ -1563,6 +1567,120 @@ describe('LearnerProfileDialog', () => {
     expect(onSaved).toHaveBeenCalledTimes(1);
     expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
+  });
+
+  test('requires saving profile or nickname edits before rerunning guided questions', async () => {
+    renderDialog();
+
+    const profile = await screen.findByDisplayValue(
+      existingProfile.learner_profile,
+    );
+    const nickname = screen.getByDisplayValue('Alex');
+    const rerun = screen.getByRole('button', {
+      name: 'module.profileOnboarding.settings.rerun',
+    });
+    const disabledDescription =
+      'module.profileOnboarding.dialog.saveChanges. module.profileOnboarding.dialog.discardDescription';
+
+    fireEvent.change(profile, {
+      target: { value: 'Unsaved learner introduction' },
+    });
+    expect(rerun).toBeDisabled();
+    expect(rerun).toHaveAttribute('title', disabledDescription);
+    expect(rerun).toHaveAccessibleDescription(disabledDescription);
+    fireEvent.click(rerun);
+    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'learner_profile_settings_rerun_started',
+    );
+
+    fireEvent.change(profile, {
+      target: { value: existingProfile.learner_profile },
+    });
+    expect(rerun).toBeEnabled();
+    expect(rerun).not.toHaveAttribute('title');
+    expect(rerun).not.toHaveAttribute('aria-describedby');
+
+    fireEvent.change(nickname, { target: { value: 'Unsaved nickname' } });
+    expect(rerun).toBeDisabled();
+    expect(rerun).toHaveAccessibleDescription(disabledDescription);
+    fireEvent.click(rerun);
+    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+  });
+
+  test('ignores a pending settings rerun after the account changes', async () => {
+    let resolveRerun: (value: typeof existingProfile) => void = () => undefined;
+    mockCompleteGuidedProfileOnboarding.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveRerun = resolve;
+        }),
+    );
+    mockGetLearnerProfile
+      .mockResolvedValueOnce(existingProfile)
+      .mockResolvedValueOnce({
+        ...existingProfile,
+        learner_profile: 'User B introduction',
+        nickname: 'Bee',
+      });
+    const onSaved = jest.fn();
+    const onClose = jest.fn();
+    const { rerender } = render(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-a'
+        onClose={onClose}
+        onSaved={onSaved}
+      />,
+    );
+
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    );
+    const complete = screen.getByRole('button', {
+      name: COMPLETE_SETTINGS_RERUN_LABEL,
+    });
+    fireEvent.click(complete);
+    expect(complete).toBeDisabled();
+    fireEvent.click(complete);
+    expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <LearnerProfileDialog
+        open={true}
+        mode='settings'
+        draftStorageScope='user-b'
+        onClose={onClose}
+        onSaved={onSaved}
+      />,
+    );
+    expect(
+      await screen.findByDisplayValue('User B introduction'),
+    ).toBeEnabled();
+    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
+
+    await act(async () => {
+      resolveRerun({
+        ...existingProfile,
+        learner_profile: 'Late user A guided introduction',
+        nickname: 'Late A',
+      });
+    });
+
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
+    ).toHaveValue('User B introduction');
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+    ).toHaveValue('Bee');
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
   });
 
   test('closes a durably completed settings rerun when the parent refresh fails', async () => {
