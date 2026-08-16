@@ -123,6 +123,156 @@ def test_dual_get_contract_covers_fresh_legacy_canonical_v2_and_fail_open(
         assert unavailable["profile_v2"]["presentation"] == "hidden"
 
 
+def test_legacy_complete_accepts_arbitrary_variables_without_v2_writes(
+    app, monkeypatch, test_client
+):
+    from flaskr.service.common.profile_onboarding import (
+        PROFILE_ONBOARDING_STATE_KEY,
+    )
+    from flaskr.service.profile.onboarding import get_profile_onboarding_status
+
+    _set_config(
+        monkeypatch,
+        {
+            "enabled": True,
+            "markdownflow": VALID_GUIDED_FLOW,
+            "revision": 10,
+        },
+    )
+    moderated_values = []
+    monkeypatch.setattr(
+        "flaskr.service.profile.onboarding.check_text_content",
+        lambda _app, _user_id, value: moderated_values.append(value) or True,
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: SimpleNamespace(
+            user_id="protocol-arbitrary-only",
+            language="en-US",
+            is_operator=False,
+        ),
+    )
+
+    with app.app_context():
+        _create_user("protocol-arbitrary-only")
+        fresh = get_profile_onboarding_status(
+            app,
+            user_id="protocol-arbitrary-only",
+        )
+
+    response = test_client.post(
+        "/api/user/profile-onboarding/complete",
+        headers={"Token": "token"},
+        json={
+            "skipped": False,
+            "variables": {"learning_goal": "Build a production agent."},
+        },
+    )
+
+    with app.app_context():
+        user = UserInfo.query.filter_by(user_bid="protocol-arbitrary-only").one()
+        values = {
+            row.key: row.value
+            for row in VariableValue.query.filter_by(
+                user_bid="protocol-arbitrary-only",
+                deleted=0,
+            ).all()
+        }
+        v2_state = UserOnboardingState.query.filter_by(
+            user_bid="protocol-arbitrary-only"
+        ).first()
+        handled = get_profile_onboarding_status(
+            app,
+            user_id="protocol-arbitrary-only",
+        )
+
+    body = response.get_json(force=True)
+    assert body["code"] == 0
+    assert body["data"]["variables"] == {}
+    assert moderated_values == []
+    assert user.learner_profile == ""
+    assert set(values) == {PROFILE_ONBOARDING_STATE_KEY}
+    assert json.loads(values[PROFILE_ONBOARDING_STATE_KEY])["version"] == 10
+    assert v2_state is None
+
+    assert fresh["should_show"] is True
+    assert fresh["profile_v2"]["should_show"] is True
+    assert fresh["profile_v2"]["presentation"] == "blocking"
+    assert handled["should_show"] is False
+    assert handled["profile_v2"]["should_show"] is True
+    assert handled["profile_v2"]["legacy_handled"] is True
+    assert handled["profile_v2"]["presentation"] == "non_blocking"
+
+
+def test_legacy_complete_filters_unknown_variables_before_moderation_and_storage(
+    app, monkeypatch, test_client
+):
+    from flaskr.service.common.profile_onboarding import (
+        PROFILE_ONBOARDING_STATE_KEY,
+    )
+
+    _set_config(
+        monkeypatch,
+        {
+            "enabled": True,
+            "markdownflow": VALID_GUIDED_FLOW,
+            "revision": 11,
+        },
+    )
+    moderated_values = []
+    monkeypatch.setattr(
+        "flaskr.service.profile.onboarding.check_text_content",
+        lambda _app, _user_id, value: moderated_values.append(value) or True,
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: SimpleNamespace(
+            user_id="protocol-arbitrary-and-system",
+            language="en-US",
+            is_operator=False,
+        ),
+    )
+
+    with app.app_context():
+        _create_user("protocol-arbitrary-and-system")
+
+    response = test_client.post(
+        "/api/user/profile-onboarding/complete",
+        headers={"Token": "token"},
+        json={
+            "skipped": False,
+            "variables": {
+                "learning_goal": "This must be discarded.",
+                "sys_user_nickname": "Legacy learner",
+            },
+        },
+    )
+
+    with app.app_context():
+        user = UserInfo.query.filter_by(user_bid="protocol-arbitrary-and-system").one()
+        values = {
+            row.key: row.value
+            for row in VariableValue.query.filter_by(
+                user_bid="protocol-arbitrary-and-system",
+                deleted=0,
+            ).all()
+        }
+        v2_state = UserOnboardingState.query.filter_by(
+            user_bid="protocol-arbitrary-and-system"
+        ).first()
+
+    body = response.get_json(force=True)
+    assert body["code"] == 0
+    assert body["data"]["variables"] == {"sys_user_nickname": "Legacy learner"}
+    assert moderated_values == ["Legacy learner"]
+    assert set(values) == {"sys_user_nickname", PROFILE_ONBOARDING_STATE_KEY}
+    assert values["sys_user_nickname"] == "Legacy learner"
+    assert json.loads(values[PROFILE_ONBOARDING_STATE_KEY])["version"] == 11
+    assert "learning_goal" not in values
+    assert user.learner_profile == ""
+    assert v2_state is None
+
+
 def test_complete_routes_keep_legacy_and_v2_persistence_strictly_isolated(
     app, monkeypatch, test_client
 ):
