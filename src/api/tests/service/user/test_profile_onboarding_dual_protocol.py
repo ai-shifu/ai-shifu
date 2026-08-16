@@ -12,8 +12,12 @@ VALID_GUIDED_FLOW = (
     "?[%{{learning_goal}}...What would you most like to learn right now?]"
 )
 LEGACY_NONASSIGNMENT_FLOW = "Welcome.\n\n---\n\n?[Continue]"
-LEGACY_PROJECTED_FLOW = (
-    "Welcome.\n\n---\n\n?[%{{__profile_onboarding_legacy_answer_0}}Continue]"
+LEGACY_UNSAFE_ASSIGNMENT_FLOW = (
+    "Welcome.\n\n---\n\n?[%{{job role}}...What kind of work do you do?]"
+)
+LEGACY_UNSAFE_PROJECTED_FLOW = (
+    "Welcome.\n\n---\n\n"
+    "?[%{{__profile_onboarding_legacy_answer_0}}...What kind of work do you do?]"
 )
 
 
@@ -38,7 +42,39 @@ def _set_config(monkeypatch, payload: dict) -> None:
     )
 
 
-def test_legacy_projection_assigns_mixed_nonassignment_blocks_without_collisions():
+def test_legacy_projection_replaces_assigned_unsafe_variable_names():
+    from flaskr.service.profile.onboarding import (
+        _project_legacy_profile_onboarding_markdownflow,
+    )
+    from flaskr.service.profile_research.api import (
+        validate_profile_research_document,
+    )
+
+    projected = _project_legacy_profile_onboarding_markdownflow(
+        LEGACY_UNSAFE_ASSIGNMENT_FLOW
+    )
+
+    assert projected == LEGACY_UNSAFE_PROJECTED_FLOW
+    assert validate_profile_research_document(projected)["variables"] == [
+        "__profile_onboarding_legacy_answer_0"
+    ]
+
+
+def test_legacy_projection_replaces_raw_names_normalized_by_official_parser():
+    from flaskr.service.profile.onboarding import (
+        _project_legacy_profile_onboarding_markdownflow,
+    )
+
+    projected = _project_legacy_profile_onboarding_markdownflow(
+        "?[%{{ job }}...What kind of work do you do?]"
+    )
+
+    assert projected == (
+        "?[%{{__profile_onboarding_legacy_answer_0}}...What kind of work do you do?]"
+    )
+
+
+def test_legacy_projection_handles_mixed_interactions_without_collisions():
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
     )
@@ -49,8 +85,9 @@ def test_legacy_projection_assigns_mixed_nonassignment_blocks_without_collisions
     document = (
         "Welcome.\n\n---\n\n"
         "?[%{{__profile_onboarding_legacy_answer_0}}...Assigned question]\n\n---\n\n"
-        "?[Continue]\n\n---\n\n"
-        "?[Yes | No]"
+        "?[%{{learning_goal}}...Safe assigned question]\n\n---\n\n"
+        "?[%{{job role}}...Unsafe assigned question]\n\n---\n\n"
+        "?[Continue]"
     )
 
     projected = _project_legacy_profile_onboarding_markdownflow(document)
@@ -58,14 +95,16 @@ def test_legacy_projection_assigns_mixed_nonassignment_blocks_without_collisions
     assert projected == (
         "Welcome.\n\n---\n\n"
         "?[%{{__profile_onboarding_legacy_answer_0}}...Assigned question]\n\n---\n\n"
-        "?[%{{__profile_onboarding_legacy_answer_0_1}}Continue]\n\n---\n\n"
-        "?[%{{__profile_onboarding_legacy_answer_1}}Yes | No]"
+        "?[%{{learning_goal}}...Safe assigned question]\n\n---\n\n"
+        "?[%{{__profile_onboarding_legacy_answer_0_1}}...Unsafe assigned question]\n\n---\n\n"
+        "?[%{{__profile_onboarding_legacy_answer_1}}Continue]"
     )
-    assert validate_profile_research_document(projected)["variables"] == [
+    assert set(validate_profile_research_document(projected)["variables"]) == {
         "__profile_onboarding_legacy_answer_0",
+        "learning_goal",
         "__profile_onboarding_legacy_answer_0_1",
         "__profile_onboarding_legacy_answer_1",
-    ]
+    }
 
 
 def test_legacy_projection_failure_keeps_status_fail_open(app, monkeypatch):
@@ -203,7 +242,7 @@ def test_legacy_projection_completion_writes_only_the_legacy_sentinel(
         monkeypatch,
         {
             "enabled": True,
-            "markdownflow": LEGACY_NONASSIGNMENT_FLOW,
+            "markdownflow": LEGACY_UNSAFE_ASSIGNMENT_FLOW,
             "revision": 10,
         },
     )
@@ -234,7 +273,8 @@ def test_legacy_projection_completion_writes_only_the_legacy_sentinel(
         json={
             "skipped": False,
             "variables": {
-                "__profile_onboarding_legacy_answer_0": "Continue",
+                "__profile_onboarding_legacy_answer_0": "Teacher",
+                "job role": "Teacher",
             },
         },
     )
@@ -266,7 +306,7 @@ def test_legacy_projection_completion_writes_only_the_legacy_sentinel(
     assert v2_state is None
 
     assert fresh["should_show"] is True
-    assert fresh["markdownflow"] == LEGACY_PROJECTED_FLOW
+    assert fresh["markdownflow"] == LEGACY_UNSAFE_PROJECTED_FLOW
     assert fresh["contract_version"] == "profile-v2"
     assert fresh["profile_v2"]["guided_available"] is True
     assert fresh["profile_v2"]["should_show"] is True
