@@ -92,6 +92,7 @@
   },
   "guided": {
     "description": "The better your AI teacher knows you, the easier the lessons are to understand. About 1 minute.",
+    "inputLimitError": "This answer is too long or has too many selections. Shorten it, then submit again; you can keep editing it.",
     "missingDraft": "We could not finish organizing your answers. Please answer the questions again.",
     "retry": "Try again",
     "retryableError": "The connection was interrupted. Your answer is still here. Try again.",
