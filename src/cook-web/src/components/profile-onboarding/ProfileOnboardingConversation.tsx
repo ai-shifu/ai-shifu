@@ -60,8 +60,9 @@ export type ProfileOnboardingConversationProps = {
 
 const NON_RETRYABLE_RUNTIME_ERROR_CODES = new Set([
   'transient_markdownflow_invalid',
-  'transient_markdownflow_session_not_found',
 ]);
+const SESSION_NOT_FOUND_RUNTIME_ERROR_CODE =
+  'transient_markdownflow_session_not_found';
 
 const asObject = (value: unknown): Record<string, unknown> | null => {
   if (value && typeof value === 'object') {
@@ -295,7 +296,10 @@ export default function ProfileOnboardingConversation({
         setLoading(false);
       }
       if (type === 'error') {
+        const runtimeErrorCode = resolveRuntimeErrorCode(event.content);
         const retryable = isRetryableRuntimeError(event.content);
+        const requiresFreshSession =
+          runtimeErrorCode === SESSION_NOT_FOUND_RUNTIME_ERROR_CODE;
         runtimeFailedRef.current = true;
         streamCompletedRef.current = true;
         runInFlightRef.current = false;
@@ -304,6 +308,11 @@ export default function ProfileOnboardingConversation({
         setLoading(false);
         retryAvailableRef.current = retryable;
         setRetryAvailable(retryable);
+        if (requiresFreshSession) {
+          sessionIdRef.current = '';
+          blockIndexRef.current = 0;
+          lastRunRequestRef.current = null;
+        }
         onErrorRef.current(
           new Error(
             tRef.current(
@@ -420,7 +429,6 @@ export default function ProfileOnboardingConversation({
     setRetryAvailable(false);
     sessionIdRef.current = '';
     blockIndexRef.current = 0;
-    requestSequenceRef.current = 0;
     lastRunRequestRef.current = null;
     awaitingInteractionRef.current = false;
     streamCompletedRef.current = false;
