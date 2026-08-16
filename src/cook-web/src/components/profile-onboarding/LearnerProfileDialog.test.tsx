@@ -7,7 +7,9 @@ import {
   waitFor,
 } from '@testing-library/react';
 import {
+  completeGuidedProfileOnboarding,
   getLearnerProfile,
+  getProfileOnboardingV2,
   optimizeLearnerProfile,
   updateLearnerProfile,
 } from '@/api/learnerProfile';
@@ -17,6 +19,7 @@ import frProfile from '../../../../i18n/fr-FR/modules/profile-onboarding.json';
 import zhProfile from '../../../../i18n/zh-CN/modules/profile-onboarding.json';
 
 const mockToast = jest.fn();
+const mockTrackEvent = jest.fn();
 const translateKey = (
   key: string,
   params?: Record<string, string | number>,
@@ -32,14 +35,79 @@ const translateKey = (
 let mockT = translateKey;
 let mockLanguage = 'en-US';
 
+type MockProfileOnboardingModalProps = {
+  open: boolean;
+  presentation: string;
+  sessionIntent: string;
+  onComplete: (
+    learnerProfile: string,
+    source: 'guided' | 'settings',
+    sessionId?: string,
+  ) => void | Promise<boolean | void>;
+  onSkip: (sessionId?: string) => void | Promise<boolean | void>;
+};
+
+const mockProfileOnboardingModal = jest.fn(
+  ({
+    open,
+    presentation,
+    sessionIntent,
+    onComplete,
+    onSkip,
+  }: MockProfileOnboardingModalProps) =>
+    open ? (
+      <div
+        data-testid='profile-onboarding-modal'
+        data-presentation={presentation}
+        data-session-intent={sessionIntent}
+      >
+        <button
+          type='button'
+          onClick={() =>
+            void onComplete(
+              'Updated through guided questions',
+              'settings',
+              '0123456789abcdef0123456789abcdef',
+            )
+          }
+        >
+          complete settings rerun
+        </button>
+        <button
+          type='button'
+          onClick={() => void onSkip('0123456789abcdef0123456789abcdef')}
+        >
+          defer settings rerun
+        </button>
+      </div>
+    ) : null,
+);
+
 jest.mock('@/api/learnerProfile', () => ({
+  completeGuidedProfileOnboarding: jest.fn(),
   getLearnerProfile: jest.fn(),
+  getProfileOnboardingV2: jest.fn(),
+  isProfileOnboardingV2Status: (value: unknown) =>
+    typeof value === 'object' &&
+    value !== null &&
+    'contract_version' in value &&
+    value.contract_version === 'profile-v2',
   optimizeLearnerProfile: jest.fn(),
   updateLearnerProfile: jest.fn(),
 }));
 
+jest.mock('@/c-common/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
+
 jest.mock('@/hooks/useToast', () => ({
   useToast: () => ({ toast: mockToast }),
+}));
+
+jest.mock('./ProfileOnboardingModal', () => ({
+  __esModule: true,
+  default: (props: MockProfileOnboardingModalProps) =>
+    mockProfileOnboardingModal(props),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -52,7 +120,10 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+const mockCompleteGuidedProfileOnboarding =
+  completeGuidedProfileOnboarding as jest.Mock;
 const mockGetLearnerProfile = getLearnerProfile as jest.Mock;
+const mockGetProfileOnboardingV2 = getProfileOnboardingV2 as jest.Mock;
 const mockOptimizeLearnerProfile = optimizeLearnerProfile as jest.Mock;
 const mockUpdateLearnerProfile = updateLearnerProfile as jest.Mock;
 
@@ -93,6 +164,17 @@ describe('LearnerProfileDialog', () => {
     mockT = translateKey;
     mockLanguage = 'en-US';
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue({
+      contract_version: 'profile-v2',
+      enabled: true,
+      guided_available: true,
+      should_show: false,
+      presentation: 'hidden',
+      handled: true,
+      legacy_handled: false,
+      ...existingProfile,
+    });
+    mockCompleteGuidedProfileOnboarding.mockResolvedValue(existingProfile);
     mockOptimizeLearnerProfile.mockReset();
   });
 
@@ -1423,6 +1505,82 @@ describe('LearnerProfileDialog', () => {
       );
     });
     expect(onboardingClose).toHaveBeenCalledWith('dismiss');
+  });
+
+  test('reruns guided questions from settings without losing nickname or optimizer behavior', async () => {
+    const onSaved = jest.fn();
+    const rerunProfile = {
+      ...existingProfile,
+      learner_profile: 'Updated through guided questions',
+    };
+    mockGetLearnerProfile
+      .mockResolvedValueOnce(existingProfile)
+      .mockResolvedValueOnce(rerunProfile);
+
+    renderDialog({ onSaved });
+
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+    ).toHaveValue('Alex');
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    );
+
+    const rerunModal = screen.getByTestId('profile-onboarding-modal');
+    expect(rerunModal).toHaveAttribute('data-presentation', 'non_blocking');
+    expect(rerunModal).toHaveAttribute('data-session-intent', 'settings');
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_profile_settings_rerun_started',
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'complete settings rerun' }),
+    );
+
+    await waitFor(() => {
+      expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledWith({
+        learner_profile: 'Updated through guided questions',
+        trigger_source: 'settings',
+        session_id: '0123456789abcdef0123456789abcdef',
+      });
+    });
+    expect(
+      await screen.findByDisplayValue('Updated through guided questions'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
+    ).toHaveValue('Alex');
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
+  });
+
+  test('closes a deferred settings rerun locally without completing it', async () => {
+    renderDialog();
+
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'defer settings rerun' }),
+    );
+
+    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    expect(
+      screen.getByDisplayValue(existingProfile.learner_profile),
+    ).toBeInTheDocument();
   });
 
   test('keeps onboarding open when dismiss fails and prevents duplicate requests', async () => {

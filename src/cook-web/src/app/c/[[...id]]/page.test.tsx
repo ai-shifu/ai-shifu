@@ -550,11 +550,7 @@ describe('ChatPage profile onboarding gate', () => {
 
     render(<ChatPage />);
 
-    const modal = await screen.findByTestId('profile-onboarding-modal');
-    expect(modal).toHaveAttribute(
-      'data-markdownflow',
-      '?[%{{sys_user_nickname}}...怎么称呼你？]',
-    );
+    await screen.findByTestId('profile-onboarding-modal');
     expect(
       screen.queryByTestId('learner-profile-dialog'),
     ).not.toBeInTheDocument();
@@ -596,43 +592,6 @@ describe('ChatPage profile onboarding gate', () => {
     });
   });
 
-  test('passes legacy values to the original onboarding and marks skip as handled', async () => {
-    mockGetProfileOnboarding.mockResolvedValue({
-      should_show: true,
-      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
-      current_values: {
-        sys_user_nickname: 'Legacy nickname',
-        sys_user_background: 'Legacy background',
-        sys_user_style: 'Legacy style',
-      },
-    });
-
-    render(<ChatPage />);
-
-    const modal = await screen.findByTestId('profile-onboarding-modal');
-    expect(
-      JSON.parse(modal.getAttribute('data-current-values') || '{}'),
-    ).toEqual({
-      sys_user_nickname: 'Legacy nickname',
-      sys_user_background: 'Legacy background',
-      sys_user_style: 'Legacy style',
-    });
-    fireEvent.click(screen.getByRole('button', { name: skipOnboardingLabel }));
-
-    await waitFor(() => {
-      expect(mockCompleteProfileOnboarding).toHaveBeenCalledWith({
-        skipped: true,
-        variables: {},
-      });
-    });
-    await waitFor(() => {
-      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
-        'data-runtime-ready',
-        'true',
-      );
-    });
-  });
-
   test('mounts the course immediately for a non-blocking legacy upgrade prompt', async () => {
     mockGetProfileOnboarding.mockResolvedValue(
       profileV2Status({
@@ -658,14 +617,20 @@ describe('ChatPage profile onboarding gate', () => {
 
     render(<ChatPage />);
     await screen.findByTestId('profile-onboarding-modal');
-    expect(screen.queryByTestId('chat-ui')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+      'data-runtime-ready',
+      'false',
+    );
 
     fireEvent.click(screen.getByRole('button', { name: skipOnboardingLabel }));
 
     await waitFor(() => {
       expect(mockSkipProfileOnboarding).toHaveBeenCalledWith('session-1');
     });
-    expect(screen.getByTestId('chat-ui')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+      'data-runtime-ready',
+      'true',
+    );
   });
 
   test.each([
@@ -883,11 +848,12 @@ describe('ChatPage profile onboarding gate', () => {
   });
 
   test('starts runtime and reports delayed user refresh after guided submission', async () => {
-    mockGetProfileOnboarding.mockResolvedValue({
-      should_show: true,
-      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
-      current_values: {},
-    });
+    mockGetProfileOnboarding.mockResolvedValue(
+      profileV2Status({
+        should_show: true,
+        presentation: 'blocking',
+      }),
+    );
     mockRefreshUserInfo.mockRejectedValue(new Error('refresh delayed'));
 
     render(<ChatPage />);
@@ -992,11 +958,7 @@ describe('ChatPage profile onboarding gate', () => {
     );
 
     await act(async () => {
-      resolveStatus({
-        should_show: false,
-        markdownflow: '',
-        current_values: {},
-      });
+      resolveStatus(profileV2Status());
     });
 
     expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
@@ -1022,11 +984,7 @@ describe('ChatPage profile onboarding gate', () => {
       screen.getByRole('button', { name: openLearnerProfileLabel }),
     );
     await act(async () => {
-      resolveStatus({
-        should_show: false,
-        markdownflow: '',
-        current_values: {},
-      });
+      resolveStatus(profileV2Status());
     });
 
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
@@ -1039,7 +997,7 @@ describe('ChatPage profile onboarding gate', () => {
     );
   });
 
-  test('opens the original onboarding when positive eligibility arrives after settings dismiss', async () => {
+  test('opens guided onboarding when positive eligibility arrives after settings dismiss', async () => {
     let resolveStatus: (value: unknown) => void = () => undefined;
     mockGetProfileOnboarding.mockReturnValue(
       new Promise(resolve => {
@@ -1059,11 +1017,12 @@ describe('ChatPage profile onboarding gate', () => {
     });
 
     await act(async () => {
-      resolveStatus({
-        should_show: true,
-        markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
-        current_values: {},
-      });
+      resolveStatus(
+        profileV2Status({
+          should_show: true,
+          presentation: 'blocking',
+        }),
+      );
     });
 
     expect(screen.getByTestId('profile-onboarding-modal')).toBeInTheDocument();
@@ -1090,11 +1049,12 @@ describe('ChatPage profile onboarding gate', () => {
     );
 
     await act(async () => {
-      resolveStatus({
-        should_show: true,
-        markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
-        current_values: {},
-      });
+      resolveStatus(
+        profileV2Status({
+          should_show: true,
+          presentation: 'blocking',
+        }),
+      );
     });
 
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
@@ -1150,11 +1110,12 @@ describe('ChatPage profile onboarding gate', () => {
     });
 
     await act(async () => {
-      resolveStatus({
-        should_show: true,
-        markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
-        current_values: {},
-      });
+      resolveStatus(
+        profileV2Status({
+          should_show: true,
+          presentation: 'blocking',
+        }),
+      );
     });
 
     expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
@@ -1167,24 +1128,21 @@ describe('ChatPage profile onboarding gate', () => {
   });
 
   test('closes stale profile UI and reloads eligibility after account switch', async () => {
-    mockGetProfileOnboarding.mockResolvedValue({
-      should_show: true,
-      markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
-      current_values: {},
-    });
+    mockGetProfileOnboarding.mockResolvedValue(
+      profileV2Status({
+        should_show: true,
+        presentation: 'blocking',
+      }),
+    );
 
     const { rerender } = render(<ChatPage />);
 
     expect(
       await screen.findByTestId('profile-onboarding-modal'),
     ).toBeInTheDocument();
-    mockGetProfileOnboarding.mockResolvedValue({
-      should_show: false,
-      markdownflow: '',
-      current_values: {},
-    });
+    mockGetProfileOnboarding.mockResolvedValue(profileV2Status());
     mockUserStoreState.userInfo = {
-      ...mockUserStoreState.userInfo,
+      ...defaultMockUserInfo,
       user_id: 'user-2',
     };
 
@@ -1218,7 +1176,7 @@ describe('ChatPage profile onboarding gate', () => {
       }),
     );
     mockUserStoreState.userInfo = {
-      ...mockUserStoreState.userInfo,
+      ...defaultMockUserInfo,
       user_id: 'user-2',
     };
 
@@ -1229,11 +1187,7 @@ describe('ChatPage profile onboarding gate', () => {
       'false',
     );
     await act(async () => {
-      resolveUserB({
-        should_show: false,
-        markdownflow: '',
-        current_values: {},
-      });
+      resolveUserB(profileV2Status());
     });
 
     await waitFor(() => {
@@ -1254,13 +1208,9 @@ describe('ChatPage profile onboarding gate', () => {
     const { rerender } = render(<ChatPage />);
     await waitFor(() => expect(mockGetProfileOnboarding).toHaveBeenCalled());
 
-    mockGetProfileOnboarding.mockResolvedValueOnce({
-      should_show: false,
-      markdownflow: '',
-      current_values: {},
-    });
+    mockGetProfileOnboarding.mockResolvedValueOnce(profileV2Status());
     mockUserStoreState.userInfo = {
-      ...mockUserStoreState.userInfo,
+      ...defaultMockUserInfo,
       user_id: 'user-2',
     };
     rerender(<ChatPage />);
@@ -1273,11 +1223,12 @@ describe('ChatPage profile onboarding gate', () => {
       );
     });
     await act(async () => {
-      resolveUserA({
-        should_show: true,
-        markdownflow: '?[%{{sys_user_nickname}}...怎么称呼你？]',
-        current_values: {},
-      });
+      resolveUserA(
+        profileV2Status({
+          should_show: true,
+          presentation: 'blocking',
+        }),
+      );
     });
 
     expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
