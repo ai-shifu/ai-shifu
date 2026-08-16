@@ -271,10 +271,19 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             "get shifu, shifu_bid: %s, preview_mode: %s", shifu_bid, preview_mode
         )
         preview_mode = preview_mode.lower() == "true"
+        viewer_user_bid = ""
         if preview_mode:
             user = resolve_preview_request_user(app)
             require_shifu_preview_permission(app, user.user_id, shifu_bid)
-        return make_common_response(get_shifu_info(app, shifu_bid, preview_mode))
+            viewer_user_bid = user.user_id
+        return make_common_response(
+            get_shifu_info(
+                app,
+                shifu_bid,
+                preview_mode,
+                viewer_user_bid=viewer_user_bid,
+            )
+        )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/outline-item-tree", methods=["GET"])
     @with_shifu_context()

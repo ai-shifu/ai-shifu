@@ -12,6 +12,7 @@
     "avatar": "",
     "price": "0.00",
     "tts_enabled": false,
-    "default_listen_mode_enabled": false
+    "default_listen_mode_enabled": false,
+    "is_owner": false
   }
 }

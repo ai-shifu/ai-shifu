@@ -246,7 +246,13 @@ def _has_next_outline_item(
     return False
 
 
-def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifuInfoDTO:
+def get_shifu_info(
+    app: Flask,
+    shifu_bid: str,
+    preview_mode: bool,
+    *,
+    viewer_user_bid: str = "",
+) -> LearnShifuInfoDTO:
     with app.app_context():
         model = DraftShifu if preview_mode else PublishedShifu
         shifu = (
@@ -268,6 +274,9 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
             default_listen_mode_enabled=bool(
                 getattr(shifu, "default_listen_mode_enabled", 0)
             ),
+            is_owner=bool(viewer_user_bid)
+            and str(shifu.created_user_bid or "").strip()
+            == str(viewer_user_bid).strip(),
         )
 
 

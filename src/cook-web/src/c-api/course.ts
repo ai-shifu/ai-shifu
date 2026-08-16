@@ -101,6 +101,7 @@ export const getCourseInfo = async (
       course_avatar: res.avatar,
       course_tts_enabled: !!res?.tts_enabled,
       default_listen_mode_enabled: !!res?.default_listen_mode_enabled,
+      course_is_owner: res?.is_owner === true,
     };
   } catch (rawError: any) {
     const error = new CourseInfoFetchError(rawError);

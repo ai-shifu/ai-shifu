@@ -68,6 +68,7 @@ describe('getRunMessage language snapshot', () => {
       'lesson-1',
       false,
       { input: 'hello' },
+      'learner',
       jest.fn(),
     );
 
@@ -98,24 +99,28 @@ describe('getRunMessage language snapshot', () => {
     );
   });
 
-  test('marks preview runs as teacher credit errors', () => {
-    const source = getRunMessage(
-      'course-1',
-      'lesson-1',
-      true,
-      { input: 'hello' },
-      jest.fn(),
-    );
+  test.each(['teacher', 'teacher-collaborator'] as const)(
+    'passes the explicit %s audience to preview runs',
+    audience => {
+      const source = getRunMessage(
+        'course-1',
+        'lesson-1',
+        true,
+        { input: 'hello' },
+        audience,
+        jest.fn(),
+      );
 
-    expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
-      source,
-      expect.objectContaining({
-        meta: expect.objectContaining({
-          creditInsufficientAudience: 'teacher',
+      expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
+        source,
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            creditInsufficientAudience: audience,
+          }),
         }),
-      }),
-    );
-  });
+      );
+    },
+  );
 
   test('keeps an explicit request language as the immutable run snapshot', () => {
     getRunMessage(
@@ -123,6 +128,7 @@ describe('getRunMessage language snapshot', () => {
       'lesson-1',
       false,
       { input: {}, language: 'zh-CN' },
+      'learner',
       jest.fn(),
     );
 
@@ -139,6 +145,7 @@ describe('getRunMessage language snapshot', () => {
       'lesson-1',
       false,
       { input: {}, language: ' \t ' },
+      'learner',
       jest.fn(),
     );
 
@@ -157,6 +164,7 @@ describe('getRunMessage language snapshot', () => {
         shifu_bid: 'course-1',
         generated_block_bid: 'block-1',
         preview_mode: previewMode,
+        creditInsufficientAudience: audience,
         onMessage: jest.fn(),
       });
 

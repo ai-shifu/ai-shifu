@@ -86,9 +86,21 @@ jest.mock('@/c-assets/newchat/light/icon_shifu.svg', () => ({
   default: '/icon_shifu.svg',
 }));
 
+let mockIsCurrentUserCourseOwner = false;
+
 jest.mock('@/c-store/useCourseStore', () => ({
-  useCourseStore: (selector?: (state: { courseAvatar: string }) => unknown) => {
-    const state = { courseAvatar: '' };
+  useCourseStore: (
+    selector?: (state: {
+      courseAvatar: string;
+      isCurrentUserCourseOwner: boolean;
+    }) => unknown,
+  ) => {
+    const state = {
+      courseAvatar: '',
+      get isCurrentUserCourseOwner() {
+        return mockIsCurrentUserCourseOwner;
+      },
+    };
     return selector ? selector(state) : state;
   },
 }));
@@ -177,6 +189,7 @@ describe('AskBlock', () => {
     activeRun = undefined;
     mockSystemState.showLearningModeToggle = true;
     mockSystemState.learningMode = 'read';
+    mockIsCurrentUserCourseOwner = false;
     useAskStateStore.getState().clearLessonScope();
     mockCheckIsRunning.mockResolvedValue({
       is_running: false,
@@ -188,6 +201,7 @@ describe('AskBlock', () => {
         _outlineBid: string,
         _previewMode: boolean,
         _body: Record<string, unknown>,
+        _creditInsufficientAudience: string,
         onMessage: (response: {
           type: string;
           content?: string | Record<string, unknown>;
@@ -865,7 +879,7 @@ describe('AskBlock', () => {
   });
 
   describe('when the backend rejects the ask via SSE error', () => {
-    const renderAskBlock = () =>
+    const renderAskBlock = (previewMode = false) =>
       render(
         <AppContext.Provider
           value={{
@@ -881,6 +895,7 @@ describe('AskBlock', () => {
             shifu_bid='shifu-1'
             outline_bid='lesson-1'
             element_bid='block-1'
+            preview_mode={previewMode}
             askList={[]}
           />
         </AppContext.Provider>,
@@ -1011,6 +1026,36 @@ describe('AskBlock', () => {
           dedupeKey: 'credit-insufficient:learner:7101',
           dedupeWindowMs: Number.POSITIVE_INFINITY,
           title: 'module.billing.creditInsufficient.learner',
+          duration: 0,
+          action: undefined,
+        }),
+      );
+    });
+
+    it('tells a preview collaborator to contact the course owner', async () => {
+      renderAskBlock(true);
+
+      fireEvent.change(screen.getByLabelText('ask-input'), {
+        target: { value: 'collaborator question' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+      await waitFor(() => expect(activeRun).toBeDefined());
+      expect(mockGetRunMessage.mock.calls.at(-1)?.[4]).toBe(
+        'teacher-collaborator',
+      );
+
+      await act(async () => {
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.ERROR,
+          content: { code: 7101 },
+        });
+      });
+
+      expect(toastOnce).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dedupeKey: 'credit-insufficient:teacher-collaborator:7101',
+          title: 'module.billing.creditInsufficient.teacherCollaborator',
           duration: 0,
           action: undefined,
         }),
