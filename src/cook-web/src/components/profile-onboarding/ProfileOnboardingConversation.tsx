@@ -63,6 +63,43 @@ const NON_RETRYABLE_RUNTIME_ERROR_CODES = new Set([
 ]);
 const SESSION_NOT_FOUND_RUNTIME_ERROR_CODE =
   'transient_markdownflow_session_not_found';
+const PROFILE_ONBOARDING_MAX_INPUT_KEY_CODEPOINTS = 256;
+const PROFILE_ONBOARDING_MAX_INPUT_VALUES = 100;
+const PROFILE_ONBOARDING_MAX_INPUT_VALUE_CODEPOINTS = 4_000;
+const PROFILE_ONBOARDING_MAX_INPUT_TOTAL_CODEPOINTS = 10_000;
+
+const countCodePoints = (value: string) => Array.from(value).length;
+
+export const isProfileOnboardingSubmissionWithinLimits = (
+  variableName: string,
+  values: string[],
+) => {
+  if (
+    !variableName ||
+    countCodePoints(variableName) >
+      PROFILE_ONBOARDING_MAX_INPUT_KEY_CODEPOINTS ||
+    !values.length ||
+    values.length > PROFILE_ONBOARDING_MAX_INPUT_VALUES
+  ) {
+    return false;
+  }
+
+  let totalCodePoints = 0;
+  for (const value of values) {
+    const valueCodePoints = countCodePoints(value);
+    if (
+      !value.trim() ||
+      valueCodePoints > PROFILE_ONBOARDING_MAX_INPUT_VALUE_CODEPOINTS
+    ) {
+      return false;
+    }
+    totalCodePoints += valueCodePoints;
+    if (totalCodePoints > PROFILE_ONBOARDING_MAX_INPUT_TOTAL_CODEPOINTS) {
+      return false;
+    }
+  }
+  return true;
+};
 
 const resolveProfileOnboardingSubmission = (content: OnSendContentParams) => {
   const selectedValues = Array.isArray(content.selectedValues)
@@ -257,6 +294,7 @@ export default function ProfileOnboardingConversation({
   const [loading, setLoading] = React.useState(true);
   const [runInFlight, setRunInFlight] = React.useState(false);
   const [retryAvailable, setRetryAvailable] = React.useState(false);
+  const [submissionLimitError, setSubmissionLimitError] = React.useState(false);
   const retryAvailableRef = React.useRef(false);
   const sessionIdRef = React.useRef('');
   const blockIndexRef = React.useRef(0);
@@ -465,6 +503,7 @@ export default function ProfileOnboardingConversation({
     runInFlightRef.current = false;
     retryAvailableRef.current = false;
     setRetryAvailable(false);
+    setSubmissionLimitError(false);
     sessionIdRef.current = '';
     blockIndexRef.current = 0;
     lastRunRequestRef.current = null;
@@ -540,6 +579,11 @@ export default function ProfileOnboardingConversation({
       return;
     }
     const variableName = content.variableName?.trim() || 'input';
+    if (!isProfileOnboardingSubmissionWithinLimits(variableName, values)) {
+      setSubmissionLimitError(true);
+      return;
+    }
+    setSubmissionLimitError(false);
     setItems(current => {
       let lastInteractionIndex = -1;
       for (let index = current.length - 1; index >= 0; index -= 1) {
@@ -581,6 +625,9 @@ export default function ProfileOnboardingConversation({
   const locale = resolveMarkdownFlowLocale(
     i18n.resolvedLanguage ?? i18n.language,
   );
+  const visibleErrorMessage = submissionLimitError
+    ? t('module.profileOnboarding.guided.inputLimitError')
+    : errorMessage;
 
   return (
     <div
@@ -610,12 +657,12 @@ export default function ProfileOnboardingConversation({
           'flex min-h-9 shrink-0 items-center gap-2 text-sm text-muted-foreground',
           !items.length && 'order-first',
         )}
-        role={errorMessage ? 'alert' : 'status'}
-        aria-live={errorMessage ? 'assertive' : 'polite'}
+        role={visibleErrorMessage ? 'alert' : 'status'}
+        aria-live={visibleErrorMessage ? 'assertive' : 'polite'}
       >
-        {errorMessage ? (
+        {visibleErrorMessage ? (
           <span className='min-w-0 flex-1 text-destructive'>
-            {errorMessage}
+            {visibleErrorMessage}
           </span>
         ) : loading ? (
           <>
