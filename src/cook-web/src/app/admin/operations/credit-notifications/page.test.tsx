@@ -16,6 +16,7 @@ let mockDefaultLoginMethod = 'phone';
 const mockBrowserTimeZone = jest.fn(() => 'America/Los_Angeles');
 
 const mockTranslations: Record<string, string> = {
+  'module.user.defaultUserName': 'Anonymous User',
   'module.operationsCreditNotifications.errorReason.policy_disabled':
     'Notification policy is disabled, not sent.',
   'module.operationsCreditNotifications.errorReason.provider_failed':
@@ -1081,7 +1082,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
         'module.operationsCreditNotifications.config.fields.blockedCreatorList',
       ).length,
     ).toBeGreaterThan(1);
-    expect(screen.getByText('module.user.defaultUserName')).toBeInTheDocument();
+    expect(screen.getByText('Anonymous User')).toBeInTheDocument();
 
     fireEvent.change(
       screen.getByPlaceholderText(
