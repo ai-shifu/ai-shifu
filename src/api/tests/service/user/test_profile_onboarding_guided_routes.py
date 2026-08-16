@@ -1,7 +1,6 @@
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.service.common.profile_onboarding import (
     PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS,
 )
@@ -797,6 +796,7 @@ def test_learner_profile_routes_delegate(monkeypatch, test_client):
             {
                 "user_id": user.user_id,
                 "learner_profile": "new profile",
+                "nickname": None,
             },
         ),
         ("delete", {"user_id": user.user_id}),

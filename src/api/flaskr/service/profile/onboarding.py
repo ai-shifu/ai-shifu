@@ -5,8 +5,6 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 from flask import Flask
-from sqlalchemy.exc import IntegrityError
-
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_param_error
@@ -36,6 +34,7 @@ from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.models import UserOnboardingState
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+from sqlalchemy.exc import IntegrityError
 
 _T = TypeVar("_T")
 
