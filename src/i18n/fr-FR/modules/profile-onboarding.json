@@ -33,6 +33,7 @@
   "characterCount": "{count} / {max} caractères",
   "characterCountOverLimit": "{count} caractères saisis ; la limite est de {max}. Raccourcissez le texte avant de l’enregistrer.",
   "complete": "Confirmer et enregistrer",
+  "completeCompact": "Enregistrer",
   "dialog": {
     "cancel": "Annuler",
     "chips": {
@@ -89,7 +90,6 @@
     "settingsTitle": "Présentez-vous à votre enseignant IA",
     "undoOptimize": "Annuler"
   },
-  "completeCompact": "Enregistrer",
   "guided": {
     "description": "Plus votre professeur IA vous connaît, plus le cours est facile à comprendre. Environ 1 minute.",
     "missingDraft": "Nous n’avons pas pu terminer la synthèse. Répondez de nouveau aux questions.",
