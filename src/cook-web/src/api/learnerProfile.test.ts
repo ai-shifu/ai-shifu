@@ -185,6 +185,33 @@ describe('learner profile api', () => {
     );
   });
 
+  test('normalizes profile whitespace before guided completion', async () => {
+    const response = {
+      learner_profile: '我是一名产品经理。',
+      learner_profile_updated_at: '2026-08-03T01:02:03Z',
+      has_learner_profile: true,
+      max_length: 1000,
+    };
+    (request.post as jest.Mock).mockResolvedValue(response);
+
+    await expect(
+      completeGuidedProfileOnboarding({
+        learner_profile: '\n  我是一名产品经理。  \n',
+        trigger_source: 'settings',
+        session_id: 'session-whitespace',
+      }),
+    ).resolves.toEqual(response);
+
+    expect(request.post).toHaveBeenCalledWith(
+      '/api/user/profile-onboarding/complete',
+      {
+        learner_profile: '我是一名产品经理。',
+        trigger_source: 'settings',
+        session_id: 'session-whitespace',
+      },
+    );
+  });
+
   test('rejects a completion response that did not save the expected profile', async () => {
     (request.post as jest.Mock).mockResolvedValue({ completed: true });
 

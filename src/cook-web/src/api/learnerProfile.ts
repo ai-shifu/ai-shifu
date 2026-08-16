@@ -133,13 +133,17 @@ export const createProfileOnboardingSession = (
 export const completeGuidedProfileOnboarding = async (
   payload: CompleteProfileOnboardingPayload,
 ): Promise<LearnerProfile> => {
+  const normalizedPayload = {
+    ...payload,
+    learner_profile: payload.learner_profile.trim(),
+  };
   const response: unknown = await request.post(
     '/api/user/profile-onboarding/complete',
-    payload,
+    normalizedPayload,
   );
   if (
     !isRecord(response) ||
-    response.learner_profile !== payload.learner_profile.trim() ||
+    response.learner_profile !== normalizedPayload.learner_profile ||
     (typeof response.learner_profile_updated_at !== 'string' &&
       response.learner_profile_updated_at !== null) ||
     typeof response.has_learner_profile !== 'boolean' ||
