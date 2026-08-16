@@ -505,7 +505,8 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
     for block in blocks:
         if block.block_type != BlockType.INTERACTION:
             continue
-        variable_name = interaction_parser.parse(block.content).get("variable")
+        parsed_interaction = interaction_parser.parse(block.content)
+        variable_name = parsed_interaction.get("variable")
         if (
             isinstance(variable_name, str)
             and len(variable_name) > _MAX_INPUT_KEY_CODEPOINTS
@@ -513,6 +514,19 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
             raise ProfileResearchValidationError(
                 "interaction variable name is too long"
             )
+        question = parsed_interaction.get("question")
+        has_question = isinstance(question, str) and bool(question.strip())
+        buttons = parsed_interaction.get("buttons")
+        has_usable_button = isinstance(buttons, list) and any(
+            isinstance(button, dict)
+            and isinstance(button.get("display"), str)
+            and bool(button["display"].strip())
+            and isinstance(button.get("value"), str)
+            and bool(button["value"].strip())
+            for button in buttons
+        )
+        if not has_question and not has_usable_button:
+            raise ProfileResearchValidationError("interaction has no answerable input")
     return {
         "block_count": len(blocks),
         "interaction_block_count": interaction_count,
