@@ -27,6 +27,7 @@ Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1
 - [x] 2026-08-16 16:48 CST: Replayed all 28 PR2 commits onto current `main` at `f86e0cbd7` with a 28/28 equal range-diff, retained the new account-menu and shared profile focus styles, and passed 285 backend regressions, 131 PR2 frontend tests, 32 account-menu tests, TypeScript, lint, format, translations, architecture, and diff checks.
 - [x] 2026-08-16 17:15 CST: Closed nine post-sync review findings as independent changes: preserved exact official button values in V2, projected label/value choices safely for legacy clients, centralized learner/admin run validation, preserved the original legacy wire layout, normalized completion payloads, aligned the French teacher term, restored virgin admin defaults, kept optional settings status from blocking edits, and rejected oversized answers before making an interaction read-only.
 - [x] 2026-08-16 17:22 CST: Passed 305 focused backend regressions, 10 focused frontend suites / 139 tests, TypeScript, changed-file ESLint/Prettier, Ruff/format, three-language translation checks, architecture, repository harness, `git diff --check`, and the complete all-files lefthook gate on `f86e0cbd7`.
+- [x] 2026-08-16 17:45 CST: Closed the final post-push Unicode review finding in its own commit by matching the retiring web parser's exact ECMAScript trim set, preserving U+0085 in legacy button values, and passing all 21 dual-protocol regressions plus Ruff, format, dev-tool, and diff checks.
 
 ## Surprises & Discoveries
 
@@ -43,7 +44,7 @@ Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1
 
 ## Outcomes & Retrospective
 
-PR1 is merged and the complete PR2 commit series sits directly on current `main` without patch drift. Ready PR #2308 passed its full release gates and review window, then synchronized with the subsequent account-menu and profile-focus fixes from `main` without reverting either. Post-sync review hardening keeps exact official button values on the modern wire, prevents lossy legacy persistence, and preserves direct profile editing when optional guided services are unavailable. The delivered behavior retains the rolling dual protocol, official MarkdownFlow source, Redis isolation, PR1 learner-profile/sign-in safeguards, guided-only frontend, and the documented browser QA evidence without adding a migration.
+PR1 is merged and the complete PR2 commit series sits directly on current `main` without patch drift. Ready PR #2308 passed its full release gates and review window, then synchronized with the subsequent account-menu and profile-focus fixes from `main` without reverting either. Post-sync review hardening keeps exact official button values on the modern wire, matches the retiring parser's ECMAScript whitespace semantics on the legacy wire, prevents lossy legacy persistence, and preserves direct profile editing when optional guided services are unavailable. The delivered behavior retains the rolling dual protocol, official MarkdownFlow source, Redis isolation, PR1 learner-profile/sign-in safeguards, guided-only frontend, and the documented browser QA evidence without adding a migration.
 
 ## Context and Orientation
 
