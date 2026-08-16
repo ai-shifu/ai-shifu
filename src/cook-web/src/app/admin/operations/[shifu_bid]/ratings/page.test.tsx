@@ -730,6 +730,7 @@ describe('AdminOperationCourseRatingsPage', () => {
         'module.operationsCourse.detail.ratings.table.guestUser',
       ),
     ).toBeInTheDocument();
+    expect(screen.queryByText('Anonymous User')).not.toBeInTheDocument();
     expect(screen.queryByText('--')).not.toBeInTheDocument();
   });
 

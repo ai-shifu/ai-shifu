@@ -964,10 +964,11 @@ export default function AdminOperationCourseRatingsPage() {
                                   contactMode,
                                   emptyValue,
                                 });
-                                const secondaryAccount =
-                                  resolveUserSecondary(item);
                                 const isGuestAccount =
                                   !item.mobile?.trim() && !item.email?.trim();
+                                const secondaryAccount = isGuestAccount
+                                  ? ''
+                                  : resolveUserSecondary(item);
                                 const primaryLessonDisplay =
                                   resolvePrimaryLessonDisplay({
                                     lessonTitle: item.lesson_title,
