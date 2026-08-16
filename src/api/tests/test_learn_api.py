@@ -32,6 +32,36 @@ def test_get_shifu_info_returns_dto(app):
     assert dto.title == "Test Shifu"
     assert dto.price == "9.99"
     assert dto.keywords == ["a", "b"]
+    assert dto.is_owner is False
+
+
+def test_get_shifu_info_marks_matching_preview_viewer_as_owner(app):
+    with app.app_context():
+        shifu = DraftShifu(
+            shifu_bid="shifu-preview-owner",
+            title="Owner Preview",
+            description="Desc",
+            price=Decimal("0"),
+            created_user_bid="owner-1",
+        )
+        db.session.add(shifu)
+        db.session.commit()
+
+    owner_dto = get_shifu_info(
+        app,
+        "shifu-preview-owner",
+        preview_mode=True,
+        viewer_user_bid="owner-1",
+    )
+    collaborator_dto = get_shifu_info(
+        app,
+        "shifu-preview-owner",
+        preview_mode=True,
+        viewer_user_bid="collaborator-1",
+    )
+
+    assert owner_dto.is_owner is True
+    assert collaborator_dto.is_owner is False
 
 
 def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):

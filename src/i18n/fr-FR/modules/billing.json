@@ -460,6 +460,7 @@
     "learner": "Ce cours ne dispose pas de suffisamment de crédits pour générer davantage de contenu. Veuillez contacter l’enseignant du cours.",
     "purchaseActionAltText": "Ouvrir la page d’achat de crédits",
     "teacher": "Votre solde de crédits est insuffisant. Vous ne pouvez pas continuer pour le moment.",
+    "teacherCollaborator": "Le solde de crédits du responsable du cours est insuffisant pour générer davantage de contenu. Veuillez contacter le responsable du cours.",
     "teacherSoftlimit": "Votre solde de crédits est inférieur au seuil d’alerte. Les prévisualisations de débogage sont temporairement indisponibles."
   },
   "customization": {

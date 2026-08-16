@@ -3,6 +3,7 @@ import {
   CREDIT_INSUFFICIENT_BUSINESS_CODE,
   DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
   getCreditInsufficientMessage,
+  resolveCourseCreditInsufficientAudience,
   showCreditInsufficientToast,
 } from './creditInsufficientToast';
 
@@ -18,6 +19,8 @@ jest.mock('i18next', () => ({
           '前往积分购买页',
         'module.billing.creditInsufficient.teacher':
           '积分余额不足，暂时无法继续使用。',
+        'module.billing.creditInsufficient.teacherCollaborator':
+          '课程负责人的积分不足，暂时无法继续生成内容，请联系课程负责人。',
         'module.billing.creditInsufficient.teacherSoftlimit':
           '积分余额已低于提醒阈值，暂时不能继续调试。',
       })[key] || key,
@@ -90,4 +93,36 @@ describe('credit insufficient toast', () => {
       ),
     ).toBe('当前课程的积分不足，暂时无法继续生成内容，请联系课程老师。');
   });
+
+  test('shows preview collaborators the owner-specific notice without a purchase action', () => {
+    showCreditInsufficientToast({
+      audience: 'teacher-collaborator',
+      code: CREDIT_INSUFFICIENT_BUSINESS_CODE,
+    });
+
+    expect(mockToastOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dedupeKey: 'credit-insufficient:teacher-collaborator:7101',
+        title: '课程负责人的积分不足，暂时无法继续生成内容，请联系课程负责人。',
+        duration: 0,
+        action: undefined,
+      }),
+    );
+  });
+
+  test.each([
+    [false, false, 'learner'],
+    [true, true, 'teacher'],
+    [true, false, 'teacher-collaborator'],
+  ] as const)(
+    'resolves preview=%s owner=%s to %s',
+    (previewMode, isCurrentUserCourseOwner, expectedAudience) => {
+      expect(
+        resolveCourseCreditInsufficientAudience({
+          previewMode,
+          isCurrentUserCourseOwner,
+        }),
+      ).toBe(expectedAudience);
+    },
+  );
 });

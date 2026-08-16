@@ -6,7 +6,23 @@ import { BILLING_PACKAGES_HREF } from './billingNavigation';
 export const CREDIT_INSUFFICIENT_BUSINESS_CODE = 7101;
 export const DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE = 7125;
 
-export type CreditInsufficientAudience = 'learner' | 'teacher';
+export type CreditInsufficientAudience =
+  | 'learner'
+  | 'teacher'
+  | 'teacher-collaborator';
+
+export const resolveCourseCreditInsufficientAudience = ({
+  previewMode,
+  isCurrentUserCourseOwner,
+}: {
+  previewMode: boolean;
+  isCurrentUserCourseOwner: boolean;
+}): CreditInsufficientAudience => {
+  if (!previewMode) {
+    return 'learner';
+  }
+  return isCurrentUserCourseOwner ? 'teacher' : 'teacher-collaborator';
+};
 
 const CREDIT_ERROR_CODES = new Set([
   CREDIT_INSUFFICIENT_BUSINESS_CODE,
@@ -23,6 +39,9 @@ const resolveCreditInsufficientMessageKey = (
 ) => {
   if (audience === 'learner') {
     return 'module.billing.creditInsufficient.learner';
+  }
+  if (audience === 'teacher-collaborator') {
+    return 'module.billing.creditInsufficient.teacherCollaborator';
   }
   if (code === DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE) {
     return 'module.billing.creditInsufficient.teacherSoftlimit';
