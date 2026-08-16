@@ -62,7 +62,7 @@
 | `docs/product-specs/operator-role.md` | Operator Role Design | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
 | `docs/product-specs/operator-user-management.md` | Operator User Management | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
-| `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
+| `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/i18n.md` | Internationalization (i18n) Guide | `reference` | `reference` | `repo` | `-` | `true` |
