@@ -16,6 +16,7 @@ from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import get_current_language
 from flaskr.route.common import make_common_response, bypass_token_validation
 from flaskr.service.billing.admission import admit_creator_usage
+from flaskr.service.billing.api import admit_creator_preview_usage
 from flaskr.service.common.models import AppException, raise_param_error
 from flaskr.service.learn.learn_funcs import (
     get_shifu_info,
@@ -228,6 +229,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     def _admit_creator_usage_for_shifu(shifu_bid: str, usage_scene: int) -> None:
         if is_builtin_demo_shifu(app, shifu_bid):
             return None
+        if usage_scene == BILL_USAGE_SCENE_PREVIEW:
+            admit_creator_preview_usage(app, shifu_bid=shifu_bid)
+            return None
         admit_creator_usage(
             app,
             shifu_bid=shifu_bid,
@@ -273,10 +277,19 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             f"get shifu, shifu_bid: {shifu_bid}, preview_mode: {preview_mode}"
         )
         preview_mode = True if preview_mode.lower() == "true" else False
+        viewer_user_bid = ""
         if preview_mode:
             user = resolve_preview_request_user(app)
             require_shifu_preview_permission(app, user.user_id, shifu_bid)
-        return make_common_response(get_shifu_info(app, shifu_bid, preview_mode))
+            viewer_user_bid = user.user_id
+        return make_common_response(
+            get_shifu_info(
+                app,
+                shifu_bid,
+                preview_mode,
+                viewer_user_bid=viewer_user_bid,
+            )
+        )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/outline-item-tree", methods=["GET"])
     @with_shifu_context()

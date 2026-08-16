@@ -62,16 +62,24 @@ declare global {
   var __chatHookMockUpdateResetedChapterId__: jest.Mock | undefined;
 
   var __chatHookMockUpdateResetedLessonId__: jest.Mock | undefined;
+
+  var __chatHookIsCurrentUserCourseOwner__: boolean | null | undefined;
 }
 
 jest.mock('@/c-store/useCourseStore', () => ({
   useCourseStore: (() => {
     globalThis.__chatHookMockUpdateResetedChapterId__ = jest.fn();
     globalThis.__chatHookMockUpdateResetedLessonId__ = jest.fn();
+    globalThis.__chatHookIsCurrentUserCourseOwner__ = true;
     const state = {
       resetedLessonId: null as string | null,
       updateResetedChapterId: globalThis.__chatHookMockUpdateResetedChapterId__,
       updateResetedLessonId: globalThis.__chatHookMockUpdateResetedLessonId__,
+      get isCurrentUserCourseOwner() {
+        return globalThis.__chatHookIsCurrentUserCourseOwner__ === undefined
+          ? true
+          : globalThis.__chatHookIsCurrentUserCourseOwner__;
+      },
     };
     return Object.assign(
       (selector?: (store: typeof state) => unknown) =>
@@ -185,6 +193,7 @@ describe('useChatLogicHook stream cleanup', () => {
     jest.clearAllMocks();
     mockStreamGeneratedBlockAudio.mockReset();
     mockGetShifuDraftMeta.mockReset();
+    globalThis.__chatHookIsCurrentUserCourseOwner__ = true;
     useLessonRunContentStore.getState().clearAll();
     activeRun = undefined;
 
@@ -209,6 +218,7 @@ describe('useChatLogicHook stream cleanup', () => {
         _outlineBid: string,
         _previewMode: boolean,
         _body: RunRequestBody,
+        _creditInsufficientAudience: string,
         onMessage: (response: any) => Promise<void> | void,
         onError: (error: unknown) => void,
       ) => {
@@ -243,6 +253,52 @@ describe('useChatLogicHook stream cleanup', () => {
         listen: false,
       }),
     );
+  });
+
+  it('waits for preview ownership before starting generation', async () => {
+    globalThis.__chatHookIsCurrentUserCourseOwner__ = null;
+    const studyRecord = createDeferred<{
+      mdflow: string;
+      elements: never[];
+      records: never[];
+      slides: never[];
+    }>();
+    mockGetLessonStudyRecord.mockReturnValueOnce(studyRecord.promise);
+    const { result, rerender } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          previewMode: true,
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {});
+    expect(mockGetLessonStudyRecord).not.toHaveBeenCalled();
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+    await expect(
+      result.current.requestAudioForBlock('block-1'),
+    ).resolves.toBeNull();
+    expect(mockStreamGeneratedBlockAudio).not.toHaveBeenCalled();
+
+    globalThis.__chatHookIsCurrentUserCourseOwner__ = true;
+    rerender();
+
+    await waitFor(() => expect(mockGetLessonStudyRecord).toHaveBeenCalled());
+    await act(async () => {
+      studyRecord.resolve({
+        mdflow: '',
+        elements: [],
+        records: [],
+        slides: [],
+      });
+      await studyRecord.promise;
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockGetRunMessage.mock.calls[0]?.[4]).toBe('teacher');
   });
 
   it('sends listen=true in the run body when listen requests are enabled', async () => {
@@ -1545,8 +1601,8 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
-  it('uses the deduped friendly toast for preview credit errors with AI-service details', async () => {
-    renderHook(
+  it('does not duplicate the global credit toast for preview fallback errors', async () => {
+    const { result } = renderHook(
       () =>
         useChatLogicHook({
           ...buildBaseParams(),
@@ -1573,14 +1629,58 @@ describe('useChatLogicHook stream cleanup', () => {
         title: expect.stringContaining('deepseek'),
       }),
     );
+    expect(toastOnce).not.toHaveBeenCalled();
+    expect(
+      result.current.items.find(
+        item => item.type === ChatContentItemType.ERROR,
+      ),
+    ).toMatchObject({
+      business_code: 7101,
+      content: 'module.billing.creditInsufficient.teacher',
+    });
+  });
+
+  it('uses the collaborator notice for a non-owner preview', async () => {
+    globalThis.__chatHookIsCurrentUserCourseOwner__ = false;
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          previewMode: true,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    expect(mockGetRunMessage.mock.calls.at(-1)?.[4]).toBe(
+      'teacher-collaborator',
+    );
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.ERROR,
+        content: { code: 7101, message: 'server message' },
+      });
+    });
+
     expect(toastOnce).toHaveBeenCalledWith(
       expect.objectContaining({
-        dedupeKey: 'ai-service-unavailable',
-        title: 'module.chat.contentGenerationUnavailable',
-        variant: 'destructive',
-        duration: 8000,
+        dedupeKey: 'credit-insufficient:teacher-collaborator:7101',
+        title: 'module.billing.creditInsufficient.teacherCollaborator',
+        duration: 0,
+        action: undefined,
       }),
     );
+    expect(
+      result.current.items.find(
+        item => item.type === ChatContentItemType.ERROR,
+      ),
+    ).toMatchObject({
+      business_code: 7101,
+      content: 'module.billing.creditInsufficient.teacherCollaborator',
+    });
   });
 
   it('uses the longer run stream idle timeout on mobile', async () => {

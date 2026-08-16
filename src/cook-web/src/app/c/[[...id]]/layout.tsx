@@ -136,12 +136,14 @@ export default function ChatLayout({
     updateCourseName,
     updateCourseAvatar,
     updateCourseTtsEnabled,
+    updateIsCurrentUserCourseOwner,
   } = useCourseStore(
     useShallow((state: CourseStoreState) => ({
       courseTtsEnabled: state.courseTtsEnabled,
       updateCourseName: state.updateCourseName,
       updateCourseAvatar: state.updateCourseAvatar,
       updateCourseTtsEnabled: state.updateCourseTtsEnabled,
+      updateIsCurrentUserCourseOwner: state.updateIsCurrentUserCourseOwner,
     })),
   );
 
@@ -471,6 +473,7 @@ export default function ChatLayout({
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (courseId) {
+        updateIsCurrentUserCourseOwner(null);
         debugInfo('[course-info] request start', {
           courseId,
           previewMode: isPreviewMode,
@@ -492,6 +495,7 @@ export default function ChatLayout({
           updateCourseName(resp.course_name);
           updateCourseAvatar(resp.course_avatar);
           updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
+          updateIsCurrentUserCourseOwner(resp.course_is_owner === true);
           if (isPreviewMode) {
             setClassroomAccessCourseId(courseId);
             updateCanUseClassroomMode(true);
@@ -584,6 +588,7 @@ export default function ChatLayout({
     updateCourseName,
     updateCourseAvatar,
     updateCourseTtsEnabled,
+    updateIsCurrentUserCourseOwner,
     updateCanUseClassroomMode,
     isPreviewMode,
   ]);

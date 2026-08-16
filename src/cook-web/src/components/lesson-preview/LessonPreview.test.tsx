@@ -174,6 +174,7 @@ describe('LessonPreview billing action', () => {
       <LessonPreview
         loading={false}
         items={items}
+        creditInsufficientAudience='teacher'
         shifuBid='shifu-1'
         onRefresh={jest.fn()}
         onSend={jest.fn()}
@@ -182,11 +183,44 @@ describe('LessonPreview billing action', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.shifu.previewArea.goToBilling',
+        name: 'module.billing.alerts.actions.checkoutTopup',
       }),
     );
 
     expect(mockPush).toHaveBeenCalledWith('/admin/billing?tab=packages');
+  });
+
+  test('does not render a billing action for collaborator credit errors', () => {
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'preview-business-error',
+        generated_block_bid: 'preview-business-error',
+        content: '课程负责人的积分不足，请联系课程负责人。',
+        type: ChatContentItemType.ERROR,
+        business_code: 7101,
+      },
+    ];
+
+    render(
+      <LessonPreview
+        loading={false}
+        items={items}
+        creditInsufficientAudience='teacher-collaborator'
+        shifuBid='shifu-1'
+        onRefresh={jest.fn()}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText('课程负责人的积分不足，请联系课程负责人。'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.billing.alerts.actions.checkoutTopup',
+      }),
+    ).not.toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   test('shows later preview items immediately when debug preview typewriter is disabled', () => {

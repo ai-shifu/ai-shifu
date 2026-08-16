@@ -456,6 +456,13 @@
   "common": {
     "empty": "暂无"
   },
+  "creditInsufficient": {
+    "learner": "当前课程的积分不足，暂时无法继续生成内容，请联系课程老师。",
+    "purchaseActionAltText": "前往积分购买页",
+    "teacher": "积分余额不足，暂时无法继续使用。",
+    "teacherCollaborator": "课程负责人的积分不足，暂时无法继续生成内容，请联系课程负责人。",
+    "teacherSoftlimit": "积分余额已低于提醒阈值，暂时不能继续调试。"
+  },
   "customization": {
     "actions": {
       "clear": "清空",

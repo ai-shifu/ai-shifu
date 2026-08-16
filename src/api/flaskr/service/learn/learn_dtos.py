@@ -165,6 +165,7 @@ class LearnShifuInfoDTO(BaseModel):
     avatar: str = Field(..., description="shifu avatar", required=False)
     price: str = Field(..., description="shifu price", required=False)
     tts_enabled: bool = Field(False, description="tts enabled", required=False)
+    is_owner: bool = Field(False, description="viewer owns shifu", required=False)
 
     def __init__(
         self,
@@ -175,6 +176,7 @@ class LearnShifuInfoDTO(BaseModel):
         avatar: str,
         price: str,
         tts_enabled: bool = False,
+        is_owner: bool = False,
     ):
         super().__init__(
             bid=bid,
@@ -184,6 +186,7 @@ class LearnShifuInfoDTO(BaseModel):
             avatar=avatar,
             price=price,
             tts_enabled=tts_enabled,
+            is_owner=is_owner,
         )
 
     def __json__(self):
@@ -195,6 +198,7 @@ class LearnShifuInfoDTO(BaseModel):
             "avatar": self.avatar,
             "price": self.price,
             "tts_enabled": self.tts_enabled,
+            "is_owner": self.is_owner,
         }
 
 

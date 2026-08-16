@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from flaskr.service.billing.admission import CreatorUsageAdmission, admit_creator_usage
+from flaskr.service.billing.ownership import resolve_shifu_creator_bid
+from flaskr.service.common.models import raise_error
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.billing.manual_credit_grants import grant_manual_credits_to_user
 from flaskr.service.billing.referral_reward_grants import (
     grant_referral_reward_credits_to_user,
@@ -77,6 +80,25 @@ def to_decimal(value):
     return billing_primitives.to_decimal(value)
 
 
+def admit_creator_preview_usage(
+    app,
+    *,
+    shifu_bid: str,
+) -> CreatorUsageAdmission:
+    """Admit preview usage against the course owner's debug limits and wallet."""
+
+    creator_bid = str(resolve_shifu_creator_bid(app, shifu_bid) or "").strip()
+    if not creator_bid:
+        raise_error("server.shifu.shifuNotFound")
+    assert_creator_debug_allowed(app, creator_bid)
+    return admit_creator_usage(
+        app,
+        creator_bid=creator_bid,
+        shifu_bid=shifu_bid,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+    )
+
+
 __all__ = [
     "CreatorUsageAdmission",
     "OperationCreditCaptureResult",
@@ -84,6 +106,7 @@ __all__ = [
     "OperationCreditReleaseResult",
     "OperationCreditReservationResult",
     "admit_creator_usage",
+    "admit_creator_preview_usage",
     "build_billing_catalog",
     "build_metric_charge",
     "build_provider_config_overrides",

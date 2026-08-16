@@ -58,7 +58,7 @@ from flaskr.service.billing.tasks import (
     CreditNotificationRetryableError,
     send_credit_notification_task,
 )
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.config.models import Config
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.repository import (
@@ -2433,5 +2433,10 @@ def test_softlimit_disables_debug_when_policy_threshold_is_reached(
 
     assert state["state"] == "softlimit"
     assert state["debug_allowed"] is False
-    with pytest.raises(AppException):
+    with pytest.raises(AppException) as exc_info:
         assert_creator_debug_allowed(app, "creator-1")
+    assert (
+        exc_info.value.code
+        == ERROR_CODE["server.billing.debugDisabledBySoftLimit"]
+        == 7125
+    )

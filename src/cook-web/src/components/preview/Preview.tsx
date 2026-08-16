@@ -2,13 +2,18 @@ import React, { useState } from 'react';
 import { Button } from '@/components/button';
 import { Eye } from 'lucide-react';
 import { useEnvStore } from '@/c-store';
-import { useShifu } from '@/store';
+import { useShifu, useUserStore } from '@/store';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
 import { buildAbsoluteUrlWithLessonId } from '@/c-utils/urlUtils';
+import {
+  DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
+  resolveCourseCreditInsufficientAudience,
+  showCreditInsufficientToast,
+} from '@/lib/creditInsufficientToast';
 
 type PreviewSettingsModalProps = {
   targetId?: string;
@@ -17,15 +22,40 @@ type PreviewSettingsModalProps = {
 const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
   const { t } = useTranslation();
   const { currentNode, currentShifu, actions } = useShifu();
+  const currentUser = useUserStore(state => state.userInfo);
+  const currentUserId = currentUser?.user_bid || currentUser?.user_id || '';
+  const isCourseOwner = Boolean(
+    currentShifu?.created_user_bid &&
+    currentUserId &&
+    currentShifu.created_user_bid === currentUserId,
+  );
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: true,
+    isCurrentUserCourseOwner: isCourseOwner,
+  });
   const { trackEvent } = useTracking();
   const [loading, setLoading] = useState(false);
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
   const { data: billingOverview } = useBillingOverview();
+  const debugBlockedByCredits =
+    isCourseOwner && billingEnabled && billingOverview?.debug_allowed === false;
   const debugAllowed =
-    !billingEnabled || billingOverview?.debug_allowed === true;
+    !isCourseOwner ||
+    !billingEnabled ||
+    billingOverview?.debug_allowed === true;
 
   const handleStartPreview = async () => {
-    if (loading || !debugAllowed) {
+    if (loading) {
+      return;
+    }
+    if (debugBlockedByCredits) {
+      showCreditInsufficientToast({
+        audience: creditInsufficientAudience,
+        code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
+      });
+      return;
+    }
+    if (!debugAllowed) {
       return;
     }
 
@@ -37,11 +67,16 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
       trackEvent('creator_shifu_preview_click', {
         shifu_bid: currentShifu?.bid || '',
       });
-      const result = await api.previewShifu({
-        shifu_bid: currentShifu?.bid || '',
-        skip: false,
-        variables: {},
-      });
+      const result = await api.previewShifu(
+        {
+          shifu_bid: currentShifu?.bid || '',
+          skip: false,
+          variables: {},
+        },
+        {
+          creditInsufficientAudience,
+        },
+      );
       if (result) {
         const currentLessonId =
           (currentNode?.depth ?? 0) > 0 ? currentNode?.bid : undefined;
@@ -67,17 +102,13 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
       <Button
         variant='ghost'
         size='sm'
-        className='h-8 px-2 text-xs font-normal'
+        className='h-8 px-2 text-xs font-normal aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
         onClick={handleStartPreview}
-        disabled={loading || !debugAllowed}
+        disabled={loading || (!debugAllowed && !debugBlockedByCredits)}
+        aria-disabled={debugBlockedByCredits}
         loading={loading}
         icon={Eye}
         iconClassName='h-4 w-4'
-        title={
-          debugAllowed
-            ? undefined
-            : t('module.preview.debugDisabledBySoftLimit')
-        }
       >
         <span className='title'>{t('module.preview.previewAll')}</span>
       </Button>

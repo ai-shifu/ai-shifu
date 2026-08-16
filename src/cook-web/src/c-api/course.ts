@@ -100,6 +100,7 @@ export const getCourseInfo = async (
       course_teacher_avatar: res.avatar,
       course_avatar: res.avatar,
       course_tts_enabled: !!res?.tts_enabled,
+      course_is_owner: res?.is_owner === true,
     };
   } catch (rawError: any) {
     const error = new CourseInfoFetchError(rawError);

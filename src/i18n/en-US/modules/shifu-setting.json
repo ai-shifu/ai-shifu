@@ -109,7 +109,6 @@
   "askTemperature": "Follow-up answer temperature",
   "askTemperatureHint": "Control how varied follow-up answers can be (0-2, 0 is recommended)",
   "askTitle": "Learner follow-up settings",
-  "debugDisabledBySoftLimit": "Credit balance is below the reminder threshold. Debug preview is disabled.",
   "draftConflictDescription": "This course was updated by {phone}. Load the latest content to continue editing safely.",
   "draftConflictRefresh": "Load latest",
   "draftConflictSynced": "This lesson was updated by {phone}. Synced the latest content.",
