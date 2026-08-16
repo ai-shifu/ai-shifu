@@ -20,6 +20,9 @@ from flaskr.service.tts.patterns import (
     IMAGE_MD,
     LINK,
     LIST_MARKER,
+    MDFLOW_INTERACTION,
+    MDFLOW_INTERACTION_INCOMPLETE,
+    MDFLOW_VARIABLE,
     MERMAID_BLOCK,
     MULTI_NEWLINE,
     MULTI_SPACE,
@@ -182,6 +185,14 @@ def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
     text, removed = _strip_incomplete_markdown_image(text)
     had_incomplete = had_incomplete or removed
 
+    # Strip a trailing unclosed MarkdownFlow interaction block (e.g. `?[A | B`).
+    # A streaming chunk can end mid-block, and speaking half an option list is
+    # worse than waiting for the closing bracket.
+    stripped_interaction = MDFLOW_INTERACTION_INCOMPLETE.sub("", text)
+    if stripped_interaction != text:
+        text = stripped_interaction
+        had_incomplete = True
+
     return text, had_incomplete
 
 
@@ -239,6 +250,16 @@ def preprocess_for_tts(text: str) -> str:
     # Remove any remaining angle bracket content that looks like tags
     # This catches malformed or partial SVG/HTML
     text = ANY_HTML_TAG.sub("", text)
+
+    # Remove MarkdownFlow authoring syntax. Interaction blocks carry the
+    # learner's answer options, not narration, so speaking them reads out
+    # choices such as "concept still fuzzy | often miscalculates" as if they
+    # were part of the lesson. Runs before the markdown rules below so that
+    # `LINK`/`BOLD_ITALIC` cannot rewrite a block into speakable-looking text.
+    text = MDFLOW_INTERACTION.sub("", text)
+
+    # Remove unresolved variable placeholders (`%{{var}}` / `{{var}}`).
+    text = MDFLOW_VARIABLE.sub("", text)
 
     # Remove markdown headers (keep the text)
     text = HEADER.sub("", text)
