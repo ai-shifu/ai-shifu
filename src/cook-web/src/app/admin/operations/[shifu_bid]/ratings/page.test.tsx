@@ -734,6 +734,33 @@ describe('AdminOperationCourseRatingsPage', () => {
     expect(screen.queryByText('--')).not.toBeInTheDocument();
   });
 
+  test('preserves a real nickname when the rating user has no contact info', async () => {
+    const ratings = await mockGetAdminOperationCourseRatings();
+    mockGetAdminOperationCourseRatings.mockClear();
+    mockGetAdminOperationCourseRatings.mockResolvedValueOnce({
+      ...ratings,
+      items: [
+        {
+          ...ratings.items[0],
+          mobile: '',
+          email: '',
+          nickname: 'Nickname Only',
+        },
+      ],
+      total: 1,
+    });
+
+    render(<AdminOperationCourseRatingsPage />);
+
+    await screen.findByText('Very helpful lesson');
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.ratings.table.guestUser',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Nickname Only')).toBeInTheDocument();
+  });
+
   test('does not show guest label when alternate contact exists', async () => {
     mockEnvState.loginMethodsEnabled = ['email'];
     mockEnvState.defaultLoginMethod = 'email';

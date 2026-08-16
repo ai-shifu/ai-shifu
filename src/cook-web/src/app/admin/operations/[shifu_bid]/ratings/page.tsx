@@ -966,9 +966,13 @@ export default function AdminOperationCourseRatingsPage() {
                                 });
                                 const isGuestAccount =
                                   !item.mobile?.trim() && !item.email?.trim();
-                                const secondaryAccount = isGuestAccount
-                                  ? ''
-                                  : resolveUserSecondary(item);
+                                const hasNickname = Boolean(
+                                  item.nickname?.trim(),
+                                );
+                                const secondaryAccount =
+                                  isGuestAccount && !hasNickname
+                                    ? ''
+                                    : resolveUserSecondary(item);
                                 const primaryLessonDisplay =
                                   resolvePrimaryLessonDisplay({
                                     lessonTitle: item.lesson_title,
