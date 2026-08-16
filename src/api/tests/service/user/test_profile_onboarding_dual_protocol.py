@@ -104,6 +104,28 @@ def test_legacy_projection_replaces_raw_names_normalized_by_official_parser():
     )
 
 
+def test_legacy_projection_preserves_every_byte_around_changed_interactions():
+    from flaskr.service.profile.onboarding import (
+        _project_legacy_profile_onboarding_markdownflow,
+    )
+
+    interaction = "?[%{{job role}} Teacher//teacher | Student//student]"
+    document = (
+        "!===\nKeep `---` exactly as written.\n!===\n"
+        "\n  ---  \n\n"
+        "Adjacent intro before the question.\n"
+        f"{interaction}\n"
+        "Trailing content stays adjacent.\n"
+    )
+
+    projected = _project_legacy_profile_onboarding_markdownflow(document)
+
+    assert projected == document.replace(
+        interaction,
+        "?[%{{__profile_onboarding_legacy_answer_0}} teacher | student]",
+    )
+
+
 def test_legacy_projection_uses_official_button_values_as_legacy_choices():
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
