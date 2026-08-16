@@ -250,17 +250,20 @@ def test_preprocess_for_tts_removes_interaction_block_variants(app):
 
     from flaskr.service.tts import preprocess_for_tts
 
-    for block in (
-        "?[下一节//_sys_next_chapter]",
-        "?[...填写例子]",
-        "?[填写形式]",
-        "?[]",
+    # Assert each payload is gone, not just the `?[` marker: a regression could
+    # leave the option text behind and still satisfy a marker-only check.
+    for block, forbidden in (
+        ("?[下一节//_sys_next_chapter]", ("下一节", "_sys_next_chapter")),
+        ("?[...填写例子]", ("填写例子",)),
+        ("?[填写形式]", ("填写形式",)),
+        ("?[]", ()),
     ):
         cleaned = preprocess_for_tts(f"讲解正文。\n\n{block}")
 
         assert "讲解正文。" in cleaned
         assert "?[" not in cleaned
-        assert "_sys_next_chapter" not in cleaned
+        for fragment in forbidden:
+            assert fragment not in cleaned
 
 
 def test_preprocess_for_tts_strips_incomplete_interaction_tail(app):
@@ -302,3 +305,19 @@ def test_preprocess_for_tts_keeps_regular_markdown_links(app):
 
     assert "官方文档" in cleaned
     assert "example.com" not in cleaned
+
+
+def test_preprocess_for_tts_keeps_markdown_link_directly_after_question_mark(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    # `?[label](url)` is a markdown link preceded by a question mark, not an
+    # interaction block. Dropping just the label would strand the URL, and the
+    # synthesizer would spell the address out loud.
+    text = "想了解更多吗?[官方文档](https://example.com/docs)。"
+    cleaned = preprocess_for_tts(text)
+
+    assert "官方文档" in cleaned
+    assert "example.com" not in cleaned
+    assert "https" not in cleaned

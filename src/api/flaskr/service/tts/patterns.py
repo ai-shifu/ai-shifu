@@ -31,7 +31,11 @@ ANY_HTML_TAG = re.compile(r"<[^>]*>")
 # `?[label//value]`, `?[]`. Option text is the learner's choice, not narration,
 # so the whole block is dropped rather than flattened into speech.
 # LINK above only matches `[text](url)`, so it never covers these.
-MDFLOW_INTERACTION = re.compile(r"\?\[[^\[\]]*\]")
+# The negative lookahead hands a markdown link that merely follows a question
+# mark (`?[label](url)`) over to LINK instead. Without it the label would be
+# dropped here and the orphaned `(url)` would survive every later rule and end
+# up being read aloud.
+MDFLOW_INTERACTION = re.compile(r"\?\[[^\[\]]*\](?!\()")
 # A trailing interaction block that has not been closed yet. Streaming chunks
 # can split mid-block, and half of one must not reach the synthesizer.
 MDFLOW_INTERACTION_INCOMPLETE = re.compile(r"\?\[[^\[\]]*\Z")
