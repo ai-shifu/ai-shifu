@@ -2,7 +2,7 @@
 
 ## Purpose / Big Picture
 
-Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1 has merged, so the final publication base is `main` at merge commit `020f0392138e8c1cc9c619add1896a39b86b50fd`. Learners answer the teacher's MarkdownFlow questions, review the generated plain-text learner profile, and can defer only through an explicit low-emphasis action. The release preserves the established legacy onboarding protocol during backend-first rollout.
+Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1 merged at `020f0392138e8c1cc9c619add1896a39b86b50fd`; the branch is synchronized with current `main` at `f86e0cbd7d026e780c2fb45de7f6a3b1e001bb24`. Learners answer the teacher's MarkdownFlow questions, review the generated plain-text learner profile, and can defer only through an explicit low-emphasis action. The release preserves the established legacy onboarding protocol during backend-first rollout.
 
 ## Progress
 
@@ -24,6 +24,7 @@ Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1
 - [x] 2026-08-16 15:50 CST: Closed the three post-merge review findings as independent changes: projected legacy-incompatible official variable markers, serialized skip with canonical completion locks, and protected unsaved profile/nickname edits before a settings rerun.
 - [x] 2026-08-16 16:00 CST: Passed 426 backend regressions (4 skipped), 10 frontend suites / 131 tests, TypeScript, changed-file ESLint/Prettier, Ruff/format, translations, architecture, repository harness, `git diff --check`, and the complete all-files lefthook gate on the merged-main base.
 - [x] 2026-08-16 16:07 CST: Force-pushed with an exact lease, replied to and resolved every verified thread, passed all fresh GitHub checks including backend and runtime harnesses, and observed the final application head for more than seven minutes with no new finding.
+- [x] 2026-08-16 16:48 CST: Replayed all 28 PR2 commits onto current `main` at `f86e0cbd7` with a 28/28 equal range-diff, retained the new account-menu and shared profile focus styles, and passed 285 backend regressions, 131 PR2 frontend tests, 32 account-menu tests, TypeScript, lint, format, translations, architecture, and diff checks.
 
 ## Surprises & Discoveries
 
@@ -40,7 +41,7 @@ Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1
 
 ## Outcomes & Retrospective
 
-PR1 is merged and the complete PR2 commit series sits directly on the resulting `main` commit without patch drift. Ready PR #2308 is mergeable and clean; application head `5c80b11b06b079eb18dfec93816bb5aa593f782b` passed every fresh GitHub check and a final organic review window with zero active unresolved threads. The delivered behavior retains the rolling dual protocol, official MarkdownFlow source, Redis isolation, PR1 learner-profile/sign-in safeguards, guided-only frontend, and the documented browser QA evidence without adding a migration.
+PR1 is merged and the complete PR2 commit series sits directly on current `main` without patch drift. Ready PR #2308 passed its full release gates and review window, then synchronized with the subsequent account-menu and profile-focus fixes from `main` without reverting either. The delivered behavior retains the rolling dual protocol, official MarkdownFlow source, Redis isolation, PR1 learner-profile/sign-in safeguards, guided-only frontend, and the documented browser QA evidence without adding a migration.
 
 ## Context and Orientation
 
