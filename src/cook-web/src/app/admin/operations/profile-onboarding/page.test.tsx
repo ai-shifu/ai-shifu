@@ -183,6 +183,61 @@ describe('ProfileOnboardingAdminPage', () => {
     });
   });
 
+  test('preserves document prompt edits made while a save is pending', async () => {
+    let resolveSave!: (value: {
+      enabled: boolean;
+      markdownflow: string;
+      document_prompt: string;
+      config_revision: number;
+    }) => void;
+    mockUpdateConfig.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveSave = resolve;
+        }),
+    );
+
+    render(<ProfileOnboardingAdminPage />);
+
+    const promptEditor = await screen.findByLabelText(
+      'module.profileOnboarding.admin.documentPrompt',
+    );
+    fireEvent.change(promptEditor, {
+      target: { value: '提交时的调研提示词' },
+    });
+    const saveButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.admin.save',
+    });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith({
+        enabled: true,
+        markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
+        document_prompt: '提交时的调研提示词',
+      });
+    });
+    expect(saveButton).toBeDisabled();
+
+    fireEvent.change(promptEditor, {
+      target: { value: '请求期间继续编辑的提示词' },
+    });
+    resolveSave({
+      enabled: true,
+      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
+      document_prompt: '提交时的调研提示词',
+      config_revision: 3,
+    });
+
+    await waitFor(() => {
+      expect(saveButton).not.toBeDisabled();
+    });
+    expect(promptEditor).toHaveValue('请求期间继续编辑的提示词');
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.profileOnboarding.admin.saveSuccess',
+    });
+  });
+
   test('preserves an intentionally empty MarkdownFlow while disabled', async () => {
     mockGetConfig.mockResolvedValue({
       enabled: false,
