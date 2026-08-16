@@ -630,6 +630,12 @@ export default function LearnerProfileDialog({
     collectionEnabled &&
     guidedAvailable &&
     settingsSessionEligible;
+  const rerunDisabled = dirty || busy || optimizing;
+  const rerunDisabledDescription = dirty
+    ? `${t('module.profileOnboarding.dialog.saveChanges')}. ${t(
+        'module.profileOnboarding.dialog.discardDescription',
+      )}`
+    : undefined;
 
   const secondaryLabel =
     mode === 'onboarding'
@@ -895,21 +901,40 @@ export default function LearnerProfileDialog({
               ) : null}
 
               {canRerunGuidedQuestions ? (
-                <Button
-                  type='button'
-                  variant='outline'
-                  className='min-h-11 w-full sm:w-auto'
-                  disabled={busy || optimizing}
-                  onClick={() => {
-                    void trackEvent(
-                      PROFILE_ONBOARDING_EVENTS.SETTINGS_RERUN_STARTED,
-                    );
-                    setRerunError('');
-                    setRerunOpen(true);
-                  }}
-                >
-                  {t('module.profileOnboarding.settings.rerun')}
-                </Button>
+                <>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    className='min-h-11 w-full sm:w-auto'
+                    disabled={rerunDisabled}
+                    title={rerunDisabledDescription}
+                    aria-describedby={
+                      dirty
+                        ? 'learner-profile-rerun-disabled-description'
+                        : undefined
+                    }
+                    onClick={() => {
+                      if (rerunDisabled) {
+                        return;
+                      }
+                      void trackEvent(
+                        PROFILE_ONBOARDING_EVENTS.SETTINGS_RERUN_STARTED,
+                      );
+                      setRerunError('');
+                      setRerunOpen(true);
+                    }}
+                  >
+                    {t('module.profileOnboarding.settings.rerun')}
+                  </Button>
+                  {dirty ? (
+                    <span
+                      id='learner-profile-rerun-disabled-description'
+                      className='sr-only'
+                    >
+                      {rerunDisabledDescription}
+                    </span>
+                  ) : null}
+                </>
               ) : null}
 
               <div
