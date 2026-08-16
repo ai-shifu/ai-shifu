@@ -18,7 +18,11 @@ from flaskr.api.langfuse import (
 from flaskr.api.llm import chat_llm
 from flaskr.common.cache_provider import CacheProvider, redis_cache
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
-from flaskr.dao import db
+from flaskr.dao import (
+    invalidate_session,
+    is_protocol_interrupt_error,
+    release_session_classified,
+)
 from flaskr.service.metering.api import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.util import generate_id
@@ -1049,11 +1053,8 @@ def delete_profile_research_session(
     )
 
 
-def _release_stream_db_session(app: Flask) -> None:
-    try:
-        db.session.remove()
-    except Exception:
-        app.logger.warning("profile research DB session cleanup failed", exc_info=True)
+def _release_stream_db_session(_app: Flask) -> None:
+    release_session_classified(source="profile research stream")
 
 
 def build_profile_research_sse_response(
@@ -1075,6 +1076,8 @@ def build_profile_research_sse_response(
             )
             raise
         except Exception as exc:
+            if is_protocol_interrupt_error(exc):
+                invalidate_session(source="profile research stream protocol interrupt")
             public_code = getattr(exc, "public_code", ProfileResearchError.public_code)
             app.logger.warning(
                 "profile research stream failed | context=%s | error_class=%s",
