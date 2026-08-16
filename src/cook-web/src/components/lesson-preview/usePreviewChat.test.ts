@@ -3,6 +3,7 @@ import { SSE } from 'sse.js';
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
+import { getCreditInsufficientMessage } from '@/lib/creditInsufficientToast';
 import {
   buildInteractionContinuationPreviewParams,
   buildPreviewBusinessErrorItem,
@@ -233,7 +234,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
       },
     );
 
-    const { result } = renderHook(() => usePreviewChat());
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
 
     await act(async () => {
       await result.current.startPreview({
@@ -301,11 +304,75 @@ describe('usePreviewChat helpers and business error rendering', () => {
     );
   });
 
+  test('uses the collaborator message without a purchase action for owner credit errors', async () => {
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockReturnValueOnce(source);
+    let handledError:
+      | ((error: { message: string; code: number }) => void)
+      | undefined;
+    (attachSseBusinessResponseFallback as jest.Mock).mockImplementationOnce(
+      (_source, options) => {
+        handledError = options.onHandled;
+      },
+    );
+
+    const { result } = renderHook(() =>
+      usePreviewChat({
+        creditInsufficientAudience: 'teacher-collaborator',
+      }),
+    );
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'prompt',
+      });
+    });
+
+    expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
+      source,
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          creditInsufficientAudience: 'teacher-collaborator',
+        }),
+      }),
+    );
+
+    act(() => {
+      handledError?.({
+        code: 7101,
+        message: 'backend credit message',
+      });
+    });
+
+    const collaboratorMessage = getCreditInsufficientMessage(
+      'teacher-collaborator',
+      7101,
+    );
+    await waitFor(() => {
+      expect(result.current.error).toBe(collaboratorMessage);
+    });
+    expect(result.current.items.at(-1)).toMatchObject({
+      content: collaboratorMessage,
+      type: ChatContentItemType.ERROR,
+      business_code: 7101,
+    });
+    expect(toastOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dedupeKey: 'credit-insufficient:teacher-collaborator:7101',
+        action: undefined,
+      }),
+    );
+  });
+
   test('shows friendly content when preview SSE error exposes Langfuse details', async () => {
     const source = buildMockSseSource();
     (SSE as jest.Mock).mockReturnValueOnce(source);
 
-    const { result } = renderHook(() => usePreviewChat());
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
 
     await act(async () => {
       await result.current.startPreview({
@@ -375,7 +442,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
     const source = buildMockSseSource();
     (SSE as jest.Mock).mockReturnValueOnce(source);
 
-    const { result } = renderHook(() => usePreviewChat());
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
 
     await act(async () => {
       await result.current.startPreview({
@@ -413,7 +482,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
     const source = buildMockSseSource();
     (SSE as jest.Mock).mockReturnValueOnce(source);
 
-    const { result } = renderHook(() => usePreviewChat());
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
 
     await act(async () => {
       await result.current.startPreview({
@@ -482,7 +553,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
     const source = buildMockSseSource();
     (SSE as jest.Mock).mockReturnValueOnce(source);
 
-    const { result } = renderHook(() => usePreviewChat());
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
 
     await act(async () => {
       await result.current.startPreview({
@@ -524,7 +597,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
       .mockReturnValueOnce(oldSource)
       .mockReturnValueOnce(newSource);
 
-    const { result } = renderHook(() => usePreviewChat());
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
 
     await act(async () => {
       await result.current.startPreview({
@@ -568,7 +643,11 @@ describe('usePreviewChat helpers and business error rendering', () => {
       .mockReturnValueOnce(previewSource)
       .mockReturnValueOnce(ttsSource);
 
-    const { result } = renderHook(() => usePreviewChat());
+    const { result } = renderHook(() =>
+      usePreviewChat({
+        creditInsufficientAudience: 'teacher-collaborator',
+      }),
+    );
 
     await act(async () => {
       await result.current.startPreview({
@@ -599,6 +678,14 @@ describe('usePreviewChat helpers and business error rendering', () => {
     await waitFor(() => {
       expect(ttsSource.stream).toHaveBeenCalled();
     });
+    expect(attachSseBusinessResponseFallback).toHaveBeenLastCalledWith(
+      ttsSource,
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          creditInsufficientAudience: 'teacher-collaborator',
+        }),
+      }),
+    );
     expect(result.current.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
