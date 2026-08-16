@@ -62,16 +62,22 @@ declare global {
   var __chatHookMockUpdateResetedChapterId__: jest.Mock | undefined;
 
   var __chatHookMockUpdateResetedLessonId__: jest.Mock | undefined;
+
+  var __chatHookIsCurrentUserCourseOwner__: boolean | undefined;
 }
 
 jest.mock('@/c-store/useCourseStore', () => ({
   useCourseStore: (() => {
     globalThis.__chatHookMockUpdateResetedChapterId__ = jest.fn();
     globalThis.__chatHookMockUpdateResetedLessonId__ = jest.fn();
+    globalThis.__chatHookIsCurrentUserCourseOwner__ = true;
     const state = {
       resetedLessonId: null as string | null,
       updateResetedChapterId: globalThis.__chatHookMockUpdateResetedChapterId__,
       updateResetedLessonId: globalThis.__chatHookMockUpdateResetedLessonId__,
+      get isCurrentUserCourseOwner() {
+        return globalThis.__chatHookIsCurrentUserCourseOwner__ ?? true;
+      },
     };
     return Object.assign(
       (selector?: (store: typeof state) => unknown) =>
@@ -185,6 +191,7 @@ describe('useChatLogicHook stream cleanup', () => {
     jest.clearAllMocks();
     mockStreamGeneratedBlockAudio.mockReset();
     mockGetShifuDraftMeta.mockReset();
+    globalThis.__chatHookIsCurrentUserCourseOwner__ = true;
     useLessonRunContentStore.getState().clearAll();
     activeRun = undefined;
 
@@ -209,6 +216,7 @@ describe('useChatLogicHook stream cleanup', () => {
         _outlineBid: string,
         _previewMode: boolean,
         _body: RunRequestBody,
+        _creditInsufficientAudience: string,
         onMessage: (response: any) => Promise<void> | void,
         onError: (error: unknown) => void,
       ) => {
@@ -1740,6 +1748,49 @@ describe('useChatLogicHook stream cleanup', () => {
     ).toMatchObject({
       business_code: 7101,
       content: 'module.billing.creditInsufficient.teacher',
+    });
+  });
+
+  it('uses the collaborator notice for a non-owner preview', async () => {
+    globalThis.__chatHookIsCurrentUserCourseOwner__ = false;
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          previewMode: true,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    expect(mockGetRunMessage.mock.calls.at(-1)?.[4]).toBe(
+      'teacher-collaborator',
+    );
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.ERROR,
+        content: { code: 7101, message: 'server message' },
+      });
+    });
+
+    expect(toastOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dedupeKey: 'credit-insufficient:teacher-collaborator:7101',
+        title: 'module.billing.creditInsufficient.teacherCollaborator',
+        duration: 0,
+        action: undefined,
+      }),
+    );
+    expect(
+      result.current.items.find(
+        item => item.type === ChatContentItemType.ERROR,
+      ),
+    ).toMatchObject({
+      business_code: 7101,
+      content: 'module.billing.creditInsufficient.teacherCollaborator',
     });
   });
 

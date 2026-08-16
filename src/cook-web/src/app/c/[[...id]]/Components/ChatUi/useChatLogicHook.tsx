@@ -82,6 +82,7 @@ import { debugWarn } from '@/c-utils/debugConsole';
 import {
   getCreditInsufficientMessage,
   isCreditInsufficientBusinessCode,
+  resolveCourseCreditInsufficientAudience,
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
 import {
@@ -261,14 +262,20 @@ function useChatLogicHook({
   const isStreamingRef = useRef(false);
   const [isOutputInProgress, setIsOutputInProgress] = useState(false);
   const [hasRunFailed, setHasRunFailed] = useState(false);
-  const { updateResetedLessonId, resetedLessonId } = useCourseStore(
-    useShallow(state => ({
-      resetedLessonId: state.resetedLessonId,
-      updateResetedLessonId: state.updateResetedLessonId,
-    })),
-  );
+  const { updateResetedLessonId, resetedLessonId, isCurrentUserCourseOwner } =
+    useCourseStore(
+      useShallow(state => ({
+        resetedLessonId: state.resetedLessonId,
+        updateResetedLessonId: state.updateResetedLessonId,
+        isCurrentUserCourseOwner: state.isCurrentUserCourseOwner,
+      })),
+    );
 
   const effectivePreviewMode = previewMode ?? false;
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: effectivePreviewMode,
+    isCurrentUserCourseOwner,
+  });
   const lessonRunContentCacheKey = useMemo(
     () =>
       buildLessonRunContentCacheKey({
@@ -1511,6 +1518,7 @@ function useChatLogicHook({
         outlineBid,
         effectivePreviewMode,
         { ...sseParams, listen: listenRequestEnabled },
+        creditInsufficientAudience,
         async response => {
           if (
             sseRef.current !== source ||
@@ -1545,7 +1553,7 @@ function useChatLogicHook({
                 isCreditInsufficientBusinessCode(businessCode);
               if (isCreditError && businessCode !== undefined) {
                 showCreditInsufficientToast({
-                  audience: effectivePreviewMode ? 'teacher' : 'learner',
+                  audience: creditInsufficientAudience,
                   code: businessCode,
                 });
               } else {
@@ -1581,7 +1589,10 @@ function useChatLogicHook({
                 errorContent
               ) {
                 appendRunBusinessError(
-                  getCreditInsufficientMessage('teacher', businessCode),
+                  getCreditInsufficientMessage(
+                    creditInsufficientAudience,
+                    businessCode,
+                  ),
                   businessCode,
                 );
               }
@@ -2133,7 +2144,10 @@ function useChatLogicHook({
             cleanupRunStreamState();
             setHasRunFailed(true);
             appendRunBusinessError(
-              getCreditInsufficientMessage('teacher', businessError.code),
+              getCreditInsufficientMessage(
+                creditInsufficientAudience,
+                businessError.code,
+              ),
               businessError.code,
             );
             return;
@@ -2168,6 +2182,7 @@ function useChatLogicHook({
       buildContentItem,
       chapterId,
       chapterUpdate,
+      creditInsufficientAudience,
       effectivePreviewMode,
       isListenMode,
       listenRequestEnabled,
@@ -3431,6 +3446,7 @@ function useChatLogicHook({
           generated_block_bid: sourceBlockBid,
           preview_mode: effectivePreviewMode,
           listen: effectiveListenRequestEnabled,
+          creditInsufficientAudience,
           onMessage: response => {
             resetIdleTimer();
 
@@ -3521,6 +3537,7 @@ function useChatLogicHook({
     [
       allowTtsStreaming,
       closeTtsStream,
+      creditInsufficientAudience,
       effectivePreviewMode,
       listenRequestEnabled,
       matchItemBid,

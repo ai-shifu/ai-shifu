@@ -94,6 +94,7 @@ def test_preview_course_info_allows_creator(
     assert resp.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["bid"] == shifu_bid
+    assert payload["data"]["is_owner"] is True
 
 
 def test_preview_course_info_allows_active_view_collaborator(
@@ -120,6 +121,7 @@ def test_preview_course_info_allows_active_view_collaborator(
     assert resp.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["bid"] == shifu_bid
+    assert payload["data"]["is_owner"] is False
 
 
 def test_preview_course_info_rejects_user_without_course_permission(
@@ -199,6 +201,7 @@ def test_preview_course_info_allows_publish_collaborator(
     assert resp.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["bid"] == shifu_bid
+    assert payload["data"]["is_owner"] is False
 
 
 def test_non_preview_course_info_keeps_anonymous_access(
@@ -220,6 +223,7 @@ def test_non_preview_course_info_keeps_anonymous_access(
     assert resp.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["bid"] == shifu_bid
+    assert payload["data"]["is_owner"] is False
 
 
 def test_editor_preview_denied_before_admission_and_stream(

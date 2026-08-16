@@ -40,6 +40,7 @@ import {
 } from '@/lib/aiServiceError';
 import {
   isCreditInsufficientBusinessCode,
+  resolveCourseCreditInsufficientAudience,
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
 export type { AskMessage } from './askState';
@@ -79,6 +80,13 @@ export default function AskBlock({
   );
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
+  const isCurrentUserCourseOwner = useCourseStore(
+    state => state.isCurrentUserCourseOwner,
+  );
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: preview_mode,
+    isCurrentUserCourseOwner,
+  });
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskList = useAskStateStore(state => state.hydrateAskList);
   const setAskList = useAskStateStore(state => state.setAskList);
@@ -304,6 +312,7 @@ export default function AskBlock({
         reload_element_bid: element_bid,
         listen: false,
       },
+      creditInsufficientAudience,
       async response => {
         try {
           if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
@@ -330,7 +339,7 @@ export default function AskBlock({
                   : undefined;
             if (isCreditInsufficientBusinessCode(businessCode)) {
               showCreditInsufficientToast({
-                audience: preview_mode ? 'teacher' : 'learner',
+                audience: creditInsufficientAudience,
                 code: businessCode,
               });
             } else {
@@ -435,6 +444,7 @@ export default function AskBlock({
     shifu_bid,
     outline_bid,
     preview_mode,
+    creditInsufficientAudience,
     element_bid,
     inputValue,
     dismissAskInputFocus,

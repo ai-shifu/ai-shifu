@@ -203,6 +203,9 @@ class LearnShifuInfoDTO(BaseModel):
         description="Default learner mode to listen when TTS is enabled",
         required=False,
     )
+    is_owner: bool = Field(
+        default=False, description="viewer owns shifu", required=False
+    )
 
     def __init__(
         self,
@@ -214,6 +217,7 @@ class LearnShifuInfoDTO(BaseModel):
         price: str,
         tts_enabled: bool = False,
         default_listen_mode_enabled: bool = False,
+        is_owner: bool = False,
     ) -> None:
         """Build the learner-facing course information payload."""
         super().__init__(
@@ -225,6 +229,7 @@ class LearnShifuInfoDTO(BaseModel):
             price=price,
             tts_enabled=tts_enabled,
             default_listen_mode_enabled=default_listen_mode_enabled,
+            is_owner=is_owner,
         )
 
     def __json__(self) -> dict:
@@ -238,6 +243,7 @@ class LearnShifuInfoDTO(BaseModel):
             "price": self.price,
             "tts_enabled": self.tts_enabled,
             "default_listen_mode_enabled": self.default_listen_mode_enabled,
+            "is_owner": self.is_owner,
         }
 
 

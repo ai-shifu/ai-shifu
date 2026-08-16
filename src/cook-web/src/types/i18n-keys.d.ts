@@ -599,6 +599,7 @@ export type I18nKey =
   | 'module.billing.creditInsufficient.learner'
   | 'module.billing.creditInsufficient.purchaseActionAltText'
   | 'module.billing.creditInsufficient.teacher'
+  | 'module.billing.creditInsufficient.teacherCollaborator'
   | 'module.billing.creditInsufficient.teacherSoftlimit'
   | 'module.billing.customization.actions.clear'
   | 'module.billing.customization.actions.saveConfiguration'

@@ -28,6 +28,9 @@ export const useCourseStore = create<
         courseTtsEnabled: ttsEnabled,
         courseDefaultListenModeEnabled: defaultListenModeEnabled,
       })),
+    isCurrentUserCourseOwner: false,
+    updateIsCurrentUserCourseOwner: isCurrentUserCourseOwner =>
+      set(() => ({ isCurrentUserCourseOwner })),
     lessonId: undefined,
     updateLessonId: lessonId => set(() => ({ lessonId })),
     chapterId: '',

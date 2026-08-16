@@ -7,6 +7,7 @@ import request, {
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
+import type { CreditInsufficientAudience } from '@/lib/creditInsufficientToast';
 import {
   getMockRunFixtureMode,
   MockRunStreamFixtureSource,
@@ -245,6 +246,7 @@ export interface StreamGeneratedBlockAudioParams {
   generated_block_bid: string;
   preview_mode?: boolean;
   listen?: boolean;
+  creditInsufficientAudience: CreditInsufficientAudience;
   onMessage: (data: any) => void;
   onError?: (error: unknown) => void;
 }
@@ -285,6 +287,7 @@ export const getRunMessage = (
     listen?: boolean;
     [key: string]: any;
   },
+  creditInsufficientAudience: CreditInsufficientAudience,
   onMessage: (data: any) => void,
   onError?: (error: unknown) => void,
 ) => {
@@ -394,7 +397,7 @@ export const getRunMessage = (
       requestToken: token || '',
       requestId: traceHeaders.requestId,
       harnessRunId: traceHeaders.harnessRunId,
-      creditInsufficientAudience: preview_mode ? 'teacher' : 'learner',
+      creditInsufficientAudience,
     },
     onHandled: error => {
       dispatchSseBusinessError(source, error);
@@ -411,7 +414,7 @@ const createSseSource = (
   payload: Record<string, unknown>,
   onMessage: (data: any) => void,
   onError?: (error: unknown) => void,
-  creditInsufficientAudience: 'learner' | 'teacher' = 'learner',
+  creditInsufficientAudience: CreditInsufficientAudience = 'learner',
 ) => {
   const token = useUserStore.getState().getToken();
   const traceHeaders = buildTraceHeaders({
@@ -469,6 +472,7 @@ export const streamGeneratedBlockAudio = ({
   generated_block_bid,
   preview_mode = false,
   listen = false,
+  creditInsufficientAudience,
   onMessage,
   onError,
 }: StreamGeneratedBlockAudioParams) => {
@@ -479,7 +483,7 @@ export const streamGeneratedBlockAudio = ({
     {},
     onMessage,
     onError,
-    preview_mode ? 'teacher' : 'learner',
+    creditInsufficientAudience,
   );
 };
 
