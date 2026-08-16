@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -30,6 +31,27 @@ def _data(response):
     body = response.get_json(force=True)
     assert body["code"] == 0
     return body["data"]
+
+
+def _markdownflow_for_preview_config_size(*, target_bytes: int) -> str:
+    from flaskr.service.common import profile_onboarding as module
+
+    markdownflow_prefix = "?[Continue]\n\n---\n\n"
+    payload = module.build_profile_onboarding_config_payload(
+        enabled=False,
+        markdownflow=markdownflow_prefix,
+        document_prompt="",
+        revision=6,
+        updated_by="profile-route-user",
+    )
+    base_size = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+    remaining_bytes = target_bytes - base_size
+    assert remaining_bytes >= 0
+    return (
+        markdownflow_prefix
+        + "测" * (remaining_bytes // 3)
+        + "x" * (remaining_bytes % 3)
+    )
 
 
 def test_profile_onboarding_status_merges_config_and_v2_state(monkeypatch, test_client):
@@ -926,6 +948,70 @@ def test_operator_profile_onboarding_preview_rejects_unanswerable_interaction(
 
     assert response.get_json(force=True)["code"] != 0
     assert saved_sessions == []
+
+
+def test_operator_profile_onboarding_preview_rejects_unsavable_utf8_payload(
+    monkeypatch, test_client
+):
+    from flaskr.service.common import profile_onboarding as module
+
+    _authenticate(monkeypatch)
+    saved_sessions = []
+    monkeypatch.setattr(module, "_now_iso", lambda: "2026-08-16T00:00:00Z")
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.route.get_operator_profile_onboarding_config",
+        lambda app: {
+            "config_revision": 5,
+            "version": 50,
+            "allowed_variable_keys": ["compatibility-only"],
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.runtime._ProfileResearchSessionStore.save",
+        lambda _store, session: saved_sessions.append(session),
+    )
+    markdownflow = _markdownflow_for_preview_config_size(
+        target_bytes=module.PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES
+    )
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/profile-onboarding/preview",
+        headers={"Token": "token"},
+        json={"markdownflow": markdownflow + "测"},
+    )
+
+    assert response.get_json(force=True)["code"] != 0
+    assert saved_sessions == []
+
+
+def test_operator_profile_onboarding_preview_accepts_exact_publish_size(
+    monkeypatch, test_client
+):
+    from flaskr.service.common import profile_onboarding as module
+
+    _authenticate(monkeypatch)
+    saved_sessions = []
+    monkeypatch.setattr(module, "_now_iso", lambda: "2026-08-16T00:00:00Z")
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.route.get_operator_profile_onboarding_config",
+        lambda app: {"config_revision": 5, "version": 50},
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.runtime._ProfileResearchSessionStore.save",
+        lambda _store, session: saved_sessions.append(session),
+    )
+    markdownflow = _markdownflow_for_preview_config_size(
+        target_bytes=module.PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES
+    )
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/profile-onboarding/preview",
+        headers={"Token": "token"},
+        json={"markdownflow": markdownflow},
+    )
+
+    assert response.get_json(force=True)["code"] == 0
+    assert len(saved_sessions) == 1
 
 
 def test_operator_profile_onboarding_preview_rejects_oversized_document_prompt(
