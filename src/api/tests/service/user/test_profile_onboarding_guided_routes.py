@@ -904,6 +904,30 @@ def test_operator_profile_onboarding_preview_start_is_isolated_and_purpose_scope
     ]
 
 
+def test_operator_profile_onboarding_preview_rejects_unanswerable_interaction(
+    monkeypatch, test_client
+):
+    _authenticate(monkeypatch)
+    saved_sessions = []
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.route.get_operator_profile_onboarding_config",
+        lambda app: {"config_revision": 5},
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.runtime._ProfileResearchSessionStore.save",
+        lambda _store, session: saved_sessions.append(session),
+    )
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/profile-onboarding/preview",
+        headers={"Token": "token"},
+        json={"markdownflow": "?[]"},
+    )
+
+    assert response.get_json(force=True)["code"] != 0
+    assert saved_sessions == []
+
+
 def test_operator_profile_onboarding_preview_rejects_oversized_document_prompt(
     monkeypatch, test_client
 ):
