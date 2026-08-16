@@ -78,7 +78,10 @@ import {
   type ReadModeTypewriterCache,
 } from './readModeTypewriterGate';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
-import { isCreditInsufficientBusinessCode } from '@/lib/creditInsufficientToast';
+import {
+  isCreditInsufficientBusinessCode,
+  resolveCourseCreditInsufficientAudience,
+} from '@/lib/creditInsufficientToast';
 import { Button } from '@/components/ui/Button';
 import { shouldHideReadModeContentForLoading } from './readModeRenderState';
 import {
@@ -199,12 +202,17 @@ export const NewChatComponents = ({
       refreshUserInfo: state.refreshUserInfo,
     })),
   );
-  const { courseAvatar, courseName } = useCourseStore(
+  const { courseAvatar, courseName, isCurrentUserCourseOwner } = useCourseStore(
     useShallow(state => ({
       courseAvatar: state.courseAvatar,
       courseName: state.courseName,
+      isCurrentUserCourseOwner: state.isCurrentUserCourseOwner,
     })),
   );
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode,
+    isCurrentUserCourseOwner,
+  });
   const { mobileStyle } = useContext(AppContext);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
@@ -1722,9 +1730,8 @@ export const NewChatComponents = ({
                           onAudioPlayStateChange={handleAudioPlayStateChange}
                           onAudioEnded={handleAudioEnded}
                         />
-                        {isCreditInsufficientBusinessCode(
-                          item.business_code,
-                        ) ? (
+                        {isCreditInsufficientBusinessCode(item.business_code) &&
+                        creditInsufficientAudience === 'teacher' ? (
                           <Button
                             type='button'
                             size='sm'
