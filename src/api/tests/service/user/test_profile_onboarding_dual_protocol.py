@@ -11,6 +11,10 @@ from flaskr.service.user.repository import create_user_entity
 VALID_GUIDED_FLOW = (
     "?[%{{learning_goal}}...What would you most like to learn right now?]"
 )
+LEGACY_NONASSIGNMENT_FLOW = "Welcome.\n\n---\n\n?[Continue]"
+LEGACY_PROJECTED_FLOW = (
+    "Welcome.\n\n---\n\n?[%{{__profile_onboarding_legacy_answer_0}}Continue]"
+)
 
 
 def _create_user(user_bid: str, *, learner_profile: str = "") -> None:
@@ -32,6 +36,70 @@ def _set_config(monkeypatch, payload: dict) -> None:
         "get_config",
         lambda *_args, **_kwargs: payload,
     )
+
+
+def test_legacy_projection_assigns_mixed_nonassignment_blocks_without_collisions():
+    from flaskr.service.profile.onboarding import (
+        _project_legacy_profile_onboarding_markdownflow,
+    )
+    from flaskr.service.profile_research.api import (
+        validate_profile_research_document,
+    )
+
+    document = (
+        "Welcome.\n\n---\n\n"
+        "?[%{{__profile_onboarding_legacy_answer_0}}...Assigned question]\n\n---\n\n"
+        "?[Continue]\n\n---\n\n"
+        "?[Yes | No]"
+    )
+
+    projected = _project_legacy_profile_onboarding_markdownflow(document)
+
+    assert projected == (
+        "Welcome.\n\n---\n\n"
+        "?[%{{__profile_onboarding_legacy_answer_0}}...Assigned question]\n\n---\n\n"
+        "?[%{{__profile_onboarding_legacy_answer_0_1}}Continue]\n\n---\n\n"
+        "?[%{{__profile_onboarding_legacy_answer_1}}Yes | No]"
+    )
+    assert validate_profile_research_document(projected)["variables"] == [
+        "__profile_onboarding_legacy_answer_0",
+        "__profile_onboarding_legacy_answer_0_1",
+        "__profile_onboarding_legacy_answer_1",
+    ]
+
+
+def test_legacy_projection_failure_keeps_status_fail_open(app, monkeypatch):
+    from flaskr.service.profile import onboarding as onboarding_service
+
+    def raise_projection_error(_document: str) -> str:
+        raise RuntimeError("projection failed")
+
+    _set_config(
+        monkeypatch,
+        {
+            "enabled": True,
+            "markdownflow": LEGACY_NONASSIGNMENT_FLOW,
+            "revision": 9,
+        },
+    )
+    monkeypatch.setattr(
+        onboarding_service,
+        "_project_legacy_profile_onboarding_markdownflow",
+        raise_projection_error,
+    )
+
+    with app.app_context():
+        _create_user("legacy-projection-failure")
+        status = onboarding_service.get_profile_onboarding_status(
+            app,
+            user_id="legacy-projection-failure",
+        )
+
+    assert status["enabled"] is False
+    assert status["should_show"] is False
+    assert status["profile_v2"]["guided_available"] is False
+    assert status["profile_v2"]["should_show"] is False
+    assert status["profile_v2"]["presentation"] == "hidden"
 
 
 def test_dual_get_contract_covers_fresh_legacy_canonical_v2_and_fail_open(
@@ -123,7 +191,7 @@ def test_dual_get_contract_covers_fresh_legacy_canonical_v2_and_fail_open(
         assert unavailable["profile_v2"]["presentation"] == "hidden"
 
 
-def test_legacy_complete_accepts_arbitrary_variables_without_v2_writes(
+def test_legacy_projection_completion_writes_only_the_legacy_sentinel(
     app, monkeypatch, test_client
 ):
     from flaskr.service.common.profile_onboarding import (
@@ -135,7 +203,7 @@ def test_legacy_complete_accepts_arbitrary_variables_without_v2_writes(
         monkeypatch,
         {
             "enabled": True,
-            "markdownflow": VALID_GUIDED_FLOW,
+            "markdownflow": LEGACY_NONASSIGNMENT_FLOW,
             "revision": 10,
         },
     )
@@ -165,7 +233,9 @@ def test_legacy_complete_accepts_arbitrary_variables_without_v2_writes(
         headers={"Token": "token"},
         json={
             "skipped": False,
-            "variables": {"learning_goal": "Build a production agent."},
+            "variables": {
+                "__profile_onboarding_legacy_answer_0": "Continue",
+            },
         },
     )
 
@@ -196,6 +266,9 @@ def test_legacy_complete_accepts_arbitrary_variables_without_v2_writes(
     assert v2_state is None
 
     assert fresh["should_show"] is True
+    assert fresh["markdownflow"] == LEGACY_PROJECTED_FLOW
+    assert fresh["contract_version"] == "profile-v2"
+    assert fresh["profile_v2"]["guided_available"] is True
     assert fresh["profile_v2"]["should_show"] is True
     assert fresh["profile_v2"]["presentation"] == "blocking"
     assert handled["should_show"] is False
