@@ -80,7 +80,13 @@ jest.mock('react-i18next', () => ({
     const cacheKey = ns || 'translation';
     if (!mockTranslationCache.has(cacheKey)) {
       mockTranslationCache.set(cacheKey, {
-        t: (key: string) => (ns && ns !== 'translation' ? `${ns}.${key}` : key),
+        t: (key: string) => {
+          const translatedKey =
+            ns && ns !== 'translation' ? `${ns}.${key}` : key;
+          return translatedKey === 'module.user.defaultUserName'
+            ? 'Anonymous User'
+            : translatedKey;
+        },
       });
     }
     return {
@@ -293,6 +299,25 @@ describe('AdminOperationCourseRatingsPage', () => {
         name: 'module.operationsCourse.detail.title',
       }),
     ).toHaveAttribute('href', '/admin/operations/course-1');
+  });
+
+  test('uses the shared anonymous user label for an empty nickname', async () => {
+    const ratings = await mockGetAdminOperationCourseRatings();
+    mockGetAdminOperationCourseRatings.mockClear();
+    mockGetAdminOperationCourseRatings.mockResolvedValueOnce({
+      ...ratings,
+      items: ratings.items.map(
+        (item: { lesson_feedback_bid: string; nickname: string }) =>
+          item.lesson_feedback_bid === 'feedback-2'
+            ? { ...item, nickname: '   ' }
+            : item,
+      ),
+    });
+
+    render(<AdminOperationCourseRatingsPage />);
+
+    await screen.findByText('Very helpful lesson');
+    expect(screen.getByText('Anonymous User')).toBeInTheDocument();
   });
 
   test('converts rating timestamps to the browser timezone', async () => {

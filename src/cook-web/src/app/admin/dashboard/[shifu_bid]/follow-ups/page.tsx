@@ -207,6 +207,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
   const followUpDetailLoadErrorMessage = t(
     'module.dashboard.messages.loadFollowUpDetailFailed',
   );
+  const defaultUserName = t('module.user.defaultUserName');
   const contactMode = useMemo<ContactMode>(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
@@ -471,8 +472,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
   );
 
   const resolveUserSecondary = useCallback(
-    (item: DashboardCourseFollowUpItem) => item.nickname?.trim() || '',
-    [],
+    (item: DashboardCourseFollowUpItem) =>
+      item.nickname?.trim() || defaultUserName,
+    [defaultUserName],
   );
 
   const handleSearch = useCallback(() => {
@@ -973,6 +975,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
         error={detailError}
         emptyValue={emptyValue}
         contactMode={contactMode}
+        defaultUserName={defaultUserName}
         resolveLessonDisplay={resolvePrimaryLessonDisplay}
         onRetry={() => fetchFollowUpDetail({ forceRefresh: true })}
         onOpenChange={handleDetailOpenChange}

@@ -267,6 +267,7 @@ export default function AdminOperationCourseRatingsPage() {
   );
   const emptyValue = tOperations('detail.ratings.emptyValue');
   const clearLabel = t('common.core.close');
+  const defaultUserName = t('module.user.defaultUserName');
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
   const contactMode = useMemo<ContactMode>(
@@ -449,8 +450,9 @@ export default function AdminOperationCourseRatingsPage() {
   );
 
   const resolveUserSecondary = useCallback(
-    (item: AdminOperationCourseRatingItem) => item.nickname?.trim() || '',
-    [],
+    (item: AdminOperationCourseRatingItem) =>
+      item.nickname?.trim() || defaultUserName,
+    [defaultUserName],
   );
 
   const resolveRatingModeLabel = useCallback(
