@@ -377,7 +377,7 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
         "flaskr.route.user.get_profile_onboarding_config",
         lambda: {
             "enabled": True,
-            "markdownflow": "  guided flow  ",
+            "markdownflow": "  ?[Continue]  ",
             "document_prompt": "  summary prompt  ",
             "revision": 12,
         },
@@ -414,7 +414,7 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
     assert calls == [
         {
             "user_bid": user.user_id,
-            "document": "guided flow",
+            "document": "?[Continue]",
             "document_prompt": "summary prompt",
             "purpose": "profile-onboarding",
             "config_revision": 12,
