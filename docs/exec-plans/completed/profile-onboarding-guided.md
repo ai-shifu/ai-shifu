@@ -23,7 +23,7 @@ Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1
 - [x] 2026-08-16 15:40 CST: Rebased all 22 PR2 commits without patch drift from the final PR1 head onto merged `main` commit `020f0392138e8c1cc9c619add1896a39b86b50fd`; verified exact ancestry and a clean worktree before the final review fixes.
 - [x] 2026-08-16 15:50 CST: Closed the three post-merge review findings as independent changes: projected legacy-incompatible official variable markers, serialized skip with canonical completion locks, and protected unsaved profile/nickname edits before a settings rerun.
 - [x] 2026-08-16 16:00 CST: Passed 426 backend regressions (4 skipped), 10 frontend suites / 131 tests, TypeScript, changed-file ESLint/Prettier, Ruff/format, translations, architecture, repository harness, `git diff --check`, and the complete all-files lefthook gate on the merged-main base.
-- [ ] 2026-08-16: Force-push the rebased ready PR with a lease, close the verified review threads, pass fresh CI, and complete the organic feedback window.
+- [x] 2026-08-16 16:07 CST: Force-pushed with an exact lease, replied to and resolved every verified thread, passed all fresh GitHub checks including backend and runtime harnesses, and observed the final application head for more than seven minutes with no new finding.
 
 ## Surprises & Discoveries
 
@@ -40,7 +40,7 @@ Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1
 
 ## Outcomes & Retrospective
 
-PR1 is merged and the complete PR2 commit series now sits directly on the resulting `main` commit without patch drift. Natural review findings have been handled in independent fixes while retaining the dual protocol, official MarkdownFlow source, Redis isolation, PR1 learner-profile/sign-in safeguards, and guided-only frontend. Browser QA and final local gates are complete; publication of the rebased head, fresh CI, and the last organic feedback window remain.
+PR1 is merged and the complete PR2 commit series sits directly on the resulting `main` commit without patch drift. Ready PR #2308 is mergeable and clean; application head `5c80b11b06b079eb18dfec93816bb5aa593f782b` passed every fresh GitHub check and a final organic review window with zero active unresolved threads. The delivered behavior retains the rolling dual protocol, official MarkdownFlow source, Redis isolation, PR1 learner-profile/sign-in safeguards, guided-only frontend, and the documented browser QA evidence without adding a migration.
 
 ## Context and Orientation
 
