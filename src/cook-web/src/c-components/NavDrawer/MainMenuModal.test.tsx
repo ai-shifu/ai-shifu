@@ -177,18 +177,44 @@ describe('MainMenuModal', () => {
 
   test.each([
     {
+      scenario: 'non-teacher learner',
       surface: 'learner' as const,
+      isCreator: false,
       sceneLabel: 'component.menus.navigationMenus.createCourse',
-      excludedSceneLabel: 'module.onboarding.common.replay',
+      excludedSceneLabels: [
+        'component.menus.navigationMenus.adminConsole',
+        'component.menus.navigationMenus.onboardingGuide',
+      ],
     },
     {
+      scenario: 'teacher learner',
+      surface: 'learner' as const,
+      isCreator: true,
+      sceneLabel: 'component.menus.navigationMenus.adminConsole',
+      excludedSceneLabels: [
+        'component.menus.navigationMenus.createCourse',
+        'component.menus.navigationMenus.onboardingGuide',
+      ],
+    },
+    {
+      scenario: 'admin',
       surface: 'admin' as const,
-      sceneLabel: 'module.onboarding.common.replay',
-      excludedSceneLabel: 'component.menus.navigationMenus.createCourse',
+      isCreator: false,
+      sceneLabel: 'component.menus.navigationMenus.onboardingGuide',
+      excludedSceneLabels: [
+        'component.menus.navigationMenus.createCourse',
+        'component.menus.navigationMenus.adminConsole',
+      ],
     },
   ])(
-    'renders shared rows in order with only the $surface scene entry',
-    ({ surface, sceneLabel, excludedSceneLabel }) => {
+    'renders shared rows in order with only the $scenario scene entry',
+    ({ surface, isCreator, sceneLabel, excludedSceneLabels }) => {
+      mockUserStoreState.userInfo = {
+        mobile: '13800000000',
+        email: 'user@example.com',
+        is_creator: isCreator,
+      };
+
       render(
         <MainMenuModal
           open
@@ -213,7 +239,9 @@ describe('MainMenuModal', () => {
 
       expect(positions.every(position => position >= 0)).toBe(true);
       expect(positions).toEqual([...positions].sort((a, b) => a - b));
-      expect(screen.queryByText(excludedSceneLabel)).not.toBeInTheDocument();
+      excludedSceneLabels.forEach(excludedSceneLabel => {
+        expect(screen.queryByText(excludedSceneLabel)).not.toBeInTheDocument();
+      });
     },
   );
 
@@ -237,30 +265,6 @@ describe('MainMenuModal', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith('USER_MENU_SET_PASSWORD', {});
   });
 
-  test('shows the admin console learner entry for teachers', () => {
-    mockUserStoreState.userInfo = {
-      mobile: '13800000000',
-      email: 'user@example.com',
-      is_creator: true,
-    };
-
-    render(
-      <MainMenuModal
-        open
-        onClose={jest.fn()}
-        onPersonalInfoClick={jest.fn()}
-        surface='learner'
-      />,
-    );
-
-    expect(
-      screen.getByText('component.menus.navigationMenus.adminConsole'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText('component.menus.navigationMenus.createCourse'),
-    ).not.toBeInTheDocument();
-  });
-
   test.each(['learner', 'admin'] as const)(
     'shows login instead of logout on the %s surface for guests',
     surface => {
@@ -280,8 +284,12 @@ describe('MainMenuModal', () => {
     },
   );
 
-  test('replays onboarding from the admin menu and closes the modal', () => {
-    const onClose = jest.fn();
+  test('replays onboarding and closes the admin menu', () => {
+    const calls: string[] = [];
+    const onClose = jest.fn(() => calls.push('close-menu'));
+    mockRequestReplayAll.mockImplementation(() => {
+      calls.push('replay-onboarding');
+    });
 
     render(
       <MainMenuModal
@@ -292,8 +300,11 @@ describe('MainMenuModal', () => {
       />,
     );
 
-    fireEvent.click(screen.getByText('module.onboarding.common.replay'));
+    fireEvent.click(
+      screen.getByText('component.menus.navigationMenus.onboardingGuide'),
+    );
 
+    expect(calls).toEqual(['replay-onboarding', 'close-menu']);
     expect(mockRequestReplayAll).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });

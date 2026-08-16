@@ -137,14 +137,14 @@ const MainMenuModal = ({
     <div
       className={cn(styles.mainMenuModalRow, 'px-2.5')}
       onClick={onReplayOnboardingClick}
-      title={t('module.onboarding.common.replay')}
+      title={t('component.menus.navigationMenus.onboardingGuide')}
     >
       <Compass
         className={styles.rowIcon}
         size={16}
       />
       <div className={styles.rowTitle}>
-        {t('module.onboarding.common.replay')}
+        {t('component.menus.navigationMenus.onboardingGuide')}
       </div>
     </div>
   );
