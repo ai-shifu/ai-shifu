@@ -683,6 +683,41 @@ describe('ListenModeSlideRenderer', () => {
     expect(pauseSpy).toHaveBeenCalled();
   });
 
+  it('refreshes the empty title placeholder when the section title changes', () => {
+    // The placeholder renders its title inside a React node and always carries
+    // the same blockBid, so the slide reuse cache used to hand back the previous
+    // lesson's placeholder after switching lessons.
+    const { rerender } = render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        sectionTitle='First lesson'
+      />,
+    );
+
+    rerender(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        sectionTitle='Second lesson'
+      />,
+    );
+
+    const slideCalls = getMockSlide().mock.calls;
+    const latestSlideProps = slideCalls[slideCalls.length - 1]?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+
+    const { unmount } = render(
+      latestSlideProps?.elementList?.[0]?.content as React.ReactElement,
+    );
+    expect(screen.getByText('Second lesson')).toBeInTheDocument();
+    expect(screen.queryByText('First lesson')).not.toBeInTheDocument();
+    unmount();
+  });
+
   it('shows classroom paging tips on the empty title placeholder', () => {
     render(
       <ListenModeSlideRenderer

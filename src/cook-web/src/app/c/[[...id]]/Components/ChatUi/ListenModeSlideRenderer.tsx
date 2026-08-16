@@ -80,6 +80,10 @@ type ListenSlideElement = SlideElement & {
   isAudioStreaming?: boolean;
   ask_list?: AskMessage[];
   subtitle_cues?: ElementSubtitleCue[];
+  // Identity seed for elements whose `content` is a React node rather than a
+  // string. The reuse fingerprint cannot inspect a node, so such elements must
+  // declare what makes them distinct or they all collapse into one cache entry.
+  fingerprintSeed?: string;
 };
 
 type ListenSlideElementCacheEntry = {
@@ -482,7 +486,12 @@ const buildListenSlideElementFingerprint = (element: ListenSlideElement) =>
     type: element.type,
     sequence_number: element.sequence_number,
     content:
-      typeof element.content === 'string' ? element.content : element.blockBid,
+      typeof element.content === 'string'
+        ? element.content
+        : // A React node cannot be fingerprinted, and `blockBid` is a constant
+          // for the placeholder slide, so without the seed every lesson would
+          // reuse the first lesson's rendered title.
+          (element.fingerprintSeed ?? element.blockBid),
     is_marker: element.is_marker,
     is_renderable: element.is_renderable,
     is_speakable: element.is_speakable,
@@ -577,6 +586,7 @@ const createEmptyStateElement = (
   is_new: true,
   blockBid: 'empty-ppt',
   page: 0,
+  fingerprintSeed: JSON.stringify([sectionTitle, sectionPlaceholderTips]),
 });
 
 const buildSlideElementList = ({

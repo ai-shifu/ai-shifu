@@ -968,19 +968,20 @@ def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(monkeypa
                         is_terminal=False,
                     )
 
-    emitted = list(
-        runscript_v2.run_script_inner(
-            app=app,
-            user_bid="user-1",
-            shifu_bid="shifu-1",
-            outline_bid="outline-1",
-            input="hello",
-            input_type="text",
-            element_adapter=ElementAdapter(),
-        )
-    )
-
-    for event in emitted:
+    # Record the marker while iterating. Consuming the generator first would
+    # make the ordering assertion pass even if the ready event were yielded
+    # before the commit, which is exactly what this test needs to rule out.
+    emitted = []
+    for event in runscript_v2.run_script_inner(
+        app=app,
+        user_bid="user-1",
+        shifu_bid="shifu-1",
+        outline_bid="outline-1",
+        input="hello",
+        input_type="text",
+        element_adapter=ElementAdapter(),
+    ):
+        emitted.append(event)
         if getattr(event, "type", "") == GeneratedType.AUDIO_BACKFILL_READY.value:
             sequence.append("ready")
 
@@ -1082,19 +1083,20 @@ def test_run_script_inner_emits_audio_backfill_ready_after_break_commit(monkeypa
                         ),
                     )
 
-    emitted = list(
-        runscript_v2.run_script_inner(
-            app=app,
-            user_bid="user-1",
-            shifu_bid="shifu-1",
-            outline_bid="outline-1",
-            input="hello",
-            input_type="text",
-            element_adapter=ElementAdapter(),
-        )
-    )
-
-    for event in emitted:
+    # Record the marker while iterating. Consuming the generator first would
+    # make the ordering assertion pass even if the ready event were yielded
+    # before the commit, which is exactly what this test needs to rule out.
+    emitted = []
+    for event in runscript_v2.run_script_inner(
+        app=app,
+        user_bid="user-1",
+        shifu_bid="shifu-1",
+        outline_bid="outline-1",
+        input="hello",
+        input_type="text",
+        element_adapter=ElementAdapter(),
+    ):
+        emitted.append(event)
         if getattr(event, "type", "") == GeneratedType.AUDIO_BACKFILL_READY.value:
             sequence.append("ready")
 

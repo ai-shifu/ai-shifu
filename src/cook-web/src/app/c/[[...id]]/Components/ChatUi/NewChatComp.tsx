@@ -990,6 +990,15 @@ export const NewChatComponents = ({
         return;
       }
 
+      // Narration still being produced is not a failure. Answering an interaction
+      // cancels every in-flight request, so a round can legitimately come back
+      // empty while the next run is already streaming. The failure branch above
+      // guards on this; without the same guard here, cancelled requests would
+      // surface a spurious "audio generation failed" toast.
+      if (isOutputInProgress) {
+        return;
+      }
+
       fail(t('module.chat.listenAudioBackfillFailed'));
     });
   }, [
