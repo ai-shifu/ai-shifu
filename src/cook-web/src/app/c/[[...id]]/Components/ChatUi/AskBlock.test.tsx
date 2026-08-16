@@ -86,13 +86,13 @@ jest.mock('@/c-assets/newchat/light/icon_shifu.svg', () => ({
   default: '/icon_shifu.svg',
 }));
 
-let mockIsCurrentUserCourseOwner = false;
+let mockIsCurrentUserCourseOwner: boolean | null = false;
 
 jest.mock('@/c-store/useCourseStore', () => ({
   useCourseStore: (
     selector?: (state: {
       courseAvatar: string;
-      isCurrentUserCourseOwner: boolean;
+      isCurrentUserCourseOwner: boolean | null;
     }) => unknown,
   ) => {
     const state = {
@@ -277,6 +277,42 @@ describe('AskBlock', () => {
       ).toHaveLength(2);
     },
   );
+
+  it('does not start a preview follow-up before ownership is resolved', async () => {
+    mockIsCurrentUserCourseOwner = null;
+
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: false,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[]}
+          preview_mode={true}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'follow up question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+    await act(async () => {});
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+    expect(
+      useAskStateStore.getState().askListByAnchorElementBid['block-1'] ?? [],
+    ).toHaveLength(0);
+  });
 
   it('rolls back a partial follow-up answer when the transport fails', async () => {
     render(

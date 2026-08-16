@@ -473,7 +473,7 @@ export default function ChatLayout({
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (courseId) {
-        updateIsCurrentUserCourseOwner(false);
+        updateIsCurrentUserCourseOwner(null);
         debugInfo('[course-info] request start', {
           courseId,
           previewMode: isPreviewMode,

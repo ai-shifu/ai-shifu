@@ -91,11 +91,11 @@ export interface CourseStoreState {
   courseName: string;
   courseAvatar: string;
   courseTtsEnabled: boolean | null;
-  isCurrentUserCourseOwner: boolean;
+  isCurrentUserCourseOwner: boolean | null;
   updateCourseAvatar: (avatar: string) => void;
   updateCourseName: (name: string) => void;
   updateCourseTtsEnabled: (enabled: boolean | null) => void;
-  updateIsCurrentUserCourseOwner: (isOwner: boolean) => void;
+  updateIsCurrentUserCourseOwner: (isOwner: boolean | null) => void;
   lessonId: string | undefined;
   updateLessonId: (id: string) => void;
   chapterId: string;

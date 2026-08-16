@@ -63,7 +63,7 @@ declare global {
 
   var __chatHookMockUpdateResetedLessonId__: jest.Mock | undefined;
 
-  var __chatHookIsCurrentUserCourseOwner__: boolean | undefined;
+  var __chatHookIsCurrentUserCourseOwner__: boolean | null | undefined;
 }
 
 jest.mock('@/c-store/useCourseStore', () => ({
@@ -76,7 +76,9 @@ jest.mock('@/c-store/useCourseStore', () => ({
       updateResetedChapterId: globalThis.__chatHookMockUpdateResetedChapterId__,
       updateResetedLessonId: globalThis.__chatHookMockUpdateResetedLessonId__,
       get isCurrentUserCourseOwner() {
-        return globalThis.__chatHookIsCurrentUserCourseOwner__ ?? true;
+        return globalThis.__chatHookIsCurrentUserCourseOwner__ === undefined
+          ? true
+          : globalThis.__chatHookIsCurrentUserCourseOwner__;
       },
     };
     return Object.assign(
@@ -251,6 +253,52 @@ describe('useChatLogicHook stream cleanup', () => {
         listen: false,
       }),
     );
+  });
+
+  it('waits for preview ownership before starting generation', async () => {
+    globalThis.__chatHookIsCurrentUserCourseOwner__ = null;
+    const studyRecord = createDeferred<{
+      mdflow: string;
+      elements: never[];
+      records: never[];
+      slides: never[];
+    }>();
+    mockGetLessonStudyRecord.mockReturnValueOnce(studyRecord.promise);
+    const { result, rerender } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          previewMode: true,
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {});
+    expect(mockGetLessonStudyRecord).not.toHaveBeenCalled();
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+    await expect(
+      result.current.requestAudioForBlock('block-1'),
+    ).resolves.toBeNull();
+    expect(mockStreamGeneratedBlockAudio).not.toHaveBeenCalled();
+
+    globalThis.__chatHookIsCurrentUserCourseOwner__ = true;
+    rerender();
+
+    await waitFor(() => expect(mockGetLessonStudyRecord).toHaveBeenCalled());
+    await act(async () => {
+      studyRecord.resolve({
+        mdflow: '',
+        elements: [],
+        records: [],
+        slides: [],
+      });
+      await studyRecord.promise;
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockGetRunMessage.mock.calls[0]?.[4]).toBe('teacher');
   });
 
   it('sends listen=true in the run body when listen requests are enabled', async () => {

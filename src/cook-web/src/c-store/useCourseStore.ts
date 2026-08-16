@@ -15,7 +15,7 @@ export const useCourseStore = create<
     courseTtsEnabled: null,
     updateCourseTtsEnabled: courseTtsEnabled =>
       set(() => ({ courseTtsEnabled })),
-    isCurrentUserCourseOwner: false,
+    isCurrentUserCourseOwner: null,
     updateIsCurrentUserCourseOwner: isCurrentUserCourseOwner =>
       set(() => ({ isCurrentUserCourseOwner })),
     lessonId: undefined,
