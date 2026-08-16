@@ -40,6 +40,7 @@ from sqlalchemy.exc import IntegrityError
 _T = TypeVar("_T")
 _LEGACY_ANSWER_VARIABLE_PREFIX = "__profile_onboarding_legacy_answer_"
 _MARKDOWNFLOW_BLOCK_SEPARATOR = "\n\n---\n\n"
+_MARKDOWNFLOW_VARIABLE_PREFIX = "?[%{{"
 
 
 def _now_iso() -> str:
@@ -87,6 +88,47 @@ def _current_values_for_response(app: Flask, user_id: str) -> dict[str, str]:
     }
 
 
+def _is_legacy_profile_onboarding_variable_safe(variable_name: str) -> bool:
+    """Match the variable-name subset understood by the retiring web parser."""
+
+    # The old client's assignment capture accepts one or more non-whitespace,
+    # non-`}` characters. U+FEFF is JavaScript whitespace but Python does not
+    # classify it as whitespace, so keep this compatibility predicate explicit.
+    return bool(variable_name) and all(
+        character != "}" and character != "\ufeff" and not character.isspace()
+        for character in variable_name
+    )
+
+
+def _replace_legacy_interaction_variable(
+    content: str, *, raw_variable: str | None, synthetic_name: str
+) -> str:
+    """Project an official interaction onto the retiring client's safe subset."""
+
+    stripped_content = content.strip()
+    if raw_variable is None:
+        return f"?[%{{{{{synthetic_name}}}}}{stripped_content[2:]}"
+
+    # Replace the entire raw marker value, including whitespace the official
+    # parser normalizes away but the retiring client cannot safely consume.
+    variable_start = len(_MARKDOWNFLOW_VARIABLE_PREFIX)
+    return (
+        stripped_content[:variable_start]
+        + synthetic_name
+        + stripped_content[variable_start + len(raw_variable) :]
+    )
+
+
+def _extract_official_interaction_raw_variable(content: str) -> str:
+    """Read marker text only after InteractionParser confirmed an assignment."""
+
+    stripped_content = content.strip()
+    marker_end = stripped_content.find("}}", len(_MARKDOWNFLOW_VARIABLE_PREFIX))
+    if marker_end < 0:
+        raise ValueError("official interaction variable cannot be projected")
+    return stripped_content[len(_MARKDOWNFLOW_VARIABLE_PREFIX) : marker_end]
+
+
 def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
     """Give the one-release legacy wire assignment-shaped interactions."""
 
@@ -106,7 +148,19 @@ def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
         if block.block_type == BlockType.INTERACTION:
             parsed_interaction = interaction_parser.parse(content)
             variable_name = parsed_interaction.get("variable")
-            if not isinstance(variable_name, str) or not variable_name.strip():
+            official_variable = (
+                variable_name if isinstance(variable_name, str) else None
+            )
+            raw_variable = (
+                _extract_official_interaction_raw_variable(content)
+                if official_variable is not None
+                else None
+            )
+            if (
+                official_variable is None
+                or raw_variable != official_variable
+                or not _is_legacy_profile_onboarding_variable_safe(official_variable)
+            ):
                 base_name = f"{_LEGACY_ANSWER_VARIABLE_PREFIX}{synthetic_index}"
                 synthetic_name = base_name
                 collision_index = 1
@@ -115,9 +169,11 @@ def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
                     collision_index += 1
                 existing_variables.add(synthetic_name)
                 synthetic_index += 1
-                # The official parser established the ?[...] shape. Preserve the
-                # interaction body and add only the assignment legacy UI requires.
-                content = f"?[%{{{{{synthetic_name}}}}}{content.strip()[2:]}"
+                content = _replace_legacy_interaction_variable(
+                    content,
+                    raw_variable=raw_variable,
+                    synthetic_name=synthetic_name,
+                )
                 changed = True
         projected_blocks.append(content)
 
