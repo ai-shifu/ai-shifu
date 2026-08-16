@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import ast
 import inspect
+import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from flask import Flask
-from sqlalchemy.exc import ResourceClosedError
-
 from flaskr import dao
 from flaskr.api.langfuse import MockClient
 from flaskr.common.cache_provider import (
@@ -18,7 +18,8 @@ from flaskr.common.cache_provider import (
     redis_cache,
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
-from flaskr.service.profile_research import api, runtime as profile_research_runtime
+from flaskr.service.profile_research import api
+from flaskr.service.profile_research import runtime as profile_research_runtime
 from flaskr.service.profile_research.runtime import (
     PROFILE_ONBOARDING_PREVIEW_PURPOSE,
     PROFILE_ONBOARDING_PURPOSE,
@@ -37,6 +38,7 @@ from flaskr.service.profile_research.runtime import (
 )
 from flaskr.util.prompt_loader import load_prompt_template
 from markdown_flow import LLMProvider
+from sqlalchemy.exc import ResourceClosedError
 
 
 class _FakeProvider(LLMProvider):
@@ -82,6 +84,39 @@ def _make_runtime(
 
 def _terminal(events: list[dict]) -> dict:
     return next(event for event in reversed(events) if event.get("is_terminal"))
+
+
+def _save_session_without_active_pointer(runtime: ProfileResearchRuntime, session):
+    runtime.store._cache.setex(
+        runtime.store._key(session.session_id),
+        PROFILE_RESEARCH_SESSION_TTL_SECONDS,
+        json.dumps(session.to_cache_payload(), ensure_ascii=False),
+    )
+
+
+def _start_test_session(
+    runtime: ProfileResearchRuntime,
+    *,
+    purpose: str = PROFILE_ONBOARDING_PURPOSE,
+    document: str = "?[继续]",
+    revision: int = 1,
+) -> dict:
+    return runtime.start_session(
+        user_bid="user-1",
+        document=document,
+        document_prompt=None,
+        purpose=purpose,
+        config_revision=revision,
+        output_language=None,
+    )
+
+
+def _active_test_session_id(
+    runtime: ProfileResearchRuntime,
+    *,
+    purpose: str = PROFILE_ONBOARDING_PURPOSE,
+) -> str | None:
+    return runtime.store.active_session_id(user_bid="user-1", purpose=purpose)
 
 
 def test_service_has_no_learn_dependency():
@@ -463,6 +498,144 @@ def test_owner_and_purpose_are_enforced_for_run_and_delete():
         )
 
 
+def test_start_replaces_the_previous_idle_session_for_the_same_scope():
+    _app, runtime, _providers = _make_runtime()
+    first = _start_test_session(runtime)
+    second = _start_test_session(
+        runtime,
+        document="?[重新开始]",
+        revision=2,
+    )
+
+    assert first["session_id"] != second["session_id"]
+    with pytest.raises(ProfileResearchSessionNotFound):
+        runtime.store.load(first["session_id"])
+    assert runtime.store.load(second["session_id"]).config_revision == 2
+    assert _active_test_session_id(runtime) == second["session_id"]
+
+
+def test_start_keeps_the_previous_session_when_its_old_worker_lock_is_busy():
+    _app, runtime, _providers = _make_runtime()
+    previous = _start_test_session(runtime)
+    previous_lock = runtime.store.lock(previous["session_id"])
+    assert previous_lock.acquire(blocking=False)
+
+    try:
+        with pytest.raises(api.ProfileResearchSessionBusy):
+            _start_test_session(
+                runtime,
+                document="?[重新开始]",
+                revision=2,
+            )
+    finally:
+        previous_lock.release()
+
+    assert runtime.store.load(previous["session_id"]).config_revision == 1
+    assert _active_test_session_id(runtime) == previous["session_id"]
+
+
+def test_owner_scope_lock_blocks_concurrent_runs_across_session_ids():
+    _app, runtime, providers = _make_runtime()
+    active = _start_test_session(runtime)
+    stale = replace(
+        runtime.store.load(active["session_id"]),
+        session_id="f" * 32,
+    )
+    _save_session_without_active_pointer(runtime, stale)
+    active_events = runtime.stream_session(
+        user_bid="user-1",
+        session_id=active["session_id"],
+        user_input=None,
+        expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+    )
+
+    try:
+        assert next(active_events)["event_type"] == "interaction"
+        with pytest.raises(api.ProfileResearchSessionBusy):
+            list(
+                runtime.stream_session(
+                    user_bid="user-1",
+                    session_id=stale.session_id,
+                    user_input=None,
+                    expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+                )
+            )
+        assert len(providers) == 1
+    finally:
+        active_events.close()
+
+
+def test_first_run_claims_a_session_created_before_active_pointers():
+    _app, runtime, _providers = _make_runtime()
+    view = _start_test_session(runtime)
+    session = runtime.store.load(view["session_id"])
+    runtime.store.clear_active(session)
+
+    assert _active_test_session_id(runtime) is None
+    events = list(
+        runtime.stream_session(
+            user_bid="user-1",
+            session_id=view["session_id"],
+            user_input=None,
+            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+        )
+    )
+
+    assert _terminal(events)["content"]["awaiting_input"] is True
+    assert _active_test_session_id(runtime) == view["session_id"]
+
+
+def test_stale_session_is_rejected_before_a_provider_is_created():
+    _app, runtime, providers = _make_runtime()
+    active = _start_test_session(runtime)
+    stale = replace(
+        runtime.store.load(active["session_id"]),
+        session_id="e" * 32,
+    )
+    _save_session_without_active_pointer(runtime, stale)
+
+    with pytest.raises(ProfileResearchSessionNotFound):
+        list(
+            runtime.stream_session(
+                user_bid="user-1",
+                session_id=stale.session_id,
+                user_input=None,
+                expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+            )
+        )
+
+    assert providers == []
+    assert _active_test_session_id(runtime) == active["session_id"]
+
+
+def test_owner_admission_is_isolated_by_purpose():
+    _app, runtime, _providers = _make_runtime()
+    learner = _start_test_session(runtime)
+    learner_owner_lock = runtime.store.owner_lock(
+        user_bid="user-1",
+        purpose=PROFILE_ONBOARDING_PURPOSE,
+    )
+    assert learner_owner_lock.acquire(blocking=False)
+
+    try:
+        with pytest.raises(api.ProfileResearchSessionBusy):
+            _start_test_session(runtime, document="?[重新开始]")
+        preview = _start_test_session(
+            runtime,
+            document="?[预览]",
+            purpose=PROFILE_ONBOARDING_PREVIEW_PURPOSE,
+        )
+    finally:
+        learner_owner_lock.release()
+
+    assert runtime.store.load(learner["session_id"]).purpose == (
+        PROFILE_ONBOARDING_PURPOSE
+    )
+    assert runtime.store.load(preview["session_id"]).purpose == (
+        PROFILE_ONBOARDING_PREVIEW_PURPOSE
+    )
+
+
 def test_delete_uses_the_run_lock_before_removing_a_session():
     _app, runtime, _providers = _make_runtime()
     session = runtime.start_session(
@@ -497,6 +670,68 @@ def test_delete_uses_the_run_lock_before_removing_a_session():
     )
     with pytest.raises(ProfileResearchSessionNotFound):
         runtime.store.load(session["session_id"])
+    assert _active_test_session_id(runtime) is None
+
+
+def test_stale_cleanup_does_not_clear_the_replacement_active_pointer():
+    _app, runtime, _providers = _make_runtime()
+    first = _start_test_session(runtime)
+    stale = runtime.store.load(first["session_id"])
+    replacement = _start_test_session(
+        runtime,
+        document="?[重新开始]",
+        revision=2,
+    )
+    _save_session_without_active_pointer(runtime, stale)
+
+    runtime.delete_session(
+        user_bid="user-1",
+        session_id=stale.session_id,
+        expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+    )
+
+    assert _active_test_session_id(runtime) == replacement["session_id"]
+    assert runtime.store.load(replacement["session_id"]).config_revision == 2
+
+
+def test_save_refreshes_session_and_active_pointer_ttl_together():
+    _app, runtime, _providers = _make_runtime()
+    view = _start_test_session(runtime)
+    session = runtime.store.load(view["session_id"])
+    session_key = runtime.store._key(session.session_id)
+    active_key = runtime.store._active_key(session.user_bid, session.purpose)
+    cache = runtime.store._cache
+    cache._store[session_key].expires_at = cache._now() + 1
+    cache._store[active_key].expires_at = cache._now() + 1
+
+    runtime.store.save(session)
+
+    assert cache.ttl(session_key) > PROFILE_RESEARCH_SESSION_TTL_SECONDS - 5
+    assert cache.ttl(active_key) > PROFILE_RESEARCH_SESSION_TTL_SECONDS - 5
+
+
+def test_invalid_run_does_not_refresh_session_or_active_pointer_ttl():
+    _app, runtime, _providers = _make_runtime()
+    view = _start_test_session(runtime)
+    session = runtime.store.load(view["session_id"])
+    session_key = runtime.store._key(session.session_id)
+    active_key = runtime.store._active_key(session.user_bid, session.purpose)
+    cache = runtime.store._cache
+    session_expiry = cache._store[session_key].expires_at
+    active_expiry = cache._store[active_key].expires_at
+
+    with pytest.raises(ProfileResearchValidationError):
+        list(
+            runtime.stream_session(
+                user_bid="user-1",
+                session_id=session.session_id,
+                user_input={"answer": ["   "]},
+                expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+            )
+        )
+
+    assert cache._store[session_key].expires_at == session_expiry
+    assert cache._store[active_key].expires_at == active_expiry
 
 
 def test_run_lock_lease_has_worker_cleanup_headroom_without_using_session_ttl():
@@ -521,12 +756,27 @@ def test_run_lock_lease_has_worker_cleanup_headroom_without_using_session_ttl():
     )
 
     assert store.lock("session-1") is expected_lock
+    assert (
+        store.owner_lock(
+            user_bid="user-1",
+            purpose=PROFILE_ONBOARDING_PURPOSE,
+        )
+        is expected_lock
+    )
     assert lock_calls == [
         {
             "key": "test:profile_research:session-1:lock",
             "timeout": 6 * 60,
             "blocking_timeout": 0,
-        }
+        },
+        {
+            "key": (
+                "test:profile_research:active:profile-onboarding:"
+                "c6c289e49e9c05b2145860387b73bcb18df43fb09a1e4a4a9713c76c88bb541b:lock"
+            ),
+            "timeout": 6 * 60,
+            "blocking_timeout": 0,
+        },
     ]
     assert 5 * 60 < PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS
     assert (
