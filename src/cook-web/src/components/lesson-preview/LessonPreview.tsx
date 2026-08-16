@@ -29,7 +29,10 @@ import {
 } from '@/components/ui/Dialog';
 import { useAlert } from '@/components/ui/UseAlert';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
-import { isCreditInsufficientBusinessCode } from '@/lib/creditInsufficientToast';
+import {
+  type CreditInsufficientAudience,
+  isCreditInsufficientBusinessCode,
+} from '@/lib/creditInsufficientToast';
 import { Button } from '@/components/ui/Button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
@@ -44,6 +47,7 @@ interface LessonPreviewProps {
   loading: boolean;
   errorMessage?: string | null;
   items: ChatContentItem[];
+  creditInsufficientAudience?: CreditInsufficientAudience;
   variables?: PreviewVariablesMap;
   shifuBid: string;
   onRefresh: (elementBid: string) => void;
@@ -173,6 +177,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
   errorMessage,
   items = [],
+  creditInsufficientAudience = 'teacher-collaborator',
   variables,
   shifuBid,
   onRefresh,
@@ -513,7 +518,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                             : undefined
                         }
                       />
-                      {isCreditInsufficient ? (
+                      {isCreditInsufficient &&
+                      creditInsufficientAudience === 'teacher' ? (
                         <Button
                           type='button'
                           size='sm'

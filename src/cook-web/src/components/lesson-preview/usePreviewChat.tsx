@@ -39,6 +39,7 @@ import {
 } from '@/lib/learnerError';
 import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
 import {
+  type CreditInsufficientAudience,
   getCreditInsufficientMessage,
   isCreditInsufficientBusinessCode,
   showCreditInsufficientToast,
@@ -480,7 +481,11 @@ export const replacePreviewLoadingWithBusinessError = (
   ];
 };
 
-export function usePreviewChat() {
+export function usePreviewChat({
+  creditInsufficientAudience,
+}: {
+  creditInsufficientAudience: CreditInsufficientAudience;
+}) {
   const { t } = useTranslation();
   const { actions } = useShifu();
   const getCurrentMdflow = actions?.getCurrentMdflow;
@@ -805,14 +810,14 @@ export function usePreviewChat() {
           : (errorOrMessage?.code ?? fallbackCode);
       const isCreditError = isCreditInsufficientBusinessCode(resolvedCode);
       const displayMessage = isCreditError
-        ? getCreditInsufficientMessage('teacher', resolvedCode)
+        ? getCreditInsufficientMessage(creditInsufficientAudience, resolvedCode)
         : showPreviewErrorToast(
             resolvedToast.message,
             t('module.preview.llmError'),
           );
       if (isCreditError) {
         showCreditInsufficientToast({
-          audience: 'teacher',
+          audience: creditInsufficientAudience,
           code: resolvedCode,
         });
       }
@@ -826,7 +831,13 @@ export function usePreviewChat() {
       setError(displayMessage);
       stopPreview();
     },
-    [setTrackedContentList, showPreviewErrorToast, stopPreview, t],
+    [
+      creditInsufficientAudience,
+      setTrackedContentList,
+      showPreviewErrorToast,
+      stopPreview,
+      t,
+    ],
   );
 
   const resetPreview = useCallback(() => {
@@ -1513,7 +1524,7 @@ export function usePreviewChat() {
             requestId: traceHeaders.requestId,
             harnessRunId: traceHeaders.harnessRunId,
             skipErrorToast: true,
-            creditInsufficientAudience: 'teacher',
+            creditInsufficientAudience,
           },
           onHandled: error => {
             if (sseRef.current !== source) {
@@ -1590,6 +1601,7 @@ export function usePreviewChat() {
     },
     [
       finalizePreviewItems,
+      creditInsufficientAudience,
       handlePreviewBusinessError,
       handlePayload,
       invalidatePreviewRun,
@@ -2067,7 +2079,7 @@ export function usePreviewChat() {
             requestToken: tokenValue || '',
             requestId: traceHeaders.requestId,
             harnessRunId: traceHeaders.harnessRunId,
-            creditInsufficientAudience: 'teacher',
+            creditInsufficientAudience,
           },
           onHandled: error => {
             if (
@@ -2180,6 +2192,7 @@ export function usePreviewChat() {
     },
     [
       closeTtsStream,
+      creditInsufficientAudience,
       ensureAudioItem,
       isCurrentPreviewRun,
       resolveBaseUrl,

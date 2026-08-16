@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/button';
 import { Eye } from 'lucide-react';
 import { useEnvStore } from '@/c-store';
-import { useShifu } from '@/store';
+import { useShifu, useUserStore } from '@/store';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/c-common/hooks/useTracking';
@@ -11,6 +11,7 @@ import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
 import { buildAbsoluteUrlWithLessonId } from '@/c-utils/urlUtils';
 import {
   DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
+  resolveCourseCreditInsufficientAudience,
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
 
@@ -21,14 +22,27 @@ type PreviewSettingsModalProps = {
 const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
   const { t } = useTranslation();
   const { currentNode, currentShifu, actions } = useShifu();
+  const currentUser = useUserStore(state => state.userInfo);
+  const currentUserId = currentUser?.user_bid || currentUser?.user_id || '';
+  const isCourseOwner = Boolean(
+    currentShifu?.created_user_bid &&
+    currentUserId &&
+    currentShifu.created_user_bid === currentUserId,
+  );
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: true,
+    isCurrentUserCourseOwner: isCourseOwner,
+  });
   const { trackEvent } = useTracking();
   const [loading, setLoading] = useState(false);
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
   const { data: billingOverview } = useBillingOverview();
   const debugBlockedByCredits =
-    billingEnabled && billingOverview?.debug_allowed === false;
+    isCourseOwner && billingEnabled && billingOverview?.debug_allowed === false;
   const debugAllowed =
-    !billingEnabled || billingOverview?.debug_allowed === true;
+    !isCourseOwner ||
+    !billingEnabled ||
+    billingOverview?.debug_allowed === true;
 
   const handleStartPreview = async () => {
     if (loading) {
@@ -36,7 +50,7 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
     }
     if (debugBlockedByCredits) {
       showCreditInsufficientToast({
-        audience: 'teacher',
+        audience: creditInsufficientAudience,
         code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
       });
       return;
@@ -60,7 +74,7 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
           variables: {},
         },
         {
-          creditInsufficientAudience: 'teacher',
+          creditInsufficientAudience,
         },
       );
       if (result) {
