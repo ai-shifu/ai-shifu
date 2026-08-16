@@ -11,18 +11,29 @@ export type CreditInsufficientAudience =
   | 'teacher'
   | 'teacher-collaborator';
 
-export const resolveCourseCreditInsufficientAudience = ({
+export function resolveCourseCreditInsufficientAudience(args: {
+  previewMode: boolean;
+  isCurrentUserCourseOwner: boolean;
+}): CreditInsufficientAudience;
+export function resolveCourseCreditInsufficientAudience(args: {
+  previewMode: boolean;
+  isCurrentUserCourseOwner: boolean | null;
+}): CreditInsufficientAudience | null;
+export function resolveCourseCreditInsufficientAudience({
   previewMode,
   isCurrentUserCourseOwner,
 }: {
   previewMode: boolean;
-  isCurrentUserCourseOwner: boolean;
-}): CreditInsufficientAudience => {
+  isCurrentUserCourseOwner: boolean | null;
+}): CreditInsufficientAudience | null {
   if (!previewMode) {
     return 'learner';
   }
+  if (isCurrentUserCourseOwner === null) {
+    return null;
+  }
   return isCurrentUserCourseOwner ? 'teacher' : 'teacher-collaborator';
-};
+}
 
 const CREDIT_ERROR_CODES = new Set([
   CREDIT_INSUFFICIENT_BUSINESS_CODE,

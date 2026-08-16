@@ -229,6 +229,9 @@ export default function AskBlock({
 
   const handleSendCustomQuestion = useCallback(async () => {
     const question = inputValue.trim();
+    if (creditInsufficientAudience === null) {
+      return;
+    }
     if (isStreamingRef.current) {
       showOutputInProgressToast();
       return;

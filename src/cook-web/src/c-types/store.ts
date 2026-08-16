@@ -104,8 +104,8 @@ export interface CourseStoreState {
       defaultListenModeEnabled: boolean | null;
     },
   ) => void;
-  isCurrentUserCourseOwner: boolean;
-  updateIsCurrentUserCourseOwner: (isOwner: boolean) => void;
+  isCurrentUserCourseOwner: boolean | null;
+  updateIsCurrentUserCourseOwner: (isOwner: boolean | null) => void;
   lessonId: string | undefined;
   updateLessonId: (id: string) => void;
   chapterId: string;

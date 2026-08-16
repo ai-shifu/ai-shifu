@@ -3,7 +3,7 @@ import { act, render, waitFor } from '@testing-library/react';
 
 import ChatLayout from '@/app/c/[[...id]]/layout';
 import { getCourseInfo } from '@/c-api/course';
-import { useEnvStore } from '@/c-store';
+import { useCourseStore, useEnvStore } from '@/c-store';
 import { useSystemStore } from '@/c-store/useSystemStore';
 
 let mockSearchParamsValue = '';
@@ -33,6 +33,26 @@ jest.mock('@/store', () => {
     ),
     useUserStore,
   };
+});
+
+jest.mock('@/store/userProvider', () => ({
+  UserProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}));
+
+jest.mock('@/store/useUserStore', () => {
+  const initUser = jest.fn();
+  const useUserStore = jest.fn(() => ({
+    userInfo: null,
+    initUser,
+    isInitialized: true,
+    isLoggedIn: false,
+  }));
+  (useUserStore as any).getState = () => ({
+    getToken: () => '',
+  });
+  return { useUserStore };
 });
 
 jest.mock('@/i18n', () => ({
@@ -78,6 +98,7 @@ describe('C preview layout', () => {
     });
     act(() => {
       useSystemStore.setState({ previewMode: false, skip: false });
+      useCourseStore.setState({ isCurrentUserCourseOwner: null });
     });
   });
 
@@ -152,6 +173,28 @@ describe('C preview layout', () => {
         },
       ]);
     });
+  });
+
+  test('marks course ownership unresolved while preview info is loading', async () => {
+    mockSearchParamsValue = 'preview=true';
+    window.history.replaceState({}, '', '/c/123?preview=true');
+    act(() => {
+      useEnvStore.setState({
+        runtimeConfigLoaded: true,
+        courseId: 'course-preview',
+      });
+      useCourseStore.setState({ isCurrentUserCourseOwner: true });
+    });
+    mockedGetCourseInfo.mockReturnValue(new Promise(() => {}));
+
+    render(
+      <ChatLayout>
+        <div>{contentLabel}</div>
+      </ChatLayout>,
+    );
+
+    await waitFor(() => expect(mockedGetCourseInfo).toHaveBeenCalled());
+    expect(useCourseStore.getState().isCurrentUserCourseOwner).toBeNull();
   });
 
   test('updates query state after search params change', async () => {

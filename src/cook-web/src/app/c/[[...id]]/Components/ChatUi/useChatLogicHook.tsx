@@ -1412,6 +1412,9 @@ function useChatLogicHook({
    */
   const run = useCallback(
     (sseParams: SSEParams) => {
+      if (creditInsufficientAudience === null) {
+        return;
+      }
       const runSerial = sseRunSerialRef.current + 1;
       sseRunSerialRef.current = runSerial;
       clearRunStreamTimeout();
@@ -2368,6 +2371,9 @@ function useChatLogicHook({
    * Loads the persisted lesson records and primes the chat stream.
    */
   const refreshData = useCallback(async () => {
+    if (creditInsufficientAudience === null) {
+      return;
+    }
     const refreshSerial = ++refreshDataSerialRef.current;
     const isCurrentRefresh = () =>
       refreshSerial === refreshDataSerialRef.current;
@@ -2491,6 +2497,7 @@ function useChatLogicHook({
     }
   }, [
     chapterId,
+    creditInsufficientAudience,
     getLessonFeedbackDefaults,
     isLessonFeedbackContent,
     lessonHasContentUpdate,
@@ -2567,12 +2574,16 @@ function useChatLogicHook({
 
   useEffect(() => {
     sseRef.current?.close();
-    if (!lessonId || resetedLessonId === lessonId) {
+    if (
+      !lessonId ||
+      resetedLessonId === lessonId ||
+      creditInsufficientAudience === null
+    ) {
       return;
     }
     refreshData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessonId, resetedLessonId]);
+  }, [creditInsufficientAudience, lessonId, resetedLessonId]);
 
   useEffect(() => {
     const onGoToNavigationNode = (
@@ -2767,6 +2778,9 @@ function useChatLogicHook({
       blockBid: string,
       options?: { skipConfirm?: boolean },
     ) => {
+      if (creditInsufficientAudience === null) {
+        return;
+      }
       // Re-selecting an earlier interaction needs to bypass the streaming
       // guard and pop the regenerate-confirm dialog. Compute the flag
       // up front so the streaming / running-check branches below can
@@ -2978,6 +2992,7 @@ function useChatLogicHook({
       });
     },
     [
+      creditInsufficientAudience,
       dismissLessonFeedbackPopup,
       getLessonFeedbackDefaults,
       getNextLessonId,
@@ -3233,6 +3248,9 @@ function useChatLogicHook({
       // de-duplicated request apart from a real synthesis failure.
       if (!elementBid) {
         return undefined;
+      }
+      if (creditInsufficientAudience === null) {
+        return null;
       }
 
       const {
