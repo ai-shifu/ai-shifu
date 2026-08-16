@@ -99,17 +99,34 @@ export default function ProfileOnboardingAdminPage() {
       setError(t('module.profileOnboarding.admin.documentRequired'));
       return;
     }
+    const submittedConfig = {
+      enabled,
+      markdownflow,
+      documentPrompt,
+    };
     setSaving(true);
     setError('');
     try {
       const response = (await api.updateAdminOperationProfileOnboardingConfig({
-        enabled,
-        markdownflow,
-        document_prompt: documentPrompt,
+        enabled: submittedConfig.enabled,
+        markdownflow: submittedConfig.markdownflow,
+        document_prompt: submittedConfig.documentPrompt,
       })) as ProfileOnboardingConfig;
-      setEnabled(Boolean(response.enabled));
-      setMarkdownflow(response.markdownflow ?? markdownflow);
-      setDocumentPrompt(response.document_prompt ?? documentPrompt);
+      setEnabled(currentValue =>
+        currentValue === submittedConfig.enabled
+          ? Boolean(response.enabled)
+          : currentValue,
+      );
+      setMarkdownflow(currentValue =>
+        currentValue === submittedConfig.markdownflow
+          ? (response.markdownflow ?? submittedConfig.markdownflow)
+          : currentValue,
+      );
+      setDocumentPrompt(currentValue =>
+        currentValue === submittedConfig.documentPrompt
+          ? (response.document_prompt ?? submittedConfig.documentPrompt)
+          : currentValue,
+      );
       setConfigRevision(
         Number(response.config_revision ?? response.version ?? configRevision),
       );
