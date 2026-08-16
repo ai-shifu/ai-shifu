@@ -203,6 +203,23 @@ def test_legacy_projection_isolates_values_the_old_parser_would_trim():
     assert legacy_step["options"] == ["brief", "full"]
 
 
+def test_legacy_projection_matches_ecmascript_button_value_trimming():
+    from flaskr.service.profile.onboarding import (
+        _project_legacy_profile_onboarding_markdownflow,
+        _strip_retiring_web_whitespace,
+    )
+
+    assert _strip_retiring_web_whitespace("\ufeff\tbrief\u3000\u2029") == "brief"
+    preserved_value = "\u0085brief\u0085"
+    assert _strip_retiring_web_whitespace(preserved_value) == preserved_value
+
+    projected = _project_legacy_profile_onboarding_markdownflow(
+        "?[%{{sys_user_style}} Short//\u0085brief | Detailed//full]"
+    )
+
+    assert projected == "?[%{{sys_user_style}} \u0085brief | full]"
+
+
 def test_legacy_projection_handles_mixed_interactions_without_collisions():
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
