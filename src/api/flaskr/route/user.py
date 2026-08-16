@@ -10,6 +10,11 @@ from flaskr.service.common.dtos import OAuthStartDTO, UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.common.profile_onboarding import get_profile_onboarding_config
+from flaskr.service.common.profile_research_request_validation import (
+    normalize_profile_research_session_id,
+    profile_research_run_identity,
+    profile_research_user_input,
+)
 from flaskr.service.feedback.funs import submit_feedback
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.profile.funcs import (
@@ -77,8 +82,6 @@ from flaskr.util.uuid import generate_id
 from .common import by_pass_login_func, bypass_token_validation, make_common_response
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
-_PROFILE_RESEARCH_SESSION_ID_LENGTH = 32
-_PROFILE_RESEARCH_SESSION_ID_ALPHABET = frozenset("0123456789abcdef")
 
 
 def _request_json_object(parameter_name: str) -> dict:
@@ -108,67 +111,7 @@ def _optional_profile_research_session_id(payload: dict) -> str | None:
     value = _optional_nonempty_string(payload, "session_id")
     if value is None:
         return None
-    return _normalize_profile_research_session_id(value)
-
-
-def _normalize_profile_research_session_id(value: object) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise_param_error("session_id")
-    normalized = value.strip()
-    if len(normalized) != _PROFILE_RESEARCH_SESSION_ID_LENGTH:
-        raise_param_error("session_id")
-    if not set(normalized).issubset(_PROFILE_RESEARCH_SESSION_ID_ALPHABET):
-        raise_param_error("session_id")
-    return normalized
-
-
-def _profile_onboarding_user_input(
-    payload: dict, *, parameter_name: str
-) -> dict[str, list[str]] | None:
-    if "user_input" not in payload:
-        return None
-    raw_user_input = payload["user_input"]
-    if not isinstance(raw_user_input, dict):
-        raise_param_error(parameter_name)
-    normalized: dict[str, list[str]] = {}
-    for raw_key, raw_values in raw_user_input.items():
-        if (
-            not isinstance(raw_key, str)
-            or not raw_key.strip()
-            or not isinstance(raw_values, list)
-            or not raw_values
-            or any(not isinstance(value, str) for value in raw_values)
-        ):
-            raise_param_error(parameter_name)
-        normalized[raw_key] = list(raw_values)
-    return normalized or None
-
-
-def _profile_onboarding_run_identity(
-    payload: dict,
-) -> tuple[int | None, str | None]:
-    has_expected_block_index = "expected_block_index" in payload
-    has_request_id = "request_id" in payload
-    if has_expected_block_index != has_request_id:
-        raise_param_error("profile_onboarding_session")
-    if not has_expected_block_index:
-        return None, None
-
-    expected_block_index = payload["expected_block_index"]
-    request_id = payload["request_id"]
-    if (
-        isinstance(expected_block_index, bool)
-        or not isinstance(expected_block_index, int)
-        or expected_block_index < 0
-    ):
-        raise_param_error("expected_block_index")
-    if (
-        not isinstance(request_id, str)
-        or not request_id.strip()
-        or len(request_id.strip()) > 128
-    ):
-        raise_param_error("request_id")
-    return expected_block_index, request_id.strip()
+    return normalize_profile_research_session_id(value)
 
 
 def _delete_profile_onboarding_session(
@@ -573,18 +516,21 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         methods=["POST"],
     )
     def run_profile_onboarding_session_api(session_id: str):
-        normalized_session_id = _normalize_profile_research_session_id(session_id)
+        normalized_session_id = normalize_profile_research_session_id(session_id)
         payload = _request_json_object("profile_onboarding_session")
         _reject_unknown_fields(
             payload,
             allowed_fields={"user_input", "expected_block_index", "request_id"},
             parameter_name="profile_onboarding_session",
         )
-        user_input = _profile_onboarding_user_input(
+        user_input = profile_research_user_input(
             payload,
             parameter_name="user_input",
         )
-        expected_block_index, request_id = _profile_onboarding_run_identity(payload)
+        expected_block_index, request_id = profile_research_run_identity(
+            payload,
+            parameter_name="profile_onboarding_session",
+        )
         from flaskr.service.profile_research.api import (
             PROFILE_ONBOARDING_PURPOSE,
             build_profile_research_sse_response,
