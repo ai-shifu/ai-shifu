@@ -1,15 +1,7 @@
 'use client';
 
 import React from 'react';
-import {
-  BriefcaseBusiness,
-  Info,
-  Loader2,
-  Sparkles,
-  Target,
-  UserRound,
-  X,
-} from 'lucide-react';
+import { Loader2, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   completeGuidedProfileOnboarding,
@@ -51,20 +43,23 @@ import {
 const DEFAULT_MAX_LENGTH = 1000;
 const DEFAULT_NICKNAME_MAX_LENGTH = 64;
 
-const PROFILE_PROMPTS = [
-  { key: 'identity', Icon: UserRound },
-  { key: 'goals', Icon: BriefcaseBusiness },
-  { key: 'teaching', Icon: Target },
-] as const;
-
-type DialogView = 'research' | 'optimizing' | 'review';
-type DialogConfirmation = 'discard' | 'replace-research';
+type DialogPhase = 'collect' | 'processing' | 'save';
+type DialogConfirmation = 'discard' | 'replace-collection';
 type OptimizationStatus = 'idle' | 'success' | 'error';
-type ResearchTriggerSource = 'guided' | 'settings';
+type CollectionTriggerSource = 'guided' | 'settings';
+
+export type ProfileCollectionResult = {
+  draft: string;
+  completion: {
+    triggerSource: CollectionTriggerSource;
+    sessionId: string;
+  };
+  postProcess: 'optimize';
+};
 
 export type LearnerProfileDialogProps = {
   open: boolean;
-  mode: 'onboarding' | 'settings';
+  exitPolicy: 'blocking' | 'dismissible';
   draftStorageScope: string;
   presentation?: ProfileOnboardingPresentation;
   initialOnboardingStatus?: ProfileOnboardingV2Status;
@@ -80,7 +75,7 @@ const errorMessage = (error: unknown, fallback: string) =>
 
 export default function LearnerProfileDialog({
   open,
-  mode,
+  exitPolicy,
   draftStorageScope,
   presentation = 'hidden',
   initialOnboardingStatus,
@@ -93,16 +88,15 @@ export default function LearnerProfileDialog({
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { trackEvent } = useTracking();
-  const [view, setView] = React.useState<DialogView>('review');
-  const [researchJourney, setResearchJourney] = React.useState(false);
-  const [researchIntent, setResearchIntent] =
+  const [phase, setPhase] = React.useState<DialogPhase>('save');
+  const [collectionIntent, setCollectionIntent] =
     React.useState<ProfileOnboardingSessionIntent>('onboarding');
-  const [researchTriggerSource, setResearchTriggerSource] =
-    React.useState<ResearchTriggerSource | null>(null);
-  const [researchSessionId, setResearchSessionId] = React.useState('');
-  const [researchDraft, setResearchDraft] = React.useState('');
-  const [researchError, setResearchError] = React.useState('');
-  const [researchKey, setResearchKey] = React.useState(0);
+  const [activeCollectionSessionId, setActiveCollectionSessionId] =
+    React.useState('');
+  const [collectionResult, setCollectionResult] =
+    React.useState<ProfileCollectionResult | null>(null);
+  const [collectionError, setCollectionError] = React.useState('');
+  const [collectionKey, setCollectionKey] = React.useState(0);
   const [profile, setProfile] = React.useState('');
   const [initialProfile, setInitialProfile] = React.useState('');
   const [savedProfile, setSavedProfile] = React.useState('');
@@ -114,7 +108,7 @@ export default function LearnerProfileDialog({
   const [nicknameSource, setNicknameSource] =
     React.useState<LearnerNicknameSource>('unavailable');
   const [guidedAvailable, setGuidedAvailable] = React.useState(false);
-  const [preferredResearchIntent, setPreferredResearchIntent] =
+  const [preferredCollectionIntent, setPreferredCollectionIntent] =
     React.useState<ProfileOnboardingSessionIntent>('onboarding');
   const [manualFallback, setManualFallback] = React.useState(false);
   const [maxLength, setMaxLength] = React.useState(DEFAULT_MAX_LENGTH);
@@ -132,9 +126,6 @@ export default function LearnerProfileDialog({
     React.useState<OptimizationStatus>('idle');
   const [optimizationErrorMessage, setOptimizationErrorMessage] =
     React.useState('');
-  const [optimizationOriginal, setOptimizationOriginal] = React.useState<
-    string | null
-  >(null);
   const [confirmation, setConfirmation] =
     React.useState<DialogConfirmation | null>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
@@ -150,9 +141,9 @@ export default function LearnerProfileDialog({
   const generationRef = React.useRef(0);
   const loadRequestRef = React.useRef(0);
   const optimizeRequestRef = React.useRef(0);
-  const researchJourneyRef = React.useRef(0);
-  const researchCompletionRef = React.useRef(false);
-  const researchShownAtRef = React.useRef<number | null>(null);
+  const collectionJourneyRef = React.useRef(0);
+  const collectionCompletionRef = React.useRef(false);
+  const collectionShownAtRef = React.useRef<number | null>(null);
   const hasCanonicalProfileRef = React.useRef(false);
 
   openRef.current = open;
@@ -173,28 +164,24 @@ export default function LearnerProfileDialog({
   const resetOptimization = React.useCallback(() => {
     setOptimizationStatus('idle');
     setOptimizationErrorMessage('');
-    setOptimizationOriginal(null);
   }, []);
 
-  const beginResearch = React.useCallback(
+  const beginCollection = React.useCallback(
     (
       intent: ProfileOnboardingSessionIntent,
       rerun: boolean,
       journeyPresentation = presentationRef.current,
     ) => {
-      const journey = ++researchJourneyRef.current;
-      researchCompletionRef.current = false;
-      researchShownAtRef.current = Date.now();
+      const journey = ++collectionJourneyRef.current;
+      collectionCompletionRef.current = false;
+      collectionShownAtRef.current = Date.now();
       optimizeRequestRef.current += 1;
       setOptimizing(false);
-      setResearchIntent(intent);
-      setResearchTriggerSource(intent === 'settings' ? 'settings' : 'guided');
-      setResearchSessionId('');
-      setResearchDraft('');
-      setResearchError('');
-      setResearchJourney(true);
-      setResearchKey(journey);
-      setView('research');
+      setCollectionIntent(intent);
+      setActiveCollectionSessionId('');
+      setCollectionError('');
+      setCollectionKey(journey);
+      setPhase('collect');
       resetOptimization();
       if (rerun) {
         void trackEvent(PROFILE_ONBOARDING_EVENTS.SETTINGS_RERUN_STARTED);
@@ -249,10 +236,9 @@ export default function LearnerProfileDialog({
         resetOptimization();
 
         if (nextHasCanonicalProfile) {
-          setPreferredResearchIntent('settings');
+          setPreferredCollectionIntent('settings');
           setManualFallback(false);
-          setResearchJourney(false);
-          setView('review');
+          setPhase('save');
           setLoaded(true);
           setLoading(false);
         }
@@ -274,25 +260,24 @@ export default function LearnerProfileDialog({
           validOnboardingStatus?.enabled &&
           validOnboardingStatus.guided_available,
         );
-        const nextResearchIntent: ProfileOnboardingSessionIntent =
+        const nextCollectionIntent: ProfileOnboardingSessionIntent =
           nextHasCanonicalProfile || validOnboardingStatus?.handled
             ? 'settings'
             : 'onboarding';
         setGuidedAvailable(nextGuidedAvailable);
-        setPreferredResearchIntent(nextResearchIntent);
+        setPreferredCollectionIntent(nextCollectionIntent);
 
         if (!nextHasCanonicalProfile) {
           setManualFallback(!nextGuidedAvailable);
           setLoaded(true);
           if (nextGuidedAvailable) {
-            beginResearch(
-              nextResearchIntent,
+            beginCollection(
+              nextCollectionIntent,
               false,
               validOnboardingStatus?.presentation ?? presentationRef.current,
             );
           } else {
-            setResearchJourney(false);
-            setView('review');
+            setPhase('save');
           }
         }
         return true;
@@ -320,7 +305,7 @@ export default function LearnerProfileDialog({
         }
       }
     },
-    [beginResearch, isCurrent, resetOptimization],
+    [beginCollection, isCurrent, resetOptimization],
   );
 
   React.useEffect(() => {
@@ -330,7 +315,7 @@ export default function LearnerProfileDialog({
       generationRef.current += 1;
       loadRequestRef.current += 1;
       optimizeRequestRef.current += 1;
-      researchJourneyRef.current += 1;
+      collectionJourneyRef.current += 1;
     };
   }, []);
 
@@ -338,14 +323,13 @@ export default function LearnerProfileDialog({
     const generation = ++generationRef.current;
     loadRequestRef.current += 1;
     optimizeRequestRef.current += 1;
-    researchJourneyRef.current += 1;
-    researchCompletionRef.current = false;
-    researchShownAtRef.current = null;
+    collectionJourneyRef.current += 1;
+    collectionCompletionRef.current = false;
+    collectionShownAtRef.current = null;
     setConfirmation(null);
-    setResearchJourney(false);
-    setResearchSessionId('');
-    setResearchDraft('');
-    setResearchError('');
+    setActiveCollectionSessionId('');
+    setCollectionResult(null);
+    setCollectionError('');
     setGuidedAvailable(false);
     setManualFallback(false);
     setError('');
@@ -357,7 +341,7 @@ export default function LearnerProfileDialog({
     }
 
     const scope = draftStorageScope;
-    setView('review');
+    setPhase('save');
     setProfile('');
     setInitialProfile('');
     setSavedProfile('');
@@ -380,15 +364,15 @@ export default function LearnerProfileDialog({
       }
       loadRequestRef.current += 1;
       optimizeRequestRef.current += 1;
-      researchJourneyRef.current += 1;
+      collectionJourneyRef.current += 1;
     };
   }, [draftStorageScope, loadProfile, open, resetOptimization]);
 
   React.useLayoutEffect(() => {
-    if (mode === 'onboarding' && confirmation === 'discard') {
+    if (exitPolicy === 'blocking' && confirmation === 'discard') {
       setConfirmation(null);
     }
-  }, [confirmation, mode]);
+  }, [confirmation, exitPolicy]);
 
   React.useEffect(() => {
     contentScrollRef.current?.scrollTo?.({ top: 0, behavior: 'auto' });
@@ -400,7 +384,7 @@ export default function LearnerProfileDialog({
     } else {
       viewHeadingRef.current?.focus();
     }
-  }, [confirmation, loaded, view]);
+  }, [confirmation, loaded, phase]);
 
   const runOnSaved = React.useCallback(
     async (generation: number, scope: string) => {
@@ -433,11 +417,12 @@ export default function LearnerProfileDialog({
     normalizedNickname !== initialNickname || nicknameNeedsMigration;
   const nicknameOverLimit =
     nicknameWillBeSaved && nicknameLength > nicknameMaxLength;
-  const canCompleteOnboarding =
-    mode === 'onboarding' && Boolean(normalizedProfile || normalizedNickname);
+  const canCompleteBlocking =
+    exitPolicy === 'blocking' &&
+    Boolean(normalizedProfile || normalizedNickname);
   const canSave =
     loaded &&
-    view === 'review' &&
+    phase === 'save' &&
     !busy &&
     !optimizing &&
     profileLength <= maxLength &&
@@ -445,8 +430,8 @@ export default function LearnerProfileDialog({
     (dirty ||
       hasUnsavedPrefill ||
       nicknameNeedsMigration ||
-      Boolean(researchSessionId && normalizedProfile) ||
-      canCompleteOnboarding);
+      Boolean(collectionResult && normalizedProfile) ||
+      canCompleteBlocking);
 
   const applyProfileResponse = React.useCallback(
     (response: Awaited<ReturnType<typeof updateLearnerProfile>>) => {
@@ -465,9 +450,8 @@ export default function LearnerProfileDialog({
       hasCanonicalProfileRef.current = Boolean(response.has_learner_profile);
       setMaxLength(response.max_length || maxLength);
       setNicknameMaxLength(response.nickname_max_length || nicknameMaxLength);
-      setResearchSessionId('');
-      setResearchDraft('');
-      setResearchTriggerSource(null);
+      setActiveCollectionSessionId('');
+      setCollectionResult(null);
       resetOptimization();
     },
     [maxLength, nicknameMaxLength, resetOptimization],
@@ -492,14 +476,13 @@ export default function LearnerProfileDialog({
         nicknameChanged || nicknameNeedsMigration
           ? { nickname: normalizedNickname }
           : {};
-      let guidedSave = false;
       let response: Awaited<ReturnType<typeof updateLearnerProfile>>;
-      if (researchSessionId && researchTriggerSource) {
-        guidedSave = true;
+      const completion = collectionResult?.completion;
+      if (completion) {
         response = await completeGuidedProfileOnboarding({
           learner_profile: normalizedProfile,
-          trigger_source: researchTriggerSource,
-          session_id: researchSessionId,
+          trigger_source: completion.triggerSource,
+          session_id: completion.sessionId,
           ...nicknamePayload,
         });
       } else {
@@ -515,14 +498,14 @@ export default function LearnerProfileDialog({
       }
 
       applyProfileResponse(response);
-      if (guidedSave) {
-        const shownAt = researchShownAtRef.current;
+      if (completion) {
+        const shownAt = collectionShownAtRef.current;
         void trackEvent(PROFILE_ONBOARDING_EVENTS.COMPLETED, {
-          source: researchTriggerSource,
+          source: completion.triggerSource,
           presentation,
           ...(shownAt === null ? {} : { duration_ms: Date.now() - shownAt }),
         });
-      } else if (mode === 'settings') {
+      } else if (exitPolicy === 'dismissible') {
         void trackEvent(
           normalizedProfile
             ? PROFILE_ONBOARDING_EVENTS.SETTINGS_SAVED
@@ -551,11 +534,11 @@ export default function LearnerProfileDialog({
     applyProfileResponse,
     canSave,
     draftStorageScope,
+    exitPolicy,
     initialNickname,
     isCurrent,
     loaded,
     maxLength,
-    mode,
     nicknameNeedsMigration,
     nicknameOverLimit,
     normalizedNickname,
@@ -564,8 +547,7 @@ export default function LearnerProfileDialog({
     optimizing,
     presentation,
     profileLength,
-    researchSessionId,
-    researchTriggerSource,
+    collectionResult,
     runOnSaved,
     saving,
     t,
@@ -601,7 +583,7 @@ export default function LearnerProfileDialog({
   }, [deferring, dismissing, draftStorageScope, isCurrent, onClose, saving, t]);
 
   const requestClose = React.useCallback(() => {
-    if (mode === 'onboarding' || saving || dismissing || deferring) {
+    if (exitPolicy === 'blocking' || saving || dismissing || deferring) {
       return;
     }
     if (dirty) {
@@ -609,21 +591,18 @@ export default function LearnerProfileDialog({
       return;
     }
     void dismiss();
-  }, [deferring, dirty, dismiss, dismissing, mode, saving]);
+  }, [deferring, dirty, dismiss, dismissing, exitPolicy, saving]);
 
   const performOptimization = React.useCallback(
     async (draft: string, automatic: boolean) => {
       const normalized = draft.trim();
-      if (
-        !loaded ||
-        optimizing ||
-        !normalized ||
-        countUnicodeCodePoints(normalized) > maxLength
-      ) {
-        if (automatic) {
-          setProfile(draft);
-          setView('review');
-        }
+      if (!loaded || optimizing) {
+        return;
+      }
+
+      const invalidAutomaticDraft =
+        !normalized || countUnicodeCodePoints(normalized) > maxLength;
+      if (!automatic && invalidAutomaticDraft) {
         return;
       }
 
@@ -633,10 +612,29 @@ export default function LearnerProfileDialog({
       setOptimizing(true);
       setOptimizationStatus('idle');
       setOptimizationErrorMessage('');
-      setOptimizationOriginal(draft);
       setError('');
       if (automatic) {
-        setView('optimizing');
+        setPhase('processing');
+      }
+
+      if (invalidAutomaticDraft) {
+        // Keep the processing transition perceptible before returning the raw
+        // collection result with a corrective status.
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        if (
+          !isCurrent(generation, scope) ||
+          request !== optimizeRequestRef.current
+        ) {
+          return;
+        }
+        setProfile(draft);
+        setOptimizationErrorMessage(
+          t('module.profileOnboarding.dialog.optimizeFailed'),
+        );
+        setOptimizationStatus('error');
+        setOptimizing(false);
+        setPhase('save');
+        return;
       }
 
       try {
@@ -681,7 +679,7 @@ export default function LearnerProfileDialog({
         ) {
           setOptimizing(false);
           if (automatic) {
-            setView('review');
+            setPhase('save');
           }
         }
       }
@@ -693,43 +691,21 @@ export default function LearnerProfileDialog({
     void performOptimization(profile, false);
   }, [performOptimization, profile]);
 
-  const useResearchDraft = React.useCallback(() => {
-    if (!researchDraft) {
-      return;
-    }
-    setProfile(researchDraft);
-    setOptimizationStatus('idle');
-    setOptimizationErrorMessage('');
-    setOptimizationOriginal(researchDraft);
-    setError('');
-    textareaRef.current?.focus();
-  }, [researchDraft]);
-
-  const undoOptimization = React.useCallback(() => {
-    if (optimizationOriginal === null) {
-      return;
-    }
-    setProfile(optimizationOriginal);
-    resetOptimization();
-    setError('');
-    textareaRef.current?.focus();
-  }, [optimizationOriginal, resetOptimization]);
-
   const retryLoad = React.useCallback(() => {
     const generation = generationRef.current;
     void loadProfile(generation, draftStorageScope);
   }, [draftStorageScope, loadProfile]);
 
-  const createResearchSession = React.useCallback(
+  const createCollectionSession = React.useCallback(
     () =>
       createProfileOnboardingSession(
         i18n.resolvedLanguage ?? i18n.language,
-        researchIntent,
+        collectionIntent,
       ),
-    [i18n.language, i18n.resolvedLanguage, researchIntent],
+    [collectionIntent, i18n.language, i18n.resolvedLanguage],
   );
 
-  const runResearchSession = React.useCallback(
+  const runCollectionSession = React.useCallback(
     ({
       sessionId,
       expectedBlockIndex,
@@ -752,66 +728,66 @@ export default function LearnerProfileDialog({
     [i18n.language, i18n.resolvedLanguage],
   );
 
-  const handleDraftReady = React.useCallback(
+  const acceptCollectionResult = React.useCallback(
     (
-      draft: string,
-      sessionId: string,
+      result: ProfileCollectionResult,
       journey: number,
       generation: number,
       scope: string,
     ) => {
       if (
-        journey !== researchJourneyRef.current ||
+        journey !== collectionJourneyRef.current ||
         !isCurrent(generation, scope) ||
-        researchCompletionRef.current
+        collectionCompletionRef.current
       ) {
         return;
       }
-      researchCompletionRef.current = true;
-      setResearchDraft(draft);
-      setResearchSessionId(sessionId);
-      setResearchError('');
-      setProfile(draft);
-      void performOptimization(draft, true);
+      collectionCompletionRef.current = true;
+      setCollectionResult(result);
+      setActiveCollectionSessionId(result.completion.sessionId);
+      setCollectionError('');
+      setProfile(result.draft);
+      if (result.postProcess === 'optimize') {
+        void performOptimization(result.draft, true);
+      } else {
+        setPhase('save');
+      }
     },
     [isCurrent, performOptimization],
   );
 
-  const cancelResearch = React.useCallback(() => {
-    researchJourneyRef.current += 1;
+  const cancelCollection = React.useCallback(() => {
+    collectionJourneyRef.current += 1;
     optimizeRequestRef.current += 1;
-    researchCompletionRef.current = false;
+    collectionCompletionRef.current = false;
     setOptimizing(false);
-    setResearchJourney(false);
-    setResearchSessionId('');
-    setResearchDraft('');
-    setResearchError('');
-    setResearchTriggerSource(null);
-    setView('review');
+    setActiveCollectionSessionId(collectionResult?.completion.sessionId ?? '');
+    setCollectionError('');
+    setPhase('save');
     resetOptimization();
-  }, [resetOptimization]);
+  }, [collectionResult, resetOptimization]);
 
-  const requestResearch = React.useCallback(() => {
+  const requestCollection = React.useCallback(() => {
     if (busy || optimizing || !guidedAvailable) {
       return;
     }
     if (dirty) {
-      setConfirmation('replace-research');
+      setConfirmation('replace-collection');
       return;
     }
-    beginResearch(preferredResearchIntent, true);
+    beginCollection(preferredCollectionIntent, true);
   }, [
-    beginResearch,
+    beginCollection,
     busy,
     dirty,
     guidedAvailable,
     optimizing,
-    preferredResearchIntent,
+    preferredCollectionIntent,
   ]);
 
   const deferOnboarding = React.useCallback(async () => {
     if (
-      mode !== 'onboarding' ||
+      exitPolicy !== 'blocking' ||
       !onDefer ||
       saving ||
       deferring ||
@@ -824,15 +800,17 @@ export default function LearnerProfileDialog({
     setDeferring(true);
     setError('');
     try {
-      const result = await onDefer(researchSessionId || undefined);
+      const result = await onDefer(activeCollectionSessionId || undefined);
       if (result === false || !isCurrent(generation, scope)) {
         return;
       }
       optimizeRequestRef.current += 1;
-      researchJourneyRef.current += 1;
+      collectionJourneyRef.current += 1;
       setOptimizing(false);
       void trackEvent(PROFILE_ONBOARDING_EVENTS.SKIPPED, {
-        source: researchTriggerSource ?? 'guided',
+        source:
+          collectionResult?.completion.triggerSource ??
+          (collectionIntent === 'settings' ? 'settings' : 'guided'),
         presentation,
       });
       await onClose('dismiss');
@@ -855,12 +833,13 @@ export default function LearnerProfileDialog({
     draftStorageScope,
     externalSubmitting,
     isCurrent,
-    mode,
+    exitPolicy,
     onClose,
     onDefer,
     presentation,
-    researchSessionId,
-    researchTriggerSource,
+    activeCollectionSessionId,
+    collectionIntent,
+    collectionResult,
     saving,
     t,
     trackEvent,
@@ -872,40 +851,33 @@ export default function LearnerProfileDialog({
     optimizing ||
     !normalizedProfile ||
     profileLength > maxLength;
-  const showResearchOptimizationActions = Boolean(researchDraft);
-  const optimizationDescription = !normalizedProfile
-    ? t('module.profileOnboarding.dialog.optimizeEmptyHint')
+  const optimizationMessage = optimizing
+    ? t('module.profileOnboarding.dialog.optimizing')
     : optimizationStatus === 'error'
       ? optimizationErrorMessage ||
         t('module.profileOnboarding.dialog.optimizeFailed')
       : optimizationStatus === 'success'
         ? t('module.profileOnboarding.dialog.optimizeSuccess')
-        : t('module.profileOnboarding.dialog.optimizeHint');
-  const combinedResearchError = researchError || externalErrorMessage;
+        : '';
+  const combinedCollectionError = collectionError || externalErrorMessage;
   const combinedDialogError =
-    error || (view === 'research' ? '' : externalErrorMessage);
-  const currentStep = view === 'research' ? 1 : 2;
+    error || (phase === 'collect' ? '' : externalErrorMessage);
   const renderedGeneration = generationRef.current;
   const renderedScope = draftStorageScope;
   const primaryLabel =
-    mode === 'onboarding'
-      ? t('module.profileOnboarding.complete')
-      : t('module.profileOnboarding.dialog.saveChanges');
+    hasCanonicalProfileRef.current && !collectionResult
+      ? t('module.profileOnboarding.dialog.saveChanges')
+      : t('module.profileOnboarding.complete');
 
-  const renderReview = () => (
+  const renderSave = () => (
     <div className='space-y-5 sm:space-y-4'>
-      <div>
-        <h2
-          ref={viewHeadingRef}
-          tabIndex={-1}
-          className='text-xl font-semibold leading-7 outline-none'
-        >
-          {t('module.profileOnboarding.dialog.confirmTitle')}
-        </h2>
-        <p className='mt-1 text-sm leading-6 text-muted-foreground'>
-          {t('module.profileOnboarding.dialog.confirmDescription')}
-        </p>
-      </div>
+      <h2
+        ref={viewHeadingRef}
+        tabIndex={-1}
+        className='text-xl font-semibold leading-7 outline-none'
+      >
+        {t('module.profileOnboarding.dialog.confirmTitle')}
+      </h2>
 
       {manualFallback ? (
         <div className='rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'>
@@ -956,40 +928,12 @@ export default function LearnerProfileDialog({
       </div>
 
       <section className='space-y-3'>
-        <div className='space-y-1'>
-          <label
-            htmlFor='learner-profile-dialog-draft'
-            className='text-sm font-medium'
-          >
-            {t('module.profileOnboarding.dialog.profileLabel')}
-          </label>
-          <p className='text-xs leading-5 text-muted-foreground'>
-            {t('module.profileOnboarding.dialog.promptHeading')}
-          </p>
-        </div>
-
-        <div className='grid grid-cols-1 gap-2 sm:grid-cols-3'>
-          {PROFILE_PROMPTS.map(({ key, Icon }) => (
-            <div
-              key={key}
-              data-testid={`learner-profile-guidance-${key}`}
-              className='flex min-h-16 items-start gap-2 rounded-xl border border-primary/15 bg-primary/[0.05] px-3 py-2.5 text-left text-primary'
-            >
-              <Icon
-                className='mt-0.5 size-4 shrink-0'
-                aria-hidden='true'
-              />
-              <span className='min-w-0'>
-                <span className='block text-sm font-semibold leading-5'>
-                  {t(`module.profileOnboarding.dialog.chips.${key}.label`)}
-                </span>
-                <span className='mt-0.5 block text-xs font-normal leading-4 text-muted-foreground'>
-                  {t(`module.profileOnboarding.dialog.chips.${key}.hint`)}
-                </span>
-              </span>
-            </div>
-          ))}
-        </div>
+        <label
+          htmlFor='learner-profile-dialog-draft'
+          className='text-sm font-medium'
+        >
+          {t('module.profileOnboarding.dialog.profileLabel')}
+        </label>
 
         <ProfileDraftEditor
           inputId='learner-profile-dialog-draft'
@@ -1001,7 +945,11 @@ export default function LearnerProfileDialog({
           maxLength={maxLength}
           disabled={!loaded || busy || optimizing}
           placeholder={t('module.profileOnboarding.dialog.profilePlaceholder')}
-          descriptionId='learner-profile-optimization-status'
+          descriptionId={
+            optimizationMessage
+              ? 'learner-profile-optimization-status'
+              : undefined
+          }
           onChange={value => {
             setProfile(value);
             resetOptimization();
@@ -1009,96 +957,57 @@ export default function LearnerProfileDialog({
           }}
         />
 
-        <div
-          data-testid='learner-profile-optimization-card'
-          className='rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3'
-          aria-live='polite'
-        >
-          <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-            <p
-              id='learner-profile-optimization-status'
-              className='min-w-0 flex-1 text-sm leading-5 text-foreground/80'
-            >
-              {optimizationDescription}
-            </p>
-            <div className='flex flex-wrap gap-2'>
-              {showResearchOptimizationActions ? (
-                <Button
-                  type='button'
-                  size='sm'
-                  variant='outline'
-                  className='min-h-10 flex-1 sm:flex-none'
-                  disabled={busy || optimizing}
-                  onClick={useResearchDraft}
-                >
-                  {t('module.profileOnboarding.dialog.useResearchDraft')}
-                </Button>
-              ) : optimizationStatus === 'success' &&
-                optimizationOriginal !== null ? (
-                <Button
-                  type='button'
-                  size='sm'
-                  variant='outline'
-                  className='min-h-10 flex-1 sm:flex-none'
-                  onClick={undoOptimization}
-                >
-                  {t('module.profileOnboarding.dialog.undoOptimize')}
-                </Button>
-              ) : null}
-              <Button
-                type='button'
-                size='sm'
-                className='min-h-10 flex-1 px-4 shadow-sm sm:flex-none'
-                disabled={optimizeDisabled}
-                aria-describedby='learner-profile-optimization-status'
-                onClick={optimizeProfile}
+        <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+          <div
+            className='min-h-5 min-w-0 flex-1'
+            aria-live='polite'
+          >
+            {optimizationMessage ? (
+              <p
+                id='learner-profile-optimization-status'
+                className={cn(
+                  'text-sm leading-5 text-muted-foreground',
+                  optimizationStatus === 'error' && 'text-destructive',
+                )}
               >
-                {optimizing ? (
-                  <Loader2
-                    className='size-4 animate-spin motion-reduce:animate-none'
-                    aria-hidden='true'
-                  />
-                ) : (
-                  <Sparkles
-                    className='size-4'
-                    aria-hidden='true'
-                  />
-                )}
-                {t(
-                  optimizing
-                    ? 'module.profileOnboarding.dialog.optimizing'
-                    : showResearchOptimizationActions
-                      ? 'module.profileOnboarding.dialog.retryOptimize'
-                      : 'module.profileOnboarding.dialog.optimize',
-                )}
-              </Button>
-            </div>
+                {optimizationMessage}
+              </p>
+            ) : null}
           </div>
+          <Button
+            type='button'
+            size='sm'
+            variant='outline'
+            className='min-h-10 px-4 sm:flex-none'
+            disabled={optimizeDisabled}
+            aria-describedby={
+              optimizationMessage
+                ? 'learner-profile-optimization-status'
+                : undefined
+            }
+            onClick={optimizeProfile}
+          >
+            {optimizing ? (
+              <Loader2
+                className='size-4 animate-spin motion-reduce:animate-none'
+                aria-hidden='true'
+              />
+            ) : (
+              <Sparkles
+                className='size-4'
+                aria-hidden='true'
+              />
+            )}
+            {t(
+              optimizing
+                ? 'module.profileOnboarding.dialog.optimizing'
+                : optimizationStatus === 'error'
+                  ? 'module.profileOnboarding.dialog.retryOptimize'
+                  : 'module.profileOnboarding.dialog.optimize',
+            )}
+          </Button>
         </div>
       </section>
-
-      {guidedAvailable ? (
-        <Button
-          type='button'
-          variant='outline'
-          className='min-h-11 w-full sm:w-auto'
-          disabled={busy || optimizing}
-          onClick={requestResearch}
-        >
-          {t('module.profileOnboarding.settings.rerun')}
-        </Button>
-      ) : null}
-
-      <div
-        data-testid='learner-profile-reassurance'
-        className='flex items-start gap-2 px-1 text-xs leading-5 text-muted-foreground sm:text-sm'
-      >
-        <Info
-          className='mt-0.5 size-4 shrink-0 text-primary'
-          aria-hidden='true'
-        />
-        <span>{t('module.profileOnboarding.dialog.reassurance')}</span>
-      </div>
     </div>
   );
 
@@ -1113,16 +1022,16 @@ export default function LearnerProfileDialog({
         }}
       >
         <DialogContent
-          data-view={view}
+          data-phase={phase}
           showClose={false}
           overlayClassName='!bg-slate-950/45 backdrop-blur-[1px]'
           onEscapeKeyDown={event => {
-            if (mode === 'onboarding') {
+            if (exitPolicy === 'blocking') {
               event.preventDefault();
             }
           }}
           onPointerDownOutside={event => {
-            if (mode === 'onboarding') {
+            if (exitPolicy === 'blocking') {
               event.preventDefault();
             }
           }}
@@ -1135,15 +1044,15 @@ export default function LearnerProfileDialog({
           />
 
           <header className='relative shrink-0 border-b bg-background px-5 pb-4 pt-5 [@media(max-height:620px)]:py-3 sm:px-8 sm:pb-5 sm:pt-6'>
-            <DialogHeader className='w-full space-y-2 pr-12 text-left'>
+            <DialogHeader className='w-full space-y-2 pr-12 text-left [@media(max-height:620px)]:space-y-1'>
               <DialogTitle className='text-2xl font-bold leading-8 tracking-tight [@media(max-height:620px)]:text-xl [@media(max-height:620px)]:leading-7 sm:text-[28px] sm:leading-9'>
                 {t('module.profileOnboarding.dialog.unifiedTitle')}
               </DialogTitle>
-              <DialogDescription className='max-w-2xl text-left text-sm leading-6 [@media(max-height:620px)]:hidden sm:text-base'>
+              <DialogDescription className='max-w-2xl text-left text-sm leading-6 [@media(max-height:620px)]:text-xs [@media(max-height:620px)]:leading-5 sm:text-base'>
                 {t('module.profileOnboarding.dialog.unifiedDescription')}
               </DialogDescription>
             </DialogHeader>
-            {mode === 'settings' ? (
+            {exitPolicy === 'dismissible' ? (
               <Button
                 type='button'
                 size='icon'
@@ -1156,46 +1065,12 @@ export default function LearnerProfileDialog({
                 <X aria-hidden='true' />
               </Button>
             ) : null}
-
-            {researchJourney ? (
-              <ol
-                className='mt-4 grid grid-cols-2 gap-2 [@media(max-height:620px)]:mt-2'
-                aria-label={t('module.profileOnboarding.dialog.progressLabel')}
-              >
-                {(['collect', 'review'] as const).map((step, index) => {
-                  const stepNumber = index + 1;
-                  const active = currentStep === stepNumber;
-                  const complete = currentStep > stepNumber;
-                  return (
-                    <li
-                      key={step}
-                      aria-current={active ? 'step' : undefined}
-                      className={cn(
-                        'rounded-lg border px-3 py-2 text-xs font-medium [@media(max-height:620px)]:py-1.5 sm:text-sm',
-                        active && 'border-primary bg-primary/10 text-primary',
-                        complete && 'border-primary/30 text-foreground',
-                        !active &&
-                          !complete &&
-                          'border-border text-muted-foreground',
-                      )}
-                    >
-                      {t(`module.profileOnboarding.steps.${step}`)}
-                    </li>
-                  );
-                })}
-              </ol>
-            ) : null}
           </header>
 
           <div
             ref={contentScrollRef}
             data-testid='learner-profile-dialog-body'
-            className={cn(
-              'min-h-0 flex-1 overscroll-contain px-5 py-5 [scrollbar-gutter:stable] [@media(max-height:620px)]:py-3 sm:px-8 sm:py-6',
-              view === 'research' && !confirmation
-                ? 'overflow-hidden'
-                : 'overflow-y-auto',
-            )}
+            className='flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 py-5 [scrollbar-gutter:stable] [@media(max-height:620px)]:py-3 sm:px-8 sm:py-6'
           >
             {loading ? (
               <div
@@ -1252,9 +1127,9 @@ export default function LearnerProfileDialog({
                   )}
                 </p>
               </section>
-            ) : view === 'research' ? (
-              <section className='flex h-full min-h-0 flex-col'>
-                <div className='mb-4 shrink-0 [@media(max-height:620px)]:mb-2'>
+            ) : phase === 'collect' ? (
+              <section className='flex min-h-0 flex-1 flex-col'>
+                <div className='mb-3 shrink-0 [@media(max-height:620px)]:mb-2'>
                   <h2
                     ref={viewHeadingRef}
                     tabIndex={-1}
@@ -1266,41 +1141,50 @@ export default function LearnerProfileDialog({
                     {t('module.profileOnboarding.guided.description')}
                   </p>
                 </div>
-                <div className='min-h-0 flex-1'>
+                <div className='min-h-40 flex-1 [@media(max-height:620px)]:min-h-32'>
                   <ProfileOnboardingConversation
-                    key={researchKey}
-                    createSession={createResearchSession}
-                    runSession={runResearchSession}
+                    key={collectionKey}
+                    createSession={createCollectionSession}
+                    runSession={runCollectionSession}
                     disabled={busy}
-                    errorMessage={combinedResearchError}
+                    errorMessage={combinedCollectionError}
                     onSessionStarted={sessionId => {
                       if (
-                        researchKey === researchJourneyRef.current &&
+                        collectionKey === collectionJourneyRef.current &&
                         isCurrent(renderedGeneration, renderedScope)
                       ) {
-                        setResearchSessionId(sessionId);
+                        setActiveCollectionSessionId(sessionId);
                       }
                     }}
                     onDraftReady={(draft, sessionId) =>
-                      handleDraftReady(
-                        draft,
-                        sessionId,
-                        researchKey,
+                      acceptCollectionResult(
+                        {
+                          draft,
+                          completion: {
+                            triggerSource:
+                              collectionIntent === 'settings'
+                                ? 'settings'
+                                : 'guided',
+                            sessionId,
+                          },
+                          postProcess: 'optimize',
+                        },
+                        collectionKey,
                         renderedGeneration,
                         renderedScope,
                       )
                     }
                     onRetry={() => {
                       if (
-                        researchKey === researchJourneyRef.current &&
+                        collectionKey === collectionJourneyRef.current &&
                         isCurrent(renderedGeneration, renderedScope)
                       ) {
-                        setResearchError('');
+                        setCollectionError('');
                       }
                     }}
                     onError={caughtError => {
                       if (
-                        researchKey !== researchJourneyRef.current ||
+                        collectionKey !== collectionJourneyRef.current ||
                         !isCurrent(renderedGeneration, renderedScope)
                       ) {
                         return;
@@ -1309,7 +1193,7 @@ export default function LearnerProfileDialog({
                         PROFILE_ONBOARDING_EVENTS.RUNTIME_FAILED,
                         { stage: 'guided', presentation },
                       );
-                      setResearchError(
+                      setCollectionError(
                         errorMessage(
                           caughtError,
                           t('module.profileOnboarding.guided.streamError'),
@@ -1318,8 +1202,30 @@ export default function LearnerProfileDialog({
                     }}
                   />
                 </div>
+                <details className='mt-3 max-h-[min(10rem,35dvh)] shrink-0 overflow-y-auto rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground [@media(max-height:620px)]:mt-2'>
+                  <summary className='cursor-pointer font-medium text-foreground'>
+                    {t('module.profileOnboarding.dialog.informationUsageTitle')}
+                  </summary>
+                  <ul className='mt-2 list-disc space-y-1 pl-5 leading-5'>
+                    <li>
+                      {t(
+                        'module.profileOnboarding.dialog.informationUsagePurpose',
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        'module.profileOnboarding.dialog.informationUsageSensitive',
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        'module.profileOnboarding.dialog.informationUsageEditable',
+                      )}
+                    </li>
+                  </ul>
+                </details>
               </section>
-            ) : view === 'optimizing' ? (
+            ) : phase === 'processing' ? (
               <section className='flex h-full min-h-64 flex-col items-center justify-center px-4 text-center'>
                 <Loader2
                   className='size-8 animate-spin text-primary motion-reduce:animate-none'
@@ -1332,12 +1238,9 @@ export default function LearnerProfileDialog({
                 >
                   {t('module.profileOnboarding.dialog.autoOptimizing')}
                 </h2>
-                <p className='mt-2 max-w-md text-sm leading-6 text-muted-foreground'>
-                  {t('module.profileOnboarding.dialog.autoOptimizingHint')}
-                </p>
               </section>
             ) : (
-              renderReview()
+              renderSave()
             )}
 
             {loaded && combinedDialogError ? (
@@ -1352,7 +1255,7 @@ export default function LearnerProfileDialog({
 
           <footer
             data-testid='learner-profile-dialog-footer'
-            className='flex shrink-0 items-center gap-2.5 border-t bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:justify-end sm:gap-3 sm:px-8 sm:py-4'
+            className='flex shrink-0 flex-wrap items-center gap-2.5 border-t bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:justify-end sm:gap-3 sm:px-8 sm:py-4'
           >
             {confirmation ? (
               <>
@@ -1377,7 +1280,7 @@ export default function LearnerProfileDialog({
                     if (action === 'discard') {
                       void dismiss();
                     } else {
-                      beginResearch(preferredResearchIntent, true);
+                      beginCollection(preferredCollectionIntent, true);
                     }
                   }}
                 >
@@ -1388,52 +1291,66 @@ export default function LearnerProfileDialog({
                   )}
                 </Button>
               </>
-            ) : mode === 'onboarding' ? (
-              <Button
-                type='button'
-                variant='ghost'
-                className='mr-auto min-h-11 px-3 text-muted-foreground !whitespace-normal'
-                disabled={!onDefer || saving || deferring || externalSubmitting}
-                onClick={() => void deferOnboarding()}
-              >
-                {deferring || externalSubmitting
-                  ? t('module.profileOnboarding.skipping')
-                  : t('module.profileOnboarding.skip')}
-              </Button>
-            ) : view === 'research' ? (
-              <Button
-                type='button'
-                variant='outline'
-                className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
-                disabled={busy}
-                onClick={cancelResearch}
-              >
-                {t('module.profileOnboarding.dialog.cancelResearch')}
-              </Button>
             ) : (
-              <Button
-                type='button'
-                variant='outline'
-                className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
-                disabled={busy}
-                onClick={requestClose}
-              >
-                {t('module.profileOnboarding.dialog.cancel')}
-              </Button>
-            )}
+              <>
+                {exitPolicy === 'blocking' ? (
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    className='mr-auto min-h-11 px-3 text-muted-foreground !whitespace-normal'
+                    disabled={
+                      !onDefer || saving || deferring || externalSubmitting
+                    }
+                    onClick={() => void deferOnboarding()}
+                  >
+                    {deferring || externalSubmitting
+                      ? t('module.profileOnboarding.skipping')
+                      : t('module.profileOnboarding.skip')}
+                  </Button>
+                ) : phase === 'collect' ? (
+                  <Button
+                    type='button'
+                    variant='outline'
+                    className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
+                    disabled={busy}
+                    onClick={cancelCollection}
+                  >
+                    {t('module.profileOnboarding.dialog.cancelResearch')}
+                  </Button>
+                ) : null}
 
-            {!confirmation && view === 'review' ? (
-              <Button
-                type='button'
-                className='min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none'
-                disabled={!canSave}
-                onClick={() => void saveProfile()}
-              >
-                {saving
-                  ? t('module.profileOnboarding.dialog.saving')
-                  : primaryLabel}
-              </Button>
-            ) : null}
+                {phase === 'save' ? (
+                  <div
+                    data-testid='learner-profile-dialog-save-actions'
+                    className='ml-auto flex min-w-0 flex-1 items-center justify-end gap-2.5 sm:flex-none sm:gap-3'
+                  >
+                    {guidedAvailable ? (
+                      <Button
+                        type='button'
+                        variant='outline'
+                        className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
+                        disabled={busy || optimizing}
+                        onClick={requestCollection}
+                      >
+                        {t(
+                          'module.profileOnboarding.dialog.interactiveCollection',
+                        )}
+                      </Button>
+                    ) : null}
+                    <Button
+                      type='button'
+                      className='min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none'
+                      disabled={!canSave}
+                      onClick={() => void saveProfile()}
+                    >
+                      {saving
+                        ? t('module.profileOnboarding.dialog.saving')
+                        : primaryLabel}
+                    </Button>
+                  </div>
+                ) : null}
+              </>
+            )}
           </footer>
         </DialogContent>
       </Dialog>

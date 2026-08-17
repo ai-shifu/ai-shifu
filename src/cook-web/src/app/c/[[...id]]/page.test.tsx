@@ -49,10 +49,10 @@ interface MockNavDrawerProps {
 
 interface MockLearnerProfileDialogProps {
   draftStorageScope: string;
+  exitPolicy: 'blocking' | 'dismissible';
   externalErrorMessage?: string;
   externalSubmitting?: boolean;
   initialOnboardingStatus?: { presentation?: string };
-  mode: 'onboarding' | 'settings';
   onClose: (reason: 'dismiss' | 'saved') => void | Promise<void>;
   onDefer?: (sessionId?: string) => boolean | void | Promise<boolean | void>;
   onSaved?: () => void | Promise<void>;
@@ -107,10 +107,10 @@ const mockNavDrawer = jest.fn(({ onPersonalInfoClick }: MockNavDrawerProps) => (
 const mockLearnerProfileDialog = jest.fn(
   ({
     draftStorageScope,
+    exitPolicy,
     externalErrorMessage,
     externalSubmitting,
     initialOnboardingStatus,
-    mode,
     onClose,
     onDefer,
     onSaved,
@@ -125,7 +125,7 @@ const mockLearnerProfileDialog = jest.fn(
     return (
       <div
         data-testid='learner-profile-dialog'
-        data-mode={mode}
+        data-exit-policy={exitPolicy}
         data-presentation={presentation}
         data-scope={draftStorageScope}
         data-status-presentation={initialOnboardingStatus?.presentation}
@@ -145,11 +145,11 @@ const mockLearnerProfileDialog = jest.fn(
             })();
           }}
         >
-          {mode === 'onboarding'
+          {initialOnboardingStatus
             ? completeOnboardingLabel
             : saveLearnerProfileLabel}
         </button>
-        {mode === 'onboarding' ? (
+        {exitPolicy === 'blocking' ? (
           <>
             <button
               type='button'
@@ -542,7 +542,7 @@ describe('ChatPage profile onboarding gate', () => {
     render(<ChatPage />);
 
     const dialog = await screen.findByTestId('learner-profile-dialog');
-    expect(dialog).toHaveAttribute('data-mode', 'onboarding');
+    expect(dialog).toHaveAttribute('data-exit-policy', 'blocking');
     expect(dialog).toHaveAttribute('data-presentation', 'blocking');
     expect(dialog).toHaveAttribute('data-status-presentation', 'blocking');
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
@@ -567,8 +567,8 @@ describe('ChatPage profile onboarding gate', () => {
       screen.getByRole('button', { name: openLearnerProfileLabel }),
     );
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'settings',
+      'data-exit-policy',
+      'dismissible',
     );
     fireEvent.click(screen.getByRole('button', { name: laterLabel }));
     await waitFor(() => {
@@ -592,8 +592,8 @@ describe('ChatPage profile onboarding gate', () => {
     );
 
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'onboarding',
+      'data-exit-policy',
+      'blocking',
     );
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
@@ -602,7 +602,7 @@ describe('ChatPage profile onboarding gate', () => {
     expect(mockSkipProfileOnboarding).not.toHaveBeenCalled();
   });
 
-  test('mounts the course immediately for a non-blocking legacy upgrade prompt', async () => {
+  test('lets a non-blocking prompt close locally and reuses its status from the menu', async () => {
     mockGetProfileOnboarding.mockResolvedValue(
       profileV2Status({
         should_show: true,
@@ -614,11 +614,30 @@ describe('ChatPage profile onboarding gate', () => {
     render(<ChatPage />);
 
     const dialog = await screen.findByTestId('learner-profile-dialog');
-    expect(dialog).toHaveAttribute('data-mode', 'onboarding');
+    expect(dialog).toHaveAttribute('data-exit-policy', 'dismissible');
     expect(dialog).toHaveAttribute('data-presentation', 'non_blocking');
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
       'true',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: laterLabel }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+    });
+    expect(mockSkipProfileOnboarding).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: openLearnerProfileLabel }),
+    );
+    expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
+      'data-exit-policy',
+      'dismissible',
+    );
+    expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
+      'data-status-presentation',
+      'non_blocking',
     );
   });
 
@@ -869,8 +888,8 @@ describe('ChatPage profile onboarding gate', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('暂时无法延后');
     });
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'onboarding',
+      'data-exit-policy',
+      'blocking',
     );
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
@@ -940,7 +959,7 @@ describe('ChatPage profile onboarding gate', () => {
     );
 
     const dialog = screen.getByTestId('learner-profile-dialog');
-    expect(dialog).toHaveAttribute('data-mode', 'settings');
+    expect(dialog).toHaveAttribute('data-exit-policy', 'dismissible');
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
       'true',
@@ -962,8 +981,8 @@ describe('ChatPage profile onboarding gate', () => {
     render(<ChatPage />);
 
     expect(await screen.findByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'onboarding',
+      'data-exit-policy',
+      'blocking',
     );
     fireEvent.change(screen.getByLabelText('mock learner draft'), {
       target: { value: 'answer already in progress' },
@@ -972,8 +991,8 @@ describe('ChatPage profile onboarding gate', () => {
       screen.getByRole('button', { name: openLearnerProfileLabel }),
     );
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'onboarding',
+      'data-exit-policy',
+      'blocking',
     );
     expect(screen.getByLabelText('mock learner draft')).toHaveValue(
       'answer already in progress',
@@ -1012,8 +1031,8 @@ describe('ChatPage profile onboarding gate', () => {
       screen.getByRole('button', { name: openLearnerProfileLabel }),
     );
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'settings',
+      'data-exit-policy',
+      'dismissible',
     );
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
@@ -1059,8 +1078,8 @@ describe('ChatPage profile onboarding gate', () => {
     });
 
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'settings',
+      'data-exit-policy',
+      'dismissible',
     );
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
@@ -1097,8 +1116,8 @@ describe('ChatPage profile onboarding gate', () => {
     });
 
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'onboarding',
+      'data-exit-policy',
+      'blocking',
     );
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
@@ -1134,8 +1153,8 @@ describe('ChatPage profile onboarding gate', () => {
     });
 
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'onboarding',
+      'data-exit-policy',
+      'blocking',
     );
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',

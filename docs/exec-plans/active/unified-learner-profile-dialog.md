@@ -14,20 +14,23 @@ operation that persists the canonical learner profile and profile-v2 state.
 ## Progress
 
 - [x] 2026-08-17 CST: Rebased the guided-profile branch onto current `main`
-  and mapped the existing dialog, course gate, session runtime, optimizer, and
-  completion contracts.
+      and mapped the existing dialog, course gate, session runtime, optimizer, and
+      completion contracts.
 - [x] 2026-08-17 CST: Added atomic optional nickname support to guided
-  completion.
+      completion.
 - [x] 2026-08-17 CST: Replaced the nested rerun modal with one internal dialog
-  state machine.
+      state machine.
 - [x] 2026-08-17 CST: Routed course blocking and non-blocking onboarding through
-  the unified dialog.
+      the unified dialog.
 - [x] 2026-08-17 CST: Rebased onto `main` at `47de277ef`, installed the
-  lockfile-pinned `markdown-flow-ui` 0.2.10, and completed focused, static,
-  repository, and responsive browser gates.
+      lockfile-pinned `markdown-flow-ui` 0.2.10, and completed focused, static,
+      repository, and responsive browser gates.
 - [x] 2026-08-17 CST: Collapsed the course's automatic and menu entry points
-  into one mounted dialog instance, preserving its draft and research session
-  when eligibility changes the exit policy in place.
+      into one mounted dialog instance, preserving its draft and research session
+      when eligibility changes the exit policy in place.
+- [x] 2026-08-17 CST: Compacted the guided-only collection and save views,
+      generalized the internal collection boundary, and revalidated the unified
+      dialog without introducing any PR3 import experience.
 
 ## Surprises & Discoveries
 
@@ -44,6 +47,14 @@ scroll region restored a reachable question area without changing the shell
 size. A final dependency sync also found that the original shared
 `node_modules` link still contained `markdown-flow-ui` 0.2.6; a clean install
 from the current lockfile verified the implementation against 0.2.10.
+
+The compact disclosure added a second short-height edge: when expanded, it
+could consume the collection area's remaining height. The final layout keeps a
+minimum usable conversation region and lets the dialog body carry overflow,
+so the disclosure can expand without disappearing behind the fixed footer. A
+terminal draft that is empty or above the editor limit also still passes
+through the visible processing state and returns to the editor with an error
+instead of silently skipping the transition.
 
 ## Decision Log
 
@@ -73,6 +84,22 @@ from the current lockfile verified the implementation against 0.2.10.
   discard confirmation.
 - Nickname is never inferred by research or optimization. When supplied on
   guided completion, it saves atomically with the profile and v2 state.
+- The dialog keeps the persistent purpose statement: "让 AI 老师了解你的背景和偏好，以更适合你的方式讲课。"
+  It does not render a step indicator.
+- The guided collection view contains only its short title, an approximately
+  one-minute expectation, the official MarkdownFlow conversation, and a
+  collapsed information-usage disclosure.
+- The save view keeps the nickname label without presenting it as optional,
+  the learner-profile editor, contextual optimization feedback, and footer
+  actions. It removes the prompt cards, default optimization explanation,
+  confirmation description, and persistent reassurance copy.
+- "互动收集" is a secondary footer action at the same action level as save.
+  Blocking keeps "以后再说" visually separate as its low-emphasis defer
+  action.
+- Internal state uses the neutral collection phases `collect`, `processing`,
+  and `save`, but the only implemented collector remains guided MarkdownFlow.
+  Familiar-AI import, paste UX, method selection, browser draft storage, and
+  route-selection analytics remain deferred to PR3.
 
 ## Outcomes & Retrospective
 
@@ -103,6 +130,15 @@ Ruff check/format, three-locale parity and unused-key checks, architecture
 review, dirty-confirmation, blocking-dismiss, and fixed-footer states. Evidence
 is retained under `/private/tmp/profile-onboarding-unified-visual/`; temporary
 harness routes and browser state are not part of the change.
+
+The guided-only compact refinement passed 115 focused frontend tests,
+TypeScript, changed-file ESLint and Prettier, three-locale parity and unused-key
+checks, architecture validation, and the repository harness. Browser evidence
+under `/private/tmp/profile-onboarding-guided-compact-visual/` covers compact
+collection, visible processing, save actions, dirty replacement confirmation,
+the expanded information disclosure, blocking dismissal, 320 x 568 French,
+and short-height landscape. Temporary routes, API mocks, browser state, and
+build output were removed after verification.
 
 ## Context and Orientation
 
@@ -142,6 +178,16 @@ regenerate translations/types before running focused and repository gates.
    learner dialog, and retain presentation-specific close/defer behavior.
 6. Update three locales, generated i18n types, component/API/backend tests, and
    responsive visual evidence.
+7. Rename the dialog's internal research phase and completion state to a
+   guided-only collection result boundary, while preserving the existing
+   runtime and persistence contracts.
+8. Replace the entry-semantic `mode` prop with an exit-policy prop so content
+   selection continues to depend only on canonical profile state and guided
+   availability.
+9. Compact the collection and save views using the approved persistent copy
+   and footer hierarchy, then update focused caller/component tests.
+10. Re-run static, translation, repository, and four-viewport browser gates;
+    confirm the diff contains no PR3 UI, storage, analytics, or provider names.
 
 ## Validation and Acceptance
 
@@ -165,6 +211,12 @@ regenerate translations/types before running focused and repository gates.
 - Focused pytest/Jest, TypeScript, ESLint, Prettier, Ruff, translations,
   architecture, repository harness, diff-check, dev-tools, and responsive
   browser QA pass.
+- The dialog always shows its persistent purpose statement, never shows a
+  progress indicator, and renders "互动收集" beside the save action without
+  labeling nickname as optional.
+- The focused production diff contains no familiar-AI entry, paste route,
+  method chooser, provider list, route-selection event, or browser draft
+  storage.
 
 ## Idempotence and Recovery
 
