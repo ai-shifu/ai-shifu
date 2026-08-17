@@ -25,6 +25,9 @@ operation that persists the canonical learner profile and profile-v2 state.
 - [x] 2026-08-17 CST: Rebased onto `main` at `47de277ef`, installed the
   lockfile-pinned `markdown-flow-ui` 0.2.10, and completed focused, static,
   repository, and responsive browser gates.
+- [x] 2026-08-17 CST: Collapsed the course's automatic and menu entry points
+  into one mounted dialog instance, preserving its draft and research session
+  when eligibility changes the exit policy in place.
 
 ## Surprises & Discoveries
 
@@ -46,6 +49,12 @@ from the current lockfile verified the implementation against 0.2.10.
 
 - `LearnerProfileDialog` is the only dialog shell. Research, optimizing, and
   review are internal views rather than nested dialogs.
+- Each page host renders one stable `LearnerProfileDialog` instance per account
+  scope. Automatic eligibility and menu actions only open the instance or
+  change its exit policy; they never select a second mount or reset its step.
+- If a pending course gate becomes blocking while a settings discard prompt is
+  visible, the prompt is dismissed without discarding the draft; the same
+  dialog then exposes only the blocking-safe save or explicit-defer exits.
 - Dirty-discard and research-replacement confirmations are inline dialog views,
   so the workflow never creates a second focus trap.
 - A missing canonical profile starts research when guided configuration is
@@ -75,7 +84,11 @@ without an automatic rewrite, and can restart research after an explicit dirty
 draft confirmation. A terminal research result is optimized locally, falls
 back to its raw draft on failure, and is persisted only by the final save.
 
-The course page and settings entry now share the same dialog implementation.
+The course page and settings entry now share the same mounted dialog instance,
+not merely the same component implementation. Opening the menu while automatic
+onboarding is active keeps the current question, session, draft, and focus.
+When a pending automatic gate becomes blocking while the menu dialog is open,
+the same instance adopts blocking exit rules without reloading learner data.
 Blocking courses remain stopped until durable save or explicit defer;
 non-blocking and fail-open behavior, account-generation guards, and the
 settings dirty-close contract remain intact. The retired onboarding modal and
@@ -138,6 +151,10 @@ regenerate translations/types before running focused and repository gates.
   Optimization failure leaves the research draft saveable and retryable.
 - Restarting research happens inside the same dialog. Dirty edits require
   confirmation before replacement.
+- Automatic and menu entry points render one dialog mount. Switching entry
+  context in place does not reload the profile, recreate the research session,
+  or discard a local draft; only account scope or a genuinely new open journey
+  resets dialog state.
 - Guided final save performs one durable operation for profile, optional
   nickname, v2 state, and session cleanup. Direct edits keep using canonical
   PUT.
