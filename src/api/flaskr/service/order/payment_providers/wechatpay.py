@@ -263,7 +263,7 @@ class WechatPayProvider(PaymentProvider):
         if not timestamp or not nonce or not signature:
             raise RuntimeError("WeChat Pay signature headers missing")
         public_key = _load_public_key_from_certificate()
-        message = f"{timestamp}\n{nonce}\n{raw_body}\n".encode("utf-8")
+        message = f"{timestamp}\n{nonce}\n{raw_body}\n".encode()
         public_key.verify(
             base64.b64decode(signature),
             message,
