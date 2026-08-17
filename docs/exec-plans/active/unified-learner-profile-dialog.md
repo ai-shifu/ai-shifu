@@ -31,6 +31,11 @@ operation that persists the canonical learner profile and profile-v2 state.
 - [x] 2026-08-17 CST: Compacted the guided-only collection and save views,
       generalized the internal collection boundary, and revalidated the unified
       dialog without introducing any PR3 import experience.
+- [x] 2026-08-18 CST: Restored the approved optimization-card treatment,
+      restored the dismissible save-page cancel action, and moved interactive
+      collection into the footer's left-aligned action slot.
+- [x] 2026-08-18 CST: Revalidated the responsive footer and optimization card,
+      updated the feature branch, and deployed the follow-up safely to `dev`.
 
 ## Surprises & Discoveries
 
@@ -55,6 +60,13 @@ so the disclosure can expand without disappearing behind the fixed footer. A
 terminal draft that is empty or above the editor limit also still passes
 through the visible processing state and returns to the editor with an error
 instead of silently skipping the transition.
+
+Restoring a separate cancel action initially left the mobile save-action group
+at its intrinsic width, which forced the four-character Chinese save label onto
+two lines at 390 px. Giving the right action group the full mobile row keeps the
+left-aligned collection action visually independent and preserves a single-line
+Chinese primary action; longer French text may wrap without overlapping the
+fixed footer.
 
 ## Decision Log
 
@@ -93,9 +105,14 @@ instead of silently skipping the transition.
   the learner-profile editor, contextual optimization feedback, and footer
   actions. It removes the prompt cards, default optimization explanation,
   confirmation description, and persistent reassurance copy.
-- "互动收集" is a secondary footer action at the same action level as save.
-  Blocking keeps "以后再说" visually separate as its low-emphasis defer
-  action.
+- "互动收集" is a secondary footer action in the footer's left-aligned slot.
+  Dismissible save views retain a separate "取消" action beside save, while
+  blocking views never expose ordinary cancel. Blocking keeps "以后再说"
+  visually separate as its low-emphasis defer action.
+- The optimization affordance keeps the approved tinted primary card and
+  primary-button treatment. Only active success, failure, or loading feedback
+  appears there; the removed default explanation and legacy guidance do not
+  return.
 - Internal state uses the neutral collection phases `collect`, `processing`,
   and `save`, but the only implemented collector remains guided MarkdownFlow.
   Familiar-AI import, paste UX, method selection, browser draft storage, and
@@ -139,6 +156,15 @@ collection, visible processing, save actions, dirty replacement confirmation,
 the expanded information disclosure, blocking dismissal, 320 x 568 French,
 and short-height landscape. Temporary routes, API mocks, browser state, and
 build output were removed after verification.
+
+The footer-style follow-up passed 79 adjacent dialog, course-gate, and admin
+entry tests, TypeScript, ESLint, Prettier, translations, architecture,
+repository harness, dev-tools, and diff checks. Real-browser checks at 390 x
+844, 320 x 568 French, and 844 x 390 confirmed the restored optimization card,
+dismissible cancel action, left-aligned collection action, and blocking-only
+defer boundary. Evidence is retained under
+`/private/tmp/profile-onboarding-footer-visual/`; temporary harness files and
+browser state were removed.
 
 ## Context and Orientation
 
