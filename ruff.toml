@@ -54,6 +54,7 @@ select = [
     "B009",   # getattr with a constant attribute name
     "B010",   # setattr with a constant attribute name
     "C420",   # dict.fromkeys instead of a constant-value comprehension
+    "D202",   # blank line after a function docstring
     "PIE790", # unnecessary pass / ... placeholder
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal

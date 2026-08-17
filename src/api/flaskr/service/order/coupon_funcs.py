@@ -66,7 +66,6 @@ def _pick_coupon_candidate(
     Pick a coupon_usage/coupon pair that matches the current course.
     Returns (usage, coupon, has_candidate_with_same_code).
     """
-
     has_candidate_with_same_code = bool(active_usages or coupons_by_code)
 
     def select(

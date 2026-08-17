@@ -36,7 +36,6 @@ except ImportError:
         segmentation contract to recover text/visual boundaries and normalize
         visual kinds to element protocol types.
         """
-
         raw_content = str(content or "")
         if not raw_content.strip():
             return []

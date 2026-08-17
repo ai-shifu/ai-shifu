@@ -13,7 +13,6 @@ _LLM_CREDIT_1X_UNIT_DIVISOR = Decimal("1000")
 
 def load_llm_credit_1x_per_1000_output_tokens() -> Decimal | None:
     """Return the fixed global LLM 1x anchor in credits per 1000 output tokens."""
-
     raw_value = get_config(LLM_CREDIT_1X_PER_1000_CONFIG, "")
     if raw_value is None or str(raw_value).strip() == "":
         logger.error(
@@ -42,7 +41,6 @@ def load_llm_credit_1x_per_1000_output_tokens() -> Decimal | None:
 
 def load_llm_credit_1x_unit_cost() -> Decimal | None:
     """Return the fixed global LLM 1x anchor in credits per output token."""
-
     per_1000 = load_llm_credit_1x_per_1000_output_tokens()
     if per_1000 is None:
         return None

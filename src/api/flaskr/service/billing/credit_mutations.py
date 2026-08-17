@@ -41,7 +41,6 @@ def activate_reserved_grant_credit(
     now: datetime | None = None,
 ) -> CreditMutationResult:
     """Move a reserved grant amount from bucket reserved credits to available."""
-
     mutation_type = "reserved_grant_activate"
     if grant_entry is None:
         return CreditMutationResult(

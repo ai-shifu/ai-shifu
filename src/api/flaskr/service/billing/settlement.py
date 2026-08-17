@@ -148,7 +148,6 @@ def settle_bill_usage(
     usage_id: int | None = None,
 ) -> SettlementResult:
     """Settle a single metering usage record into credit ledger consumption."""
-
     normalized_usage_bid = str(usage_bid or "").strip()
     with app.app_context():
         usage = _load_usage_record(usage_bid=normalized_usage_bid, usage_id=usage_id)
@@ -419,7 +418,6 @@ def replay_bill_usage_settlement(
     usage_id: int | None = None,
 ) -> SettlementResult:
     """Replay a usage settlement safely without duplicating credit consumption."""
-
     requested_creator_bid = str(creator_bid or "").strip() or None
     normalized_usage_bid = str(usage_bid or "").strip()
     with app.app_context():
@@ -476,7 +474,6 @@ def backfill_bill_usage_settlement(
     limit: int | None = None,
 ) -> SettlementResult | BackfillSettlementResult:
     """Replay one or many usage settlements for offline repair/backfill."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_usage_bid = str(usage_bid or "").strip()
     normalized_limit = max(int(limit or 0), 0) or None

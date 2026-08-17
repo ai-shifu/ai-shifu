@@ -107,7 +107,6 @@ def handle_billing_stripe_webhook(
     sig_header: str,
 ) -> BillingWebhookResult:
     """Handle Stripe billing webhooks using the shared provider verifier."""
-
     provider = get_payment_provider("stripe")
     try:
         notification: PaymentNotificationResult = provider.verify_webhook(
@@ -131,7 +130,6 @@ def apply_billing_stripe_notification(
     notification: PaymentNotificationResult,
 ) -> BillingWebhookResult:
     """Apply a normalized Stripe notification to billing state."""
-
     event = notification.provider_payload or {}
     event_type = str(notification.status or event.get("type") or "")
     data_object = event.get("data", {}).get("object", {}) or {}
@@ -290,7 +288,6 @@ def handle_billing_pingxx_webhook(
     payload: dict[str, Any],
 ) -> BillingWebhookResult:
     """Handle Pingxx billing callbacks using the shared billing state machine."""
-
     event_type = str((payload or {}).get("type", "") or "")
     charge = (payload or {}).get("data", {}).get("object", {}) or {}
     charge_id = _normalize_bid(charge.get("id"))

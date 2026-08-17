@@ -406,5 +406,4 @@ WHITELIST: Mapping[str, TableSpec] = {
 
 def get_table_spec(table_key: str) -> TableSpec:
     """Return the spec for ``table_key`` or raise :class:`KeyError`."""
-
     return WHITELIST[table_key]

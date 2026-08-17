@@ -131,7 +131,6 @@ def build_credit_allocation_view(
     load_order_type: OrderTypeLoader | None = None,
 ) -> CreditAllocationView:
     """Interpret an existing bucket without mutating it."""
-
     bucket_category = int(bucket.bucket_category or 0)
     source_type = int(bucket.source_type or 0)
     source_bid = str(bucket.source_bid or "")
@@ -181,7 +180,6 @@ def build_credit_grant_view(
     load_order_type: OrderTypeLoader | None = None,
 ) -> CreditGrantView:
     """Interpret an existing ledger grant without mutating it."""
-
     safe_load_order_type = _wrap_order_type_loader(load_order_type)
     ledger_deleted = int(ledger.deleted or 0) != 0
     ledger_asset_kind = (
@@ -240,7 +238,6 @@ def resolve_credit_asset_kind(
     load_order_type: OrderTypeLoader | None = None,
 ) -> CreditAssetKind:
     """Map current storage records to canonical credit product semantics."""
-
     safe_load_order_type = _wrap_order_type_loader(load_order_type)
     evidence: list[CreditAssetKind] = []
     invalid_evidence = False

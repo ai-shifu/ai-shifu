@@ -1231,19 +1231,16 @@ FRONTEND_META = {
 
 def wrap_bullet(text: str) -> list[str]:
     """Wrap one markdown bullet item."""
-
     return wrap_markdown(text, initial_indent="- ", subsequent_indent="  ")
 
 
 def wrap_paragraph(text: str) -> list[str]:
     """Wrap a plain paragraph."""
-
     return wrap_markdown(text)
 
 
 def protect_inline_code(text: str) -> str:
     """Replace spaces inside inline-code spans so wrapping keeps them intact."""
-
     return INLINE_CODE_PATTERN.sub(
         lambda match: match.group(0).replace(" ", INLINE_CODE_SPACE),
         text,
@@ -1257,7 +1254,6 @@ def wrap_markdown(
     subsequent_indent: str = "",
 ) -> list[str]:
     """Wrap Markdown while keeping inline-code spans on one line."""
-
     protected = protect_inline_code(text)
     wrapped = textwrap.fill(
         protected,
@@ -1272,7 +1268,6 @@ def wrap_markdown(
 
 def sentence_case(text: str) -> str:
     """Normalize a metadata fragment into a sentence-like bullet."""
-
     normalized = text.strip()
     if not normalized:
         return normalized
@@ -1284,7 +1279,6 @@ def sentence_case(text: str) -> str:
 
 def render_section(heading: str, items: tuple[str, ...]) -> list[str]:
     """Render a markdown section with wrapped bullets."""
-
     lines = [f"## {heading}", ""]
     for item in items:
         lines.extend(wrap_bullet(item))
@@ -1294,7 +1288,6 @@ def render_section(heading: str, items: tuple[str, ...]) -> list[str]:
 
 def render_agents(spec: DocSpec) -> str:
     """Render one AGENTS.md file."""
-
     lines = [DOC_COMMENT, "", f"# {spec.title}", ""]
     lines.extend(wrap_paragraph(spec.intro))
     lines.append("")
@@ -1309,7 +1302,6 @@ def render_agents(spec: DocSpec) -> str:
 
 def render_claude(entry_name: str) -> str:
     """Render a thin CLAUDE.md wrapper."""
-
     lines = [
         DOC_COMMENT,
         "",
@@ -1326,13 +1318,11 @@ def render_claude(entry_name: str) -> str:
 
 def join_paths(*paths: str) -> str:
     """Format a list of relative paths for display."""
-
     return ", ".join(f"`{path}`" for path in paths)
 
 
 def maybe_tests_note(meta: BackendModuleMeta) -> str:
     """Describe the expected pytest location."""
-
     if meta.tests_exist:
         return f"`{meta.tests_path}` already exists and should remain the first stop."
     return (
@@ -1343,7 +1333,6 @@ def maybe_tests_note(meta: BackendModuleMeta) -> str:
 
 def backend_test_command(meta: BackendModuleMeta) -> str:
     """Describe the focused backend test command for one service."""
-
     if meta.tests_exist:
         tests_cmd_path = meta.tests_path.removeprefix("src/api/")
         return (
@@ -1360,7 +1349,6 @@ def backend_test_command(meta: BackendModuleMeta) -> str:
 
 def build_backend_spec(name: str, meta: BackendModuleMeta) -> DocSpec:
     """Build one backend service AGENTS.md spec."""
-
     title = f"Backend Service: {name}"
     key_files = (
         join_paths(
@@ -1435,7 +1423,6 @@ def build_backend_spec(name: str, meta: BackendModuleMeta) -> DocSpec:
 
 def build_frontend_spec(name: str, meta: FrontendDomainMeta) -> DocSpec:
     """Build one frontend domain AGENTS.md spec."""
-
     title = f"Cook Web Domain: {name}"
     key_files = join_paths(
         *(f"src/cook-web/src/{name}/{path}" for path in meta.key_files)
@@ -1503,7 +1490,6 @@ def build_frontend_spec(name: str, meta: FrontendDomainMeta) -> DocSpec:
 
 def render_rule(title: str, intro: str, bullets: tuple[str, ...]) -> str:
     """Render a Claude-only rule file."""
-
     lines = [DOC_COMMENT, "", f"# {title}", ""]
     lines.extend(wrap_paragraph(intro))
     lines.append("")
@@ -1522,7 +1508,6 @@ def render_cursor_rule(
     globs: tuple[str, ...] = (),
 ) -> str:
     """Render one Cursor MDC rule file."""
-
     lines = [
         "---",
         f"description: {description}",
@@ -1549,7 +1534,6 @@ def render_cursor_rule(
 
 def render_copilot_repo_instructions(title: str, bullets: tuple[str, ...]) -> str:
     """Render repository-wide Copilot instructions."""
-
     lines = [DOC_COMMENT, "", f"# {title}", ""]
     for bullet in bullets:
         lines.extend(wrap_bullet(bullet))
@@ -1563,7 +1547,6 @@ def render_copilot_path_instructions(
     bullets: tuple[str, ...],
 ) -> str:
     """Render one path-specific Copilot instructions file."""
-
     lines = [
         "---",
         f'applyTo: "{apply_to}"',
@@ -1582,7 +1565,6 @@ def render_copilot_path_instructions(
 
 def build_documents() -> dict[Path, str]:
     """Build every generated AI collaboration document."""
-
     docs: dict[Path, str] = {
         ROOT / "CLAUDE.md": render_claude("Claude Entry"),
         ROOT / "src" / "api" / "CLAUDE.md": render_claude("Backend Claude Entry"),
@@ -2005,7 +1987,6 @@ def build_documents() -> dict[Path, str]:
 
 def write_documents() -> int:
     """Write all generated docs to disk."""
-
     docs = build_documents()
     for path, content in sorted(docs.items()):
         path.parent.mkdir(parents=True, exist_ok=True)

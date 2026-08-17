@@ -348,7 +348,6 @@ def _subscription_checkout_lock(app: Flask, creator_bid: str) -> Iterator[None]:
     Serialize subscription checkout per creator to avoid duplicate pending
     orders without taking row locks on the pending-order query itself.
     """
-
     lock = cache_provider.cache.lock(
         _build_subscription_checkout_lock_key(app, creator_bid),
         timeout=30,
@@ -392,7 +391,6 @@ def _credit_ledger_lock(app: Flask, creator_bid: str) -> Iterator[None]:
     in ``settlement.py``: on lock-backend failure it degrades to running without
     the lock rather than blocking the sync.
     """
-
     lock = cache_provider.cache.lock(
         _build_credit_ledger_lock_key(app, creator_bid),
         timeout=_CREDIT_LEDGER_LOCK_TIMEOUT_SECONDS,
@@ -453,7 +451,6 @@ def create_billing_subscription_checkout(
     payload: dict[str, Any],
 ) -> BillingCheckoutResultDTO:
     """Create a subscription checkout order for the current creator."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     product_bid = _normalize_bid(payload.get("product_bid"))
     checkout_action = _normalize_checkout_action(payload.get("action"))
@@ -727,7 +724,6 @@ def create_billing_topup_checkout(
     payload: dict[str, Any],
 ) -> BillingCheckoutResultDTO:
     """Create a one-time topup checkout order for the current creator."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     product_bid = _normalize_bid(payload.get("product_bid"))
     payment_provider, channel = _resolve_billing_payment_channel(
@@ -794,7 +790,6 @@ def create_billing_order_checkout(
     payload: dict[str, Any],
 ) -> BillingCheckoutResultDTO:
     """Create or refresh a Pingxx charge for one existing pending billing order."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     requested_channel = _normalize_bid(payload.get("channel"))
@@ -902,7 +897,6 @@ def refund_billing_order(
     payload: dict[str, Any],
 ) -> BillingRefundResultDTO:
     """Refund a paid billing order through the shared provider adapter."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     refund_reason = _normalize_bid(payload.get("reason"))
@@ -1039,7 +1033,6 @@ def sync_billing_order(
     payload: dict[str, Any],
 ) -> BillingOrderSyncResultDTO:
     """Synchronize billing order payment status with the provider."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     session_id = _normalize_bid(payload.get("session_id"))
@@ -1102,7 +1095,6 @@ def reconcile_billing_provider_reference(
     session_id: str = "",
 ) -> ProviderReferenceReconcileResult:
     """Reconcile a provider reference back into one billing order state."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_payment_provider = _normalize_bid(payment_provider)
     normalized_provider_reference_id = _normalize_bid(provider_reference_id)

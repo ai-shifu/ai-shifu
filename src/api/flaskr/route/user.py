@@ -199,7 +199,6 @@ def optional_token_validation(f):
 
 def _best_effort_password_login_user(app: Flask):
     """Resolve the explicitly authenticated guest without blocking login."""
-
     token = request.headers.get("Token", None)
     if not token:
         return None
@@ -1119,7 +1118,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         tags:
             - user
         """
-
         identifier = request.get_json().get("identifier", None)
         code = request.get_json().get("code", None)
         new_password = request.get_json().get("new_password", None)
@@ -1238,7 +1236,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         tags:
             - user
         """
-
         identifier = request.get_json().get("identifier", None)
         code = request.get_json().get("code", None)
         new_password = request.get_json().get("new_password", None)

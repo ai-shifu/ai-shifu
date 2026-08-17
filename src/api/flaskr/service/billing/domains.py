@@ -74,7 +74,6 @@ def build_creator_domain_bindings(
     creator_bid: str,
 ) -> BillingDomainBindingsDTO:
     """Return the creator domain binding list and entitlement gate state."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         entitlement_state = resolve_creator_entitlement_state(normalized_creator_bid)
@@ -111,7 +110,6 @@ def manage_creator_domain_binding(
     payload: dict[str, Any],
 ) -> BillingDomainBindResultDTO:
     """Bind, verify, or disable a creator custom domain."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     action = _normalize_action(payload.get("action"))
     normalized_binding_bid = _normalize_bid(payload.get("domain_binding_bid"))
@@ -171,7 +169,6 @@ def verify_domain_binding(
     verification_token: Any = "",
 ) -> DomainVerificationResult:
     """Verify one domain binding by business id or host for background tasks."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_domain_binding_bid = _normalize_bid(domain_binding_bid)
     normalized_host = normalize_domain_host(host, strict=False)
@@ -208,7 +205,6 @@ def verify_domain_binding(
 
 def resolve_creator_bid_by_host(app: Flask, host: Any) -> str | None:
     """Resolve a verified creator custom domain back to creator_bid."""
-
     normalized_host = normalize_domain_host(host, strict=False)
     if not normalized_host:
         return None
@@ -242,7 +238,6 @@ def resolve_effective_custom_origin(app: Flask, creator_bid: Any) -> str | None:
     usable binding exists, otherwise ``None`` so callers fall back to the
     default public origin.
     """
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return None
@@ -276,7 +271,6 @@ def resolve_runtime_domain_result(
     creator_bid: str = "",
 ) -> RuntimeBillingDomainDTO:
     """Return runtime-config domain metadata for the current request host."""
-
     normalized_host = normalize_domain_host(host, strict=False)
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_host:
@@ -338,7 +332,6 @@ def resolve_runtime_domain_result(
 
 def normalize_domain_host(value: Any, *, strict: bool = True) -> str:
     """Normalize a host string into a lowercase custom-domain host."""
-
     raw = str(value or "").strip()
     if not raw:
         if strict:
@@ -519,7 +512,6 @@ def _verify_domain_dns(binding: BillingDomainBinding, metadata: dict[str, Any]) 
 
 def _is_tls_ready(host: str) -> bool:
     """Return whether the host already presents a trusted matching certificate."""
-
     try:
         context = ssl.create_default_context()
         context.minimum_version = ssl.TLSVersion.TLSv1_2

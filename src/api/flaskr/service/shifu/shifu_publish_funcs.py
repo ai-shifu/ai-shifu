@@ -435,7 +435,6 @@ def _get_shifu_data(
     Returns:
         (outline_tree, outline_ids, outline_item_map)
     """
-
     outline_ids = []
 
     shifu_outline_tree = get_shifu_outline_tree(app, shifu_id, is_preview=False)

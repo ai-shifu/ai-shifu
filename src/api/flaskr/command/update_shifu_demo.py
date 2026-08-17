@@ -18,13 +18,11 @@ from pathlib import Path
 
 def _calculate_hash(content: bytes) -> str:
     """Calculate SHA256 hash for the given content."""
-
     return hashlib.sha256(content).hexdigest()
 
 
 def _upsert_config(app: Flask, key: str, value: str, remark: str) -> None:
     """Update config if it exists, otherwise add it."""
-
     updated = update_config(app, key, value, is_secret=False, remark=remark)
     if not updated:
         add_config(app, key, value, is_secret=False, remark=remark)

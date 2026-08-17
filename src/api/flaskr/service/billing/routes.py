@@ -157,7 +157,6 @@ def _to_optional_bool(value, field_name: str) -> bool:
 @inject
 def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> None:
     """Register creator billing routes."""
-
     app.logger.info("register billing routes %s", path_prefix)
     admin_path_prefix = "/api/admin/billing"
 

@@ -180,7 +180,6 @@ def grant_manual_plan_to_user(
     grant_channel: str = "operator_user_management",
 ) -> ManualPlanGrantResult:
     """Grant one active billing plan to one user via a manual paid order."""
-
     with app.app_context():
         normalized_user_bid = _normalize_bid(user_bid)
         normalized_product_bid = _normalize_bid(product_bid)

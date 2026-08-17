@@ -285,7 +285,6 @@ def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]
     Serialize order initialization for a user-course pair to avoid duplicate
     unpaid orders created by concurrent requests.
     """
-
     lock = None
     acquired = False
 
@@ -671,7 +670,6 @@ def generate_charge(
 
 def _order_credential_scope(app: Flask, order: Order, context=None):
     """Use the immutable credential version snapshotted on the order."""
-
     integration_bid = str(order.payment_integration_bid or "")
     if not integration_bid:
         return nullcontext()
@@ -694,7 +692,6 @@ def _resolve_payment_channel(
     additional_enabled_providers: Optional[set[str]] = None,
 ) -> Tuple[str, str]:
     """Resolve the provider and provider-specific channel based on hints."""
-
     return resolve_payment_channel(
         payment_channel_hint=payment_channel_hint,
         channel_hint=channel_hint,

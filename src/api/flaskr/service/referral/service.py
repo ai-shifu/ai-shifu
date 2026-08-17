@@ -688,7 +688,6 @@ def retry_pending_referral_rewards(
     dry_run: bool = True,
 ) -> list[dict[str, Any]]:
     """Retry generated referral rewards that do not yet have billing artifacts."""
-
     with _with_app_context(app):
         safe_limit = max(min(int(limit or 100), 500), 1)
         rewards = (

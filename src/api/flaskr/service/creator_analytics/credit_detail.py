@@ -85,7 +85,6 @@ def run(app: Flask, user_id: str, payload: Any) -> Dict[str, Any]:
     issues two SQL statements against the analytics engine: one paginated
     detail query and one aggregate summary query.
     """
-
     limit_max = int(app.config.get("ANALYTICS_QUERY_LIMIT_MAX") or 1000)
 
     params = _parse_payload(payload, limit_max=limit_max)
@@ -281,7 +280,6 @@ def _join_conditions(params: _Params):
     ``ix_credit_ledger_entries_source_type_source_bid`` composite index
     rather than scanning every ledger row tied to the matching usage_bid.
     """
-
     bu = BillUsageRecord.__table__
     cle = CreditLedgerEntry.__table__
     return cle.join(
@@ -298,7 +296,6 @@ def _join_conditions(params: _Params):
 
 def _where_clauses(params: _Params):
     """Common WHERE predicates shared by detail + summary queries."""
-
     bu = BillUsageRecord.__table__
     clauses = [bu.c.shifu_bid == bindparam("__shifu_bid", value=params.shifu_bid)]
     if params.start_date is not None:
@@ -432,7 +429,6 @@ def _coerce_value(value: Any) -> Any:
     columns. JSON serialization on either would raise; rendering as strings
     keeps the response stable and lets the CLI / frontend parse on demand.
     """
-
     if isinstance(value, datetime):
         return value.isoformat(sep=" ", timespec="seconds")
     # Decimal carries arbitrary precision; str() keeps the exact value the

@@ -352,7 +352,6 @@ def cancel_billing_subscription(
     payload: dict[str, Any],
 ) -> BillingSubscriptionDTO:
     """Mark the current subscription to cancel at period end."""
-
     with app.app_context():
         subscription = _load_owned_subscription(
             _normalize_bid(creator_bid),
@@ -397,7 +396,6 @@ def resume_billing_subscription(
     payload: dict[str, Any],
 ) -> BillingSubscriptionDTO:
     """Resume a cancel-scheduled subscription."""
-
     with app.app_context():
         subscription = _load_owned_subscription(
             _normalize_bid(creator_bid),
@@ -844,7 +842,6 @@ def _repair_existing_paid_order_grant_bucket(
     grant_entry: CreditLedgerEntry,
 ) -> bool:
     """Repair the mutable bucket snapshot for an already-granted paid order."""
-
     if _normalize_bid(grant_entry.source_bid) != _normalize_bid(order.bill_order_bid):
         return False
 
@@ -1014,7 +1011,6 @@ def _expire_credit_bucket_balance_for_transition(
 
 def _prepare_bucket_for_runtime_reuse(bucket: CreditWalletBucket) -> None:
     """Allow an explicitly re-funded bucket to re-enter runtime status sync."""
-
     current_status = int(bucket.status or 0)
     if current_status == CREDIT_BUCKET_STATUS_EXPIRED:
         bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED

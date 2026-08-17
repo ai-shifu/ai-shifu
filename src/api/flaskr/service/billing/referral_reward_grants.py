@@ -192,7 +192,6 @@ def grant_referral_reward_credits_to_user(
     grant_channel: str = "operator_user_management",
 ) -> ManualCreditGrantResult:
     """Grant referral reward credits and extend the referral reward pool."""
-
     with app.app_context():
         normalized_user_bid = _normalize_bid(user_bid)
         normalized_operator_user_bid = _normalize_bid(operator_user_bid)

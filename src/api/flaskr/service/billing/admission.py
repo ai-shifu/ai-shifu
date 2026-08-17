@@ -59,7 +59,6 @@ def admit_creator_usage(
     usage_scene: int | None = None,
 ) -> CreatorUsageAdmission:
     """Validate whether a creator-owned usage request may proceed."""
-
     normalized_creator_bid = _resolve_creator_bid(
         app,
         creator_bid=creator_bid,

@@ -15,7 +15,6 @@ def resolve_payment_channel(
     additional_enabled_providers: Optional[Iterable[str]] = None,
 ) -> Tuple[str, str]:
     """Resolve the payment provider and provider-specific channel from config."""
-
     requested_payment_channel = (payment_channel_hint or "").strip().lower()
     requested_channel = (channel_hint or "").strip()
     requested_channel_lower = requested_channel.lower()

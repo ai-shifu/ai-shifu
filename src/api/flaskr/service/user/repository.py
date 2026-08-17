@@ -405,7 +405,6 @@ def ensure_user_aggregate(
     ``defaults`` is forwarded to :func:`upsert_user_entity` when creation or updates
     are required.
     """
-
     defaults = defaults or {}
     entity, created = upsert_user_entity(user_bid=user_bid, defaults=defaults)
     aggregate = load_user_aggregate(entity.user_bid)
@@ -422,7 +421,6 @@ def ensure_user_for_identifier(
     defaults: Optional[Dict[str, Any]] = None,
 ) -> Tuple[UserAggregate, bool]:
     """Find or create a user aggregate bound to a provider identifier."""
-
     defaults = defaults or {}
     normalized = _normalize_identifier(provider, identifier)
     aggregate = load_user_aggregate_by_identifier(normalized, providers=[provider])
@@ -468,7 +466,6 @@ def mark_user_roles(
     is_operator: Optional[bool] = None,
 ) -> None:
     """Persist role flags on the canonical entity."""
-
     if is_creator is None and is_operator is None:
         return
 
@@ -577,7 +574,6 @@ def upsert_user_entity(
 
 def set_user_state(user_bid: str, state: int) -> None:
     """Persist the given user state in the canonical ``user_users`` table."""
-
     entity = _ensure_user_entity(user_bid)
     update_user_entity_fields(entity, state=state)
 

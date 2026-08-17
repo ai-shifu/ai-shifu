@@ -199,7 +199,6 @@ def dispatch_due_renewal_events(
     app,
 ) -> dict[str, Any]:
     """Find due renewal events and enqueue the existing runner task."""
-
     with app.app_context():
         config = _load_renewal_task_config()
         if not _coerce_bool(config.get("enabled")):
@@ -410,7 +409,6 @@ def _expire_pending_billing_orders(
 @shared_task(name="billing.settle_usage")
 def settle_usage_task(*, creator_bid: str = "", usage_bid: str = "") -> dict[str, Any]:
     """Default async entrypoint for usage credit settlement."""
-
     app = _create_task_app()
     payload = _serialize_task_payload(settle_bill_usage(app, usage_bid=usage_bid))
     payload["requested_creator_bid"] = str(creator_bid or "").strip() or None
@@ -425,7 +423,6 @@ def replay_usage_settlement_task(
     usage_bid: str = "",
 ) -> dict[str, Any]:
     """Replay a usage settlement without duplicating ledger consumption."""
-
     app = _create_task_app()
     payload = replay_bill_usage_settlement(
         app,
@@ -444,7 +441,6 @@ def expire_wallet_buckets_task(
     expire_before: Any = None,
 ) -> dict[str, Any]:
     """Scan expiring wallet buckets and write expire ledger entries."""
-
     app = _create_task_app()
     payload = expire_credit_wallet_buckets(
         app,
@@ -463,7 +459,6 @@ def expire_pending_orders_task(
     expire_before: Any = None,
 ) -> dict[str, Any]:
     """Scan expired pending package orders and sync them into terminal state."""
-
     app = _create_task_app()
     payload = _expire_pending_billing_orders(
         app,
@@ -484,7 +479,6 @@ def reconcile_provider_reference_task(
     session_id: str = "",
 ) -> dict[str, Any]:
     """Reconcile a provider reference back into billing order state."""
-
     app = _create_task_app()
     payload = _run_reconcile_provider_reference(
         app,
@@ -505,7 +499,6 @@ def send_low_balance_alert_task(
     creator_bid: str = "",
 ) -> dict[str, Any]:
     """Scan low-balance notifications while preserving the legacy task name."""
-
     app = _create_task_app()
     normalized_creator_bid = _normalize_bid(creator_bid)
     payload = _scan_low_balance_notifications(
@@ -522,7 +515,6 @@ def scan_credit_expiring_notifications_task(
     creator_bid: str = "",
 ) -> dict[str, Any]:
     """Scan expiring credit buckets and enqueue due notifications."""
-
     app = _create_task_app()
     payload = _scan_credit_expiring_notifications(
         app,
@@ -538,7 +530,6 @@ def scan_low_balance_notifications_task(
     creator_bid: str = "",
 ) -> dict[str, Any]:
     """Scan low-balance wallets and enqueue due notifications."""
-
     app = _create_task_app()
     payload = _scan_low_balance_notifications(
         app,
@@ -559,7 +550,6 @@ def send_credit_notification_task(
     notification_bid: str = "",
 ) -> dict[str, Any]:
     """Deliver one pending credit notification."""
-
     app = _create_task_app()
     payload = _deliver_credit_notification(
         app,
@@ -586,7 +576,6 @@ def send_subscription_purchase_sms_task(
     bill_order_bid: str = "",
 ) -> dict[str, Any]:
     """Deliver one pending subscription purchase SMS notification."""
-
     app = _create_task_app()
     payload = _deliver_subscription_purchase_sms(
         app,
@@ -616,7 +605,6 @@ def send_billing_paid_feishu_task(
     bill_order_bid: str = "",
 ) -> dict[str, Any]:
     """Deliver one pending billing paid Feishu notification."""
-
     app = _create_task_app()
     payload = _deliver_billing_paid_feishu(
         app,
@@ -638,7 +626,6 @@ def send_billing_paid_feishu_task(
 @shared_task(name="billing.dispatch_due_renewal_events")
 def dispatch_due_renewal_events_task() -> dict[str, Any]:
     """Enqueue due renewal events onto the default worker queue."""
-
     app = _create_task_app()
     payload = dispatch_due_renewal_events(app)
     payload = _serialize_task_payload(payload)
@@ -654,7 +641,6 @@ def run_renewal_event_task(
     creator_bid: str = "",
 ) -> dict[str, Any]:
     """Normalize and expose the renewal event payload to the worker queue."""
-
     app = _create_task_app()
     payload = run_billing_renewal_event(
         app,
@@ -677,7 +663,6 @@ def retry_failed_renewal_task(
     creator_bid: str = "",
 ) -> dict[str, Any]:
     """Retry a failed renewal using the same provider reference contract."""
-
     app = _create_task_app()
     if _normalize_bid(bill_order_bid) or _normalize_bid(provider_reference_id):
         payload = _run_reconcile_provider_reference(
@@ -715,7 +700,6 @@ def aggregate_daily_usage_metrics_task(
     finalize: Any = False,
 ) -> dict[str, Any]:
     """Rebuild one creator/day usage aggregate slice from usage + ledger rows."""
-
     app = _create_task_app()
     payload = aggregate_daily_usage_metrics(
         app,
@@ -736,7 +720,6 @@ def aggregate_daily_ledger_summary_task(
     finalize: Any = False,
 ) -> dict[str, Any]:
     """Rebuild one creator/day ledger summary slice from ledger entries."""
-
     app = _create_task_app()
     payload = aggregate_daily_ledger_summary(
         app,
@@ -756,7 +739,6 @@ def finalize_daily_ledger_summary_task(
     creator_bid: str = "",
 ) -> dict[str, Any]:
     """Finalize one complete ledger-summary day, defaulting to yesterday."""
-
     app = _create_task_app()
     normalized_stat_date = _normalize_bid(stat_date)
     if not normalized_stat_date:
@@ -780,7 +762,6 @@ def rebuild_daily_aggregates_task(
     date_to: str = "",
 ) -> dict[str, Any]:
     """Rebuild one date window of usage/ledger daily aggregates."""
-
     app = _create_task_app()
     payload = rebuild_daily_aggregates(
         app,
@@ -803,7 +784,6 @@ def verify_domain_binding_task(
     verification_token: str = "",
 ) -> dict[str, Any]:
     """Refresh one custom domain binding using the existing verify flow."""
-
     app = _create_task_app()
     payload = verify_domain_binding(
         app,

@@ -354,21 +354,18 @@ def register_billing_commands(console) -> None:
     @with_appcontext
     def seed_bootstrap_data_command() -> None:
         """Upsert billing bootstrap rates and config rows."""
-
         _echo_payload(seed_billing_bootstrap_data())
 
     @billing_group.command(name="seed-sample-exception-orders")
     @with_appcontext
     def seed_sample_exception_orders_command() -> None:
         """Upsert sample abnormal orders for local admin billing debugging."""
-
         _echo_payload(seed_sample_exception_orders())
 
     @billing_group.command(name="seed-sample-focus-teachers")
     @with_appcontext
     def seed_sample_focus_teachers_command() -> None:
         """Upsert sample focus-teacher usage metrics for local admin billing."""
-
         _echo_payload(seed_sample_focus_teachers())
 
     @billing_group.command(name="upsert-product")
@@ -479,7 +476,6 @@ def register_billing_commands(console) -> None:
         metadata_json: str,
     ) -> None:
         """Create or update one bill product from CLI-supplied values."""
-
         payload = upsert_billing_product(
             product_bid=product_bid,
             product_code=product_code,
@@ -524,7 +520,6 @@ def register_billing_commands(console) -> None:
         note: str,
     ) -> None:
         """Grant one billing plan to a user resolved by phone or email."""
-
         payload = grant_billing_plan_by_identify(
             identify=identify,
             product_bid=product_bid,
@@ -584,7 +579,6 @@ def register_billing_commands(console) -> None:
         operator_user_bid: str,
     ) -> None:
         """Grant manual credits through the operator credit grant service."""
-
         payload = grant_operator_credits_by_cli(
             identify=identify,
             user_bid=user_bid,
@@ -619,7 +613,6 @@ def register_billing_commands(console) -> None:
         process_all: bool,
     ) -> None:
         """Grant the configured public trial plan to creators who still miss it."""
-
         if not str(creator_bid or "").strip() and not process_all:
             raise click.ClickException(
                 "Pass --creator-bid or --all for trial plan backfill."
@@ -664,7 +657,6 @@ def register_billing_commands(console) -> None:
         dry_run: bool,
     ) -> None:
         """Grant creator role to users with edit/publish shared permissions."""
-
         has_course_scope = bool(str(course_bid or "").strip())
         has_user_scope = bool(str(user_bid or "").strip())
         if not has_course_scope and not has_user_scope and not process_all:
@@ -709,7 +701,6 @@ def register_billing_commands(console) -> None:
         process_all: bool,
     ) -> None:
         """Backfill or manually replay usage settlement from the CLI."""
-
         if (
             not str(usage_bid or "").strip()
             and usage_id_start is None
@@ -753,7 +744,6 @@ def register_billing_commands(console) -> None:
         apply_changes: bool,
     ) -> None:
         """Rebuild wallet snapshots from bucket balances."""
-
         if (
             not str(creator_bid or "").strip()
             and not str(wallet_bid or "").strip()
@@ -799,7 +789,6 @@ def register_billing_commands(console) -> None:
         process_all: bool,
     ) -> None:
         """Run read-only billing credit invariant diagnostics."""
-
         if not str(creator_bid or "").strip() and not process_all:
             raise click.ClickException(
                 "Pass --creator-bid or --all for credit state audit."
@@ -849,7 +838,6 @@ def register_billing_commands(console) -> None:
         apply_changes: bool,
     ) -> None:
         """Repair buckets skipped because an expire ledger already exists."""
-
         if (
             not str(creator_bid or "").strip()
             and not str(wallet_bucket_bid or "").strip()
@@ -897,7 +885,6 @@ def register_billing_commands(console) -> None:
         apply_changes: bool,
     ) -> None:
         """Repair lingering subscription or bucket state after cycle end."""
-
         if not str(creator_bid or "").strip() and not process_all:
             raise click.ClickException(
                 "Pass --creator-bid or --all for renewal state drift repair."
@@ -916,7 +903,6 @@ def register_billing_commands(console) -> None:
     @with_appcontext
     def repair_topup_expiry_command(creator_bid: str) -> None:
         """Repair one creator's topup grant expiry against the active paid plan."""
-
         if not str(creator_bid or "").strip():
             raise click.ClickException("Pass --creator-bid for topup expiry repair.")
 
@@ -945,7 +931,6 @@ def register_billing_commands(console) -> None:
         apply_changes: bool,
     ) -> None:
         """Restore explicitly listed credit pack buckets expired by old logic."""
-
         if not any(str(bid or "").strip() for bid in bill_order_bids):
             raise click.ClickException(
                 "Pass at least one --bill-order-bid for expired topup bucket restore."
@@ -967,7 +952,6 @@ def register_billing_commands(console) -> None:
         subscription_bid: str,
     ) -> None:
         """Repair mismatched subscription cycle rows from paid billing grants."""
-
         if (
             not str(creator_bid or "").strip()
             and not str(subscription_bid or "").strip()
@@ -996,7 +980,6 @@ def register_billing_commands(console) -> None:
         wallet_bucket_bid: str,
     ) -> None:
         """Repair expired bucket rows that still carry live credits."""
-
         if (
             not str(creator_bid or "").strip()
             and not str(wallet_bucket_bid or "").strip()
@@ -1032,7 +1015,6 @@ def register_billing_commands(console) -> None:
         process_all: bool,
     ) -> None:
         """Rebuild one daily aggregate date window from raw usage and ledger data."""
-
         normalized_date_from = str(date_from or "").strip()
         normalized_date_to = str(date_to or "").strip()
         if not process_all and not normalized_date_from and not normalized_date_to:
@@ -1089,7 +1071,6 @@ def register_billing_commands(console) -> None:
         session_id: str,
     ) -> None:
         """Manually replay provider sync for one billing order."""
-
         if (
             not str(bill_order_bid or "").strip()
             and not str(provider_reference_id or "").strip()
@@ -1119,7 +1100,6 @@ def register_billing_commands(console) -> None:
         creator_bid: str,
     ) -> None:
         """Run one renewal/reconcile event from the CLI."""
-
         if not any(
             (
                 str(renewal_event_bid or "").strip(),
@@ -1152,7 +1132,6 @@ def register_billing_commands(console) -> None:
         bill_order_bid: str,
     ) -> None:
         """Retry a failed renewal using the shared billing compensation path."""
-
         if not any(
             (
                 str(renewal_event_bid or "").strip(),
@@ -1181,7 +1160,6 @@ def register_billing_commands(console) -> None:
         bill_order_bid: str,
     ) -> None:
         """Re-enqueue one pending or provider-failed subscription purchase SMS."""
-
         if not str(bill_order_bid or "").strip():
             raise click.ClickException(
                 "Pass --bill-order-bid for subscription purchase SMS requeue."

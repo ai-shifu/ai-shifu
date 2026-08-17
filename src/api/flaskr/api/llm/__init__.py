@@ -171,7 +171,6 @@ def _attach_usage_output_text(
     response_text: str,
 ) -> Dict[str, Any]:
     """Store a bounded response excerpt for operator usage detail summaries."""
-
     normalized_response_text = str(response_text or "").strip()
     if not normalized_response_text or "output_text" in metadata:
         return metadata

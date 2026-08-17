@@ -439,7 +439,6 @@ def grant_referral_plan_reward(
     request: ReferralPlanRewardRequest,
 ) -> ReferralPlanRewardResult:
     """Grant one referral plan reward through billing order artifacts."""
-
     with _with_app_context(app):
         consts = _billing_consts()
         models = _billing_models()

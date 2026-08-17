@@ -173,7 +173,6 @@ def coerce_datetime(value: Any) -> datetime | None:
 
 def normalize_mysql_datetime(value: datetime) -> datetime:
     """Normalize to MySQL DATETIME(0)'s default fractional-second rounding."""
-
     if value.microsecond >= 500_000:
         value = value + timedelta(seconds=1)
     return value.replace(microsecond=0)

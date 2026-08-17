@@ -72,7 +72,6 @@ def resolve_creator_entitlement_state(
     as_of: datetime | None = None,
 ) -> CreatorEntitlementState:
     """Resolve the effective entitlement snapshot for a creator."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     resolved_at = as_of or now_utc()
 
@@ -97,7 +96,6 @@ def serialize_creator_entitlements(
     state: CreatorEntitlementState,
 ) -> BillingEntitlementsDTO:
     """Return the public creator entitlement projection."""
-
     return BillingEntitlementsDTO(**state.to_public_payload())
 
 
@@ -123,7 +121,6 @@ def grant_creator_manual_entitlement(
     root-path redirects independently of ``branding_enabled``. Returns the
     freshly resolved entitlement state for verification.
     """
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         raise_param_error("creator_bid")

@@ -172,7 +172,6 @@ def stage_subscription_purchase_sms_for_paid_order(
     previous_status: int | None,
 ) -> bool:
     """Mark one newly paid subscription order as pending SMS delivery."""
-
     if not _supports_subscription_purchase_sms(order):
         return False
     if int(order.status or 0) != BILLING_ORDER_STATUS_PAID:
@@ -211,7 +210,6 @@ def stage_billing_paid_feishu_for_paid_order(
     previous_status: int | None,
 ) -> bool:
     """Mark one newly paid billing order as pending Feishu delivery."""
-
     if not _supports_billing_paid_feishu(order):
         return False
     if int(previous_status or 0) == BILLING_ORDER_STATUS_PAID:
@@ -236,7 +234,6 @@ def enqueue_subscription_purchase_sms(
     bill_order_bid: str,
 ) -> dict[str, Any]:
     """Enqueue the subscription purchase SMS worker after commit."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_result(
@@ -287,7 +284,6 @@ def requeue_subscription_purchase_sms(
     bill_order_bid: str,
 ) -> dict[str, Any]:
     """Re-enqueue one pending or provider-failed subscription purchase SMS."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_result("invalid_bill_order_bid", enqueued=False)
@@ -435,7 +431,6 @@ def enqueue_billing_paid_feishu(
     bill_order_bid: str,
 ) -> dict[str, Any]:
     """Enqueue the billing paid Feishu worker after commit."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_feishu_result(
@@ -649,7 +644,6 @@ def deliver_billing_paid_feishu(
     bill_order_bid: str,
 ) -> dict[str, Any]:
     """Send one billing paid Feishu notification if the order is pending."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_feishu_result("invalid_bill_order_bid")
@@ -798,7 +792,6 @@ def deliver_subscription_purchase_sms(
     bill_order_bid: str,
 ) -> dict[str, Any]:
     """Send one subscription purchase SMS if the billing order is pending."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_result("invalid_bill_order_bid")

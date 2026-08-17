@@ -60,7 +60,6 @@ def _percent_encode(value: Any) -> str:
     """
     RFC3986 percent encoding compatible with Aliyun POP signing rules.
     """
-
     if value is None:
         value = ""
     return quote(str(value), safe="-_.~")
@@ -70,7 +69,6 @@ def _canonicalized_query(params: dict[str, Any]) -> str:
     """
     Build canonicalized query string from params (excluding Signature).
     """
-
     parts: list[str] = []
     for key in sorted(params.keys()):
         parts.append(f"{_percent_encode(key)}={_percent_encode(params[key])}")
@@ -150,7 +148,6 @@ def _get_access_keys() -> Tuple[str, str]:
     present to reduce configuration friction in deployments that already have
     Alibaba Cloud account keys configured.
     """
-
     ak_id = (get_config("ALIYUN_AK_ID") or "").strip()
     ak_secret = (get_config("ALIYUN_AK_SECRET") or "").strip()
     if ak_id and ak_secret:
@@ -234,7 +231,6 @@ def get_aliyun_nls_token(
     3) Fetch a new token using `ALIYUN_AK_ID` + `ALIYUN_AK_SECRET` (or OSS key fallback),
        cache it, and return it.
     """
-
     override = (get_config("ALIYUN_TTS_TOKEN") or "").strip()
     if override:
         return override
@@ -300,7 +296,6 @@ def is_aliyun_nls_token_configured() -> bool:
 
     This function does not perform any network requests.
     """
-
     if (get_config("ALIYUN_TTS_TOKEN") or "").strip():
         return True
     access_key_id, access_key_secret = _get_access_keys()

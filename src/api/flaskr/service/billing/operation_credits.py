@@ -78,7 +78,6 @@ class OperationCreditReleaseResult:
 
 def estimate_voice_clone_operation_credits(app: Flask) -> OperationCreditEstimate:
     """Estimate MiniMax voice-clone cost using only configured active rates."""
-
     with app.app_context():
         now = now_utc()
         usage = BillUsageRecord(

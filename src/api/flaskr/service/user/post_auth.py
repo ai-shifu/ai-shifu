@@ -26,7 +26,6 @@ class PostAuthContext:
 
 def run_post_auth_extensions(app: Flask, context: PostAuthContext) -> PostAuthContext:
     """Execute registered post-auth handlers without blocking login success."""
-
     manager = plugin_manager_module.plugin_manager
     if manager is None:
         return context
