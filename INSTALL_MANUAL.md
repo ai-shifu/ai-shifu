@@ -178,9 +178,24 @@ If you plan to commit changes, install the lefthook git hooks so the same
 pre-commit checks that run in CI also run locally. **Without this step the
 checks are silently skipped on commit.**
 
+Install lefthook for your platform.
+
+macOS (Homebrew):
+
+```bash
+brew install lefthook
+```
+
+Linux or Windows (npm):
+
+```bash
+npm install -g @evilmartians/lefthook
+```
+
+Then install the remaining development tools from the repository root:
+
 ```bash
 # From the repository root
-brew install lefthook   # or see https://lefthook.dev for non-macOS installs
 pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
 (cd src/cook-web && npm ci)   # provides prettier + eslint
 lefthook install

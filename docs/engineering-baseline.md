@@ -40,8 +40,23 @@ tools already installed on your machine). The git hooks only fire after
 `lefthook install` has wired them into `.git/hooks`, and each hook shells out to
 tools that must already be on `PATH`. One-time setup:
 
+Install lefthook for your platform.
+
+macOS (Homebrew):
+
 ```bash
 brew install lefthook
+```
+
+Linux or Windows (npm):
+
+```bash
+npm install -g @evilmartians/lefthook
+```
+
+Then install the remaining development tools:
+
+```bash
 pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
 (cd src/cook-web && npm ci)   # provides prettier + eslint
 lefthook install
