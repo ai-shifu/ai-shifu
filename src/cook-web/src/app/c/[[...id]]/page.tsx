@@ -597,14 +597,17 @@ export default function ChatPage() {
 
   const handleLearnerProfileDialogClose = useCallback(
     (reason: 'dismiss' | 'saved') => {
+      const eligibility = profileOnboardingEligibilityRef.current;
+      const onboardingStatus = profileOnboardingStatusRef.current;
       if (
         reason === 'dismiss' &&
-        profileOnboardingEligibilityRef.current === 'show'
+        eligibility === 'show' &&
+        onboardingStatus?.presentation === 'blocking'
       ) {
         return;
       }
 
-      if (reason === 'saved' || profileOnboardingStatusRef.current) {
+      if (reason === 'saved' || (onboardingStatus && eligibility !== 'show')) {
         releaseProfileOnboarding();
         return;
       }
@@ -1149,18 +1152,28 @@ export default function ChatPage() {
         <LearnerProfileDialog
           key={learnerProfileScope}
           open={learnerProfileDialogOpen}
-          mode={profileOnboardingStatus ? 'onboarding' : 'settings'}
+          exitPolicy={
+            profileOnboardingStatus?.presentation === 'blocking'
+              ? 'blocking'
+              : 'dismissible'
+          }
           presentation={profileOnboardingStatus?.presentation ?? 'hidden'}
           initialOnboardingStatus={profileOnboardingStatus ?? undefined}
           externalErrorMessage={
-            profileOnboardingStatus ? profileOnboardingError : ''
+            profileOnboardingStatus?.presentation === 'blocking'
+              ? profileOnboardingError
+              : ''
           }
           externalSubmitting={
-            profileOnboardingStatus ? profileOnboardingSubmitting : false
+            profileOnboardingStatus?.presentation === 'blocking'
+              ? profileOnboardingSubmitting
+              : false
           }
           draftStorageScope={learnerProfileScope}
           onDefer={
-            profileOnboardingStatus ? handleProfileOnboardingSkip : undefined
+            profileOnboardingStatus?.presentation === 'blocking'
+              ? handleProfileOnboardingSkip
+              : undefined
           }
           onSaved={handleLearnerProfileSaved}
           onClose={handleLearnerProfileDialogClose}

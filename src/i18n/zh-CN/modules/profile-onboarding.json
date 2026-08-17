@@ -35,26 +35,10 @@
   "complete": "确认并保存",
   "completeCompact": "保存",
   "dialog": {
-    "autoOptimizing": "正在整理并优化你的个人介绍……",
-    "autoOptimizingHint": "请稍候，整理完成后仍可修改再保存。",
+    "autoOptimizing": "正在整理你的个人介绍……",
     "cancel": "取消",
-    "cancelResearch": "取消调研",
-    "chips": {
-      "goals": {
-        "hint": "近期状态、目标和困惑",
-        "label": "我的近况"
-      },
-      "identity": {
-        "hint": "身份、行业、职业等",
-        "label": "我的背景"
-      },
-      "teaching": {
-        "hint": "偏好的语气、表达，及禁忌",
-        "label": "我喜欢的语言风格"
-      }
-    },
+    "cancelResearch": "取消收集",
     "close": "关闭",
-    "confirmDescription": "检查并修改个人介绍，确认后才会保存。",
     "confirmTitle": "确认并保存",
     "description": "写下你的背景、目标和表达偏好，让 AI 老师在课程中更贴近你的情况。",
     "discard": "放弃修改",
@@ -62,6 +46,11 @@
     "discardTitle": "放弃这次修改吗？",
     "dismissFailed": "暂时无法完成操作，请重试。",
     "emptyProfile": "这段介绍不能为空，请填写后再保存。",
+    "informationUsageEditable": "保存前可以修改，保存后也能随时回来更新或清除。",
+    "informationUsagePurpose": "这些信息只用于帮助 AI 老师调整讲解内容和方式。",
+    "informationUsageSensitive": "请不要填写联系方式、精确住址、证件、健康或财务等敏感信息。",
+    "informationUsageTitle": "信息如何使用",
+    "interactiveCollection": "互动收集",
     "keepEditing": "继续编辑",
     "later": "以后再说",
     "legacyPrefill": {
@@ -70,23 +59,18 @@
     },
     "loadFailed": "暂时无法加载这些信息，请重试。",
     "loading": "正在加载你的学习画像…",
-    "manualFallback": "调研暂不可用，你仍可手动填写并保存。",
+    "manualFallback": "暂时无法自动收集，可以直接填写。",
     "nicknameLabel": "希望 AI 老师怎么称呼你",
     "nicknamePlaceholder": "例如：小林",
     "onboardingTitle": "让 AI 老师更懂你",
     "optimize": "帮我优化",
-    "optimizeEmptyHint": "先写几句，就可以让 AI 帮你优化。",
     "optimizeEmptyResponse": "AI 没有返回优化后的内容，请重试。",
     "optimizeFailed": "暂时无法优化，你仍可以直接保存。",
-    "optimizeHint": "AI 会补充有用细节、整理表达，不改变原意或新增事实。",
     "optimizeInvalidResponse": "AI 返回的结果格式不正确，请重试。",
     "optimizeSuccess": "已优化，可继续修改。",
     "optimizing": "正在优化…",
-    "profileLabel": "希望 AI 老师长期知道的事",
-    "profilePlaceholder": "例如：我在上海做办公室工作，大学学的是工商管理。最近想用 AI 把自己的想法做成文章和小工具。希望 AI 老师表达亲切直接、简洁易懂，少用术语。",
-    "progressLabel": "个性化设置进度",
-    "promptHeading": "可以从这些方面开始",
-    "reassurance": "不必一次写全，之后可随时修改。与真人老师的课程设定冲突时，以老师设定为准。",
+    "profileLabel": "个人介绍",
+    "profilePlaceholder": "介绍你的背景、目标和偏好",
     "replaceResearchConfirm": "继续重新回答",
     "replaceResearchDescription": "重新回答会替换当前未保存内容。是否继续？",
     "replaceResearchTitle": "重新回答几个问题？",
@@ -99,13 +83,11 @@
     "saving": "正在保存…",
     "settingsDescription": "写下你的背景、目标和表达偏好，让 AI 老师在课程中更贴近你的情况。",
     "settingsTitle": "向 AI 老师介绍你自己",
-    "undoOptimize": "撤销",
     "unifiedDescription": "让 AI 老师了解你的背景和偏好，以更适合你的方式讲课。",
-    "unifiedTitle": "个性化设置",
-    "useResearchDraft": "直接使用初稿"
+    "unifiedTitle": "个性化设置"
   },
   "guided": {
-    "description": "AI 老师越了解你，讲的课就越容易听懂。大约 1 分钟。",
+    "description": "约 1 分钟。",
     "inputLimitError": "回答太长或选择太多，请精简后再提交。你的回答仍可继续修改。",
     "missingDraft": "没能完成内容整理，请重新回答问题。",
     "retry": "再试一次",
@@ -139,7 +121,6 @@
     "loadFailed": "暂时无法加载，请稍后重试。",
     "loading": "正在加载…",
     "regenerateSuccess": "已更新",
-    "rerun": "重新回答问题",
     "retry": "重试",
     "save": "保存更改",
     "saveFailed": "保存失败，请重试。",
@@ -150,10 +131,6 @@
   "skip": "以后再说",
   "skipping": "请稍候…",
   "stepCounter": "第 {current} 步，共 {total} 步",
-  "steps": {
-    "collect": "回答问题",
-    "review": "确认并保存"
-  },
   "submitFailed": "没有保存成功，你的内容还在。请再试一次。",
   "submitting": "正在保存…",
   "title": "先让 AI 老师认识你"

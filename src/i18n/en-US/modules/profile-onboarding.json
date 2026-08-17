@@ -35,26 +35,10 @@
   "complete": "Confirm and save",
   "completeCompact": "Save",
   "dialog": {
-    "autoOptimizing": "Organizing and improving your introduction…",
-    "autoOptimizingHint": "This takes a moment. You can review and edit it before saving.",
+    "autoOptimizing": "Organizing your personal introduction…",
     "cancel": "Cancel",
-    "cancelResearch": "Cancel questions",
-    "chips": {
-      "goals": {
-        "hint": "Current situation, goals, and questions",
-        "label": "My current situation"
-      },
-      "identity": {
-        "hint": "Identity, industry, profession, and related details",
-        "label": "My background"
-      },
-      "teaching": {
-        "hint": "Preferred tone, expression, and taboos",
-        "label": "My preferred language style"
-      }
-    },
+    "cancelResearch": "Cancel collection",
     "close": "Close",
-    "confirmDescription": "Review or edit your introduction. Nothing changes until you save.",
     "confirmTitle": "Confirm and save",
     "description": "Share your background, goals, and language preferences so your AI teacher can connect course content more closely to your situation.",
     "discard": "Discard changes",
@@ -62,6 +46,11 @@
     "discardTitle": "Discard these changes?",
     "dismissFailed": "Could not complete that action. Try again.",
     "emptyProfile": "This introduction cannot be empty. Add a few details before saving.",
+    "informationUsageEditable": "You can edit it before saving, then update or remove it at any time.",
+    "informationUsagePurpose": "This information is used only to help your AI teacher adapt what and how it teaches.",
+    "informationUsageSensitive": "Do not include sensitive details such as contact information, exact addresses, IDs, health information, or financial information.",
+    "informationUsageTitle": "How this information is used",
+    "interactiveCollection": "Answer questions",
     "keepEditing": "Keep editing",
     "later": "Maybe later",
     "legacyPrefill": {
@@ -70,23 +59,18 @@
     },
     "loadFailed": "Could not load these details. Try again.",
     "loading": "Loading your learning profile…",
-    "manualFallback": "The questions are not available right now. You can still write and save your introduction manually.",
-    "nicknameLabel": "What should your AI teacher call you? (optional)",
+    "manualFallback": "Automatic collection is unavailable right now. You can enter your introduction directly.",
+    "nicknameLabel": "What should your AI teacher call you?",
     "nicknamePlaceholder": "For example: Alex",
     "onboardingTitle": "Help your AI teacher understand you",
     "optimize": "Improve with AI",
-    "optimizeEmptyHint": "Write a few lines, then let AI help improve them.",
     "optimizeEmptyResponse": "The AI returned no optimized content. Please try again.",
     "optimizeFailed": "Could not improve this right now. You can still save it as written.",
-    "optimizeHint": "AI adds useful detail and organizes the wording without changing your meaning or inventing facts.",
     "optimizeInvalidResponse": "The AI returned an invalid response format. Please try again.",
     "optimizeSuccess": "Improved. You can keep editing.",
     "optimizing": "Improving…",
-    "profileLabel": "Write what you want your AI teacher to remember about you",
-    "profilePlaceholder": "Example: I work in an office in Shanghai and studied business administration at university. Recently, I have wanted to use AI to turn my ideas into articles and small tools. I prefer my AI teacher to use language that is friendly, direct, concise, and easy to understand, with little jargon.",
-    "progressLabel": "Personalization progress",
-    "promptHeading": "Start with any of these",
-    "reassurance": "You do not need to write everything at once; you can update it anytime. If your preferences conflict with the course design set by the human teacher, the teacher's design takes priority.",
+    "profileLabel": "Personal introduction",
+    "profilePlaceholder": "Describe your background, goals, and preferences",
     "replaceResearchConfirm": "Answer again",
     "replaceResearchDescription": "Answering again will replace your current unsaved content.",
     "replaceResearchTitle": "Answer the questions again?",
@@ -99,13 +83,11 @@
     "saving": "Saving…",
     "settingsDescription": "Share your background, goals, and language preferences so your AI teacher can connect course content more closely to your situation.",
     "settingsTitle": "Introduce yourself to your AI teacher",
-    "undoOptimize": "Undo",
     "unifiedDescription": "Help your AI teacher understand your background and preferences so lessons fit you better.",
-    "unifiedTitle": "Personalization settings",
-    "useResearchDraft": "Use original draft"
+    "unifiedTitle": "Personalization settings"
   },
   "guided": {
-    "description": "The better your AI teacher knows you, the easier the lessons are to understand. About 1 minute.",
+    "description": "About 1 minute.",
     "inputLimitError": "This answer is too long or has too many selections. Shorten it, then submit again; you can keep editing it.",
     "missingDraft": "We could not finish organizing your answers. Please answer the questions again.",
     "retry": "Try again",
@@ -139,7 +121,6 @@
     "loadFailed": "Could not load these details. Try again later.",
     "loading": "Loading…",
     "regenerateSuccess": "Updated",
-    "rerun": "Answer the questions again",
     "retry": "Retry",
     "save": "Save changes",
     "saveFailed": "Could not save your changes. Try again.",
@@ -150,10 +131,6 @@
   "skip": "Maybe later",
   "skipping": "Please wait…",
   "stepCounter": "Step {current} of {total}",
-  "steps": {
-    "collect": "Answer questions",
-    "review": "Confirm and save"
-  },
   "submitFailed": "We could not save your details. Your content is still here. Try again.",
   "submitting": "Saving…",
   "title": "Let your AI teacher get to know you"
