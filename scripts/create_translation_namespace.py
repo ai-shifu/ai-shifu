@@ -74,7 +74,7 @@ def update_locales_metadata(namespace: str) -> None:
     if LOCALES_FILE.exists():
         try:
             data = json.loads(LOCALES_FILE.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:  # noqa: BLE001
+        except json.JSONDecodeError as exc:
             raise RuntimeError(f"Invalid JSON in {LOCALES_FILE}: {exc}") from exc
 
     namespaces = set(data.get("namespaces", []))

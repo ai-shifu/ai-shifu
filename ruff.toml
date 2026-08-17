@@ -26,6 +26,10 @@
 #   `.exception(...)` is strictly equivalent to `.error(..., exc_info=True)`.
 # - SIM* / RUF012 / RUF013 / RUF046 / UP*: style or modernization churn with
 #   no bug-catching value for this codebase today; revisit deliberately.
+# - RUF100: with a narrow select list, ruff reports deliberate `# noqa:
+#   BLE001 / DTZ001 / SLF001 / S102` markers as unused simply because those
+#   rules are off here, so enforcing it would delete documentation of
+#   intentional exceptions. Stale directives are pruned by hand instead.
 
 [lint]
 select = [
@@ -43,4 +47,7 @@ select = [
     "EXE",    # shebang vs executable-bit consistency
     "G201",   # .error(..., exc_info=True) -> .exception(...)
     "RUF059", # unused unpacked variable
+    # Mechanical, behavior-preserving cleanups; each was applied repo-wide
+    # with `ruff check --fix` in the commit that selected it here.
+    "RUF102", # noqa directive naming an unknown rule
 ]

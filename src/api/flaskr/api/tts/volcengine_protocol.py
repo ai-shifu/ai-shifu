@@ -292,7 +292,7 @@ class VolcengineProtocol:
         byte2 = data[2]
         # byte3 is reserved
 
-        _protocol_version = (byte0 >> 4) & 0x0F  # noqa: F841
+        _protocol_version = (byte0 >> 4) & 0x0F
         header_size = (byte0 & 0x0F) * 4
 
         message_type = MessageType((byte1 >> 4) & 0x0F)

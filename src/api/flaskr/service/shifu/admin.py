@@ -385,7 +385,7 @@ resolve_operator_user_quick_filter = _resolve_operator_user_quick_filter
 resolve_recent_days_window = _resolve_recent_days_window
 
 
-from flaskr.service.shifu.admin_operations import courses as _operator_courses  # noqa: E402
+from flaskr.service.shifu.admin_operations import courses as _operator_courses
 
 # Backward-compatible exports for existing imports from shifu.admin.
 _OPERATOR_COURSE_COMPAT_EXPORTS = (
