@@ -367,8 +367,7 @@ def _sync_order_campaign_pricing(
                     decimal.Decimal(buy_record.payable_price) * coupon_value / 100
                 )
     total_discount_value = discount_value + coupon_discount_value
-    if total_discount_value > buy_record.payable_price:
-        total_discount_value = buy_record.payable_price
+    total_discount_value = min(total_discount_value, buy_record.payable_price)
     buy_record.paid_price = (
         decimal.Decimal(buy_record.payable_price) - total_discount_value
     )
@@ -2120,8 +2119,7 @@ def calculate_discount_value(
                         discount.code,
                     )
                 )
-    if discount_value > price:
-        discount_value = price
+    discount_value = min(discount_value, price)
     return DiscountInfo(discount_value, items)
 
 
