@@ -145,6 +145,8 @@ export default function LearnerProfileDialog({
   const mountedRef = React.useRef(false);
   const openRef = React.useRef(open);
   const scopeRef = React.useRef(draftStorageScope);
+  const presentationRef = React.useRef(presentation);
+  const initialOnboardingStatusRef = React.useRef(initialOnboardingStatus);
   const generationRef = React.useRef(0);
   const loadRequestRef = React.useRef(0);
   const optimizeRequestRef = React.useRef(0);
@@ -155,6 +157,8 @@ export default function LearnerProfileDialog({
 
   openRef.current = open;
   scopeRef.current = draftStorageScope;
+  presentationRef.current = presentation;
+  initialOnboardingStatusRef.current = initialOnboardingStatus;
   translationRef.current = t;
 
   const isCurrent = React.useCallback(
@@ -173,7 +177,11 @@ export default function LearnerProfileDialog({
   }, []);
 
   const beginResearch = React.useCallback(
-    (intent: ProfileOnboardingSessionIntent, rerun: boolean) => {
+    (
+      intent: ProfileOnboardingSessionIntent,
+      rerun: boolean,
+      journeyPresentation = presentationRef.current,
+    ) => {
       const journey = ++researchJourneyRef.current;
       researchCompletionRef.current = false;
       researchShownAtRef.current = Date.now();
@@ -193,11 +201,11 @@ export default function LearnerProfileDialog({
       }
       void trackEvent(PROFILE_ONBOARDING_EVENTS.SHOWN, {
         source: intent === 'settings' ? 'settings' : 'guided',
-        presentation,
+        presentation: journeyPresentation,
         has_profile: hasCanonicalProfileRef.current,
       });
     },
-    [presentation, resetOptimization, trackEvent],
+    [resetOptimization, trackEvent],
   );
 
   const loadProfile = React.useCallback(
@@ -207,8 +215,9 @@ export default function LearnerProfileDialog({
       setLoaded(false);
       setError('');
       try {
-        const onboardingStatusRequest = initialOnboardingStatus
-          ? Promise.resolve(initialOnboardingStatus)
+        const openingOnboardingStatus = initialOnboardingStatusRef.current;
+        const onboardingStatusRequest = openingOnboardingStatus
+          ? Promise.resolve(openingOnboardingStatus)
           : getProfileOnboardingV2().catch(() => null);
         const response = await getLearnerProfile();
         if (
@@ -276,7 +285,11 @@ export default function LearnerProfileDialog({
           setManualFallback(!nextGuidedAvailable);
           setLoaded(true);
           if (nextGuidedAvailable) {
-            beginResearch(nextResearchIntent, false);
+            beginResearch(
+              nextResearchIntent,
+              false,
+              validOnboardingStatus?.presentation ?? presentationRef.current,
+            );
           } else {
             setResearchJourney(false);
             setView('review');
@@ -307,7 +320,7 @@ export default function LearnerProfileDialog({
         }
       }
     },
-    [beginResearch, initialOnboardingStatus, isCurrent, resetOptimization],
+    [beginResearch, isCurrent, resetOptimization],
   );
 
   React.useEffect(() => {
@@ -370,6 +383,12 @@ export default function LearnerProfileDialog({
       researchJourneyRef.current += 1;
     };
   }, [draftStorageScope, loadProfile, open, resetOptimization]);
+
+  React.useLayoutEffect(() => {
+    if (mode === 'onboarding' && confirmation === 'discard') {
+      setConfirmation(null);
+    }
+  }, [confirmation, mode]);
 
   React.useEffect(() => {
     contentScrollRef.current?.scrollTo?.({ top: 0, behavior: 'auto' });

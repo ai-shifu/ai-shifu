@@ -951,7 +951,7 @@ describe('ChatPage profile onboarding gate', () => {
     });
   });
 
-  test('does not remount onboarding after settings saves an active blocking gate', async () => {
+  test('keeps the active onboarding dialog mounted when the menu entry is used', async () => {
     mockGetProfileOnboarding.mockResolvedValue(
       profileV2Status({
         should_show: true,
@@ -965,16 +965,22 @@ describe('ChatPage profile onboarding gate', () => {
       'data-mode',
       'onboarding',
     );
+    fireEvent.change(screen.getByLabelText('mock learner draft'), {
+      target: { value: 'answer already in progress' },
+    });
     fireEvent.click(
       screen.getByRole('button', { name: openLearnerProfileLabel }),
     );
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
       'data-mode',
-      'settings',
+      'onboarding',
+    );
+    expect(screen.getByLabelText('mock learner draft')).toHaveValue(
+      'answer already in progress',
     );
 
     fireEvent.click(
-      screen.getByRole('button', { name: saveLearnerProfileLabel }),
+      screen.getByRole('button', { name: completeOnboardingLabel }),
     );
 
     await waitFor(() => {
@@ -1100,7 +1106,7 @@ describe('ChatPage profile onboarding gate', () => {
     );
   });
 
-  test('defers a positive eligibility result until pending settings closes', async () => {
+  test('upgrades an open menu dialog in place when blocking eligibility arrives', async () => {
     let resolveStatus: (value: unknown) => void = () => undefined;
     mockGetProfileOnboarding.mockReturnValue(
       new Promise(resolve => {
@@ -1114,6 +1120,9 @@ describe('ChatPage profile onboarding gate', () => {
     fireEvent.click(
       screen.getByRole('button', { name: openLearnerProfileLabel }),
     );
+    fireEvent.change(screen.getByLabelText('mock learner draft'), {
+      target: { value: 'keep this settings draft' },
+    });
 
     await act(async () => {
       resolveStatus(
@@ -1126,21 +1135,21 @@ describe('ChatPage profile onboarding gate', () => {
 
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
       'data-mode',
-      'settings',
+      'onboarding',
     );
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
       'false',
     );
-    fireEvent.change(screen.getByLabelText('mock learner draft'), {
-      target: { value: 'discard this settings draft' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: laterLabel }));
-
-    expect(await screen.findByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'onboarding',
+    expect(screen.getByLabelText('mock learner draft')).toHaveValue(
+      'keep this settings draft',
     );
+    expect(
+      screen.queryByRole('button', { name: laterLabel }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: skipOnboardingLabel }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
       'data-runtime-ready',
       'false',
