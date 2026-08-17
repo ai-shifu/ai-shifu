@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
-import UserSettings from '../Settings/UserSettings';
 import {
   FRAME_LAYOUT_MOBILE,
   FRAME_LAYOUT_PC,
@@ -46,9 +45,7 @@ interface ChatUiProps {
   lessonTitle?: string;
   lessonStatus?: string;
   lessonHasContentUpdate?: boolean;
-  showUserSettings?: boolean;
-  userSettingBasicInfo?: boolean;
-  onUserSettingsClose?: () => void;
+  runtimeReady?: boolean;
   onMobileSettingClick?: () => void;
   chapterUpdate: ChapterUpdateHandler;
   updateSelectedLesson: LessonSelectionUpdater;
@@ -72,9 +69,7 @@ export const ChatUi = ({
   lessonTitle = '',
   lessonStatus = '',
   lessonHasContentUpdate = false,
-  showUserSettings = true,
-  userSettingBasicInfo = false,
-  onUserSettingsClose = () => {},
+  runtimeReady = true,
   chapterUpdate,
   updateSelectedLesson,
   getNextLessonId,
@@ -221,7 +216,7 @@ export const ChatUi = ({
         ) : null
         // <div className={styles.headerMobile}></div>
       }
-      {
+      {runtimeReady ? (
         <ChatComponents
           chapterId={chapterId}
           lessonId={lessonId}
@@ -230,10 +225,7 @@ export const ChatUi = ({
           lessonTitle={lessonTitle}
           lessonStatus={lessonStatus}
           lessonHasContentUpdate={lessonHasContentUpdate}
-          className={cn(
-            styles.chatComponents,
-            showUserSettings ? styles.chatComponentsHidden : '',
-          )}
+          className={styles.chatComponents}
           previewMode={previewMode}
           onPurchased={onPurchased}
           chapterUpdate={chapterUpdate}
@@ -248,14 +240,23 @@ export const ChatUi = ({
           }
           onLessonPdfActionChange={setLessonPdfDownloadAction}
         />
-      }
-      {showUserSettings && (
-        <UserSettings
-          className={cn(styles.UserSettings)}
-          onHomeClick={onUserSettingsClose}
-          onClose={onUserSettingsClose}
-          isBasicInfo={userSettingBasicInfo}
-        />
+      ) : (
+        <div
+          className={cn(styles.chatComponents, styles.runtimePlaceholder)}
+          data-testid='chat-runtime-placeholder'
+          role='status'
+          aria-busy='true'
+        >
+          <div
+            className={styles.runtimePlaceholderCard}
+            aria-hidden='true'
+          >
+            <div className={styles.runtimePlaceholderLineLong} />
+            <div className={styles.runtimePlaceholderLineMedium} />
+            <div className={styles.runtimePlaceholderLineShort} />
+          </div>
+          <span className='sr-only'>{t('module.chat.loading')}</span>
+        </div>
       )}
 
       <div className={styles.footer}>

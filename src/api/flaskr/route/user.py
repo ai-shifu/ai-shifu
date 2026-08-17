@@ -18,10 +18,22 @@ from flaskr.service.user.repository import (
     set_password_hash,
     load_user_aggregate_by_identifier,
     list_credentials,
+    build_user_info_from_aggregate,
+    load_user_aggregate,
 )
 from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
+)
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
+from flaskr.service.profile.learner_profile import (
+    clear_learner_profile,
+    get_learner_profile,
+    replace_learner_profile,
+)
+from flaskr.service.profile.learner_profile_optimizer import optimize_learner_profile
+from flaskr.service.profile.learner_profile_optimizer_admission import (
+    learner_profile_optimization_admission,
 )
 from flaskr.service.profile.onboarding import (
     complete_profile_onboarding,
@@ -53,13 +65,26 @@ from ..service.user.onboarding import (
     complete_onboarding_scene,
 )
 from ..service.referral.service import extract_referral_post_auth_fields
-from ..service.common.dtos import OAuthStartDTO
+from ..service.common.dtos import OAuthStartDTO, UserToken
 from .common import make_common_response, bypass_token_validation, by_pass_login_func
 from flaskr.dao import db
 from flaskr.i18n import _translations, set_language
 
-
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
+
+
+def _request_json_object(parameter_name: str) -> dict:
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        raise_param_error(parameter_name)
+    return payload
+
+
+def _reject_unknown_fields(
+    payload: dict, *, allowed_fields: set[str], parameter_name: str
+) -> None:
+    if set(payload) - allowed_fields:
+        raise_param_error(parameter_name)
 
 
 def _normalize_runtime_language_code(language_code: str) -> str:
@@ -170,6 +195,19 @@ def optional_token_validation(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+def _best_effort_password_login_user(app: Flask):
+    """Resolve the explicitly authenticated guest without blocking login."""
+
+    token = request.headers.get("Token", None)
+    if not token:
+        return None
+
+    try:
+        return validate_user(app, str(token))
+    except Exception:  # noqa: BLE001 - stale login tokens must not block recovery
+        return None
 
 
 def register_user_handler(app: Flask, path_prefix: str) -> Flask:
@@ -375,6 +413,64 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             variables=payload.get("variables") or {},
         )
         db.session.commit()
+        return make_common_response(result)
+
+    @app.route(path_prefix + "/learner-profile", methods=["GET"])
+    def learner_profile_api():
+        """Return the current user's canonical learning profile."""
+        return make_common_response(get_learner_profile(user_id=request.user.user_id))
+
+    @app.route(path_prefix + "/learner-profile", methods=["PUT"])
+    def update_learner_profile_api():
+        """Replace the current user's canonical learning profile."""
+        payload = _request_json_object("learner_profile")
+        _reject_unknown_fields(
+            payload,
+            allowed_fields={"learner_profile", "nickname"},
+            parameter_name="learner_profile",
+        )
+        learner_profile = payload.get("learner_profile")
+        if not isinstance(learner_profile, str):
+            raise_param_error("learner_profile")
+        nickname = payload.get("nickname")
+        if "nickname" in payload and not isinstance(nickname, str):
+            raise_param_error("nickname")
+        return make_common_response(
+            replace_learner_profile(
+                app,
+                user_id=request.user.user_id,
+                learner_profile=learner_profile,
+                nickname=nickname,
+            )
+        )
+
+    @app.route(path_prefix + "/learner-profile", methods=["DELETE"])
+    def clear_learner_profile_api():
+        """Clear the profile while keeping profile-v2 handled."""
+        return make_common_response(clear_learner_profile(user_id=request.user.user_id))
+
+    @app.route(path_prefix + "/learner-profile/optimize", methods=["POST"])
+    def optimize_learner_profile_api():
+        """Return an LLM-optimized draft without saving profile state."""
+        payload = _request_json_object("learner_profile")
+        _reject_unknown_fields(
+            payload,
+            allowed_fields={"learner_profile"},
+            parameter_name="learner_profile",
+        )
+        learner_profile = payload.get("learner_profile")
+        if not isinstance(learner_profile, str):
+            raise_param_error("learner_profile")
+        with learner_profile_optimization_admission(
+            app,
+            user_id=request.user.user_id,
+        ):
+            result = optimize_learner_profile(
+                app,
+                user_id=request.user.user_id,
+                learner_profile=learner_profile,
+                output_language=getattr(request.user, "language", None),
+            )
         return make_common_response(result)
 
     @app.route(path_prefix + "/require_tmp", methods=["POST"])
@@ -981,6 +1077,24 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         # TODO: Add rate-limiting and failed login attempt tracking
         # (record identifier, request.remote_addr, timestamp on failure)
         auth_result = provider.verify(app, vr)
+        current_user = _best_effort_password_login_user(app)
+        current_user_id = (
+            getattr(current_user, "user_id", None) if current_user is not None else None
+        )
+        if current_user_id and current_user_id != auth_result.user.user_id:
+            merge_learner_profile_for_sign_in(
+                source_user_id=current_user_id,
+                target_user_id=auth_result.user.user_id,
+            )
+            refreshed = load_user_aggregate(auth_result.user.user_id)
+            if not refreshed:
+                raise_error("USER.USER_NOT_FOUND")
+            refreshed_user = build_user_info_from_aggregate(refreshed)
+            auth_result.user = refreshed_user
+            auth_result.token = UserToken(
+                userInfo=refreshed_user,
+                token=auth_result.token.token,
+            )
         db.session.commit()
         run_post_auth_extensions(
             app,

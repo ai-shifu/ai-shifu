@@ -45,6 +45,7 @@ from flaskr.service.resource.models import Resource
 from flaskr.service.shifu.models import DraftShifu
 from flaskr.service.tts.models import (
     TTSMiniMaxClonedVoice,
+    TTS_CLONE_PROVIDER_MINIMAX,
     TTS_MINIMAX_CLONE_BILLING_CHARGED,
     TTS_MINIMAX_CLONE_BILLING_FAILED,
     TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
@@ -539,12 +540,16 @@ def list_minimax_cloned_voices(
     owner_user_bid: str,
     shifu_bid: str = "",
     include_deleted: bool = False,
+    provider: str = "",
 ) -> list[dict[str, Any]]:
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
+    normalized_provider = (provider or "").strip().lower()
     with app.app_context():
         query = TTSMiniMaxClonedVoice.query.filter(
             TTSMiniMaxClonedVoice.owner_user_bid == owner_bid
         )
+        if normalized_provider:
+            query = query.filter(TTSMiniMaxClonedVoice.provider == normalized_provider)
         if shifu_bid:
             query = query.filter(TTSMiniMaxClonedVoice.shifu_bid == shifu_bid)
         if not include_deleted:
@@ -650,6 +655,7 @@ def serialize_minimax_cloned_voice(row: TTSMiniMaxClonedVoice) -> dict[str, Any]
         "owner_user_bid": row.owner_user_bid,
         "shifu_bid": row.shifu_bid,
         "display_name": row.display_name,
+        "provider": row.provider or TTS_CLONE_PROVIDER_MINIMAX,
         "voice_id": row.voice_id,
         "status": row.status,
         "status_msg": row.status_msg or "",

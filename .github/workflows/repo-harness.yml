@@ -2,33 +2,9 @@ name: Repo Harness
 
 on:
   pull_request:
-    paths:
-      - "AGENTS.md"
-      - "ARCHITECTURE.md"
-      - "PLANS.md"
-      - "lefthook.yml"
-      - ".github/**"
-      - ".claude/**"
-      - ".cursor/**"
-      - "docs/**"
-      - "scripts/**"
-      - "src/api/**"
-      - "src/cook-web/src/**"
   push:
     branches:
       - main
-    paths:
-      - "AGENTS.md"
-      - "ARCHITECTURE.md"
-      - "PLANS.md"
-      - "lefthook.yml"
-      - ".github/**"
-      - ".claude/**"
-      - ".cursor/**"
-      - "docs/**"
-      - "scripts/**"
-      - "src/api/**"
-      - "src/cook-web/src/**"
   workflow_dispatch:
 
 permissions:

@@ -60,9 +60,7 @@ def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
             return True
         except Exception as exc:
             try:
-                app.logger.error(
-                    "Usage metering persist failed: %s", exc, exc_info=True
-                )
+                app.logger.exception("Usage metering persist failed: %s", exc)
             except Exception:
                 # Never mask the persistence failure with a logging failure.
                 pass
@@ -112,11 +110,10 @@ def _enqueue_usage_settlement(app: Flask, *, usage_bid: str) -> None:
         task.apply_async(kwargs={"usage_bid": normalized_usage_bid})
     except Exception as exc:
         try:
-            app.logger.error(
+            app.logger.exception(
                 "Usage settlement enqueue failed for usage_bid=%s: %s",
                 normalized_usage_bid,
                 exc,
-                exc_info=True,
             )
         except Exception:
             pass

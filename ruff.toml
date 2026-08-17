@@ -1,0 +1,46 @@
+# Repo-wide Ruff configuration (used by lefthook.yml and .github/workflows/lint.yml).
+#
+# The lint rule set is pinned explicitly. Ruff 0.16 broadened its built-in
+# default rule selection, which would surface thousands of new violations
+# across this repo; pinning keeps the enforced rule set stable and independent
+# of the installed Ruff version. Widening the rule set is a deliberate
+# decision, not a side effect of a version bump.
+#
+# DTZ selection is intentionally partial. The repo's UTC contract (AGENTS.md)
+# stores naive-UTC datetimes and provides `now_utc()` as the sanctioned naive
+# "now", so the rules that demand tz-aware values everywhere (DTZ001 naive
+# datetime(), DTZ007 naive strptime(), DTZ901 datetime.min/max) would fight
+# the house convention -- naive-UTC construction is correct here. The enabled
+# DTZ rules catch only calls whose result depends on the process time zone
+# (now()/today()/utcnow()/fromtimestamp() without tz), which are exactly the
+# UTC-vs-local drifts the contract forbids; use `now_utc()` instead.
+#
+# Other rule groups from ruff 0.16's broadened defaults were evaluated and
+# deliberately left off:
+# - ISC004: every hit is the deliberate long-string wrapping idiom inside
+#   tuples/lists, not a missed comma.
+# - BLE001 / S110 / S112: blind/except-pass handlers are deliberate fail-open
+#   patterns here (moderation, logging, notification side channels).
+# - G001 / G003 / G004: f-string logging is the established house style; the
+#   lazy-%-formatting argument does not outweigh the churn. G201 IS enabled --
+#   `.exception(...)` is strictly equivalent to `.error(..., exc_info=True)`.
+# - SIM* / RUF012 / RUF013 / RUF046 / UP*: style or modernization churn with
+#   no bug-catching value for this codebase today; revisit deliberately.
+
+[lint]
+select = [
+    "E4",
+    "E7",
+    "E9",
+    "F",
+    "DTZ002", # datetime.today()
+    "DTZ003", # datetime.utcnow()
+    "DTZ004", # datetime.utcfromtimestamp()
+    "DTZ005", # datetime.now() without tz
+    "DTZ006", # datetime.fromtimestamp() without tz
+    "DTZ011", # date.today()
+    "DTZ012", # date.fromtimestamp()
+    "EXE",    # shebang vs executable-bit consistency
+    "G201",   # .error(..., exc_info=True) -> .exception(...)
+    "RUF059", # unused unpacked variable
+]

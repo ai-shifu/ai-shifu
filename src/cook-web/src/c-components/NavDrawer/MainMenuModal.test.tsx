@@ -175,64 +175,159 @@ describe('MainMenuModal', () => {
     mockEnvState.loginMethodsEnabled = ['password', 'phone'];
   });
 
-  test('shows set password entry in admin menu and opens the modal', () => {
+  test.each([
+    {
+      scenario: 'non-teacher learner',
+      surface: 'learner' as const,
+      isCreator: false,
+      sceneLabel: 'component.menus.navigationMenus.createCourse',
+      excludedSceneLabels: [
+        'component.menus.navigationMenus.adminConsole',
+        'component.menus.navigationMenus.onboardingGuide',
+      ],
+    },
+    {
+      scenario: 'teacher learner',
+      surface: 'learner' as const,
+      isCreator: true,
+      sceneLabel: 'component.menus.navigationMenus.adminConsole',
+      excludedSceneLabels: [
+        'component.menus.navigationMenus.createCourse',
+        'component.menus.navigationMenus.onboardingGuide',
+      ],
+    },
+    {
+      scenario: 'admin',
+      surface: 'admin' as const,
+      isCreator: false,
+      sceneLabel: 'component.menus.navigationMenus.onboardingGuide',
+      excludedSceneLabels: [
+        'component.menus.navigationMenus.createCourse',
+        'component.menus.navigationMenus.adminConsole',
+      ],
+    },
+  ])(
+    'renders shared rows in order with only the $scenario scene entry',
+    ({ surface, isCreator, sceneLabel, excludedSceneLabels }) => {
+      mockUserStoreState.userInfo = {
+        mobile: '13800000000',
+        email: 'user@example.com',
+        is_creator: isCreator,
+      };
+
+      render(
+        <MainMenuModal
+          open
+          onClose={jest.fn()}
+          onPersonalInfoClick={jest.fn()}
+          surface={surface}
+        />,
+      );
+
+      const personalInfoButton = screen.getByRole('button', {
+        name: 'component.menus.navigationMenus.personalInfo',
+      });
+      const menuText = personalInfoButton.parentElement?.textContent ?? '';
+      const expectedLabels = [
+        'component.menus.navigationMenus.personalInfo',
+        'module.settings.setPassword',
+        sceneLabel,
+        'component.menus.navigationMenus.language',
+        'module.user.logout',
+      ];
+      const positions = expectedLabels.map(label => menuText.indexOf(label));
+
+      expect(positions.every(position => position >= 0)).toBe(true);
+      expect(positions).toEqual([...positions].sort((a, b) => a - b));
+      expect(
+        screen.getByRole('button', { name: 'module.settings.setPassword' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: sceneLabel }),
+      ).toBeInTheDocument();
+      excludedSceneLabels.forEach(excludedSceneLabel => {
+        expect(screen.queryByText(excludedSceneLabel)).not.toBeInTheDocument();
+      });
+    },
+  );
+
+  test('opens set password from the unified admin menu', () => {
     render(
       <MainMenuModal
         open
         onClose={jest.fn()}
-        onBasicInfoClick={jest.fn()}
         onPersonalInfoClick={jest.fn()}
-        isAdmin
+        surface='admin'
       />,
     );
 
     expect(
-      screen.queryByText('component.menus.navigationMenus.personalInfo'),
-    ).not.toBeInTheDocument();
-    expect(
       screen.queryByText('component.menus.navigationMenus.createCourse'),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('module.settings.setPassword'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.settings.setPassword' }),
+    );
 
     expect(screen.getByTestId('set-password-modal')).toBeInTheDocument();
     expect(mockTrackEvent).toHaveBeenCalledWith('USER_MENU_SET_PASSWORD', {});
   });
 
-  test('replays onboarding from the admin menu and closes the modal', () => {
-    const onClose = jest.fn();
+  test.each(['learner', 'admin'] as const)(
+    'shows login instead of logout on the %s surface for guests',
+    surface => {
+      mockUserStoreState.isLoggedIn = false;
+
+      render(
+        <MainMenuModal
+          open
+          onClose={jest.fn()}
+          onPersonalInfoClick={jest.fn()}
+          surface={surface}
+        />,
+      );
+
+      expect(screen.getByText('module.user.login')).toBeInTheDocument();
+      expect(screen.queryByText('module.user.logout')).not.toBeInTheDocument();
+    },
+  );
+
+  test('replays onboarding and closes the admin menu', () => {
+    const calls: string[] = [];
+    const onClose = jest.fn(() => calls.push('close-menu'));
+    mockRequestReplayAll.mockImplementation(() => {
+      calls.push('replay-onboarding');
+    });
 
     render(
       <MainMenuModal
         open
         onClose={onClose}
-        onBasicInfoClick={jest.fn()}
         onPersonalInfoClick={jest.fn()}
-        isAdmin
+        surface='admin'
       />,
     );
 
-    fireEvent.click(screen.getByText('module.onboarding.common.replay'));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'component.menus.navigationMenus.onboardingGuide',
+      }),
+    );
 
+    expect(calls).toEqual(['replay-onboarding', 'close-menu']);
     expect(mockRequestReplayAll).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  test('hides set password entry in admin menu when no password login or contact method is available', () => {
+  test('hides set password entry when password login is unavailable', () => {
     mockEnvState.loginMethodsEnabled = ['phone'];
-    mockUserStoreState.userInfo = {
-      mobile: '',
-      email: '',
-      is_creator: false,
-    };
 
     render(
       <MainMenuModal
         open
         onClose={jest.fn()}
-        onBasicInfoClick={jest.fn()}
         onPersonalInfoClick={jest.fn()}
-        isAdmin
+        surface='admin'
       />,
     );
 
@@ -252,14 +347,35 @@ describe('MainMenuModal', () => {
       <MainMenuModal
         open
         onClose={jest.fn()}
-        onBasicInfoClick={jest.fn()}
         onPersonalInfoClick={jest.fn()}
-        isAdmin
+        surface='admin'
       />,
     );
 
     expect(
       screen.queryByText('module.settings.setPassword'),
     ).not.toBeInTheDocument();
+  });
+
+  test('closes the menu before opening personalization settings', () => {
+    const calls: string[] = [];
+
+    render(
+      <MainMenuModal
+        open
+        onClose={() => calls.push('close-menu')}
+        onPersonalInfoClick={() => calls.push('open-profile')}
+        surface='admin'
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'component.menus.navigationMenus.personalInfo',
+      }),
+    );
+
+    expect(calls).toEqual(['close-menu', 'open-profile']);
+    expect(mockTrackEvent).toHaveBeenCalledWith('USER_MENU_PERSONALIZED', {});
   });
 });

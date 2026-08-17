@@ -103,10 +103,14 @@ from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
 )
+from flaskr.service.tts.api import (
+    find_ready_cloned_voice,
+    find_tracked_cloned_voice,
+    get_clone_provider_spec,
+)
 from flaskr.service.tts.models import (
     AUDIO_STATUS_COMPLETED,
     LearnGeneratedAudio,
-    TTSMiniMaxClonedVoice,
     TTS_MINIMAX_CLONE_STATUS_READY,
 )
 from flaskr.service.tts.pipeline import split_text_for_tts
@@ -739,16 +743,22 @@ def _resolve_runtime_tts_voice_id(
 ) -> str:
     """Return a voice id that is safe to send to the provider at runtime.
 
-    MiniMax accepts user-defined clone IDs that share the same character shape as
-    historical built-in voices. A stale DB value can therefore pass local shape
-    validation and fail only after the external API call with `2054 - voice id not
-    exist`. For learner-facing audio generation, keep built-in voices and clone
-    IDs that are verified by a ready local row, while falling back when this
-    shifu explicitly points at a local cloned voice row that is not ready yet.
+    Cloned voice ids share the character shape of built-in ids, so a stale DB
+    value can pass local shape validation and fail only after the external API
+    call (e.g. MiniMax `2054 - voice id not exist`). For learner-facing audio
+    generation, keep built-in voices and clone ids that are verified by a ready
+    local row, while falling back when this shifu explicitly points at a local
+    cloned voice row that is not ready yet.
+
+    Note: when this shifu tracks no row for the id, any ready clone row of the
+    same provider lets it through regardless of owner. Operator-registered rows
+    carry an empty shifu_bid, so this global fallback is what makes them usable
+    in courses; it knowingly skips owner scoping at runtime (unlike preview)
+    and tightening it is tracked separately.
     """
     normalized_provider = (provider or "").strip().lower()
     normalized_voice_id = (voice_id or "").strip()
-    if normalized_provider != "minimax" or not normalized_voice_id:
+    if get_clone_provider_spec(normalized_provider) is None or not normalized_voice_id:
         return normalized_voice_id
 
     provider_config = get_tts_provider(normalized_provider).get_provider_config()
@@ -764,32 +774,24 @@ def _resolve_runtime_tts_voice_id(
     # accept it when the latest row is ready. This prevents preview/runtime
     # from trying to use a clone that is still queued or has already failed.
     normalized_shifu_bid = (shifu_bid or "").strip()
-    cloned_voice = (
-        TTSMiniMaxClonedVoice.query.filter(
-            TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
-            TTSMiniMaxClonedVoice.shifu_bid == normalized_shifu_bid,
-            TTSMiniMaxClonedVoice.deleted == 0,
-        )
-        .order_by(TTSMiniMaxClonedVoice.id.desc())
-        .first()
+    cloned_voice = find_tracked_cloned_voice(
+        provider=normalized_provider,
+        voice_id=normalized_voice_id,
+        shifu_bid=normalized_shifu_bid,
     )
     if cloned_voice and cloned_voice.status == TTS_MINIMAX_CLONE_STATUS_READY:
         return normalized_voice_id
     if cloned_voice:
         app.logger.warning(
-            "MiniMax TTS voice_id %s for shifu %s is tracked locally but not ready; falling back to a default voice",
+            "%s TTS voice_id %s for shifu %s is tracked locally but not ready; falling back to a default voice",
+            normalized_provider,
             normalized_voice_id,
             normalized_shifu_bid,
         )
     else:
-        ready_clone = (
-            TTSMiniMaxClonedVoice.query.filter(
-                TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
-                TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
-                TTSMiniMaxClonedVoice.deleted == 0,
-            )
-            .order_by(TTSMiniMaxClonedVoice.id.desc())
-            .first()
+        ready_clone = find_ready_cloned_voice(
+            provider=normalized_provider,
+            voice_id=normalized_voice_id,
         )
         if ready_clone:
             return normalized_voice_id
@@ -799,7 +801,8 @@ def _resolve_runtime_tts_voice_id(
     if not fallback_voice_id and built_in_voice_ids:
         fallback_voice_id = sorted(built_in_voice_ids)[0]
     app.logger.warning(
-        "MiniMax TTS voice_id %s is not a current built-in voice or ready cloned voice; falling back to %s",
+        "%s TTS voice_id %s is not a current built-in voice or ready cloned voice; falling back to %s",
+        normalized_provider,
         normalized_voice_id,
         fallback_voice_id,
     )
@@ -1008,7 +1011,7 @@ def _yield_with_tts_error_mapping(
         app.logger.warning("%s: %s", unknown_error_log, exc)
         raise_error("server.learn.ttsRateLimited")
     except Exception:
-        app.logger.error(unknown_error_log, exc_info=True)
+        app.logger.exception(unknown_error_log)
         raise_error("server.common.unknownError")
 
 

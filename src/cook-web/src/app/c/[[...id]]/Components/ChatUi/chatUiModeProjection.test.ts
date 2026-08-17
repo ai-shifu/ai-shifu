@@ -144,6 +144,205 @@ describe('chatUiModeProjection', () => {
     expect(slideItem.payload?.audio).toBeDefined();
   });
 
+  it('projects answer feedback as listen-mode narration without reading the learner input', () => {
+    const items: ChatContentItem[] = [
+      {
+        type: ChatContentItemType.INTERACTION,
+        element_bid: 'interaction-1',
+        content: '?[%{{choice}} A | B]',
+        is_renderable: false,
+      },
+      {
+        type: ChatContentItemType.ASK,
+        element_bid: '',
+        parent_element_bid: 'interaction-1',
+        content: '',
+        ask_list: [
+          {
+            type: ChatContentItemType.ASK,
+            element_bid: 'learner-answer-1',
+            generated_block_bid: 'learner-answer-generated-1',
+            content: 'A',
+          },
+          {
+            type: 'answer',
+            element_bid: 'feedback-answer-1',
+            generated_block_bid: 'feedback-generated-1',
+            content: '答对了，继续看下一个坑。',
+          },
+        ],
+      },
+    ];
+
+    const projectedItems = projectListenModeItems({
+      items,
+      askButtonMarkup,
+    });
+
+    expect(projectedItems.map(item => item.element_bid)).toEqual([
+      'interaction-1',
+      '',
+      'feedback-answer-1',
+    ]);
+    expect(projectedItems[2]).toEqual(
+      expect.objectContaining({
+        type: ChatContentItemType.CONTENT,
+        element_type: 'text',
+        generated_block_bid: 'feedback-generated-1',
+        content: '答对了，继续看下一个坑。',
+        is_speakable: true,
+        listenAudioBackfillMode: 'block',
+      }),
+    );
+  });
+
+  it('projects stored live interaction answer feedback as listen-mode narration', () => {
+    const items: ChatContentItem[] = [
+      {
+        type: ChatContentItemType.INTERACTION,
+        element_bid: 'interaction-1',
+        content: '?[%{{choice}} A | B]',
+        is_renderable: false,
+      },
+      {
+        type: ChatContentItemType.ASK,
+        element_bid: '',
+        parent_element_bid: 'interaction-1',
+        content: '',
+        ask_list: [],
+      },
+    ];
+
+    const projectedItems = projectListenModeItems({
+      items,
+      askButtonMarkup,
+      askListByAnchorElementBid: {
+        'interaction-1': [
+          {
+            type: ChatContentItemType.ASK,
+            element_bid: 'learner-answer-1',
+            generated_block_bid: 'learner-answer-generated-1',
+            content: 'A',
+          },
+          {
+            type: 'answer',
+            element_bid: 'feedback-answer-1',
+            generated_block_bid: 'feedback-generated-1',
+            content: '答对了，继续看下一个坑。',
+          },
+        ],
+      },
+    });
+
+    expect(projectedItems.map(item => item.element_bid)).toEqual([
+      'interaction-1',
+      '',
+      'feedback-answer-1',
+    ]);
+    expect(projectedItems[2]).toEqual(
+      expect.objectContaining({
+        listenAudioBackfillMode: 'block',
+      }),
+    );
+  });
+
+  it('prefers hydrated interaction feedback when embedded ask list is stale', () => {
+    const items: ChatContentItem[] = [
+      {
+        type: ChatContentItemType.INTERACTION,
+        element_bid: 'interaction-1',
+        content: '?[%{{choice}} A | B]',
+        is_renderable: false,
+      },
+      {
+        type: ChatContentItemType.ASK,
+        element_bid: '',
+        parent_element_bid: 'interaction-1',
+        content: '',
+        ask_list: [
+          {
+            type: 'answer',
+            element_bid: 'feedback-answer-1',
+            generated_block_bid: 'feedback-generated-1',
+            content: '答对了，继续看下一个坑。',
+          },
+        ],
+      },
+    ];
+
+    const projectedItems = projectListenModeItems({
+      items,
+      askButtonMarkup,
+      askListByAnchorElementBid: {
+        'interaction-1': [
+          {
+            type: 'answer',
+            element_bid: 'feedback-answer-1',
+            generated_block_bid: 'feedback-generated-1',
+            content: '答对了，继续看下一个坑。',
+            audioUrl: '/feedback.mp3',
+            isAudioBackfillReady: false,
+            listenAudioBackfillMode: 'block',
+          },
+        ],
+      },
+    });
+
+    expect(projectedItems[2]).toEqual(
+      expect.objectContaining({
+        element_bid: 'feedback-answer-1',
+        audioUrl: '/feedback.mp3',
+        isAudioBackfillReady: false,
+        listenAudioBackfillMode: 'block',
+      }),
+    );
+  });
+
+  it('does not project regular follow-up answers as listen-mode narration', () => {
+    const items: ChatContentItem[] = [
+      {
+        type: ChatContentItemType.CONTENT,
+        element_bid: 'content-1',
+        element_type: 'text',
+        content: 'Main lesson content',
+        is_renderable: true,
+      },
+      {
+        type: ChatContentItemType.ASK,
+        element_bid: '',
+        parent_element_bid: 'content-1',
+        content: '',
+        ask_list: [
+          {
+            type: ChatContentItemType.ASK,
+            element_bid: 'follow-up-ask-1',
+            generated_block_bid: 'follow-up-ask-generated-1',
+            content: 'Can you explain this again?',
+          },
+          {
+            type: 'answer',
+            element_bid: 'follow-up-answer-1',
+            generated_block_bid: 'follow-up-answer-generated-1',
+            content: 'Sure, here is a follow-up explanation.',
+          },
+        ],
+      },
+    ];
+
+    const projectedItems = projectListenModeItems({
+      items,
+      askButtonMarkup,
+    });
+
+    expect(projectedItems.map(item => item.element_bid)).toEqual([
+      'content-1',
+      '',
+    ]);
+    expect(
+      projectedItems.some(item => item.element_bid === 'follow-up-answer-1'),
+    ).toBe(false);
+  });
+
   it('filters classroom projection to visual content and interactions', () => {
     const items: ChatContentItem[] = [
       {

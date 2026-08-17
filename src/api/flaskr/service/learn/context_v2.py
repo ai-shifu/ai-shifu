@@ -78,7 +78,7 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_NORMAL,
 )
 
-from flaskr.service.user.repository import UserAggregate
+from flaskr.service.user.repository import UserAggregate, load_user_aggregate
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.util import generate_id
 from flaskr.service.profile.funcs import get_user_profiles
@@ -92,6 +92,9 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.service.learn.handle_input_ask import handle_input_ask
+from flaskr.service.learn.learner_profile_prompt import (
+    build_course_prompt,
+)
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
@@ -809,7 +812,12 @@ class RunScriptPreviewContextV2:
         outline = self._get_outline_record(shifu_bid, outline_bid)
         shifu = self._get_shifu_record(shifu_bid, True)
         document_prompt = self._resolve_document_prompt(
-            preview_request, outline, shifu, shifu_bid, outline_bid
+            preview_request,
+            outline,
+            shifu,
+            shifu_bid,
+            outline_bid,
+            user_bid,
         )
         self.app.logger.info(
             "preview document prompt | shifu_bid=%s | outline_bid=%s | prompt=%s",
@@ -1246,25 +1254,51 @@ class RunScriptPreviewContextV2:
         shifu: Optional[DraftShifu | PublishedShifu],
         shifu_bid: str,
         outline_bid: str,
+        user_bid: str,
     ) -> Optional[str]:
+        course_prompt: str | None = None
         if preview_request.document_prompt:
             prompt = preview_request.document_prompt.strip()
             if prompt:
-                return prompt
+                course_prompt = prompt
 
-        prompt = self._resolve_prompt_from_outline_chain(
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            outline_record=outline,
-        )
-        if prompt:
-            return prompt
+        if not course_prompt:
+            course_prompt = self._resolve_prompt_from_outline_chain(
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                outline_record=outline,
+            )
 
-        if shifu:
+        if not course_prompt and shifu:
             prompt = (getattr(shifu, "llm_system_prompt", None) or "").strip()
             if prompt:
-                return prompt
-        return None
+                course_prompt = prompt
+
+        if not course_prompt:
+            return course_prompt
+
+        learner = self._load_learner_for_course_prompt(user_bid)
+        return build_course_prompt(course_prompt, learner=learner)
+
+    def _load_learner_for_course_prompt(
+        self,
+        user_bid: str,
+    ) -> UserAggregate | None:
+        try:
+            return load_user_aggregate(user_bid, with_credentials=False)
+        except Exception as exc:  # noqa: BLE001 - preview must survive lookup failures
+            cleanup_session_after(
+                exc,
+                source="preview learner profile lookup",
+                session=db.session,
+            )
+            self.app.logger.warning(
+                "learner lookup failed for preview course prompt | "
+                "user_bid=%s | error_class=%s",
+                user_bid,
+                type(exc).__name__,
+            )
+            return None
 
     def _resolve_prompt_from_outline_chain(
         self,
@@ -3552,7 +3586,7 @@ class RunScriptContextV2:
     def has_next(self) -> bool:
         return self._can_continue
 
-    def get_system_prompt(self, outline_item_bid: str) -> str:
+    def get_system_prompt(self, outline_item_bid: str) -> str | None:
         path = _find_outline_path_or_raise(self._struct, outline_item_bid)
         path = list(reversed(path))
         outline_ids = [item.id for item in path if item.type == "outline"]
@@ -3566,6 +3600,7 @@ class RunScriptContextV2:
         outline_item_info_map: dict[
             str, Union[DraftOutlineItem, PublishedOutlineItem]
         ] = {o.id: o for o in outline_item_info_db}
+        course_prompt: str | None = None
         for id in outline_ids:
             outline_item_info = outline_item_info_map.get(id, None)
             if (
@@ -3576,22 +3611,27 @@ class RunScriptContextV2:
                 self.app.logger.info(
                     f"outline_item_info.llm_system_prompt: {outline_item_info.llm_system_prompt}"
                 )
-                return outline_item_info.llm_system_prompt
-        shifu_info_db: Union[DraftShifu, PublishedShifu] = (
-            self._shifu_model.query.filter(
-                self._shifu_model.id.in_(shifu_ids),
-                self._shifu_model.deleted == 0,
+                course_prompt = outline_item_info.llm_system_prompt
+                break
+
+        if not course_prompt:
+            shifu_info_db: Union[DraftShifu, PublishedShifu] = (
+                self._shifu_model.query.filter(
+                    self._shifu_model.id.in_(shifu_ids),
+                    self._shifu_model.deleted == 0,
+                )
+                .order_by(self._shifu_model.id.desc())
+                .first()
             )
-            .order_by(self._shifu_model.id.desc())
-            .first()
-        )
-        self.app.logger.info(f"shifu_info_db: {shifu_info_db}")
-        if shifu_info_db and shifu_info_db.llm_system_prompt:
-            self.app.logger.info(
-                f"shifu_info_db.llm_system_prompt: {shifu_info_db.llm_system_prompt}"
-            )
-            return shifu_info_db.llm_system_prompt
-        return None
+            self.app.logger.info(f"shifu_info_db: {shifu_info_db}")
+            if shifu_info_db and shifu_info_db.llm_system_prompt:
+                self.app.logger.info(
+                    "shifu_info_db.llm_system_prompt: "
+                    f"{shifu_info_db.llm_system_prompt}"
+                )
+                course_prompt = shifu_info_db.llm_system_prompt
+
+        return build_course_prompt(course_prompt, learner=self._user_info)
 
     def get_llm_settings(self, outline_bid: str) -> LLMSettings:
         path = _find_outline_path_or_raise(self._struct, outline_bid)

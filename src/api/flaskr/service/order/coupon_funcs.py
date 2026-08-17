@@ -15,11 +15,10 @@ from flaskr.service.promo.api import (
 )
 from flaskr.service.common import raise_error
 from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
 from flaskr.api.doc.feishu import send_notify
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.repository import load_user_aggregate
-import pytz
-from datetime import datetime
 import json
 from flaskr.dao import db
 import decimal
@@ -151,8 +150,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         raise_error: If the coupon code is not found or the coupon is already used
     """
     with app.app_context():
-        bj_time = pytz.timezone("Asia/Shanghai")
-        now = datetime.fromtimestamp(datetime.now().timestamp(), bj_time)
+        now = now_utc()
         buy_record: Order = Order.query.filter(Order.order_bid == order_id).first()
         if not buy_record:
             raise_error("server.order.orderNotFound")
@@ -218,14 +216,10 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
 
         if coupon_usage.status != COUPON_STATUS_ACTIVE:
             raise_error("server.discount.discountAlreadyUsed")
-        coupon_start = bj_time.localize(coupon.start)
-        coupon_end = bj_time.localize(coupon.end)
-        if coupon_start > now:
+        if coupon.start > now:
             raise_error("server.discount.discountNotStart")
-        if coupon_end < now:
-            app.logger.info(
-                "coupon_end < now:{} {} {}".format(coupon_end, now, coupon_end < now)
-            )
+        if coupon.end < now:
+            app.logger.info("coupon expired: end={} now={}".format(coupon.end, now))
             raise_error("server.discount.discountAlreadyExpired")
         if coupon.used_count + 1 > coupon.total_count:
             raise_error("server.discount.discountLimitExceeded")

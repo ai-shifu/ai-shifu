@@ -11,6 +11,7 @@ from flask import Flask
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.util.datetime import now_utc
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
@@ -138,17 +139,22 @@ def verify_email_code(
         if not target_aggregate and origin_aggregate:
             target_aggregate = origin_aggregate
 
-        if (
-            target_aggregate
-            and user_id
-            and target_aggregate.user_bid != user_id
-            and course_id is not None
-        ):
-            new_profiles = get_user_profile_labels(app, user_id, course_id)
-            update_user_profile_with_lable(
-                app, target_aggregate.user_bid, new_profiles, False, course_id
+        if target_aggregate and user_id and target_aggregate.user_bid != user_id:
+            include_legacy_nickname = merge_learner_profile_for_sign_in(
+                source_user_id=user_id,
+                target_user_id=target_aggregate.user_bid,
             )
-            if origin_aggregate:
+            if course_id is not None:
+                new_profiles = get_user_profile_labels(
+                    app,
+                    user_id,
+                    course_id,
+                    include_nickname=include_legacy_nickname,
+                )
+                update_user_profile_with_lable(
+                    app, target_aggregate.user_bid, new_profiles, False, course_id
+                )
+            if origin_aggregate and course_id is not None:
                 migrate_user_study_record(
                     app,
                     origin_aggregate.user_bid,

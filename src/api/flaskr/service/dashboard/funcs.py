@@ -1524,7 +1524,7 @@ def build_dashboard_entry(
         if parsed_start is None and parsed_end is None:
             start_dt, end_dt_exclusive = None, None
         else:
-            resolved_end = parsed_end or date.today()
+            resolved_end = parsed_end or now_utc().date()
             resolved_start = parsed_start or (resolved_end - timedelta(days=13))
             if resolved_start > resolved_end:
                 raise_param_error("start_date must be <= end_date")

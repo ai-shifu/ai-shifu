@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from flaskr.util.datetime import now_utc
 from decimal import Decimal
 
 import pytest
@@ -575,8 +576,8 @@ def test_operator_referral_campaign_rejects_enabling_ended_campaign(referral_app
             operator_user_bid="operator-1",
             payload=_payload(
                 enabled=False,
-                starts_at=(datetime.now() - timedelta(days=60)).isoformat(),
-                ends_at=(datetime.now() - timedelta(days=1)).isoformat(),
+                starts_at=(now_utc() - timedelta(days=60)).isoformat(),
+                ends_at=(now_utc() - timedelta(days=1)).isoformat(),
             ),
         )
 

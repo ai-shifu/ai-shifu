@@ -17,6 +17,16 @@ from flaskr.service.tts.minimax_voice_clone import (
     serialize_minimax_cloned_voice,
     submit_minimax_voice_clone,
 )
+from flaskr.service.tts.cloned_voice_registry import (
+    find_ready_cloned_voice,
+    find_tracked_cloned_voice,
+    get_clone_provider_spec,
+    supports_cloned_voices,
+)
+from flaskr.service.tts.volcengine_voice_clone import (
+    is_valid_volcengine_custom_voice_id,
+    verify_volcengine_voice_id,
+)
 
 
 def create_streaming_tts_processor(**kwargs):
@@ -31,13 +41,19 @@ __all__ = [
     "build_av_segmentation_contract",
     "create_streaming_tts_processor",
     "delete_minimax_cloned_voice",
+    "find_ready_cloned_voice",
+    "find_tracked_cloned_voice",
+    "get_clone_provider_spec",
     "get_minimax_cloned_voice",
+    "supports_cloned_voices",
     "is_valid_minimax_custom_voice_id",
+    "is_valid_volcengine_custom_voice_id",
     "list_minimax_cloned_voices",
     "normalize_subtitle_cues",
     "retry_minimax_voice_clone",
     "run_minimax_voice_clone",
     "serialize_minimax_cloned_voice",
     "submit_minimax_voice_clone",
+    "verify_volcengine_voice_id",
     "TTSRpmQueueTimeout",
 ]

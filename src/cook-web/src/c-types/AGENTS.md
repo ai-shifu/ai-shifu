@@ -12,8 +12,7 @@ domain-specific frontend ownership.
   across the `c` experience.
 
 - Representative files in this subtree: `src/cook-web/src/c-types/index.ts`,
-  `src/cook-web/src/c-types/store.ts`, `src/cook-web/src/c-types/sse.d.ts`,
-  `src/cook-web/src/c-types/user-roles.ts`
+  `src/cook-web/src/c-types/store.ts`, `src/cook-web/src/c-types/sse.d.ts`
 
 - Keep durable frontend rules here only when they are more specific than the
   Cook Web-wide guidance in the parent directory.

@@ -16,8 +16,7 @@ description: 当 learner 端听课模式需要接入 markdown-flow-ui 的移动�
 - 若 `markdown-flow-ui` 发布版类型暂未同步，使用 `src/cook-web/src/types/markdown-flow-ui.d.ts` 做最小化 module augmentation，避免覆盖上游完整声明。
 - 课程级展示信息优先复用 `useCourseStore`，章节/课时标题优先复用当前 `lessonTitle` 或 `sectionTitle`，不要在聊天组件里重复请求课程信息。
 - 当移动端 learner header 需要与 fullscreen header 对齐头像/课程标题时，优先直接复用 `useCourseStore` 的 `courseAvatar/courseName`，并把 header 高度抽成共享 CSS 变量，避免 `page`、`NavDrawer`、`ChatUi` 各自写死不同高度。
-- 当移动端 learner header 需要切换学习模式时，优先使用常驻的内联 segmented switch，而不是额外的图标下拉菜单；短文案要走 `module.chat` 下的独立 i18n key（例如“听 / 读”），并把 `BETA` 徽标挂在“听”按钮的右上角。
-- learner header 里的 `BETA` 徽标若需要视觉升级，优先在共享 `HeaderBetaBadge` 组件内统一处理，并复用主题色变量 `primary / base-primary-foreground`、统一圆角与 shadow token，不要在 `LearningModeSwitch` 或其他 header 调用方各自写一份 badge 样式。
+- 当移动端 learner header 需要切换学习模式时，优先使用常驻的内联 segmented switch，而不是额外的图标下拉菜单；短文案要走 `module.chat` 下的独立 i18n key（例如“听 / 读”）。当前 `LearningModeSwitch` 是不带状态徽标的统一实现，不要假设 learner header 仍有 `BETA` badge；若产品重新要求状态标记，应在现有共享开关内设计并补齐测试，而不是引用已经删除的 badge 组件。
 - 当 learner header 的学习模式 segmented switch 需要调整“读 / 听”的左右顺序时，优先修改共享 `learningModeOptions` 中的选项顺序，让移动端和桌面端一起复用同一套展示顺序，不要在单个组件里额外写条件分支。
 - 当桌面端 learner header 也需要展示课程信息或学习模式切换时，优先直接复用移动端已经抽好的共享头部组件与 segmented switch，不要再单独维护一套桌面端按钮文案、图标按钮或课程标题样式。
 - 当桌面端顶部 header 已经展示课程信息时，左侧 nav drawer 不要再重复渲染课程头像和课程标题；若桌面端 segmented switch 视觉偏小，优先通过共享开关组件增加桌面尺寸变体，而不是再派生一套桌面专用按钮实现。

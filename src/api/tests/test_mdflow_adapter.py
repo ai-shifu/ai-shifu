@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from flaskr.util.datetime import now_utc
 from decimal import Decimal
 
 import pytest
@@ -71,7 +72,7 @@ def _add_outline_version(
             ask_llm_system_prompt="",
             deleted=0,
             updated_user_bid=updated_user_bid,
-            updated_at=datetime.now() + timedelta(minutes=minutes_offset),
+            updated_at=now_utc() + timedelta(minutes=minutes_offset),
             created_user_bid=updated_user_bid,
         )
         db.session.add(item)
@@ -198,7 +199,7 @@ def test_draft_meta_revision_stays_stable_for_metadata_only_updates(app):
             content="Stable content",
             updated_user_bid="user-meta-1",
             created_user_bid="user-meta-1",
-            updated_at=datetime.now(),
+            updated_at=now_utc(),
         )
         db.session.add(first)
         db.session.commit()
@@ -208,7 +209,7 @@ def test_draft_meta_revision_stays_stable_for_metadata_only_updates(app):
         second.title = "Outline V2"
         second.position = "02"
         second.updated_user_bid = "user-meta-2"
-        second.updated_at = datetime.now() + timedelta(minutes=1)
+        second.updated_at = now_utc() + timedelta(minutes=1)
         db.session.add(second)
         db.session.commit()
 
@@ -242,7 +243,7 @@ def test_save_shifu_mdflow_conflicts_when_outline_deleted(app):
         deleted_version = latest.clone()
         deleted_version.deleted = 1
         deleted_version.updated_user_bid = "user-delete-1"
-        deleted_version.updated_at = datetime.now() + timedelta(minutes=1)
+        deleted_version.updated_at = now_utc() + timedelta(minutes=1)
         db.session.add(deleted_version)
         db.session.commit()
         deleted_revision = int(deleted_version.id)
@@ -377,7 +378,7 @@ def test_save_shifu_mdflow_serializes_with_outline_structure_writes(app, monkeyp
         reordered.parent_bid = "parent-new"
         reordered.position = "0101"
         reordered.updated_user_bid = "user-structure-lock-1"
-        reordered.updated_at = datetime.now() + timedelta(minutes=1)
+        reordered.updated_at = now_utc() + timedelta(minutes=1)
         db.session.add(reordered)
         db.session.commit()
 
@@ -460,7 +461,7 @@ def test_save_shifu_mdflow_rereads_outline_after_risk_control_commit(app, monkey
             reordered.parent_bid = "parent-new"
             reordered.position = "0101"
             reordered.updated_user_bid = "user-risk-commit-1"
-            reordered.updated_at = datetime.now() + timedelta(minutes=1)
+            reordered.updated_at = now_utc() + timedelta(minutes=1)
             db.session.add(reordered)
             db.session.commit()
 

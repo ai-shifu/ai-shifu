@@ -508,7 +508,7 @@ Return cloned voices using a small DTO:
 ```json
 {
   "voice_bid": "voice_8f4c2a6b91d4",
-  "voice_id": "AiShifu_abcd_20260618_x1",
+  "voice_id": "AiShifu_xxxxxxxxxx",
   "display_name": "Teacher Zhang",
   "provider": "minimax",
   "status": "ready",

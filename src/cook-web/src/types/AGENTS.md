@@ -11,8 +11,7 @@ domain-specific frontend ownership.
 - This domain owns shared TypeScript declarations, ambient module definitions,
   and cross-domain frontend interfaces.
 
-- Representative files in this subtree: `src/cook-web/src/types/global.ts`,
-  `src/cook-web/src/types/shifu.ts`,
+- Representative files in this subtree: `src/cook-web/src/types/shifu.ts`,
   `src/cook-web/src/types/markdown-flow-ui.d.ts`,
   `src/cook-web/src/types/i18n-keys.d.ts`
 

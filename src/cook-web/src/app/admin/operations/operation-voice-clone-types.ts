@@ -1,6 +1,7 @@
 export type AdminOperationVoiceCloneItem = {
   voice_bid: string;
   display_name: string;
+  provider: string;
   voice_id: string;
   owner_user_bid: string;
   owner_mobile: string;
@@ -42,6 +43,7 @@ export type AdminOperationVoiceCloneListResponse = {
 };
 
 export type AdminOperationVoiceCloneFilters = {
+  provider: string;
   status: string;
   failure_reason: string;
   billing_status: string;
@@ -57,4 +59,8 @@ export type AdminOperationVoiceCloneRegisterRequest = {
   owner_user_bid: string;
   display_name: string;
   voice_id: string;
+  provider: string;
 };
+
+export const VOICE_CLONE_PROVIDERS = ['minimax', 'volcengine'] as const;
+export type VoiceCloneProvider = (typeof VOICE_CLONE_PROVIDERS)[number];
