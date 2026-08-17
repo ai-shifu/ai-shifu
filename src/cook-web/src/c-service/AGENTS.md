@@ -8,12 +8,11 @@ domain-specific frontend ownership.
 
 ## Scope
 
-- This domain owns legacy business orchestration for shifu, shortcuts, and
-  state transform helpers consumed by the `c` experience.
+- This domain owns legacy business orchestration for shifu and state transform
+  helpers consumed by the `c` experience.
 
 - Representative files in this subtree: `src/cook-web/src/c-service/Shifu.ts`,
   `src/cook-web/src/c-service/shifuUtils.ts`,
-  `src/cook-web/src/c-service/shortcut.ts`,
   `src/cook-web/src/c-service/storeUtil.ts`
 
 - Keep durable frontend rules here only when they are more specific than the
@@ -38,8 +37,8 @@ domain-specific frontend ownership.
 
 ## Avoid
 
-- Do not duplicate shifu or shortcut transformations in pages when this
-  service layer already owns them.
+- Do not duplicate shifu or state transformations in pages when this service
+  layer already owns them.
 
 - Do not move compatibility behavior into modern domains without a clear
   migration plan and adapter.

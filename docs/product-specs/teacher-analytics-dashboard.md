@@ -2,7 +2,7 @@
 title: Teacher Analytics Dashboard (v1)
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-04-17
+last_reviewed: 2026-08-16
 canonical: true
 ---
 
@@ -10,7 +10,7 @@ canonical: true
 
 ## Background
 
-AI-Shifu already stores rich learning and conversation data for a published course (Shifu). This document proposes a **teacher-facing dashboard** (initial integration) to help course creators/collaborators understand:
+AI-Shifu stores rich learning and conversation data for a published course (Shifu). The implemented **teacher-facing dashboard** helps course owners and collaborators understand:
 
 1. Learner progress
 2. Course completion
@@ -18,13 +18,12 @@ AI-Shifu already stores rich learning and conversation data for a published cour
 4. Learner personalization (profiles/variables)
 5. Follow-up details (Q/A logs)
 
-Requirements:
+The current implementation:
 
 - Provide **detailed views** (tables + drill-down per learner)
-- Provide **chart analysis** (ECharts)
-- Frontend chart library: **`echarts` + `echarts-for-react`**
+- Present aggregate values as reusable metric cards
+- Present courses, learners, follow-ups, and ratings through filterable, paginated tables
 - Prefer **additive changes** with minimal disturbance to existing business logic
-- Make chart components **wrappable/composable** for future reuse
 
 ## What We Have Today (Relevant Data Sources)
 
@@ -102,17 +101,20 @@ Optional later:
 - `in_progress_outline_count`
 - `progress_percent = completed / total` (0..1)
 - `last_active_at = max(updated_at)` across latest progress records
-- `follow_up_ask_count = count(MDASK)` (time-range aware for charting; total for per-learner)
+- `follow_up_ask_count = count(MDASK)` (time-range aware for filtered lists; total for per-learner)
 
 ### Course-level overview
 
 - `learner_count`
 - `completion_count` (learners with `completed == total`)
 - `completion_rate`
-- `progress_distribution` (bucketed)
-- `follow_up_trend` (daily count within date range)
-- `top_outlines_by_follow_ups`
-- `top_learners_by_follow_ups`
+- `order_count`
+- `order_amount`
+- `new_learner_count_last_7_days`
+- `learning_learner_count`
+- `active_learner_count_last_7_days`
+- `total_follow_up_count`
+- `rating_score`
 
 ## Backend Design
 
@@ -133,41 +135,28 @@ Teacher dashboard must be restricted:
 - Require Shifu permission:
   - `shifu_permission_verification(app, request.user.user_id, shifu_bid, "view")`
 
-### Proposed endpoints (V1)
+### Implemented endpoints (V1)
 
-All endpoints under `/api/dashboard`, additive to avoid disturbing existing routes.
+All endpoints live under `/api/dashboard` and are additive to existing routes.
 
-1. `GET /api/dashboard/shifus/{shifu_bid}/outlines`
-   - Returns published outline list used for progress calculation and filtering.
+1. `GET /api/dashboard/entry`
+   - Returns summary cards and a paginated course table.
+   - Supports course keyword and last-active date filters.
 
-2. `GET /api/dashboard/shifus/{shifu_bid}/overview`
-   - Query params:
-     - `start_date` (YYYY-MM-DD, optional)
-     - `end_date` (YYYY-MM-DD, optional)
-     - `include_trial` / `include_guest` (optional)
-   - Returns KPI + chart-ready series (daily arrays, top-N arrays, buckets).
+2. `GET /api/dashboard/shifus/{shifu_bid}/detail`
+   - Returns course basics and aggregate metrics for the metric-card grid.
 
 3. `GET /api/dashboard/shifus/{shifu_bid}/learners`
-   - Query params:
-     - `page_index` (default 1)
-     - `page_size` (default 20, max 100)
-     - `keyword` (optional; matches user_bid / mobile / nickname)
-     - `sort` (optional; e.g. `last_active_at_desc`, `progress_desc`, `followups_desc`)
-   - Returns paginated learner summaries.
+   - Returns filterable, paginated learner summaries.
 
-4. `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}`
-   - Returns:
-     - outline progress statuses (per outline)
-     - learner core info
-     - learner course-scoped variables (from `get_user_profiles`)
-     - follow-up aggregates (count by outline, recent items)
+4. `GET /api/dashboard/shifus/{shifu_bid}/follow-ups`
+   - Returns summary cards and a filterable, paginated follow-up table.
 
-5. `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}/followups`
-   - Query params:
-     - `outline_item_bid` (optional filter)
-     - `start_time`, `end_time` (optional, ISO or `YYYY-MM-DD`)
-     - `page_index`, `page_size`
-   - Returns follow-up items (question/answer, timestamps, outline info).
+5. `GET /api/dashboard/shifus/{shifu_bid}/follow-ups/{generated_block_bid}/detail`
+   - Returns the selected follow-up, its answer, and the surrounding timeline.
+
+6. `GET /api/dashboard/shifus/{shifu_bid}/ratings`
+   - Returns summary cards and a filterable, paginated rating table.
 
 ### Data access patterns (important implementation notes)
 
@@ -199,8 +188,7 @@ Other important patterns:
 - Avoid N+1 by batching with `IN (...)` queries:
   - Batch-load users/credentials for learner lists.
   - Batch-load ask counts via grouped queries on `learn_generated_blocks` (no joins).
-- Time range for trends:
-  - `DATE(created_at)` group-by for follow-up trend.
+- Time range filters normalize their boundaries once and apply them to the corresponding entry, follow-up, learner, or rating query.
 
 ### Swagger schemas
 
@@ -213,58 +201,43 @@ Follow existing convention:
 
 ### Route
 
-Add a new admin page:
+The dashboard uses these admin routes:
 
 - `src/cook-web/src/app/admin/dashboard/page.tsx`
-
-Minimal existing changes:
-
-- Add a new menu item in `src/cook-web/src/app/admin/layout.tsx` pointing to `/admin/dashboard`.
+- `src/cook-web/src/app/admin/dashboard/[shifu_bid]/page.tsx`
+- `src/cook-web/src/app/admin/dashboard/[shifu_bid]/follow-ups/page.tsx`
+- `src/cook-web/src/app/admin/dashboard/[shifu_bid]/ratings/page.tsx`
 
 ### API client integration
 
-Add new endpoints to:
+Dashboard endpoints are registered in:
 
 - `src/cook-web/src/api/api.ts`
 
 Then use the generated functions via `import api from '@/api'`.
 
-### Chart component architecture (ECharts)
+### Metric card and table architecture
 
-Add reusable primitives:
-
-- `src/cook-web/src/components/charts/EChart.tsx`
-  - Client-only wrapper around `echarts-for-react` via `next/dynamic`
-  - Props: `option`, `style`, `loading`, `onEvents`, `opts`, `notMerge`, `lazyUpdate`
-- `src/cook-web/src/components/charts/ChartCard.tsx`
-  - Standardized card chrome: title, subtitle, actions slot, chart area
-
-Option builders (future-friendly):
-
-- `src/cook-web/src/lib/charts/options.ts`
-  - `buildLineOption(...)`
-  - `buildBarOption(...)`
-  - Common theme tokens aligned with Tailwind variables
+- Reuse `CourseMetricsCardGrid` for course, follow-up, and rating summaries.
+- Reuse `AdminTableShell` for course, learner, follow-up, and rating lists so loading, empty state, footnotes, pagination, and sticky action columns stay consistent with the rest of the admin UI.
+- Keep route-specific filters and row actions in the corresponding dashboard page or focused child component.
 
 ### UI layout (V1)
 
-Dashboard page sections:
+Dashboard surfaces:
 
-1. Header controls
-   - Course selector (reuses existing shifu list API)
-   - Date range selector (reuse `Calendar` / `Popover` patterns from admin orders)
-2. KPI cards
-   - Learners, completion rate, follow-up totals, active learners (optional)
-3. Charts grid
-   - Progress distribution (bar)
-   - Follow-up trend (line)
-   - Top outlines by follow-ups (bar)
-4. Learner table + drill-down
-   - Table: learner info + progress + follow-ups + last active
-   - Row click opens a `Sheet` with tabs:
-     - Progress (outline list statuses)
-     - Follow-ups (Q/A list with filters)
-     - Personalization (variables table)
+1. Dashboard entry
+   - Course keyword and last-active date filters
+   - Course, learner, order, and revenue summary cards
+   - Paginated course table with course-detail and order actions
+2. Course detail
+   - Basic course information and aggregate metric cards
+   - Filterable learner table with progress, status, follow-up count, and dates
+3. Follow-up detail
+   - Summary cards and a filterable follow-up table
+   - A sheet for the current Q/A record and its conversation timeline
+4. Ratings
+   - Summary cards and a filterable rating table
 
 ### i18n
 
@@ -276,9 +249,9 @@ Add a new namespace file:
 Keys example:
 
 - `module.dashboard.title`
-- `module.dashboard.kpi.learners`
-- `module.dashboard.chart.followUpsTrend`
-- `module.dashboard.table.progress`
+- `module.dashboard.entry.kpi.learners`
+- `module.dashboard.detail.metrics.completionRate`
+- `module.dashboard.detail.learners.columns.progress`
 
 ## Testing & Validation
 
@@ -293,12 +266,11 @@ Backend:
 
 Frontend:
 
-- Basic render tests for chart wrappers (Jest)
+- Render and interaction tests for the dashboard entry, course detail, follow-up list/detail, and ratings pages (Jest)
 - Manual QA checklist:
-  - load dashboard
-  - switch course
-  - switch date range
-  - open learner detail and paginate follow-ups
+  - load the dashboard and filter the course table
+  - open a course detail and paginate/filter learners
+  - open follow-up and rating lists, exercise filters, and inspect a follow-up
 
 ## Risks / Open Questions
 

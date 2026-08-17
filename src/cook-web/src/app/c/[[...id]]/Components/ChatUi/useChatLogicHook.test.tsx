@@ -731,6 +731,101 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(onStreamSettled).toHaveBeenCalledTimes(1);
   });
 
+  it('writes listen backfill audio to nested interaction answer feedback', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'interaction',
+          content: '?[A | B]',
+          generated_block_bid: 'interaction-block-1',
+          element_bid: 'interaction-1',
+          like_status: 'none',
+          user_input: '',
+          is_renderable: false,
+        },
+        {
+          element_type: 'ask',
+          content: 'A',
+          generated_block_bid: 'learner-answer-generated-1',
+          element_bid: 'learner-answer-1',
+          payload: {
+            anchor_element_bid: 'interaction-1',
+          },
+        },
+        {
+          element_type: 'answer',
+          content: '答对了，继续看下一个坑。',
+          generated_block_bid: 'feedback-generated-1',
+          element_bid: 'feedback-answer-1',
+          payload: {
+            anchor_element_bid: 'interaction-1',
+            ask_element_bid: 'learner-answer-1',
+          },
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    let ttsRequest:
+      | {
+          onMessage: (response: unknown) => void;
+        }
+      | undefined;
+    mockStreamGeneratedBlockAudio.mockImplementation(params => {
+      ttsRequest = params;
+      return {
+        close: jest.fn(),
+      };
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      void result.current.requestAudioForBlock('feedback-generated-1', {
+        listen: true,
+      });
+    });
+
+    expect(mockStreamGeneratedBlockAudio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generated_block_bid: 'feedback-generated-1',
+        listen: true,
+      }),
+    );
+
+    await act(async () => {
+      ttsRequest?.onMessage({
+        type: SSE_OUTPUT_TYPE.AUDIO_COMPLETE,
+        content: {
+          audio_url: 'https://example.com/feedback.mp3',
+          audio_bid: 'feedback-audio-1',
+          duration_ms: 1234,
+        },
+      });
+    });
+
+    await waitFor(() => {
+      const askBlock = result.current.items.find(
+        item =>
+          item.type === ChatContentItemType.ASK &&
+          item.parent_element_bid === 'interaction-1',
+      );
+      const feedbackMessage = askBlock?.ask_list?.find(
+        message => message.element_bid === 'feedback-answer-1',
+      );
+
+      expect(feedbackMessage?.audioUrl).toBe(
+        'https://example.com/feedback.mp3',
+      );
+    });
+  });
+
   it('closes non-listen generated-block audio after the first complete event', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',
@@ -1209,6 +1304,70 @@ describe('useChatLogicHook stream cleanup', () => {
     );
     expect(stoppedItem?.isAudioStreaming).toBe(false);
     expect(stoppedItem?.audioTracks?.[0]?.isAudioStreaming).toBe(false);
+  });
+
+  it('resolves cancelled and de-duplicated audio requests as undefined rather than a failure', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'text',
+          content: 'History content without audio',
+          generated_block_bid: 'generated-block-skip-1',
+          element_bid: 'element-skip-1',
+          element_index: 0,
+          like_status: 'none',
+          user_input: '',
+          is_speakable: true,
+          is_renderable: true,
+          is_marker: false,
+          is_new: false,
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const closeTtsSource = jest.fn();
+    mockStreamGeneratedBlockAudio.mockImplementation(() => ({
+      close: closeTtsSource,
+    }));
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let firstRequest: Promise<unknown> | undefined;
+    act(() => {
+      firstRequest = result.current.requestAudioForBlock('element-skip-1', {
+        listen: true,
+      });
+    });
+
+    await waitFor(() =>
+      expect(mockStreamGeneratedBlockAudio).toHaveBeenCalled(),
+    );
+
+    // A second request while the first stream is still in flight is de-duplicated.
+    // That is not a failure, so it must stay retryable.
+    let duplicateRequest: Promise<unknown> | undefined;
+    act(() => {
+      duplicateRequest = result.current.requestAudioForBlock('element-skip-1', {
+        listen: true,
+      });
+    });
+    await expect(duplicateRequest).resolves.toBeUndefined();
+
+    // Answering an interaction tears down every in-flight TTS stream. The
+    // cancelled request must not be reported as a synthesis failure, otherwise
+    // the block is blacklisted and its narration is silenced for good.
+    await act(async () => {
+      stopAllActiveLessonStreams();
+      await firstRequest;
+    });
+    await expect(firstRequest).resolves.toBeUndefined();
   });
 
   it('keeps an active read run open when presentation mode changes', async () => {
@@ -3186,6 +3345,144 @@ describe('useChatLogicHook stream cleanup', () => {
       ),
     );
     expect(result.current.reGenerateConfirm.open).toBe(false);
+  });
+
+  it('updates the submitted variable-free interaction by block id', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          block_type: 'content',
+          element_type: 'content',
+          content: 'intro',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          block_type: 'interaction',
+          element_type: 'interaction',
+          content: '?[概念还含糊 | 会算但老错 | 几乎空白]',
+          generated_block_bid: 'interaction-1',
+          element_bid: 'interaction-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          block_type: 'interaction',
+          element_type: 'interaction',
+          content: '?[1945 年 | 1946 年 | 1947 年]',
+          generated_block_bid: 'interaction-2',
+          element_bid: 'interaction-2',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.onSend(
+        {
+          variableName: '',
+          selectedValues: ['1946 年'],
+        },
+        'interaction-2',
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(item => item.element_bid === 'interaction-2')
+          ?.user_input,
+      ).toBe('1946 年'),
+    );
+    expect(
+      result.current.items.find(item => item.element_bid === 'interaction-1')
+        ?.user_input,
+    ).toBe('');
+  });
+
+  it('attaches live answer feedback without payload to the submitted interaction', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          block_type: 'content',
+          element_type: 'content',
+          content: 'intro',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          block_type: 'interaction',
+          element_type: 'interaction',
+          content: '?[1945 年 | 1946 年 | 1947 年]',
+          generated_block_bid: 'interaction-1',
+          element_bid: 'interaction-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.onSend(
+        {
+          variableName: '',
+          selectedValues: ['1946 年'],
+        },
+        'interaction-1',
+      );
+    });
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'feedback-generated-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'feedback-answer-1',
+          generated_block_bid: 'feedback-generated-1',
+          element_type: 'answer',
+          content: '答对了，继续看下一个坑。',
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(
+          item =>
+            item.type === ChatContentItemType.ASK &&
+            item.parent_element_bid === 'interaction-1',
+        )?.ask_list,
+      ).toEqual([
+        expect.objectContaining({
+          element_bid: 'feedback-answer-1',
+          type: 'answer',
+          content: '答对了，继续看下一个坑。',
+        }),
+      ]),
+    );
   });
 
   it('drops orphan history follow-ups whose anchor element is absent from records', async () => {

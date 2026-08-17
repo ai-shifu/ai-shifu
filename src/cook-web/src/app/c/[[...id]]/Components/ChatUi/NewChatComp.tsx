@@ -43,6 +43,7 @@ import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
+  upsertAudioComplete,
 } from '@/c-utils/audio-utils';
 import {
   Dialog,
@@ -374,6 +375,7 @@ export const NewChatComponents = ({
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
+  const setAskList = useAskStateStore(state => state.setAskList);
   const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
   const storedAskListByAnchorElementBid = useAskStateStore(
     state => state.askListByAnchorElementBid,
@@ -508,7 +510,11 @@ export const NewChatComponents = ({
   );
 
   const requestListenAudioBackfillForBlock = useCallback(
-    (blockBid: string, lessonIdAtRequest: string) => {
+    (
+      blockBid: string,
+      lessonIdAtRequest: string,
+      options: { listen?: boolean } = {},
+    ) => {
       const existingPromise = listenAudioBackfillInFlightRef.current[blockBid];
       if (existingPromise) {
         return existingPromise;
@@ -527,13 +533,40 @@ export const NewChatComponents = ({
       };
 
       trackedPromise = requestAudioForBlock(blockBid, {
-        listen: true,
+        listen: options.listen ?? true,
         shouldApplyResult: () =>
           listenAudioBackfillLessonIdRef.current === lessonIdAtRequest,
         onStreamSettled: clearTrackedRequest,
       }).then(result => {
         if (result) {
           listenAudioBackfillFailedBlockBidsRef.current.delete(blockBid);
+          const askEntry = Object.entries(
+            useAskStateStore.getState().askListByAnchorElementBid,
+          ).find(([, askList]) =>
+            askList.some(
+              message =>
+                message.element_bid === blockBid ||
+                message.generated_block_bid === blockBid,
+            ),
+          );
+          if (askEntry) {
+            const [anchorElementBid, askList] = askEntry;
+            const targetMessage = askList.find(
+              message =>
+                message.element_bid === blockBid ||
+                message.generated_block_bid === blockBid,
+            );
+            const targetElementBid = targetMessage?.element_bid || blockBid;
+            setAskList(
+              anchorElementBid,
+              previousAskList =>
+                upsertAudioComplete(
+                  previousAskList as ChatContentItem[],
+                  targetElementBid,
+                  result,
+                ) as typeof previousAskList,
+            );
+          }
         }
         return result;
       });
@@ -544,7 +577,7 @@ export const NewChatComponents = ({
       }
       return trackedPromise;
     },
-    [requestAudioForBlock],
+    [requestAudioForBlock, setAskList],
   );
 
   const baseAskListByAnchorElementBid = useMemo(
@@ -623,6 +656,16 @@ export const NewChatComponents = ({
     setIsVisibilityRestorePending(false);
   }, [isVisibilityRestorePending, suppressCurrentReadModeTypewriters]);
 
+  const slideModeItems = useMemo(
+    () =>
+      projectListenModeItems({
+        items,
+        askButtonMarkup,
+        askListByAnchorElementBid: scopedAskListByAnchorElementBid,
+        variant: isClassroomMode ? 'classroom' : 'listen',
+      }),
+    [askButtonMarkup, isClassroomMode, items, scopedAskListByAnchorElementBid],
+  );
   const visibleReadModeItems = useMemo(
     () =>
       isDocumentVisible
@@ -839,7 +882,7 @@ export const NewChatComponents = ({
       return;
     }
 
-    const contentItems = items.filter(isContentItemWithElementBid);
+    const contentItems = slideModeItems.filter(isContentItemWithElementBid);
 
     if (!contentItems.length) {
       return;
@@ -893,10 +936,20 @@ export const NewChatComponents = ({
       prioritizedBlockBids,
       LISTEN_AUDIO_BACKFILL_CONCURRENCY,
       blockBid =>
-        requestListenAudioBackfillForBlock(blockBid, lessonIdAtRequest)
+        requestListenAudioBackfillForBlock(blockBid, lessonIdAtRequest, {
+          listen:
+            readyBackfillCandidateItems.find(
+              item =>
+                item.generated_block_bid === blockBid ||
+                item.element_bid === blockBid,
+            )?.listenAudioBackfillMode === 'block'
+              ? false
+              : true,
+        })
           .then(result => {
             if (listenAudioBackfillLessonIdRef.current !== lessonIdAtRequest) {
-              return null;
+              // Superseded by a lesson switch, not a synthesis failure.
+              return undefined;
             }
 
             return result;
@@ -908,8 +961,13 @@ export const NewChatComponents = ({
       }
 
       const hasGeneratedAudio = results.some(Boolean);
+      // Only a `null` result means synthesis was attempted and failed.
+      // `undefined` means it was never attempted (cancelled, superseded, or
+      // de-duplicated), and must stay retryable — otherwise answering an
+      // interaction, which cancels every in-flight stream, would permanently
+      // blacklist the blocks whose narration follows the answer.
       const failedBlockBids = prioritizedBlockBids.filter(
-        (_, index) => !results[index],
+        (_, index) => results[index] === null,
       );
       failedBlockBids.forEach(blockBid => {
         listenAudioBackfillFailedBlockBidsRef.current.add(blockBid);
@@ -939,16 +997,25 @@ export const NewChatComponents = ({
         return;
       }
 
+      // Narration still being produced is not a failure. Answering an interaction
+      // cancels every in-flight request, so a round can legitimately come back
+      // empty while the next run is already streaming. The failure branch above
+      // guards on this; without the same guard here, cancelled requests would
+      // surface a spurious "audio generation failed" toast.
+      if (isOutputInProgress) {
+        return;
+      }
+
       fail(t('module.chat.listenAudioBackfillFailed'));
     });
   }, [
     isListenModeActive,
     isListenModeAvailable,
     isOutputInProgress,
-    items,
     previewMode,
     requestListenAudioBackfillForBlock,
     resolvedLessonId,
+    slideModeItems,
     t,
     updateLearningMode,
   ]);
@@ -1006,16 +1073,6 @@ export const NewChatComponents = ({
     promptContextKey,
     resolveScrollPresentation,
   ]);
-
-  const slideModeItems = useMemo(
-    () =>
-      projectListenModeItems({
-        items,
-        askButtonMarkup,
-        variant: isClassroomMode ? 'classroom' : 'listen',
-      }),
-    [askButtonMarkup, isClassroomMode, items],
-  );
 
   const itemByGeneratedBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();

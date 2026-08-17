@@ -982,7 +982,7 @@ FRONTEND_META = {
             "shared TypeScript declarations, ambient module definitions, and "
             "cross-domain frontend interfaces"
         ),
-        key_files=("global.ts", "shifu.ts", "markdown-flow-ui.d.ts", "i18n-keys.d.ts"),
+        key_files=("shifu.ts", "markdown-flow-ui.d.ts", "i18n-keys.d.ts"),
         invariants=(
             "treat shared type exports as compatibility surfaces consumed across "
             "routes, stores, hooks, and components",
@@ -1007,7 +1007,7 @@ FRONTEND_META = {
             "legacy compatibility API wrappers used by the `c` experience and "
             "older frontend business flows"
         ),
-        key_files=("c.ts", "course.ts", "lesson.ts", "studyV2.ts"),
+        key_files=("course.ts", "lesson.ts", "studyV2.ts"),
         invariants=(
             "preserve legacy request shapes and naming as long as the `c` routes "
             "still depend on them",
@@ -1085,18 +1085,10 @@ FRONTEND_META = {
         test_focus="src/cook-web/src/c-components/",
     ),
     "c-constants": FrontendDomainMeta(
-        summary=(
-            "legacy constants for course, environment, product, UI, and user "
-            "behavior used throughout the `c` experience"
-        ),
-        key_files=(
-            "uiConstants.ts",
-            "env.ts",
-            "courseConstants.ts",
-            "productConstants.ts",
-        ),
+        summary=("legacy course and UI constants used throughout the `c` experience"),
+        key_files=("uiConstants.ts", "courseConstants.ts"),
         invariants=(
-            "keep shared breakpoint, environment, and product constants as the "
+            "keep shared breakpoint, course, and UI constants as the "
             "single source of truth for legacy consumers",
             "preserve constant names and semantics when skills or stores already "
             "depend on them indirectly",
@@ -1116,10 +1108,10 @@ FRONTEND_META = {
     ),
     "c-service": FrontendDomainMeta(
         summary=(
-            "legacy business orchestration for shifu, shortcuts, and state "
-            "transform helpers consumed by the `c` experience"
+            "legacy business orchestration for shifu and state transform helpers "
+            "consumed by the `c` experience"
         ),
-        key_files=("Shifu.ts", "shifuUtils.ts", "shortcut.ts", "storeUtil.ts"),
+        key_files=("Shifu.ts", "shifuUtils.ts", "storeUtil.ts"),
         invariants=(
             "keep legacy business transformations centralized so `c` pages and "
             "stores do not all reshape the same payloads differently",
@@ -1129,7 +1121,7 @@ FRONTEND_META = {
             "for low-level request or UI-only helpers",
         ),
         avoid_points=(
-            "do not duplicate shifu or shortcut transformations in pages when "
+            "do not duplicate shifu or state transformations in pages when "
             "this service layer already owns them",
             "do not move compatibility behavior into modern domains without a "
             "clear migration plan and adapter",
@@ -1180,7 +1172,7 @@ FRONTEND_META = {
             "legacy ambient declarations and compatibility types used across the "
             "`c` experience"
         ),
-        key_files=("index.ts", "store.ts", "sse.d.ts", "user-roles.ts"),
+        key_files=("index.ts", "store.ts", "sse.d.ts"),
         invariants=(
             "keep compatibility types aligned with the actual `c` stores, "
             "services, and runtime payloads they describe",

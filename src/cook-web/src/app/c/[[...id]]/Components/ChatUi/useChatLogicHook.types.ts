@@ -88,10 +88,14 @@ export interface UseChatSessionResult {
       expand?: boolean;
     },
   ) => void;
+  // Resolves to the audio payload on success, `null` when synthesis genuinely
+  // failed, and `undefined` when the request was never attempted (cancelled,
+  // superseded, or de-duplicated against an in-flight stream). Callers must not
+  // treat `undefined` as a failure.
   requestAudioForBlock: (
     elementBid: string,
     options?: RequestAudioForBlockOptions,
-  ) => Promise<AudioCompleteData | null>;
+  ) => Promise<AudioCompleteData | null | undefined>;
   reGenerateConfirm: {
     open: boolean;
     onConfirm: () => void;
