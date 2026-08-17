@@ -34,7 +34,6 @@ import {
   resolveRequestedLessonId,
 } from './lessonNavigation';
 import {
-  completeProfileOnboarding,
   getProfileOnboarding,
   isProfileOnboardingV2Status,
   skipProfileOnboarding,
@@ -65,7 +64,6 @@ import ChatMobileHeader from './Components/ChatMobileHeader';
 import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
 import { trackCourseVisitIfNeeded } from './courseVisitTracking';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
-import ProfileOnboardingModal from '@/components/profile-onboarding/ProfileOnboardingModal';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
 import { debugWarn } from '@/c-utils/debugConsole';
 import { ErrorWithCode } from '@/lib/request';
@@ -575,56 +573,6 @@ export default function ChatPage() {
     previewMode,
   ]);
 
-  const handleProfileOnboardingComplete = useCallback(
-    async (
-      learnerProfile: string,
-      triggerSource: 'guided' | 'settings',
-      sessionId?: string,
-    ) => {
-      const requestScope = learnerProfileScope;
-      setProfileOnboardingSubmitting(true);
-      setProfileOnboardingError('');
-      try {
-        await completeProfileOnboarding({
-          learner_profile: learnerProfile,
-          trigger_source: triggerSource,
-          ...(sessionId ? { session_id: sessionId } : {}),
-        });
-        if (learnerProfileScopeRef.current !== requestScope) {
-          return false;
-        }
-        await refreshUserInfo().catch(error => {
-          if (learnerProfileScopeRef.current !== requestScope) {
-            return;
-          }
-          debugWarn('[profile-onboarding] failed to refresh user info', error);
-          notifyProfileOnboardingRefreshDelay();
-        });
-        if (learnerProfileScopeRef.current !== requestScope) {
-          return false;
-        }
-        releaseProfileOnboarding();
-        return true;
-      } catch (error) {
-        if (learnerProfileScopeRef.current === requestScope) {
-          setProfileOnboardingError(resolveProfileOnboardingError(error));
-        }
-        return false;
-      } finally {
-        if (learnerProfileScopeRef.current === requestScope) {
-          setProfileOnboardingSubmitting(false);
-        }
-      }
-    },
-    [
-      learnerProfileScope,
-      notifyProfileOnboardingRefreshDelay,
-      refreshUserInfo,
-      releaseProfileOnboarding,
-      resolveProfileOnboardingError,
-    ],
-  );
-
   const handleProfileOnboardingSkip = useCallback(
     async (sessionId?: string) => {
       const requestScope = learnerProfileScope;
@@ -635,7 +583,7 @@ export default function ChatPage() {
         if (learnerProfileScopeRef.current !== requestScope) {
           return false;
         }
-        releaseProfileOnboarding();
+        profileOnboardingEligibilityRef.current = 'complete';
         return true;
       } catch (error) {
         if (learnerProfileScopeRef.current === requestScope) {
@@ -648,11 +596,7 @@ export default function ChatPage() {
         }
       }
     },
-    [
-      learnerProfileScope,
-      releaseProfileOnboarding,
-      resolveProfileOnboardingError,
-    ],
+    [learnerProfileScope, resolveProfileOnboardingError],
   );
 
   const handleLearnerProfileSettingsClose = useCallback(
@@ -669,11 +613,39 @@ export default function ChatPage() {
   );
 
   const handleLearnerProfileSaved = useCallback(async () => {
+    const requestScope = learnerProfileScope;
     profileOnboardingRequestIdRef.current += 1;
-    profileOnboardingRequestedScopeRef.current = learnerProfileScope;
+    profileOnboardingRequestedScopeRef.current = requestScope;
+    await refreshUserInfo().catch(error => {
+      if (learnerProfileScopeRef.current !== requestScope) {
+        return;
+      }
+      debugWarn('[profile-onboarding] failed to refresh user info', error);
+      notifyProfileOnboardingRefreshDelay();
+    });
+    if (learnerProfileScopeRef.current !== requestScope) {
+      return;
+    }
     releaseProfileOnboarding();
-    await refreshUserInfo();
-  }, [learnerProfileScope, refreshUserInfo, releaseProfileOnboarding]);
+  }, [
+    learnerProfileScope,
+    notifyProfileOnboardingRefreshDelay,
+    refreshUserInfo,
+    releaseProfileOnboarding,
+  ]);
+
+  const handleProfileOnboardingClose = useCallback(
+    (reason: 'dismiss' | 'saved') => {
+      if (
+        reason === 'dismiss' &&
+        profileOnboardingEligibilityRef.current === 'show'
+      ) {
+        return;
+      }
+      releaseProfileOnboarding();
+    },
+    [releaseProfileOnboarding],
+  );
 
   useEffect(() => {
     if (!courseName) {
@@ -1186,16 +1158,19 @@ export default function ChatPage() {
 
         {initialized ? <TrackingVisit /> : null}
 
-        {profileOnboardingStatus ? (
-          <ProfileOnboardingModal
-            open={profileOnboardingOpen}
+        {profileOnboardingStatus && profileOnboardingOpen ? (
+          <LearnerProfileDialog
+            key={`${learnerProfileScope}:onboarding`}
+            open
+            mode='onboarding'
             presentation={profileOnboardingStatus.presentation}
-            guidedAvailable={profileOnboardingStatus.guided_available}
-            maxLength={profileOnboardingStatus.max_length}
-            errorMessage={profileOnboardingError}
-            submitting={profileOnboardingSubmitting}
-            onComplete={handleProfileOnboardingComplete}
-            onSkip={handleProfileOnboardingSkip}
+            initialOnboardingStatus={profileOnboardingStatus}
+            externalErrorMessage={profileOnboardingError}
+            externalSubmitting={profileOnboardingSubmitting}
+            draftStorageScope={learnerProfileScope}
+            onDefer={handleProfileOnboardingSkip}
+            onSaved={handleLearnerProfileSaved}
+            onClose={handleProfileOnboardingClose}
           />
         ) : null}
 

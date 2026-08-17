@@ -419,9 +419,14 @@ def complete_profile_onboarding(
 
 
 def complete_profile_onboarding_v2(
-    app: Flask, *, user_id: str, learner_profile: str, trigger_source: str
+    app: Flask,
+    *,
+    user_id: str,
+    learner_profile: str,
+    trigger_source: str,
+    nickname: str | None = None,
 ) -> dict[str, Any]:
-    """Persist only the canonical v2 profile/state, never legacy sys_* values."""
+    """Persist the canonical v2 profile, optional nickname, and state."""
 
     if (
         not isinstance(trigger_source, str)
@@ -434,6 +439,7 @@ def complete_profile_onboarding_v2(
         user_id=user_id,
         learner_profile=learner_profile,
         trigger_source=trigger_source,
+        nickname=nickname,
     )
 
 
