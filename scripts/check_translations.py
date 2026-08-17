@@ -29,7 +29,7 @@ def iter_locale_dirs() -> Iterable[Path]:
 def load_json(path: Path) -> Dict:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise TranslationError(f"Failed to parse JSON: {path} ({exc})") from exc
 
 

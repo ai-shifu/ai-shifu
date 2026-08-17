@@ -85,7 +85,7 @@ def _run_post_commit(callbacks: list) -> None:
     for callback in callbacks:
         try:
             callback()
-        except Exception as exc:  # noqa: BLE001 - commit already durable
+        except Exception as exc:
             logger.exception("unit_of_work post-commit callback failed: %s", exc)
 
 

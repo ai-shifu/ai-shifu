@@ -1538,7 +1538,7 @@ def _stage_scan_notification_isolated(
                 metadata=metadata,
                 policy=policy,
             )
-    except Exception:  # noqa: BLE001 - per-item scan isolation
+    except Exception:
         # exc_info carries the exception; keep provider error strings (which
         # may echo recipient details) out of the formatted message itself.
         app.logger.exception(
