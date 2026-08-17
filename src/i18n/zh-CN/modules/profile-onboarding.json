@@ -35,7 +35,10 @@
   "complete": "确认并保存",
   "completeCompact": "保存",
   "dialog": {
+    "autoOptimizing": "正在整理并优化你的个人介绍……",
+    "autoOptimizingHint": "请稍候，整理完成后仍可修改再保存。",
     "cancel": "取消",
+    "cancelResearch": "取消调研",
     "chips": {
       "goals": {
         "hint": "近期状态、目标和困惑",
@@ -51,6 +54,8 @@
       }
     },
     "close": "关闭",
+    "confirmDescription": "检查并修改个人介绍，确认后才会保存。",
+    "confirmTitle": "确认并保存",
     "description": "写下你的背景、目标和表达偏好，让 AI 老师在课程中更贴近你的情况。",
     "discard": "放弃修改",
     "discardDescription": "尚未保存的内容会丢失。",
@@ -65,6 +70,7 @@
     },
     "loadFailed": "暂时无法加载这些信息，请重试。",
     "loading": "正在加载你的学习画像…",
+    "manualFallback": "调研暂不可用，你仍可手动填写并保存。",
     "nicknameLabel": "希望 AI 老师怎么称呼你",
     "nicknamePlaceholder": "例如：小林",
     "onboardingTitle": "让 AI 老师更懂你",
@@ -78,9 +84,14 @@
     "optimizing": "正在优化…",
     "profileLabel": "希望 AI 老师长期知道的事",
     "profilePlaceholder": "例如：我在上海做办公室工作，大学学的是工商管理。最近想用 AI 把自己的想法做成文章和小工具。希望 AI 老师表达亲切直接、简洁易懂，少用术语。",
+    "progressLabel": "个性化设置进度",
     "promptHeading": "可以从这些方面开始",
     "reassurance": "不必一次写全，之后可随时修改。与真人老师的课程设定冲突时，以老师设定为准。",
+    "replaceResearchConfirm": "继续重新回答",
+    "replaceResearchDescription": "重新回答会替换当前未保存内容。是否继续？",
+    "replaceResearchTitle": "重新回答几个问题？",
     "retry": "重新加载",
+    "retryOptimize": "重新优化",
     "save": "保存画像",
     "saveAndContinue": "保存并继续",
     "saveChanges": "保存更改",
@@ -88,7 +99,10 @@
     "saving": "正在保存…",
     "settingsDescription": "写下你的背景、目标和表达偏好，让 AI 老师在课程中更贴近你的情况。",
     "settingsTitle": "向 AI 老师介绍你自己",
-    "undoOptimize": "撤销"
+    "undoOptimize": "撤销",
+    "unifiedDescription": "让 AI 老师了解你的背景和偏好，以更适合你的方式讲课。",
+    "unifiedTitle": "个性化设置",
+    "useResearchDraft": "直接使用初稿"
   },
   "guided": {
     "description": "AI 老师越了解你，讲的课就越容易听懂。大约 1 分钟。",
@@ -138,7 +152,7 @@
   "stepCounter": "第 {current} 步，共 {total} 步",
   "steps": {
     "collect": "回答问题",
-    "review": "确认内容"
+    "review": "确认并保存"
   },
   "submitFailed": "没有保存成功，你的内容还在。请再试一次。",
   "submitting": "正在保存…",
