@@ -410,13 +410,12 @@ export default function ChatPage() {
     })),
   );
 
-  const [learnerProfileSettingsOpen, setLearnerProfileSettingsOpen] =
+  const [learnerProfileDialogOpen, setLearnerProfileDialogOpen] =
     useState(false);
-  const learnerProfileSettingsOpenRef = useRef(learnerProfileSettingsOpen);
-  learnerProfileSettingsOpenRef.current = learnerProfileSettingsOpen;
   const [profileOnboardingStatus, setProfileOnboardingStatus] =
     useState<ProfileOnboardingV2Status | null>(null);
-  const [profileOnboardingOpen, setProfileOnboardingOpen] = useState(false);
+  const profileOnboardingStatusRef = useRef(profileOnboardingStatus);
+  profileOnboardingStatusRef.current = profileOnboardingStatus;
   const [profileOnboardingSubmitting, setProfileOnboardingSubmitting] =
     useState(false);
   const [profileOnboardingError, setProfileOnboardingError] = useState('');
@@ -433,7 +432,7 @@ export default function ChatPage() {
   const releaseProfileOnboarding = useCallback(() => {
     profileOnboardingEligibilityRef.current = 'complete';
     setProfileOnboardingStatus(null);
-    setProfileOnboardingOpen(false);
+    setLearnerProfileDialogOpen(false);
     setProfileOnboardingError('');
     setProfileOnboardingReadyScope(learnerProfileScope);
   }, [learnerProfileScope]);
@@ -472,9 +471,8 @@ export default function ChatPage() {
     profileOnboardingRequestedScopeRef.current = null;
     profileOnboardingRequestIdRef.current += 1;
     profileOnboardingEligibilityRef.current = 'idle';
-    setLearnerProfileSettingsOpen(false);
+    setLearnerProfileDialogOpen(false);
     setProfileOnboardingStatus(null);
-    setProfileOnboardingOpen(false);
     setProfileOnboardingSubmitting(false);
     setProfileOnboardingError('');
     setProfileOnboardingReadyScope(null);
@@ -541,9 +539,7 @@ export default function ChatPage() {
           profileOnboardingEligibilityRef.current = 'show';
           setProfileOnboardingStatus(status);
           setProfileOnboardingError('');
-          if (!learnerProfileSettingsOpenRef.current) {
-            setProfileOnboardingOpen(true);
-          }
+          setLearnerProfileDialogOpen(true);
           if (status.presentation === 'non_blocking') {
             setProfileOnboardingReadyScope(learnerProfileScope);
           }
@@ -599,17 +595,23 @@ export default function ChatPage() {
     [learnerProfileScope, resolveProfileOnboardingError],
   );
 
-  const handleLearnerProfileSettingsClose = useCallback(
+  const handleLearnerProfileDialogClose = useCallback(
     (reason: 'dismiss' | 'saved') => {
-      setLearnerProfileSettingsOpen(false);
       if (
         reason === 'dismiss' &&
         profileOnboardingEligibilityRef.current === 'show'
       ) {
-        setProfileOnboardingOpen(true);
+        return;
       }
+
+      if (reason === 'saved' || profileOnboardingStatusRef.current) {
+        releaseProfileOnboarding();
+        return;
+      }
+
+      setLearnerProfileDialogOpen(false);
     },
-    [],
+    [releaseProfileOnboarding],
   );
 
   const handleLearnerProfileSaved = useCallback(async () => {
@@ -633,19 +635,6 @@ export default function ChatPage() {
     refreshUserInfo,
     releaseProfileOnboarding,
   ]);
-
-  const handleProfileOnboardingClose = useCallback(
-    (reason: 'dismiss' | 'saved') => {
-      if (
-        reason === 'dismiss' &&
-        profileOnboardingEligibilityRef.current === 'show'
-      ) {
-        return;
-      }
-      releaseProfileOnboarding();
-    },
-    [releaseProfileOnboarding],
-  );
 
   useEffect(() => {
     if (!courseName) {
@@ -932,8 +921,7 @@ export default function ChatPage() {
   // const [loginOkHandlerData, setLoginOkHandlerData] = useState(null);
 
   const onGoToSettingPersonal = useCallback(() => {
-    setProfileOnboardingOpen(false);
-    setLearnerProfileSettingsOpen(true);
+    setLearnerProfileDialogOpen(true);
     if (mobileStyle) {
       onNavClose();
     }
@@ -1158,32 +1146,25 @@ export default function ChatPage() {
 
         {initialized ? <TrackingVisit /> : null}
 
-        {profileOnboardingStatus && profileOnboardingOpen ? (
-          <LearnerProfileDialog
-            key={`${learnerProfileScope}:onboarding`}
-            open
-            mode='onboarding'
-            presentation={profileOnboardingStatus.presentation}
-            initialOnboardingStatus={profileOnboardingStatus}
-            externalErrorMessage={profileOnboardingError}
-            externalSubmitting={profileOnboardingSubmitting}
-            draftStorageScope={learnerProfileScope}
-            onDefer={handleProfileOnboardingSkip}
-            onSaved={handleLearnerProfileSaved}
-            onClose={handleProfileOnboardingClose}
-          />
-        ) : null}
-
-        {learnerProfileSettingsOpen ? (
-          <LearnerProfileDialog
-            key={`${learnerProfileScope}:settings`}
-            open
-            mode='settings'
-            draftStorageScope={learnerProfileScope}
-            onSaved={handleLearnerProfileSaved}
-            onClose={handleLearnerProfileSettingsClose}
-          />
-        ) : null}
+        <LearnerProfileDialog
+          key={learnerProfileScope}
+          open={learnerProfileDialogOpen}
+          mode={profileOnboardingStatus ? 'onboarding' : 'settings'}
+          presentation={profileOnboardingStatus?.presentation ?? 'hidden'}
+          initialOnboardingStatus={profileOnboardingStatus ?? undefined}
+          externalErrorMessage={
+            profileOnboardingStatus ? profileOnboardingError : ''
+          }
+          externalSubmitting={
+            profileOnboardingStatus ? profileOnboardingSubmitting : false
+          }
+          draftStorageScope={learnerProfileScope}
+          onDefer={
+            profileOnboardingStatus ? handleProfileOnboardingSkip : undefined
+          }
+          onSaved={handleLearnerProfileSaved}
+          onClose={handleLearnerProfileDialogClose}
+        />
 
         <FeedbackModal
           open={feedbackModalOpen}

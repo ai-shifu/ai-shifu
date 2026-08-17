@@ -13,6 +13,7 @@ import {
   getProfileOnboardingV2,
   optimizeLearnerProfile,
   runProfileOnboardingSession,
+  type ProfileOnboardingV2Status,
   updateLearnerProfile,
 } from '@/api/learnerProfile';
 import { PROFILE_ONBOARDING_EVENTS } from './events';
@@ -219,17 +220,20 @@ const emptyProfile = {
   nickname_max_length: 64,
 };
 
-const onboardingStatus = (overrides: Record<string, unknown> = {}) => ({
-  contract_version: 'profile-v2',
-  enabled: true,
-  guided_available: true,
-  should_show: true,
-  presentation: 'blocking',
-  handled: false,
-  legacy_handled: false,
-  ...emptyProfile,
-  ...overrides,
-});
+const onboardingStatus = (
+  overrides: Record<string, unknown> = {},
+): ProfileOnboardingV2Status =>
+  ({
+    contract_version: 'profile-v2',
+    enabled: true,
+    guided_available: true,
+    should_show: true,
+    presentation: 'blocking',
+    handled: false,
+    legacy_handled: false,
+    ...emptyProfile,
+    ...overrides,
+  }) as ProfileOnboardingV2Status;
 
 const sessionResponse = (sessionId = SESSION_ID) => ({
   session_id: sessionId,
@@ -359,6 +363,77 @@ describe('LearnerProfileDialog', () => {
       );
     });
     expect(profileInput()).toHaveValue(existingProfile.learner_profile);
+  });
+
+  test('keeps the same draft and load when the host upgrades the open dialog to onboarding', async () => {
+    const { rerender, props } = renderDialog();
+
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.change(profileInput(), {
+      target: { value: 'Unsaved profile from the menu entry' },
+    });
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.close',
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.close',
+      }),
+    );
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.discardTitle'),
+    ).toBeInTheDocument();
+
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        mode='onboarding'
+        presentation='blocking'
+        initialOnboardingStatus={onboardingStatus()}
+      />,
+    );
+
+    expect(profileInput()).toHaveValue('Unsaved profile from the menu entry');
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
+    expect(mockGetProfileOnboardingV2).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByText('module.profileOnboarding.dialog.discardTitle'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.dialog.close',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.skip',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test('keeps an active research session when the host upgrades the open dialog to onboarding', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    const { rerender, props } = renderDialog();
+
+    await waitForResearchSession();
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        mode='onboarding'
+        presentation='blocking'
+        initialOnboardingStatus={onboardingStatus()}
+      />,
+    );
+
+    expect(screen.getByTestId('mock-research-session')).toHaveTextContent(
+      SESSION_ID,
+    );
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
+    expect(mockGetProfileOnboardingV2).toHaveBeenCalledTimes(1);
+    expect(mockCreateProfileOnboardingSession).toHaveBeenCalledTimes(1);
   });
 
   test('uses onboarding intent for a fresh profile and proxies runtime calls', async () => {
