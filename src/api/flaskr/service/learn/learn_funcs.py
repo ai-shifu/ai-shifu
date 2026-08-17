@@ -392,9 +392,7 @@ def get_outline_item_tree(
             )
             if not outline_item or outline_item.hidden == 1:
                 return None
-            progress_record = progress_records_map.get(
-                outline_item.outline_item_bid, None
-            )
+            progress_record = progress_records_map.get(outline_item.outline_item_bid)
             if not progress_record:
                 status = LEARN_STATUS_NOT_STARTED
             else:

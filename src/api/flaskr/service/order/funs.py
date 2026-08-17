@@ -2104,7 +2104,7 @@ def calculate_discount_value(
         ).all()
         coupon_maps: dict[str, Coupon] = {i.coupon_bid: i for i in coupons}
         for discount_record in discount_records:
-            discount = coupon_maps.get(discount_record.coupon_bid, None)
+            discount = coupon_maps.get(discount_record.coupon_bid)
             if discount:
                 if discount.discount_type == COUPON_TYPE_FIXED:
                     discount_value += discount.value

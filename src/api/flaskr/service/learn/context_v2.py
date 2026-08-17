@@ -3602,7 +3602,7 @@ class RunScriptContextV2:
         ] = {o.id: o for o in outline_item_info_db}
         course_prompt: str | None = None
         for id in outline_ids:
-            outline_item_info = outline_item_info_map.get(id, None)
+            outline_item_info = outline_item_info_map.get(id)
             if (
                 outline_item_info
                 and outline_item_info.llm_system_prompt
@@ -3646,7 +3646,7 @@ class RunScriptContextV2:
         )
         outline_item_info_map = {o.id: o for o in outline_item_info_db}
         for id in outline_ids:
-            outline_item_info = outline_item_info_map.get(id, None)
+            outline_item_info = outline_item_info_map.get(id)
             if outline_item_info and outline_item_info.llm:
                 return LLMSettings(
                     model=outline_item_info.llm,
