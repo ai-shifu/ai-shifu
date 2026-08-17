@@ -182,6 +182,50 @@ def test_profile_onboarding_complete_and_skip_delegate_strict_payloads(
     ]
 
 
+@pytest.mark.parametrize("nickname", ["小明", ""])
+def test_profile_onboarding_complete_forwards_explicit_nickname(
+    monkeypatch, test_client, nickname
+):
+    user = _authenticate(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.route.user.complete_profile_onboarding_v2",
+        lambda app, **kwargs: calls.append(("complete", kwargs)) or {"completed": True},
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user._delete_profile_onboarding_session",
+        lambda app, **kwargs: calls.append(("cleanup", kwargs)),
+    )
+
+    response = test_client.post(
+        "/api/user/profile-onboarding/complete",
+        headers={"Token": "token"},
+        json={
+            "learner_profile": "称呼我小明。",
+            "trigger_source": "guided",
+            "session_id": _SESSION_ID_1,
+            "nickname": nickname,
+        },
+    )
+
+    assert _data(response) == {"completed": True}
+    assert calls == [
+        (
+            "complete",
+            {
+                "user_id": user.user_id,
+                "learner_profile": "称呼我小明。",
+                "trigger_source": "guided",
+                "nickname": nickname,
+            },
+        ),
+        (
+            "cleanup",
+            {"user_bid": user.user_id, "session_id": _SESSION_ID_1},
+        ),
+    ]
+
+
 def test_v2_mutations_do_not_commit_again_after_durable_service_and_cleanup(
     monkeypatch, test_client
 ):
@@ -777,6 +821,62 @@ def test_profile_onboarding_complete_rejects_invalid_trigger_source_as_param_err
     )
 
     assert response.get_json(force=True)["code"] == 2001
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "learner_profile": "profile",
+            "trigger_source": "guided",
+            "nickname": None,
+        },
+        {
+            "learner_profile": "profile",
+            "trigger_source": "guided",
+            "nickname": 123,
+        },
+        {"skipped": True, "nickname": "legacy must reject this field"},
+        {
+            "skipped": False,
+            "learner_profile": "mixed",
+            "trigger_source": "guided",
+            "nickname": "mixed",
+        },
+        {
+            "learner_profile": "profile",
+            "trigger_source": "guided",
+            "nickname": "valid",
+            "unknown": True,
+        },
+    ],
+)
+def test_profile_onboarding_complete_rejects_invalid_nickname_contract_without_writes(
+    monkeypatch, test_client, payload
+):
+    _authenticate(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.route.user.complete_profile_onboarding",
+        lambda app, **kwargs: calls.append(("legacy", kwargs)),
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.complete_profile_onboarding_v2",
+        lambda app, **kwargs: calls.append(("v2", kwargs)),
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user._delete_profile_onboarding_session",
+        lambda app, **kwargs: calls.append(("cleanup", kwargs)),
+    )
+
+    response = test_client.post(
+        "/api/user/profile-onboarding/complete",
+        headers={"Token": "token"},
+        json=payload,
+    )
+
+    assert response.get_json(force=True)["code"] == 2001
+    assert calls == []
 
 
 def test_learner_profile_routes_delegate(monkeypatch, test_client):

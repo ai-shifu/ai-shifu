@@ -667,7 +667,7 @@ export default function ProfileOnboardingConversation({
         ) : loading ? (
           <>
             <Loader2
-              className='h-4 w-4 animate-spin'
+              className='h-4 w-4 animate-spin motion-reduce:animate-none'
               aria-hidden='true'
             />
             {items.length
