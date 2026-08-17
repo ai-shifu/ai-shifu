@@ -957,55 +957,60 @@ export default function LearnerProfileDialog({
           }}
         />
 
-        <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+        <div
+          data-testid='learner-profile-optimization-card'
+          className='rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3'
+          aria-live='polite'
+        >
           <div
-            className='min-h-5 min-w-0 flex-1'
-            aria-live='polite'
+            className={cn(
+              'flex flex-col gap-3 sm:flex-row sm:items-center',
+              optimizationMessage ? 'sm:justify-between' : 'sm:justify-end',
+            )}
           >
             {optimizationMessage ? (
               <p
                 id='learner-profile-optimization-status'
                 className={cn(
-                  'text-sm leading-5 text-muted-foreground',
+                  'min-w-0 flex-1 text-sm leading-5 text-foreground/80',
                   optimizationStatus === 'error' && 'text-destructive',
                 )}
               >
                 {optimizationMessage}
               </p>
             ) : null}
+            <Button
+              type='button'
+              size='sm'
+              className='min-h-10 flex-1 px-4 shadow-sm sm:flex-none'
+              disabled={optimizeDisabled}
+              aria-describedby={
+                optimizationMessage
+                  ? 'learner-profile-optimization-status'
+                  : undefined
+              }
+              onClick={optimizeProfile}
+            >
+              {optimizing ? (
+                <Loader2
+                  className='size-4 animate-spin motion-reduce:animate-none'
+                  aria-hidden='true'
+                />
+              ) : (
+                <Sparkles
+                  className='size-4'
+                  aria-hidden='true'
+                />
+              )}
+              {t(
+                optimizing
+                  ? 'module.profileOnboarding.dialog.optimizing'
+                  : optimizationStatus === 'error'
+                    ? 'module.profileOnboarding.dialog.retryOptimize'
+                    : 'module.profileOnboarding.dialog.optimize',
+              )}
+            </Button>
           </div>
-          <Button
-            type='button'
-            size='sm'
-            variant='outline'
-            className='min-h-10 px-4 sm:flex-none'
-            disabled={optimizeDisabled}
-            aria-describedby={
-              optimizationMessage
-                ? 'learner-profile-optimization-status'
-                : undefined
-            }
-            onClick={optimizeProfile}
-          >
-            {optimizing ? (
-              <Loader2
-                className='size-4 animate-spin motion-reduce:animate-none'
-                aria-hidden='true'
-              />
-            ) : (
-              <Sparkles
-                className='size-4'
-                aria-hidden='true'
-              />
-            )}
-            {t(
-              optimizing
-                ? 'module.profileOnboarding.dialog.optimizing'
-                : optimizationStatus === 'error'
-                  ? 'module.profileOnboarding.dialog.retryOptimize'
-                  : 'module.profileOnboarding.dialog.optimize',
-            )}
-          </Button>
         </div>
       </section>
     </div>
@@ -1293,7 +1298,7 @@ export default function LearnerProfileDialog({
               </>
             ) : (
               <>
-                {exitPolicy === 'blocking' ? (
+                {phase !== 'save' && exitPolicy === 'blocking' ? (
                   <Button
                     type='button'
                     variant='ghost'
@@ -1320,34 +1325,72 @@ export default function LearnerProfileDialog({
                 ) : null}
 
                 {phase === 'save' ? (
-                  <div
-                    data-testid='learner-profile-dialog-save-actions'
-                    className='ml-auto flex min-w-0 flex-1 items-center justify-end gap-2.5 sm:flex-none sm:gap-3'
-                  >
-                    {guidedAvailable ? (
+                  <>
+                    {guidedAvailable || exitPolicy === 'blocking' ? (
+                      <div
+                        data-testid='learner-profile-dialog-left-actions'
+                        className='mr-auto flex w-full min-w-0 flex-wrap items-center justify-start gap-2.5 sm:w-auto sm:gap-3'
+                      >
+                        {guidedAvailable ? (
+                          <Button
+                            type='button'
+                            variant='outline'
+                            className='min-h-11 min-w-0 !whitespace-normal'
+                            disabled={busy || optimizing}
+                            onClick={requestCollection}
+                          >
+                            {t(
+                              'module.profileOnboarding.dialog.interactiveCollection',
+                            )}
+                          </Button>
+                        ) : null}
+                        {exitPolicy === 'blocking' ? (
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            className='min-h-11 px-3 text-muted-foreground !whitespace-normal'
+                            disabled={
+                              !onDefer ||
+                              saving ||
+                              deferring ||
+                              externalSubmitting
+                            }
+                            onClick={() => void deferOnboarding()}
+                          >
+                            {deferring || externalSubmitting
+                              ? t('module.profileOnboarding.skipping')
+                              : t('module.profileOnboarding.skip')}
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <div
+                      data-testid='learner-profile-dialog-save-actions'
+                      className='ml-auto flex w-full min-w-0 items-center justify-end gap-2.5 sm:w-auto sm:gap-3'
+                    >
+                      {exitPolicy === 'dismissible' ? (
+                        <Button
+                          type='button'
+                          variant='outline'
+                          className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
+                          disabled={busy}
+                          onClick={requestClose}
+                        >
+                          {t('module.profileOnboarding.dialog.cancel')}
+                        </Button>
+                      ) : null}
                       <Button
                         type='button'
-                        variant='outline'
-                        className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
-                        disabled={busy || optimizing}
-                        onClick={requestCollection}
+                        className='min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none'
+                        disabled={!canSave}
+                        onClick={() => void saveProfile()}
                       >
-                        {t(
-                          'module.profileOnboarding.dialog.interactiveCollection',
-                        )}
+                        {saving
+                          ? t('module.profileOnboarding.dialog.saving')
+                          : primaryLabel}
                       </Button>
-                    ) : null}
-                    <Button
-                      type='button'
-                      className='min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none'
-                      disabled={!canSave}
-                      onClick={() => void saveProfile()}
-                    >
-                      {saving
-                        ? t('module.profileOnboarding.dialog.saving')
-                        : primaryLabel}
-                    </Button>
-                  </div>
+                    </div>
+                  </>
                 ) : null}
               </>
             )}
