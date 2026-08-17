@@ -42,9 +42,8 @@ def flatten_translation(data, namespace: str) -> Dict[str, str]:
                     continue
                 next_prefix = f"{prefix}.{k}" if prefix else k
                 _flatten(v, next_prefix, acc)
-        else:
-            if isinstance(obj, str) and prefix:
-                acc[prefix] = obj
+        elif isinstance(obj, str) and prefix:
+            acc[prefix] = obj
         return acc
 
     return _flatten(data, namespace, {})
@@ -179,9 +178,8 @@ def prune_unused(obj: dict, valid: Set[str], prefix: str) -> dict:
             # Keep if any descendant remains or it is valid itself
             if pruned or full in valid:
                 out[k] = pruned
-        else:
-            if full in valid:
-                out[k] = v
+        elif full in valid:
+            out[k] = v
     return out
 
 

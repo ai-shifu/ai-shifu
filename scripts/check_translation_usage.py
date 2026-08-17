@@ -398,23 +398,21 @@ def main() -> int:
         print("Missing translation keys detected:")
         for key in missing_keys:
             print(f" - {key}")
+    elif allowed_missing:
+        print("No new missing keys; allowed baseline present.")
     else:
-        if allowed_missing:
-            print("No new missing keys; allowed baseline present.")
-        else:
-            print("No missing translation keys detected.")
+        print("No missing translation keys detected.")
 
     if unused_keys:
         print("\nUnused translation keys detected (consider cleanup):")
         for key in unused_keys:
             print(f" - {key}")
+    elif allowed_unused:
+        print("\nOnly allowlisted unused translation keys detected:")
+        for key in allowed_unused:
+            print(f" - {key}")
     else:
-        if allowed_unused:
-            print("\nOnly allowlisted unused translation keys detected:")
-            for key in allowed_unused:
-                print(f" - {key}")
-        else:
-            print("\nNo unused translation keys detected.")
+        print("\nNo unused translation keys detected.")
 
     if missing_keys:
         return 1
