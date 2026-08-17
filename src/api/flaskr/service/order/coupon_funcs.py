@@ -261,12 +261,11 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
 
         if buy_record.paid_price == 0:
             return success_buy_record(app, buy_record.order_bid)
-        else:
-            send_feishu_coupon_code(
-                app,
-                user_id,
-                coupon_code,
-                coupon.code,
-                coupon.value,
-            )
+        send_feishu_coupon_code(
+            app,
+            user_id,
+            coupon_code,
+            coupon.code,
+            coupon.value,
+        )
         return query_buy_record(app, buy_record.order_bid)

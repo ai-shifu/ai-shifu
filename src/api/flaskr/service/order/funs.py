@@ -1977,8 +1977,7 @@ def success_buy_record(app: Flask, record_id: str):
             order_bid = buy_record.order_bid
             uow.on_commit(lambda: send_order_feishu(app, order_bid))
         return query_buy_record(app, record_id)
-    else:
-        app.logger.error("record:{} not found".format(record_id))
+    app.logger.error("record:{} not found".format(record_id))
     return None
 
 
