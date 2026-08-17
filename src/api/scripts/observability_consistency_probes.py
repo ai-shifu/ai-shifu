@@ -622,11 +622,11 @@ def summarize(probes: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def run_report(args: argparse.Namespace) -> dict[str, Any]:
-    from dotenv import load_dotenv  # noqa: WPS433
-    from flask import Flask  # noqa: WPS433
-    from flaskr.common.config import Config  # noqa: WPS433
-    from flaskr import dao  # noqa: WPS433
-    import pymysql  # noqa: WPS433
+    from dotenv import load_dotenv
+    from flask import Flask
+    from flaskr.common.config import Config
+    from flaskr import dao
+    import pymysql
 
     if not os.getenv("SKIP_LOAD_DOTENV"):
         load_dotenv()
