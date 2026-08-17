@@ -21,6 +21,7 @@ from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
 
 from flaskr.api.langfuse import (
+    MockClient,
     create_trace_with_root_span,
     finalize_langfuse_trace,
 )
@@ -46,7 +47,7 @@ def captured_spans(monkeypatch):
         tracing_enabled=True,
     )
     try:
-        yield client, exporter
+        yield client, exporter, provider
     finally:
         # Shut the client down while the exporter is still stubbed, otherwise
         # the batch processor flushes to the network at interpreter exit.
@@ -60,7 +61,7 @@ def _spans_by_name(exporter: InMemorySpanExporter) -> dict:
 
 
 def test_facade_builds_a_single_observation_hierarchy(captured_spans):
-    client, exporter = captured_spans
+    client, exporter, _provider = captured_spans
 
     trace, root_span = create_trace_with_root_span(
         client=client,
@@ -95,7 +96,7 @@ def test_facade_builds_a_single_observation_hierarchy(captured_spans):
 
 
 def test_overall_input_output_lands_on_the_root_observation(captured_spans):
-    client, exporter = captured_spans
+    client, exporter, _provider = captured_spans
 
     trace, root_span = create_trace_with_root_span(
         client=client,
@@ -117,8 +118,53 @@ def test_overall_input_output_lands_on_the_root_observation(captured_spans):
     assert root.attributes["langfuse.internal.as_root"] is True
 
 
+def test_trace_attributes_never_reach_an_unrelated_ambient_span(captured_spans):
+    client, exporter, provider = captured_spans
+    ambient_tracer = provider.get_tracer("ai_shifu.http.test")
+
+    # Mirrors flaskr.common.observability: an HTTP server span is active for the
+    # whole request when application tracing is enabled.
+    with ambient_tracer.start_as_current_span("GET /api/test"):
+        trace_handle, root_span = create_trace_with_root_span(
+            client=client,
+            trace_payload={
+                "id": "request-id-4",
+                "name": "lesson",
+                "user_id": "user-1",
+                "metadata": {"outline": "outline-1"},
+            },
+            root_span_payload={},
+        )
+        child = root_span.span(name="ask")
+        child.end()
+        trace_handle.update(session_id="session-1")
+        root_span.end()
+
+    ambient = _spans_by_name(exporter)["GET /api/test"]
+    assert not [key for key in ambient.attributes if key.startswith("langfuse.")]
+    assert "user.id" not in ambient.attributes
+    assert "session.id" not in ambient.attributes
+
+
+def test_disabled_langfuse_leaves_the_ambient_span_untouched(captured_spans):
+    _client, exporter, provider = captured_spans
+    ambient_tracer = provider.get_tracer("ai_shifu.http.test")
+
+    with ambient_tracer.start_as_current_span("GET /api/disabled"):
+        trace_handle, root_span = create_trace_with_root_span(
+            client=MockClient(),
+            trace_payload={"name": "lesson", "user_id": "user-1"},
+            root_span_payload={},
+        )
+        trace_handle.update(session_id="session-1")
+        root_span.end()
+
+    ambient = _spans_by_name(exporter)["GET /api/disabled"]
+    assert not ambient.attributes
+
+
 def test_trace_attributes_are_propagated_to_child_observations(captured_spans):
-    client, exporter = captured_spans
+    client, exporter, _provider = captured_spans
 
     trace, root_span = create_trace_with_root_span(
         client=client,

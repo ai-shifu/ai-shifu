@@ -6,7 +6,7 @@ import json
 import os
 import re
 import uuid
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -357,32 +357,27 @@ class TraceAttributePropagation:
         return dict(updated)
 
     @contextmanager
-    def scope(self, delegate: Any = None):
+    def scope(self, delegate: Any):
         """Propagate the collected attributes to observations started inside.
 
         Entering ``propagate_attributes()`` also writes the attributes on the
-        active span, so ``delegate`` is activated first: without it the
-        attributes would land on whatever ambient span the request carries (for
-        example the HTTP server span of the OTLP exporter).
+        active span, so ``delegate`` is activated first and propagation is
+        skipped when it owns no OTel span (a MockClient handle while Langfuse is
+        disabled). Otherwise the attributes would land on whatever ambient span
+        the request carries, for example the HTTP server span that
+        flaskr.common.observability exports to the OTLP endpoint.
         """
         values = self.snapshot()
         otel_span = getattr(delegate, "_otel_span", None)
-        span_context = (
-            otel_trace_api.use_span(otel_span, end_on_exit=False)
-            if isinstance(otel_span, otel_trace_api.Span)
-            else nullcontext()
-        )
-        with span_context:
-            if values:
-                with propagate_attributes(**values):
-                    yield
-            else:
+        if not values or not isinstance(otel_span, otel_trace_api.Span):
+            yield
+            return
+        with otel_trace_api.use_span(otel_span, end_on_exit=False):
+            with propagate_attributes(**values):
                 yield
 
     def apply_to(self, delegate: Any) -> None:
         """Set the current attributes on an already started observation."""
-        if not self._values:
-            return
         with self.scope(delegate):
             pass
 
@@ -494,13 +489,15 @@ def create_trace_with_root_span(
         if key in trace_attributes:
             root_payload.setdefault(key, trace_attributes[key])
 
+    root_span = client.start_observation(
+        trace_context={"trace_id": trace_id},
+        **root_payload,
+    )
+    # The attributes are written onto the root observation itself, so it must
+    # exist before propagation starts.
     propagation = TraceAttributePropagation()
     propagation.merge(trace_attributes)
-    with propagation.scope():
-        root_span = client.start_observation(
-            trace_context={"trace_id": trace_id},
-            **root_payload,
-        )
+    propagation.apply_to(root_span)
     trace = LangfuseTraceHandle(root_span, trace_id, propagation)
     if trace_attributes.get("public"):
         root_span.set_trace_as_public()
