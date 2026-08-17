@@ -96,20 +96,17 @@ _install_openai_responses_stub()
 
 
 class _FakeObservation:
-    """Mimics a Langfuse SDK v3 span/generation object."""
+    """Mimics a Langfuse SDK v4 observation object."""
 
     def __init__(self, kind: str = "span", **kwargs):
         self.kind = kind
         self.kwargs = kwargs
         self.updates = []
-        self.trace_updates = []
         self.ended = False
+        self.public = False
         self.trace_id = "f" * 32
         self.id = f"fake-{kind}-id"
         self.generations = []
-
-    def start_span(self, **kwargs):
-        return _FakeObservation("span", **kwargs)
 
     def start_observation(self, as_type="span", **kwargs):
         child = _FakeObservation(as_type, **kwargs)
@@ -120,8 +117,8 @@ class _FakeObservation:
     def update(self, **kwargs):
         self.updates.append(kwargs)
 
-    def update_trace(self, **kwargs):
-        self.trace_updates.append(kwargs)
+    def set_trace_as_public(self):
+        self.public = True
 
     def end(self):
         self.ended = True
@@ -133,20 +130,13 @@ class _FakeObservation:
             merged.update(item)
         return merged
 
-    @property
-    def updated(self):
-        merged = {}
-        for item in self.trace_updates:
-            merged.update(item)
-        return merged
-
 
 class _FakeLangfuseClient:
     def __init__(self):
         self.traces = []
 
-    def start_span(self, trace_context=None, **kwargs):
-        root = _FakeObservation("span", **kwargs)
+    def start_observation(self, as_type="span", trace_context=None, **kwargs):
+        root = _FakeObservation(as_type, **kwargs)
         root.trace_context = trace_context or {}
         self.traces.append(root)
         return root
@@ -218,10 +208,9 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch):
     trace = fake_langfuse.traces[0]
     assert trace.kwargs["name"] == "shifu_summary"
     assert trace.kwargs["input"] == "Summarize this lesson"
-    # With SDK v3 the root span carries both span and trace attributes.
+    # In SDK v4 the root observation carries the overall input/output.
     assert trace.end_kwargs["output"] == "summary result"
     assert trace.ended
-    assert trace.updated["output"] == "summary result"
 
 
 def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):

@@ -79,7 +79,7 @@ def post_fork(server, worker):
     except Exception:  # pragma: no cover - defensive: never kill a booting worker
         worker.log.exception("post_fork engine dispose failed")
 
-    # Langfuse SDK v3 keeps per-public-key ResourceManager singletons and
+    # The Langfuse SDK keeps per-public-key ResourceManager singletons and
     # registers a global OpenTelemetry TracerProvider during master preload.
     # Both carry live httpx/TLS connections and a batch-export worker that
     # were created in the master; inherited across fork they are shared by
