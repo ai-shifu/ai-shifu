@@ -10,37 +10,34 @@ _PREVIEW_TOKEN = "preview-token"  # stub session token, `validate_user` is mocke
 
 
 class _FakeObservation:
-    """Mimics a Langfuse SDK v3 span/generation object."""
+    """Mimics a Langfuse SDK v4 observation object."""
 
     def __init__(self, kind: str = "span", **kwargs) -> None:
         self.kind = kind
         self.kwargs = kwargs
         self.updates = []
-        self.trace_updates = []
         self.ended = False
+        self.public = False
         self.trace_id = "f" * 32
         self.id = f"fake-{kind}-id"
         self.generations = []
         self.span_calls = []
         self.last_span = None
 
-    def start_span(self, **kwargs):
-        self.span_calls.append(kwargs)
-        child = _FakeObservation("span", **kwargs)
-        self.last_span = child
-        return child
-
     def start_observation(self, as_type="span", **kwargs):
         child = _FakeObservation(as_type, **kwargs)
         if as_type == "generation":
             self.generations.append(child)
+        else:
+            self.span_calls.append(kwargs)
+            self.last_span = child
         return child
 
     def update(self, **kwargs):
         self.updates.append(kwargs)
 
-    def update_trace(self, **kwargs):
-        self.trace_updates.append(kwargs)
+    def set_trace_as_public(self):
+        self.public = True
 
     def end(self):
         self.ended = True
@@ -52,20 +49,13 @@ class _FakeObservation:
             merged.update(item)
         return merged
 
-    @property
-    def updated(self):
-        merged = {}
-        for item in self.trace_updates:
-            merged.update(item)
-        return merged
-
 
 class _FakeLangfuseClient:
     def __init__(self) -> None:
         self.traces = []
 
-    def start_span(self, trace_context=None, **kwargs):
-        root = _FakeObservation("span", **kwargs)
+    def start_observation(self, as_type="span", trace_context=None, **kwargs):
+        root = _FakeObservation(as_type, **kwargs)
         root.trace_context = trace_context or {}
         self.traces.append(root)
         return root
@@ -143,7 +133,7 @@ def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
     assert len(fake_langfuse.traces) == 1
     trace = fake_langfuse.traces[0]
     assert trace.kwargs["input"] == "hello"
-    # With SDK v3 the generation hangs directly off the root span.
+    # The generation hangs directly off the root observation.
     assert len(trace.generations) == 1
     generation = trace.generations[0]
     assert generation.kwargs["model"] == "dify"
@@ -153,7 +143,6 @@ def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
     assert generation.end_kwargs["output"] == "provider result"
     assert generation.ended
     assert trace.end_kwargs["output"] == "provider result"
-    assert trace.updated["output"] == "provider result"
 
 
 def test_ask_preview_route_fallbacks_to_llm(monkeypatch, test_client):

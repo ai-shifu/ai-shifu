@@ -2,7 +2,7 @@
 title: Langfuse Trace Association
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-04-17
+last_reviewed: 2026-08-17
 canonical: true
 ---
 
@@ -21,7 +21,6 @@ canonical: true
 
 ## Decisions
 - Introduce a shared helper in `src/api/flaskr/api/langfuse.py` that creates `trace + root span`.
-- Treat the trace as trace-level metadata only.
 - Treat the root span as the parent observation for runtime `generation` and `event` records.
 - Keep ask-specific child spans, but always nest them under the runtime root span.
 - Only send `input` and `output` to Langfuse when a real value exists.
@@ -39,6 +38,20 @@ canonical: true
 - `learn` runtime accumulates emitted teacher content and uses it when finalizing the root span and trace.
 - `learn` ask finalization updates the ask span, the parent observation, and the trace, including the guardrail early-return path.
 - `shifu` ask preview and publish summary use the shared helper and finalize trace output explicitly.
+
+## SDK v4 Semantics
+- Langfuse SDK v4 has no mutable trace record: a trace is the tree of its
+  observations, so `src/api/flaskr/api/langfuse.py` keeps the legacy
+  `trace.update()` / `trace.span()` call surface but maps it onto observations.
+- The overall `input` and `output` of a request live on the root observation.
+  Trace-level input/output APIs are deprecated and are not used.
+- Correlating attributes (`user_id`, `session_id`, `tags`, `version`,
+  `metadata`, environment) are replicated onto every observation through
+  `propagate_attributes()`. Attributes bound late (for example the session id,
+  known only after the progress record resolves) are additionally written to the
+  still-open root observation.
+- Observations are created with `start_observation(as_type=...)`; `start_span()`
+  and `start_generation()` no longer exist.
 
 ## Verification
 - Add focused tests for:
