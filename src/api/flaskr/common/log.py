@@ -198,7 +198,7 @@ def init_log(app: Flask) -> Flask:
             response_data = response.get_data(as_text=True)
             app.logger.info(f"Response: {response_data}")
         except Exception as e:
-            app.logger.error(f"Error logging response: {str(e)}")
+            app.logger.error(f"Error logging response: {e!s}")
         return response
 
     host_name = socket.gethostname()

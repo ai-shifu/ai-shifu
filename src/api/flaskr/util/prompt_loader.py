@@ -35,4 +35,4 @@ def load_prompt_template(template_name: str) -> str:
         with open(template_path, encoding="utf-8") as f:
             return f.read()
     except Exception as e:
-        raise OSError(f"Failed to read prompt template file {template_path}: {str(e)}")
+        raise OSError(f"Failed to read prompt template file {template_path}: {e!s}")

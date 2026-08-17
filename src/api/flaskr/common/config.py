@@ -1827,7 +1827,7 @@ class EnhancedConfig:
                 except Exception as e:
                     # For optional fields, log and continue; required fields remain fatal
                     if env_var.required or not allow_conversion_errors:
-                        validation_errors.append(f"- {var_name}: {str(e)}")
+                        validation_errors.append(f"- {var_name}: {e!s}")
                     else:
                         logging.getLogger(__name__).warning(
                             "Non-fatal config conversion issue for %s: %s",
@@ -1868,7 +1868,7 @@ class EnhancedConfig:
                     logger.warning(
                         f"Failed to convert environment variable '{key}' with value '{value}' "
                         f"to type {env_var.type.__name__}. Using default value '{env_var.default}'. "
-                        f"Error: {str(e)}"
+                        f"Error: {e!s}"
                     )
                     value = env_var.default
             # Apply interpolation

@@ -319,7 +319,7 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
             user_verify_code.verify_code_send = 1
             db.session.commit()
         except Exception as e:
-            app.logger.error(f"Failed to send verification code to {email}: {str(e)}")
+            app.logger.error(f"Failed to send verification code to {email}: {e!s}")
             raise_error("server.user.emailSendFailed")
         return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
 
