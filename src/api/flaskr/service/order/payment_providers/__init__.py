@@ -29,15 +29,15 @@ def get_payment_provider(channel: str) -> PaymentProvider:
 
 
 __all__ = [
-    "PaymentProvider",
-    "PaymentRequest",
     "PaymentCreationResult",
     "PaymentNotificationResult",
+    "PaymentProvider",
     "PaymentRefundRequest",
     "PaymentRefundResult",
+    "PaymentRequest",
     "SubscriptionUpdateResult",
-    "register_payment_provider",
     "get_payment_provider",
+    "register_payment_provider",
 ]
 
 # Ensure built-in providers are registered on import.
