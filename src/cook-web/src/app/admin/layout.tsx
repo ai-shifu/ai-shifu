@@ -397,9 +397,9 @@ const MainInterface = ({
       />
       {learnerProfileSettingsOpen ? (
         <LearnerProfileDialog
-          key={`${learnerProfileSettingsScope}:settings`}
+          key={learnerProfileSettingsScope}
           open
-          mode='settings'
+          exitPolicy='dismissible'
           draftStorageScope={learnerProfileSettingsScope}
           onSaved={handleLearnerProfileSaved}
           onClose={closeLearnerProfileSettings}
