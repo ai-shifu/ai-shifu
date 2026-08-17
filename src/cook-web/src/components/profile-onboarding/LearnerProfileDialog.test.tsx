@@ -553,15 +553,56 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.queryByTestId('learner-profile-reassurance'),
     ).not.toBeInTheDocument();
+    const interactiveCollectionButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.interactiveCollection',
+    });
+    const leftActions = screen.getByTestId(
+      'learner-profile-dialog-left-actions',
+    );
+    expect(leftActions).toHaveClass('mr-auto', 'justify-start');
+    expect(leftActions).toContainElement(interactiveCollectionButton);
+
     const saveActions = screen.getByTestId(
       'learner-profile-dialog-save-actions',
     );
+    expect(saveActions).toHaveClass('w-full', 'sm:w-auto');
+    expect(saveActions).not.toContainElement(interactiveCollectionButton);
     expect(saveActions).toContainElement(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.interactiveCollection',
+        name: 'module.profileOnboarding.dialog.cancel',
       }),
     );
     expect(saveActions).toContainElement(saveButton());
+
+    const optimizationCard = screen.getByTestId(
+      'learner-profile-optimization-card',
+    );
+    expect(optimizationCard).toHaveClass(
+      'rounded-xl',
+      'border-primary/20',
+      'bg-primary/[0.05]',
+    );
+    const optimizeButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.optimize',
+    });
+    expect(optimizationCard).toContainElement(optimizeButton);
+    expect(optimizeButton).toHaveClass('bg-primary', 'shadow-sm');
+  });
+
+  test('cancels a clean dismissible save without persisting', async () => {
+    const onClose = jest.fn();
+    renderDialog({ onClose });
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.cancel',
+      }),
+    );
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
   });
 
   test('falls back to a manual empty editor when guided research is unavailable', async () => {
@@ -582,6 +623,11 @@ describe('LearnerProfileDialog', () => {
         name: 'module.profileOnboarding.dialog.interactiveCollection',
       }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.cancel',
+      }),
+    ).toBeInTheDocument();
   });
 
   test('auto-optimizes a terminal research draft without persisting early', async () => {
@@ -971,15 +1017,15 @@ describe('LearnerProfileDialog', () => {
     renderDialog({ exitPolicy: 'blocking' });
     await screen.findByDisplayValue(existingProfile.learner_profile);
 
-    const saveActions = screen.getByTestId(
-      'learner-profile-dialog-save-actions',
+    const leftActions = screen.getByTestId(
+      'learner-profile-dialog-left-actions',
     );
-    expect(saveActions).toContainElement(
+    expect(leftActions).toContainElement(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.interactiveCollection',
       }),
     );
-    expect(saveActions).not.toContainElement(
+    expect(leftActions).toContainElement(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.skip',
       }),
@@ -1100,6 +1146,22 @@ describe('LearnerProfileDialog', () => {
         name: 'module.profileOnboarding.dialog.close',
       }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.dialog.cancel',
+      }),
+    ).not.toBeInTheDocument();
+    const leftActions = screen.getByTestId(
+      'learner-profile-dialog-left-actions',
+    );
+    expect(leftActions).toContainElement(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.interactiveCollection',
+      }),
+    );
+    expect(leftActions).toContainElement(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
     fireEvent.pointerDown(document.body);
     fireEvent.click(document.body);
@@ -1184,7 +1246,7 @@ describe('LearnerProfileDialog', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.close',
+        name: 'module.profileOnboarding.dialog.cancel',
       }),
     );
     expect(
