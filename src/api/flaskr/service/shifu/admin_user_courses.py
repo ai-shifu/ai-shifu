@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Dict, Sequence, Set
+
 from flaskr.dao import db
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
@@ -17,6 +18,12 @@ from flaskr.service.learn.models import (
 )
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.shifu.admin_course_summaries import (
+    _load_latest_courses_by_shifu_bids,
+    _load_latest_shifus,
+    _merge_courses,
+    _resolve_course_status,
+)
 from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserCourseSummaryDTO,
 )
@@ -25,13 +32,6 @@ from flaskr.service.shifu.models import (
     DraftShifu,
     PublishedOutlineItem,
     PublishedShifu,
-)
-
-from flaskr.service.shifu.admin_course_summaries import (
-    _load_latest_courses_by_shifu_bids,
-    _load_latest_shifus,
-    _merge_courses,
-    _resolve_course_status,
 )
 
 
@@ -395,8 +395,8 @@ def _load_operator_user_course_count_maps(
     if not normalized_user_bids:
         return {}, {}
 
-    created_course_count_map = {user_bid: 0 for user_bid in normalized_user_bids}
-    learning_course_count_map = {user_bid: 0 for user_bid in normalized_user_bids}
+    created_course_count_map = dict.fromkeys(normalized_user_bids, 0)
+    learning_course_count_map = dict.fromkeys(normalized_user_bids, 0)
 
     creator_bids = set(normalized_user_bids)
     created_drafts = _load_latest_shifus(

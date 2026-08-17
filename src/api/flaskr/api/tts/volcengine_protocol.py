@@ -9,13 +9,13 @@ Protocol Reference:
 - Uses custom binary frame format with 4-byte header
 """
 
-import struct
-import json
 import gzip
+import json
 import logging
+import struct
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, Union
 from enum import IntEnum
+from typing import Any, Dict, Optional, Union
 
 from flaskr.common.log import AppLoggerProxy
 
@@ -292,7 +292,7 @@ class VolcengineProtocol:
         byte2 = data[2]
         # byte3 is reserved
 
-        _protocol_version = (byte0 >> 4) & 0x0F  # noqa: F841
+        _protocol_version = (byte0 >> 4) & 0x0F
         header_size = (byte0 & 0x0F) * 4
 
         message_type = MessageType((byte1 >> 4) & 0x0F)
@@ -371,27 +371,26 @@ class VolcengineProtocol:
                     offset += 4
                     if len(data) >= offset + payload_size:
                         payload = data[offset : offset + payload_size]
-            else:
-                # JSON or other payload - parse payload size first
-                if len(data) >= offset + 4:
-                    payload_size = struct.unpack(">I", data[offset : offset + 4])[0]
-                    offset += 4
-                    if len(data) >= offset + payload_size:
-                        payload_data = data[offset : offset + payload_size]
+            # JSON or other payload - parse payload size first
+            elif len(data) >= offset + 4:
+                payload_size = struct.unpack(">I", data[offset : offset + 4])[0]
+                offset += 4
+                if len(data) >= offset + payload_size:
+                    payload_data = data[offset : offset + payload_size]
 
-                        # Decompress if needed
-                        if compression == CompressionMethod.GZIP:
-                            payload_data = gzip.decompress(payload_data)
+                    # Decompress if needed
+                    if compression == CompressionMethod.GZIP:
+                        payload_data = gzip.decompress(payload_data)
 
-                        # Deserialize
-                        if serialization == SerializationMethod.JSON:
-                            try:
-                                payload = json.loads(payload_data.decode("utf-8"))
-                            except json.JSONDecodeError as e:
-                                logger.error(f"Failed to parse JSON payload: {e}")
-                                payload = payload_data
-                        else:
+                    # Deserialize
+                    if serialization == SerializationMethod.JSON:
+                        try:
+                            payload = json.loads(payload_data.decode("utf-8"))
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Failed to parse JSON payload: {e}")
                             payload = payload_data
+                    else:
+                        payload = payload_data
 
         return ProtocolFrame(
             message_type=message_type,

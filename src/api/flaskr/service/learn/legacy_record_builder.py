@@ -14,8 +14,8 @@ from flaskr.service.learn.learn_dtos import (
     LikeStatus,
 )
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
-from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
+from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
 
 @dataclass

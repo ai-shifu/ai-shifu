@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from decimal import Decimal
 from dataclasses import dataclass
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
 
-from cryptography.fernet import Fernet
-from flask import Flask
-import pytest
-
 import flaskr.common.config as common_config
 import flaskr.dao as dao
+import pytest
+from cryptography.fernet import Fernet
+from flask import Flask
 from flaskr.service.billing.entitlements import grant_creator_manual_entitlement
 from flaskr.service.billing.models import BillingOrder
 from flaskr.service.order.consts import ORDER_STATUS_TO_BE_PAID

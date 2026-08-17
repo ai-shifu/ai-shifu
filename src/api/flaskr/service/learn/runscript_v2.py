@@ -10,13 +10,23 @@ from datetime import datetime
 from typing import Any, Generator, Optional
 
 from flask import Flask
-from sqlalchemy import text as sa_text
-from sqlalchemy.exc import InterfaceError, OperationalError, ResourceClosedError
-
+from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.common.log import thread_local as log_thread_local
+from flaskr.common.shifu_context import (
+    apply_shifu_context_snapshot,
+    get_shifu_context_snapshot,
+)
+from flaskr.dao import (
+    db,
+    invalidate_session,
+    is_abnormal_stream_termination,
+    is_protocol_interrupt_error,
+)
+from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.common.models import AppException, raise_error
-from flaskr.service.user.repository import load_user_aggregate
-from flaskr.i18n import _
-
+from flaskr.service.learn.const import INPUT_TYPE_ASK
+from flaskr.service.learn.context_v2 import RunScriptContextV2
+from flaskr.service.learn.exceptions import BreakException
 from flaskr.service.learn.learn_dtos import (
     AudioBackfillReadyDTO,
     GeneratedType,
@@ -24,34 +34,21 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
     RunStatusDTO,
 )
-from flaskr.common.cache_provider import cache as cache_provider
-from flaskr.dao import (
-    db,
-    invalidate_session,
-    is_abnormal_stream_termination,
-    is_protocol_interrupt_error,
-)
-from flaskr.service.learn.const import INPUT_TYPE_ASK
+from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
+from flaskr.service.order.models import Order
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.shifu_struct_manager import (
-    get_shifu_dto,
-    get_outline_item_dto,
     ShifuInfoDto,
     ShifuOutlineItemDto,
+    get_outline_item_dto,
+    get_shifu_dto,
     get_shifu_struct,
 )
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.order.models import Order
-from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
-from flaskr.service.learn.context_v2 import RunScriptContextV2
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
-from flaskr.common.log import thread_local as log_thread_local
-from flaskr.service.learn.exceptions import BreakException
-from flaskr.i18n import get_current_language, set_language
-from flaskr.common.shifu_context import (
-    get_shifu_context_snapshot,
-    apply_shifu_context_snapshot,
-)
+from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.datetime import to_utc_iso
+from sqlalchemy import text as sa_text
+from sqlalchemy.exc import InterfaceError, OperationalError, ResourceClosedError
 
 RUN_SCRIPT_TIMEOUT_SECONDS = 5 * 60
 RUN_SCRIPT_STATUS_REFRESH_SECONDS = 30
@@ -543,7 +540,7 @@ def _to_sse_chunk(payload: object) -> str:
     return (
         "data: "
         + json.dumps(payload, default=fmt, ensure_ascii=False)
-        + "\n\n".encode("utf-8").decode("utf-8")
+        + b"\n\n".decode("utf-8")
     )
 
 
@@ -816,7 +813,7 @@ def run_script(
                         )
                     else:
                         output_queue.put(("error", exc))
-                except BaseException as exc:  # noqa: BLE001 - GreenletExit etc.
+                except BaseException as exc:
                     producer_exc = exc
                     raise
                 finally:
@@ -936,7 +933,7 @@ def run_script(
                         yield (
                             "data: "
                             + json.dumps(payload, default=fmt, ensure_ascii=False)
-                            + "\n\n".encode("utf-8").decode("utf-8")
+                            + b"\n\n".decode("utf-8")
                         )
                         if isinstance(payload_type, str):
                             last_stream_type = payload_type

@@ -3,7 +3,6 @@ import types
 from datetime import datetime
 
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -60,21 +59,9 @@ def _install_openai_responses_stub() -> None:
 
     response_function_tool_call = type("ResponseFunctionToolCall", (), {})
     response_text_config = type("ResponseTextConfigParam", (), {})
-    setattr(
-        response_function_mod,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
-    setattr(
-        response_text_mod,
-        "ResponseTextConfigParam",
-        response_text_config,
-    )
-    setattr(
-        responses_pkg,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
+    response_function_mod.ResponseFunctionToolCall = response_function_tool_call
+    response_text_mod.ResponseTextConfigParam = response_text_config
+    responses_pkg.ResponseFunctionToolCall = response_function_tool_call
 
     sys.modules["openai.types.responses"] = responses_pkg
     sys.modules["openai.types.responses.response"] = response_mod
@@ -171,8 +158,8 @@ def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders():
 
 
 def test_get_summary_updates_trace_and_span_output(monkeypatch):
-    from flaskr.service.shifu import shifu_publish_funcs as module
     from flaskr.api import langfuse as langfuse_module
+    from flaskr.service.shifu import shifu_publish_funcs as module
 
     fake_langfuse = _FakeLangfuseClient()
     monkeypatch.setattr(
@@ -220,6 +207,7 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch):
 
 def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
     from unittest.mock import MagicMock
+
     from flaskr.service.shifu import shifu_publish_funcs as module
 
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
@@ -246,6 +234,7 @@ def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
 
 def test_run_summary_logs_error_for_other_failures(monkeypatch):
     from unittest.mock import MagicMock
+
     from flaskr.service.shifu import shifu_publish_funcs as module
 
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)

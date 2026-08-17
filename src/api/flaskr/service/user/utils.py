@@ -1,33 +1,32 @@
-from flask import Flask, has_app_context
-import jwt
-import time
-import string
+import json
 import random
 import smtplib
-from email.mime.text import MIMEText
+import string
+import time
 from email.mime.multipart import MIMEMultipart
-from flaskr.i18n import _
+from email.mime.text import MIMEText
 
-from ..common.models import raise_error, raise_param_error
-from flaskr.common.cache_provider import cache as redis
-from ...dao import db
+import jwt
+from flask import Flask, has_app_context
 from flaskr.api.sms.aliyun import send_sms_code_ali
-from flaskr.service.user.captcha import consume_captcha_ticket
+from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
-from .models import UserVerifyCode
-
-import json
-
-from flaskr.service.config.funcs import get_config as get_dynamic_config
-from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+from flaskr.i18n import _
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
     normalize_phone_identifier,
 )
+from flaskr.service.config.funcs import get_config as get_dynamic_config
+from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+from flaskr.service.user.captcha import consume_captcha_ticket
 from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
 from flaskr.service.user.token_store import token_store
-from flaskr.util.datetime import now_utc
 from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
+
+from ...dao import db
+from ..common.models import raise_error, raise_param_error
+from .models import UserVerifyCode
 
 
 def _redis_prefix(app: Flask, config_key: str) -> str:
@@ -82,7 +81,6 @@ def get_user_language(user):
 
 def mark_creator_role_if_needed(user_id: str) -> bool:
     """Mark an existing user as creator and report whether this is a new grant."""
-
     normalized_user_id = str(user_id or "").strip()
     if not normalized_user_id:
         return False
@@ -108,7 +106,6 @@ def run_creator_granted_post_auth(
     language: str | None = None,
 ) -> None:
     """Run post-auth hooks for flows that grant creator access outside login."""
-
     normalized_user_id = str(user_id or "").strip()
     if not normalized_user_id:
         return
@@ -319,7 +316,7 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
             user_verify_code.verify_code_send = 1
             db.session.commit()
         except Exception as e:
-            app.logger.error(f"Failed to send verification code to {email}: {str(e)}")
+            app.logger.error(f"Failed to send verification code to {email}: {e!s}")
             raise_error("server.user.emailSendFailed")
         return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
 

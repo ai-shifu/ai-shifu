@@ -4,7 +4,6 @@ from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.service.billing.consts import (
     BILLING_INTERVAL_DAY,
     BILLING_INTERVAL_MONTH,

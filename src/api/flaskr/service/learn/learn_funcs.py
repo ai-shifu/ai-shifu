@@ -8,10 +8,13 @@ from dataclasses import replace
 from datetime import datetime, timezone
 
 from flask import Flask, has_request_context, request
-from markdown_flow import (
-    InteractionParser,
+from flaskr.api.tts import (
+    get_default_audio_settings,
+    get_default_voice_settings,
+    get_tts_provider,
+    is_tts_configured,
+    synthesize_text,
 )
-
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common import raise_error, raise_error_with_args
@@ -23,22 +26,22 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedInfoDTO,
     GeneratedType,
     LearnBannerInfoDTO,
-    LearnOutlineItemsWithBannerInfoDTO,
     LearnOutlineItemInfoDTO,
+    LearnOutlineItemsWithBannerInfoDTO,
     LearnShifuInfoDTO,
     LearnStatus,
     LikeStatus,
     OutlineType,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.lesson_feedback import (
-    build_lesson_feedback_interaction_md,
-    is_lesson_feedback_interaction,
-)
 from flaskr.service.learn.legacy_record_builder import (
     LegacyGeneratedBlockRecord,
     LegacyLearnRecord,
     build_legacy_record_for_progress,
+)
+from flaskr.service.learn.lesson_feedback import (
+    build_lesson_feedback_interaction_md,
+    is_lesson_feedback_interaction,
 )
 from flaskr.service.learn.listen_element_matching import (
     get_speakable_text_elements,
@@ -78,45 +81,42 @@ from flaskr.service.shifu.models import (
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.shifu.utils import get_shifu_res_url
-from flaskr.api.tts import (
-    get_default_audio_settings,
-    get_default_voice_settings,
-    get_tts_provider,
-    is_tts_configured,
-    synthesize_text,
-)
 from flaskr.service.tts import (
     has_speakable_text,
     preprocess_for_tts,
     resolve_tts_billable_chars,
 )
-from flaskr.service.tts.api import create_streaming_tts_processor, TTSRpmQueueTimeout
-from flaskr.service.tts.audio_utils import (
-    concat_audio_best_effort,
-    get_audio_duration_ms,
+from flaskr.service.tts.api import (
+    TTSRpmQueueTimeout,
+    create_streaming_tts_processor,
+    find_ready_cloned_voice,
+    find_tracked_cloned_voice,
+    get_clone_provider_spec,
 )
 from flaskr.service.tts.audio_record_utils import (
     build_completed_audio_record,
     save_audio_record,
 )
+from flaskr.service.tts.audio_utils import (
+    concat_audio_best_effort,
+    get_audio_duration_ms,
+)
+from flaskr.service.tts.models import (
+    AUDIO_STATUS_COMPLETED,
+    TTS_MINIMAX_CLONE_STATUS_READY,
+    LearnGeneratedAudio,
+)
+from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
 )
-from flaskr.service.tts.api import (
-    find_ready_cloned_voice,
-    find_tracked_cloned_voice,
-    get_clone_provider_spec,
-)
-from flaskr.service.tts.models import (
-    AUDIO_STATUS_COMPLETED,
-    LearnGeneratedAudio,
-    TTS_MINIMAX_CLONE_STATUS_READY,
-)
-from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.util import generate_id
+from markdown_flow import (
+    InteractionParser,
+)
 
 
 def _normalize_dt_to_utc(
@@ -363,11 +363,7 @@ def get_outline_item_tree(
             latest_progress_updated_at = _resolve_progress_effective_updated_at(
                 latest_progress_record
             )
-            if latest_progress_record is None:
-                latest_progress_record_map[progress_record.outline_item_bid] = (
-                    progress_record
-                )
-            elif (
+            if latest_progress_record is None or (
                 (
                     progress_updated_at is not None
                     and latest_progress_updated_at is not None
@@ -392,9 +388,7 @@ def get_outline_item_tree(
             )
             if not outline_item or outline_item.hidden == 1:
                 return None
-            progress_record = progress_records_map.get(
-                outline_item.outline_item_bid, None
-            )
+            progress_record = progress_records_map.get(outline_item.outline_item_bid)
             if not progress_record:
                 status = LEARN_STATUS_NOT_STARTED
             else:

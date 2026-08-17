@@ -1,5 +1,4 @@
 import requests
-
 from flaskr.api.doc import feishu
 
 

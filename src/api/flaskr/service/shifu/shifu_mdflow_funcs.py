@@ -1,29 +1,28 @@
-from markdown_flow import MarkdownFlow
-from flask import Flask
-from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.service.shifu.models import DraftOutlineItem
-from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
-from flaskr.service.common import raise_error
-from flaskr.dao import db, retry_on_deadlock
-from flaskr.service.shifu.dtos import MdflowDTOParseResult
-from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from datetime import timedelta
 from typing import TypedDict
 
+from flask import Flask
+from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.dao import db, retry_on_deadlock
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.common import raise_error
+from flaskr.service.profile.profile_manage import (
+    add_profile_item_quick_internal,
+    get_profile_item_definition_list,
+)
+from flaskr.service.shifu.dtos import MdflowDTOParseResult
+from flaskr.service.shifu.models import DraftOutlineItem
+from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
 from flaskr.service.shifu.shifu_history_manager import (
-    save_outline_history,
     get_shifu_draft_meta,
     get_shifu_draft_revision,
     iter_outline_item_versions_desc,
     mask_contact_identifier,
-)
-from flaskr.service.profile.profile_manage import (
-    get_profile_item_definition_list,
-    add_profile_item_quick_internal,
+    save_outline_history,
 )
 from flaskr.service.user.models import UserInfo
-from datetime import timedelta
-
 from flaskr.util.datetime import now_utc
+from markdown_flow import MarkdownFlow
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:

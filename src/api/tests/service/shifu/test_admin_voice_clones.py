@@ -9,7 +9,8 @@ from flaskr.service.shifu.admin_operations.voice_clones import (
 )
 from flaskr.service.shifu.models import DraftShifu
 from flaskr.service.tts.models import TTSMiniMaxClonedVoice
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 
 
 def _prepare_tables(app) -> None:

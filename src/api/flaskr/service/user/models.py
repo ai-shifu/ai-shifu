@@ -1,18 +1,19 @@
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
     TIMESTAMP,
+    Column,
     Date,
-    Text,
-    SmallInteger,
     DateTime,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
+
 from ...dao import db
-from .consts import USER_STATE_UNREGISTERED, CREDENTIAL_STATE_UNVERIFIED
+from .consts import CREDENTIAL_STATE_UNVERIFIED, USER_STATE_UNREGISTERED
 
 
 class UserConversion(db.Model):

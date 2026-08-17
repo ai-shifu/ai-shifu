@@ -1,12 +1,11 @@
-from io import BytesIO
 from importlib import import_module
+from io import BytesIO
 from types import SimpleNamespace
 
-from cryptography.fernet import Fernet
-from PIL import Image
 import pytest
-from werkzeug.datastructures import FileStorage
-
+from cryptography.fernet import Fernet
+from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
+from flaskr.dao import db
 from flaskr.service.billing import customization
 from flaskr.service.billing.entitlements import (
     grant_creator_manual_entitlement,
@@ -14,10 +13,10 @@ from flaskr.service.billing.entitlements import (
 )
 from flaskr.service.billing.models import BillingEntitlement
 from flaskr.service.common.models import AppException
-from flaskr.util.datetime import now_utc
-from flaskr.dao import db
-from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
 from flaskr.service.user import user as user_service
+from flaskr.util.datetime import now_utc
+from PIL import Image
+from werkzeug.datastructures import FileStorage
 
 
 def _require_saas_config_plugin() -> None:

@@ -50,7 +50,6 @@ def build_statement(
     example ``"mysql"`` or ``"sqlite"``).  ``query_timeout_seconds`` only
     affects MySQL execution via the ``MAX_EXECUTION_TIME`` hint.
     """
-
     table = dsl.spec.model.__table__
 
     select_items: list[ColumnElement[Any]] = []

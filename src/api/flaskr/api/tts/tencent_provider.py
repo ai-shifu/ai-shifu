@@ -43,7 +43,6 @@ from flaskr.service.tts.audio_utils import (
 )
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
-
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
 TENCENT_TTS_HOST = "trtc.ai.tencentcloudapi.com"
@@ -557,8 +556,7 @@ def _split_tencent_sentence_units_with_ranges(
     if not normalized:
         return []
     start = source.find(normalized)
-    if start < 0:
-        start = 0
+    start = max(start, 0)
     return [(normalized, start, start + len(normalized))]
 
 
@@ -1026,8 +1024,7 @@ def _extract_tencent_sse_subtitles(
             or raw_item.get("end_index"),
             begin_index,
         )
-        if end_index < begin_index:
-            end_index = begin_index
+        end_index = max(end_index, begin_index)
         cue_text = str(raw_item.get("Text") or raw_item.get("text") or "").strip()
         if not cue_text and text and end_index > begin_index:
             cue_text = text[begin_index:end_index].strip()

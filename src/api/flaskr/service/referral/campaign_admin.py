@@ -9,8 +9,6 @@ from math import ceil
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import or_
-
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     BILLING_PRODUCT_STATUS_ACTIVE,
@@ -21,6 +19,7 @@ from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.pagination import normalize_pagination
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+from sqlalchemy import or_
 
 from .consts import (
     REFERRAL_CAMPAIGN_STATUS_ACTIVE,
@@ -48,7 +47,6 @@ from .models import (
     ReferralInviteRelation,
     ReferralInviteReward,
 )
-
 
 REFERRAL_CAMPAIGN_STATUS_FILTERS = {
     "active",

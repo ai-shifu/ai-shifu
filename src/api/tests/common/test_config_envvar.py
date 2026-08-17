@@ -8,11 +8,12 @@ from flaskr.common.config import (
     EnvVar,
     parse_llm_model_max_output_tokens,
 )
+
 from tests.common.fixtures.mock_validators import (
-    mock_port_validator,
-    mock_email_validator,
     always_fail_validator,
     always_pass_validator,
+    mock_email_validator,
+    mock_port_validator,
     range_validator,
 )
 

@@ -3,16 +3,15 @@
 
 from __future__ import annotations
 
-from argparse import ArgumentParser
 import json
-from pathlib import Path
 import os
 import re
 import sys
+from argparse import ArgumentParser
+from pathlib import Path
 from urllib.parse import urlencode
 
 import requests
-
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOG_DIR = ROOT / "logs"

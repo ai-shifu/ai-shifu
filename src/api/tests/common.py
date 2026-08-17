@@ -3,13 +3,9 @@ import json
 
 
 def fmt(o):
-    if isinstance(o, datetime.datetime):
+    if isinstance(o, datetime.datetime) or isinstance(o, datetime.date):
         return o.isoformat()
-
-    elif isinstance(o, datetime.date):
-        return o.isoformat()
-    else:
-        return o.__json__()
+    return o.__json__()
 
 
 def print_json(o):

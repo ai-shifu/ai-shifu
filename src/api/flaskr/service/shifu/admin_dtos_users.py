@@ -5,12 +5,13 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from datetime import datetime
 import math
+from datetime import datetime
 from typing import Any
-from pydantic import BaseModel, Field
+
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.billing.dtos import BillingPlanDTO
+from pydantic import BaseModel, Field
 
 
 @register_schema_to_swagger

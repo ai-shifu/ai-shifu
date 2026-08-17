@@ -3,10 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.billing.consts import (
     BILLING_METRIC_TTS_REQUEST_COUNT,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -27,7 +26,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_TYPE_TTS,

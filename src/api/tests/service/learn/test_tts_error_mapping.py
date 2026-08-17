@@ -1,8 +1,7 @@
 import logging
 
 import pytest
-
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.learn.learn_funcs import _yield_with_tts_error_mapping
 from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeout
 

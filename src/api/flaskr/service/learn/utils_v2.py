@@ -229,7 +229,7 @@ def get_follow_up_info_v2(
 
     for p in path:
         if p.type == "outline":
-            outline_info = outline_infos_map.get(p.bid, None)
+            outline_info = outline_infos_map.get(p.bid)
             if outline_info.ask_enabled_status != ASK_MODE_DEFAULT:
                 return FollowUpInfo(
                     ask_model=outline_info.ask_llm

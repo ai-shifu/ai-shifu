@@ -44,7 +44,6 @@ from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.resource.models import Resource
 from flaskr.service.shifu.models import DraftShifu
 from flaskr.service.tts.models import (
-    TTSMiniMaxClonedVoice,
     TTS_CLONE_PROVIDER_MINIMAX,
     TTS_MINIMAX_CLONE_BILLING_CHARGED,
     TTS_MINIMAX_CLONE_BILLING_FAILED,
@@ -56,10 +55,10 @@ from flaskr.service.tts.models import (
     TTS_MINIMAX_CLONE_STATUS_PROCESSING,
     TTS_MINIMAX_CLONE_STATUS_QUEUED,
     TTS_MINIMAX_CLONE_STATUS_READY,
+    TTSMiniMaxClonedVoice,
 )
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
-
 
 MINIMAX_FILE_UPLOAD_URL = "https://api.minimaxi.com/v1/files/upload"
 MINIMAX_VOICE_CLONE_URL = "https://api.minimaxi.com/v1/voice_clone"

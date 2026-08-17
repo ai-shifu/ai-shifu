@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementChangeType,

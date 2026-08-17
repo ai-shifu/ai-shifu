@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from types import SimpleNamespace
 
+import flaskr.dao as dao
 import pytest
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-
-import flaskr.dao as dao
 
 if dao.db is None:
     _test_app = Flask("test-generated-block-tts-av-mode")
@@ -70,7 +69,7 @@ def _patch_run_tts_processor(
     def _fake_synthesize_text(**kwargs):
         synthesized_texts.append(kwargs["text"])
         return SimpleNamespace(
-            audio_data=f"fake-audio:{kwargs['text']}".encode("utf-8"),
+            audio_data=f"fake-audio:{kwargs['text']}".encode(),
             duration_ms=123,
             word_count=1,
         )

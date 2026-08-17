@@ -3,11 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from flask import Flask
-import pytest
-from sqlalchemy.exc import IntegrityError
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -30,7 +28,7 @@ from flaskr.service.billing.wallets import (
     grant_manual_credit_wallet_balance,
     grant_refund_return_credits,
 )
-
+from sqlalchemy.exc import IntegrityError
 
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
 

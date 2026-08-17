@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import pytest
-
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.user.verification_codes import consume_verification_code
 
 

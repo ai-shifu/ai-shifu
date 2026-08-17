@@ -10,10 +10,9 @@ inherited pool without touching the parent's file descriptors.
 """
 
 from celery.signals import worker_process_init
-from sqlalchemy import text
-
 from flaskr.common.celery_app import dispose_inherited_db_pools, get_celery_app
 from flaskr.dao import db
+from sqlalchemy import text
 
 
 def test_dispose_replaces_the_inherited_pool(app):

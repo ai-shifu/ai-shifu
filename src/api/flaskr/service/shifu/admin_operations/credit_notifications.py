@@ -3,17 +3,18 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.billing.api import (
     dry_run_credit_notifications,
     get_credit_notification_detail,
-    get_operator_credit_notification_overview as build_credit_notification_overview,
     list_credit_notification_templates,
     list_credit_notifications,
     load_credit_notification_policy_for_operator,
     requeue_credit_notification,
     save_credit_notification_policy,
     sync_credit_notification_template,
+)
+from flaskr.service.billing.api import (
+    get_operator_credit_notification_overview as build_credit_notification_overview,
 )
 
 

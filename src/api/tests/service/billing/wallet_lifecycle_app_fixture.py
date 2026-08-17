@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Generator
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 
 
 @pytest.fixture

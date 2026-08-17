@@ -1,24 +1,24 @@
 from flask import Flask, jsonify, make_response, request
 
-from flaskr.service.billing.webhooks import (
-    apply_billing_native_notification,
-    handle_billing_pingxx_webhook,
-)
-from flaskr.service.order.payment_providers import get_payment_provider
-from flaskr.service.config import config_overrides
 from flaskr.service.billing.customization import (
     build_provider_config_overrides,
     resolve_provider_credential_context,
 )
+from flaskr.service.billing.webhooks import (
+    apply_billing_native_notification,
+    handle_billing_pingxx_webhook,
+)
+from flaskr.service.config import config_overrides
 from flaskr.service.order.models import Order, PingxxOrder
+from flaskr.service.order.payment_providers import get_payment_provider
 from flaskr.service.order.raw_snapshots import native_snapshot_model
 
-from .common import bypass_token_validation
 from ..service.order import (
+    handle_stripe_webhook,
     success_buy_record_from_native,
     success_buy_record_from_pingxx,
-    handle_stripe_webhook,
 )
+from .common import bypass_token_validation
 
 
 def register_callback_handler(app: Flask, path_prefix: str):

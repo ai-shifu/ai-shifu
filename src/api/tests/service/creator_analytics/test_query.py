@@ -8,7 +8,6 @@ SQL build → SQLite engine. The token middleware is bypassed by mocking
 from __future__ import annotations
 
 import pytest
-
 from flaskr.service.creator_analytics import engine as analytics_engine
 
 from .conftest import (
@@ -21,14 +20,12 @@ from .conftest import (
     seed_user_info,
 )
 
-
 ENDPOINT = "/api/creator-analytics/query"
 
 
 @pytest.fixture(autouse=True)
 def _reset_analytics_engine_singleton():
     """Ensure each test starts with the cached fallback engine cleared."""
-
     analytics_engine.reset_for_tests()
     yield
     analytics_engine.reset_for_tests()
@@ -133,7 +130,6 @@ def test_query_results_are_scoped_to_the_requested_shifu(
     mock_request_user, test_client, app
 ):
     """Even if rows exist for another shifu, only the requested one is counted."""
-
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -254,7 +250,6 @@ def test_bill_usage_table_is_rejected(mock_request_user, test_client, app):
     raw token columns (`input` / `input_cache` / `output` / `total`) are no
     longer exposed.
     """
-
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a")
@@ -281,7 +276,6 @@ def test_conversation_replay_returns_ordered_qa_pairs(
 ):
     """End-to-end: select user_bid + generated_content for a lesson's Q&A,
     verify the rows come back chronologically and an audit log is emitted."""
-
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a")
@@ -473,7 +467,6 @@ def test_user_users_lookup_without_where_user_bid_is_rejected(
     mock_request_user, test_client, app
 ):
     """Cannot list every learner's nickname — must supply user_bid candidates."""
-
     mock_request_user()
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a")
@@ -662,7 +655,6 @@ def test_fallback_engine_uses_primary_db_with_warning(
     mock_request_user, test_client, app, caplog
 ):
     """Leaving ANALYTICS_DATABASE_URI empty should fall back to the primary engine."""
-
     mock_request_user()
     app.config["ANALYTICS_DATABASE_URI"] = ""
     with app.app_context():
@@ -789,7 +781,6 @@ def test_bill_daily_creator_bid_grouping_shows_callers_own_wallet(
     """The author can now group by creator_bid to confirm which wallet is
     being deducted for the course; shifu_bid isolation guarantees the
     grouping only returns the caller's own bid."""
-
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -845,7 +836,6 @@ def test_followup_count_excludes_rerolled_history(mock_request_user, test_client
     status=0. The PDF §6 trap is "status=0 history rows must not be
     counted as live follow-ups". sql_builder auto-injects status=1, so
     the count should stay at 2 even with a status=0 row present."""
-
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -899,7 +889,6 @@ def test_followup_count_per_lesson_by_outline(mock_request_user, test_client, ap
     """Group by outline_item_bid answers "follow-up questions per lesson".
     Requires both `outline_item_bid` selectable / filterable / groupable
     AND aggregate count_distinct support — added in this round."""
-
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -967,7 +956,6 @@ def test_shifu_published_returns_current_title_excluding_history(
     rows (deleted=1) plus the current row (deleted=0). The query must
     return only the current row — historical titles must not be presented
     as the course's "current name" (PDF §1 + §7 rules)."""
-
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -1014,7 +1002,6 @@ def test_shifu_published_excludes_other_creators_rows(
     :caller) ensures only the caller's own rows surface. Here we model
     the simpler "two creators with the same shifu_bid title prefix" case
     — caller can see their own row and never the other creator's."""
-
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-mine", user_id="teacher-1")
@@ -1053,7 +1040,6 @@ def test_shifu_meta_aggregate_rejected_at_http_layer(
 ):
     """The DSL validator must reject aggregate on metadata tables before
     SQL is built. Verifies the HTTP error code is the standard invalidDsl."""
-
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -1078,7 +1064,6 @@ def test_shifu_meta_title_like_searches_callers_courses(
     """title `like` with trailing-% is the canonical "find my course by
     name" path. Combined with creator_scoped filtering, the caller only
     sees their own matches."""
-
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")

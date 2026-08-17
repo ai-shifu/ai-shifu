@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.billing.ownership import (
     resolve_shifu_creator_bid,
     resolve_usage_creator_bid,

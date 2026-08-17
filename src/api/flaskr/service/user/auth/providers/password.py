@@ -6,7 +6,9 @@ Supports login via phone number or email + password.
 from __future__ import annotations
 
 from flask import Flask
-
+from flaskr.service.common.dtos import UserToken
+from flaskr.service.common.models import raise_error
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.auth.base import (
     AuthProvider,
     AuthResult,
@@ -16,17 +18,14 @@ from flaskr.service.user.auth.factory import (
     has_provider,
     register_provider,
 )
+from flaskr.service.user.password_utils import verify_password
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     get_password_hash,
     list_credentials,
     load_user_aggregate_by_identifier,
 )
-from flaskr.service.user.password_utils import verify_password
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.utils import generate_token
-from flaskr.service.common.dtos import UserToken
-from flaskr.service.common.models import raise_error
 
 
 class PasswordAuthProvider(AuthProvider):

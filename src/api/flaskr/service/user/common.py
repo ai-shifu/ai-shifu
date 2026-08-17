@@ -1,13 +1,15 @@
-from flask import Flask, has_app_context
-
 from typing import Optional
 
 import jwt
-
+from flask import Flask, has_app_context
 from flaskr.i18n import get_i18n_list
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
+
+from ...dao import db
 from ..common.dtos import UserInfo, UserToken
 from ..common.models import raise_error
-from ...dao import db
+from ..profile.dtos import ProfileToSave
+from ..profile.funcs import save_user_profiles
 from .auth import get_provider
 from .auth.base import VerificationRequest
 from .repository import (
@@ -17,9 +19,6 @@ from .repository import (
     update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
-from ..profile.funcs import save_user_profiles
-from ..profile.dtos import ProfileToSave
 from .token_store import token_store
 
 
@@ -37,11 +36,10 @@ def validate_user(app: Flask, token: str) -> UserInfo:
         try:
             if app.config.get("ENVERIMENT", "prod") == "dev":
                 return _load_user_info(token)
-            else:
-                user_id = jwt.decode(
-                    token, app.config["SECRET_KEY"], algorithms=["HS256"]
-                )["user_id"]
-                app.logger.info("user_id:" + user_id)
+            user_id = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])[
+                "user_id"
+            ]
+            app.logger.info("user_id:" + user_id)
 
             app.logger.info("user_id:" + user_id)
             ttl_seconds = app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7)

@@ -8,7 +8,6 @@ Create Date: 2026-08-13 08:45:00.000000
 
 from __future__ import annotations
 
-
 revision = "f9a2b3c4d5e6"
 down_revision = ("c8f1a2d3e4b5", "e7b3c9d1f5a2")
 branch_labels = None

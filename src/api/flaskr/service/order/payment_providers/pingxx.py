@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
-import base64
-from functools import wraps
 import threading
-from typing import Dict, Any
+from functools import wraps
+from typing import Any, Dict
 
-from flask import Flask
-
-from flaskr.service.config import get_config
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
+from flask import Flask
+from flaskr.service.config import get_config
 
+from . import register_payment_provider
 from .base import (
     PaymentCreationResult,
     PaymentNotificationResult,
@@ -21,8 +21,6 @@ from .base import (
     PaymentRequest,
     SubscriptionUpdateResult,
 )
-from . import register_payment_provider
-
 
 _PINGPP_CLIENT: Any | None = None
 _PINGPP_IMPORT_ERROR: Exception | None = None

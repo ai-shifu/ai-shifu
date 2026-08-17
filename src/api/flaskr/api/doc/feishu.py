@@ -1,6 +1,7 @@
-from flask import Flask
-import requests
 import json
+
+import requests
+from flask import Flask
 from flaskr.service.config import get_config
 
 # feishu api

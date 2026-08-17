@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import json
 
-from flask import Flask
-import pytest
-
 import flaskr.common.config as common_config
+import pytest
+from flask import Flask
 from flaskr.service.order.payment_providers.alipay import AlipayProvider
 from flaskr.service.order.payment_providers.base import PaymentRequest
 from flaskr.service.order.payment_providers.stripe import StripeProvider

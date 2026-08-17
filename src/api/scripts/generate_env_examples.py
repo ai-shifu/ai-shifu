@@ -14,7 +14,7 @@ from pathlib import Path
 # Add parent directory to path to import from flaskr
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from flaskr.common.config import ENV_VARS, EnhancedConfig  # noqa: E402
+from flaskr.common.config import ENV_VARS, EnhancedConfig
 
 
 def generate_env_examples():

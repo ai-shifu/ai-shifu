@@ -1,11 +1,13 @@
 import os
-from flask import Flask
-import subprocess
 import shutil
+import subprocess
+
 import click
-from flask.cli import with_appcontext
 from alembic import command
 from alembic.config import Config
+from flask import Flask
+from flask.cli import with_appcontext
+
 from .plugin_manager import plugin_manager
 
 
@@ -13,7 +15,6 @@ def enable_plugins(app: Flask):
     @app.cli.group()
     def plugin():
         """Plugin management commands."""
-        pass
 
     @plugin.command(name="add")
     @click.argument("repo_url")
@@ -64,7 +65,6 @@ def enable_plugins(app: Flask):
     @plugin.group(name="db")
     def plugin_db():
         """the plugin database management commands"""
-        pass
 
     def get_version_table_name(plugin_name: str) -> str:
         """get version table name"""

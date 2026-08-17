@@ -5,8 +5,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 from flask import Flask
-from sqlalchemy.exc import IntegrityError
-
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config.funcs import get_config as get_dynamic_config
@@ -14,7 +12,7 @@ from flaskr.service.shifu.dtos import resolve_demo_course_for_language
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
 from flaskr.util.datetime import now_utc
-
+from sqlalchemy.exc import IntegrityError
 
 ONBOARDING_VERSION = "v1"
 SCENE_ADMIN_HOME = "admin_home_onboarding"

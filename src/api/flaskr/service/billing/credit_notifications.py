@@ -2,27 +2,23 @@
 
 from __future__ import annotations
 
+import json
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal, InvalidOperation
-import json
-import re
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import func, or_
-
 from flaskr.api.sms.aliyun import (
     get_sms_template_ali,
     query_sms_template_list_ali,
     send_sms_ali,
 )
 from flaskr.common.observability import record_credit_notification_event
-from flaskr.dao import db
-from flaskr.dao import uow
+from flaskr.dao import db, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
@@ -33,9 +29,11 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.util.datetime import now_utc
 from flaskr.util.timezone import format_with_app_timezone
 from flaskr.util.uuid import generate_id
-from flaskr.util.datetime import now_utc
+from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 
 from .consts import (
     BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
@@ -1538,7 +1536,7 @@ def _stage_scan_notification_isolated(
                 metadata=metadata,
                 policy=policy,
             )
-    except Exception:  # noqa: BLE001 - per-item scan isolation
+    except Exception:
         # exc_info carries the exception; keep provider error strings (which
         # may echo recipient details) out of the formatted message itself.
         app.logger.exception(
@@ -1744,7 +1742,6 @@ def suppress_pending_expiring_notifications_for_bucket(
     referral_reward_grants extends the bucket and commits both writes
     together), so this function must not commit or open its own unit of work.
     """
-
     normalized_wallet_bucket_bid = _normalize_bid(wallet_bucket_bid)
     if not normalized_wallet_bucket_bid:
         return 0

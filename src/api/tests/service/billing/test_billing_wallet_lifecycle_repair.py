@@ -3,9 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from flask import Flask
-
 import flaskr.dao as dao
+from flask import Flask
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -43,7 +42,6 @@ from flaskr.service.billing.wallets import (
     restore_wrongly_expired_credit_pack_buckets,
 )
 from flaskr.util.datetime import to_utc_iso
-
 from tests.service.billing.wallet_lifecycle_test_helpers import (
     create_monthly_plan_product,
 )

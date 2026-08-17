@@ -18,7 +18,11 @@ def _reset_user_auth_tables():
     from flaskr.dao import db
     from flaskr.service.user.models import (
         AuthCredential,
+    )
+    from flaskr.service.user.models import (
         UserInfo as UserEntity,
+    )
+    from flaskr.service.user.models import (
         UserToken as UserTokenModel,
     )
 
@@ -47,16 +51,16 @@ def _reset_shifu_tables() -> None:
 
 
 def test_phone_flow_marks_temp_phone_claim_as_created_new_user(tmp_path, monkeypatch):
+    import flaskr.service.user.phone_flow as phone_flow
     from flask import Flask
     from flask_sqlalchemy import SQLAlchemy
-
     from flaskr import dao
-    import flaskr.service.user.phone_flow as phone_flow
     from flaskr.service.user.consts import (
         USER_STATE_REGISTERED,
         USER_STATE_UNREGISTERED,
     )
-    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+    from flaskr.service.user.models import AuthCredential
+    from flaskr.service.user.models import UserInfo as UserEntity
 
     app = Flask(__name__)
     db_uri = f"sqlite:///{tmp_path / 'phone-claim.db'}"
@@ -280,8 +284,8 @@ def test_phone_flow_verifies_code_from_db_when_cache_missing(app):
 def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(app):
     import flaskr.service.user.phone_flow as phone_flow
     from flaskr.dao import db
-    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
-    from flaskr.service.user.models import UserVerifyCode
+    from flaskr.service.user.models import AuthCredential, UserVerifyCode
+    from flaskr.service.user.models import UserInfo as UserEntity
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
@@ -328,8 +332,8 @@ def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(app):
 def test_phone_flow_accepts_prefixed_pending_db_code(app):
     import flaskr.service.user.phone_flow as phone_flow
     from flaskr.dao import db
-    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
-    from flaskr.service.user.models import UserVerifyCode
+    from flaskr.service.user.models import AuthCredential, UserVerifyCode
+    from flaskr.service.user.models import UserInfo as UserEntity
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"

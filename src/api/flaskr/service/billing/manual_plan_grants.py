@@ -7,18 +7,13 @@ from datetime import datetime
 from typing import Any
 
 from flask import Flask
-from redis.exceptions import LockError
-
 from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
+from redis.exceptions import LockError
 
-from .credit_notifications import (
-    enqueue_credit_notification,
-    stage_credit_granted_notification_for_order,
-)
 from .consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -27,10 +22,16 @@ from .consts import (
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
 )
+from .credit_notifications import (
+    enqueue_credit_notification,
+    stage_credit_granted_notification_for_order,
+)
 from .models import BillingOrder, BillingProduct, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .queries import (
     calculate_self_managed_billing_cycle_end as _calculate_self_managed_billing_cycle_end,
+)
+from .queries import (
     load_primary_active_subscription as _load_primary_active_subscription,
 )
 from .subscriptions import grant_paid_order_credits, is_self_managed_billing_provider
@@ -180,7 +181,6 @@ def grant_manual_plan_to_user(
     grant_channel: str = "operator_user_management",
 ) -> ManualPlanGrantResult:
     """Grant one active billing plan to one user via a manual paid order."""
-
     with app.app_context():
         normalized_user_bid = _normalize_bid(user_bid)
         normalized_product_bid = _normalize_bid(product_bid)

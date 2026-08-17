@@ -15,7 +15,6 @@ treats its ``model`` parameter as the resource id).
 from __future__ import annotations
 
 import requests
-
 from flaskr.api.tts.volcengine_provider import (
     VOLCENGINE_ICL_RESOURCE_ID,
     is_volcengine_cloned_speaker_id,

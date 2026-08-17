@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import decimal
 import json
+import math
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
-import math
 from typing import Dict, Optional
 
 from flask import Flask
-from sqlalchemy import and_, case, func, not_, or_
-
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.api import (
@@ -64,9 +62,11 @@ from flaskr.service.promo.models import (
     PromoRedemption,
 )
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from sqlalchemy import and_, case, func, not_, or_
 
 PROMOTION_SCOPE_ALL_COURSES = "all_courses"
 PROMOTION_SCOPE_SINGLE_COURSE = "single_course"
@@ -1130,8 +1130,7 @@ def _calculate_coupon_usage_discount_amount(
         int(usage.discount_type or COUPON_TYPE_FIXED),
         decimal.Decimal(usage.value or 0),
     )
-    if discount_amount > payable_price:
-        discount_amount = payable_price
+    discount_amount = min(discount_amount, payable_price)
     return _format_decimal(discount_amount)
 
 

@@ -1,9 +1,9 @@
-from collections import defaultdict
 import importlib.util
 import json
 import os
-from pathlib import Path
 import threading
+from collections import defaultdict
+from pathlib import Path
 from typing import Dict, Iterable, List
 
 from flask import Flask
@@ -299,9 +299,9 @@ def get_i18n_list(app: Flask):
 
 __all__ = [
     "_",
-    "translate_for_language",
-    "set_language",
     "clear_language",
     "get_i18n_list",
     "load_translations",
+    "set_language",
+    "translate_for_language",
 ]

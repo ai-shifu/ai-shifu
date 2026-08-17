@@ -4,8 +4,6 @@ from datetime import datetime
 from decimal import Decimal
 
 import pytest
-from sqlalchemy.exc import IntegrityError
-
 from flaskr.dao import db
 from flaskr.service.referral.consts import (
     REFERRAL_ABNORMAL_STATUS_NORMAL,
@@ -27,6 +25,7 @@ from flaskr.service.referral.models import (
     ReferralInviteRelation,
     ReferralInviteReward,
 )
+from sqlalchemy.exc import IntegrityError
 
 
 def test_referral_models_register_campaign_runtime_tables() -> None:

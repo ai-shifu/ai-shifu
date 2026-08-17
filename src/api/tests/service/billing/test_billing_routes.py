@@ -5,11 +5,15 @@ from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
 
-from flask import Flask, jsonify, request
-import pytest
-from sqlalchemy import event
-
 import flaskr.dao as dao
+import flaskr.service.billing.campaigns as billing_campaigns_module
+import flaskr.service.billing.entitlements as billing_entitlements_module
+import flaskr.service.billing.queries as billing_queries_module
+import flaskr.service.billing.read_models as billing_read_models_module
+import flaskr.service.billing.serializers as billing_serializers_module
+import pytest
+from flask import Flask, jsonify, request
+from flaskr.service.billing.capabilities import build_billing_route_bootstrap
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
@@ -39,19 +43,6 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_SOURCE_TYPE_USAGE,
 )
-from flaskr.service.billing.models import (
-    BillingCampaign,
-    BillingCampaignProduct,
-    BillingDailyLedgerSummary,
-    BillingDailyUsageMetric,
-    BillingOrder,
-    BillingEntitlement,
-    BillingProduct,
-    BillingSubscription,
-    CreditLedgerEntry,
-    CreditWallet,
-    CreditWalletBucket,
-)
 from flaskr.service.billing.dtos import (
     BillingCatalogDTO,
     BillingLedgerPageDTO,
@@ -59,28 +50,36 @@ from flaskr.service.billing.dtos import (
     BillingRouteBootstrapDTO,
     BillingWalletBucketListDTO,
 )
-from flaskr.service.billing.capabilities import build_billing_route_bootstrap
-import flaskr.service.billing.campaigns as billing_campaigns_module
-import flaskr.service.billing.entitlements as billing_entitlements_module
-import flaskr.service.billing.queries as billing_queries_module
-import flaskr.service.billing.read_models as billing_read_models_module
-import flaskr.service.billing.serializers as billing_serializers_module
+from flaskr.service.billing.models import (
+    BillingCampaign,
+    BillingCampaignProduct,
+    BillingDailyLedgerSummary,
+    BillingDailyUsageMetric,
+    BillingEntitlement,
+    BillingOrder,
+    BillingProduct,
+    BillingSubscription,
+    CreditLedgerEntry,
+    CreditWallet,
+    CreditWalletBucket,
+)
 from flaskr.service.billing.read_models import (
     build_billing_catalog,
     build_billing_ledger_page,
     build_billing_overview,
     build_billing_wallet_buckets,
 )
-from flaskr.service.common.models import AppException, ERROR_CODE
-from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_LLM,
 )
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import UserInfo as UserEntity
+from sqlalchemy import event
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,

@@ -8,23 +8,23 @@ API Reference:
 - Documentation: https://cloud.baidu.com/doc/SPEECH/s/mlbxh7xie
 """
 
-import logging
-import requests
-import time
 import hashlib
-from typing import Optional, List
+import logging
+import time
+from typing import List, Optional
 
-from flaskr.common.config import get_config
-from flaskr.common.log import AppLoggerProxy
+import requests
+
 from flaskr.api.tts.base import (
+    AudioSettings,
     BaseTTSProvider,
+    ParamRange,
+    ProviderConfig,
     TTSResult,
     VoiceSettings,
-    AudioSettings,
-    ProviderConfig,
-    ParamRange,
 )
-
+from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
@@ -909,15 +909,14 @@ class BaiduTTSProvider(BaseTTSProvider):
                     word_count=len(text),
                 )
 
-            else:
-                # Error response (JSON)
-                try:
-                    result = response.json()
-                    error_code = result.get("err_no", "unknown")
-                    error_msg = result.get("err_msg", "Unknown error")
-                    raise ValueError(f"Baidu TTS API error {error_code}: {error_msg}")
-                except ValueError:
-                    raise ValueError(f"Baidu TTS API error: {response.text[:200]}")
+            # Error response (JSON)
+            try:
+                result = response.json()
+                error_code = result.get("err_no", "unknown")
+                error_msg = result.get("err_msg", "Unknown error")
+                raise ValueError(f"Baidu TTS API error {error_code}: {error_msg}")
+            except ValueError:
+                raise ValueError(f"Baidu TTS API error: {response.text[:200]}")
 
         except requests.RequestException as e:
             logger.error(f"Baidu TTS request failed: {e}")

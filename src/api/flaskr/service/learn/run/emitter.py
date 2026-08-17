@@ -86,7 +86,7 @@ class RunEventEmitter:
         ] = {o.outline_item_bid: o for o in outline_item_info_db}
         recorder = ctx._recorder
         for update in outline_updates:
-            outline_item_info = outline_item_info_map.get(update.outline_bid, None)
+            outline_item_info = outline_item_info_map.get(update.outline_bid)
             if not outline_item_info:
                 continue
             if outline_item_info.hidden:

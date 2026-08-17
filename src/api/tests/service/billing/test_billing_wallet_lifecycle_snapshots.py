@@ -3,10 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.billing.consts import (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_FREE,
@@ -26,7 +25,6 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.wallets import (
     rebuild_credit_wallet_snapshots,
 )
-
 
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
 

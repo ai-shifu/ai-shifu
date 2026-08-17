@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.shifu.models import DraftShifu, LogDraftStruct
 from flaskr.service.shifu.shifu_history_manager import (

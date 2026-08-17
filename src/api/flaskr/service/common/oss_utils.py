@@ -15,7 +15,6 @@ except ModuleNotFoundError:  # pragma: no cover
 from flaskr.service.common.models import raise_error, raise_error_with_args
 from flaskr.service.config import get_config
 
-
 OSS_PROFILE_DEFAULT = "default"
 OSS_PROFILE_COURSES = "courses"
 
@@ -121,13 +120,13 @@ def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
     Warm up a CDN URL.
     """
     try:
-        from aliyunsdkcore.client import AcsClient
         from aliyunsdkcdn.request.v20180510.DescribeRefreshTasksRequest import (
             DescribeRefreshTasksRequest,
         )
         from aliyunsdkcdn.request.v20180510.PushObjectCacheRequest import (
             PushObjectCacheRequest,
         )
+        from aliyunsdkcore.client import AcsClient
 
         region_id = config.endpoint.split(".")[0].replace("oss-", "")
         client = AcsClient(

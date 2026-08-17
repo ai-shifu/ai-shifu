@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import secrets
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from authlib.integrations.requests_client import OAuth2Session
 import jwt
-from typing import Optional
-
+from authlib.integrations.requests_client import OAuth2Session
 from flask import current_app, request
-
 from flaskr.common.public_urls import build_google_oauth_callback_url
+from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.user.auth.base import (
@@ -21,6 +19,7 @@ from flaskr.service.user.auth.base import (
     OAuthCallbackRequest,
 )
 from flaskr.service.user.auth.factory import has_provider, register_provider
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
@@ -33,12 +32,10 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.utils import (
-    generate_token,
     ensure_admin_creator_and_demo_permissions,
+    generate_token,
 )
-from flaskr.service.common.dtos import UserToken
 
 AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"

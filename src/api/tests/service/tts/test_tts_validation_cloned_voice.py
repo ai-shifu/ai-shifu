@@ -6,12 +6,11 @@ import uuid
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.dao import db
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.tts.models import (
-    TTSMiniMaxClonedVoice,
     TTS_MINIMAX_CLONE_STATUS_READY,
+    TTSMiniMaxClonedVoice,
 )
 from flaskr.service.tts.validation import validate_tts_settings_strict
 

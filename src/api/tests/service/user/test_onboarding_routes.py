@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from flaskr.util.datetime import now_utc
 import uuid
-
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timedelta, timezone
 
 from flaskr.dao import db
-from flaskr.service.user.onboarding import _serialize_datetime
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
+from flaskr.service.user.onboarding import _serialize_datetime
 from flaskr.service.user.utils import generate_token
+from flaskr.util.datetime import now_utc
+from sqlalchemy.exc import IntegrityError
 
 
 def _create_user(

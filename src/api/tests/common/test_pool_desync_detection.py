@@ -8,10 +8,9 @@ recirculating them.
 
 import socket
 
+import flaskr.dao as dao
 import pytest
 from sqlalchemy.pool import QueuePool
-
-import flaskr.dao as dao
 
 
 class _FakePyMySQLConnection:

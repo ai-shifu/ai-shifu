@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from io import BytesIO
-from dataclasses import dataclass
 import base64
 import binascii
 import hashlib
 import hmac
-from importlib import import_module
 import json
+from dataclasses import dataclass
+from importlib import import_module
+from io import BytesIO
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -17,15 +17,14 @@ from cryptography import x509
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from flask import Flask, current_app, has_app_context
-from PIL import Image, ImageOps, UnidentifiedImageError
-from werkzeug.datastructures import FileStorage
-
-from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
 from flaskr.service.common.models import AppException, raise_error, raise_param_error
+from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
 from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config.funcs import get_config
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+from PIL import Image, ImageOps, UnidentifiedImageError
+from werkzeug.datastructures import FileStorage
 
 from .domains import build_creator_domain_bindings
 from .entitlements import (
@@ -309,7 +308,6 @@ def upload_creator_brand_logo(
     allow_when_customization_disabled: bool = False,
 ) -> str:
     """Validate and upload a course-owner logo through managed storage."""
-
     creator_bid = normalize_bid(creator_bid)
     normalized_target = _normalize_logo_target(target)
     with app.app_context():
@@ -617,7 +615,6 @@ def resolve_payment_integration_for_new_order(
     app: Flask, creator_bid: str, provider: str
 ) -> ProviderCredentialContext | None:
     """Resolve an eligible active merchant config or preserve global behavior."""
-
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
     if provider not in PAYMENT_PROVIDERS:
@@ -912,7 +909,7 @@ def _probe_stripe_credentials(
         if api_version:
             request_options["stripe_version"] = api_version
         stripe.Account.retrieve(**request_options)
-    except Exception as exc:  # noqa: BLE001 - surface provider probe failure
+    except Exception as exc:
         raise ValueError("Stripe credentials could not be verified") from exc
 
 

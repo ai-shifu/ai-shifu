@@ -1,25 +1,25 @@
 import hashlib
 
 from flask import Flask
-from markdown_flow import MarkdownFlow
-from sqlalchemy import func, inspect, text
-
-from ...dao import db
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.i18n import _
 from flaskr.service.common import raise_error
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from markdown_flow import MarkdownFlow
+from sqlalchemy import func, inspect, text
+
+from ...dao import db
 from .dtos import (
-    ColorSetting,
     DEFAULT_COLOR_SETTINGS,
+    ColorSetting,
     ProfileItemDefinition,
 )
 from .models import (
-    CONST_PROFILE_TYPE_TEXT,
     CONST_PROFILE_SCOPE_SYSTEM,
     CONST_PROFILE_SCOPE_USER,
+    CONST_PROFILE_TYPE_TEXT,
     PROFILE_CONF_TYPE_PROFILE,
     PROFILE_SHOW_TYPE_ALL,
     PROFILE_TYPE_INPUT_TEXT,
@@ -88,7 +88,6 @@ def convert_variable_definition_to_profile_item_definition(
     """
     Convert variable definition model to legacy response DTO shape.
     """
-
     scope = (
         CONST_PROFILE_SCOPE_SYSTEM
         if definition.shifu_bid == ""
@@ -467,7 +466,6 @@ def save_profile_item(
     """
     Save (create/update) a custom variable definition.
     """
-
     with app.app_context():
         normalized_parent_id = parent_id or ""
         if normalized_parent_id == "" and user_id != "":

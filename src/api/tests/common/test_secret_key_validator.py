@@ -4,10 +4,10 @@ Unit tests for SECRET_KEY validator functionality.
 
 import pytest
 from flaskr.common.config import (
-    EnhancedConfig,
-    EnvVar,
-    EnvironmentConfigError,
     ENV_VARS,
+    EnhancedConfig,
+    EnvironmentConfigError,
+    EnvVar,
 )
 
 
@@ -30,7 +30,7 @@ class TestSecretKeyValidator:
 
         for value in valid_values:
             assert secret_key_env.validator(value) is True, (
-                f"Failed for value: {repr(value)}"
+                f"Failed for value: {value!r}"
             )
 
     def test_secret_key_invalid_values(self):
@@ -49,7 +49,7 @@ class TestSecretKeyValidator:
 
         for value in invalid_values:
             assert secret_key_env.validator(value) is False, (
-                f"Should have failed for value: {repr(value)}"
+                f"Should have failed for value: {value!r}"
             )
 
     def test_secret_key_required_field(self):

@@ -1,22 +1,25 @@
-from flask import Flask
-from cryptography.fernet import Fernet
 import base64
 import hashlib
-from flaskr.service.config.models import Config
-from flaskr.common.config import (
-    get_config as get_config_from_common,
-    has_explicit_env_override,
-)
-from flaskr.common.cache_provider import cache as redis
-from flaskr.dao import db
-from flaskr.util import generate_id
-from pydantic import BaseModel, Field
-from flaskr.framework import extensible
-from sqlalchemy.exc import SQLAlchemyError
-from redis.exceptions import LockNotOwnedError
-from contextlib import contextmanager
 import random
 import threading
+from contextlib import contextmanager
+
+from cryptography.fernet import Fernet
+from flask import Flask
+from flaskr.common.cache_provider import cache as redis
+from flaskr.common.config import (
+    get_config as get_config_from_common,
+)
+from flaskr.common.config import (
+    has_explicit_env_override,
+)
+from flaskr.dao import db
+from flaskr.framework import extensible
+from flaskr.service.config.models import Config
+from flaskr.util import generate_id
+from pydantic import BaseModel, Field
+from redis.exceptions import LockNotOwnedError
+from sqlalchemy.exc import SQLAlchemyError
 
 MAX_UPDATED_BY_LEN = 36
 _config_override_local = threading.local()
@@ -110,7 +113,7 @@ def _decrypt_config(app: Flask, encrypted_value: str) -> str:
             decrypted_value = fernet.decrypt(encrypted_value.encode())
             return decrypted_value.decode()
         except Exception as e:
-            raise ValueError(f"Failed to decrypt config value: {str(e)}")
+            raise ValueError(f"Failed to decrypt config value: {e!s}")
 
 
 def _get_config_cache_key(app: Flask, key: str) -> str:

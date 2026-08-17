@@ -6,9 +6,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from flask import Flask, request
-
 from flaskr.dao import db
-from flaskr.service.referral.routes import register_referral_routes
 from flaskr.service.referral.consts import (
     REFERRAL_CAMPAIGN_STATUS_ACTIVE,
     REFERRAL_INVITE_CODE_STATUS_ACTIVE,
@@ -32,6 +30,7 @@ from flaskr.service.referral.models import (
     ReferralInviteRelation,
     ReferralInviteReward,
 )
+from flaskr.service.referral.routes import register_referral_routes
 from flaskr.service.referral.service import (
     InviteEventInput,
     build_invite_profile,
@@ -41,8 +40,8 @@ from flaskr.service.referral.service import (
     record_invite_event,
     retry_pending_referral_rewards,
 )
-from flaskr.service.user.post_auth import PostAuthContext
 from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.user.post_auth import PostAuthContext
 
 
 def _seed_campaign(

@@ -1,26 +1,24 @@
 from __future__ import annotations
 
-
 from datetime import timedelta
 from decimal import Decimal
 
-from flask import Flask
-
 import flaskr.dao as dao
+from flask import Flask
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
-    BILLING_ORDER_STATUS_PAID,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
@@ -34,15 +32,12 @@ from flaskr.service.billing.renewal import (
     run_billing_renewal_event,
 )
 from flaskr.util.datetime import now_utc, to_utc_iso
-
-
 from tests.service.billing.renewal_execution_test_helpers import (
     create_credit_bucket,
-    create_renewal_event,
     create_credit_wallet,
+    create_renewal_event,
     self_managed_cycle_end_after_boundary,
 )
-
 
 pytest_plugins = ["tests.service.billing.renewal_execution_app_fixture"]
 

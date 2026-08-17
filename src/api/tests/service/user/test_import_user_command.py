@@ -2,7 +2,6 @@ from importlib import import_module
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.command.import_user import import_user
 from flaskr.dao import db
 from flaskr.service.profile.learner_profile import (

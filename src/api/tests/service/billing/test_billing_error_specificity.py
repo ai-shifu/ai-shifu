@@ -3,12 +3,11 @@ from __future__ import annotations
 from decimal import Decimal
 from types import SimpleNamespace
 
-import pytest
-
 import flaskr.service.billing.checkout as checkout_module
 import flaskr.service.billing.credit_notifications as credit_notifications_module
 import flaskr.service.billing.manual_credit_grants as manual_credit_grants_module
 import flaskr.service.billing.manual_plan_grants as manual_plan_grants_module
+import pytest
 from flaskr.service.billing.credit_notifications import save_credit_notification_policy
 from flaskr.service.billing.manual_credit_grants import (
     MANUAL_CREDIT_GRANT_SOURCE_REWARD,
@@ -16,7 +15,7 @@ from flaskr.service.billing.manual_credit_grants import (
     grant_manual_credits_to_user,
 )
 from flaskr.service.billing.manual_plan_grants import grant_manual_plan_to_user
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
 
 
 class _UnavailableLock:

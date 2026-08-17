@@ -16,8 +16,8 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.listen_element_audio_binding import (
-    _resolve_audio_target_element_bid_for_stream_number,
     _resolve_audio_target_element_bid,
+    _resolve_audio_target_element_bid_for_stream_number,
     _resolve_pending_audio_for_stream_element,
     _resolve_stream_audio_for_element_bid,
 )

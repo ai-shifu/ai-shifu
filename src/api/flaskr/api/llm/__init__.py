@@ -1,11 +1,12 @@
 import asyncio
+import logging
 import os
 import time
 from dataclasses import dataclass, field, replace
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
-from decimal import Decimal, InvalidOperation, ROUND_CEILING
-import logging
+from decimal import ROUND_CEILING, Decimal, InvalidOperation
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
+
 import requests
 
 # litellm fetches its model cost map from GitHub at import time by default,
@@ -14,8 +15,9 @@ import requests
 # override by exporting LITELLM_LOCAL_MODEL_COST_MAP=False before startup.
 os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 
-import litellm  # noqa: E402
+import litellm
 from flask import Flask, current_app
+
 from flaskr.api.langfuse import (
     LangfuseObservationHandle,
     build_langfuse_observation_link,
@@ -27,9 +29,6 @@ from flaskr.common.config import (
     get_explicit_env_override,
     parse_llm_model_max_output_tokens,
 )
-from flaskr.service.config import get_config
-from flaskr.util.datetime import now_utc
-from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
@@ -39,12 +38,15 @@ from flaskr.service.billing.rate_references import (
     format_credit_multiplier,
     load_llm_credit_1x_unit_cost,
 )
+from flaskr.service.common.models import raise_error_with_args
+from flaskr.service.config import get_config
 from flaskr.service.metering import UsageContext, record_llm_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_LLM,
     normalize_usage_scene,
 )
+from flaskr.util.datetime import now_utc
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +173,6 @@ def _attach_usage_output_text(
     response_text: str,
 ) -> Dict[str, Any]:
     """Store a bounded response excerpt for operator usage detail summaries."""
-
     normalized_response_text = str(response_text or "").strip()
     if not normalized_response_text or "output_text" in metadata:
         return metadata

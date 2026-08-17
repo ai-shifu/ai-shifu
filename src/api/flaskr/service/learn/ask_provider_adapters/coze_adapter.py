@@ -6,8 +6,6 @@ from typing import Any, Generator
 import requests
 from flask import Flask
 
-from .consts import ASK_PROVIDER_COZE
-
 from .base import (
     AskProviderChunk,
     AskProviderConfigError,
@@ -21,6 +19,7 @@ from .common import (
     provider_timeout_seconds,
     raise_for_provider_response,
 )
+from .consts import ASK_PROVIDER_COZE
 
 DEFAULT_COZE_BASE_URL = "https://api.coze.cn"
 

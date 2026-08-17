@@ -1,10 +1,11 @@
 # ruff: noqa: E402
 import os
+import shutil
 import sys
 import tempfile
-import shutil
 from importlib import import_module
 from pathlib import Path
+
 import pytest
 
 # Prevent accidental loading of user/global .env files during tests
@@ -38,10 +39,10 @@ if not _test_db_uri:
     _test_db_uri = f"sqlite:///{_test_db_path}"
 
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
-from sqlalchemy.ext.compiler import compiles
 from flaskr import dao
 from flaskr.framework.plugin import plugin_manager as plugin_manager_module
+from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
+from sqlalchemy.ext.compiler import compiles
 
 
 class _TestPluginManager:

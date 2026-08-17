@@ -2,23 +2,25 @@
 # ref: https://support.dun.163.com/documents/588434200783982592?docId=791131792583602176
 
 
-import time
 import hashlib
 import random
-from flask import Flask
+import time
 from urllib.parse import urlencode
-from gmssl import sm3, func
+
 import requests
+from flask import Flask
+from gmssl import func, sm3
+
 from flaskr.service.config import get_config
+
 from .dto import (
-    CheckResultDTO,
     CHECK_RESULT_PASS,
-    CHECK_RESULT_REVIEW,
     CHECK_RESULT_REJECT,
+    CHECK_RESULT_REVIEW,
     CHECK_RESULT_UNCONF,
     CHECK_RESULT_UNKNOWN,
+    CheckResultDTO,
 )
-
 
 URL = "http://as.dun.163.com/v5/text/check"
 
@@ -69,8 +71,7 @@ def gen_signature(params=None):
     buff += YIDUN_SECRET_KEY
     if "signatureMethod" in params.keys() and params["signatureMethod"] == "SM3":
         return sm3.sm3_hash(func.bytes_to_list(bytes(buff, encoding="utf8")))
-    else:
-        return hashlib.md5(buff.encode("utf8")).hexdigest()
+    return hashlib.md5(buff.encode("utf8")).hexdigest()
 
 
 def yidun_check(
@@ -136,22 +137,21 @@ def yidun_check(
                 provider=PROVIDER,
                 raw_data=response_json,
             )
-        else:
-            # Yidun's error payload uses "msg" (v5 API); "message" kept as a
-            # fallback. Include the code so auth/quota failures (e.g. 401
-            # trial expiry) are identifiable from the log alone.
-            app.logger.error(
-                "yidun check error: code=%s msg=%s",
-                response_json.get("code"),
-                response_json.get("msg") or response_json.get("message", ""),
-            )
-            return CheckResultDTO(
-                check_result=CHECK_RESULT_UNKNOWN,
-                risk_labels=[],
-                risk_label_ids=[],
-                provider=PROVIDER,
-                raw_data=response_json,
-            )
+        # Yidun's error payload uses "msg" (v5 API); "message" kept as a
+        # fallback. Include the code so auth/quota failures (e.g. 401
+        # trial expiry) are identifiable from the log alone.
+        app.logger.error(
+            "yidun check error: code=%s msg=%s",
+            response_json.get("code"),
+            response_json.get("msg") or response_json.get("message", ""),
+        )
+        return CheckResultDTO(
+            check_result=CHECK_RESULT_UNKNOWN,
+            risk_labels=[],
+            risk_label_ids=[],
+            provider=PROVIDER,
+            raw_data=response_json,
+        )
     except Exception as ex:
         app.logger.error("yidun check error: %r", ex)
         return CheckResultDTO(

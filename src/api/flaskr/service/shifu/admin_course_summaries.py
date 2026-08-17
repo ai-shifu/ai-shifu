@@ -7,23 +7,26 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
-from sqlalchemy import and_, case, literal, not_
-from sqlalchemy.orm import defer
-from flaskr.i18n import _
+
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
+from flaskr.i18n import _
 from flaskr.service.common.models import (
     raise_error_with_args,
     raise_param_error,
 )
+from flaskr.service.shifu.admin_course_summary_mapper import (
+    build_admin_operation_course_summary,
+)
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseSummaryDTO,
 )
-from flaskr.service.shifu.admin_course_summary_mapper import (
-    build_admin_operation_course_summary,
+from flaskr.service.shifu.admin_shared import (
+    COURSE_QUICK_FILTER_VALUES,
+    COURSE_STATUS_PUBLISHED,
+    COURSE_STATUS_UNPUBLISHED,
 )
 from flaskr.service.shifu.consts import (
     SHIFU_NAME_MAX_LENGTH,
@@ -34,21 +37,17 @@ from flaskr.service.shifu.demo_courses import (
     load_builtin_demo_titles,
     load_demo_shifu_bids,
 )
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
-
-from flaskr.service.shifu.admin_shared import (
-    COURSE_QUICK_FILTER_VALUES,
-    COURSE_STATUS_PUBLISHED,
-    COURSE_STATUS_UNPUBLISHED,
-)
+from sqlalchemy import and_, case, literal, not_
+from sqlalchemy.orm import defer
 
 
 def _format_average_score(value: Optional[Decimal]) -> str:
@@ -679,10 +678,8 @@ def _attach_course_prompt_flags(model, rows) -> None:
         for row_id, has_course_prompt in has_course_prompt_rows
     }
     for row in rows:
-        setattr(
-            row,
-            "has_course_prompt",
-            bool(has_course_prompt_map.get(getattr(row, "id", None), False)),
+        row.has_course_prompt = bool(
+            has_course_prompt_map.get(getattr(row, "id", None), False)
         )
 
 

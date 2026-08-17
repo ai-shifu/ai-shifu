@@ -1,7 +1,6 @@
+import flaskr.dao as dao
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-
-import flaskr.dao as dao
 
 if dao.db is None:
     _test_app = Flask("test-streaming-tts-subtitles")
@@ -60,7 +59,7 @@ class TestStreamingTtsSubtitles:
         monkeypatch.setattr(
             "flaskr.service.tts.streaming_tts.synthesize_text",
             lambda **kwargs: SimpleNamespace(
-                audio_data=f"audio:{kwargs['text']}".encode("utf-8"),
+                audio_data=f"audio:{kwargs['text']}".encode(),
                 duration_ms=120,
                 word_count=2,
             ),

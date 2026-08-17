@@ -11,6 +11,13 @@ helper must resolve the real Session via the registry call form.
 import logging
 
 import pytest
+from flaskr.dao import (
+    cleanup_session_after,
+    db,
+    invalidate_session,
+    is_abnormal_stream_termination,
+    is_protocol_interrupt_error,
+)
 from sqlalchemy import text
 from sqlalchemy.exc import (
     DisconnectionError,
@@ -19,14 +26,6 @@ from sqlalchemy.exc import (
     ResourceClosedError,
 )
 from sqlalchemy.orm.exc import FlushError
-
-from flaskr.dao import (
-    cleanup_session_after,
-    db,
-    invalidate_session,
-    is_abnormal_stream_termination,
-    is_protocol_interrupt_error,
-)
 
 
 class _FakeGreenletExit(BaseException):

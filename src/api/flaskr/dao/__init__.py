@@ -1,7 +1,16 @@
 import collections
 import contextlib
+import functools
 import itertools
+import logging
+import os
+import random
+import select as select_module
+import sys
+import time
+import traceback
 
+import sqlparse
 from flask import Flask
 from flask.globals import app_ctx
 from flask_sqlalchemy import SQLAlchemy
@@ -9,7 +18,6 @@ from redis import Redis
 from sqlalchemy import event
 from sqlalchemy import pool as sa_pool
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.exc import (
     DisconnectionError,
     InterfaceError,
@@ -17,15 +25,7 @@ from sqlalchemy.exc import (
     ResourceClosedError,
     SQLAlchemyError,
 )
-import functools
-import random
-import select as select_module
-import sys
-import sqlparse
-import logging
-import time
-import traceback
-import os
+from sqlalchemy.orm.exc import FlushError
 
 logger = logging.getLogger(__name__)
 

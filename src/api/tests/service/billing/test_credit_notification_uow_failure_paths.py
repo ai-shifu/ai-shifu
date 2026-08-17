@@ -18,16 +18,15 @@ mid-flow. These tests pin the new semantics:
 
 from __future__ import annotations
 
-from datetime import datetime
-from decimal import Decimal
 import os
 import secrets
+from datetime import datetime
+from decimal import Decimal
 from types import SimpleNamespace
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.dao import uow
 from flaskr.i18n import load_translations
 from flaskr.service.billing import credit_notifications

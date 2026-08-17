@@ -10,7 +10,6 @@ Date: 2025-08-07
 from typing import Optional
 
 from flask import Flask
-
 from flaskr.service.resource.models import Resource
 
 
@@ -58,7 +57,7 @@ def parse_shifu_res_bid(res_url: str):
         str: The resource ID
     """
     if res_url:
-        return res_url.split("/")[-1]
+        return res_url.rsplit("/", maxsplit=1)[-1]
     return ""
 
 

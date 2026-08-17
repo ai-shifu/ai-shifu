@@ -5,19 +5,20 @@ import base64
 import hmac
 import json
 from hashlib import sha256 as sha256
-from urllib.request import Request, urlopen
 from urllib.error import URLError
+from urllib.request import Request, urlopen
+
 from flask import Flask
+
 from flaskr.util.datetime import now_utc
 
 from .dto import (
-    CheckResultDTO,
     CHECK_RESULT_PASS,
-    CHECK_RESULT_REVIEW,
     CHECK_RESULT_REJECT,
+    CHECK_RESULT_REVIEW,
     CHECK_RESULT_UNKNOWN,
+    CheckResultDTO,
 )
-
 
 # pid = ""
 # secret_key = b""
@@ -116,15 +117,14 @@ def ilivedata_check(
             provider=PROVIDER,
             raw_data=ret,
         )
-    else:
-        app.logger.error(f"ilivedata check error: {ret.get('errorCode')}")
-        return CheckResultDTO(
-            check_result=CHECK_RESULT_UNKNOWN,
-            risk_labels=[],
-            risk_label_ids=[],
-            provider=PROVIDER,
-            raw_data=ret,
-        )
+    app.logger.error(f"ilivedata check error: {ret.get('errorCode')}")
+    return CheckResultDTO(
+        check_result=CHECK_RESULT_UNKNOWN,
+        risk_labels=[],
+        risk_label_ids=[],
+        provider=PROVIDER,
+        raw_data=ret,
+    )
 
 
 def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECONDS):

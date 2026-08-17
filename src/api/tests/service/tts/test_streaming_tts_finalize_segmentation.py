@@ -6,9 +6,9 @@ instead of submitting it all at once, preventing burst delivery of
 final segments.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
 from flaskr.api.tts import TTSResult
 from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.tts.streaming_tts import StreamingTTSProcessor, TTSSegment

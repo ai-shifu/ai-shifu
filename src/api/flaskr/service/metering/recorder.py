@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from flask import Flask
-
 from flaskr.dao import cleanup_session_after, db, invalidate_session
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.util.uuid import generate_id

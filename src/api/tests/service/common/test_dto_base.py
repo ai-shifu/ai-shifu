@@ -5,10 +5,9 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
-
 from flaskr.route.common import fmt
 from flaskr.service.common.dto_base import AutoJsonMixin
+from pydantic import BaseModel, Field
 
 
 class ChildDTO(AutoJsonMixin, BaseModel):

@@ -1,7 +1,6 @@
 import base64
 
 import requests
-
 from flaskr.api.tts.base import AudioSettings, VoiceSettings
 from flaskr.api.tts.volcengine_http_provider import (
     VOLCENGINE_HTTP_TTS_URL,

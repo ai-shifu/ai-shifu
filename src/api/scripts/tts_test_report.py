@@ -30,9 +30,7 @@ if str(_API_ROOT) not in sys.path:
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 
 from app import create_app  # noqa: E402
-
 from flaskr.api.tts import get_tts_provider  # noqa: E402
-
 
 ZH_TEXT = """在辅导过几十家企业、上万人用 AI 提升业绩、效率之后，我总结出这三种观点是多数人都会有的对 AI 的误解：
 
@@ -371,8 +369,10 @@ def main():
     app.logger.setLevel(logging.ERROR)
 
     # Import after app initialization because some modules require an initialized DB.
-    from flaskr.service.tts.pipeline import synthesize_long_text_to_oss  # noqa: E402
-    from flaskr.service.tts.pipeline import SynthesizeToOssResult  # noqa: E402
+    from flaskr.service.tts.pipeline import (
+        SynthesizeToOssResult,
+        synthesize_long_text_to_oss,
+    )
 
     provider_names = [p.strip() for p in args.providers.split(",") if p.strip()]
     languages = [("zh", ZH_TEXT), ("en", EN_TEXT)]

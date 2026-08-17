@@ -1,5 +1,4 @@
 import pytest
-
 from flaskr.service.tts.streaming_tts import _is_retryable_empty_audio_error
 
 

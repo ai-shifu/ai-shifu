@@ -8,7 +8,6 @@ lifecycle via teardown.
 """
 
 import pytest
-
 from flaskr.dao import _unique_app_ctx_scope, db
 
 

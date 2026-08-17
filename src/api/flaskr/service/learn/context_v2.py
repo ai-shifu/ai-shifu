@@ -1,62 +1,124 @@
+import contextlib
 import hashlib
 import inspect
 import json
 import queue
 import threading
-import contextlib
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Generator, Iterable, Optional, Union
+
+from flask import Flask
+from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
+from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.common.i18n_utils import (
+    get_markdownflow_output_language,
+    resolve_markdownflow_output_language,
+)
+from flaskr.common.shifu_context import (
+    apply_shifu_context_snapshot,
+    get_shifu_context_snapshot,
+)
+from flaskr.dao import cleanup_session_after, db, invalidate_session
+from flaskr.i18n import _, get_current_language, set_language
+from flaskr.service.common import raise_error, raise_error_with_args
+from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.const import (
     INPUT_TYPE_ASK,
     ROLE_STUDENT,
     ROLE_TEACHER,
 )
+from flaskr.service.learn.exceptions import PaidException
+from flaskr.service.learn.handle_input_ask import handle_input_ask
+from flaskr.service.learn.langfuse_naming import (
+    build_langfuse_generation_name,
+    build_langfuse_span_name,
+    build_langfuse_trace_name,
+)
+from flaskr.service.learn.learn_dtos import (
+    GeneratedType,
+    OutlineItemUpdateDTO,
+    PlaygroundPreviewRequest,
+    RunElementSSEMessageDTO,
+    RunMarkdownFlowDTO,
+    VariableUpdateDTO,
+)
+from flaskr.service.learn.learner_profile_prompt import (
+    build_course_prompt,
+)
+from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
+from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.models import (
+    LearnGeneratedBlock,
+    LearnGeneratedElement,
+    LearnProgressRecord,
+)
+from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
+from flaskr.service.learn.run.emitter import RunEventEmitter
+from flaskr.service.learn.run.recorder import RunRecorder
+from flaskr.service.learn.run.state import RunStateResolver
+from flaskr.service.learn.stream_tts_finalize import StreamTTSFinalizeDrainer
+from flaskr.service.learn.utils_v2 import init_generated_block
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
+from flaskr.service.order.consts import (
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_NOT_STARTED,
+    LEARN_STATUS_RESET,
+)
+from flaskr.service.profile.constants import SYS_USER_LANGUAGE
+from flaskr.service.profile.funcs import (
+    ProfileToSave,
+    get_user_profiles,
+    save_user_profiles,
+)
+from flaskr.service.profile.profile_manage import (
+    ProfileItemDefinition,
+    get_profile_item_definition_list,
+)
 from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDINTERACTION_VALUE,
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
-    BLOCK_TYPE_MDASK_VALUE,
-    BLOCK_TYPE_MDANSWER_VALUE,
-)
-from markdown_flow import (
-    MarkdownFlow,
-    ProcessMode,
-    LLMProvider,
-    BlockType,
-    InteractionParser,
-    replace_variables_in_text,
-    USER_ANSWER_CONTEXT_KEY,
-)
-from markdown_flow.llm import LLMResult
-from flask import Flask
-from flaskr.common.i18n_utils import (
-    get_markdownflow_output_language,
-    resolve_markdownflow_output_language,
-)
-from flaskr.common.cache_provider import cache as cache_provider
-from flaskr.dao import cleanup_session_after, db, invalidate_session
-from flaskr.service.shifu.shifu_struct_manager import (
-    ShifuOutlineItemDto,
-    ShifuInfoDto,
-    get_shifu_struct,
-    # Kept as a module attribute: run/state.py resolves it through this
-    # namespace at call time and tests patch it here.
-    get_outline_item_dto_with_mdflow,  # noqa: F401
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+    UNIT_TYPE_VALUE_NORMAL,
+    UNIT_TYPE_VALUE_TRIAL,
 )
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
-    PublishedOutlineItem,
     DraftShifu,
+    PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.service.learn.models import (
-    LearnProgressRecord,
-    LearnGeneratedBlock,
-    LearnGeneratedElement,
-)
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.shifu_struct_manager import (
+    ShifuInfoDto,
+    ShifuOutlineItemDto,
+    # Kept as a module attribute: run/state.py resolves it through this
+    # namespace at call time and tests patch it here.
+    get_outline_item_dto_with_mdflow,  # noqa: F401
+    get_shifu_struct,
+)
+from flaskr.service.shifu.struct_utils import find_node_with_parents
+from flaskr.service.user.exceptions import UserNotLoginException
+from flaskr.service.user.repository import UserAggregate, load_user_aggregate
+from flaskr.util import generate_id
+from markdown_flow import (
+    USER_ANSWER_CONTEXT_KEY,
+    BlockType,
+    InteractionParser,
+    LLMProvider,
+    MarkdownFlow,
+    ProcessMode,
+    replace_variables_in_text,
+)
+from markdown_flow.llm import LLMResult
+
 from ...api.langfuse import (
     LangfuseTraceHandle,
     MockClient,
@@ -66,66 +128,6 @@ from ...api.langfuse import (
     get_request_trace_id,
     normalize_langfuse_input_value,
     normalize_langfuse_output_value,
-)
-from flaskr.service.common import raise_error, raise_error_with_args
-from flaskr.service.order.consts import (
-    LEARN_STATUS_RESET,
-    LEARN_STATUS_IN_PROGRESS,
-    LEARN_STATUS_NOT_STARTED,
-)
-from flaskr.service.shifu.consts import (
-    UNIT_TYPE_VALUE_TRIAL,
-    UNIT_TYPE_VALUE_NORMAL,
-)
-
-from flaskr.service.user.repository import UserAggregate, load_user_aggregate
-from flaskr.service.shifu.struct_utils import find_node_with_parents
-from flaskr.util import generate_id
-from flaskr.service.profile.funcs import get_user_profiles
-from flaskr.service.profile.constants import SYS_USER_LANGUAGE
-from flaskr.service.learn.learn_dtos import (
-    PlaygroundPreviewRequest,
-    RunElementSSEMessageDTO,
-    RunMarkdownFlowDTO,
-    GeneratedType,
-    OutlineItemUpdateDTO,
-)
-from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
-from flaskr.service.learn.handle_input_ask import handle_input_ask
-from flaskr.service.learn.learner_profile_prompt import (
-    build_course_prompt,
-)
-from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
-from flaskr.service.profile.profile_manage import (
-    get_profile_item_definition_list,
-    ProfileItemDefinition,
-)
-from flaskr.service.metering import UsageContext
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-)
-from flaskr.service.learn.learn_dtos import VariableUpdateDTO
-from flaskr.service.learn.check_text import check_text_with_llm_response
-from flaskr.service.learn.llmsetting import LLMSettings
-from flaskr.service.learn.langfuse_naming import (
-    build_langfuse_generation_name,
-    build_langfuse_span_name,
-    build_langfuse_trace_name,
-)
-from flaskr.service.learn.utils_v2 import init_generated_block
-from flaskr.service.learn.run.emitter import RunEventEmitter
-from flaskr.service.learn.run.recorder import RunRecorder
-from flaskr.service.learn.run.state import RunStateResolver
-from flaskr.service.learn.exceptions import PaidException
-from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
-from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
-from flaskr.service.learn.stream_tts_finalize import StreamTTSFinalizeDrainer
-from flaskr.i18n import _, get_current_language, set_language
-from flaskr.service.user.exceptions import UserNotLoginException
-from flaskr.common.shifu_context import (
-    get_shifu_context_snapshot,
-    apply_shifu_context_snapshot,
 )
 
 context_local = threading.local()
@@ -1870,7 +1872,7 @@ class RunScriptContextV2:
                 except Exception as exc:
                     produce_exc = exc
                     result_queue.put(("error", exc))
-                except BaseException as exc:  # noqa: BLE001 - GreenletExit etc.
+                except BaseException as exc:
                     produce_exc = exc
                     raise
                 finally:
@@ -3602,7 +3604,7 @@ class RunScriptContextV2:
         ] = {o.id: o for o in outline_item_info_db}
         course_prompt: str | None = None
         for id in outline_ids:
-            outline_item_info = outline_item_info_map.get(id, None)
+            outline_item_info = outline_item_info_map.get(id)
             if (
                 outline_item_info
                 and outline_item_info.llm_system_prompt
@@ -3646,7 +3648,7 @@ class RunScriptContextV2:
         )
         outline_item_info_map = {o.id: o for o in outline_item_info_db}
         for id in outline_ids:
-            outline_item_info = outline_item_info_map.get(id, None)
+            outline_item_info = outline_item_info_map.get(id)
             if outline_item_info and outline_item_info.llm:
                 return LLMSettings(
                     model=outline_item_info.llm,

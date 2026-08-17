@@ -16,16 +16,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
-from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.i18n import _
+from flaskr.service.common.models import ERROR_CODE, AppException
 
 from .whitelist import (
     ALLOWED_AGGREGATE_FUNCTIONS,
     ALLOWED_OPERATORS,
-    TableSpec,
     WHITELIST,
+    TableSpec,
 )
-
 
 # Error names — registered in src/api/error_codes.json by Step 7.
 ERR_INVALID_DSL = "server.creatorAnalytics.invalidDsl"
@@ -44,7 +43,6 @@ def _translation_keys_used() -> None:
     unused function lets the static checker confirm they are wired without
     forcing every error site to inline the string.
     """
-
     _("server.creatorAnalytics.invalidDsl")
     _("server.creatorAnalytics.invalidTable")
     _("server.creatorAnalytics.invalidColumn")
@@ -95,7 +93,6 @@ def _raise(error_name: str, detail: Optional[str] = None) -> None:
     ``detail`` is appended in parentheses so the client gets actionable
     feedback (e.g. which column failed validation) without leaking internals.
     """
-
     message = _(error_name)
     if detail:
         message = f"{message} ({detail})"
@@ -162,7 +159,6 @@ def parse_dsl(payload: Any, limit_max: int, user_id: str = "") -> QueryDSL:
     for legacy call sites that never hit a creator-scoped table (the SQL
     builder still validates this combination).
     """
-
     if not isinstance(payload, Mapping):
         _raise(ERR_INVALID_DSL, "payload must be a JSON object")
 
@@ -461,7 +457,6 @@ def _enforce_select_group_by_compatibility(
     aggregates: Sequence[Aggregate],
 ) -> None:
     """If aggregates are present, every plain ``select`` column must appear in ``group_by``."""
-
     if not aggregates:
         return
     group_set = set(group_by)
@@ -495,7 +490,6 @@ def _enforce_user_bid_aggregation_only(
         mandatory (see :func:`_enforce_user_users_requires_user_bid_filter`)
         and limit is capped to 50, so the row-detail concern doesn't apply.
     """
-
     if "user_bid" not in select:
         return
     if "user_bid" in group_by:
@@ -524,7 +518,6 @@ def _enforce_generated_content_type_filter(
     pairs (321/322). This is enforced at the DSL layer so the SQL builder
     cannot accidentally widen the scope.
     """
-
     if "generated_content" not in select:
         return
 
@@ -574,7 +567,6 @@ def _enforce_user_users_requires_user_bid_filter(
     - ``user_identify`` filter with op ``=`` only (exact phone/email reverse
       lookup — ``in`` is blocked to prevent batch enumeration attacks).
     """
-
     if table_key != "user_users":
         return
 
@@ -629,7 +621,6 @@ def _enforce_shifu_meta_table_constraints(
     at least :data:`_LIKE_MIN_NON_WILDCARD_CHARS` literal characters so a
     caller cannot enumerate with ``like "__%"`` / ``like "a%b"`` / etc.
     """
-
     if table_key not in _SHIFU_META_TABLES:
         return
     if aggregates:

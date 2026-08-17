@@ -8,8 +8,6 @@ from decimal import Decimal
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import func
-
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.models import (
@@ -17,8 +15,10 @@ from flaskr.service.common.models import (
     raise_error_with_args,
     raise_param_error,
 )
+from flaskr.service.common.pagination import normalize_pagination
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from sqlalchemy import func
 
 from .consts import (
     BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
@@ -54,7 +54,6 @@ from .primitives import (
     quantize_credit_amount,
     to_decimal,
 )
-from flaskr.service.common.pagination import normalize_pagination
 from .serializers import (
     serialize_admin_campaign,
     serialize_admin_campaign_detail,

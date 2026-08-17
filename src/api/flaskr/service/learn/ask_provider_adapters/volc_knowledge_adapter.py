@@ -11,8 +11,6 @@ from urllib.parse import quote
 import requests
 from flask import Flask
 
-from .consts import ASK_PROVIDER_VOLC_KNOWLEDGE
-
 from .base import (
     AskProviderChunk,
     AskProviderConfigError,
@@ -21,6 +19,7 @@ from .base import (
     AskProviderTimeoutError,
 )
 from .common import extract_text, provider_timeout_seconds, raise_for_provider_response
+from .consts import ASK_PROVIDER_VOLC_KNOWLEDGE
 
 
 def _hash_sha256(content: str) -> str:

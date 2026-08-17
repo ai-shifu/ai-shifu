@@ -1,7 +1,6 @@
 import io
 
 import pytest
-
 from flaskr.service.tts import audio_utils
 
 
@@ -37,7 +36,7 @@ class _FakeSegment:
 
     def export(self, output_io, format="mp3", bitrate="128k"):
         _ = (format, bitrate)
-        output_io.write(f"duration={self.duration_ms}".encode("utf-8"))
+        output_io.write(f"duration={self.duration_ms}".encode())
 
 
 class _FakeAudioSegment:

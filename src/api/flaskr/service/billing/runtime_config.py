@@ -12,13 +12,13 @@ from .consts import (
     BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS,
     BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE,
 )
+from .domains import normalize_domain_host, resolve_runtime_domain_result
 from .dtos import (
     RuntimeBillingBrandingDTO,
     RuntimeBillingContextDTO,
     RuntimeBillingDomainDTO,
     RuntimeBillingEntitlementsDTO,
 )
-from .domains import normalize_domain_host, resolve_runtime_domain_result
 from .entitlements import (
     resolve_creator_entitlement_state,
     serialize_creator_entitlements,
@@ -33,7 +33,6 @@ def build_runtime_billing_context(
     request_host: str = "",
 ) -> RuntimeBillingContextDTO:
     """Build entitlement, branding, and domain payloads for runtime-config."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     entitlement_state = resolve_creator_entitlement_state(normalized_creator_bid)
     entitlements = RuntimeBillingEntitlementsDTO(
@@ -58,7 +57,6 @@ def build_default_runtime_billing_context(
     request_host: str = "",
 ) -> RuntimeBillingContextDTO:
     """Build an empty billing payload without touching billing tables."""
-
     normalized_creator_bid = normalize_bid(creator_bid) or None
     normalized_host = normalize_domain_host(request_host, strict=False) or None
     return RuntimeBillingContextDTO(

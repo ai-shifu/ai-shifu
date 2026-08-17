@@ -5,10 +5,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal, ROUND_CEILING
+from decimal import ROUND_CEILING, Decimal
 
 from flask import Flask
-
 from flaskr.api.llm import get_current_models
 from flaskr.api.tts import get_all_provider_configs
 from flaskr.service.billing.api import (
@@ -37,7 +36,6 @@ from flaskr.service.shifu.admin_dtos_courses import (
 )
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.util.datetime import now_utc
-
 
 _ZERO = Decimal("0")
 _MARKDOWN_CODE_BLOCK_RE = re.compile(r"```.*?```", re.DOTALL)
