@@ -17,7 +17,13 @@ def _install_litellm_stub() -> None:
         return
 
     litellm_stub = types.ModuleType("litellm")
+
+    def get_model_info(*args, **kwargs):
+        _ = args, kwargs
+        raise ValueError("unknown model")
+
     litellm_stub.get_max_tokens = lambda _model: 4096
+    litellm_stub.get_model_info = get_model_info
     litellm_stub.completion = lambda *args, **kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
