@@ -35,26 +35,10 @@
   "complete": "Confirmer et enregistrer",
   "completeCompact": "Enregistrer",
   "dialog": {
-    "autoOptimizing": "Organisation et amélioration de votre présentation…",
-    "autoOptimizingHint": "Patientez un instant. Vous pourrez vérifier et modifier le texte avant de l’enregistrer.",
+    "autoOptimizing": "Organisation de votre présentation personnelle…",
     "cancel": "Annuler",
-    "cancelResearch": "Annuler les questions",
-    "chips": {
-      "goals": {
-        "hint": "Situation actuelle, objectifs et questions",
-        "label": "Ma situation actuelle"
-      },
-      "identity": {
-        "hint": "Identité, secteur, métier et informations associées",
-        "label": "Mon parcours"
-      },
-      "teaching": {
-        "hint": "Ton et expression préférés, ainsi que les sujets tabous",
-        "label": "Mon style de langage préféré"
-      }
-    },
+    "cancelResearch": "Annuler la collecte",
     "close": "Fermer",
-    "confirmDescription": "Vérifiez ou modifiez votre présentation. Rien ne change avant l’enregistrement.",
     "confirmTitle": "Confirmer et enregistrer",
     "description": "Présentez votre parcours, vos objectifs et vos préférences de langage afin que votre enseignant IA rapproche davantage le contenu du cours de votre situation.",
     "discard": "Abandonner les modifications",
@@ -62,6 +46,11 @@
     "discardTitle": "Abandonner ces modifications ?",
     "dismissFailed": "Impossible de terminer cette action. Réessayez.",
     "emptyProfile": "Cette présentation ne peut pas être vide. Ajoutez quelques informations avant de l’enregistrer.",
+    "informationUsageEditable": "Vous pouvez les modifier avant l’enregistrement, puis les mettre à jour ou les supprimer à tout moment.",
+    "informationUsagePurpose": "Ces informations servent uniquement à aider votre enseignant IA à adapter le contenu et la manière d’enseigner.",
+    "informationUsageSensitive": "N’indiquez pas d’informations sensibles comme vos coordonnées, votre adresse exacte, vos pièces d’identité, vos données de santé ou financières.",
+    "informationUsageTitle": "Comment ces informations sont utilisées",
+    "interactiveCollection": "Répondre aux questions",
     "keepEditing": "Continuer à modifier",
     "later": "Plus tard",
     "legacyPrefill": {
@@ -70,23 +59,18 @@
     },
     "loadFailed": "Impossible de charger ces informations. Réessayez.",
     "loading": "Chargement de votre profil d’apprentissage…",
-    "manualFallback": "Les questions ne sont pas disponibles pour le moment. Vous pouvez tout de même rédiger et enregistrer votre présentation.",
-    "nicknameLabel": "Comment votre enseignant IA doit-il vous appeler ? (facultatif)",
+    "manualFallback": "La collecte automatique est temporairement indisponible. Vous pouvez saisir directement votre présentation.",
+    "nicknameLabel": "Comment votre enseignant IA doit-il vous appeler ?",
     "nicknamePlaceholder": "Par exemple : Camille",
     "onboardingTitle": "Aidez votre enseignant IA à mieux vous connaître",
     "optimize": "Améliorer avec l’IA",
-    "optimizeEmptyHint": "Écrivez quelques lignes, puis laissez l’IA vous aider à les améliorer.",
     "optimizeEmptyResponse": "L’IA n’a renvoyé aucun contenu optimisé. Réessayez.",
     "optimizeFailed": "Impossible d’améliorer ce texte pour le moment. Vous pouvez toujours l’enregistrer tel quel.",
-    "optimizeHint": "L’IA ajoute des détails utiles et organise la formulation sans changer votre intention ni inventer de faits.",
     "optimizeInvalidResponse": "L’IA a renvoyé un format de réponse incorrect. Réessayez.",
     "optimizeSuccess": "Texte amélioré. Vous pouvez continuer à le modifier.",
     "optimizing": "Amélioration…",
-    "profileLabel": "Écrivez ce que votre enseignant IA doit retenir de vous",
-    "profilePlaceholder": "Exemple : Je travaille dans un bureau à Shanghai et j’ai étudié la gestion à l’université. J’aimerais maintenant utiliser l’IA pour transformer mes idées en articles et en petits outils. Je préfère que mon enseignant IA s’exprime de façon chaleureuse, directe, concise et facile à comprendre, avec peu de jargon.",
-    "progressLabel": "Progression de la personnalisation",
-    "promptHeading": "Commencez par l’un de ces aspects",
-    "reassurance": "Vous n’avez pas besoin de tout écrire en une fois et pourrez modifier ces informations à tout moment. Si vos préférences vont à l’encontre du cadre du cours défini par l’enseignant humain, ce cadre reste prioritaire.",
+    "profileLabel": "Présentation personnelle",
+    "profilePlaceholder": "Présentez votre parcours, vos objectifs et vos préférences",
     "replaceResearchConfirm": "Répondre de nouveau",
     "replaceResearchDescription": "Répondre de nouveau remplacera votre contenu actuel non enregistré.",
     "replaceResearchTitle": "Répondre de nouveau aux questions ?",
@@ -99,13 +83,11 @@
     "saving": "Enregistrement…",
     "settingsDescription": "Présentez votre parcours, vos objectifs et vos préférences de langage afin que votre enseignant IA rapproche davantage le contenu du cours de votre situation.",
     "settingsTitle": "Présentez-vous à votre enseignant IA",
-    "undoOptimize": "Annuler",
     "unifiedDescription": "Aidez votre enseignant IA à comprendre votre parcours et vos préférences afin d’adapter le cours à vos besoins.",
-    "unifiedTitle": "Paramètres de personnalisation",
-    "useResearchDraft": "Utiliser la première version"
+    "unifiedTitle": "Paramètres de personnalisation"
   },
   "guided": {
-    "description": "Plus votre enseignant IA vous connaît, plus le cours est facile à comprendre. Environ 1 minute.",
+    "description": "Environ 1 minute.",
     "inputLimitError": "Cette réponse est trop longue ou comporte trop de choix. Raccourcissez-la, puis renvoyez-la ; vous pouvez continuer à la modifier.",
     "missingDraft": "Nous n’avons pas pu terminer la synthèse. Répondez de nouveau aux questions.",
     "retry": "Réessayer",
@@ -139,7 +121,6 @@
     "loadFailed": "Impossible de charger ces informations. Réessayez plus tard.",
     "loading": "Chargement…",
     "regenerateSuccess": "Mis à jour",
-    "rerun": "Répondre de nouveau aux questions",
     "retry": "Réessayer",
     "save": "Enregistrer les modifications",
     "saveFailed": "Impossible d’enregistrer les modifications. Réessayez.",
@@ -150,10 +131,6 @@
   "skip": "Plus tard",
   "skipping": "Patientez…",
   "stepCounter": "Étape {current} sur {total}",
-  "steps": {
-    "collect": "Répondre aux questions",
-    "review": "Confirmer et enregistrer"
-  },
   "submitFailed": "Nous n’avons pas pu enregistrer vos informations. Votre contenu est conservé. Réessayez.",
   "submitting": "Enregistrement…",
   "title": "Aidez votre enseignant IA à vous connaître"
