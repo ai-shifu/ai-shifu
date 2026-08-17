@@ -26,6 +26,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
+- [Unified Learner Profile Dialog](./active/unified-learner-profile-dialog.md)
 
 ## Completed
 

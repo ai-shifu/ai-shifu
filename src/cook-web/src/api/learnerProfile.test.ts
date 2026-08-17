@@ -212,6 +212,56 @@ describe('learner profile api', () => {
     );
   });
 
+  test('trims an optional nickname and accepts the canonical nickname returned by the backend', async () => {
+    const response = {
+      learner_profile: '我是一名产品经理。',
+      learner_profile_updated_at: '2026-08-03T01:02:03Z',
+      has_learner_profile: true,
+      max_length: 1000,
+      nickname: '',
+      nickname_max_length: 64,
+    };
+    (request.post as jest.Mock).mockResolvedValue(response);
+
+    await expect(
+      completeGuidedProfileOnboarding({
+        learner_profile: '我是一名产品经理。',
+        trigger_source: 'guided',
+        session_id: 'session-nickname',
+        nickname: '  user@example.com  ',
+      }),
+    ).resolves.toEqual(response);
+
+    expect(request.post).toHaveBeenCalledWith(
+      '/api/user/profile-onboarding/complete',
+      {
+        learner_profile: '我是一名产品经理。',
+        trigger_source: 'guided',
+        session_id: 'session-nickname',
+        nickname: 'user@example.com',
+      },
+    );
+  });
+
+  test('rejects a completion response with an invalid nickname type', async () => {
+    (request.post as jest.Mock).mockResolvedValue({
+      learner_profile: '我是一名产品经理。',
+      learner_profile_updated_at: '2026-08-03T01:02:03Z',
+      has_learner_profile: true,
+      max_length: 1000,
+      nickname: 123,
+      nickname_max_length: 64,
+    });
+
+    await expect(
+      completeGuidedProfileOnboarding({
+        learner_profile: '我是一名产品经理。',
+        trigger_source: 'settings',
+        nickname: '小明',
+      }),
+    ).rejects.toThrow();
+  });
+
   test('rejects a completion response that did not save the expected profile', async () => {
     (request.post as jest.Mock).mockResolvedValue({ completed: true });
 
