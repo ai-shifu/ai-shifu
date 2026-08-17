@@ -134,12 +134,10 @@ class BaseTTSProvider(ABC):
     @abstractmethod
     def provider_name(self) -> str:
         """Return the provider name."""
-        pass
 
     @abstractmethod
     def is_configured(self) -> bool:
         """Check if the provider is properly configured."""
-        pass
 
     @abstractmethod
     def synthesize(
@@ -164,17 +162,14 @@ class BaseTTSProvider(ABC):
         Raises:
             ValueError: If synthesis fails
         """
-        pass
 
     @abstractmethod
     def get_default_voice_settings(self) -> VoiceSettings:
         """Get default voice settings for this provider."""
-        pass
 
     @abstractmethod
     def get_default_audio_settings(self) -> AudioSettings:
         """Get default audio settings for this provider."""
-        pass
 
     def get_supported_emotions(self) -> List[str]:
         """Get list of supported emotions for this provider."""
@@ -192,4 +187,3 @@ class BaseTTSProvider(ABC):
         Returns:
             ProviderConfig with parameter ranges, voices, models, etc.
         """
-        pass

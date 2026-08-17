@@ -30,7 +30,6 @@ def enable_commands(app: Flask):
     @app.cli.group()
     def console():
         """AI Shifu Console management commands."""
-        pass
 
     register_billing_commands(console)
     register_shifu_commands(console, app)

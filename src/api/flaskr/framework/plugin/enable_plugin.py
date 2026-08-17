@@ -13,7 +13,6 @@ def enable_plugins(app: Flask):
     @app.cli.group()
     def plugin():
         """Plugin management commands."""
-        pass
 
     @plugin.command(name="add")
     @click.argument("repo_url")
@@ -64,7 +63,6 @@ def enable_plugins(app: Flask):
     @plugin.group(name="db")
     def plugin_db():
         """the plugin database management commands"""
-        pass
 
     def get_version_table_name(plugin_name: str) -> str:
         """get version table name"""
