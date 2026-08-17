@@ -35,7 +35,10 @@
   "complete": "Confirmer et enregistrer",
   "completeCompact": "Enregistrer",
   "dialog": {
+    "autoOptimizing": "Organisation et amélioration de votre présentation…",
+    "autoOptimizingHint": "Patientez un instant. Vous pourrez vérifier et modifier le texte avant de l’enregistrer.",
     "cancel": "Annuler",
+    "cancelResearch": "Annuler les questions",
     "chips": {
       "goals": {
         "hint": "Situation actuelle, objectifs et questions",
@@ -51,6 +54,8 @@
       }
     },
     "close": "Fermer",
+    "confirmDescription": "Vérifiez ou modifiez votre présentation. Rien ne change avant l’enregistrement.",
+    "confirmTitle": "Confirmer et enregistrer",
     "description": "Présentez votre parcours, vos objectifs et vos préférences de langage afin que votre enseignant IA rapproche davantage le contenu du cours de votre situation.",
     "discard": "Abandonner les modifications",
     "discardDescription": "Tout contenu non enregistré sera perdu.",
@@ -65,6 +70,7 @@
     },
     "loadFailed": "Impossible de charger ces informations. Réessayez.",
     "loading": "Chargement de votre profil d’apprentissage…",
+    "manualFallback": "Les questions ne sont pas disponibles pour le moment. Vous pouvez tout de même rédiger et enregistrer votre présentation.",
     "nicknameLabel": "Comment votre enseignant IA doit-il vous appeler ? (facultatif)",
     "nicknamePlaceholder": "Par exemple : Camille",
     "onboardingTitle": "Aidez votre enseignant IA à mieux vous connaître",
@@ -78,9 +84,14 @@
     "optimizing": "Amélioration…",
     "profileLabel": "Écrivez ce que votre enseignant IA doit retenir de vous",
     "profilePlaceholder": "Exemple : Je travaille dans un bureau à Shanghai et j’ai étudié la gestion à l’université. J’aimerais maintenant utiliser l’IA pour transformer mes idées en articles et en petits outils. Je préfère que mon enseignant IA s’exprime de façon chaleureuse, directe, concise et facile à comprendre, avec peu de jargon.",
+    "progressLabel": "Progression de la personnalisation",
     "promptHeading": "Commencez par l’un de ces aspects",
     "reassurance": "Vous n’avez pas besoin de tout écrire en une fois et pourrez modifier ces informations à tout moment. Si vos préférences vont à l’encontre du cadre du cours défini par l’enseignant humain, ce cadre reste prioritaire.",
+    "replaceResearchConfirm": "Répondre de nouveau",
+    "replaceResearchDescription": "Répondre de nouveau remplacera votre contenu actuel non enregistré.",
+    "replaceResearchTitle": "Répondre de nouveau aux questions ?",
     "retry": "Recharger",
+    "retryOptimize": "Améliorer de nouveau",
     "save": "Enregistrer le profil",
     "saveAndContinue": "Enregistrer et continuer",
     "saveChanges": "Enregistrer les modifications",
@@ -88,7 +99,10 @@
     "saving": "Enregistrement…",
     "settingsDescription": "Présentez votre parcours, vos objectifs et vos préférences de langage afin que votre enseignant IA rapproche davantage le contenu du cours de votre situation.",
     "settingsTitle": "Présentez-vous à votre enseignant IA",
-    "undoOptimize": "Annuler"
+    "undoOptimize": "Annuler",
+    "unifiedDescription": "Aidez votre enseignant IA à comprendre votre parcours et vos préférences afin d’adapter le cours à vos besoins.",
+    "unifiedTitle": "Paramètres de personnalisation",
+    "useResearchDraft": "Utiliser la première version"
   },
   "guided": {
     "description": "Plus votre enseignant IA vous connaît, plus le cours est facile à comprendre. Environ 1 minute.",
@@ -138,7 +152,7 @@
   "stepCounter": "Étape {current} sur {total}",
   "steps": {
     "collect": "Répondre aux questions",
-    "review": "Vérifier"
+    "review": "Confirmer et enregistrer"
   },
   "submitFailed": "Nous n’avons pas pu enregistrer vos informations. Votre contenu est conservé. Réessayez.",
   "submitting": "Enregistrement…",

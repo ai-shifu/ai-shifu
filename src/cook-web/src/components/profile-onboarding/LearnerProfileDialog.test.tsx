@@ -8,20 +8,25 @@ import {
 } from '@testing-library/react';
 import {
   completeGuidedProfileOnboarding,
+  createProfileOnboardingSession,
   getLearnerProfile,
   getProfileOnboardingV2,
   optimizeLearnerProfile,
+  runProfileOnboardingSession,
   updateLearnerProfile,
 } from '@/api/learnerProfile';
+import { PROFILE_ONBOARDING_EVENTS } from './events';
 import LearnerProfileDialog from './LearnerProfileDialog';
-import enProfile from '../../../../i18n/en-US/modules/profile-onboarding.json';
-import frProfile from '../../../../i18n/fr-FR/modules/profile-onboarding.json';
-import zhProfile from '../../../../i18n/zh-CN/modules/profile-onboarding.json';
+import type { ProfileOnboardingConversationProps } from './ProfileOnboardingConversation';
 
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
-const COMPLETE_SETTINGS_RERUN_LABEL = 'complete settings rerun';
-const DEFER_SETTINGS_RERUN_LABEL = 'defer settings rerun';
+let mockLanguage = 'en-US';
+const FINISH_RESEARCH_LABEL = 'finish research';
+const FAIL_RESEARCH_LABEL = 'fail research';
+const RUN_RESEARCH_LABEL = 'run research';
+const RETRY_CONVERSATION_LABEL = 'retry conversation';
+
 const translateKey = (
   key: string,
   params?: Record<string, string | number>,
@@ -34,62 +39,118 @@ const translateKey = (
   }
   return key;
 };
-let mockT = translateKey;
-let mockLanguage = 'en-US';
 
-type MockProfileOnboardingModalProps = {
-  open: boolean;
-  presentation: string;
-  sessionIntent: string;
-  submitting: boolean;
-  onComplete: (
-    learnerProfile: string,
-    source: 'guided' | 'settings',
-    sessionId?: string,
-  ) => void | Promise<boolean | void>;
-  onSkip: (sessionId?: string) => void | Promise<boolean | void>;
+type ConversationControl = {
+  deliverDraft: (draft?: string) => void;
+  deliverError: (error?: Error) => void;
+  sessionId: () => string;
 };
 
-const mockProfileOnboardingModal = jest.fn(
-  ({
-    open,
-    presentation,
-    sessionIntent,
-    submitting,
-    onComplete,
-    onSkip,
-  }: MockProfileOnboardingModalProps) =>
-    open ? (
-      <div
-        data-testid='profile-onboarding-modal'
-        data-presentation={presentation}
-        data-session-intent={sessionIntent}
+const mockConversationControls: ConversationControl[] = [];
+
+function MockProfileOnboardingConversation(
+  props: ProfileOnboardingConversationProps,
+) {
+  const propsRef = React.useRef(props);
+  const mountedRef = React.useRef(true);
+  const sessionIdRef = React.useRef('');
+  const [sessionId, setSessionId] = React.useState('');
+  const { createSession } = props;
+  propsRef.current = props;
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    const control: ConversationControl = {
+      deliverDraft: (draft = 'Research draft') => {
+        if (mountedRef.current && sessionIdRef.current) {
+          propsRef.current.onDraftReady(draft, sessionIdRef.current);
+        }
+      },
+      deliverError: (error = new Error('Research failed')) => {
+        if (mountedRef.current) {
+          propsRef.current.onError(error);
+        }
+      },
+      sessionId: () => sessionIdRef.current,
+    };
+    mockConversationControls.push(control);
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    let active = true;
+    void createSession()
+      .then(session => {
+        if (!active || !mountedRef.current) {
+          return;
+        }
+        sessionIdRef.current = session.session_id;
+        setSessionId(session.session_id);
+        propsRef.current.onSessionStarted?.(session.session_id);
+      })
+      .catch(error => {
+        if (active && mountedRef.current) {
+          propsRef.current.onError(error);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [createSession]);
+
+  return (
+    <div data-testid='mock-profile-onboarding-conversation'>
+      <output data-testid='mock-research-session'>{sessionId}</output>
+      <button
+        type='button'
+        disabled={!sessionId || props.disabled}
+        onClick={() =>
+          props.onDraftReady('Research draft', sessionIdRef.current)
+        }
       >
-        <button
-          type='button'
-          disabled={submitting}
-          onClick={() =>
-            void onComplete(
-              'Updated through guided questions',
-              'settings',
-              '0123456789abcdef0123456789abcdef',
-            )
-          }
-        >
-          {COMPLETE_SETTINGS_RERUN_LABEL}
-        </button>
-        <button
-          type='button'
-          onClick={() => void onSkip('0123456789abcdef0123456789abcdef')}
-        >
-          {DEFER_SETTINGS_RERUN_LABEL}
-        </button>
-      </div>
-    ) : null,
-);
+        {FINISH_RESEARCH_LABEL}
+      </button>
+      <button
+        type='button'
+        disabled={props.disabled}
+        onClick={() => props.onError(new Error('Research failed'))}
+      >
+        {FAIL_RESEARCH_LABEL}
+      </button>
+      <button
+        type='button'
+        disabled={!sessionId || props.disabled}
+        onClick={() =>
+          props.runSession({
+            sessionId,
+            expectedBlockIndex: 1,
+            requestId: 'request-1',
+            userInput: { answer: ['value'] },
+            onMessage: jest.fn(),
+            onError: jest.fn(),
+          })
+        }
+      >
+        {RUN_RESEARCH_LABEL}
+      </button>
+      <button
+        type='button'
+        onClick={() => props.onRetry?.()}
+      >
+        {RETRY_CONVERSATION_LABEL}
+      </button>
+      {props.errorMessage ? <p>{props.errorMessage}</p> : null}
+    </div>
+  );
+}
 
 jest.mock('@/api/learnerProfile', () => ({
   completeGuidedProfileOnboarding: jest.fn(),
+  createProfileOnboardingSession: jest.fn(),
   getLearnerProfile: jest.fn(),
   getProfileOnboardingV2: jest.fn(),
   isProfileOnboardingV2Status: (value: unknown) =>
@@ -98,6 +159,7 @@ jest.mock('@/api/learnerProfile', () => ({
     'contract_version' in value &&
     value.contract_version === 'profile-v2',
   optimizeLearnerProfile: jest.fn(),
+  runProfileOnboardingSession: jest.fn(),
   updateLearnerProfile: jest.fn(),
 }));
 
@@ -109,15 +171,16 @@ jest.mock('@/hooks/useToast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-jest.mock('./ProfileOnboardingModal', () => ({
+jest.mock('./ProfileOnboardingConversation', () => ({
   __esModule: true,
-  default: (props: MockProfileOnboardingModalProps) =>
-    mockProfileOnboardingModal(props),
+  default: (props: ProfileOnboardingConversationProps) => (
+    <MockProfileOnboardingConversation {...props} />
+  ),
 }));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: mockT,
+    t: translateKey,
     i18n: {
       language: mockLanguage,
       resolvedLanguage: mockLanguage,
@@ -127,10 +190,16 @@ jest.mock('react-i18next', () => ({
 
 const mockCompleteGuidedProfileOnboarding =
   completeGuidedProfileOnboarding as jest.Mock;
+const mockCreateProfileOnboardingSession =
+  createProfileOnboardingSession as jest.Mock;
 const mockGetLearnerProfile = getLearnerProfile as jest.Mock;
 const mockGetProfileOnboardingV2 = getProfileOnboardingV2 as jest.Mock;
 const mockOptimizeLearnerProfile = optimizeLearnerProfile as jest.Mock;
+const mockRunProfileOnboardingSession =
+  runProfileOnboardingSession as jest.Mock;
 const mockUpdateLearnerProfile = updateLearnerProfile as jest.Mock;
+
+const SESSION_ID = '0123456789abcdef0123456789abcdef';
 
 const existingProfile = {
   learner_profile: 'Existing learner introduction',
@@ -141,24 +210,44 @@ const existingProfile = {
   nickname_max_length: 64,
 };
 
-const availableSettingsOnboardingStatus = {
-  contract_version: 'profile-v2',
-  enabled: true,
-  guided_available: true,
-  should_show: false,
-  presentation: 'hidden',
-  handled: true,
-  legacy_handled: false,
-  ...existingProfile,
-};
-
-const clearedProfile = {
+const emptyProfile = {
   learner_profile: '',
   learner_profile_updated_at: null,
   has_learner_profile: false,
   max_length: 1000,
-  nickname: 'Alex',
+  nickname: '',
   nickname_max_length: 64,
+};
+
+const onboardingStatus = (overrides: Record<string, unknown> = {}) => ({
+  contract_version: 'profile-v2',
+  enabled: true,
+  guided_available: true,
+  should_show: true,
+  presentation: 'blocking',
+  handled: false,
+  legacy_handled: false,
+  ...emptyProfile,
+  ...overrides,
+});
+
+const sessionResponse = (sessionId = SESSION_ID) => ({
+  session_id: sessionId,
+  block_index: 0,
+  block_count: 2,
+  profile_draft_block_index: 1,
+  done: false,
+  expires_in: 900,
+});
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
 };
 
 const renderDialog = (
@@ -174,2073 +263,790 @@ const renderDialog = (
   return { props, ...render(<LearnerProfileDialog {...props} />) };
 };
 
+const profileInput = () =>
+  screen.getByLabelText('module.profileOnboarding.dialog.profileLabel');
+const nicknameInput = () =>
+  screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel');
+const saveButton = () =>
+  screen.getByRole('button', {
+    name: 'module.profileOnboarding.dialog.saveChanges',
+  });
+const waitForResearchSession = async (sessionId = SESSION_ID) => {
+  await waitFor(() =>
+    expect(screen.getByTestId('mock-research-session')).toHaveTextContent(
+      sessionId,
+    ),
+  );
+};
+
 describe('LearnerProfileDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockT = translateKey;
+    mockConversationControls.splice(0);
     mockLanguage = 'en-US';
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
     mockGetProfileOnboardingV2.mockResolvedValue(
-      availableSettingsOnboardingStatus,
+      onboardingStatus({
+        should_show: false,
+        presentation: 'hidden',
+        handled: true,
+        ...existingProfile,
+      }),
     );
+    mockCreateProfileOnboardingSession.mockResolvedValue(sessionResponse());
     mockCompleteGuidedProfileOnboarding.mockResolvedValue(existingProfile);
-    mockOptimizeLearnerProfile.mockReset();
-  });
-
-  test('shows an explicit optional nickname without parsing it from the introduction', async () => {
-    renderDialog({ mode: 'onboarding' });
-
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    expect(screen.getAllByRole('textbox')).toHaveLength(2);
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-    ).toHaveValue('Alex');
-    expect(screen.queryByText('sys_user_nickname')).not.toBeInTheDocument();
-    expect(screen.queryByText('sys_user_background')).not.toBeInTheDocument();
-    expect(screen.queryByText('sys_user_style')).not.toBeInTheDocument();
-    expect(screen.queryByText(/parsed nickname/i)).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.later',
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.profileOnboarding.dialog.description'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText('module.profileOnboarding.dialog.settingsDescription'),
-    ).not.toBeInTheDocument();
-
-    expect(zhProfile.dialog.onboardingTitle).toContain('AI 老师');
-    expect(zhProfile.dialog.description).toContain('AI 老师');
-    expect(zhProfile.dialog.description).toContain('表达偏好');
-    expect(zhProfile.dialog.promptHeading).toBe('可以从这些方面开始');
-    expect(zhProfile.dialog.chips.identity.label).toBe('我的背景');
-    expect(zhProfile.dialog.chips.identity.hint).toBe('身份、行业、职业等');
-    expect(zhProfile.dialog.chips.goals.label).toBe('我的近况');
-    expect(zhProfile.dialog.chips.goals.hint).toBe('近期状态、目标和困惑');
-    expect(zhProfile.dialog.chips.teaching.label).toBe('我喜欢的语言风格');
-    expect(zhProfile.dialog.chips.teaching.hint).toBe(
-      '偏好的语气、表达，及禁忌',
-    );
-    expect(zhProfile.dialog.settingsTitle).toBe('向 AI 老师介绍你自己');
-    expect(zhProfile.dialog.nicknameLabel).toBe('希望 AI 老师怎么称呼你');
-    expect(zhProfile.dialog.profileLabel).toBe('希望 AI 老师长期知道的事');
-    expect(zhProfile.dialog.optimize).toBe('帮我优化');
-    expect(zhProfile.dialog.optimizeEmptyHint).toContain('先写几句');
-    expect(zhProfile.dialog.optimizeHint).not.toContain('可选');
-    expect(zhProfile.dialog.optimizeHint).toContain('补充有用细节');
-    expect(zhProfile.dialog.optimizeHint).toContain('不改变原意或新增事实');
-    expect(zhProfile.dialog.description).toBe(
-      '写下你的背景、目标和表达偏好，让 AI 老师在课程中更贴近你的情况。',
-    );
-    expect(zhProfile.dialog.reassurance).toContain('真人老师');
-    expect(zhProfile.dialog.reassurance).toContain('以老师设定为准');
-    expect(JSON.stringify(zhProfile.dialog)).not.toMatch(
-      /节奏|结构|分步骤|多提问/,
-    );
-
-    expect(enProfile.dialog.description).toContain('AI teacher');
-    expect(enProfile.dialog.description).toContain('language preferences');
-    expect(enProfile.dialog.settingsTitle).toBe(
-      'Introduce yourself to your AI teacher',
-    );
-    expect(enProfile.dialog.nicknameLabel).toContain('AI teacher');
-    expect(enProfile.dialog.nicknameLabel).toContain('optional');
-    expect(enProfile.dialog.promptHeading).toBe('Start with any of these');
-    expect(enProfile.dialog.chips.identity.label).toBe('My background');
-    expect(enProfile.dialog.chips.identity.hint).toContain('industry');
-    expect(enProfile.dialog.chips.goals.label).toBe('My current situation');
-    expect(enProfile.dialog.chips.goals.hint).toContain('Current situation');
-    expect(enProfile.dialog.chips.teaching.label).toBe(
-      'My preferred language style',
-    );
-    expect(enProfile.dialog.chips.teaching.hint).toContain('expression');
-    expect(enProfile.dialog.profileLabel).toContain('remember about you');
-    expect(enProfile.dialog.optimize).toBe('Improve with AI');
-    expect(enProfile.dialog.optimizeEmptyHint).toContain('Write a few lines');
-    expect(enProfile.dialog.optimizeHint).toContain('useful detail');
-    expect(enProfile.dialog.optimizeHint).not.toMatch(/optional/i);
-    expect(enProfile.dialog.optimizeHint).toContain(
-      'without changing your meaning or inventing facts',
-    );
-    expect(enProfile.dialog.description).toContain('background, goals');
-    expect(enProfile.dialog.reassurance).toContain('human teacher');
-    expect(JSON.stringify(enProfile.dialog)).not.toMatch(
-      /teaching pace|teaching structure|step by step|ask more questions/i,
-    );
-
-    expect(frProfile.dialog.description).toContain('enseignant IA');
-    expect(frProfile.dialog.description).toContain('préférences de langage');
-    expect(frProfile.dialog.settingsTitle).toBe(
-      'Présentez-vous à votre enseignant IA',
-    );
-    expect(frProfile.dialog.nicknameLabel).toContain('enseignant IA');
-    expect(frProfile.dialog.nicknameLabel).toContain('facultatif');
-    expect(frProfile.dialog.promptHeading).toBe(
-      'Commencez par l’un de ces aspects',
-    );
-    expect(frProfile.dialog.chips.identity.label).toBe('Mon parcours');
-    expect(frProfile.dialog.chips.identity.hint).toContain('secteur');
-    expect(frProfile.dialog.chips.goals.label).toBe('Ma situation actuelle');
-    expect(frProfile.dialog.chips.goals.hint).toContain('Situation actuelle');
-    expect(frProfile.dialog.chips.teaching.label).toBe(
-      'Mon style de langage préféré',
-    );
-    expect(frProfile.dialog.chips.teaching.hint).toContain('expression');
-    expect(frProfile.dialog.profileLabel).toContain('doit retenir de vous');
-    expect(frProfile.dialog.optimize).toBe('Améliorer avec l’IA');
-    expect(frProfile.dialog.optimizeEmptyHint).toContain(
-      'Écrivez quelques lignes',
-    );
-    expect(frProfile.dialog.optimizeHint).toContain('détails utiles');
-    expect(frProfile.dialog.optimizeHint).not.toMatch(/facultatif/i);
-    expect(frProfile.dialog.optimizeHint).toContain(
-      'sans changer votre intention',
-    );
-    expect(frProfile.dialog.description).toContain('vos objectifs');
-    expect(frProfile.dialog.reassurance).toContain('enseignant humain');
-    expect(JSON.stringify(frProfile.dialog)).not.toMatch(
-      /rythme d’enseignement|structure d’enseignement|étape par étape|poser plus de questions/i,
-    );
-  });
-
-  test('keeps the header concise and moves teacher course authority to the reassurance', async () => {
-    renderDialog();
-
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    expect(
-      screen.getByText('module.profileOnboarding.dialog.settingsDescription'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText('module.profileOnboarding.dialog.description'),
-    ).not.toBeInTheDocument();
-
-    expect(zhProfile.dialog.settingsDescription).toBe(
-      zhProfile.dialog.description,
-    );
-    expect(zhProfile.dialog.settingsDescription).not.toContain('真人老师');
-    expect(zhProfile.dialog.reassurance).toContain('真人老师');
-    expect(enProfile.dialog.settingsDescription).toBe(
-      enProfile.dialog.description,
-    );
-    expect(enProfile.dialog.settingsDescription).not.toContain('human teacher');
-    expect(enProfile.dialog.reassurance).toContain('human teacher');
-    expect(frProfile.dialog.settingsDescription).toBe(
-      frProfile.dialog.description,
-    );
-    expect(frProfile.dialog.settingsDescription).not.toContain(
-      'enseignant humain',
-    );
-    expect(frProfile.dialog.reassurance).toContain('enseignant humain');
-  });
-
-  test('uses the approved concise cross-course placeholder in every language', () => {
-    expect(zhProfile.dialog.profilePlaceholder).toBe(
-      '例如：我在上海做办公室工作，大学学的是工商管理。最近想用 AI 把自己的想法做成文章和小工具。希望 AI 老师表达亲切直接、简洁易懂，少用术语。',
-    );
-    expect(enProfile.dialog.profilePlaceholder).toContain(
-      'I work in an office in Shanghai',
-    );
-    expect(enProfile.dialog.profilePlaceholder).toContain(
-      'turn my ideas into articles and small tools',
-    );
-    expect(enProfile.dialog.profilePlaceholder).toContain(
-      'friendly, direct, concise, and easy to understand',
-    );
-    expect(frProfile.dialog.profilePlaceholder).toContain(
-      'Je travaille dans un bureau à Shanghai',
-    );
-    expect(frProfile.dialog.profilePlaceholder).toContain(
-      'transformer mes idées en articles et en petits outils',
-    );
-    expect(frProfile.dialog.profilePlaceholder).toContain(
-      'chaleureuse, directe, concise et facile à comprendre',
-    );
-  });
-
-  test('keeps a legacy nickname in its field while clearing prefilled profile text', async () => {
-    mockT = (key, params) => {
-      const value = String(params?.value || '');
-      const legacyPrefill = {
-        'module.profileOnboarding.dialog.legacyPrefill.background': `我的背景：${value}`,
-        'module.profileOnboarding.dialog.legacyPrefill.style': `我喜欢的语言风格：${value}`,
-      };
-      return legacyPrefill[key as keyof typeof legacyPrefill] ?? key;
-    };
-    mockGetLearnerProfile.mockResolvedValue({
-      learner_profile: '',
-      learner_profile_updated_at: null,
-      has_learner_profile: false,
-      max_length: 1000,
-      legacy_profile_values: {
-        sys_user_nickname: '小林',
-        sys_user_background: '办公室工作',
-        sys_user_style: '亲切直接',
-      },
-    });
-    mockUpdateLearnerProfile.mockResolvedValue({
-      ...clearedProfile,
-      nickname: '小林',
-    });
-    const onSaved = jest.fn();
-    const { props } = renderDialog({ mode: 'onboarding', onSaved });
-
-    await waitFor(() => {
-      expect(
-        screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
-      ).toHaveValue('我的背景：办公室工作\n我喜欢的语言风格：亲切直接');
-    });
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-    ).toHaveValue('小林');
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveAndContinue',
-    });
-    expect(save).toBeEnabled();
-
-    fireEvent.change(
-      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
-      { target: { value: '' } },
-    );
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
-
-    await waitFor(() => {
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('');
-      expect(props.onClose).toHaveBeenCalledWith('saved');
-    });
-    expect(onSaved).toHaveBeenCalledTimes(1);
-  });
-
-  test('rebuilds legacy profile prefill after an empty save and reopen', async () => {
-    mockT = (key, params) => {
-      const value = String(params?.value || '');
-      const legacyPrefill = {
-        'module.profileOnboarding.dialog.legacyPrefill.background': `我的背景：${value}`,
-        'module.profileOnboarding.dialog.legacyPrefill.style': `我喜欢的语言风格：${value}`,
-      };
-      return legacyPrefill[key as keyof typeof legacyPrefill] ?? key;
-    };
-    const emptyProfileWithLegacyPrefill = {
-      ...clearedProfile,
-      legacy_profile_values: {
-        sys_user_background: '办公室工作',
-        sys_user_style: '亲切直接',
-      },
-    };
-    mockGetLearnerProfile.mockResolvedValue(emptyProfileWithLegacyPrefill);
-    mockUpdateLearnerProfile.mockResolvedValue(clearedProfile);
-
-    const firstRender = renderDialog();
-    const profileInput = screen.getByLabelText(
-      'module.profileOnboarding.dialog.profileLabel',
-    );
-    await waitFor(() => {
-      expect(profileInput).toHaveValue(
-        '我的背景：办公室工作\n我喜欢的语言风格：亲切直接',
-      );
-    });
-    fireEvent.change(profileInput, { target: { value: '' } });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('');
-      expect(firstRender.props.onClose).toHaveBeenCalledWith('saved');
-    });
-    firstRender.unmount();
-
-    renderDialog();
-    await waitFor(() => {
-      expect(
-        screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
-      ).toHaveValue('我的背景：办公室工作\n我喜欢的语言风格：亲切直接');
-    });
-    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(2);
-  });
-
-  test('migrates a displayed legacy nickname only when the new backend declares canonical state', async () => {
-    const legacyFallbackResponse = {
-      ...clearedProfile,
-      nickname: '',
-      legacy_profile_values: {
-        sys_user_nickname: '小林',
-      },
-    };
-    const canonicalResponse = {
-      ...clearedProfile,
-      nickname: '小林',
-      legacy_profile_values: {},
-    };
-    mockGetLearnerProfile
-      .mockResolvedValueOnce(legacyFallbackResponse)
-      .mockResolvedValueOnce(canonicalResponse);
-    mockUpdateLearnerProfile.mockResolvedValue(canonicalResponse);
-    const onClose = jest.fn();
-    const firstRender = renderDialog({ onClose });
-
-    expect(await screen.findByDisplayValue('小林')).toBeEnabled();
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveChanges',
-    });
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
-
-    await waitFor(() => {
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('', '小林');
-      expect(onClose).toHaveBeenCalledWith('saved');
-    });
-    firstRender.unmount();
-
-    const reopenedClose = jest.fn();
-    renderDialog({ onClose: reopenedClose });
-    expect(await screen.findByDisplayValue('小林')).toBeEnabled();
-    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(2);
-    expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    ).toBeDisabled();
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: 'module.profileOnboarding.dialog.cancel',
-        }),
-      );
-    });
-    expect(reopenedClose).toHaveBeenCalledWith('dismiss');
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-  });
-
-  test('does not treat a new-backend legacy nickname prefill as a discardable edit', async () => {
-    mockGetLearnerProfile.mockResolvedValue({
-      ...clearedProfile,
-      nickname: '',
-      legacy_profile_values: {
-        sys_user_nickname: '小林',
-      },
-    });
-    const onClose = jest.fn();
-    renderDialog({ onClose });
-
-    expect(await screen.findByDisplayValue('小林')).toBeEnabled();
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: 'module.profileOnboarding.dialog.cancel',
-        }),
-      );
-    });
-
-    expect(onClose).toHaveBeenCalledWith('dismiss');
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
-  });
-
-  test('shows but does not auto-migrate a legacy nickname from an older backend', async () => {
-    mockGetLearnerProfile.mockResolvedValue({
-      learner_profile: '',
-      learner_profile_updated_at: null,
-      has_learner_profile: false,
-      max_length: 1000,
-      legacy_profile_values: {
-        sys_user_nickname: '小林',
-      },
-    });
-    mockUpdateLearnerProfile.mockResolvedValue({
-      learner_profile: 'New introduction',
-      learner_profile_updated_at: null,
-      has_learner_profile: true,
-      max_length: 1000,
-    });
-    renderDialog();
-
-    expect(await screen.findByDisplayValue('小林')).toBeEnabled();
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveChanges',
-    });
-    expect(save).toBeDisabled();
-    fireEvent.change(
-      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
-      { target: { value: 'New introduction' } },
-    );
-    fireEvent.click(save);
-
-    await waitFor(() => {
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('New introduction');
-    });
-    expect(mockUpdateLearnerProfile).not.toHaveBeenCalledWith(
-      'New introduction',
-      '小林',
-    );
-  });
-
-  test('keeps an existing canonical profile instead of legacy values', async () => {
-    mockGetLearnerProfile.mockResolvedValue({
-      ...existingProfile,
-      legacy_profile_values: {
-        sys_user_nickname: '旧称呼',
-        sys_user_background: '旧背景',
-        sys_user_style: '旧风格',
-      },
-    });
-
-    renderDialog();
-
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    expect(screen.queryByDisplayValue(/旧背景/)).not.toBeInTheDocument();
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-    ).toHaveValue('Alex');
-    expect(screen.queryByDisplayValue('旧称呼')).not.toBeInTheDocument();
-  });
-
-  test('renders the aligned single-flow dialog with a prominent optimization action', async () => {
-    renderDialog({ mode: 'onboarding' });
-
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    const dialog = screen.getByRole('dialog');
-    const editor = screen.getByLabelText(
-      'module.profileOnboarding.dialog.profileLabel',
-    );
-    const nicknameLabel = screen.getByText(
-      'module.profileOnboarding.dialog.nicknameLabel',
-    );
-    const heading = screen.getByText(
-      'module.profileOnboarding.dialog.onboardingTitle',
-    );
-    const description = screen.getByText(
-      'module.profileOnboarding.dialog.description',
-    );
-    const promptHeading = screen.getByText(
-      'module.profileOnboarding.dialog.promptHeading',
-    );
-    const identityPrompt = screen.getByTestId(
-      'learner-profile-guidance-identity',
-    );
-    const optimizationCard = screen.getByTestId(
-      'learner-profile-optimization-card',
-    );
-    const optimizationPanel = optimizationCard.firstElementChild;
-    const reassurance = screen.getByTestId('learner-profile-reassurance');
-    const mobileHandle = screen.getByTestId('learner-profile-mobile-handle');
-    const later = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.later',
-    });
-    const primaryAction = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveAndContinue',
-    });
-    const footer = later.parentElement;
-    const scrollContainer = Array.from(dialog.querySelectorAll('div')).find(
-      element =>
-        element.className.includes('min-h-0') &&
-        element.className.includes('overflow-y-auto'),
-    );
-    const overlay = Array.from(
-      document.body.querySelectorAll('[data-state="open"]'),
-    ).find(element => element.className.includes('z-[100]'));
-
-    expect(dialog).toHaveClass(
-      'h-[calc(100dvh-96px)]',
-      'sm:max-h-[min(97dvh,800px)]',
-      'sm:max-w-[680px]',
-      'sm:rounded-2xl',
-    );
-    expect(editor).toHaveClass(
-      'h-[clamp(7rem,16dvh,11rem)]',
-      'min-h-[clamp(7rem,16dvh,11rem)]',
-      'max-h-[clamp(7rem,16dvh,11rem)]',
-      'overflow-y-auto',
-      'resize-none',
-    );
-    expect(editor).toHaveAttribute('rows', '4');
-    expect(editor.style.height).toBe('');
-    expect(editor.style.maxHeight).toBe('');
-    expect(nicknameLabel).toHaveClass('font-semibold', 'text-foreground');
-    const optimizeButton = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.optimize',
-    });
-    expect(optimizeButton).toHaveClass('min-h-11', 'shrink-0', 'shadow-sm');
-    expect(optimizeButton).not.toHaveClass('w-full');
-    expect(optimizationPanel).toHaveClass('h-24', 'sm:h-20');
-    expect(identityPrompt).toHaveClass('min-h-16', 'rounded-xl', 'items-start');
-    expect(identityPrompt).toHaveTextContent(
-      'module.profileOnboarding.dialog.chips.identity.hint',
-    );
-    expect(optimizationCard).not.toHaveTextContent('29 / 1000');
-    expect(screen.getByText('29 / 1000')).toBeInTheDocument();
-    expect(optimizationCard).toHaveTextContent(
-      'module.profileOnboarding.dialog.optimizeHint',
-    );
-    expect(
-      optimizationCard.querySelectorAll('svg.lucide-sparkles'),
-    ).toHaveLength(1);
-    expect(heading.parentElement).toHaveClass(
-      'w-full',
-      'text-left',
-      'sm:space-y-2',
-    );
-    expect(heading.parentElement).not.toHaveClass(
-      'mx-auto',
-      'max-w-[560px]',
-      'text-center',
-    );
-    expect(heading.parentElement?.parentElement).toHaveClass('px-5', 'sm:px-8');
-    expect(description).toHaveClass('text-left');
-    expect(description).not.toHaveClass('sm:text-center');
-    expect(scrollContainer).toHaveClass('overflow-y-auto', 'px-5', 'sm:px-8');
-    expect(dialog.querySelector('svg.lucide-sparkles')).not.toBeNull();
-    expect(mobileHandle).toHaveClass('sm:hidden');
-    expect(
-      screen.queryByTestId('learner-profile-writing-guide'),
-    ).not.toBeInTheDocument();
-    expect(
-      promptHeading.compareDocumentPosition(identityPrompt) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      identityPrompt.compareDocumentPosition(editor) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      editor.compareDocumentPosition(optimizationCard) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(reassurance).toHaveTextContent(
-      'module.profileOnboarding.dialog.reassurance',
-    );
-    expect(reassurance).toHaveClass('px-1', 'text-xs', 'sm:text-sm');
-    expect(overlay).toHaveClass('!bg-slate-950/45', 'backdrop-blur-[1px]');
-    expect(footer).toHaveClass('sticky', 'bottom-0');
-    expect(footer).toContainElement(primaryAction);
-    expect(later).toHaveClass('flex-1', 'sm:flex-none');
-    expect(primaryAction).toHaveClass('flex-[1.4]', 'sm:flex-none');
-    expect(later).not.toHaveClass('sm:min-w-40');
-    expect(primaryAction).not.toHaveClass('sm:min-w-80');
-    expect(
-      screen.queryByRole('button', {
-        name: 'module.profileOnboarding.dialog.moreActions',
-      }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('module.profileOnboarding.dialog.clear'),
-    ).not.toBeInTheDocument();
-  });
-
-  test('keeps the optimization card visible but disabled until the learner writes a draft', async () => {
-    mockGetLearnerProfile.mockResolvedValue(clearedProfile);
-    renderDialog();
-
-    const editor = await screen.findByLabelText(
-      'module.profileOnboarding.dialog.profileLabel',
-    );
-    const optimize = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.optimize',
-    });
-    expect(optimize).toBeDisabled();
-    expect(
-      screen.getByText('module.profileOnboarding.dialog.optimizeEmptyHint'),
-    ).toBeInTheDocument();
-    fireEvent.change(editor, { target: { value: 'A few details about me' } });
-    expect(optimize).toBeEnabled();
-    expect(
-      screen.getByText('module.profileOnboarding.dialog.optimizeHint'),
-    ).toBeInTheDocument();
-  });
-
-  test('shows informative guidance cards without changing the draft', async () => {
-    mockGetLearnerProfile.mockResolvedValue({
-      ...existingProfile,
-      learner_profile: '',
-      has_learner_profile: false,
-    });
-    renderDialog();
-    const editor = await screen.findByLabelText(
-      'module.profileOnboarding.dialog.profileLabel',
-    );
-
-    for (const prompt of ['identity', 'goals', 'teaching']) {
-      const guidance = screen.getByTestId(`learner-profile-guidance-${prompt}`);
-      expect(guidance.tagName).toBe('DIV');
-      expect(guidance).toHaveTextContent(
-        `module.profileOnboarding.dialog.chips.${prompt}.label`,
-      );
-      expect(guidance).toHaveTextContent(
-        `module.profileOnboarding.dialog.chips.${prompt}.hint`,
-      );
-    }
-
-    expect(editor).toHaveValue('');
-    expect(
-      screen
-        .queryByTestId('learner-profile-guidance-identity')
-        ?.closest('button'),
-    ).toBeNull();
-    expect(screen.getAllByRole('textbox')).toHaveLength(2);
-  });
-
-  test('optimizes the current draft in place and lets the user undo it', async () => {
+    mockUpdateLearnerProfile.mockResolvedValue(existingProfile);
     mockOptimizeLearnerProfile.mockResolvedValue({
-      optimized_learner_profile: 'A clearer learner introduction',
+      optimized_learner_profile: 'Optimized learner introduction',
     });
-    renderDialog();
-    const editor = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
-    );
-
-    expect(
-      screen.getByTestId('learner-profile-optimization-card'),
-    ).toHaveAttribute('aria-live', 'polite');
-    expect(
-      screen.getByTestId('learner-profile-optimization-card').firstElementChild,
-    ).toHaveClass('h-24', 'sm:h-20');
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.optimize',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockOptimizeLearnerProfile).toHaveBeenCalledWith(
-        existingProfile.learner_profile,
-      );
-      expect(editor).toHaveValue('A clearer learner introduction');
-    });
-    expect(
-      screen.getByText('module.profileOnboarding.dialog.optimizeSuccess'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('learner-profile-optimization-card').firstElementChild,
-    ).toHaveClass('h-24', 'sm:h-20');
-    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
-
-    const undoButton = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.undoOptimize',
-    });
-    expect(undoButton).toHaveClass('min-h-11', 'sm:min-h-10');
-    fireEvent.click(undoButton);
-    expect(editor).toHaveValue(existingProfile.learner_profile);
-    expect(
-      screen.queryByRole('button', {
-        name: 'module.profileOnboarding.dialog.undoOptimize',
-      }),
-    ).not.toBeInTheDocument();
-
-    mockOptimizeLearnerProfile.mockResolvedValue({
-      optimized_learner_profile: 'A clearer learner introduction',
-    });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.optimize',
-      }),
-    );
-    await screen.findByDisplayValue('A clearer learner introduction');
-    fireEvent.change(editor, {
-      target: { value: 'My manually adjusted introduction' },
-    });
-    expect(editor).toHaveValue('My manually adjusted introduction');
-    expect(
-      screen.getByText('module.profileOnboarding.dialog.optimizeHint'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', {
-        name: 'module.profileOnboarding.dialog.undoOptimize',
-      }),
-    ).not.toBeInTheDocument();
+    mockRunProfileOnboardingSession.mockReturnValue({ close: jest.fn() });
   });
 
-  test('locks only profile actions while optimization is pending and prevents duplicates', async () => {
-    let resolveOptimization: (value: {
-      optimized_learner_profile: string;
-    }) => void = () => undefined;
-    mockOptimizeLearnerProfile.mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveOptimization = resolve;
-        }),
-    );
-    renderDialog();
-    const editor = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
-    );
-    const nickname = screen.getByDisplayValue('Alex');
-    const optimize = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.optimize',
-    });
+  test('waits for both profile and onboarding status before choosing research', async () => {
+    const profileRequest = deferred<typeof emptyProfile>();
+    const statusRequest = deferred<ReturnType<typeof onboardingStatus>>();
+    mockGetLearnerProfile.mockReturnValue(profileRequest.promise);
+    mockGetProfileOnboardingV2.mockReturnValue(statusRequest.promise);
 
-    fireEvent.click(optimize);
+    renderDialog({ mode: 'onboarding', presentation: 'blocking' });
 
-    expect(editor).toBeDisabled();
-    expect(nickname).toBeEnabled();
     expect(
-      screen.getByTestId('learner-profile-guidance-identity'),
+      screen.getByText('module.profileOnboarding.dialog.loading'),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    ).toBeDisabled();
+      screen.queryByTestId('mock-profile-onboarding-conversation'),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.cancel',
-      }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.close',
-      }),
-    ).toBeEnabled();
-    const pendingOptimize = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.optimizing',
-    });
-    expect(pendingOptimize).toBeDisabled();
-    fireEvent.click(pendingOptimize);
-    expect(mockOptimizeLearnerProfile).toHaveBeenCalledTimes(1);
+      screen.queryByLabelText('module.profileOnboarding.dialog.profileLabel'),
+    ).not.toBeInTheDocument();
 
-    fireEvent.change(nickname, { target: { value: 'Riley' } });
     await act(async () => {
-      resolveOptimization({
-        optimized_learner_profile: 'Optimized while nickname changes',
-      });
+      statusRequest.resolve(onboardingStatus());
     });
-    expect(editor).toHaveValue('Optimized while nickname changes');
-    expect(nickname).toHaveValue('Riley');
-  });
-
-  test('keeps the draft savable after a technical optimization failure', async () => {
-    mockOptimizeLearnerProfile.mockRejectedValueOnce(
-      Object.assign(new Error('AI optimization request timed out'), {
-        code: 1025,
-      }),
-    );
-    mockUpdateLearnerProfile.mockResolvedValue({
-      ...existingProfile,
-      learner_profile: 'My new draft',
-    });
-    renderDialog();
-    const editor = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
-    );
-    fireEvent.change(editor, { target: { value: 'My new draft' } });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.optimize',
-      }),
-    );
-
     expect(
-      await screen.findByText('AI optimization request timed out'),
+      screen.getByText('module.profileOnboarding.dialog.loading'),
     ).toBeInTheDocument();
-    expect(editor).toHaveValue('My new draft');
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveChanges',
-    });
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
+    expect(mockCreateProfileOnboardingSession).not.toHaveBeenCalled();
 
-    await waitFor(() => {
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('My new draft');
-    });
-  });
-
-  test('shows the backend reason when profile moderation rejects optimization', async () => {
-    mockOptimizeLearnerProfile.mockRejectedValueOnce(
-      Object.assign(new Error('Revise the profile before optimizing it'), {
-        code: 1022,
-      }),
-    );
-    renderDialog();
-    const editor = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
-    );
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.optimize',
-      }),
-    );
-
-    expect(
-      await screen.findByText('Revise the profile before optimizing it'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText('module.profileOnboarding.dialog.optimizeFailed'),
-    ).not.toBeInTheDocument();
-    expect(editor).toHaveValue(existingProfile.learner_profile);
-  });
-
-  test('uses the model result exactly even when it only adds whitespace', async () => {
-    mockOptimizeLearnerProfile.mockResolvedValue({
-      optimized_learner_profile: `  ${existingProfile.learner_profile}  `,
-    });
-    renderDialog();
-    const editor = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
-    );
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.optimize',
-      }),
-    );
-
-    await screen.findByText('module.profileOnboarding.dialog.optimizeSuccess');
-    expect(editor).toHaveValue(`  ${existingProfile.learner_profile}  `);
-    expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.undoOptimize',
-      }),
-    ).toBeInTheDocument();
-  });
-
-  test('shows an over-limit model result instead of treating it as an optimization error', async () => {
-    const optimized = 'x'.repeat(existingProfile.max_length + 1);
-    mockOptimizeLearnerProfile.mockResolvedValue({
-      optimized_learner_profile: optimized,
-    });
-    renderDialog();
-    const editor = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
-    );
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.optimize',
-      }),
-    );
-
-    await screen.findByText('module.profileOnboarding.dialog.optimizeSuccess');
-    expect(editor).toHaveValue(optimized);
-    expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    ).toBeDisabled();
-  });
-
-  test.each([
-    [
-      'missing field',
-      {} as { optimized_learner_profile: string },
-      'module.profileOnboarding.dialog.optimizeInvalidResponse',
-    ],
-    [
-      'empty result',
-      { optimized_learner_profile: '   ' },
-      'module.profileOnboarding.dialog.optimizeEmptyResponse',
-    ],
-  ])(
-    'reports a defensive frontend error for a %s response',
-    async (_caseName, response, expectedMessage) => {
-      mockOptimizeLearnerProfile.mockResolvedValueOnce(response);
-      renderDialog();
-      const editor = await screen.findByDisplayValue(
-        existingProfile.learner_profile,
-      );
-
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: 'module.profileOnboarding.dialog.optimize',
-        }),
-      );
-
-      expect(await screen.findByText(expectedMessage)).toBeInTheDocument();
-      expect(editor).toHaveValue(existingProfile.learner_profile);
-    },
-  );
-
-  test('does not apply a late optimization result after the account changes', async () => {
-    let resolveOptimization: (value: {
-      optimized_learner_profile: string;
-    }) => void = () => undefined;
-    mockOptimizeLearnerProfile.mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveOptimization = resolve;
-        }),
-    );
-    mockGetLearnerProfile
-      .mockResolvedValueOnce(existingProfile)
-      .mockResolvedValueOnce({
-        ...existingProfile,
-        learner_profile: 'User B introduction',
-        nickname: 'Bee',
-      });
-    const onClose = jest.fn();
-    const { rerender } = render(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-a'
-        onClose={onClose}
-      />,
-    );
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.optimize',
-      }),
-    );
-
-    rerender(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-b'
-        onClose={onClose}
-      />,
-    );
-    expect(
-      await screen.findByDisplayValue('User B introduction'),
-    ).toBeEnabled();
     await act(async () => {
-      resolveOptimization({
-        optimized_learner_profile: 'Late optimized user A introduction',
-      });
+      profileRequest.resolve(emptyProfile);
     });
 
     expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
-    ).toHaveValue('User B introduction');
-    expect(
-      screen.queryByDisplayValue('Late optimized user A introduction'),
-    ).not.toBeInTheDocument();
+      await screen.findByText('module.profileOnboarding.guided.title'),
+    ).toBeInTheDocument();
+    await waitForResearchSession();
   });
 
-  test('does not apply a late optimization result after the dialog closes', async () => {
-    let resolveOptimization: (value: {
-      optimized_learner_profile: string;
-    }) => void = () => undefined;
-    mockOptimizeLearnerProfile.mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveOptimization = resolve;
-        }),
-    );
-    const onClose = jest.fn();
-    const { rerender } = render(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-a'
-        onClose={onClose}
-      />,
-    );
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.optimize',
-      }),
-    );
+  test('shows an existing profile without waiting for optional onboarding status', async () => {
+    const statusRequest = deferred<ReturnType<typeof onboardingStatus>>();
+    mockGetLearnerProfile.mockResolvedValue(existingProfile);
+    mockGetProfileOnboardingV2.mockReturnValue(statusRequest.promise);
 
-    rerender(
-      <LearnerProfileDialog
-        open={false}
-        mode='settings'
-        draftStorageScope='user-a'
-        onClose={onClose}
-      />,
-    );
-    await act(async () => {
-      resolveOptimization({
-        optimized_learner_profile: 'Late optimized closed introduction',
-      });
-    });
-    rerender(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-a'
-        onClose={onClose}
-      />,
-    );
+    renderDialog();
 
     expect(
       await screen.findByDisplayValue(existingProfile.learner_profile),
-    ).toBeEnabled();
-    expect(
-      screen.queryByDisplayValue('Late optimized closed introduction'),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText('module.profileOnboarding.dialog.optimizeHint'),
     ).toBeInTheDocument();
-  });
-
-  test('saves, refreshes consumers, and closes in order', async () => {
-    const calls: string[] = [];
-    const onClose = jest.fn((reason: 'dismiss' | 'saved') => {
-      calls.push(`close:${reason}`);
-    });
-    const onSaved = jest.fn(async () => {
-      calls.push('saved');
-    });
-    mockUpdateLearnerProfile.mockResolvedValue({
-      ...existingProfile,
-      learner_profile: 'Updated learner introduction',
-    });
-    renderDialog({ onClose, onSaved });
-
-    fireEvent.change(
-      await screen.findByDisplayValue(existingProfile.learner_profile),
-      { target: { value: 'Updated learner introduction' } },
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
-        'Updated learner introduction',
-      );
-      expect(onClose).toHaveBeenCalledTimes(1);
-    });
-    expect(onSaved).toHaveBeenCalledTimes(1);
-    expect(calls).toEqual(['saved', 'close:saved']);
-    expect(onClose).toHaveBeenCalledWith('saved');
-    expect(mockToast).not.toHaveBeenCalled();
-    expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
-  });
-
-  test('sends a changed nickname with the unchanged introduction', async () => {
-    mockUpdateLearnerProfile.mockResolvedValue({
-      ...existingProfile,
-      nickname: 'Riley',
-    });
-    const onClose = jest.fn();
-    renderDialog({ onClose });
-    const nickname = await screen.findByDisplayValue('Alex');
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveChanges',
-    });
-
-    expect(nickname).not.toHaveAttribute('maxlength');
-    expect(save).toBeDisabled();
-    fireEvent.change(nickname, { target: { value: ' Riley ' } });
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
-
-    await waitFor(() => {
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
-        existingProfile.learner_profile,
-        'Riley',
-      );
-      expect(onClose).toHaveBeenCalledWith('saved');
-    });
-    expect(mockToast).not.toHaveBeenCalled();
-  });
-
-  test('counts supplementary Unicode nickname characters as code points', async () => {
-    const nicknameValue = '😀'.repeat(64);
-    mockUpdateLearnerProfile.mockResolvedValue({
-      ...existingProfile,
-      nickname: nicknameValue,
-    });
-    renderDialog();
-    const nickname = await screen.findByDisplayValue('Alex');
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveChanges',
-    });
-
-    expect(nickname).not.toHaveAttribute('maxlength');
-    fireEvent.change(nickname, { target: { value: nicknameValue } });
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
-
-    await waitFor(() => {
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
-        existingProfile.learner_profile,
-        nicknameValue,
-      );
-    });
-  });
-
-  test('sends an explicit empty nickname only after the user clears it', async () => {
-    mockUpdateLearnerProfile.mockResolvedValue({
-      ...existingProfile,
-      nickname: '',
-    });
-    renderDialog();
-    const nickname = await screen.findByDisplayValue('Alex');
-
-    fireEvent.change(nickname, { target: { value: '' } });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
-        existingProfile.learner_profile,
-        '',
-      );
-    });
-  });
-
-  test.each([
-    ['updates', 'Updated introduction'],
-    ['clears', ''],
-  ])(
-    '%s the introduction without resending a historical over-limit nickname',
-    async (_action, nextProfile) => {
-      const historicalNickname = 'n'.repeat(80);
-      mockGetLearnerProfile.mockResolvedValue({
-        ...existingProfile,
-        nickname: historicalNickname,
-        nickname_max_length: 64,
-      });
-      mockUpdateLearnerProfile.mockResolvedValue({
-        ...existingProfile,
-        learner_profile: nextProfile,
-        nickname: historicalNickname,
-        nickname_max_length: 64,
-      });
-      renderDialog();
-
-      const nickname = await screen.findByDisplayValue(historicalNickname);
-      const profile = screen.getByDisplayValue(existingProfile.learner_profile);
-      const save = screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      });
-      expect(nickname).not.toHaveAttribute('maxlength');
-      expect(screen.queryByText('80 / 64 over limit')).not.toBeInTheDocument();
-
-      fireEvent.change(profile, { target: { value: nextProfile } });
-      expect(save).toBeEnabled();
-      fireEvent.click(save);
-
-      await waitFor(() => {
-        expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(nextProfile);
-      });
-      expect(mockUpdateLearnerProfile).not.toHaveBeenCalledWith(
-        nextProfile,
-        historicalNickname,
-      );
-    },
-  );
-
-  test('still blocks an actively changed nickname above the current limit', async () => {
-    const historicalNickname = 'n'.repeat(80);
-    mockGetLearnerProfile.mockResolvedValue({
-      ...existingProfile,
-      nickname: historicalNickname,
-      nickname_max_length: 64,
-    });
-    renderDialog();
-    const nickname = await screen.findByDisplayValue(historicalNickname);
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveChanges',
-    });
-
-    fireEvent.change(nickname, { target: { value: '😀'.repeat(65) } });
-
-    expect(save).toBeDisabled();
-    expect(nickname).toHaveAttribute('aria-invalid', 'true');
-    expect(nickname).toHaveAccessibleDescription('65 / 64 over limit');
-    expect(screen.getByRole('alert')).toHaveTextContent('65 / 64 over limit');
-    fireEvent.click(save);
-    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
-
-    fireEvent.change(nickname, { target: { value: '😀'.repeat(64) } });
-    expect(save).toBeEnabled();
-    expect(nickname).not.toHaveAttribute('aria-invalid');
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-  });
-
-  test('disables both fields and prevents duplicate saves while pending', async () => {
-    let resolveSave: (value: typeof existingProfile) => void = () => undefined;
-    mockUpdateLearnerProfile.mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveSave = resolve;
-        }),
-    );
-    renderDialog();
-    const nickname = await screen.findByDisplayValue('Alex');
-    const profile = screen.getByDisplayValue(existingProfile.learner_profile);
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveChanges',
-    });
-
-    fireEvent.change(nickname, { target: { value: 'Riley' } });
-    fireEvent.click(save);
-    expect(nickname).toBeDisabled();
-    expect(profile).toBeDisabled();
-    expect(save).toBeDisabled();
-    fireEvent.click(save);
-    expect(mockUpdateLearnerProfile).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      resolveSave({ ...existingProfile, nickname: 'Riley' });
-    });
-  });
-
-  test('saves an empty introduction while preserving an unchanged nickname', async () => {
-    const calls: string[] = [];
-    const onClose = jest.fn((reason: 'dismiss' | 'saved') => {
-      calls.push(`close:${reason}`);
-    });
-    const onSaved = jest.fn(() => {
-      calls.push('saved');
-    });
-    mockUpdateLearnerProfile.mockResolvedValue(clearedProfile);
-    renderDialog({ onClose, onSaved });
-    const editor = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
-    );
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveChanges',
-    });
-
-    expect(save).toBeDisabled();
-    fireEvent.change(editor, { target: { value: '' } });
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
-
-    await waitFor(() => {
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('');
-      expect(onClose).toHaveBeenCalledWith('saved');
-    });
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-    ).toHaveValue('Alex');
-    expect(onSaved).toHaveBeenCalledTimes(1);
-    expect(calls).toEqual(['saved', 'close:saved']);
-    expect(mockToast).not.toHaveBeenCalled();
-  });
-
-  test('keeps the dialog open when saving an empty profile fails', async () => {
-    mockUpdateLearnerProfile.mockRejectedValueOnce(
-      new Error('clear request failed'),
-    );
-    const onSaved = jest.fn();
-    const onClose = jest.fn();
-    renderDialog({ onClose, onSaved });
-    const editor = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
-    );
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveChanges',
-    });
-
-    fireEvent.change(editor, { target: { value: '' } });
-    fireEvent.click(save);
-
-    expect(await screen.findByText('clear request failed')).toBeInTheDocument();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(save).toBeEnabled();
-    expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('');
-    expect(onSaved).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
-    expect(mockToast).not.toHaveBeenCalled();
-  });
-
-  test('does not save when both canonical and legacy profile values load empty', async () => {
-    mockGetLearnerProfile.mockResolvedValue({
-      ...clearedProfile,
-      learner_profile_updated_at: null,
-      nickname: '',
-      legacy_profile_values: {},
-    });
-    renderDialog({ mode: 'onboarding' });
-    const editor = screen.getByLabelText(
-      'module.profileOnboarding.dialog.profileLabel',
-    );
-    await waitFor(() => expect(editor).toBeEnabled());
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveAndContinue',
-    });
-
-    expect(editor).toHaveValue('');
-    expect(save).toBeDisabled();
-    fireEvent.change(editor, { target: { value: '   ' } });
-    expect(save).toBeDisabled();
-    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
-  });
-
-  test('keeps profile editing independent from pending rerun availability', async () => {
-    let resolveOnboardingStatus: (
-      value: typeof availableSettingsOnboardingStatus,
-    ) => void = () => undefined;
-    mockGetProfileOnboardingV2.mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveOnboardingStatus = resolve;
-        }),
-    );
-    mockUpdateLearnerProfile.mockResolvedValueOnce({
-      ...existingProfile,
-      learner_profile: 'Edited while rerun availability is pending',
-    });
-    const onClose = jest.fn();
-    renderDialog({ onClose });
-
-    const editor = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
-    );
-    const nickname = screen.getByDisplayValue('Alex');
-    const save = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.saveChanges',
-    });
-    expect(editor).toBeEnabled();
-    expect(nickname).toBeEnabled();
     expect(
       screen.queryByText('module.profileOnboarding.dialog.loading'),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', {
-        name: 'module.profileOnboarding.settings.rerun',
-      }),
-    ).not.toBeInTheDocument();
-
-    fireEvent.change(editor, {
-      target: { value: 'Edited while rerun availability is pending' },
-    });
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
-
-    await waitFor(() => {
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
-        'Edited while rerun availability is pending',
-      );
-      expect(onClose).toHaveBeenCalledWith('saved');
-    });
-    expect(
-      screen.queryByRole('button', {
-        name: 'module.profileOnboarding.settings.rerun',
-      }),
-    ).not.toBeInTheDocument();
+    expect(mockCreateProfileOnboardingSession).not.toHaveBeenCalled();
 
     await act(async () => {
-      resolveOnboardingStatus(availableSettingsOnboardingStatus);
+      statusRequest.resolve(
+        onboardingStatus({ handled: true, ...existingProfile }),
+      );
     });
-
-    expect(
-      await screen.findByRole('button', {
-        name: 'module.profileOnboarding.settings.rerun',
-      }),
-    ).toBeEnabled();
+    expect(profileInput()).toHaveValue(existingProfile.learner_profile);
   });
 
-  test('keeps the editor protected after load failure and retries', async () => {
-    mockGetLearnerProfile
-      .mockRejectedValueOnce(new Error('load request failed'))
-      .mockResolvedValueOnce(existingProfile);
-    renderDialog();
+  test('uses onboarding intent for a fresh profile and proxies runtime calls', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
 
-    expect(await screen.findByText('load request failed')).toBeInTheDocument();
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
-    ).toBeDisabled();
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-    ).toBeDisabled();
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.retry',
+    renderDialog({ mode: 'onboarding', presentation: 'blocking' });
+
+    await waitForResearchSession();
+    expect(mockCreateProfileOnboardingSession).toHaveBeenCalledWith(
+      'en-US',
+      'onboarding',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'run research' }));
+    expect(mockRunProfileOnboardingSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: SESSION_ID,
+        expectedBlockIndex: 1,
+        requestId: 'request-1',
+        userInput: { answer: ['value'] },
+        language: 'en-US',
       }),
     );
+  });
+
+  test('uses settings intent for a handled learner without a profile', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(
+      onboardingStatus({ handled: true, should_show: false }),
+    );
+
+    renderDialog({ mode: 'settings' });
+
+    await waitForResearchSession();
+    expect(mockCreateProfileOnboardingSession).toHaveBeenCalledWith(
+      'en-US',
+      'settings',
+    );
+  });
+
+  test('opens an existing profile directly in review without a false step indicator or rewrite', async () => {
+    renderDialog();
 
     expect(
       await screen.findByDisplayValue(existingProfile.learner_profile),
-    ).toBeEnabled();
-    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(2);
-  });
-
-  test('uses settings cancel and onboarding later for clean dismissal', async () => {
-    const settingsClose = jest.fn();
-    const { unmount } = renderDialog({ onClose: settingsClose });
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: 'module.profileOnboarding.dialog.cancel',
-        }),
-      );
-    });
-    expect(settingsClose).toHaveBeenCalledWith('dismiss');
-    unmount();
-
-    const onboardingClose = jest.fn();
-    renderDialog({ mode: 'onboarding', onClose: onboardingClose });
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: 'module.profileOnboarding.dialog.later',
-        }),
-      );
-    });
-    expect(onboardingClose).toHaveBeenCalledWith('dismiss');
-  });
-
-  test('reruns guided questions from settings without losing nickname or optimizer behavior', async () => {
-    const onSaved = jest.fn();
-    const rerunProfile = {
-      ...existingProfile,
-      learner_profile: 'Updated through guided questions',
-    };
-    mockGetLearnerProfile.mockResolvedValueOnce(existingProfile);
-    mockCompleteGuidedProfileOnboarding.mockResolvedValueOnce(rerunProfile);
-
-    renderDialog({ onSaved });
-
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-    ).toHaveValue('Alex');
-    expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.optimize',
-      }),
     ).toBeInTheDocument();
+    expect(nicknameInput()).toHaveValue('Alex');
+    expect(mockCreateProfileOnboardingSession).not.toHaveBeenCalled();
+    expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
+    expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
+      'overflow-y-auto',
+    );
+    expect(screen.getByTestId('learner-profile-dialog-footer')).toHaveClass(
+      'shrink-0',
+    );
+    expect(
+      screen.queryByText('module.profileOnboarding.steps.collect'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.profileOnboarding.steps.review'),
+    ).not.toBeInTheDocument();
+  });
 
-    const rerun = screen.getByRole('button', {
-      name: 'module.profileOnboarding.settings.rerun',
-    });
-    expect(rerun).toBeEnabled();
-    expect(rerun).not.toHaveAttribute('aria-describedby');
-    fireEvent.click(rerun);
-
-    const rerunModal = screen.getByTestId('profile-onboarding-modal');
-    expect(rerunModal).toHaveAttribute('data-presentation', 'non_blocking');
-    expect(rerunModal).toHaveAttribute('data-session-intent', 'settings');
-    expect(mockTrackEvent).toHaveBeenCalledWith(
-      'learner_profile_settings_rerun_started',
+  test('falls back to a manual empty editor when guided research is unavailable', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(
+      onboardingStatus({ enabled: false, guided_available: false }),
     );
 
-    fireEvent.click(
-      screen.getByRole('button', { name: COMPLETE_SETTINGS_RERUN_LABEL }),
-    );
-
-    await waitFor(() => {
-      expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledWith({
-        learner_profile: 'Updated through guided questions',
-        trigger_source: 'settings',
-        session_id: '0123456789abcdef0123456789abcdef',
-      });
-    });
-    expect(
-      await screen.findByDisplayValue('Updated through guided questions'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-    ).toHaveValue('Alex');
-    expect(onSaved).toHaveBeenCalledTimes(1);
-    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
-    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
-  });
-
-  test('requires saving profile or nickname edits before rerunning guided questions', async () => {
     renderDialog();
 
-    const profile = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
+    expect(
+      await screen.findByText('module.profileOnboarding.dialog.manualFallback'),
+    ).toBeInTheDocument();
+    expect(profileInput()).toHaveValue('');
+    expect(mockCreateProfileOnboardingSession).not.toHaveBeenCalled();
+  });
+
+  test('auto-optimizes a terminal research draft without persisting early', async () => {
+    const optimization = deferred<{ optimized_learner_profile: string }>();
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockOptimizeLearnerProfile.mockReturnValue(optimization.promise);
+
+    renderDialog({ mode: 'onboarding', presentation: 'blocking' });
+    await waitForResearchSession();
+    expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
+      'overflow-hidden',
     );
-    const nickname = screen.getByDisplayValue('Alex');
-    const rerun = screen.getByRole('button', {
-      name: 'module.profileOnboarding.settings.rerun',
-    });
-    const disabledDescription =
-      'module.profileOnboarding.dialog.saveChanges. module.profileOnboarding.dialog.discardDescription';
+    fireEvent.click(screen.getByRole('button', { name: 'finish research' }));
 
-    fireEvent.change(profile, {
-      target: { value: 'Unsaved learner introduction' },
-    });
-    expect(rerun).toBeDisabled();
-    expect(rerun).toHaveAttribute('title', disabledDescription);
-    expect(rerun).toHaveAccessibleDescription(disabledDescription);
-    fireEvent.click(rerun);
-    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
-    expect(mockTrackEvent).not.toHaveBeenCalledWith(
-      'learner_profile_settings_rerun_started',
+    const optimizingHeading = await screen.findByText(
+      'module.profileOnboarding.dialog.autoOptimizing',
     );
+    await waitFor(() => expect(optimizingHeading).toHaveFocus());
+    expect(mockOptimizeLearnerProfile).toHaveBeenCalledWith('Research draft');
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
 
-    fireEvent.change(profile, {
-      target: { value: existingProfile.learner_profile },
+    await act(async () => {
+      optimization.resolve({
+        optimized_learner_profile: 'Optimized research draft',
+      });
     });
-    expect(rerun).toBeEnabled();
-    expect(rerun).not.toHaveAttribute('title');
-    expect(rerun).not.toHaveAttribute('aria-describedby');
 
-    fireEvent.change(nickname, { target: { value: 'Unsaved nickname' } });
-    expect(rerun).toBeDisabled();
-    expect(rerun).toHaveAccessibleDescription(disabledDescription);
-    fireEvent.click(rerun);
-    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
+    expect(
+      await screen.findByDisplayValue('Optimized research draft'),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByText('module.profileOnboarding.dialog.confirmTitle'),
+      ).toHaveFocus(),
+    );
+    expect(
+      screen.getByText('module.profileOnboarding.steps.review'),
+    ).toBeInTheDocument();
     expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
   });
 
-  test('ignores a pending settings rerun after the account changes', async () => {
-    let resolveRerun: (value: typeof existingProfile) => void = () => undefined;
-    mockCompleteGuidedProfileOnboarding.mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveRerun = resolve;
-        }),
+  test('keeps the research draft savable after automatic optimization fails and can retry', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockOptimizeLearnerProfile
+      .mockRejectedValueOnce(new Error('Optimizer unavailable'))
+      .mockResolvedValueOnce({ optimized_learner_profile: 'Retried draft' });
+
+    renderDialog({ mode: 'onboarding' });
+    await waitForResearchSession();
+    fireEvent.click(screen.getByRole('button', { name: 'finish research' }));
+
+    expect(
+      await screen.findByDisplayValue('Research draft'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Optimizer unavailable')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.useResearchDraft',
+      }),
+    ).toBeEnabled();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.retryOptimize',
+      }),
     );
-    mockGetLearnerProfile
-      .mockResolvedValueOnce(existingProfile)
+    expect(
+      await screen.findByDisplayValue('Retried draft'),
+    ).toBeInTheDocument();
+  });
+
+  test('can directly restore the raw research draft after successful optimization', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+
+    renderDialog({ mode: 'onboarding' });
+    await waitForResearchSession();
+    fireEvent.click(screen.getByRole('button', { name: 'finish research' }));
+    expect(
+      await screen.findByDisplayValue('Optimized learner introduction'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.useResearchDraft',
+      }),
+    );
+    expect(profileInput()).toHaveValue('Research draft');
+  });
+
+  test('persists a guided result once with its session, trigger, and changed nickname', async () => {
+    const onSaved = jest.fn();
+    const onClose = jest.fn();
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockCompleteGuidedProfileOnboarding.mockResolvedValue({
+      ...existingProfile,
+      learner_profile: 'Optimized learner introduction',
+      nickname: 'Taylor',
+    });
+
+    renderDialog({ mode: 'onboarding', onSaved, onClose });
+    await waitForResearchSession();
+    fireEvent.click(screen.getByRole('button', { name: 'finish research' }));
+    await screen.findByDisplayValue('Optimized learner introduction');
+    fireEvent.change(nicknameInput(), { target: { value: ' Taylor ' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.complete',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledWith({
+        learner_profile: 'Optimized learner introduction',
+        trigger_source: 'guided',
+        session_id: SESSION_ID,
+        nickname: 'Taylor',
+      }),
+    );
+    expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledTimes(1);
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith('saved'));
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    const completedCall = mockTrackEvent.mock.calls.findIndex(
+      ([event]) => event === PROFILE_ONBOARDING_EVENTS.COMPLETED,
+    );
+    expect(mockTrackEvent.mock.invocationCallOrder[completedCall]).toBeLessThan(
+      onSaved.mock.invocationCallOrder[0],
+    );
+  });
+
+  test('omits an unchanged nickname from guided completion', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+
+    renderDialog({ mode: 'onboarding' });
+    await waitForResearchSession();
+    fireEvent.click(screen.getByRole('button', { name: 'finish research' }));
+    await screen.findByDisplayValue('Optimized learner introduction');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.complete',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledWith({
+        learner_profile: 'Optimized learner introduction',
+        trigger_source: 'guided',
+        session_id: SESSION_ID,
+      }),
+    );
+  });
+
+  test('keeps the guided session and draft after save failure so save can retry', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockCompleteGuidedProfileOnboarding
+      .mockRejectedValueOnce(new Error('Save unavailable'))
       .mockResolvedValueOnce({
         ...existingProfile,
-        learner_profile: 'User B introduction',
-        nickname: 'Bee',
+        learner_profile: 'Optimized learner introduction',
       });
-    const onSaved = jest.fn();
-    const onClose = jest.fn();
-    const { rerender } = render(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-a'
-        onClose={onClose}
-        onSaved={onSaved}
-      />,
-    );
 
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.settings.rerun',
-      }),
-    );
+    renderDialog({ mode: 'onboarding' });
+    await waitForResearchSession();
+    fireEvent.click(screen.getByRole('button', { name: 'finish research' }));
+    await screen.findByDisplayValue('Optimized learner introduction');
     const complete = screen.getByRole('button', {
-      name: COMPLETE_SETTINGS_RERUN_LABEL,
+      name: 'module.profileOnboarding.complete',
     });
     fireEvent.click(complete);
-    expect(complete).toBeDisabled();
+
+    expect(await screen.findByText('Save unavailable')).toBeInTheDocument();
+    expect(profileInput()).toHaveValue('Optimized learner introduction');
     fireEvent.click(complete);
-    expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledTimes(1);
 
-    rerender(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-b'
-        onClose={onClose}
-        onSaved={onSaved}
-      />,
+    await waitFor(() =>
+      expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledTimes(2),
     );
-    expect(
-      await screen.findByDisplayValue('User B introduction'),
-    ).toBeEnabled();
-    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
-
-    await act(async () => {
-      resolveRerun({
-        ...existingProfile,
-        learner_profile: 'Late user A guided introduction',
-        nickname: 'Late A',
-      });
-    });
-
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
-    ).toHaveValue('User B introduction');
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-    ).toHaveValue('Bee');
-    expect(onSaved).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
-    expect(mockToast).not.toHaveBeenCalled();
+    expect(mockCompleteGuidedProfileOnboarding.mock.calls[1][0]).toEqual(
+      mockCompleteGuidedProfileOnboarding.mock.calls[0][0],
+    );
   });
 
-  test('closes a durably completed settings rerun when the parent refresh fails', async () => {
-    const onSaved = jest.fn().mockRejectedValue(new Error('refresh failed'));
-    mockCompleteGuidedProfileOnboarding.mockResolvedValueOnce({
-      ...existingProfile,
-      learner_profile: 'Saved before refresh failed',
-    });
-
-    renderDialog({ onSaved });
-
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.settings.rerun',
-      }),
-    );
-    fireEvent.click(
-      screen.getByRole('button', { name: COMPLETE_SETTINGS_RERUN_LABEL }),
-    );
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
-      expect(onSaved).toHaveBeenCalledTimes(1);
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'module.profileOnboarding.refreshPending',
-      });
-    });
-    expect(
-      screen.getByDisplayValue('Saved before refresh failed'),
-    ).toBeInTheDocument();
-    expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledTimes(1);
-    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
-  });
-
-  test('closes a deferred settings rerun locally without completing it', async () => {
+  test('asks before replacing a dirty draft and starts settings research only after confirmation', async () => {
     renderDialog();
-
     await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.change(profileInput(), { target: { value: 'Unsaved edit' } });
+
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.settings.rerun',
       }),
     );
-    fireEvent.click(
-      screen.getByRole('button', { name: DEFER_SETTINGS_RERUN_LABEL }),
-    );
-
-    expect(screen.queryByTestId('profile-onboarding-modal')).toBeNull();
-    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
     expect(
-      screen.getByDisplayValue(existingProfile.learner_profile),
+      await screen.findByText(
+        'module.profileOnboarding.dialog.replaceResearchTitle',
+      ),
     ).toBeInTheDocument();
-  });
-
-  test('keeps onboarding open when dismiss fails and prevents duplicate requests', async () => {
-    let rejectDismiss: (error: Error) => void = () => undefined;
-    const onClose = jest
-      .fn()
-      .mockImplementationOnce(
-        () =>
-          new Promise<void>((_resolve, reject) => {
-            rejectDismiss = reject;
-          }),
-      )
-      .mockResolvedValueOnce(undefined);
-    renderDialog({ mode: 'onboarding', onClose });
-    await screen.findByDisplayValue(existingProfile.learner_profile);
-    const later = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.later',
-    });
-
-    await act(async () => {
-      fireEvent.click(later);
-    });
-    fireEvent.click(later);
-    expect(onClose).toHaveBeenCalledTimes(1);
-    await act(async () => {
-      rejectDismiss(new Error('skip request failed'));
-    });
-
-    expect(await screen.findByText('skip request failed')).toBeInTheDocument();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(later);
-    });
-    expect(onClose).toHaveBeenCalledTimes(2);
-    expect(onClose).toHaveBeenNthCalledWith(1, 'dismiss');
-    expect(onClose).toHaveBeenNthCalledWith(2, 'dismiss');
-  });
-
-  test('confirms before dismissing a dirty introduction', async () => {
-    const onClose = jest.fn();
-    renderDialog({ onClose });
-    fireEvent.change(
-      await screen.findByDisplayValue(existingProfile.learner_profile),
-      { target: { value: 'Unsaved changes' } },
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'module.profileOnboarding.dialog.replaceResearchTitle',
+        ),
+      ).toHaveFocus(),
     );
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.close',
-      }),
+    expect(mockCreateProfileOnboardingSession).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.SETTINGS_RERUN_STARTED,
     );
-    expect(await screen.findByRole('alertdialog')).toHaveTextContent(
-      'module.profileOnboarding.dialog.discardTitle',
-    );
-    expect(onClose).not.toHaveBeenCalled();
 
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.keepEditing',
       }),
     );
-    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(profileInput()).toHaveValue('Unsaved edit');
+    await waitFor(() =>
+      expect(
+        screen.getByText('module.profileOnboarding.dialog.confirmTitle'),
+      ).toHaveFocus(),
+    );
+    expect(mockCreateProfileOnboardingSession).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.replaceResearchConfirm',
+      }),
+    );
+
+    await waitForResearchSession();
+    expect(mockCreateProfileOnboardingSession).toHaveBeenCalledWith(
+      'en-US',
+      'settings',
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.SETTINGS_RERUN_STARTED,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.cancelResearch',
+      }),
+    );
+    expect(await screen.findByDisplayValue('Unsaved edit')).toBeInTheDocument();
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+  });
+
+  test('cancels settings research back to the untouched local draft without skip or persistence', async () => {
+    renderDialog();
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.settings.rerun',
+      }),
+    );
+    await waitForResearchSession();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.cancelResearch',
+      }),
+    );
+
+    expect(
+      await screen.findByDisplayValue(existingProfile.learner_profile),
+    ).toBeInTheDocument();
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      PROFILE_ONBOARDING_EVENTS.SKIPPED,
+      expect.anything(),
+    );
+  });
+
+  test('directly edits profile and nickname through the canonical PUT path', async () => {
+    mockUpdateLearnerProfile.mockResolvedValue({
+      ...existingProfile,
+      learner_profile: 'Direct edit',
+      nickname: 'Morgan',
+    });
+    const onSaved = jest.fn();
+    renderDialog({ onSaved });
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+
+    fireEvent.change(profileInput(), { target: { value: ' Direct edit ' } });
+    fireEvent.change(nicknameInput(), { target: { value: 'Morgan' } });
+    fireEvent.click(saveButton());
+
+    await waitFor(() =>
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
+        'Direct edit',
+        'Morgan',
+      ),
+    );
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  test('preserves an unchanged nickname when directly clearing the profile', async () => {
+    mockUpdateLearnerProfile.mockResolvedValue({
+      ...existingProfile,
+      learner_profile: '',
+      has_learner_profile: false,
+    });
+    renderDialog();
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+
+    fireEvent.change(profileInput(), { target: { value: '' } });
+    fireEvent.click(saveButton());
+
+    await waitFor(() =>
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith('', undefined),
+    );
+  });
+
+  test('migrates a displayed legacy nickname without putting legacy fields in the editor', async () => {
+    mockGetLearnerProfile.mockResolvedValue({
+      ...existingProfile,
+      nickname: '',
+      legacy_profile_values: {
+        sys_user_nickname: 'Legacy name',
+        sys_user_background: 'Legacy background',
+        sys_user_style: 'Legacy style',
+      },
+    });
+    renderDialog();
+
+    expect(await screen.findByDisplayValue('Legacy name')).toBeInTheDocument();
+    expect(profileInput()).toHaveValue(existingProfile.learner_profile);
+    expect(profileInput().textContent).not.toContain('sys_user_');
+    fireEvent.click(saveButton());
+    await waitFor(() =>
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
+        existingProfile.learner_profile,
+        'Legacy name',
+      ),
+    );
+  });
+
+  test('optimizes a direct edit in place and lets the learner undo it', async () => {
+    renderDialog();
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.change(profileInput(), { target: { value: 'Draft to improve' } });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    );
+    expect(
+      await screen.findByDisplayValue('Optimized learner introduction'),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.undoOptimize',
+      }),
+    );
+    expect(profileInput()).toHaveValue('Draft to improve');
+  });
+
+  test('keeps a direct draft savable after optimization fails', async () => {
+    mockOptimizeLearnerProfile.mockRejectedValue(
+      new Error('Moderation rejected this draft'),
+    );
+    renderDialog();
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.change(profileInput(), { target: { value: 'Safe draft' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    );
+
+    expect(
+      await screen.findByText('Moderation rejected this draft'),
+    ).toBeInTheDocument();
+    expect(profileInput()).toHaveValue('Safe draft');
+    expect(saveButton()).toBeEnabled();
+  });
+
+  test('blocks implicit dismissal during onboarding and defers only through the explicit action', async () => {
+    const onClose = jest.fn();
+    const onDefer = jest.fn().mockResolvedValue(true);
+    renderDialog({
+      mode: 'onboarding',
+      presentation: 'blocking',
+      onClose,
+      onDefer,
+    });
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.dialog.close',
+      }),
+    ).not.toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
+    fireEvent.pointerDown(document.body);
+    fireEvent.click(document.body);
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    await waitFor(() => expect(onDefer).toHaveBeenCalledWith(undefined));
+    const skippedCall = mockTrackEvent.mock.calls.findIndex(
+      ([event]) => event === PROFILE_ONBOARDING_EVENTS.SKIPPED,
+    );
+    expect(mockTrackEvent.mock.invocationCallOrder[skippedCall]).toBeLessThan(
+      onClose.mock.invocationCallOrder[0],
+    );
+    expect(onClose).toHaveBeenCalledWith('dismiss');
+  });
+
+  test('keeps research usable when explicit defer fails', async () => {
+    const onClose = jest.fn();
+    const onDefer = jest.fn().mockResolvedValue(false);
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    renderDialog({
+      mode: 'onboarding',
+      presentation: 'blocking',
+      externalErrorMessage: 'Skip unavailable',
+      onClose,
+      onDefer,
+    });
+    await waitForResearchSession();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    await waitFor(() => expect(onDefer).toHaveBeenCalledWith(SESSION_ID));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'finish research' }));
+    expect(
+      await screen.findByDisplayValue('Optimized learner introduction'),
+    ).toBeInTheDocument();
+  });
+
+  test('keeps automatic optimization running when explicit defer fails', async () => {
+    const optimization = deferred<{ optimized_learner_profile: string }>();
+    const onDefer = jest.fn().mockResolvedValue(false);
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockOptimizeLearnerProfile.mockReturnValue(optimization.promise);
+    renderDialog({
+      mode: 'onboarding',
+      presentation: 'blocking',
+      externalErrorMessage: 'Skip unavailable',
+      onDefer,
+    });
+    await waitForResearchSession();
+    fireEvent.click(screen.getByRole('button', { name: 'finish research' }));
+    await screen.findByText('module.profileOnboarding.dialog.autoOptimizing');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
+    );
+    await waitFor(() => expect(onDefer).toHaveBeenCalledWith(SESSION_ID));
+    expect(screen.getByText('Skip unavailable')).toBeInTheDocument();
+
+    await act(async () => {
+      optimization.resolve({
+        optimized_learner_profile: 'Optimized after failed defer',
+      });
+    });
+    expect(
+      await screen.findByDisplayValue('Optimized after failed defer'),
+    ).toBeInTheDocument();
+  });
+
+  test('confirms before discarding dirty settings edits', async () => {
+    const onClose = jest.fn();
+    renderDialog({ onClose });
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.change(profileInput(), { target: { value: 'Unsaved edit' } });
+
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.close',
       }),
     );
-    await act(async () => {
-      fireEvent.click(
-        await screen.findByRole('button', {
-          name: 'module.profileOnboarding.dialog.discard',
+    expect(
+      await screen.findByText('module.profileOnboarding.dialog.discardTitle'),
+    ).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.discard',
+      }),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
+  });
+
+  test('ignores late research session and draft delivery after an account switch', async () => {
+    const firstSession = deferred<ReturnType<typeof sessionResponse>>();
+    mockGetLearnerProfile
+      .mockResolvedValueOnce(emptyProfile)
+      .mockResolvedValueOnce({
+        ...existingProfile,
+        learner_profile: 'Account B profile',
+        nickname: 'Blake',
+      });
+    mockGetProfileOnboardingV2
+      .mockResolvedValueOnce(onboardingStatus())
+      .mockResolvedValueOnce(
+        onboardingStatus({
+          handled: true,
+          should_show: false,
+          presentation: 'hidden',
+          ...existingProfile,
+          learner_profile: 'Account B profile',
+          nickname: 'Blake',
         }),
       );
-    });
-    expect(onClose).toHaveBeenCalledWith('dismiss');
-  });
+    mockCreateProfileOnboardingSession.mockReturnValue(firstSession.promise);
 
-  test('ignores a stale load after the account scope changes', async () => {
-    let resolveUserA: (value: typeof existingProfile) => void = () => undefined;
-    mockGetLearnerProfile
-      .mockImplementationOnce(
-        () =>
-          new Promise(resolve => {
-            resolveUserA = resolve;
-          }),
-      )
-      .mockResolvedValueOnce({
-        ...existingProfile,
-        learner_profile: 'User B introduction',
-        nickname: 'Bee',
-      });
-    const onClose = jest.fn();
-    const { rerender } = render(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-a'
-        onClose={onClose}
-      />,
-    );
-    await waitFor(() => expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1));
+    const { rerender, props } = renderDialog({ mode: 'onboarding' });
+    await screen.findByTestId('mock-profile-onboarding-conversation');
+    const accountAControl = mockConversationControls.at(-1)!;
 
     rerender(
       <LearnerProfileDialog
-        open={true}
-        mode='settings'
+        {...props}
         draftStorageScope='user-b'
-        onClose={onClose}
       />,
     );
     expect(
-      await screen.findByDisplayValue('User B introduction'),
-    ).toBeEnabled();
-    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(2);
-    await act(async () => {
-      resolveUserA(existingProfile);
-    });
+      await screen.findByDisplayValue('Account B profile'),
+    ).toBeInTheDocument();
 
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
-    ).toHaveValue('User B introduction');
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-    ).toHaveValue('Bee');
-    expect(
-      screen.queryByDisplayValue(existingProfile.learner_profile),
-    ).toBeNull();
+    await act(async () => {
+      firstSession.resolve(sessionResponse());
+    });
+    act(() => accountAControl.deliverDraft('Stale account A draft'));
+
+    expect(profileInput()).toHaveValue('Account B profile');
+    expect(mockOptimizeLearnerProfile).not.toHaveBeenCalledWith(
+      'Stale account A draft',
+    );
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
   });
 
-  test('ignores stale rerun availability after the account scope changes', async () => {
-    let resolveUserAStatus: (
-      value: typeof availableSettingsOnboardingStatus,
-    ) => void = () => undefined;
-    mockGetProfileOnboardingV2
-      .mockImplementationOnce(
-        () =>
-          new Promise(resolve => {
-            resolveUserAStatus = resolve;
-          }),
-      )
-      .mockResolvedValueOnce({
-        ...availableSettingsOnboardingStatus,
-        enabled: false,
-        guided_available: false,
-        learner_profile: 'User B introduction',
-        nickname: 'Bee',
-      });
+  test('ignores late optimization and save results after an account switch', async () => {
+    const optimization = deferred<{ optimized_learner_profile: string }>();
+    const save = deferred<typeof existingProfile>();
     mockGetLearnerProfile
       .mockResolvedValueOnce(existingProfile)
-      .mockResolvedValueOnce({
+      .mockResolvedValue({
         ...existingProfile,
-        learner_profile: 'User B introduction',
-        nickname: 'Bee',
+        learner_profile: 'Account B profile',
+        nickname: 'Blake',
       });
+    mockGetProfileOnboardingV2.mockResolvedValue(
+      onboardingStatus({ handled: true, ...existingProfile }),
+    );
+    mockOptimizeLearnerProfile.mockReturnValue(optimization.promise);
+    mockUpdateLearnerProfile.mockReturnValue(save.promise);
     const onClose = jest.fn();
-    const { rerender } = render(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-a'
-        onClose={onClose}
-      />,
-    );
+    const onSaved = jest.fn();
+    const { rerender, props } = renderDialog({ onClose, onSaved });
+    await screen.findByDisplayValue(existingProfile.learner_profile);
 
-    expect(
-      await screen.findByDisplayValue(existingProfile.learner_profile),
-    ).toBeEnabled();
-    await waitFor(() =>
-      expect(mockGetProfileOnboardingV2).toHaveBeenCalledTimes(1),
+    fireEvent.change(profileInput(), { target: { value: 'Account A edit' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
     );
-
     rerender(
       <LearnerProfileDialog
-        open={true}
-        mode='settings'
+        {...props}
         draftStorageScope='user-b'
-        onClose={onClose}
       />,
     );
-
-    expect(
-      await screen.findByDisplayValue('User B introduction'),
-    ).toBeEnabled();
-    await waitFor(() =>
-      expect(mockGetProfileOnboardingV2).toHaveBeenCalledTimes(2),
-    );
-    expect(
-      screen.queryByRole('button', {
-        name: 'module.profileOnboarding.settings.rerun',
-      }),
-    ).not.toBeInTheDocument();
-
+    await screen.findByDisplayValue('Account B profile');
     await act(async () => {
-      resolveUserAStatus(availableSettingsOnboardingStatus);
+      optimization.resolve({ optimized_learner_profile: 'Stale optimization' });
     });
+    expect(profileInput()).toHaveValue('Account B profile');
 
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
-    ).toHaveValue('User B introduction');
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-    ).toHaveValue('Bee');
-    expect(
-      screen.queryByRole('button', {
-        name: 'module.profileOnboarding.settings.rerun',
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  test('does not apply profile or nickname save results after the account changes', async () => {
-    let resolveClear: (value: typeof clearedProfile) => void = () => undefined;
-    mockUpdateLearnerProfile.mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveClear = resolve;
-        }),
-    );
-    mockGetLearnerProfile
-      .mockResolvedValueOnce(existingProfile)
-      .mockResolvedValueOnce({
-        ...existingProfile,
-        learner_profile: 'User B introduction',
-        nickname: 'Bee',
-      });
-    const onSaved = jest.fn();
-    const onClose = jest.fn();
-    const { rerender } = render(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-a'
-        onClose={onClose}
-        onSaved={onSaved}
-      />,
-    );
-    const editor = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
-    );
-    fireEvent.change(editor, { target: { value: '' } });
-    fireEvent.change(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-      { target: { value: 'Account A nickname' } },
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
-        '',
-        'Account A nickname',
-      ),
-    );
-
+    fireEvent.change(profileInput(), { target: { value: 'Account B edit' } });
+    fireEvent.click(saveButton());
     rerender(
       <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-b'
-        onClose={onClose}
-        onSaved={onSaved}
+        {...props}
+        draftStorageScope='user-c'
       />,
     );
-    expect(
-      await screen.findByDisplayValue('User B introduction'),
-    ).toBeEnabled();
     await act(async () => {
-      resolveClear(clearedProfile);
-    });
-
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
-    ).toHaveValue('User B introduction');
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.nicknameLabel'),
-    ).toHaveValue('Bee');
-    expect(onSaved).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
-    expect(mockToast).not.toHaveBeenCalled();
-  });
-
-  test('preserves an unsaved draft when the interface language changes', async () => {
-    const onClose = jest.fn();
-    const { rerender } = render(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-a'
-        onClose={onClose}
-      />,
-    );
-    const editor = await screen.findByDisplayValue(
-      existingProfile.learner_profile,
-    );
-    fireEvent.change(editor, {
-      target: { value: 'Unsaved learner introduction' },
-    });
-
-    mockLanguage = 'fr-FR';
-    mockT = (key, params) => translateKey(key, params);
-    rerender(
-      <LearnerProfileDialog
-        open={true}
-        mode='settings'
-        draftStorageScope='user-a'
-        onClose={onClose}
-      />,
-    );
-
-    expect(
-      screen.getByLabelText('module.profileOnboarding.dialog.profileLabel'),
-    ).toHaveValue('Unsaved learner introduction');
-    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
-  });
-
-  test('does not notify or close when a save resolves after unmount', async () => {
-    let resolveSave: (value: typeof existingProfile) => void = () => undefined;
-    mockUpdateLearnerProfile.mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveSave = resolve;
-        }),
-    );
-    const onSaved = jest.fn();
-    const onClose = jest.fn();
-    const { unmount } = renderDialog({ onClose, onSaved });
-    fireEvent.change(
-      await screen.findByDisplayValue(existingProfile.learner_profile),
-      { target: { value: 'Late saved introduction' } },
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledTimes(1),
-    );
-    unmount();
-
-    await act(async () => {
-      resolveSave({
+      save.resolve({
         ...existingProfile,
-        learner_profile: 'Late saved introduction',
+        learner_profile: 'Late saved Account B edit',
       });
     });
-
     expect(onSaved).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
-    expect(mockToast).not.toHaveBeenCalled();
-  });
-
-  test('does not toast or close when a save rejects after unmount', async () => {
-    let rejectSave: (reason: Error) => void = () => undefined;
-    mockUpdateLearnerProfile.mockImplementationOnce(
-      () =>
-        new Promise((_resolve, reject) => {
-          rejectSave = reject;
-        }),
-    );
-    const onSaved = jest.fn();
-    const onClose = jest.fn();
-    const { unmount } = renderDialog({ onClose, onSaved });
-    fireEvent.change(
-      await screen.findByDisplayValue(existingProfile.learner_profile),
-      { target: { value: 'Late rejected introduction' } },
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockUpdateLearnerProfile).toHaveBeenCalledTimes(1),
-    );
-    unmount();
-
-    await act(async () => {
-      rejectSave(new Error('late save failed'));
-    });
-
-    expect(onSaved).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
-    expect(mockToast).not.toHaveBeenCalled();
-  });
-
-  test('does not toast or close when a refresh fails after unmount', async () => {
-    let rejectRefresh: (reason: Error) => void = () => undefined;
-    const onSaved = jest.fn(
-      () =>
-        new Promise<void>((_resolve, reject) => {
-          rejectRefresh = reject;
-        }),
-    );
-    const onClose = jest.fn();
-    const { unmount } = renderDialog({ onClose, onSaved });
-    fireEvent.change(
-      await screen.findByDisplayValue(existingProfile.learner_profile),
-      { target: { value: 'Saved before switching accounts' } },
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    );
-    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
-
-    unmount();
-    await act(async () => {
-      rejectRefresh(new Error('late account refresh failed'));
-    });
-
-    expect(onClose).not.toHaveBeenCalled();
-    expect(mockToast).not.toHaveBeenCalledWith({
-      title: 'module.profileOnboarding.refreshPending',
-    });
-  });
-
-  test('keeps refresh failure feedback after a successful save', async () => {
-    const onSaved = jest.fn().mockRejectedValue(new Error('refresh failed'));
-    const onClose = jest.fn();
-    renderDialog({ onClose, onSaved });
-
-    fireEvent.change(
-      await screen.findByDisplayValue(existingProfile.learner_profile),
-      { target: { value: 'Saved while refresh fails' } },
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.saveChanges',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'module.profileOnboarding.refreshPending',
-      });
-      expect(onClose).toHaveBeenCalledWith('saved');
-    });
   });
 });

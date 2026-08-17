@@ -60,6 +60,7 @@ export type CompleteProfileOnboardingPayload = {
   learner_profile: string;
   trigger_source: 'guided' | 'settings';
   session_id?: string;
+  nickname?: string;
 };
 
 export type ProfileOnboardingSession = {
@@ -136,6 +137,9 @@ export const completeGuidedProfileOnboarding = async (
   const normalizedPayload = {
     ...payload,
     learner_profile: payload.learner_profile.trim(),
+    ...(payload.nickname !== undefined
+      ? { nickname: payload.nickname.trim() }
+      : {}),
   };
   const response: unknown = await request.post(
     '/api/user/profile-onboarding/complete',
@@ -147,7 +151,11 @@ export const completeGuidedProfileOnboarding = async (
     (typeof response.learner_profile_updated_at !== 'string' &&
       response.learner_profile_updated_at !== null) ||
     typeof response.has_learner_profile !== 'boolean' ||
-    typeof response.max_length !== 'number'
+    typeof response.max_length !== 'number' ||
+    (response.nickname !== undefined &&
+      typeof response.nickname !== 'string') ||
+    (response.nickname_max_length !== undefined &&
+      typeof response.nickname_max_length !== 'number')
   ) {
     throw new Error();
   }
