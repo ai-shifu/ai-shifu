@@ -371,8 +371,8 @@ def main():
     app.logger.setLevel(logging.ERROR)
 
     # Import after app initialization because some modules require an initialized DB.
-    from flaskr.service.tts.pipeline import synthesize_long_text_to_oss  # noqa: E402
-    from flaskr.service.tts.pipeline import SynthesizeToOssResult  # noqa: E402
+    from flaskr.service.tts.pipeline import synthesize_long_text_to_oss
+    from flaskr.service.tts.pipeline import SynthesizeToOssResult
 
     provider_names = [p.strip() for p in args.providers.split(",") if p.strip()]
     languages = [("zh", ZH_TEXT), ("en", EN_TEXT)]

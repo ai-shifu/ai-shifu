@@ -13,10 +13,10 @@ import pytest
 pytest.importorskip("langfuse")
 pytest.importorskip("opentelemetry")
 
-from langfuse import Langfuse  # noqa: E402
-from langfuse._client.resource_manager import LangfuseResourceManager  # noqa: E402
-from opentelemetry import trace as otel_trace_api  # noqa: E402
-from opentelemetry.util._once import Once  # noqa: E402
+from langfuse import Langfuse
+from langfuse._client.resource_manager import LangfuseResourceManager
+from opentelemetry import trace as otel_trace_api
+from opentelemetry.util._once import Once
 
 
 def _reset_langfuse_after_fork():

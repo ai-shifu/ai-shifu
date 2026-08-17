@@ -14,7 +14,7 @@ import requests
 # override by exporting LITELLM_LOCAL_MODEL_COST_MAP=False before startup.
 os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 
-import litellm  # noqa: E402
+import litellm
 from flask import Flask, current_app
 from flaskr.api.langfuse import (
     LangfuseObservationHandle,

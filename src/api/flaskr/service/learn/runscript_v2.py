@@ -816,7 +816,7 @@ def run_script(
                         )
                     else:
                         output_queue.put(("error", exc))
-                except BaseException as exc:  # noqa: BLE001 - GreenletExit etc.
+                except BaseException as exc:
                     producer_exc = exc
                     raise
                 finally:
