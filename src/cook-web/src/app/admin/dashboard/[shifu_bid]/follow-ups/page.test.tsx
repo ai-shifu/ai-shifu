@@ -84,7 +84,11 @@ jest.mock('react-i18next', () => ({
           if (typeof options?.count === 'number') {
             return `${key}:${options.count}`;
           }
-          return ns && ns !== 'translation' ? `${ns}.${key}` : key;
+          const translatedKey =
+            ns && ns !== 'translation' ? `${ns}.${key}` : key;
+          return translatedKey === 'module.user.defaultUserName'
+            ? 'Anonymous User'
+            : translatedKey;
         },
       });
     }
@@ -388,6 +392,45 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
         'module.dashboard.detail.followUps.table.sourceResolved',
       ),
     ).toBeInTheDocument();
+  });
+
+  test('uses the shared anonymous user label in the list and detail drawer', async () => {
+    const followUps = await mockGetDashboardCourseFollowUps();
+    const detail = await mockGetDashboardCourseFollowUpDetail({
+      generated_block_bid: 'ask-2',
+    });
+    mockGetDashboardCourseFollowUps.mockClear();
+    mockGetDashboardCourseFollowUpDetail.mockClear();
+    mockGetDashboardCourseFollowUps.mockResolvedValueOnce({
+      ...followUps,
+      items: followUps.items.map(
+        (item: { generated_block_bid: string; nickname: string }) =>
+          item.generated_block_bid === 'ask-2'
+            ? { ...item, nickname: '   ' }
+            : item,
+      ),
+    });
+    mockGetDashboardCourseFollowUpDetail.mockResolvedValueOnce({
+      ...detail,
+      basic_info: {
+        ...detail.basic_info,
+        nickname: '   ',
+      },
+    });
+
+    render(<AdminDashboardCourseFollowUpsPage />);
+
+    expect(await screen.findByText('Anonymous User')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'module.dashboard.detail.followUps.table.detailAction',
+      })[0],
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Anonymous User')).toHaveLength(2);
+    });
   });
 
   test('submits filters and opens the detail drawer', async () => {

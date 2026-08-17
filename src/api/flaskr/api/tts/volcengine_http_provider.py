@@ -243,7 +243,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 timeout=60,
             )
         except requests.RequestException as exc:
-            logger.error(
+            logger.exception(
                 "Volcengine HTTP TTS request error: url=%s reqid=%s cluster=%s voice=%s encoding=%s rate=%s text_len=%s err=%s",
                 VOLCENGINE_HTTP_TTS_URL,
                 req_id,
@@ -253,7 +253,6 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 sample_rate,
                 len(text),
                 exc,
-                exc_info=True,
             )
             raise ValueError(f"Volcengine HTTP TTS request failed: {exc}") from exc
 

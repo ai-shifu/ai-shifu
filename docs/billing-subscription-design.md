@@ -1,6 +1,6 @@
 # Billing 设计文档
 
-更新日期：2026-04-08
+更新日期：2026-08-16
 
 ## 1. 文档目标
 
@@ -1206,11 +1206,10 @@ v1 前端不新建全局 billing store，默认采用：
 
 #### 7.5.2 v1 组件拆分
 
-建议新增 `src/cook-web/src/components/billing/`，至少包含：
+当前 `src/cook-web/src/components/billing/` 的主要组件包括：
 
 - `BillingSidebarCard.tsx`
 - `BillingAlertsBanner.tsx`
-- `BillingOverviewHero.tsx`
 - `BillingOverviewCards.tsx`
 - `BillingOverviewShowcase.tsx`
 - `BillingOverviewTab.tsx`

@@ -182,7 +182,7 @@ checks are silently skipped on commit.**
 # From the repository root
 # Install lefthook (macOS: brew install lefthook, Linux/Windows: npm install -g @evilmartians/lefthook)
 npm install -g @evilmartians/lefthook  # Adjust based on your OS
-pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0
+pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
 (cd src/cook-web && npm ci)   # provides prettier + eslint
 lefthook install
 

@@ -22,8 +22,66 @@
     "updatedBy": "更新人",
     "version": "版本"
   },
+  "characterCount": "已输入 {count} / {max} 字",
+  "characterCountOverLimit": "已输入 {count} 字，最多 {max} 字，请精简后再保存。",
   "complete": "完成",
   "description": "回答几个问题，让课程更自然地与你互动。",
+  "dialog": {
+    "cancel": "取消",
+    "chips": {
+      "goals": {
+        "hint": "近期状态、目标和困惑",
+        "label": "我的近况"
+      },
+      "identity": {
+        "hint": "身份、行业、职业等",
+        "label": "我的背景"
+      },
+      "teaching": {
+        "hint": "偏好的语气、表达，及禁忌",
+        "label": "我喜欢的语言风格"
+      }
+    },
+    "close": "关闭",
+    "description": "写下你的背景、目标和表达偏好，让 AI 老师在课程中更贴近你的情况。",
+    "discard": "放弃修改",
+    "discardDescription": "尚未保存的内容会丢失。",
+    "discardTitle": "放弃这次修改吗？",
+    "dismissFailed": "暂时无法完成操作，请重试。",
+    "emptyProfile": "这段介绍不能为空，请填写后再保存。",
+    "keepEditing": "继续编辑",
+    "later": "以后再说",
+    "legacyPrefill": {
+      "background": "我的背景：{value}",
+      "style": "我喜欢的语言风格：{value}"
+    },
+    "loadFailed": "暂时无法加载这些信息，请重试。",
+    "loading": "正在加载你的学习画像…",
+    "nicknameLabel": "希望 AI 老师怎么称呼你",
+    "nicknamePlaceholder": "例如：小林",
+    "onboardingTitle": "让 AI 老师更懂你",
+    "optimize": "帮我优化",
+    "optimizeEmptyHint": "先写几句，就可以让 AI 帮你优化。",
+    "optimizeEmptyResponse": "AI 没有返回优化后的内容，请重试。",
+    "optimizeFailed": "暂时无法优化，你仍可以直接保存。",
+    "optimizeHint": "AI 会补充有用细节、整理表达，不改变原意或新增事实。",
+    "optimizeInvalidResponse": "AI 返回的结果格式不正确，请重试。",
+    "optimizeSuccess": "已优化，可继续修改。",
+    "optimizing": "正在优化…",
+    "profileLabel": "希望 AI 老师长期知道的事",
+    "profilePlaceholder": "例如：我在上海做办公室工作，大学学的是工商管理。最近想用 AI 把自己的想法做成文章和小工具。希望 AI 老师表达亲切直接、简洁易懂，少用术语。",
+    "promptHeading": "可以从这些方面开始",
+    "reassurance": "不必一次写全，之后可随时修改。与真人老师的课程设定冲突时，以老师设定为准。",
+    "retry": "重新加载",
+    "save": "保存画像",
+    "saveAndContinue": "保存并继续",
+    "saveChanges": "保存更改",
+    "saveFailed": "保存失败，请重试。",
+    "saving": "正在保存…",
+    "settingsDescription": "写下你的背景、目标和表达偏好，让 AI 老师在课程中更贴近你的情况。",
+    "settingsTitle": "向 AI 老师介绍你自己",
+    "undoOptimize": "撤销"
+  },
   "emptyFlow": "暂未配置学习画像问题。",
   "inputPlaceholder": "请输入你的回答",
   "loadFailed": "学习画像暂时加载失败，已跳过引导，请稍后重试。",

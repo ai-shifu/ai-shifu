@@ -1,5 +1,6 @@
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import timedelta
+from flaskr.util.datetime import now_utc
 from types import SimpleNamespace
 
 from flaskr.dao import db
@@ -120,7 +121,7 @@ def test_init_buy_record_reactivates_voided_promo_redemption(app, monkeypatch):
         lambda _app, _bid, _preview: SimpleNamespace(price=Decimal("500.00")),
     )
 
-    now = datetime.now()
+    now = now_utc()
 
     with app.app_context():
         order = Order(
@@ -188,7 +189,7 @@ def test_init_buy_record_applies_legacy_campaign(app, monkeypatch):
         lambda _app, _bid, _preview: SimpleNamespace(price=Decimal("500.00")),
     )
 
-    now = datetime.now()
+    now = now_utc()
 
     with app.app_context():
         campaign = PromoCampaign(
@@ -228,7 +229,7 @@ def test_query_promo_campaign_applications_keeps_legacy_campaign_when_recalculat
 ):
     from flaskr.service.promo.funcs import query_promo_campaign_applications
 
-    now = datetime.now()
+    now = now_utc()
 
     with app.app_context():
         campaign = PromoCampaign(

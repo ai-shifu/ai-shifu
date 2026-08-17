@@ -984,7 +984,7 @@ def _require_creator_integration_secret_key(app: Flask) -> str:
 
 
 def _verify_callback_token(app: Flask, token: str) -> str:
-    integration_bid, separator, signature = str(token or "").partition(".")
+    integration_bid, separator, _signature = str(token or "").partition(".")
     if (
         not separator
         or not integration_bid

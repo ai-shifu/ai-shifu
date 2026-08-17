@@ -28,6 +28,9 @@ AUDIO_STATUS_PROCESSING = 1
 AUDIO_STATUS_COMPLETED = 2
 AUDIO_STATUS_FAILED = 3
 
+TTS_CLONE_PROVIDER_MINIMAX = "minimax"
+TTS_CLONE_PROVIDER_VOLCENGINE = "volcengine"
+
 TTS_MINIMAX_CLONE_STATUS_QUEUED = "queued"
 TTS_MINIMAX_CLONE_STATUS_PROCESSING = "processing"
 TTS_MINIMAX_CLONE_STATUS_BILLING_PENDING = "billing_pending"
@@ -263,6 +266,15 @@ class TTSMiniMaxClonedVoice(db.Model):
     owner_user_bid = Column(String(36), nullable=False, default="", index=True)
     shifu_bid = Column(String(36), nullable=False, default="", index=True)
     display_name = Column(String(128), nullable=False, default="")
+    # TTS provider that owns this cloned voice. Voice id shapes overlap across
+    # providers (an S_xxxxxxxxxx id also matches MiniMax's rule), so the provider must
+    # be stored explicitly rather than inferred from the id format.
+    provider = Column(
+        String(32),
+        nullable=False,
+        default=TTS_CLONE_PROVIDER_MINIMAX,
+        index=True,
+    )
     voice_id = Column(String(64), nullable=False, default="", index=True)
 
     status = Column(

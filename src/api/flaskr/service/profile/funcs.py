@@ -361,7 +361,11 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
 
 
 def get_user_profile_labels(
-    app: Flask, user_id: str, course_id: str
+    app: Flask,
+    user_id: str,
+    course_id: str,
+    *,
+    include_nickname: bool = True,
 ) -> UserProfileLabelDTO:
     """
     Get user profile labels
@@ -478,6 +482,10 @@ def get_user_profile_labels(
             )
         )
 
+    if not include_nickname:
+        result.profiles = [
+            profile for profile in result.profiles if profile.key != SYS_USER_NICKNAME
+        ]
     return result
 
 
@@ -505,7 +513,7 @@ def update_user_profile_with_lable(
         db.session.flush()
         return True
 
-    nickname = next((p for p in profiles if p.get("key") == "sys_user_nickname"), None)
+    nickname = next((p for p in profiles if p.get("key") == SYS_USER_NICKNAME), None)
     if nickname and not check_text_content(app, user_id, nickname.get("value")):
         raise_error("server.common.nicknameNotAllowed")
 

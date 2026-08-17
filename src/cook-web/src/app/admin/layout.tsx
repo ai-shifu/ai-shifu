@@ -23,6 +23,7 @@ import { useOnboardingReplayStore, useUserStore } from '@/store';
 import { ContactSideRail } from '@/components/contact/ContactSideRail';
 import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
 import { buildAdminHomeOnboardingSteps } from '@/components/onboarding/onboardingSteps';
+import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
 import { WelcomeTrialDialog } from '@/components/billing/WelcomeTrialDialog';
 import { applyCreatorBranding } from '@/lib/initializeEnvData';
 import type { ReferralInviteProfile } from '@/types/referral';
@@ -44,6 +45,7 @@ const MainInterface = ({
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
   const currentLanguage = useUserStore(state => state.userInfo?.language || '');
+  const refreshUserInfo = useUserStore(state => state.refreshUserInfo);
   const isOperator = useUserStore(state =>
     Boolean(state.userInfo?.is_operator),
   );
@@ -53,6 +55,28 @@ const MainInterface = ({
     hasAuthenticatedAdminSession && Boolean(currentUserId);
   const menuReady = hasResolvedAdminSession;
   const adminTitle = t('common.core.adminTitle');
+  const [learnerProfileSettingsScope, setLearnerProfileSettingsScope] =
+    React.useState<string | null>(null);
+  const learnerProfileSettingsOpen =
+    hasResolvedAdminSession && learnerProfileSettingsScope === currentUserId;
+
+  const openLearnerProfileSettings = useCallback(() => {
+    if (hasResolvedAdminSession) {
+      setLearnerProfileSettingsScope(currentUserId);
+    }
+  }, [currentUserId, hasResolvedAdminSession]);
+
+  const closeLearnerProfileSettings = useCallback(() => {
+    setLearnerProfileSettingsScope(null);
+  }, []);
+
+  const handleLearnerProfileSaved = useCallback(async () => {
+    await refreshUserInfo();
+  }, [refreshUserInfo]);
+
+  useEffect(() => {
+    setLearnerProfileSettingsScope(null);
+  }, [currentUserId, hasResolvedAdminSession]);
 
   useEffect(() => {
     if (
@@ -342,6 +366,16 @@ const MainInterface = ({
         menuReady={menuReady}
         mutateBillingOverview={mutateBillingOverview}
       />
+      {learnerProfileSettingsOpen ? (
+        <LearnerProfileDialog
+          key={`${learnerProfileSettingsScope}:settings`}
+          open
+          mode='settings'
+          draftStorageScope={learnerProfileSettingsScope}
+          onSaved={handleLearnerProfileSaved}
+          onClose={closeLearnerProfileSettings}
+        />
+      ) : null}
       <ContactSideRail />
       <div className='flex h-dvh overflow-hidden bg-stone-50'>
         <div className='w-[280px] shrink-0'>
@@ -352,6 +386,7 @@ const MainInterface = ({
             userMenuOpen={desktopMenuOpen}
             onFooterClick={onDesktopFooterClick}
             onUserMenuClose={handleDesktopMenuClose}
+            onPersonalInfoClick={openLearnerProfileSettings}
             activePath={pathname}
             showBillingCard={billingEnabled}
             billingOverview={billingOverview}

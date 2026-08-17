@@ -139,15 +139,15 @@ Cook Web 内置的 `/api/config` 只返回 `apiBaseUrl`。后端 `/api/runtime-c
 
 ```json
 {
-  "wechatAppId": "wx973eb6079c64d030",
+  "wechatAppId": "wxxxxxxxxxxxxxxxxx",
   "enableWechatCode": true,
   "billingEnabled": true,
   "alwaysShowLessonTree": "true",
   "logoWideUrl": "",
   "logoSquareUrl": "",
   "faviconUrl": "",
-  "umamiScriptSrc": "https://umami.ai-shifu.com/script.js",
-  "umamiWebsiteId": "f3108c8f-6898-4404-b6d7-fd076ad011db",
+  "umamiScriptSrc": "https://analytics.example.test/script.js",
+  "umamiWebsiteId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   "enableEruda": "false",
   "loginMethodsEnabled": ["phone"],
   "defaultLoginMethod": "phone",
@@ -187,8 +187,8 @@ Docker 部署不受影响：
 ```bash
 # 使用新的环境变量名
 docker run -e NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com \
-           -e HOME_URL=/c/your-course-id \
-           -e NEXT_PUBLIC_WECHAT_APP_ID=your-wechat-app-id \
+           -e HOME_URL=/c/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+           -e NEXT_PUBLIC_WECHAT_APP_ID=wxxxxxxxxxxxxxxxxx \
            your-image:tag
 ```
 
@@ -311,10 +311,10 @@ docker run -e NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com \
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
 
 # ===== Entry Redirect Configuration =====
-HOME_URL=/c/ca3265b045e84774b8d845a4c3c5b0a3
+HOME_URL=/c/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # ===== WeChat Integration =====
-NEXT_PUBLIC_WECHAT_APP_ID=wx973eb6079c64d030
+NEXT_PUBLIC_WECHAT_APP_ID=wxxxxxxxxxxxxxxxxx
 NEXT_PUBLIC_WECHAT_CODE_ENABLED=true
 
 # ===== User Interface Configuration =====
@@ -323,8 +323,8 @@ NEXT_PUBLIC_UI_LOGO_HORIZONTAL=
 NEXT_PUBLIC_UI_LOGO_VERTICAL=
 
 # ===== Analytics & Tracking =====
-NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT=https://umami.ai-shifu.com/script.js
-NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=f3108c8f-6898-4404-b6d7-fd076ad011db
+NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT=https://analytics.example.test/script.js
+NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 # ===== Development & Debugging Tools =====
 NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
@@ -343,10 +343,10 @@ NEXT_PUBLIC_STRIPE_ENABLED=false
 NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com
 
 # ===== Entry Redirect Configuration =====
-HOME_URL=/c/your-course-id
+HOME_URL=/c/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # ===== WeChat Integration =====
-NEXT_PUBLIC_WECHAT_APP_ID=your-wechat-app-id
+NEXT_PUBLIC_WECHAT_APP_ID=wxxxxxxxxxxxxxxxxx
 NEXT_PUBLIC_WECHAT_CODE_ENABLED=true
 
 # ===== User Interface Configuration =====
@@ -355,8 +355,8 @@ NEXT_PUBLIC_UI_LOGO_HORIZONTAL=
 NEXT_PUBLIC_UI_LOGO_VERTICAL=
 
 # ===== Analytics & Tracking =====
-NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT=https://umami.your-domain.com/script.js
-NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=your-umami-site-id
+NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT=https://analytics.example.test/script.js
+NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 # ===== Development & Debugging Tools =====
 NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false

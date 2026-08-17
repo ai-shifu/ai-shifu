@@ -8,7 +8,7 @@
 #
 # One-time setup (see AGENTS.md / docs/engineering-baseline.md):
 #   npm install -g @evilmartians/lefthook  # (or brew install lefthook on macOS)
-#   pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0
+#   pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
 #   (cd src/cook-web && npm ci)   # provides prettier + eslint
 #   lefthook install
 #
@@ -80,6 +80,8 @@ pre-commit:
     check-repo-harness:
       glob: "{AGENTS.md,CLAUDE.md,ARCHITECTURE.md,PLANS.md,docs/**,.claude/**,.cursor/**,.github/**,scripts/build_repo_knowledge_index.py,scripts/check_repo_harness.py,scripts/check_ai_collab_docs.py,scripts/generate_ai_collab_docs.py}"
       run: python3 scripts/check_repo_harness.py
+    check-example-identifiers:
+      run: python3 scripts/check_example_identifiers.py --staged
     check-architecture-boundaries:
       glob: "{docs/generated/architecture-boundary-baseline.json,docs/references/architecture-boundaries.md,scripts/check_architecture_boundaries.py,scripts/testdata/architecture_boundaries/**,src/api/**,src/cook-web/src/**}"
       run: python3 scripts/check_architecture_boundaries.py

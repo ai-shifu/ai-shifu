@@ -1066,7 +1066,7 @@ def invoke_llm(
 
         for res in response:
             if start_completion_time is None:
-                start_completion_time = datetime.now()
+                start_completion_time = now_utc()
             if len(res.choices):
                 reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
             if len(res.choices) and res.choices[0].delta.content:
@@ -1241,7 +1241,7 @@ def chat_llm(
         try:
             for res in response:
                 if start_completion_time is None:
-                    start_completion_time = datetime.now()
+                    start_completion_time = now_utc()
                 if len(res.choices):
                     reasoning_text += _extract_reasoning_delta(res.choices[0].delta)
                 if len(res.choices) and res.choices[0].delta.content:

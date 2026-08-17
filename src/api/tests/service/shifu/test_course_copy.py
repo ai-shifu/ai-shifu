@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime
+from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -53,8 +54,8 @@ def _seed_user(
         language="en-US",
         state=state,
     )
-    entity.created_at = datetime.utcnow()
-    entity.updated_at = datetime.utcnow()
+    entity.created_at = now_utc()
+    entity.updated_at = now_utc()
     db.session.flush()
     if email:
         upsert_credential(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from datetime import datetime, timedelta
+from flaskr.util.datetime import now_utc
 from types import SimpleNamespace
 
 import pytest
@@ -1963,7 +1964,7 @@ def test_admin_promotions_coupon_list_compatibly_displays_legacy_status_rows(
     with app.app_context():
         _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
         _seed_course("legacy-course-1", "Legacy Coupon Course")
-        now = datetime.now()
+        now = now_utc()
         db.session.add_all(
             [
                 Coupon(
@@ -2082,7 +2083,7 @@ def test_admin_promotions_campaign_list_compatibly_displays_legacy_status_rows(
     with app.app_context():
         _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
         _seed_course("legacy-course-2", "Legacy Campaign Course")
-        now = datetime.now()
+        now = now_utc()
         db.session.add_all(
             [
                 PromoCampaign(

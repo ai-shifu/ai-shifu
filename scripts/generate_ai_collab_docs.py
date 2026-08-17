@@ -221,6 +221,9 @@ API_SPEC = DocSpec(
         "Use `FLASK_APP=app.py` from `src/api/` for Flask commands, and update "
         "module imports so new models or routes participate in the app factory "
         "and migration discovery paths.",
+        "Define the intended schema in SQLAlchemy models first, then generate "
+        "schema revisions with `FLASK_APP=app.py flask db migrate -m "
+        '"message"` and review the candidate migration before accepting it.',
         "Keep database models aligned with the project conventions: business keys "
         "before foreign references, indexed `_bid` columns, soft-delete flags "
         "when applicable, and timestamp fields with server defaults.",
@@ -236,6 +239,10 @@ API_SPEC = DocSpec(
         "provider wrappers, or service utilities already cover the use case.",
         "Do not edit applied migration files. Generate a new Alembic revision and "
         "review it before committing any schema change.",
+        "Do not use SQLAlchemy or Flask-SQLAlchemy `create_all()` calls, or "
+        "custom schema-introspection guards, as a substitute for versioned "
+        "Alembic migrations. Add a narrowly scoped guard only when a documented "
+        "non-transactional DDL recovery requirement makes it necessary.",
         "Do not add hard database foreign-key constraints for business-key "
         "relationships unless the architecture decision changes explicitly.",
         "Do not bypass the LiteLLM wrapper or shared backend helper layers when "
@@ -975,7 +982,7 @@ FRONTEND_META = {
             "shared TypeScript declarations, ambient module definitions, and "
             "cross-domain frontend interfaces"
         ),
-        key_files=("global.ts", "shifu.ts", "markdown-flow-ui.d.ts", "i18n-keys.d.ts"),
+        key_files=("shifu.ts", "markdown-flow-ui.d.ts", "i18n-keys.d.ts"),
         invariants=(
             "treat shared type exports as compatibility surfaces consumed across "
             "routes, stores, hooks, and components",
@@ -1000,7 +1007,7 @@ FRONTEND_META = {
             "legacy compatibility API wrappers used by the `c` experience and "
             "older frontend business flows"
         ),
-        key_files=("c.ts", "course.ts", "lesson.ts", "studyV2.ts"),
+        key_files=("course.ts", "lesson.ts", "studyV2.ts"),
         invariants=(
             "preserve legacy request shapes and naming as long as the `c` routes "
             "still depend on them",
@@ -1078,18 +1085,10 @@ FRONTEND_META = {
         test_focus="src/cook-web/src/c-components/",
     ),
     "c-constants": FrontendDomainMeta(
-        summary=(
-            "legacy constants for course, environment, product, UI, and user "
-            "behavior used throughout the `c` experience"
-        ),
-        key_files=(
-            "uiConstants.ts",
-            "env.ts",
-            "courseConstants.ts",
-            "productConstants.ts",
-        ),
+        summary=("legacy course and UI constants used throughout the `c` experience"),
+        key_files=("uiConstants.ts", "courseConstants.ts"),
         invariants=(
-            "keep shared breakpoint, environment, and product constants as the "
+            "keep shared breakpoint, course, and UI constants as the "
             "single source of truth for legacy consumers",
             "preserve constant names and semantics when skills or stores already "
             "depend on them indirectly",
@@ -1109,10 +1108,10 @@ FRONTEND_META = {
     ),
     "c-service": FrontendDomainMeta(
         summary=(
-            "legacy business orchestration for shifu, shortcuts, and state "
-            "transform helpers consumed by the `c` experience"
+            "legacy business orchestration for shifu and state transform helpers "
+            "consumed by the `c` experience"
         ),
-        key_files=("Shifu.ts", "shifuUtils.ts", "shortcut.ts", "storeUtil.ts"),
+        key_files=("Shifu.ts", "shifuUtils.ts", "storeUtil.ts"),
         invariants=(
             "keep legacy business transformations centralized so `c` pages and "
             "stores do not all reshape the same payloads differently",
@@ -1122,7 +1121,7 @@ FRONTEND_META = {
             "for low-level request or UI-only helpers",
         ),
         avoid_points=(
-            "do not duplicate shifu or shortcut transformations in pages when "
+            "do not duplicate shifu or state transformations in pages when "
             "this service layer already owns them",
             "do not move compatibility behavior into modern domains without a "
             "clear migration plan and adapter",
@@ -1173,7 +1172,7 @@ FRONTEND_META = {
             "legacy ambient declarations and compatibility types used across the "
             "`c` experience"
         ),
-        key_files=("index.ts", "store.ts", "sse.d.ts", "user-roles.ts"),
+        key_files=("index.ts", "store.ts", "sse.d.ts"),
         invariants=(
             "keep compatibility types aligned with the actual `c` stores, "
             "services, and runtime payloads they describe",
@@ -1731,10 +1730,14 @@ def build_documents() -> dict[Path, str]:
                 "abstractions.",
                 "Keep shared translations in `src/i18n/` and use backend helpers "
                 "instead of inventing per-service translation or error patterns.",
-                "Generate and review new Alembic migrations instead of editing "
-                "applied revisions, do not add hard business-key foreign-key "
-                "constraints, and keep OpenAI-compatible providers behind the "
-                "LiteLLM and shared helper layers.",
+                "Define schema changes in SQLAlchemy models, generate and review "
+                "Alembic revisions with `flask db migrate`, and do not use "
+                "`create_all()` or custom schema-introspection guards as a "
+                "substitute for versioned migrations. Add a narrowly scoped "
+                "guard only for a documented non-transactional DDL recovery "
+                "requirement. Do not edit applied revisions, add hard "
+                "business-key foreign-key constraints, or bypass the LiteLLM "
+                "and shared provider layers.",
             ),
             always_apply=False,
         ),
@@ -1865,9 +1868,14 @@ def build_documents() -> dict[Path, str]:
                 "configuration helpers before creating new abstractions.",
                 "Keep backend translations in shared JSON namespaces under "
                 "`src/i18n/`, not in ad-hoc Python translation modules.",
-                "Generate new migrations instead of editing applied ones, do not "
-                "add hard business-key foreign-key constraints, and keep "
-                "OpenAI-compatible providers behind LiteLLM and shared helpers.",
+                "Define schema changes in SQLAlchemy models, generate and review "
+                "Alembic revisions with `flask db migrate`, and do not use "
+                "`create_all()` or custom schema-introspection guards as a "
+                "substitute for versioned migrations. Add a narrowly scoped "
+                "guard only for a documented non-transactional DDL recovery "
+                "requirement. Do not edit applied revisions, add hard "
+                "business-key foreign-key constraints, or bypass LiteLLM and "
+                "shared provider helpers.",
             ),
         ),
         ROOT

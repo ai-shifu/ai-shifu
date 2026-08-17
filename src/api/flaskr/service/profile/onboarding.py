@@ -18,6 +18,7 @@ from flaskr.service.profile.funcs import (
     get_user_profiles,
     save_user_profiles,
 )
+from flaskr.service.profile.learner_profile import has_learner_profile_or_state
 from flaskr.service.profile.models import VariableValue
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
@@ -75,7 +76,9 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
     )
     return {
         "enabled": enabled,
-        "should_show": enabled and not _has_onboarding_state(user_id),
+        "should_show": enabled
+        and not _has_onboarding_state(user_id)
+        and not has_learner_profile_or_state(user_id),
         "markdownflow": str(config_payload.get("markdownflow") or ""),
         "allowed_variable_keys": list(ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS),
         "current_values": _current_values_for_response(app, user_id),

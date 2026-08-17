@@ -20,6 +20,7 @@ export type SidebarContentProps = {
   userMenuOpen: boolean;
   onFooterClick: () => void;
   onUserMenuClose: (e?: Event | React.MouseEvent) => void;
+  onPersonalInfoClick: () => void;
   userMenuClassName?: string;
   activePath?: string;
   showBillingCard?: boolean;
@@ -105,6 +106,7 @@ export const SidebarContent = ({
   userMenuOpen,
   onFooterClick,
   onUserMenuClose,
+  onPersonalInfoClick,
   userMenuClassName,
   activePath,
   showBillingCard = true,
@@ -270,7 +272,8 @@ export const SidebarContent = ({
           open={userMenuOpen}
           onClose={onUserMenuClose}
           className={userMenuClassName || adminSidebarStyles.navMenuPopup}
-          isAdmin
+          onPersonalInfoClick={onPersonalInfoClick}
+          surface='admin'
         />
       </div>
     </div>

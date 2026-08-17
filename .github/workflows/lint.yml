@@ -55,7 +55,7 @@ jobs:
       - name: Install tools
         run: |
           python -m pip install --upgrade pip
-          pip install "ruff==0.15.13" "pre-commit-hooks==6.0.0"
+          pip install "ruff==0.16.3" "pre-commit-hooks==6.0.0"
           (cd src/cook-web && npm ci)
 
       - name: Collect files changed in this PR

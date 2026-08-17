@@ -22,8 +22,9 @@ from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
 from flaskr.service.tts.pipeline import split_text_for_tts
+from flaskr.service.tts.api import supports_cloned_voices
 from flaskr.service.tts.validation import (
-    assert_minimax_preview_voice_available,
+    assert_preview_cloned_voice_available,
     validate_tts_settings_strict,
 )
 from flaskr.util.uuid import generate_id
@@ -75,13 +76,15 @@ def build_tts_preview_response(
     if not is_tts_configured(validated.provider):
         raise_param_error(f"TTS provider is not configured: {validated.provider}")
 
-    # A MiniMax custom (clone) voice id passes local format validation but only
-    # fails at the provider with "2054 - voice id not exist". Verify the id maps
-    # to a ready clone owned by this creator before streaming, so an unavailable
-    # voice returns a clean parameter error instead of a broken preview stream.
-    if validated.provider == "minimax":
-        assert_minimax_preview_voice_available(
+    # A custom (clone) voice id passes local format validation but only fails
+    # at the provider (e.g. MiniMax "2054 - voice id not exist"). Verify the id
+    # maps to a ready clone owned by this creator before streaming, so an
+    # unavailable voice returns a clean parameter error instead of a broken
+    # preview stream.
+    if supports_cloned_voices(validated.provider):
+        assert_preview_cloned_voice_available(
             app,
+            provider=validated.provider,
             voice_id=validated.voice_id,
             owner_user_bid=str(request_user_id or "").strip(),
         )
@@ -208,7 +211,7 @@ def build_tts_preview_response(
             invalidate_session(source="tts preview stream close")
             raise
         except Exception as exc:
-            current_app.logger.error("TTS preview stream failed", exc_info=True)
+            current_app.logger.exception("TTS preview stream failed")
             cleanup_session_after(exc, source="tts preview stream error")
             raise
 

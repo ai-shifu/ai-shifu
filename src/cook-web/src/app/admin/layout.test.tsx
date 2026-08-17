@@ -11,7 +11,80 @@ const footerLabel = 'footer';
 const mockTranslate = (key: string) => key;
 const mockUsePathname = jest.fn(() => '/admin');
 const mockApplyCreatorBranding = jest.fn();
+const mockRefreshUserInfo = jest.fn();
 let mockSearchParamsValue = '';
+
+interface MockMainMenuModalProps {
+  open: boolean;
+  onClose?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onPersonalInfoClick: () => void;
+  surface: 'learner' | 'admin';
+}
+
+interface MockLearnerProfileDialogProps {
+  draftStorageScope: string;
+  mode: 'onboarding' | 'settings';
+  onClose: (reason: 'dismiss' | 'saved') => void | Promise<void>;
+  onSaved?: () => void | Promise<void>;
+  open: boolean;
+}
+
+const openPersonalInfoLabel = 'open personal info';
+const savePersonalInfoLabel = 'save personal info';
+const dismissPersonalInfoLabel = 'dismiss personal info';
+
+const mockMainMenuModal = jest.fn(
+  ({ open, onClose, onPersonalInfoClick, surface }: MockMainMenuModalProps) =>
+    open ? (
+      <button
+        type='button'
+        data-surface={surface}
+        onClick={event => {
+          onClose?.(event);
+          onPersonalInfoClick();
+        }}
+      >
+        {openPersonalInfoLabel}
+      </button>
+    ) : null,
+);
+
+const mockLearnerProfileDialog = jest.fn(
+  ({
+    draftStorageScope,
+    mode,
+    onClose,
+    onSaved,
+    open,
+  }: MockLearnerProfileDialogProps) =>
+    open ? (
+      <div
+        data-testid='learner-profile-dialog'
+        data-mode={mode}
+        data-scope={draftStorageScope}
+      >
+        <button
+          type='button'
+          onClick={() => {
+            void (async () => {
+              await onSaved?.();
+              await onClose('saved');
+            })();
+          }}
+        >
+          {savePersonalInfoLabel}
+        </button>
+        <button
+          type='button'
+          onClick={() => {
+            void onClose('dismiss');
+          }}
+        >
+          {dismissPersonalInfoLabel}
+        </button>
+      </div>
+    ) : null,
+);
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -87,13 +160,19 @@ jest.mock('@/lib/initializeEnvData', () => ({
     mockApplyCreatorBranding(creatorBid),
 }));
 
-jest.mock('@/c-common/hooks/useDisclosure', () => ({
-  useDisclosure: () => ({
-    open: false,
-    onToggle: jest.fn(),
-    onClose: jest.fn(),
-  }),
-}));
+jest.mock('@/c-common/hooks/useDisclosure', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    useDisclosure: () => {
+      const [open, setOpen] = React.useState(false);
+      return {
+        open,
+        onToggle: () => setOpen(value => !value),
+        onClose: () => setOpen(false),
+      };
+    },
+  };
+});
 
 const mockEnvState = {
   logoWideUrl: '/logo.png',
@@ -127,6 +206,7 @@ const mockUserStoreState = {
     user_id: 'user-1',
     is_operator: false,
   },
+  refreshUserInfo: mockRefreshUserInfo,
 };
 
 jest.mock('@/store', () => ({
@@ -161,7 +241,13 @@ jest.mock('@/c-components/NavDrawer/NavFooter', () => ({
 
 jest.mock('@/c-components/NavDrawer/MainMenuModal', () => ({
   __esModule: true,
-  default: () => null,
+  default: (props: MockMainMenuModalProps) => mockMainMenuModal(props),
+}));
+
+jest.mock('@/components/profile-onboarding/LearnerProfileDialog', () => ({
+  __esModule: true,
+  default: (props: MockLearnerProfileDialogProps) =>
+    mockLearnerProfileDialog(props),
 }));
 
 jest.mock('@/hooks/useBillingData', () => ({
@@ -230,6 +316,7 @@ describe('SidebarContent', () => {
     userMenuOpen: false,
     onFooterClick: jest.fn(),
     onUserMenuClose: jest.fn(),
+    onPersonalInfoClick: jest.fn(),
     userMenuClassName: 'user-menu',
     billingOverviewLoading: false,
     billingOverview: undefined,
@@ -238,6 +325,8 @@ describe('SidebarContent', () => {
   beforeEach(() => {
     baseProps.onFooterClick.mockReset();
     baseProps.onUserMenuClose.mockReset();
+    baseProps.onPersonalInfoClick.mockReset();
+    mockMainMenuModal.mockClear();
   });
 
   test('auto expands the operations menu when the course submenu is active', () => {
@@ -343,6 +432,32 @@ describe('SidebarContent', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('configures the shared user menu for the admin surface', () => {
+    render(
+      <SidebarContent
+        {...baseProps}
+        userMenuOpen
+        menuItems={buildAdminMenuItems({ t, isOperator: false })}
+        activePath='/admin'
+      />,
+    );
+
+    expect(mockMainMenuModal).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        open: true,
+        onPersonalInfoClick: baseProps.onPersonalInfoClick,
+        surface: 'admin',
+      }),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: openPersonalInfoLabel }),
+    );
+
+    expect(baseProps.onUserMenuClose).toHaveBeenCalledTimes(1);
+    expect(baseProps.onPersonalInfoClick).toHaveBeenCalledTimes(1);
+  });
+
   test('does not render operations submenu items for non-operators', () => {
     render(
       <SidebarContent
@@ -362,6 +477,12 @@ describe('SidebarContent', () => {
 
 describe('AdminLayout', () => {
   const childText = 'content';
+  const openLearnerProfileSettings = () => {
+    fireEvent.click(screen.getByRole('button', { name: footerLabel }));
+    fireEvent.click(
+      screen.getByRole('button', { name: openPersonalInfoLabel }),
+    );
+  };
   const buildBillingOverview = ({
     availableCredits = 12500,
     subscription = {
@@ -430,6 +551,10 @@ describe('AdminLayout', () => {
     document.title = '';
     mockUsePathname.mockReturnValue('/admin');
     mockApplyCreatorBranding.mockReset();
+    mockRefreshUserInfo.mockReset();
+    mockRefreshUserInfo.mockResolvedValue(undefined);
+    mockMainMenuModal.mockClear();
+    mockLearnerProfileDialog.mockClear();
     mockSearchParamsValue = '';
     mockEnvState.logoWideUrl = '/logo.png';
     mockEnvState.logoHorizontal = '';
@@ -523,6 +648,121 @@ describe('AdminLayout', () => {
       screen.queryByRole('link', { name: 'common.core.shifu' }),
     ).not.toBeInTheDocument();
     expect(window.location.href).toBe('http://localhost:3000');
+  });
+
+  test('opens learner profile settings for the current account and refreshes user info after save', async () => {
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    openLearnerProfileSettings();
+
+    expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
+      'data-mode',
+      'settings',
+    );
+    expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
+      'data-scope',
+      'user-1',
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: savePersonalInfoLabel }),
+    );
+
+    await waitFor(() => {
+      expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
+      expect(
+        screen.queryByTestId('learner-profile-dialog'),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  test('closes learner profile settings when dismissed', async () => {
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    openLearnerProfileSettings();
+    fireEvent.click(
+      screen.getByRole('button', { name: dismissPersonalInfoLabel }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('learner-profile-dialog'),
+      ).not.toBeInTheDocument();
+    });
+    expect(mockRefreshUserInfo).not.toHaveBeenCalled();
+  });
+
+  test('unmounts learner profile settings across account and login changes', async () => {
+    const { rerender } = render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    openLearnerProfileSettings();
+    expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
+      'data-scope',
+      'user-1',
+    );
+
+    mockUserStoreState.userInfo = {
+      user_id: 'user-2',
+      is_operator: false,
+    };
+    rerender(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('learner-profile-dialog'),
+      ).not.toBeInTheDocument();
+    });
+    expect(mockLearnerProfileDialog).not.toHaveBeenCalledWith(
+      expect.objectContaining({ draftStorageScope: 'user-2' }),
+    );
+
+    openLearnerProfileSettings();
+    expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
+      'data-scope',
+      'user-2',
+    );
+
+    mockUserStoreState.isLoggedIn = false;
+    rerender(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('learner-profile-dialog'),
+      ).not.toBeInTheDocument();
+    });
+
+    mockUserStoreState.isLoggedIn = true;
+    rerender(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('learner-profile-dialog'),
+      ).not.toBeInTheDocument();
+    });
   });
 
   test('restores the admin document title after same-route search params update on orders page', async () => {
