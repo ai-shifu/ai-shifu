@@ -563,7 +563,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         """
         payload = _request_json_object("profile_onboarding")
         legacy_fields = {"skipped", "variables"}
-        v2_fields = {"learner_profile", "trigger_source", "session_id"}
+        v2_fields = {"learner_profile", "trigger_source", "session_id", "nickname"}
         keys = set(payload)
         if keys and keys.issubset(legacy_fields) and "skipped" in keys:
             if not isinstance(payload["skipped"], bool):
@@ -581,11 +581,17 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             v2_fields
         ):
             session_id = _optional_profile_research_session_id(payload)
+            nickname_kwargs = {}
+            if "nickname" in payload:
+                if not isinstance(payload["nickname"], str):
+                    raise_param_error("nickname")
+                nickname_kwargs["nickname"] = payload["nickname"]
             result = complete_profile_onboarding_v2(
                 app,
                 user_id=request.user.user_id,
                 learner_profile=payload["learner_profile"],
                 trigger_source=payload["trigger_source"],
+                **nickname_kwargs,
             )
             _delete_profile_onboarding_session(
                 app, user_bid=request.user.user_id, session_id=session_id

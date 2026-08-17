@@ -4,6 +4,7 @@ import json
 import re
 from types import SimpleNamespace
 
+import pytest
 from flaskr.dao import db
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.models import UserInfo, UserOnboardingState
@@ -914,6 +915,104 @@ def test_v2_complete_accepts_dormant_canonical_pasted_trigger(app, monkeypatch):
     assert completed["trigger_source"] == "pasted"
     assert state.status == "completed"
     assert state.trigger_source == "pasted"
+
+
+def test_v2_complete_atomically_saves_optional_nickname_semantics(app, monkeypatch):
+    from flaskr.service.profile.onboarding import complete_profile_onboarding_v2
+
+    monkeypatch.setattr(
+        "flaskr.service.profile.learner_profile.check_text_content",
+        lambda *_args, **_kwargs: True,
+    )
+
+    with app.app_context():
+        _create_user("protocol-nickname-preserve")
+        _create_user("protocol-nickname-clear")
+        _create_user("protocol-nickname-replace")
+
+        preserved = complete_profile_onboarding_v2(
+            app,
+            user_id="protocol-nickname-preserve",
+            learner_profile="Keep my existing display name.",
+            trigger_source="guided",
+        )
+        cleared = complete_profile_onboarding_v2(
+            app,
+            user_id="protocol-nickname-clear",
+            learner_profile="Do not use a display name.",
+            trigger_source="guided",
+            nickname="",
+        )
+        replaced = complete_profile_onboarding_v2(
+            app,
+            user_id="protocol-nickname-replace",
+            learner_profile="Call me River.",
+            trigger_source="guided",
+            nickname="River",
+        )
+
+        users = {
+            user.user_bid: user
+            for user in UserInfo.query.filter(
+                UserInfo.user_bid.in_(
+                    {
+                        "protocol-nickname-preserve",
+                        "protocol-nickname-clear",
+                        "protocol-nickname-replace",
+                    }
+                )
+            ).all()
+        }
+        states = {
+            state.user_bid: state
+            for state in UserOnboardingState.query.filter(
+                UserOnboardingState.user_bid.in_(users)
+            ).all()
+        }
+
+    assert preserved["nickname"] == "Test learner"
+    assert cleared["nickname"] == ""
+    assert replaced["nickname"] == "River"
+    assert users["protocol-nickname-preserve"].nickname == "Test learner"
+    assert users["protocol-nickname-clear"].nickname == ""
+    assert users["protocol-nickname-replace"].nickname == "River"
+    assert all(state.status == "completed" for state in states.values())
+    assert all(state.trigger_source == "guided" for state in states.values())
+
+
+def test_v2_complete_rolls_back_profile_nickname_and_state_together(app, monkeypatch):
+    from flaskr.service.profile.onboarding import complete_profile_onboarding_v2
+
+    monkeypatch.setattr(
+        "flaskr.service.profile.learner_profile.check_text_content",
+        lambda *_args, **_kwargs: True,
+    )
+
+    with app.app_context():
+        user_id = "protocol-nickname-atomic-failure"
+        _create_user(user_id, learner_profile="Existing profile.")
+        original_commit = db.session.commit
+
+        def fail_commit():
+            raise RuntimeError("database unavailable")
+
+        monkeypatch.setattr(db.session, "commit", fail_commit)
+        with pytest.raises(RuntimeError, match="database unavailable"):
+            complete_profile_onboarding_v2(
+                app,
+                user_id=user_id,
+                learner_profile="Replacement profile.",
+                trigger_source="guided",
+                nickname="Replacement name",
+            )
+        monkeypatch.setattr(db.session, "commit", original_commit)
+
+        user = UserInfo.query.filter_by(user_bid=user_id).one()
+        state = UserOnboardingState.query.filter_by(user_bid=user_id).first()
+
+    assert user.learner_profile == "Existing profile."
+    assert user.nickname == "Test learner"
+    assert state is None
 
 
 def test_late_v2_skip_reconstructs_completed_state_before_session_cleanup(
