@@ -72,9 +72,7 @@ def _format_workflow_item(item: Any) -> str:
 
     if not summary:
         fallback = extract_text(item).strip()
-        if fallback and fallback != str(raw_output or "").strip():
-            summary = fallback
-        elif not title:
+        if (fallback and fallback != str(raw_output or "").strip()) or not title:
             summary = fallback
 
     if title and summary and summary != title:

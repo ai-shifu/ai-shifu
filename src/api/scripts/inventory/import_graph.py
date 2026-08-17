@@ -108,13 +108,12 @@ for src, targets in edges.items():
 # ---- roots -----------------------------------------------------------------
 roots = set()
 for name, rel in mods.items():
-    if name in ("app", "celery_app"):
-        roots.add(name)
-    elif rel.startswith("scripts" + os.sep):
-        roots.add(name)
-    elif rel.startswith("flaskr/command"):
-        roots.add(name)
-    elif name == "flaskr.route":
+    if (
+        name in ("app", "celery_app")
+        or rel.startswith("scripts" + os.sep)
+        or rel.startswith("flaskr/command")
+        or name == "flaskr.route"
+    ):
         roots.add(name)
 
 # plugin scan: emulate load_plugins_from_dir over flaskr/service

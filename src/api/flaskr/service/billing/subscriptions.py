@@ -2187,16 +2187,12 @@ def _sync_subscription_lifecycle_events(
             event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
             scheduled_at=renewal_scheduled_at or scheduled_at,
         )
-        if provider_name == "pingxx":
-            _upsert_subscription_renewal_event(
-                app,
+        if (
+            provider_name == "pingxx"
+            or _has_paid_referral_invitation_renewal_at_boundary(
                 subscription,
-                event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
-                scheduled_at=scheduled_at,
+                boundary_at=scheduled_at,
             )
-        elif _has_paid_referral_invitation_renewal_at_boundary(
-            subscription,
-            boundary_at=scheduled_at,
         ):
             _upsert_subscription_renewal_event(
                 app,

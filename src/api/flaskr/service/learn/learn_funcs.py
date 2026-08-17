@@ -363,11 +363,7 @@ def get_outline_item_tree(
             latest_progress_updated_at = _resolve_progress_effective_updated_at(
                 latest_progress_record
             )
-            if latest_progress_record is None:
-                latest_progress_record_map[progress_record.outline_item_bid] = (
-                    progress_record
-                )
-            elif (
+            if latest_progress_record is None or (
                 (
                     progress_updated_at is not None
                     and latest_progress_updated_at is not None
