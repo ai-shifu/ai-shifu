@@ -3,10 +3,9 @@ from __future__ import annotations
 import ast
 import json
 import logging
-from pathlib import Path
 import sys
-from types import ModuleType
-from types import SimpleNamespace
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
 
 from flask import Flask
 

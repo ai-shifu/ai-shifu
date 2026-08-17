@@ -5,8 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from flask import Flask
-
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.shifu.tts_preview import build_tts_preview_response
 

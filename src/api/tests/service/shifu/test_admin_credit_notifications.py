@@ -3,7 +3,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from flask import Flask
-
 from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.shifu.admin_operations import credit_notifications as module
 

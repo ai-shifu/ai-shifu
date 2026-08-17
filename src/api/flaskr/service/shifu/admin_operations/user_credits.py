@@ -4,11 +4,7 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from flask import Flask
-from sqlalchemy import and_, or_
-from sqlalchemy.orm import aliased
-
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
 from flaskr.service.billing.api import (
     build_billing_catalog,
     grant_manual_credits_to_user,
@@ -100,6 +96,9 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserPackageGrantResultDTO,
     AdminOperationUserReferralRewardSummaryDTO,
 )
+from flaskr.util.datetime import now_utc
+from sqlalchemy import and_, or_
+from sqlalchemy.orm import aliased
 
 
 def grant_operator_user_credits(

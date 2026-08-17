@@ -8,11 +8,9 @@ import logging
 from typing import Tuple
 
 from flask import Flask
-
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.common.oss_utils import OSS_PROFILE_DEFAULT
 from flaskr.service.common.storage import upload_to_storage
-
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 

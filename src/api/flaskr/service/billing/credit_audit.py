@@ -8,10 +8,13 @@ from decimal import Decimal
 from typing import Any
 
 from flaskr.dao import db
+from flaskr.util.datetime import now_utc, to_utc_iso
 
-from .bucket_categories import load_billing_order_type_by_bid
-from .bucket_categories import resolve_wallet_bucket_runtime_category
-from .bucket_categories import wallet_bucket_requires_active_subscription
+from .bucket_categories import (
+    load_billing_order_type_by_bid,
+    resolve_wallet_bucket_runtime_category,
+    wallet_bucket_requires_active_subscription,
+)
 from .consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_STATUS_ACTIVE,
@@ -33,7 +36,6 @@ from .primitives import (
 )
 from .queries import load_primary_active_subscription
 from .wallets import calculate_credit_wallet_snapshot_values
-from flaskr.util.datetime import now_utc, to_utc_iso
 
 _ZERO = Decimal("0")
 

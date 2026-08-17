@@ -6,12 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from flask import Flask
-
 from flaskr.dao import db
-from flaskr.service.order.payment_providers import (
-    PaymentNotificationResult,
-    get_payment_provider,
-)
 from flaskr.service.common.native_payment_status import (
     NATIVE_PAYMENT_STATE_CANCELED,
     NATIVE_PAYMENT_STATE_FAILED,
@@ -20,14 +15,30 @@ from flaskr.service.common.native_payment_status import (
     extract_native_trade_status,
     resolve_native_payment_state,
 )
+from flaskr.service.order.payment_providers import (
+    PaymentNotificationResult,
+    get_payment_provider,
+)
 
 from .checkout import (
-    load_billing_order_for_pingxx_event as _load_billing_order_for_pingxx_event,
     load_billing_order_for_native_event as _load_billing_order_for_native_event,
+)
+from .checkout import (
+    load_billing_order_for_pingxx_event as _load_billing_order_for_pingxx_event,
+)
+from .checkout import (
     load_billing_order_for_stripe_event as _load_billing_order_for_stripe_event,
+)
+from .checkout import (
     load_billing_subscription_for_stripe_event as _load_billing_subscription_for_stripe_event,
+)
+from .checkout import (
     persist_billing_native_raw_snapshot as _persist_billing_native_raw_snapshot,
+)
+from .checkout import (
     persist_billing_pingxx_raw_snapshot as _persist_billing_pingxx_raw_snapshot,
+)
+from .checkout import (
     persist_billing_stripe_raw_snapshot as _persist_billing_stripe_raw_snapshot,
 )
 from .consts import (
@@ -36,23 +47,43 @@ from .consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_REFUNDED,
 )
+from .primitives import normalize_bid as _normalize_bid
 from .provider_state import (
     BillingOrderProviderUpdateResult,
+)
+from .provider_state import (
     apply_billing_order_provider_update as _apply_billing_order_provider_update,
+)
+from .provider_state import (
     apply_billing_subscription_provider_update as _apply_billing_subscription_provider_update,
+)
+from .provider_state import (
     apply_subscription_checkout_failure as _apply_subscription_checkout_failure,
+)
+from .provider_state import (
     apply_subscription_checkout_success as _apply_subscription_checkout_success,
+)
+from .provider_state import (
     extract_stripe_failure_code as _extract_stripe_failure_code,
+)
+from .provider_state import (
     extract_stripe_failure_message as _extract_stripe_failure_message,
+)
+from .provider_state import (
     extract_stripe_provider_reference as _extract_stripe_provider_reference,
+)
+from .provider_state import (
     load_billing_renewal_order_for_stripe_event as _load_billing_renewal_order_for_stripe_event,
+)
+from .provider_state import (
     map_stripe_order_status as _map_stripe_order_status,
+)
+from .provider_state import (
     resolve_stripe_subscription_order_status as _resolve_stripe_subscription_order_status,
 )
 from .queries import (
     load_latest_billing_order_by_subscription as _load_latest_billing_order_by_subscription,
 )
-from .primitives import normalize_bid as _normalize_bid
 
 _STRIPE_SUBSCRIPTION_EVENT_TYPES = {
     "customer.subscription.created",

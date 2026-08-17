@@ -4,9 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 from flask import Flask, has_app_context
-
-from flaskr.service.learn import runscript_v2
 from flaskr.service.common.models import AppException
+from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.learn_dtos import (
     ElementDTO,
     ElementType,

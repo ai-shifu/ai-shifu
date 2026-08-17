@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from flask import Flask
-
 from flaskr.framework.plugin import plugin_manager as plugin_manager_module
 
 

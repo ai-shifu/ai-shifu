@@ -3,13 +3,11 @@
 from typing import Any, Generator, Iterable
 
 from flask import Flask
-
 from flaskr.api.langfuse import (
     build_langfuse_observation_link,
     get_request_id,
     resolve_langfuse_trace_id,
 )
-
 
 SENSITIVE_PROVIDER_CONFIG_KEYS = {
     "ak",

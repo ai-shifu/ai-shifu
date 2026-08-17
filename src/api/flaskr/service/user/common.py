@@ -1,13 +1,15 @@
-from flask import Flask, has_app_context
-
 from typing import Optional
 
 import jwt
-
+from flask import Flask, has_app_context
 from flaskr.i18n import get_i18n_list
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
+
+from ...dao import db
 from ..common.dtos import UserInfo, UserToken
 from ..common.models import raise_error
-from ...dao import db
+from ..profile.dtos import ProfileToSave
+from ..profile.funcs import save_user_profiles
 from .auth import get_provider
 from .auth.base import VerificationRequest
 from .repository import (
@@ -17,9 +19,6 @@ from .repository import (
     update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
-from ..profile.funcs import save_user_profiles
-from ..profile.dtos import ProfileToSave
 from .token_store import token_store
 
 

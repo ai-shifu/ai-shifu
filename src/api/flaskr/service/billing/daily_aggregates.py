@@ -5,24 +5,23 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import select
-
 from flaskr.dao import db
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from sqlalchemy import select
 
+from .charges import build_usage_metric_charges
 from .consts import CREDIT_LEDGER_ENTRY_TYPE_CONSUME, CREDIT_SOURCE_TYPE_USAGE
 from .models import (
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
     CreditLedgerEntry,
 )
-from .charges import build_usage_metric_charges
 from .ownership import resolve_usage_creator_bid
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal

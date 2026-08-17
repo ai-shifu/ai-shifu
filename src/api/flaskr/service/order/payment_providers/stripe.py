@@ -3,19 +3,18 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from flask import Flask
-
 from flaskr.service.config import get_config
 
+from . import register_payment_provider
 from .base import (
-    PaymentProvider,
-    PaymentRequest,
     PaymentCreationResult,
     PaymentNotificationResult,
+    PaymentProvider,
     PaymentRefundRequest,
     PaymentRefundResult,
+    PaymentRequest,
     SubscriptionUpdateResult,
 )
-from . import register_payment_provider
 
 
 class StripeProvider(PaymentProvider):

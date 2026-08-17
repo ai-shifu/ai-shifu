@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from flask import current_app
-
 from flaskr.service.shifu.admin_dtos_courses import AdminOperationCourseSummaryDTO
 from flaskr.service.shifu.admin_shared import _format_decimal
 

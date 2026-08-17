@@ -1,15 +1,16 @@
 import logging
 import os
-from flask import Flask, request
-import uuid
-from logging.handlers import TimedRotatingFileHandler
 import socket
 import threading
 import time
+import uuid
 from datetime import datetime
-import pytz
+from logging.handlers import TimedRotatingFileHandler
+
 import colorlog
+import pytz
 import requests
+from flask import Flask, request
 
 from .observability import current_trace_ids
 from .request_context import thread_local

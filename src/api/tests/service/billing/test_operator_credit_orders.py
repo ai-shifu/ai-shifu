@@ -3,9 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from flask import Flask
-
 import flaskr.dao as dao
+from flask import Flask
 from flaskr.i18n import load_translations
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_CANCELED,
@@ -38,7 +37,8 @@ from flaskr.service.billing.read_models import (
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from tests.common.fixtures.bill_products import build_bill_products
 
 

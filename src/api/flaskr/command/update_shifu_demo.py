@@ -1,19 +1,20 @@
-from flask import Flask
 import hashlib
+import json
 import os
 from io import BytesIO
+from pathlib import Path
+
+from flask import Flask
 from werkzeug.datastructures import FileStorage
-from flaskr.service.user.models import UserInfo
-from flaskr.dao import db
-from flaskr.service.shifu.models import AiCourseAuth
-from flaskr.util import generate_id
+
 from flaskr.common.config import get_config as get_env_config
+from flaskr.dao import db
 from flaskr.service.config.funcs import add_config, get_config, update_config
+from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
 from flaskr.service.shifu.shifu_publish_funcs import publish_shifu_draft
-
-import json
-from pathlib import Path
+from flaskr.service.user.models import UserInfo
+from flaskr.util import generate_id
 
 
 def _calculate_hash(content: bytes) -> str:

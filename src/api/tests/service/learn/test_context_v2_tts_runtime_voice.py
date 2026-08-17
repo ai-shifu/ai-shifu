@@ -1,9 +1,8 @@
 from types import SimpleNamespace
 
+import flaskr.dao as dao
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-
-import flaskr.dao as dao
 
 if dao.db is None:
     _test_app = Flask("test-context-v2-tts-runtime-voice-bootstrap")
@@ -24,8 +23,8 @@ def test_context_v2_tts_processor_uses_runtime_minimax_voice_fallback(monkeypatc
     from flaskr.service.learn.context_v2 import RunScriptContextV2
     from flaskr.service.shifu.models import DraftShifu
     from flaskr.service.tts.models import (
-        TTSMiniMaxClonedVoice,
         TTS_MINIMAX_CLONE_STATUS_QUEUED,
+        TTSMiniMaxClonedVoice,
     )
 
     app = Flask("test-context-v2-tts-runtime-voice")

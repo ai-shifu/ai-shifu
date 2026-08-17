@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 import json
+from contextlib import contextmanager
 from typing import Any, Iterator
 
 from flask import Flask
-
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.config.funcs import get_config, update_config
+
 from .primitives import normalize_bid
 
 _ADMIN_OPS_OWNER_BID = "billing-admin-ops"

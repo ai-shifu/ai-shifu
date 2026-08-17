@@ -7,11 +7,9 @@ inspect the resulting SQL text. No DB connection is required.
 from __future__ import annotations
 
 import pytest
-from sqlalchemy.dialects import mysql, sqlite
-
 from flaskr.service.creator_analytics.dsl import parse_dsl
 from flaskr.service.creator_analytics.sql_builder import build_statement
-
+from sqlalchemy.dialects import mysql, sqlite
 
 LIMIT_MAX = 1000
 

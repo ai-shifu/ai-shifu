@@ -4,20 +4,19 @@ Billing usage metering models.
 This module stores per-invocation usage data for LLM and TTS calls.
 """
 
+from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    DateTime,
-    Text,
-    SmallInteger,
     JSON,
+    Column,
+    DateTime,
     Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
-
-from flaskr.dao import db
 
 
 class BillUsageRecord(db.Model):

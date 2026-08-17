@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from flaskr.util.datetime import now_utc
 from types import SimpleNamespace
 from typing import Optional
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -28,6 +26,7 @@ from flaskr.service.shifu.models import (
     ShifuUserArchive,
 )
 from flaskr.service.user.models import UserInfo
+from flaskr.util.datetime import now_utc
 
 
 def _clear_tables() -> None:

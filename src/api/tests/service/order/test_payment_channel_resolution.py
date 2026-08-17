@@ -1,5 +1,4 @@
 import pytest
-
 from flaskr.service.common.models import AppException
 from flaskr.service.order.funs import _resolve_payment_channel
 

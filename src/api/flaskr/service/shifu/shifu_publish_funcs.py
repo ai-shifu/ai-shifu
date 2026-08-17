@@ -7,48 +7,51 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from flaskr.service.shifu.shifu_draft_funcs import get_latest_shifu_draft
-from flaskr.service.common import raise_error
-from flaskr.dao import db
-from flaskr.service.shifu.models import (
-    PublishedShifu,
-    PublishedOutlineItem,
-    DraftOutlineItem,
-    LogPublishedStruct,
-)
-from flaskr.service.shifu.shifu_outline_funcs import (
-    build_outline_tree_from_items,
-    assert_outline_items_publishable,
-    load_existing_outline_items,
-    ShifuOutlineTreeNode,
-)
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.shifu.shifu_struct_manager import get_shifu_outline_tree
-from flaskr.util import generate_id
-from flaskr.util.datetime import now_utc
-import threading
 import queue
-from flaskr.service.shifu.shifu_struct_manager import ShifuInfoDto
-from flaskr.api.llm import invoke_llm
+import threading
+
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
     finalize_langfuse_trace,
     get_langfuse_client,
 )
+from flaskr.api.llm import invoke_llm
+from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.common.shifu_context import (
+    apply_shifu_context_snapshot,
+    get_shifu_context_snapshot,
+)
+from flaskr.dao import db
+from flaskr.service.common import raise_error
 from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
-from flaskr.util.prompt_loader import load_prompt_template
 from flaskr.service.shifu.consts import (
     ASK_MODE_ENABLE,
 )
-from markdown_flow import (
-    MarkdownFlow,
-    BlockType,
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    LogPublishedStruct,
+    PublishedOutlineItem,
+    PublishedShifu,
 )
-from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.common.shifu_context import (
-    get_shifu_context_snapshot,
-    apply_shifu_context_snapshot,
+from flaskr.service.shifu.shifu_draft_funcs import get_latest_shifu_draft
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.shifu_outline_funcs import (
+    ShifuOutlineTreeNode,
+    assert_outline_items_publishable,
+    build_outline_tree_from_items,
+    load_existing_outline_items,
+)
+from flaskr.service.shifu.shifu_struct_manager import (
+    ShifuInfoDto,
+    get_shifu_outline_tree,
+)
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
+from flaskr.util.prompt_loader import load_prompt_template
+from markdown_flow import (
+    BlockType,
+    MarkdownFlow,
 )
 
 

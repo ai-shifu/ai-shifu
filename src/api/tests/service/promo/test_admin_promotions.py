@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from decimal import Decimal
 from datetime import datetime, timedelta
-from flaskr.util.datetime import now_utc
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.promo.admin_dtos import (
+    AdminPromotionCampaignItemDTO,
+    AdminPromotionSummaryDTO,
+)
 from flaskr.service.promo.consts import (
     COUPON_APPLY_TYPE_ALL,
     COUPON_APPLY_TYPE_SPECIFIC,
@@ -23,10 +25,6 @@ from flaskr.service.promo.consts import (
     PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
     PROMO_CAMPAIGN_JOIN_TYPE_MANUAL,
 )
-from flaskr.service.promo.admin_dtos import (
-    AdminPromotionCampaignItemDTO,
-    AdminPromotionSummaryDTO,
-)
 from flaskr.service.promo.creator_redemption import (
     list_creator_course_redemption_coupons,
 )
@@ -37,7 +35,9 @@ from flaskr.service.promo.models import (
     PromoRedemption,
 )
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.util.datetime import now_utc
 
 
 @pytest.fixture(autouse=True)

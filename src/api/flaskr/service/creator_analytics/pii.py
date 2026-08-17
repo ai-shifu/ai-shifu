@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import re
 
-
 # Mainland China mobile numbers (11 digits, start with 1, second digit 3-9).
 # Surrounded by word boundaries to avoid clipping out of order-numbers etc.
 _PHONE_CN_RE = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")

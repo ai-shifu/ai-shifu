@@ -5,11 +5,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 from flask import Flask
-
 from flaskr.common.cache_provider import cache
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
 from flaskr.service.user.models import UserToken as UserTokenModel
+from flaskr.util.datetime import now_utc
 
 
 @dataclass(frozen=True)

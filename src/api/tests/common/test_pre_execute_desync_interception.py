@@ -9,12 +9,11 @@ statement via the per-connection journal.
 
 import socket
 
+import flaskr.dao as dao
 import pytest
+from flaskr.dao import db
 from sqlalchemy import text
 from sqlalchemy.exc import DisconnectionError
-
-import flaskr.dao as dao
-from flaskr.dao import db
 
 
 def test_statement_journal_records_recent_statements(app):

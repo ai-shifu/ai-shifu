@@ -3,7 +3,6 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftStruct
 from flaskr.service.shifu.repair import repair_shifu_outline_structure

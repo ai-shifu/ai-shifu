@@ -32,8 +32,8 @@ from __future__ import annotations
 from tests.golden.conftest import (  # noqa: F401
     golden_disable_risk_audit_commit,
     golden_llm,
-    golden_sse_settings,
     golden_shifu,
+    golden_sse_settings,
     seed_golden_user,
 )
 

@@ -103,11 +103,10 @@ def post_fork(server, worker):
         worker.log.exception("post_fork hub observer install failed")
 
     try:
+        from flaskr.api.langfuse import init_langfuse
         from langfuse._client.resource_manager import LangfuseResourceManager
         from opentelemetry import trace as otel_trace_api
         from opentelemetry.util._once import Once
-
-        from flaskr.api.langfuse import init_langfuse
 
         LangfuseResourceManager._instances.clear()
         otel_trace_api._TRACER_PROVIDER = None

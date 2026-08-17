@@ -3,7 +3,6 @@ import time
 from urllib.parse import parse_qs, unquote, urlparse
 
 import requests
-
 from flaskr.api.tts.aliyun_nls_token import get_aliyun_nls_token
 from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
 

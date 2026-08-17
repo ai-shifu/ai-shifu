@@ -3,24 +3,23 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.common import config as config_module
 from flaskr.dao import db
 from flaskr.i18n import _
-from flaskr.service.common.models import AppException, ERROR_CODE, raise_error
+from flaskr.service.common.models import ERROR_CODE, AppException, raise_error
 from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.admin import copy_operator_course
 from flaskr.service.shifu.models import AiCourseAuth, DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_history_manager import get_shifu_history
 from flaskr.service.user.consts import USER_STATE_REGISTERED
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import create_user_entity, upsert_credential
-
+from flaskr.util.datetime import now_utc
 
 SOURCE_TITLE = "复制源课程"
 SOURCE_OPERATOR_BID = "operator-copy-1"

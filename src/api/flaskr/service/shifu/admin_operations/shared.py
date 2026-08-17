@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Sequence
 
 from flask import current_app
-
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.timezone import serialize_with_app_timezone
 
 

@@ -1,10 +1,9 @@
-from decimal import Decimal
 import json
+from decimal import Decimal
 from types import SimpleNamespace
 
-import pytest
-
 import flaskr.dao as dao
+import pytest
 from flaskr.common import config as config_module
 from flaskr.service.billing.consts import BILLING_TRIAL_PRODUCT_BID
 from flaskr.service.billing.models import BillingOrder, BillingProduct
@@ -15,7 +14,7 @@ from tests.common.fixtures.bill_products import build_bill_products
 
 
 def _get_models():
-    from flaskr.service.shifu.models import DraftShifu, AiCourseAuth
+    from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
 
     return DraftShifu, AiCourseAuth
 

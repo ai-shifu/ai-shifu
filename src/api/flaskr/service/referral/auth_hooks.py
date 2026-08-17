@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Flask
-
 from flaskr.framework.plugin.plugin_manager import extension
 
 from .service import process_referral_post_auth

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
 import math
+from datetime import datetime
 from decimal import Decimal
 
-from flask import Flask
-import pytest
-from sqlalchemy import text
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -35,6 +33,7 @@ from flaskr.service.billing.models import (
     CreditLedgerEntry,
     CreditWalletBucket,
 )
+from sqlalchemy import text
 
 
 @pytest.fixture

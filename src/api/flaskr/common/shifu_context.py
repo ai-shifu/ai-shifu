@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import threading
 from functools import wraps
-from typing import Optional, Dict, Any, Callable
+from typing import Any, Callable, Dict, Optional
 
 _context_local = threading.local()
 
@@ -174,7 +174,7 @@ def with_shifu_context(
         @wraps(func)
         def wrapper(*args, **kwargs):
             try:
-                from flask import request, current_app
+                from flask import current_app, request
             except Exception:
                 # If Flask context is not available, just call the function.
                 return func(*args, **kwargs)

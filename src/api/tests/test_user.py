@@ -2,11 +2,11 @@ from flaskr.dao import db
 from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.common import update_user_info
+from flaskr.service.user.models import UserInfo
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     load_user_aggregate,
 )
-from flaskr.service.user.models import UserInfo
 
 
 def test_get_user_profiles_uses_user_fallbacks(app):

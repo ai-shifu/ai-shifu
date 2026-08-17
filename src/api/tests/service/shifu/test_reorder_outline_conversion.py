@@ -1,5 +1,4 @@
 import pytest
-
 from flaskr.service.common.models import AppException
 from flaskr.service.shifu.shifu_outline_funcs import (
     convert_outline_to_reorder_outline_item_dto,

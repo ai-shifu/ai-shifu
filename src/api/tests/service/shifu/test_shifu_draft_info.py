@@ -3,9 +3,8 @@ from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
-import pytest
-
 import flaskr.dao as dao
+import pytest
 
 
 def _seed_shifu(

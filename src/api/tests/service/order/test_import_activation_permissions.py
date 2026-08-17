@@ -1,12 +1,12 @@
+import json
 from decimal import Decimal
 from types import SimpleNamespace
-import json
 
 import flaskr.dao as dao
 
 
 def _seed_shifu(app, shifu_bid: str, owner_bid: str) -> None:
-    from flaskr.service.shifu.models import DraftShifu, AiCourseAuth
+    from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
 
     with app.app_context():
         DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()

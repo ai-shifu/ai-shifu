@@ -9,7 +9,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from flask import Flask
-
 from flaskr.service.common.models import raise_error
 
 IN_FLIGHT_TTL_SECONDS = 360

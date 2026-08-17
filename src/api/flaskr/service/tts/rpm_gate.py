@@ -12,7 +12,6 @@ from typing import Callable, Optional
 
 from flaskr.common.log import AppLoggerProxy
 
-
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
 _LOCAL_STATE: dict[str, float] = {}

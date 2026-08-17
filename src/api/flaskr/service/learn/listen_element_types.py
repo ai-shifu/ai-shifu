@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_UI
 from flaskr.service.learn.learn_dtos import ElementChangeType, ElementType
 from flaskr.util.uuid import generate_id

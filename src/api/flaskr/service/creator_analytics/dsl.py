@@ -16,16 +16,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
-from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.i18n import _
+from flaskr.service.common.models import ERROR_CODE, AppException
 
 from .whitelist import (
     ALLOWED_AGGREGATE_FUNCTIONS,
     ALLOWED_OPERATORS,
-    TableSpec,
     WHITELIST,
+    TableSpec,
 )
-
 
 # Error names — registered in src/api/error_codes.json by Step 7.
 ERR_INVALID_DSL = "server.creatorAnalytics.invalidDsl"

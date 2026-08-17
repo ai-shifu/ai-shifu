@@ -14,7 +14,6 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from flask import Flask
-
 from flaskr.common.public_urls import build_wechatpay_notify_url
 from flaskr.service.config import get_config
 

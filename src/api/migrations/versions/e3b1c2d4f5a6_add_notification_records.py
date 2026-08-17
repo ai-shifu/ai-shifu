@@ -10,10 +10,9 @@ from __future__ import annotations
 
 import json
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
-
 
 revision = "e3b1c2d4f5a6"
 down_revision = "d2f4a7c9b8e1"

@@ -14,10 +14,9 @@ the change:
   the last finalized block.
 """
 
+import flaskr.dao as dao
 import pytest
 from flask import Flask
-
-import flaskr.dao as dao
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.learn.run.recorder import RunRecorder
 from flaskr.service.order.consts import (

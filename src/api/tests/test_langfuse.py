@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import patch
 
 from flask import Flask
-
 from flaskr.api.langfuse import (
     MockClient,
     coerce_langfuse_trace_id,

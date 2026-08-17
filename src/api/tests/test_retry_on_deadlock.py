@@ -1,10 +1,9 @@
 from unittest.mock import MagicMock
 
-import pytest
-from sqlalchemy.exc import OperationalError
-
 import flaskr.dao as dao
+import pytest
 from flaskr.dao import retry_on_deadlock
+from sqlalchemy.exc import OperationalError
 
 
 class _FakeOrig(Exception):

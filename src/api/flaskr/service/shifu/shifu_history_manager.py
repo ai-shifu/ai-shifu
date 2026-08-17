@@ -36,17 +36,18 @@ format:
 
 """
 
-from flask import Flask
-from typing import Generic, TypeVar, List, Optional
-from pydantic import BaseModel
-from .models import DraftOutlineItem, LogDraftStruct
-from flaskr.dao import db
-from flaskr.util import generate_id
-from flaskr.util.datetime import to_utc_iso
 import queue
-from flaskr.util.datetime import now_utc
 import re
+from typing import Generic, List, Optional, TypeVar
+
+from flask import Flask
+from flaskr.dao import db
 from flaskr.service.user.models import UserInfo
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc, to_utc_iso
+from pydantic import BaseModel
+
+from .models import DraftOutlineItem, LogDraftStruct
 
 T = TypeVar("T", bound="HistoryItem")
 OUTLINE_CONTENT_LOOKBACK_LIMIT = 1000

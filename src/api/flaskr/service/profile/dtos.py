@@ -1,5 +1,6 @@
-from flaskr.common.swagger import register_schema_to_swagger
 import json
+
+from flaskr.common.swagger import register_schema_to_swagger
 
 
 @register_schema_to_swagger

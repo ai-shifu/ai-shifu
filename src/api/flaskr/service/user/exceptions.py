@@ -1,5 +1,5 @@
-from flaskr.service.common import AppException, ERROR_CODE
 from flaskr.i18n import _
+from flaskr.service.common import ERROR_CODE, AppException
 
 
 class UserNotLoginException(AppException):

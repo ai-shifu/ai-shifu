@@ -1,10 +1,11 @@
 import os
 import time
+
+from dotenv import load_dotenv
+from flasgger import Swagger
 from flask import Flask
 from flask_cors import CORS
-from dotenv import load_dotenv
 from flask_migrate import Migrate
-from flasgger import Swagger
 from flaskr.framework.plugin.plugin_manager import enable_plugin_manager
 
 # set timezone to UTC

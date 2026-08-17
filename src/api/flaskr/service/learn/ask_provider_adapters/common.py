@@ -5,12 +5,10 @@ from functools import lru_cache
 from typing import Any, Iterable
 
 import requests
-
 from flaskr.service.config import get_config
 from flaskr.util.prompt_loader import load_prompt_template
 
 from .base import AskProviderError
-
 
 # Placeholders kept by the publish pipeline (prompts/ask.md via
 # _make_ask_prompt). At ask time knowledge_rule joins the answering-rules

@@ -43,7 +43,6 @@ from flaskr.service.tts.audio_utils import (
 )
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
-
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
 TENCENT_TTS_HOST = "trtc.ai.tencentcloudapi.com"

@@ -35,16 +35,18 @@ if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
 from flaskr.service.learn.const import LEARN_STATUS_IN_PROGRESS
-from flaskr.service.learn.learn_dtos import BlockType, GeneratedType, LikeStatus
-from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.context_v2 import (
     BlockType as MarkdownFlowBlockType,
+)
+from flaskr.service.learn.context_v2 import (
     RunScriptContextV2,
     RunScriptInfo,
     RunType,
 )
-from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.learn.learn_dtos import BlockType, GeneratedType, LikeStatus
+from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,

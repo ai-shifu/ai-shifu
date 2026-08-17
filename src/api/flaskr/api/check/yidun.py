@@ -2,23 +2,25 @@
 # ref: https://support.dun.163.com/documents/588434200783982592?docId=791131792583602176
 
 
-import time
 import hashlib
 import random
-from flask import Flask
+import time
 from urllib.parse import urlencode
-from gmssl import sm3, func
+
 import requests
+from flask import Flask
+from gmssl import func, sm3
+
 from flaskr.service.config import get_config
+
 from .dto import (
-    CheckResultDTO,
     CHECK_RESULT_PASS,
-    CHECK_RESULT_REVIEW,
     CHECK_RESULT_REJECT,
+    CHECK_RESULT_REVIEW,
     CHECK_RESULT_UNCONF,
     CHECK_RESULT_UNKNOWN,
+    CheckResultDTO,
 )
-
 
 URL = "http://as.dun.163.com/v5/text/check"
 

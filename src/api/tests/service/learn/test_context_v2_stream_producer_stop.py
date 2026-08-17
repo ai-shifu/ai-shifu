@@ -113,9 +113,8 @@ def test_tts_finalize_failure_runs_classified_cleanup(app, monkeypatch):
     classified cleanup so an interrupted exchange discards the connection."""
     import types
 
-    from sqlalchemy.exc import ResourceClosedError
-
     from flaskr.service.learn import context_v2
+    from sqlalchemy.exc import ResourceClosedError
 
     outcomes = []
     monkeypatch.setattr(

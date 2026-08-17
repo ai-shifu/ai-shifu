@@ -5,11 +5,9 @@ import re
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.config.funcs import add_config, get_config
 from flaskr.util.datetime import now_utc, to_utc_iso
-
 
 PROFILE_ONBOARDING_CONFIG_KEY = "PROFILE_ONBOARDING_FLOW"
 PROFILE_ONBOARDING_STATE_KEY = "_sys_profile_onboarding_state"

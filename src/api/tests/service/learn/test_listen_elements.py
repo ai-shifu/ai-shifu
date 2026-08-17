@@ -1311,6 +1311,8 @@ def test_listen_run_persists_content_block_before_element_rows(app):
     from flaskr.dao import db
     from flaskr.service.learn.context_v2 import (
         BlockType as MarkdownFlowBlockType,
+    )
+    from flaskr.service.learn.context_v2 import (
         RunScriptContextV2,
         RunScriptInfo,
         RunType,
@@ -1489,6 +1491,8 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
     from flaskr.dao import db
     from flaskr.service.learn.context_v2 import (
         BlockType as MarkdownFlowBlockType,
+    )
+    from flaskr.service.learn.context_v2 import (
         RunScriptContextV2,
         RunScriptInfo,
         RunType,
@@ -1889,7 +1893,6 @@ def test_get_record_api_returns_element_payload_by_default(app):
     _require_app(app)
 
     from flask import request
-
     from flaskr.dao import db
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS

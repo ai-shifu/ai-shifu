@@ -10,8 +10,8 @@ import sys
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
+
 from flask import current_app
-from sqlalchemy import case, or_
 from flaskr.dao import db
 from flaskr.service.common.models import (
     raise_error,
@@ -34,10 +34,12 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import (
     AuthCredential,
-    UserInfo as UserEntity,
     UserToken,
 )
-
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from sqlalchemy import case, or_
 
 COURSE_STATUS_PUBLISHED = "published"
 
@@ -172,12 +174,11 @@ OPERATOR_USER_PRELOADED_AUTH_CREDENTIAL_PROVIDERS = (
 # Single source of truth lives in admin_shared; re-exported here so the
 # courses_* operator modules keep their existing import surface.
 from flaskr.service.shifu.admin_shared import (  # noqa: E402, F401
+    COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE,
     COURSE_FOLLOW_UP_LIST_MAX_PAGE_SIZE,
     COURSE_RATING_LIST_MAX_PAGE_SIZE,
-    COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE,
     _normalize_identifier,
 )
-
 
 COURSE_CREDIT_USAGE_VIEW_GROUPED = "grouped"
 

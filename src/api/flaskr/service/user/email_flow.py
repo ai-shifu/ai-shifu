@@ -2,23 +2,20 @@
 
 from __future__ import annotations
 
-import uuid
 import datetime
+import uuid
 from typing import Any, Dict, Optional, Tuple
 
 from flask import Flask
-
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
-from flaskr.service.profile.api import merge_learner_profile_for_sign_in
-from flaskr.util.datetime import now_utc
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
-from flaskr.service.user.phone_flow import migrate_user_study_record, init_first_course
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
-from flaskr.service.user.utils import generate_token
 from flaskr.service.user.models import UserVerifyCode
+from flaskr.service.user.phone_flow import init_first_course, migrate_user_study_record
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
@@ -26,11 +23,13 @@ from flaskr.service.user.repository import (
     get_user_entity_by_bid,
     load_user_aggregate,
     load_user_aggregate_by_identifier,
-    update_user_entity_fields,
-    upsert_wechat_credentials,
-    upsert_credential,
     transactional_session,
+    update_user_entity_fields,
+    upsert_credential,
+    upsert_wechat_credentials,
 )
+from flaskr.service.user.utils import generate_token
+from flaskr.util.datetime import now_utc
 
 FIX_CHECK_CODE = None
 

@@ -1,16 +1,15 @@
 from __future__ import annotations
-from flaskr.util.datetime import now_utc
 
 import json
 from decimal import Decimal
 from types import SimpleNamespace
 
+import flaskr.common.config as common_config
+import flaskr.dao as dao
 import pytest
 from flask import Flask
-
-import flaskr.dao as dao
-import flaskr.common.config as common_config
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.util.datetime import now_utc
 
 
 def _reset_config_cache(*keys: str) -> None:

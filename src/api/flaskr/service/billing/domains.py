@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import ipaddress
 import re
 import socket
 import ssl
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
+
 import dns.resolver
-
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
-from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
 
 from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_DISABLED,
@@ -25,17 +24,17 @@ from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_LABELS,
     BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
-    BILLING_DOMAIN_SSL_STATUS_LABELS,
     BILLING_DOMAIN_SSL_STATUS_ACTIVE,
+    BILLING_DOMAIN_SSL_STATUS_LABELS,
     BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED,
     BILLING_DOMAIN_SSL_STATUS_PROVISIONING,
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     BILLING_DOMAIN_VERIFICATION_METHOD_LABELS,
 )
 from .dtos import (
-    BillingDomainBindResultDTO,
     BillingDomainBindingDTO,
     BillingDomainBindingsDTO,
+    BillingDomainBindResultDTO,
     RuntimeBillingDomainDTO,
 )
 from .entitlements import resolve_creator_entitlement_state

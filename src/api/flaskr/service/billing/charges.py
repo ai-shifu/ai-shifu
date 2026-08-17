@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
+from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
 from typing import Any
 
 from flaskr.service.metering.consts import (
@@ -13,6 +13,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     BILLING_METRIC_LABELS,
@@ -28,15 +29,13 @@ from .consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from .models import CreditUsageRate
-from .rate_references import resolve_llm_rate_identity
-from flaskr.util.datetime import now_utc
-
 from .primitives import (
     credit_decimal_to_number,
     decimal_to_number,
     quantize_credit_amount,
     to_decimal,
 )
+from .rate_references import resolve_llm_rate_identity
 
 _ZERO = Decimal("0")
 _ROUNDING_LABELS = {

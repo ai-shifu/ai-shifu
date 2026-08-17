@@ -2,17 +2,16 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.billing.consts import (
-    BILLING_TRIAL_PRODUCT_BID,
     BILLING_ENTITLEMENT_ANALYTICS_TIER_ENTERPRISE,
     BILLING_ENTITLEMENT_PRIORITY_CLASS_PRIORITY,
     BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
     BILLING_ENTITLEMENT_SUPPORT_TIER_PRIORITY,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_TRIAL_PRODUCT_BID,
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
@@ -20,13 +19,13 @@ from flaskr.service.billing.entitlements import (
     resolve_creator_entitlement_state,
     serialize_creator_entitlements,
 )
-from flaskr.service.billing.queries import (
-    load_current_subscription,
-    load_primary_active_subscription,
-)
 from flaskr.service.billing.models import (
     BillingEntitlement,
     BillingSubscription,
+)
+from flaskr.service.billing.queries import (
+    load_current_subscription,
+    load_primary_active_subscription,
 )
 from flaskr.util.datetime import now_utc
 from tests.common.fixtures.bill_products import build_bill_products

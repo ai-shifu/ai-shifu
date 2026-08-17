@@ -2,8 +2,8 @@ import flaskr.service.profile.profile_manage as profile_manage
 from flaskr.service.profile.profile_manage import (
     add_profile_item_quick,
     get_profile_item_definition_list,
-    hide_unused_profile_items,
     get_profile_variable_usage,
+    hide_unused_profile_items,
 )
 
 

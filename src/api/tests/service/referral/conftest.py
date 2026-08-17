@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from flask import Flask
 import pytest
-
+from flask import Flask
 from flaskr.dao import db
 
 

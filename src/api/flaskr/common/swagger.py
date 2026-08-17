@@ -1,6 +1,6 @@
-import typing
 import ast
 import inspect
+import typing
 from enum import Enum
 
 swagger_config = {

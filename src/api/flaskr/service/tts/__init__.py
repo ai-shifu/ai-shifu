@@ -4,12 +4,10 @@ TTS Service Layer.
 This module provides text preprocessing for TTS synthesis.
 """
 
-import logging
 import html
+import logging
 import unicodedata
 
-# Import models to ensure they are registered with SQLAlchemy
-from .models import LearnGeneratedAudio, TTSMiniMaxClonedVoice  # noqa: F401
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts.patterns import (
     ANY_HTML_TAG,
@@ -31,6 +29,8 @@ from flaskr.service.tts.patterns import (
     XML_BLOCK,
 )
 
+# Import models to ensure they are registered with SQLAlchemy
+from .models import LearnGeneratedAudio, TTSMiniMaxClonedVoice  # noqa: F401
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 

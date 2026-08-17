@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, datetime
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask
-
 from flaskr.dao import (
     cleanup_session_after,
     db,
@@ -18,6 +17,7 @@ from flaskr.dao import (
     is_abnormal_stream_termination,
 )
 from flaskr.service.common.dtos import UserInfo
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
@@ -26,10 +26,9 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
-
 
 logger = logging.getLogger(__name__)
 

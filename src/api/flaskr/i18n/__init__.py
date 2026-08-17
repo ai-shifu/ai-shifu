@@ -1,9 +1,9 @@
-from collections import defaultdict
 import importlib.util
 import json
 import os
-from pathlib import Path
 import threading
+from collections import defaultdict
+from pathlib import Path
 from typing import Dict, Iterable, List
 
 from flask import Flask

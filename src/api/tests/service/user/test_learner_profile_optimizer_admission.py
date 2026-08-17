@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from flaskr.service.common.models import AppException
 from flaskr.service.profile import learner_profile_optimizer_admission as admission
 

@@ -7,34 +7,36 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.service.common.models import AppException
-from flaskr.service.shifu import admin as admin_module
-from flaskr.service.shifu.admin_operations import courses as admin_courses_module
-from flaskr.service.shifu.admin_operations import (
-    courses_listing as courses_listing_module,
-)
-from flaskr.service.shifu.admin import (
-    _load_latest_shifus,
-    _build_operator_course_overview,
-    OperatorCourseListSeed,
-    list_operator_courses,
-)
-from flaskr.service.shifu.course_activity import load_course_activity_map
 from flaskr.service.learn.const import LEARN_STATUS_COMPLETED
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.shifu import admin as admin_module
+from flaskr.service.shifu.admin import (
+    OperatorCourseListSeed,
+    _build_operator_course_overview,
+    _load_latest_shifus,
+    list_operator_courses,
+)
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseListDTO,
     AdminOperationCourseOverviewDTO,
     AdminOperationCourseSummaryDTO,
 )
-from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
-from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
+from flaskr.service.shifu.admin_operations import courses as admin_courses_module
+from flaskr.service.shifu.admin_operations import (
+    courses_listing as courses_listing_module,
+)
+from flaskr.service.shifu.course_activity import load_course_activity_map
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
 from flaskr.util.datetime import now_utc
-
 
 EMPTY_COURSE_OVERVIEW = AdminOperationCourseOverviewDTO()
 

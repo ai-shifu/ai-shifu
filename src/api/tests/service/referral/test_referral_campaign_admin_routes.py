@@ -4,7 +4,6 @@ from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.billing.consts import BILLING_PRODUCT_TYPE_PLAN
 from flaskr.service.billing.models import BillingProduct

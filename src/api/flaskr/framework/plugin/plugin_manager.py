@@ -1,6 +1,8 @@
-from flask import Flask
-from .hot_reload import PluginHotReloader
 from functools import wraps
+
+from flask import Flask
+
+from .hot_reload import PluginHotReloader
 
 plugin_manager = None
 

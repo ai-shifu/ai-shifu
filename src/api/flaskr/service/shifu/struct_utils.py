@@ -8,6 +8,7 @@ Date: 2025-08-07
 """
 
 from typing import Optional
+
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 

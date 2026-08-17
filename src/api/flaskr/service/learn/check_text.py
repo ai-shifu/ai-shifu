@@ -1,26 +1,25 @@
 from flask import Flask
-
-from flaskr.service.learn.models import LearnGeneratedBlock
-from flaskr.api.llm import invoke_llm
 from flaskr.api.check import (
-    check_text,
     CHECK_RESULT_PASS,
     CHECK_RESULT_REJECT,
+    check_text,
 )
+from flaskr.api.llm import invoke_llm
+from flaskr.dao import db
 from flaskr.service.check_risk import add_risk_control_result
 from flaskr.service.learn.const import (
     ROLE_TEACHER,
 )
-from flaskr.dao import db
-from flaskr.service.user.repository import UserAggregate
-from flaskr.service.learn.llmsetting import LLMSettings
-from flaskr.service.learn.utils_v2 import init_generated_block
-from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
-from flaskr.service.metering import UsageContext
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_event_name,
     build_langfuse_generation_name,
 )
+from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.models import LearnGeneratedBlock
+from flaskr.service.learn.utils_v2 import init_generated_block
+from flaskr.service.metering import UsageContext
+from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
+from flaskr.service.user.repository import UserAggregate
 
 
 class BreakException(Exception):

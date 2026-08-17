@@ -1,12 +1,15 @@
 import importlib
 import os
-from flask import Flask
-from inspect import isfunction, getmembers
 from functools import partial
+from inspect import getmembers, isfunction
+
+from flask import Flask
+
 from flaskr.framework.plugin.inject import inject
-from flaskr.i18n import load_translations, TRANSLATIONS_DEFAULT_NAME
-from .plugin_manager import PluginManager
+from flaskr.i18n import TRANSLATIONS_DEFAULT_NAME, load_translations
+
 from .base import BasePlugin
+from .plugin_manager import PluginManager
 
 MIGRATION_DIR = "migrations"
 SRC_DIR = "src"

@@ -4,25 +4,25 @@ Minimax TTS Provider.
 This module provides TTS synthesis using Minimax's Text-to-Speech API (t2a_v2).
 """
 
-import logging
 import json
-import requests
+import logging
 from dataclasses import dataclass, field
-from typing import Iterator, Optional, Dict, Any, List
+from typing import Any, Dict, Iterator, List, Optional
 from urllib.parse import urlencode
 
-from flaskr.common.config import get_config
-from flaskr.common.log import AppLoggerProxy
+import requests
+
 from flaskr.api.tts.base import (
+    AudioSettings,
     BaseTTSProvider,
+    ParamRange,
+    ProviderConfig,
     TTSResult,
     VoiceSettings,
-    AudioSettings,
-    ProviderConfig,
-    ParamRange,
 )
+from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts.rpm_gate import acquire_tts_rpm_slot
-
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 

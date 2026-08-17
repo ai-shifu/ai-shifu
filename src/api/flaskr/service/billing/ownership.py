@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG, normalize_usage_scene
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 

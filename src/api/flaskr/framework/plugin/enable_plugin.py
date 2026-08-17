@@ -1,11 +1,13 @@
 import os
-from flask import Flask
-import subprocess
 import shutil
+import subprocess
+
 import click
-from flask.cli import with_appcontext
 from alembic import command
 from alembic.config import Config
+from flask import Flask
+from flask.cli import with_appcontext
+
 from .plugin_manager import plugin_manager
 
 

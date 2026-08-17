@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 from flask import Flask, request
-
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.dashboard.funcs import (
+    build_dashboard_course_detail,
     build_dashboard_course_follow_up_detail,
     build_dashboard_course_follow_ups,
-    build_dashboard_course_detail,
     build_dashboard_course_learners,
     build_dashboard_course_ratings,
     build_dashboard_entry,

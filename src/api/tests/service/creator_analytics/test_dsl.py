@@ -6,8 +6,7 @@ Pure in-memory tests — no DB, no Flask app context.
 from __future__ import annotations
 
 import pytest
-
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.creator_analytics.dsl import (
     ERR_INVALID_AGGREGATE,
     ERR_INVALID_COLUMN,
@@ -17,7 +16,6 @@ from flaskr.service.creator_analytics.dsl import (
     ERR_INVALID_TABLE,
     parse_dsl,
 )
-
 
 DEFAULT_LIMIT_MAX = 1000
 

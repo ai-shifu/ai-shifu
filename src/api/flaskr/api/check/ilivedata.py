@@ -5,19 +5,20 @@ import base64
 import hmac
 import json
 from hashlib import sha256 as sha256
-from urllib.request import Request, urlopen
 from urllib.error import URLError
+from urllib.request import Request, urlopen
+
 from flask import Flask
+
 from flaskr.util.datetime import now_utc
 
 from .dto import (
-    CheckResultDTO,
     CHECK_RESULT_PASS,
-    CHECK_RESULT_REVIEW,
     CHECK_RESULT_REJECT,
+    CHECK_RESULT_REVIEW,
     CHECK_RESULT_UNKNOWN,
+    CheckResultDTO,
 )
-
 
 # pid = ""
 # secret_key = b""

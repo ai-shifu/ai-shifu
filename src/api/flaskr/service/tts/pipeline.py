@@ -26,24 +26,22 @@ from dataclasses import dataclass
 from typing import Optional, Sequence
 
 from flask import Flask
-
-from flaskr.common.config import get_config
 from flaskr.api.tts import (
-    synthesize_text,
-    is_tts_configured,
-    get_default_voice_settings,
-    get_default_audio_settings,
-    VoiceSettings,
     AudioSettings,
+    VoiceSettings,
+    get_default_audio_settings,
+    get_default_voice_settings,
+    is_tts_configured,
+    synthesize_text,
 )
+from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
+from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     get_audio_duration_ms,
 )
-from flaskr.service.tts.tts_handler import upload_audio_to_oss
-from flaskr.common.log import AppLoggerProxy
-from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.tts.patterns import (
     AV_CLOSING_BOUNDARY,
     AV_IFRAME_CLOSE,
@@ -64,7 +62,7 @@ from flaskr.service.tts.patterns import (
     FIXED_MARKER_TAIL,
     TAG_NAME_EXTRACT,
 )
-
+from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.util.uuid import generate_id
 
 _AV_LATEX_BLOCK = AV_LATEX_BLOCK

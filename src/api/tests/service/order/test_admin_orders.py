@@ -3,11 +3,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from flask import Flask
-from sqlalchemy.sql import column
-
 from flaskr.service.billing.dtos import (
-    OperatorCreditOrderDTO,
     OperatorCreditOrderDetailDTO,
+    OperatorCreditOrderDTO,
     OperatorCreditOrdersPageDTO,
 )
 from flaskr.service.common.dtos import PageNationDTO
@@ -18,18 +16,19 @@ from flaskr.service.order.admin import (
     ORDER_SOURCE_USER_PURCHASE,
     _apply_order_source_filter,
     _load_matching_user_bids_for_keyword,
+    _resolve_order_source,
     get_operator_order_detail,
     get_operator_order_overview,
     get_order_detail,
     list_operator_orders,
     list_orders,
-    _resolve_order_source,
 )
 from flaskr.service.order.admin_dtos import (
     OrderAdminDetailDTO,
     OrderAdminOverviewDTO,
     OrderAdminSummaryDTO,
 )
+from sqlalchemy.sql import column
 
 
 class DummyOrder:

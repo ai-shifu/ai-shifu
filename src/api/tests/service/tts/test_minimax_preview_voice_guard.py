@@ -3,18 +3,16 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.dao import db
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.tts.models import (
+    TTS_MINIMAX_CLONE_STATUS_FAILED,
+    TTS_MINIMAX_CLONE_STATUS_READY,
+    TTSMiniMaxClonedVoice,
+)
 from flaskr.service.tts.validation import (
     assert_preview_cloned_voice_available,
 )
-from flaskr.service.tts.models import (
-    TTSMiniMaxClonedVoice,
-    TTS_MINIMAX_CLONE_STATUS_FAILED,
-    TTS_MINIMAX_CLONE_STATUS_READY,
-)
-
 
 _BUILT_IN_VOICE_ID = "female-shaonv"
 

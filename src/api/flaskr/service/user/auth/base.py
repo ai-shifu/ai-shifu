@@ -6,10 +6,9 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
 from flask import Flask
-from pydantic import BaseModel, Field
-
 from flaskr.service.common.dtos import UserInfo, UserToken
 from flaskr.service.user.models import AuthCredential
+from pydantic import BaseModel, Field
 
 
 class _BaseDTO(BaseModel):

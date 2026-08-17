@@ -1,10 +1,9 @@
 import pytest
-from sqlalchemy.exc import ResourceClosedError
-
 from flaskr.dao import db
 from flaskr.service.learn import listen_element_run_persistence
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.models import LearnGeneratedElement
+from sqlalchemy.exc import ResourceClosedError
 
 
 def _make_row(

@@ -10,30 +10,43 @@ This module provides real-time TTS synthesis during content streaming.
 import base64
 import logging
 import os
-import traceback
-import uuid
 import threading
 import time
-from typing import Any, Generator, Optional, List, Dict
+import traceback
+import uuid
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
-from concurrent.futures import ThreadPoolExecutor, Future
+from typing import Any, Dict, Generator, List, Optional
 
 from flask import Flask
-
-from flaskr.dao import cleanup_session_after
 from flaskr.api.tts import (
-    synthesize_text,
-    is_tts_configured,
-    VoiceSettings,
     AudioSettings,
-    get_default_voice_settings,
+    VoiceSettings,
     get_default_audio_settings,
+    get_default_voice_settings,
+    is_tts_configured,
+    synthesize_text,
 )
 from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
+from flaskr.common.log import AppLoggerProxy
+from flaskr.dao import cleanup_session_after
+from flaskr.service.learn.learn_dtos import (
+    AudioCompleteDTO,
+    AudioSegmentDTO,
+    GeneratedType,
+    RunMarkdownFlowDTO,
+)
+from flaskr.service.learn.listen_slide_builder import build_visual_segments_for_block
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.service.tts import (
     has_speakable_text,
     preprocess_for_tts,
     resolve_tts_billable_chars,
+)
+from flaskr.service.tts.audio_record_utils import (
+    build_completed_audio_record,
+    save_audio_record,
 )
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
@@ -41,38 +54,23 @@ from flaskr.service.tts.audio_utils import (
     get_audio_duration_ms,
     try_get_audio_duration_ms,
 )
-from flaskr.common.log import AppLoggerProxy
-from flaskr.service.tts.audio_record_utils import (
-    build_completed_audio_record,
-    save_audio_record,
-)
-from flaskr.service.tts.subtitle_utils import (
-    append_subtitle_cue,
-    normalize_subtitle_cues,
-)
-from flaskr.service.metering import UsageContext
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
-from flaskr.util.uuid import generate_id
-from flaskr.service.learn.learn_dtos import (
-    RunMarkdownFlowDTO,
-    GeneratedType,
-    AudioSegmentDTO,
-    AudioCompleteDTO,
-)
-from flaskr.service.learn.listen_slide_builder import build_visual_segments_for_block
 from flaskr.service.tts.boundary_strategies import find_boundary_end
+from flaskr.service.tts.minimax_run_tts import (
+    should_use_minimax_http_stream,
+)
 from flaskr.service.tts.patterns import (
     SENTENCE_ENDINGS,
 )
 from flaskr.service.tts.pipeline import (
-    build_av_segmentation_contract,
     _find_next_av_boundary,
-)
-from flaskr.service.tts.minimax_run_tts import (
-    should_use_minimax_http_stream,
+    build_av_segmentation_contract,
 )
 from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeout
-
+from flaskr.service.tts.subtitle_utils import (
+    append_subtitle_cue,
+    normalize_subtitle_cues,
+)
+from flaskr.util.uuid import generate_id
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 

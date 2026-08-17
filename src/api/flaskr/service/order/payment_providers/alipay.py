@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import json
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any, Dict
 from urllib.parse import parse_qs
 
 from flask import Flask
-
 from flaskr.common.public_urls import build_alipay_notify_url
 from flaskr.service.config import get_config
 
@@ -18,8 +17,8 @@ from .base import (
     PaymentProvider,
     PaymentRefundRequest,
     PaymentRefundResult,
+    PaymentRequest,
 )
-from .base import PaymentRequest
 
 
 class AlipayProvider(PaymentProvider):
@@ -207,8 +206,10 @@ class AlipayProvider(PaymentProvider):
     ) -> bool:
         self._load_sdk(app)
         try:
-            from alipay.aop.api.util.SignatureUtils import get_sign_content
-            from alipay.aop.api.util.SignatureUtils import verify_with_rsa
+            from alipay.aop.api.util.SignatureUtils import (
+                get_sign_content,
+                verify_with_rsa,
+            )
         except Exception as exc:  # pragma: no cover - depends on runtime package
             app.logger.error("Alipay signature utility is not available: %s", exc)
             raise RuntimeError("Alipay signature utility is required") from exc

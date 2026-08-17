@@ -1,11 +1,12 @@
-import os
-import re
 import json
 import logging
+import os
+import re
 from dataclasses import dataclass, field
-from typing import Any, Optional, Callable, Dict, List, Type
-from flask import Flask
+from typing import Any, Callable, Dict, List, Optional, Type
+
 from flask import Config as FlaskConfig
+from flask import Flask
 
 
 class EnvironmentConfigError(Exception):
