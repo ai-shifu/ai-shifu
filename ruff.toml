@@ -62,6 +62,7 @@ select = [
     "PLC0208", # iteration over a set literal
     "PLR1730", # if-statement that should be min()/max()
     "PLR5501", # else: if ... that should be elif
+    "PYI032", # __eq__/__ne__ annotated with Any
     "RET505", # superfluous else after return
     "RUF010", # explicit str()/repr() call inside an f-string
     "RUF021", # unparenthesized and inside or
