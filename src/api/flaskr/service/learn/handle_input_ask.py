@@ -392,7 +392,7 @@ def handle_input_ask(
             .limit(ask_max_history_len)
             .all()
         )
-        history_scripts = history_scripts[::-1]
+        history_scripts.reverse()
         for script in history_scripts:
             if script.type in [BLOCK_TYPE_MDASK_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]:
                 history_message = {
