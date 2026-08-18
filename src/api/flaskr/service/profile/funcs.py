@@ -432,7 +432,7 @@ def get_user_profile_labels(
                     items=meta.get("items"),
                 )
             )
-    for key in PROFILES_LABLES.keys():
+    for key in PROFILES_LABLES:
         if key in mapping_keys:
             continue
         profile_key = key
