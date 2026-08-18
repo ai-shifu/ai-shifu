@@ -126,6 +126,9 @@ export default function LearnerProfileDialog({
     React.useState<OptimizationStatus>('idle');
   const [optimizationErrorMessage, setOptimizationErrorMessage] =
     React.useState('');
+  const [optimizationOriginal, setOptimizationOriginal] = React.useState<
+    string | null
+  >(null);
   const [confirmation, setConfirmation] =
     React.useState<DialogConfirmation | null>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
@@ -164,6 +167,7 @@ export default function LearnerProfileDialog({
   const resetOptimization = React.useCallback(() => {
     setOptimizationStatus('idle');
     setOptimizationErrorMessage('');
+    setOptimizationOriginal(null);
   }, []);
 
   const beginCollection = React.useCallback(
@@ -612,6 +616,7 @@ export default function LearnerProfileDialog({
       setOptimizing(true);
       setOptimizationStatus('idle');
       setOptimizationErrorMessage('');
+      setOptimizationOriginal(draft);
       setError('');
       if (automatic) {
         setPhase('processing');
@@ -690,6 +695,29 @@ export default function LearnerProfileDialog({
   const optimizeProfile = React.useCallback(() => {
     void performOptimization(profile, false);
   }, [performOptimization, profile]);
+
+  const useCollectionDraft = React.useCallback(() => {
+    const draft = collectionResult?.draft;
+    if (!draft) {
+      return;
+    }
+    setProfile(draft);
+    setOptimizationStatus('idle');
+    setOptimizationErrorMessage('');
+    setOptimizationOriginal(draft);
+    setError('');
+    textareaRef.current?.focus();
+  }, [collectionResult]);
+
+  const undoOptimization = React.useCallback(() => {
+    if (optimizationOriginal === null) {
+      return;
+    }
+    setProfile(optimizationOriginal);
+    resetOptimization();
+    setError('');
+    textareaRef.current?.focus();
+  }, [optimizationOriginal, resetOptimization]);
 
   const retryLoad = React.useCallback(() => {
     const generation = generationRef.current;
@@ -851,14 +879,15 @@ export default function LearnerProfileDialog({
     optimizing ||
     !normalizedProfile ||
     profileLength > maxLength;
-  const optimizationMessage = optimizing
-    ? t('module.profileOnboarding.dialog.optimizing')
+  const showCollectionOptimizationActions = Boolean(collectionResult?.draft);
+  const optimizationDescription = !normalizedProfile
+    ? t('module.profileOnboarding.dialog.optimizeEmptyHint')
     : optimizationStatus === 'error'
       ? optimizationErrorMessage ||
         t('module.profileOnboarding.dialog.optimizeFailed')
       : optimizationStatus === 'success'
         ? t('module.profileOnboarding.dialog.optimizeSuccess')
-        : '';
+        : t('module.profileOnboarding.dialog.optimizeHint');
   const combinedCollectionError = collectionError || externalErrorMessage;
   const combinedDialogError =
     error || (phase === 'collect' ? '' : externalErrorMessage);
@@ -945,11 +974,7 @@ export default function LearnerProfileDialog({
           maxLength={maxLength}
           disabled={!loaded || busy || optimizing}
           placeholder={t('module.profileOnboarding.dialog.profilePlaceholder')}
-          descriptionId={
-            optimizationMessage
-              ? 'learner-profile-optimization-status'
-              : undefined
-          }
+          descriptionId='learner-profile-optimization-status'
           onChange={value => {
             setProfile(value);
             resetOptimization();
@@ -962,54 +987,68 @@ export default function LearnerProfileDialog({
           className='rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3'
           aria-live='polite'
         >
-          <div
-            className={cn(
-              'flex flex-col gap-3 sm:flex-row sm:items-center',
-              optimizationMessage ? 'sm:justify-between' : 'sm:justify-end',
-            )}
-          >
-            {optimizationMessage ? (
-              <p
-                id='learner-profile-optimization-status'
-                className={cn(
-                  'min-w-0 flex-1 text-sm leading-5 text-foreground/80',
-                  optimizationStatus === 'error' && 'text-destructive',
-                )}
-              >
-                {optimizationMessage}
-              </p>
-            ) : null}
-            <Button
-              type='button'
-              size='sm'
-              className='min-h-10 flex-1 px-4 shadow-sm sm:flex-none'
-              disabled={optimizeDisabled}
-              aria-describedby={
-                optimizationMessage
-                  ? 'learner-profile-optimization-status'
-                  : undefined
-              }
-              onClick={optimizeProfile}
+          <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+            <p
+              id='learner-profile-optimization-status'
+              className={cn(
+                'min-w-0 flex-1 text-sm leading-5 text-foreground/80',
+                optimizationStatus === 'error' && 'text-destructive',
+              )}
             >
-              {optimizing ? (
-                <Loader2
-                  className='size-4 animate-spin motion-reduce:animate-none'
-                  aria-hidden='true'
-                />
-              ) : (
-                <Sparkles
-                  className='size-4'
-                  aria-hidden='true'
-                />
-              )}
-              {t(
-                optimizing
-                  ? 'module.profileOnboarding.dialog.optimizing'
-                  : optimizationStatus === 'error'
-                    ? 'module.profileOnboarding.dialog.retryOptimize'
-                    : 'module.profileOnboarding.dialog.optimize',
-              )}
-            </Button>
+              {optimizationDescription}
+            </p>
+            <div className='flex flex-wrap gap-2'>
+              {showCollectionOptimizationActions ? (
+                <Button
+                  type='button'
+                  size='sm'
+                  variant='outline'
+                  className='min-h-10 flex-1 sm:flex-none'
+                  disabled={busy || optimizing}
+                  onClick={useCollectionDraft}
+                >
+                  {t('module.profileOnboarding.dialog.useResearchDraft')}
+                </Button>
+              ) : optimizationStatus === 'success' &&
+                optimizationOriginal !== null ? (
+                <Button
+                  type='button'
+                  size='sm'
+                  variant='outline'
+                  className='min-h-10 flex-1 sm:flex-none'
+                  onClick={undoOptimization}
+                >
+                  {t('module.profileOnboarding.dialog.undoOptimize')}
+                </Button>
+              ) : null}
+              <Button
+                type='button'
+                size='sm'
+                className='min-h-10 flex-1 px-4 shadow-sm sm:flex-none'
+                disabled={optimizeDisabled}
+                aria-describedby='learner-profile-optimization-status'
+                onClick={optimizeProfile}
+              >
+                {optimizing ? (
+                  <Loader2
+                    className='size-4 animate-spin motion-reduce:animate-none'
+                    aria-hidden='true'
+                  />
+                ) : (
+                  <Sparkles
+                    className='size-4'
+                    aria-hidden='true'
+                  />
+                )}
+                {t(
+                  optimizing
+                    ? 'module.profileOnboarding.dialog.optimizing'
+                    : showCollectionOptimizationActions
+                      ? 'module.profileOnboarding.dialog.retryOptimize'
+                      : 'module.profileOnboarding.dialog.optimize',
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </section>
@@ -1243,6 +1282,9 @@ export default function LearnerProfileDialog({
                 >
                   {t('module.profileOnboarding.dialog.autoOptimizing')}
                 </h2>
+                <p className='mt-2 max-w-md text-sm leading-6 text-muted-foreground'>
+                  {t('module.profileOnboarding.dialog.autoOptimizingHint')}
+                </p>
               </section>
             ) : (
               renderSave()
