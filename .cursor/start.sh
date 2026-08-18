@@ -61,24 +61,48 @@ mysqld_stopped() {
   ! pgrep -x mysqld >/dev/null 2>&1 && ! sudo mysqladmin ping >/dev/null 2>&1
 }
 
+# True when a directory holds an initialized MySQL/InnoDB datadir (not an empty
+# placeholder). ibdata1 and mysql.ibd are core files of every 8.0 datadir.
+datadir_is_populated() {
+  local dir="$1"
+  sudo test -f "$dir/ibdata1" 2>/dev/null || sudo test -f "$dir/mysql.ibd" 2>/dev/null
+}
+
 # Reattach a datadir orphaned by an interrupted prior heal. During a heal the
 # original is moved to MYSQL_HEAL_BACKUP and a fresh copy to MYSQL_HEAL_STAGED
-# is moved into place; an interrupt can leave MYSQL_DATADIR missing while a
-# valid copy sits under one of those fixed names. Recover it before starting,
-# then clear stale leftovers once a real datadir is present.
+# is moved into place; an interrupt can leave MYSQL_DATADIR missing (or an empty
+# placeholder) while a valid copy sits under one of those fixed names.
 recover_orphaned_datadir() {
-  if [ ! -d "$MYSQL_DATADIR" ]; then
-    if [ -d "$MYSQL_HEAL_BACKUP" ]; then
-      echo "[start] recovering datadir from interrupted heal ($MYSQL_HEAL_BACKUP)"
-      sudo mv -T "$MYSQL_HEAL_BACKUP" "$MYSQL_DATADIR" || return 1
-    elif [ -d "$MYSQL_HEAL_STAGED" ]; then
-      echo "[start] recovering datadir from interrupted heal ($MYSQL_HEAL_STAGED)"
-      sudo mv -T "$MYSQL_HEAL_STAGED" "$MYSQL_DATADIR" || return 1
-    fi
-  fi
-  if [ -d "$MYSQL_DATADIR" ]; then
+  # Live datadir is already a real database: only clear stale heal copies.
+  if datadir_is_populated "$MYSQL_DATADIR"; then
     sudo rm -rf "$MYSQL_HEAL_BACKUP" "$MYSQL_HEAL_STAGED"
+    return 0
   fi
+
+  # Otherwise reattach a populated copy, preferring the fresh-inode staged copy
+  # (avoids re-triggering the O_DIRECT heal) over the original backup.
+  local source=""
+  if datadir_is_populated "$MYSQL_HEAL_STAGED"; then
+    source="$MYSQL_HEAL_STAGED"
+  elif datadir_is_populated "$MYSQL_HEAL_BACKUP"; then
+    source="$MYSQL_HEAL_BACKUP"
+  fi
+  if [ -z "$source" ]; then
+    # Nothing usable to recover (fresh install, or no heal copies present).
+    return 0
+  fi
+
+  # Clear an empty placeholder datadir so the move cannot nest; never destroy a
+  # non-empty directory here - leave the copies for manual inspection instead.
+  if [ -d "$MYSQL_DATADIR" ] && ! sudo rmdir "$MYSQL_DATADIR" 2>/dev/null; then
+    echo "[start] ERROR: $MYSQL_DATADIR exists, is not a usable database, and is not empty; leaving heal copies intact for manual inspection" >&2
+    return 1
+  fi
+
+  echo "[start] recovering datadir from interrupted heal ($source)"
+  sudo mv -T "$source" "$MYSQL_DATADIR" || return 1
+  # The datadir is now populated; drop the remaining (stale) heal copy.
+  sudo rm -rf "$MYSQL_HEAL_BACKUP" "$MYSQL_HEAL_STAGED"
   return 0
 }
 
