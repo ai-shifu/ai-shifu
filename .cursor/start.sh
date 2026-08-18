@@ -25,6 +25,19 @@ MYSQL_ERROR_LOG="${AI_SHIFU_MYSQL_ERROR_LOG:-/var/log/mysql/error.log}"
 MYSQL_HEAL_BACKUP="${MYSQL_DATADIR}.orig"
 MYSQL_HEAL_STAGED="${MYSQL_DATADIR}.reinit"
 
+# Serialize concurrent start.sh runs behind one process-wide lock so the MySQL
+# recovery/heal (which moves datadir directories) can never race another
+# invocation removing or moving MYSQL_DATADIR / the heal copies. The lock is
+# held for the lifetime of the script (released when fd 9 closes on exit).
+_start_lock="${AI_SHIFU_START_LOCK:-/tmp/ai-shifu-start.lock}"
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$_start_lock" || { echo "[start] ERROR: cannot open lock $_start_lock" >&2; exit 1; }
+  if ! flock -x -w 600 9; then
+    echo "[start] ERROR: timed out acquiring start lock $_start_lock" >&2
+    exit 1
+  fi
+fi
+
 wait_redis() {
   for _ in $(seq 1 30); do
     redis-cli ping >/dev/null 2>&1 && return 0
