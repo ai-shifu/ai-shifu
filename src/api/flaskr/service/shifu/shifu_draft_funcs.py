@@ -567,7 +567,7 @@ def save_shifu_draft_info(
                     shifu_temperature if shifu_temperature is not None else 0.3
                 ),
                 price=shifu_price,
-                llm_system_prompt=shifu_system_prompt if shifu_system_prompt else "",
+                llm_system_prompt=shifu_system_prompt or "",
                 ask_enabled_status=ask_enabled_status,
                 ask_llm=ask_model,
                 ask_llm_temperature=ask_temperature,
