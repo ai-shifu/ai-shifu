@@ -605,7 +605,7 @@ class UnifiedMigrationTask:
                     )
                     < 0.01
                 )
-            elif source_table in [
+            if source_table in [
                 "ai_course_lesson_attendscript",
                 "ai_course_lesson_attend",
             ]:
@@ -614,8 +614,7 @@ class UnifiedMigrationTask:
                     hasattr(target_record, "user_bid")
                     and target_record.user_bid is not None
                 )
-            else:
-                return True  # Basic existence check for other tables
+            return True  # Basic existence check for other tables
 
         except Exception as e:
             logger.error(f"Record mapping verification failed: {e}")

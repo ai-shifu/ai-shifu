@@ -37,11 +37,10 @@ def validate_user(app: Flask, token: str) -> UserInfo:
         try:
             if app.config.get("ENVERIMENT", "prod") == "dev":
                 return _load_user_info(token)
-            else:
-                user_id = jwt.decode(
-                    token, app.config["SECRET_KEY"], algorithms=["HS256"]
-                )["user_id"]
-                app.logger.info("user_id:" + user_id)
+            user_id = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])[
+                "user_id"
+            ]
+            app.logger.info("user_id:" + user_id)
 
             app.logger.info("user_id:" + user_id)
             ttl_seconds = app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7)

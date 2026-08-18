@@ -909,15 +909,14 @@ class BaiduTTSProvider(BaseTTSProvider):
                     word_count=len(text),
                 )
 
-            else:
-                # Error response (JSON)
-                try:
-                    result = response.json()
-                    error_code = result.get("err_no", "unknown")
-                    error_msg = result.get("err_msg", "Unknown error")
-                    raise ValueError(f"Baidu TTS API error {error_code}: {error_msg}")
-                except ValueError:
-                    raise ValueError(f"Baidu TTS API error: {response.text[:200]}")
+            # Error response (JSON)
+            try:
+                result = response.json()
+                error_code = result.get("err_no", "unknown")
+                error_msg = result.get("err_msg", "Unknown error")
+                raise ValueError(f"Baidu TTS API error {error_code}: {error_msg}")
+            except ValueError:
+                raise ValueError(f"Baidu TTS API error: {response.text[:200]}")
 
         except requests.RequestException as e:
             logger.error(f"Baidu TTS request failed: {e}")

@@ -112,12 +112,11 @@ def fmt(o):
         if o.tzinfo is None:
             o = o.replace(tzinfo=datetime.timezone.utc)
         return o.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
-    elif isinstance(o, datetime.date):
+    if isinstance(o, datetime.date):
         return o.isoformat()
-    elif isinstance(o, decimal.Decimal):
+    if isinstance(o, decimal.Decimal):
         return str(o)
-    else:
-        return o.__json__()
+    return o.__json__()
 
 
 def make_common_response(data):

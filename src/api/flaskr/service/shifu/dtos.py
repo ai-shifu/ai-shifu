@@ -385,11 +385,10 @@ class ShifuOutlineTreeNode:
         """
         if not self.parent_node:
             return self.position
-        else:
-            return (
-                self.parent_node.get_new_position()
-                + f"{self.parent_node.children.index(self) + 1:02d}"
-            )
+        return (
+            self.parent_node.get_new_position()
+            + f"{self.parent_node.children.index(self) + 1:02d}"
+        )
 
 
 @register_schema_to_swagger

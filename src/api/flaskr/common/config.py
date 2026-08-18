@@ -55,7 +55,7 @@ class EnvVar:
             if isinstance(value, str):
                 return value.lower() in ("true", "1", "yes", "on")
             return bool(value)
-        elif self.type is int:
+        if self.type is int:
             try:
                 return int(value)
             except ValueError:

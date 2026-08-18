@@ -116,15 +116,14 @@ def ilivedata_check(
             provider=PROVIDER,
             raw_data=ret,
         )
-    else:
-        app.logger.error(f"ilivedata check error: {ret.get('errorCode')}")
-        return CheckResultDTO(
-            check_result=CHECK_RESULT_UNKNOWN,
-            risk_labels=[],
-            risk_label_ids=[],
-            provider=PROVIDER,
-            raw_data=ret,
-        )
+    app.logger.error(f"ilivedata check error: {ret.get('errorCode')}")
+    return CheckResultDTO(
+        check_result=CHECK_RESULT_UNKNOWN,
+        risk_labels=[],
+        risk_label_ids=[],
+        provider=PROVIDER,
+        raw_data=ret,
+    )
 
 
 def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECONDS):
