@@ -468,7 +468,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         page_index = request.args.get("page_index", 1)
         page_size = request.args.get("page_size", 10)
         is_favorite = request.args.get("is_favorite", "False")
-        is_favorite = True if is_favorite.lower() == "true" else False
+        is_favorite = is_favorite.lower() == "true"
         archived_param = request.args.get("archived")
         archived = False
         if archived_param is not None:
@@ -1049,7 +1049,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         shifu_bid = request.view_args.get("shifu_bid")
         is_favorite = request.get_json().get("is_favorite")
         if isinstance(is_favorite, str):
-            is_favorite = True if is_favorite.lower() == "true" else False
+            is_favorite = is_favorite.lower() == "true"
         elif isinstance(is_favorite, bool):
             is_favorite = is_favorite
         else:

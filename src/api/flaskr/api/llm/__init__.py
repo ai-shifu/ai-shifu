@@ -1074,7 +1074,7 @@ def invoke_llm(
                 response_text += res.choices[0].delta.content
                 yield LLMStreamResponse(
                     res.id,
-                    True if res.choices[0].finish_reason else False,
+                    bool(res.choices[0].finish_reason),
                     False,
                     res.choices[0].delta.content,
                     res.choices[0].finish_reason,
@@ -1249,7 +1249,7 @@ def chat_llm(
                     response_text += res.choices[0].delta.content
                     yield LLMStreamResponse(
                         res.id,
-                        True if res.choices[0].finish_reason else False,
+                        bool(res.choices[0].finish_reason),
                         False,
                         res.choices[0].delta.content,
                         res.choices[0].finish_reason,
