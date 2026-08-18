@@ -63,6 +63,7 @@ select = [
     "C401",    # unnecessary generator inside set()
     "C408",    # unnecessary dict() call
     "C414",    # unnecessary list() inside sorted()
+    "C416",    # comprehension that only copies its iterable
     "C420",    # dict.fromkeys instead of a constant-value comprehension
     "D202",    # blank line after a function docstring
     "D209",    # closing quotes of a multi-line docstring not on their own line
