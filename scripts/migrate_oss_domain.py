@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Migrate OSS domain names in the database.
+r"""Migrate OSS domain names in the database.
 
 Replaces occurrences of the old OSS base URL with a new one across all
 relevant tables and columns.

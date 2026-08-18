@@ -80,7 +80,7 @@ class HtmlTableBoundaryStrategy:
 
 
 class MarkdownTableBoundaryStrategy:
-    """Strategy for markdown tables (| A | B |\n| --- | --- |)."""
+    r"""Strategy for markdown tables (| A | B |\n| --- | --- |)."""
 
     def find_end(self, raw: str) -> Optional[int]:
         if not raw:
@@ -150,7 +150,7 @@ BOUNDARY_STRATEGIES = {
 
 
 def find_boundary_end(kind: str, raw: str) -> Optional[int]:
-    """Find the end position of a visual element boundary.
+    r"""Find the end position of a visual element boundary.
 
     Args:
         kind: The type of visual element (fence, svg, iframe, video, html_table,
