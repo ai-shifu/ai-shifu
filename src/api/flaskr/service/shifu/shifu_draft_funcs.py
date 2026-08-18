@@ -148,6 +148,7 @@ def return_shifu_draft_dto(
         base_url: Base URL to build shifu links
         readonly: Whether the current user has read-only permission
         archived_override: Optional override for archived state (per-user)
+
     Returns:
         ShifuDetailDto: Shifu detail dto
     """

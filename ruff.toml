@@ -57,6 +57,7 @@ select = [
     "D202",   # blank line after a function docstring
     "D406", # section name should end with a newline
     "D407", # missing dashed underline after section
+    "D411", # missing blank line before section
     "FURB136", # if-expression that should be min()/max()
     "FURB188", # manual prefix/suffix stripping
     "PIE790", # unnecessary pass / ... placeholder
