@@ -128,7 +128,7 @@ def _get_config_lock_key(app: Flask, key: str) -> str:
 
 
 @extensible
-def get_config(key: str, default: str = None) -> str:
+def get_config(key: str, default: str | None = None) -> str:
     """Get config value by key, automatically decrypt if is_secret=1.
 
     Args:

@@ -70,7 +70,7 @@ def enable_plugins(app: Flask):
         """Get version table name"""
         return f"alembic_version_plugin_{plugin_name.replace('-', '_')}"
 
-    def get_alembic_config(plugin, version_table: str = None) -> Config:
+    def get_alembic_config(plugin, version_table: str | None = None) -> Config:
         """Get alembic config"""
         alembic_cfg = Config()
         alembic_cfg.set_main_option("script_location", plugin.migration_dir)
