@@ -708,7 +708,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         if subtitle_cues:
             total_duration_ms = max(
                 total_duration_ms,
-                max(int(cue.get("end_ms", 0) or 0) for cue in subtitle_cues),
+                *(int(cue.get("end_ms", 0) or 0) for cue in subtitle_cues),
             )
 
         logger.info(

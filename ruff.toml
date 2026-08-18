@@ -87,6 +87,7 @@ select = [
     "PLR1714", # repeated equality comparison
     "PLR1730", # if-statement that should be min()/max()
     "PLR5501", # else: if ... that should be elif
+    "PLW3301", # nested min/max calls
     "PT001",   # pytest.fixture with empty parentheses
     "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
     "RET501",  # unnecessary explicit return None

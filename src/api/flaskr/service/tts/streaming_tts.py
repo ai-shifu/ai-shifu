@@ -2181,8 +2181,7 @@ class AVStreamingTTSProcessor:
         if not segments:
             return
         self._next_element_index = max(
-            self._next_element_index,
-            max(seg.element_index + 1 for seg in segments),
+            self._next_element_index, *(seg.element_index + 1 for seg in segments)
         )
 
     def _finalize_current(
