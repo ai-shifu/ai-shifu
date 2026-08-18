@@ -345,8 +345,7 @@ def create_and_commit_user_verify_code(
 def ensure_creator_demo_permissions_and_first_lesson(
     app: Flask, user_id: str, language: str
 ) -> bool:
-    """
-    Ensure that a user is marked as creator and has demo course permissions.
+    """Ensure that a user is marked as creator and has demo course permissions.
 
     The function name is kept for compatibility. First lesson draft creation
     is handled by course creation flows.
@@ -448,8 +447,7 @@ def ensure_demo_course_permissions(
 def ensure_admin_creator_and_demo_permissions(
     app: Flask, user_id: str, language: str, login_context: str | None = None
 ) -> bool:
-    """
-    Ensure that an admin-login user is a creator and has demo course permissions.
+    """Ensure that an admin-login user is a creator and has demo course permissions.
 
     This helper is controlled by the ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO flag and
     is intended for demo/staging environments.

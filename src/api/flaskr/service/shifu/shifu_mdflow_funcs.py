@@ -26,9 +26,7 @@ from markdown_flow import MarkdownFlow
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
-    """
-    Get shifu mdflow
-    """
+    """Get shifu mdflow"""
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(
@@ -66,8 +64,7 @@ def cleanup_outline_history_versions(
     keep_versions: int = LESSON_HISTORY_MAX_VERSIONS,
     keep_days: int = LESSON_HISTORY_MAX_DAYS,
 ) -> None:
-    """
-    Keep outline version history bounded:
+    """Keep outline version history bounded:
     - trim to around `keep_versions` latest non-deleted versions
     - trim to around `keep_days` days of non-deleted versions
     To keep outline-level revision stable for metadata-only updates, this
@@ -148,9 +145,7 @@ def save_shifu_mdflow(
     content: str,
     base_revision: int | None = None,
 ) -> DraftSaveResponse:
-    """
-    Save shifu mdflow
-    """
+    """Save shifu mdflow"""
     content = content or ""
     with app.app_context():
         lock_latest = isinstance(base_revision, int) and base_revision >= 0
@@ -270,9 +265,7 @@ def save_shifu_mdflow(
 def parse_shifu_mdflow(
     app: Flask, shifu_bid: str, outline_bid: str, data: str = None
 ) -> MdflowDTOParseResult:
-    """
-    Parse shifu mdflow
-    """
+    """Parse shifu mdflow"""
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(
@@ -317,8 +310,7 @@ def get_shifu_mdflow_history(
     outline_bid: str,
     limit: int = 100,
 ) -> dict:
-    """
-    Get lesson content history for a specific outline.
+    """Get lesson content history for a specific outline.
     Only keep versions where markdown content actually changed.
     """
     with app.app_context():
@@ -392,9 +384,7 @@ def get_shifu_mdflow_history_version_detail(
     outline_bid: str,
     version_id: int,
 ) -> dict:
-    """
-    Get lesson content detail for a specific history version.
-    """
+    """Get lesson content detail for a specific history version."""
     with app.app_context():
         version = DraftOutlineItem.query.filter(
             DraftOutlineItem.id == version_id,
@@ -444,9 +434,7 @@ def restore_shifu_mdflow_history_version(
     version_id: int,
     base_revision: int | None = None,
 ) -> dict:
-    """
-    Restore lesson content to the selected historical version.
-    """
+    """Restore lesson content to the selected historical version."""
     with app.app_context():
         target_version = (
             DraftOutlineItem.query.filter(

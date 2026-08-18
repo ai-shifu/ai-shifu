@@ -1,3 +1,1 @@
-"""
-Test fixtures and data for configuration tests.
-"""
+"""Test fixtures and data for configuration tests."""

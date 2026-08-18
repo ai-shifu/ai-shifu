@@ -1,5 +1,4 @@
-"""
-Shifu outline funcs
+"""Shifu outline funcs
 
 This module contains functions for managing shifu outline.
 
@@ -46,8 +45,7 @@ from .shifu_mdflow_funcs import cleanup_outline_history_versions
 def convert_outline_to_reorder_outline_item_dto(
     json_array: list[dict],
 ) -> ReorderOutlineItemDto:
-    """
-    Convert outline to reorder outline item dto
+    """Convert outline to reorder outline item dto
     Args:
         json_array: The json array to convert
     Returns:
@@ -74,8 +72,7 @@ def convert_outline_to_reorder_outline_item_dto(
 def load_existing_outline_items(
     shifu_bid: str, *, include_content: bool = True
 ) -> list[DraftOutlineItem]:
-    """
-    Get existing outline items
+    """Get existing outline items
     internal function
     Args:
         shifu_bid: Shifu bid
@@ -163,8 +160,7 @@ def build_outline_tree_from_items(
 def build_outline_tree(
     app, shifu_bid: str, *, include_content: bool = True
 ) -> list[ShifuOutlineTreeNode]:
-    """
-    Build outline tree
+    """Build outline tree
     Args:
         app: Flask application instance
         shifu_bid: Shifu bid
@@ -180,8 +176,7 @@ def build_outline_tree(
 def assert_outline_items_publishable(
     app, shifu_bid: str, outline_items: list[DraftOutlineItem]
 ) -> None:
-    """
-    Validate that the outline structure can be published without silent data
+    """Validate that the outline structure can be published without silent data
     loss. Orphaned nodes are tolerated (build_outline_tree self-heals them by
     lifting them to the root level), but two live items sharing the same
     `position` cannot be reconciled: build_outline_tree keys nodes by position,
@@ -210,8 +205,7 @@ def assert_outline_items_publishable(
 
 
 def assert_outline_tree_publishable(app, shifu_bid: str) -> None:
-    """
-    Validate that the outline structure can be published without silent data
+    """Validate that the outline structure can be published without silent data
     loss.
     """
     existing_items = load_existing_outline_items(shifu_bid, include_content=False)
@@ -221,8 +215,7 @@ def assert_outline_tree_publishable(app, shifu_bid: str) -> None:
 def get_outline_tree_dto(
     outline_tree: list[ShifuOutlineTreeNode],
 ) -> list[SimpleOutlineDto]:
-    """
-    Get outline tree dto
+    """Get outline tree dto
     Args:
         outline_tree: Outline tree
     Returns:
@@ -254,8 +247,7 @@ def get_outline_tree_dto(
 
 
 def get_outline_tree(app, user_id: str, shifu_bid: str) -> list[SimpleOutlineDto]:
-    """
-    Get outline tree
+    """Get outline tree
     build outline tree from outline items
     usage:
     1. get outline tree
@@ -419,8 +411,7 @@ def create_outline(
     system_prompt: str = None,
     is_hidden: bool = False,
 ):
-    """
-    Create outline
+    """Create outline
     Args:
         app: Flask application instance
         user_id: User ID
@@ -646,8 +637,7 @@ def create_outlines_batch(
 def reorder_outline_tree(
     app, user_id: str, shifu_id: str, outlines: list[ReorderOutlineItemDto]
 ):
-    """
-    Reorder outline tree
+    """Reorder outline tree
     usage:
     1. reorder outline tree
 
@@ -740,8 +730,7 @@ def reorder_outline_tree(
 
 
 def get_unit_by_id(app, user_id: str, unit_id: str):
-    """
-    Get unit by id
+    """Get unit by id
     Args:
         app: Flask application instance
         user_id: User ID
@@ -789,8 +778,7 @@ def modify_unit(
     unit_is_hidden: bool | None = None,
     unit_type: str | None = None,
 ):
-    """
-    Modify unit
+    """Modify unit
     Args:
         app: Flask application instance
         user_id: User ID
@@ -873,8 +861,7 @@ def modify_unit(
 
 
 def delete_unit(app, user_id: str, unit_id: str):
-    """
-    Delete unit
+    """Delete unit
 
     Args:
         app: Flask application instance

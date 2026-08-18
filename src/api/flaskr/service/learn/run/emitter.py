@@ -169,8 +169,7 @@ class RunEventEmitter:
         self,
         progress_record: LearnProgressRecord,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        """
-        Persist and emit the standardized `_sys_next_chapter` interaction when a lesson
+        """Persist and emit the standardized `_sys_next_chapter` interaction when a lesson
         completes so the frontend can advance automatically.
         """
         ctx = self._context
@@ -221,9 +220,7 @@ class RunEventEmitter:
         self,
         progress_record: LearnProgressRecord,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        """
-        Persist and emit the lesson-end feedback interaction before next chapter.
-        """
+        """Persist and emit the lesson-end feedback interaction before next chapter."""
         ctx = self._context
         if not progress_record or not ctx._outline_item_info:
             return

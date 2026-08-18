@@ -1,5 +1,4 @@
-"""
-TTS Provider Base Classes and Interfaces.
+"""TTS Provider Base Classes and Interfaces.
 
 This module defines the abstract base classes for TTS providers,
 allowing multiple TTS backends (Minimax, Volcengine, etc.) to be
@@ -147,8 +146,7 @@ class BaseTTSProvider(ABC):
         audio_settings: Optional[AudioSettings] = None,
         model: Optional[str] = None,
     ) -> TTSResult:
-        """
-        Synthesize text to speech.
+        """Synthesize text to speech.
 
         Args:
             text: Text to synthesize
@@ -182,8 +180,7 @@ class BaseTTSProvider(ABC):
 
     @abstractmethod
     def get_provider_config(self) -> ProviderConfig:
-        """
-        Get provider configuration for frontend.
+        """Get provider configuration for frontend.
 
         Returns:
             ProviderConfig with parameter ranges, voices, models, etc.

@@ -1,5 +1,4 @@
-"""
-common shifu funcs
+"""common shifu funcs
 
 This module contains functions for shifu.
 
@@ -28,8 +27,7 @@ from .utils import get_shifu_creator_bid
 
 
 def mark_favorite_shifu(app, user_id: str, shifu_id: str):
-    """
-    Mark a shifu as favorite for a user.
+    """Mark a shifu as favorite for a user.
 
     Args:
         app: Flask application instance
@@ -58,8 +56,7 @@ def mark_favorite_shifu(app, user_id: str, shifu_id: str):
 
 # unmark favorite shifu
 def unmark_favorite_shifu(app, user_id: str, shifu_id: str):
-    """
-    Unmark a shifu as favorite for a user.
+    """Unmark a shifu as favorite for a user.
 
     Args:
         app: Flask application instance
@@ -82,8 +79,7 @@ def unmark_favorite_shifu(app, user_id: str, shifu_id: str):
 
 
 def mark_or_unmark_favorite_shifu(app, user_id: str, shifu_id: str, is_favorite: bool):
-    """
-    Mark or unmark a shifu as favorite for a user.
+    """Mark or unmark a shifu as favorite for a user.
 
     Args:
         app: Flask application instance
@@ -101,8 +97,7 @@ def mark_or_unmark_favorite_shifu(app, user_id: str, shifu_id: str, is_favorite:
 
 
 def upload_file(app, user_id: str, resource_id: str, file) -> str:
-    """
-    Upload a file to OSS.
+    """Upload a file to OSS.
 
     Args:
         app: Flask application instance
@@ -166,8 +161,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
 
 
 def upload_url(app, user_id: str, url: str) -> str:
-    """
-    Upload a file from a URL to OSS.
+    """Upload a file from a URL to OSS.
 
     Args:
         app: Flask application instance
@@ -260,8 +254,7 @@ def shifu_permission_verification(
     shifu_id: str,
     auth_type: str,
 ):
-    """
-    Verify the permission of a user to a shifu.
+    """Verify the permission of a user to a shifu.
 
     Args:
         app: Flask application instance
@@ -326,8 +319,7 @@ def shifu_permission_verification(
 
 
 def get_video_info(app, user_id: str, url: str) -> dict:
-    """
-    Obtain video information from a URL.
+    """Obtain video information from a URL.
 
     Args:
         app: Flask application instance

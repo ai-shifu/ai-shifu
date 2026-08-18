@@ -56,6 +56,7 @@ select = [
     "C420",   # dict.fromkeys instead of a constant-value comprehension
     "D202",   # blank line after a function docstring
     "D209", # closing quotes of a multi-line docstring not on their own line
+    "D212", # multi-line docstring summary not on the first line
     "D403", # first word of a docstring not capitalized
     "D411", # missing blank line before section
     "D413", # missing blank line after the last docstring section

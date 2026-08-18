@@ -60,8 +60,7 @@ def validate_tts_settings_strict(
     pitch: Any,
     emotion: str,
 ) -> StrictTTSSettings:
-    """
-    Validate strict, DB-driven TTS settings.
+    """Validate strict, DB-driven TTS settings.
 
     Notes:
     - Provider, voice_id, speed, and pitch must be explicit (no "system default").

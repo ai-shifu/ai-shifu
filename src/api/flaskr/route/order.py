@@ -122,8 +122,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])
     def reqiure_to_pay():
-        """
-        请求支付
+        """请求支付
         ---
         tags:
             - 订单
@@ -178,8 +177,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/init-order", methods=["POST"])
     @with_shifu_context()
     def init_order():
-        """
-        初始化订单
+        """初始化订单
         ---
         tags:
 
@@ -217,8 +215,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/query-order", methods=["POST"])
     def query_order():
-        """
-        查询订单
+        """查询订单
         ---
         tags:
             - 订单
@@ -255,8 +252,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/apply-discount", methods=["POST"])
     def apply_discount():
-        """
-        使用折扣码
+        """使用折扣码
         ---
         tags:
             - 订单
@@ -303,8 +299,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/payment-detail", methods=["POST"])
     def payment_detail():
-        """
-        查询支付详情
+        """查询支付详情
         ---
         tags:
             - 订单
@@ -339,8 +334,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/stripe/sync", methods=["POST"])
     def stripe_sync():
-        """
-        同步 Stripe 支付状态
+        """同步 Stripe 支付状态
         ---
         tags:
             - 订单
@@ -378,8 +372,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/payment/sync", methods=["POST"])
     def payment_sync():
-        """
-        同步支付状态
+        """同步支付状态
         ---
         tags:
             - 订单
@@ -416,8 +409,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/stripe/webhook", methods=["POST"])
     def stripe_webhook():
-        """
-        Stripe webhook接入占位
+        """Stripe webhook接入占位
         ---
         tags:
             - 订单
@@ -433,8 +425,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/admin/orders", methods=["GET"])
     def admin_order_list():
-        """
-        Admin order list
+        """Admin order list
         ---
         tags:
             - 订单
@@ -511,8 +502,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/admin/orders/shifus", methods=["GET"])
     def admin_order_shifu_list():
-        """
-        Created shifu list for order admin filters
+        """Created shifu list for order admin filters
         ---
         tags:
             - 订单
@@ -591,8 +581,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/admin/orders/import-activation", methods=["POST"])
     def admin_import_activation():
-        """
-        Admin import activation order
+        """Admin import activation order
         ---
         tags:
             - 订单
@@ -830,8 +819,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])
     def admin_order_detail(order_bid: str):
-        """
-        Admin order detail
+        """Admin order detail
         ---
         tags:
             - 订单

@@ -18,9 +18,7 @@ from .consts import (
 
 
 class Order(db.Model):
-    """
-    Order
-    """
+    """Order"""
 
     __tablename__ = "order_orders"
     __table_args__ = {"comment": "Order orders"}
@@ -101,9 +99,7 @@ class Order(db.Model):
 
 
 class PingxxOrder(db.Model):
-    """
-    Pingxx Order
-    """
+    """Pingxx Order"""
 
     __tablename__ = "order_pingxx_orders"
     __table_args__ = (
@@ -238,9 +234,7 @@ class PingxxOrder(db.Model):
 
 
 class StripeOrder(db.Model):
-    """
-    Stripe Order
-    """
+    """Stripe Order"""
 
     __tablename__ = "order_stripe_orders"
     __table_args__ = (
@@ -395,9 +389,7 @@ class StripeOrder(db.Model):
 
 
 class _NativeProviderOrderBase(db.Model):
-    """
-    Common raw native payment snapshot fields.
-    """
+    """Common raw native payment snapshot fields."""
 
     __abstract__ = True
     id = Column(BIGINT, primary_key=True, autoincrement=True)
@@ -518,9 +510,7 @@ class _NativeProviderOrderBase(db.Model):
 
 
 class AlipayOrder(_NativeProviderOrderBase):
-    """
-    Raw direct Alipay payment snapshot.
-    """
+    """Raw direct Alipay payment snapshot."""
 
     __tablename__ = "order_alipay_orders"
     __table_args__ = (
@@ -547,9 +537,7 @@ class AlipayOrder(_NativeProviderOrderBase):
 
 
 class WechatPayOrder(_NativeProviderOrderBase):
-    """
-    Raw direct WeChat Pay payment snapshot.
-    """
+    """Raw direct WeChat Pay payment snapshot."""
 
     __tablename__ = "order_wechatpay_orders"
     __table_args__ = (

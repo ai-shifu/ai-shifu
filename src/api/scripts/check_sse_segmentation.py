@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Replay generated blocks through AVStreamingTTSProcessor with tiny SSE chunks.
+"""Replay generated blocks through AVStreamingTTSProcessor with tiny SSE chunks.
 
 This script is intended for regression checks against real generated block
 content exported from MySQL. It compares:

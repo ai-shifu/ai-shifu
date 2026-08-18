@@ -2161,8 +2161,7 @@ class RunScriptContextV2:
         return bool(str(input_value).strip())
 
     def set_input(self, input: str | dict, input_type: str):
-        """
-        Set user input.
+        """Set user input.
 
         Args:
             input: User input, can be:

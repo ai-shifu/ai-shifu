@@ -99,8 +99,7 @@ def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
 
 
 def _consume_latest_sms_code_from_db(app: Flask, phone: str, code: str) -> str:
-    """
-    Consume the latest sent SMS verification code from the database.
+    """Consume the latest sent SMS verification code from the database.
 
     Returns:
       - "ok" when the code is valid and is marked as used.

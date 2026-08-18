@@ -1,5 +1,4 @@
-"""
-Audio Processing Utilities.
+"""Audio Processing Utilities.
 
 This module provides audio concatenation and processing functions using pydub/ffmpeg.
 """
@@ -70,8 +69,7 @@ def concat_audio_mp3(
     output_format: str = "mp3",
     crossfade_ms: int = DEFAULT_CROSSFADE_MS,
 ) -> bytes:
-    """
-    Concatenate multiple MP3 audio segments into a single audio file.
+    """Concatenate multiple MP3 audio segments into a single audio file.
 
     Args:
         segments: List of audio data bytes (MP3 format)
@@ -202,8 +200,7 @@ def _concat_decodable_audio_segments(
 def concat_audio_best_effort(
     segments: Sequence[bytes], output_format: str = "mp3"
 ) -> bytes:
-    """
-    Concatenate audio segments with graceful fallback when processing is unavailable.
+    """Concatenate audio segments with graceful fallback when processing is unavailable.
 
     Never raw-byte-joins multiple MP3 files. If normal concatenation fails, it
     re-exports the decodable subset so callers upload a standalone audio file.
@@ -260,8 +257,7 @@ def export_audio_range_best_effort(
     input_format: str = "mp3",
     output_format: str = "mp3",
 ) -> tuple[bytes, int]:
-    """
-    Export a time range from an encoded audio blob as a standalone audio file.
+    """Export a time range from an encoded audio blob as a standalone audio file.
 
     Returns ``(audio_bytes, duration_ms)``. If pydub/ffmpeg cannot decode the
     range, returns ``(b"", 0)`` except for the full-audio fallback, where the
@@ -299,8 +295,7 @@ def export_audio_range_best_effort(
 
 
 def get_audio_duration_ms(audio_data: bytes, format: str = "mp3") -> int:
-    """
-    Get duration of audio data in milliseconds.
+    """Get duration of audio data in milliseconds.
 
     Args:
         audio_data: Audio data bytes

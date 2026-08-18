@@ -1,5 +1,4 @@
-"""
-Billing usage metering models.
+"""Billing usage metering models.
 
 This module stores per-invocation usage data for LLM and TTS calls.
 """
@@ -20,9 +19,7 @@ from sqlalchemy.dialects.mysql import BIGINT
 
 
 class BillUsageRecord(db.Model):
-    """
-    Usage metering record for LLM/TTS billing.
-    """
+    """Usage metering record for LLM/TTS billing."""
 
     __tablename__ = "bill_usage"
     __table_args__ = (

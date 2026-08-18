@@ -28,8 +28,7 @@ from .models import (
 
 
 def _collect_used_variables(app: Flask, shifu_bid: str) -> set[str]:
-    """
-    Collect variable names referenced across the latest mdflow content
+    """Collect variable names referenced across the latest mdflow content
     for all draft outline items under a shifu.
     """
     with app.app_context():
@@ -85,9 +84,7 @@ def _build_color_from_definition(definition: Variable) -> ColorSetting:
 def convert_variable_definition_to_profile_item_definition(
     definition: Variable,
 ) -> ProfileItemDefinition:
-    """
-    Convert variable definition model to legacy response DTO shape.
-    """
+    """Convert variable definition model to legacy response DTO shape."""
     scope = (
         CONST_PROFILE_SCOPE_SYSTEM
         if definition.shifu_bid == ""
@@ -107,9 +104,7 @@ def convert_variable_definition_to_profile_item_definition(
 
 
 def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
-    """
-    Determine custom profile keys that are not referenced in any outline content.
-    """
+    """Determine custom profile keys that are not referenced in any outline content."""
     definitions = get_profile_item_definition_list(app, parent_id=shifu_bid)
     used_variables = _collect_used_variables(app, shifu_bid)
     unused_keys: list[str] = []
@@ -146,9 +141,7 @@ def get_profile_item_definition_list(
 def update_profile_item_hidden_state(
     app: Flask, parent_id: str, profile_keys: list[str], hidden: bool, user_id: str
 ) -> list[ProfileItemDefinition]:
-    """
-    Update is_hidden flag for given custom profile keys.
-    """
+    """Update is_hidden flag for given custom profile keys."""
     if not parent_id:
         raise_error("server.profile.parentIdRequired")
     if not profile_keys:
@@ -176,9 +169,7 @@ def update_profile_item_hidden_state(
 def hide_unused_profile_items(
     app: Flask, parent_id: str, user_id: str
 ) -> list[ProfileItemDefinition]:
-    """
-    Hide all custom profile items that are not referenced in any outline content.
-    """
+    """Hide all custom profile items that are not referenced in any outline content."""
     unused_keys = get_unused_profile_keys(app, parent_id)
     if not unused_keys:
         return get_profile_item_definition_list(app, parent_id=parent_id)
@@ -192,9 +183,7 @@ def hide_unused_profile_items(
 
 
 def get_profile_variable_usage(app: Flask, parent_id: str) -> dict:
-    """
-    Return custom profile keys split by whether they are referenced in any outline content.
-    """
+    """Return custom profile keys split by whether they are referenced in any outline content."""
     if not parent_id:
         raise_error("server.profile.parentIdRequired")
 
@@ -463,9 +452,7 @@ def save_profile_item(
     user_id: str,
     key: str,
 ):
-    """
-    Save (create/update) a custom variable definition.
-    """
+    """Save (create/update) a custom variable definition."""
     with app.app_context():
         normalized_parent_id = parent_id or ""
         if normalized_parent_id == "" and user_id != "":

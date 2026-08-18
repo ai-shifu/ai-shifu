@@ -38,8 +38,7 @@ def _column_exists(table_name: str, column_name: str) -> bool:
 def _execute_insert_in_batches(
     statement: sa.sql.elements.TextClause, batch_size: int = DEFAULT_BATCH_SIZE
 ) -> None:
-    """
-    Execute an INSERT..SELECT in batches for large tables.
+    """Execute an INSERT..SELECT in batches for large tables.
 
     This keeps each statement small to reduce the risk of timeouts on large
     legacy tables. The backfill is idempotent, so partial progress is safe.

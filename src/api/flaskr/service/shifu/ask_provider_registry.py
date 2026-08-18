@@ -569,9 +569,7 @@ def validate_ask_provider_specific_config(
 
 
 def get_effective_ask_provider_config(raw_config: Any) -> dict[str, Any]:
-    """
-    Normalize persisted ask provider config.
-    """
+    """Normalize persisted ask provider config."""
     return normalize_ask_provider_config(raw_config)
 
 

@@ -36,8 +36,7 @@ def _get_latest_variable_value(
     variable_key: str,
     shifu_bid: str,
 ) -> Optional[VariableValue]:
-    """
-    Return the newest variable value row from a pre-fetched, id-desc sorted
+    """Return the newest variable value row from a pre-fetched, id-desc sorted
     collection.
 
     Matching is by key only (not variable_bid) so the newest row for the
@@ -368,8 +367,7 @@ def get_user_profile_labels(
     *,
     include_nickname: bool = True,
 ) -> UserProfileLabelDTO:
-    """
-    Get user profile labels
+    """Get user profile labels
     Args:
         app: Flask application instance
         user_id: User id

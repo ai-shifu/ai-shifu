@@ -271,8 +271,7 @@ class InMemoryCacheProvider:
 
 
 class FallbackCacheProvider:
-    """
-    Cache provider that prefers Redis when configured, and falls back to a
+    """Cache provider that prefers Redis when configured, and falls back to a
     process-local in-memory cache when Redis is unavailable.
     """
 

@@ -1,6 +1,4 @@
-"""
-Unit tests for EnhancedConfig class.
-"""
+"""Unit tests for EnhancedConfig class."""
 
 from unittest.mock import patch
 

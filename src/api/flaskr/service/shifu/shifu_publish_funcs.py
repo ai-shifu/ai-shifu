@@ -1,5 +1,4 @@
-"""
-Shifu publish funcs
+"""Shifu publish funcs
 
 This module contains functions for publishing shifu.
 
@@ -56,9 +55,7 @@ from markdown_flow import (
 
 
 def _build_frontend_url(base_url: str, path: str) -> str:
-    """
-    Build a frontend URL based on the provided base URL.
-    """
+    """Build a frontend URL based on the provided base URL."""
     normalized_base = base_url.rstrip("/") if base_url else ""
     cleaned_path = path if path.startswith("/") else f"/{path}"
     return f"{normalized_base}{cleaned_path}" if normalized_base else cleaned_path
@@ -67,8 +64,7 @@ def _build_frontend_url(base_url: str, path: str) -> str:
 def preview_shifu_draft(
     app, user_id: str, shifu_id: str, variables: dict, base_url: str
 ):
-    """
-    Preview shifu draft
+    """Preview shifu draft
     Args:
         app: Flask application instance
         user_id: User ID
@@ -91,8 +87,7 @@ def publish_shifu_draft(
     base_url: str,
     sync_summary: bool = False,
 ):
-    """
-    Publish shifu draft
+    """Publish shifu draft
     will copy all draft data to published data
     and save history to database
     and run summary generation in background by default
@@ -229,8 +224,7 @@ def publish_shifu_draft(
 
 
 def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None):
-    """
-    Run shifu summary generation with error handling
+    """Run shifu summary generation with error handling
     Args:
         app: Flask application instance
         shifu_id: Shifu ID
@@ -258,8 +252,7 @@ def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None)
 
 
 def get_shifu_summary(app, shifu_id: str):
-    """
-    Obtain the shifu summary information
+    """Obtain the shifu summary information
     Args:
         app: Flask application instance
         shifu_id: Shifu ID
@@ -308,8 +301,7 @@ def _generate_ask_prompts(
     outline_item_map: dict[str, PublishedOutlineItem],
     ask_prompt_template: str,
 ):
-    """
-    Generate ask_prompt for each section
+    """Generate ask_prompt for each section
     Args:
         app: Flask application instance
         shifu_info: Shifu info
@@ -359,8 +351,7 @@ def _generate_summaries(
     summary_prompt_template,
     shifu: PublishedShifu,
 ) -> dict[str, dict]:
-    """
-    Generate summaries for all sections
+    """Generate summaries for all sections
     Args:
         app: Flask application instance
         outline_tree: Outline tree
@@ -432,8 +423,7 @@ def _get_shifu_data(
     list[str],
     dict[str, PublishedOutlineItem],
 ]:
-    """
-    Get shifu related data
+    """Get shifu related data
     Args:
         app: Flask application instance
         shifu_id: shifu ID
@@ -473,8 +463,7 @@ def _get_shifu_data(
 def _make_ask_prompt(
     app, ask_prompt: str, learned_text: str, unlearned_text: str
 ) -> str:
-    """
-    Make ask prompt
+    """Make ask prompt
     Args:
         app: Flask application instance
         ask_prompt: Ask prompt
@@ -498,8 +487,7 @@ def _make_ask_prompt(
 
 
 def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
-    """
-    Call the AI model to generate summary
+    """Call the AI model to generate summary
     Args:
         app: Flask application instance
         prompt: Prompt to be summarized
@@ -554,8 +542,7 @@ def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
 
 
 def _build_summary_text(summaries: list[dict]) -> str:
-    """
-    Build a summary text from chapter/section summary entries
+    """Build a summary text from chapter/section summary entries
     Args:
         summaries: List of summary dictionaries
     Returns:

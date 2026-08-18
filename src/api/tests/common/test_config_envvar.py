@@ -1,6 +1,4 @@
-"""
-Unit tests for EnvVar dataclass.
-"""
+"""Unit tests for EnvVar dataclass."""
 
 import pytest
 from flaskr.common.config import (

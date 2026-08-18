@@ -1,5 +1,4 @@
-"""
-TTS usage recording helpers.
+"""TTS usage recording helpers.
 
 Provides utility functions to record TTS usage with consistent metadata construction.
 """
@@ -21,8 +20,7 @@ def build_tts_metadata(
     voice_settings: "VoiceSettings",
     audio_settings: "AudioSettings",
 ) -> dict:
-    """
-    Build metadata dict from voice and audio settings.
+    """Build metadata dict from voice and audio settings.
 
     Args:
         voice_settings: TTS voice configuration
@@ -59,8 +57,7 @@ def record_tts_segment_usage(
     segment_index: int,
     usage_characters: int = 0,
 ) -> None:
-    """
-    Record TTS usage for a single segment.
+    """Record TTS usage for a single segment.
 
     This is a segment-level recording (record_level=1) used during streaming synthesis.
 
@@ -121,8 +118,7 @@ def record_tts_aggregated_usage(
     is_stream: bool = True,
     total_usage_characters: int = 0,
 ) -> None:
-    """
-    Record aggregated TTS usage for all segments.
+    """Record aggregated TTS usage for all segments.
 
     This is an aggregated recording (record_level=0) used after all segments
     have been synthesized.

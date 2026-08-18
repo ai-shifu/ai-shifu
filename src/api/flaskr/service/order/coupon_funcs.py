@@ -64,8 +64,7 @@ def _pick_coupon_candidate(
     shifu_bid: str,
     user_id: str,
 ) -> Tuple[Optional[CouponUsageModel], Optional[Coupon], bool]:
-    """
-    Pick a coupon_usage/coupon pair that matches the current course.
+    """Pick a coupon_usage/coupon pair that matches the current course.
     Returns (usage, coupon, has_candidate_with_same_code).
     """
     has_candidate_with_same_code = bool(active_usages or coupons_by_code)
@@ -138,8 +137,7 @@ def send_feishu_coupon_code(
 
 
 def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
-    """
-    Use coupon code
+    """Use coupon code
     Args:
         app: Flask app
         user_id: User id

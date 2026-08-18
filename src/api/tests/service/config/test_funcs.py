@@ -1,6 +1,4 @@
-"""
-Unit tests for config service functions.
-"""
+"""Unit tests for config service functions."""
 
 import importlib
 import sys
