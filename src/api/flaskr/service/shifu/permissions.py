@@ -43,7 +43,7 @@ def _auth_types_to_permissions(auth_types: Set[str]) -> Set[str]:
             perms.add("view")
         if lowered in {"edit", "write"} or lowered == "2":
             perms.update({"view", "edit"})
-        if lowered == "publish" or lowered == "4":
+        if lowered in {"publish", "4"}:
             perms.add("publish")
     return perms
 

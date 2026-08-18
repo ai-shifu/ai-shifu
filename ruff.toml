@@ -77,6 +77,7 @@ select = [
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
     "PLR1711", # useless return at the end of a function
+    "PLR1714", # repeated equality comparison
     "PLR1730", # if-statement that should be min()/max()
     "PLR5501", # else: if ... that should be elif
     "PT001",   # pytest.fixture with empty parentheses

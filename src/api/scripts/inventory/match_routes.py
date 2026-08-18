@@ -110,7 +110,7 @@ def match(be_segs, fe_segs):
     if len(be_segs) != len(fe_segs):
         return False
     return all(
-        a == b or a == "*" or b == "*" for a, b in zip(be_segs, fe_segs, strict=False)
+        a in (b, "*") or b == "*" for a, b in zip(be_segs, fe_segs, strict=False)
     )
 
 
