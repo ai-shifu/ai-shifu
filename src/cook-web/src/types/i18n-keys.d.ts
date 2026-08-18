@@ -578,6 +578,7 @@ export type I18nKey =
   | 'module.billing.globalPricing.audienceLabel'
   | 'module.billing.globalPricing.billedAnnually'
   | 'module.billing.globalPricing.cancelAnytime'
+  | 'module.billing.globalPricing.checkoutNotice'
   | 'module.billing.globalPricing.comingSoon.close'
   | 'module.billing.globalPricing.comingSoon.description'
   | 'module.billing.globalPricing.comingSoon.inlineNotice'

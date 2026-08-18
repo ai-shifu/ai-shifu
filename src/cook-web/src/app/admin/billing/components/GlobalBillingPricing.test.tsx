@@ -4,12 +4,27 @@ import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
 import type { BillingPlan, BillingTopupProduct } from '@/types/billing';
-import {
-  GLOBAL_BILLING_PRODUCT_CODES,
-  GlobalBillingPricing,
-} from './GlobalBillingPricing';
-
 const mockTrackEvent = jest.fn();
+
+const mockOpenBillingCheckoutUrl = jest.fn();
+const mockRememberStripeCheckoutSession = jest.fn();
+const mockToast = jest.fn();
+
+jest.mock('@/lib/billing', () => {
+  const actual = jest.requireActual('@/lib/billing');
+  return {
+    ...actual,
+    openBillingCheckoutUrl: mockOpenBillingCheckoutUrl,
+  };
+});
+
+jest.mock('@/lib/stripe-storage', () => ({
+  rememberStripeCheckoutSession: mockRememberStripeCheckoutSession,
+}));
+
+jest.mock('@/hooks/useToast', () => ({
+  toast: mockToast,
+}));
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
@@ -129,15 +144,15 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => {
     const translate = (key: string, options?: Record<string, unknown>) => {
       const labels: Record<string, string> = {
-        'module.billing.globalPricing.actions.buyCredits': 'Buy credits',
-        'module.billing.globalPricing.actions.choosePlan': 'Choose plan',
+        'module.billing.globalPricing.actions.buyCredits': 'Buy now',
+        'module.billing.globalPricing.actions.choosePlan': 'Subscribe now',
         'module.billing.globalPricing.actions.viewMonthly': 'View monthly plan',
         'module.billing.globalPricing.approximatePricePrefix': 'About',
         'module.billing.globalPricing.comingSoon.close': 'Got it',
         'module.billing.globalPricing.comingSoon.description':
           "We're building the payment experience. Please check back soon.",
-        'module.billing.globalPricing.comingSoon.inlineNotice':
-          'Online checkout is still in development.',
+        'module.billing.globalPricing.checkoutNotice':
+          'Secure checkout is powered by Stripe.',
         'module.billing.globalPricing.comingSoon.title':
           'Payments are coming soon',
         'module.billing.globalPricing.cycles.annual': 'Annual',
@@ -198,7 +213,7 @@ jest.mock('react-i18next', () => ({
         return `${options?.credits} credits per month`;
       }
       if (key === 'module.billing.globalPricing.creditsPerYear') {
-        return `${options?.credits} credits per 12-month billing period`;
+        return `${options?.credits} credits/year`;
       }
       if (key === 'module.billing.globalPricing.learnerEstimateValue') {
         return `${options?.minimum} - ${options?.maximum} learner sessions`;
@@ -216,6 +231,11 @@ jest.mock('react-i18next', () => ({
     };
   },
 }));
+
+const { GLOBAL_BILLING_PRODUCT_CODES, GlobalBillingPricing } =
+  jest.requireActual(
+    './GlobalBillingPricing',
+  ) as typeof import('./GlobalBillingPricing');
 
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
 const mockCheckoutSubscription = api.checkoutBillingSubscription as jest.Mock;
@@ -291,6 +311,9 @@ describe('GlobalBillingPricing', () => {
     mockCheckoutSubscription.mockReset();
     mockCheckoutTopup.mockReset();
     mockTrackEvent.mockReset();
+    mockOpenBillingCheckoutUrl.mockReset();
+    mockRememberStripeCheckoutSession.mockReset();
+    mockToast.mockReset();
     mockGetBillingCatalog.mockResolvedValue(buildGlobalCatalog());
   });
 
@@ -308,9 +331,7 @@ describe('GlobalBillingPricing', () => {
       within(studio).getByText('50 - 150 learner sessions'),
     ).toBeInTheDocument();
     expect(within(growth).getByText('$183')).toBeInTheDocument();
-    expect(
-      within(growth).getByText('50,000 credits per 12-month billing period'),
-    ).toBeInTheDocument();
+    expect(within(growth).getByText('50,000 credits/year')).toBeInTheDocument();
     expect(
       within(growth).getByText('2,500 - 7,500 learner sessions'),
     ).toBeInTheDocument();
@@ -328,9 +349,7 @@ describe('GlobalBillingPricing', () => {
     expect(business).not.toHaveClass('border-primary');
     expect(business).not.toHaveClass('ring-1');
     expect(within(scale).getByText('$667')).toBeInTheDocument();
-    expect(
-      within(scale).getByText('220,000 credits per 12-month billing period'),
-    ).toBeInTheDocument();
+    expect(within(scale).getByText('220,000 credits/year')).toBeInTheDocument();
     expect(
       within(scale).getByText('11,000 - 33,000 learner sessions'),
     ).toBeInTheDocument();
@@ -340,7 +359,7 @@ describe('GlobalBillingPricing', () => {
     expect(screen.queryByText(/extra|bonus/i)).not.toBeInTheDocument();
     expect(screen.getByText('Estimates use DeepSeek.')).toBeInTheDocument();
     expect(
-      screen.getByText('Online checkout is still in development.'),
+      screen.getByText('Secure checkout is powered by Stripe.'),
     ).toBeInTheDocument();
     expect(
       screen.getByText('Listen mode affects supported sessions.'),
@@ -426,23 +445,42 @@ describe('GlobalBillingPricing', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
     expect(
       within(screen.getByTestId('global-plan-studio')).getByRole('button', {
-        name: 'Choose plan',
+        name: 'Subscribe now',
       }),
     ).toBeInTheDocument();
   });
 
-  test('tracks a plan click once and opens the coming-soon dialog without checkout', async () => {
+  test('starts Stripe subscription checkout from a plan click', async () => {
     const user = userEvent.setup();
+    mockCheckoutSubscription.mockResolvedValue({
+      bill_order_bid: 'bill-order-business',
+      checkout_session_id: 'cs_business',
+      provider: 'stripe',
+      payment_mode: 'subscription',
+      redirect_url: 'https://stripe.test/business',
+      status: 'pending',
+    });
     renderPricing();
 
     const business = await screen.findByTestId('global-plan-business');
     await act(async () => {
       await user.click(
-        within(business).getByRole('button', { name: 'Choose plan' }),
+        within(business).getByRole('button', { name: 'Subscribe now' }),
       );
     });
 
-    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockCheckoutSubscription).toHaveBeenCalledWith({
+      payment_provider: 'stripe',
+      product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.businessAnnual}`,
+    });
+    expect(mockCheckoutTopup).not.toHaveBeenCalled();
+    expect(mockRememberStripeCheckoutSession).toHaveBeenCalledWith(
+      'cs_business',
+      'bill-order-business',
+    );
+    expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
+      'https://stripe.test/business',
+    );
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_billing_checkout_click',
       {
@@ -455,17 +493,21 @@ describe('GlobalBillingPricing', () => {
         currency: 'USD',
         credit_amount: 100000,
         source_tab: 'plans',
-        checkout_status: 'coming_soon',
+        checkout_status: 'pending',
       },
     );
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Payments are coming soon')).toBeInTheDocument();
-    expect(mockCheckoutSubscription).not.toHaveBeenCalled();
-    expect(mockCheckoutTopup).not.toHaveBeenCalled();
   });
 
-  test('renders and tracks the two approved credit packs', async () => {
+  test('renders and starts Stripe checkout for the approved credit packs', async () => {
     const user = userEvent.setup();
+    mockCheckoutTopup.mockResolvedValue({
+      bill_order_bid: 'bill-order-topup',
+      checkout_session_id: 'cs_topup',
+      provider: 'stripe',
+      payment_mode: 'one_time',
+      redirect_url: 'https://stripe.test/topup',
+      status: 'pending',
+    });
     renderPricing();
 
     await screen.findByTestId('global-plan-studio');
@@ -488,10 +530,21 @@ describe('GlobalBillingPricing', () => {
 
     await act(async () => {
       await user.click(
-        within(largePack).getByRole('button', { name: 'Buy credits' }),
+        within(largePack).getByRole('button', { name: 'Buy now' }),
       );
     });
 
+    expect(mockCheckoutTopup).toHaveBeenCalledWith({
+      payment_provider: 'stripe',
+      product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.credits3000}`,
+    });
+    expect(mockRememberStripeCheckoutSession).toHaveBeenCalledWith(
+      'cs_topup',
+      'bill-order-topup',
+    );
+    expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
+      'https://stripe.test/topup',
+    );
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'creator_billing_checkout_click',
       expect.objectContaining({
@@ -502,10 +555,33 @@ describe('GlobalBillingPricing', () => {
         currency: 'USD',
         credit_amount: 3000,
         source_tab: 'credit_packs',
-        checkout_status: 'coming_soon',
+        checkout_status: 'pending',
       }),
     );
-    expect(mockCheckoutTopup).not.toHaveBeenCalled();
+  });
+
+  test('shows an unavailable toast when Stripe checkout has no redirect URL', async () => {
+    const user = userEvent.setup();
+    mockCheckoutSubscription.mockResolvedValue({
+      bill_order_bid: 'bill-order-unsupported',
+      provider: 'stripe',
+      payment_mode: 'subscription',
+      status: 'unsupported',
+    });
+    renderPricing();
+
+    const business = await screen.findByTestId('global-plan-business');
+    await act(async () => {
+      await user.click(
+        within(business).getByRole('button', { name: 'Subscribe now' }),
+      );
+    });
+
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.billing.checkout.unsupported',
+      variant: 'destructive',
+    });
+    expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
   });
 
   test('fails closed when the global catalog has an unexpected price', async () => {

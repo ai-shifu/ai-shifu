@@ -600,8 +600,8 @@
   },
   "globalPricing": {
     "actions": {
-      "buyCredits": "Buy credits",
-      "choosePlan": "Choose plan",
+      "buyCredits": "Buy now",
+      "choosePlan": "Subscribe now",
       "viewMonthly": "View monthly plan"
     },
     "annualSavings": "Save {amount} per year ({percent}%)",
@@ -609,6 +609,7 @@
     "audienceLabel": "Best suited for",
     "billedAnnually": "Billed {price} every 12 months",
     "cancelAnytime": "Billed monthly. Cancel anytime.",
+    "checkoutNotice": "Secure checkout is powered by Stripe.",
     "comingSoon": {
       "close": "Got it",
       "description": "We're building the payment experience. Please check back soon.",
@@ -616,13 +617,13 @@
       "title": "Payments are coming soon"
     },
     "creditPacks": {
-      "activeSubscriptionRequired": "An active subscription is required to use Credit Pack credits. If your subscription becomes inactive, unused credits remain in your account and become usable again when a plan is active.",
-      "instantAndPermanent": "Credits are added to your account immediately after purchase and never expire.",
+      "activeSubscriptionRequired": "Credit packs require an active plan. Unused credits stay in your account and can be used again after resubscribing.",
+      "instantAndPermanent": "Credits are added immediately and never expire.",
       "packName": "{credits} credits"
     },
     "creditsLabel": "Credits per cycle",
     "creditsPerMonth": "{credits} credits per month",
-    "creditsPerYear": "{credits} credits per 12-month billing period",
+    "creditsPerYear": "{credits} credits/year",
     "cycles": {
       "annual": "Annual",
       "monthly": "Monthly"
