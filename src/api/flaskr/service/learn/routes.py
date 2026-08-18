@@ -228,7 +228,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     def _admit_creator_usage_for_shifu(shifu_bid: str, usage_scene: int) -> None:
         if is_builtin_demo_shifu(app, shifu_bid):
-            return None
+            return
         admit_creator_usage(
             app,
             shifu_bid=shifu_bid,
