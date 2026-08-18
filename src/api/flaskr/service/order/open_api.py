@@ -89,14 +89,13 @@ def open_api_grant_order(
         if existing_order:
             return {"order_bid": existing_order.order_bid}
 
-    result = import_activation_order(
+    return import_activation_order(
         app,
         user_identify,
         shifu_bid,
         contact_type=user_identify_type,
         payment_channel="open_api",
     )
-    return result
 
 
 def open_api_revoke_order(
