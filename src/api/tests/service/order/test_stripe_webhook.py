@@ -668,3 +668,43 @@ def test_handle_stripe_webhook_ignores_orphan_billing_event(
         assert CreditWallet.query.count() == 0
         assert CreditWalletBucket.query.count() == 0
         assert CreditLedgerEntry.query.count() == 0
+
+
+class RejectingStripeProvider:
+    """Stands in for a provider whose signature verification fails."""
+
+    def verify_webhook(self, *, headers, raw_body, app):
+        del headers, raw_body, app
+        raise RuntimeError("Stripe signature header missing")
+
+
+def test_stripe_webhook_route_is_exempt_from_token_validation(stripe_webhook_app):
+    """Stripe posts webhooks without a user token, so the route must skip auth.
+
+    Registering the handler is enough to record the exemption; the assertion
+    guards against the decorator being dropped again.
+    """
+    del stripe_webhook_app
+    from flaskr.route.common import by_pass_login_func
+
+    assert "stripe_webhook" in by_pass_login_func
+
+
+def test_stripe_webhook_route_rejects_unsigned_payload(stripe_webhook_app, monkeypatch):
+    """Authentication for this route comes from the Stripe signature, not a token.
+
+    A request without any credentials must still reach the handler and be
+    turned away by signature verification rather than by the auth layer.
+    """
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda channel: RejectingStripeProvider(),
+    )
+
+    with stripe_webhook_app.test_client() as client:
+        response = client.post(
+            "/api/order/stripe/webhook",
+            json={"type": "payment_intent.succeeded"},
+        )
+
+    assert response.status_code == 400

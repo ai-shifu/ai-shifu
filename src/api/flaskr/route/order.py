@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from flask import Flask, request
 from flaskr.service.common.models import raise_param_error, raise_error
 from flaskr.service.order.coupon_funcs import use_coupon_code
-from flaskr.route.common import make_common_response
+from flaskr.route.common import bypass_token_validation, make_common_response
 from flaskr.service.order import (
     generate_charge,
     query_buy_record,
@@ -417,6 +417,7 @@ def register_order_handler(app: Flask, path_prefix: str):
         )
 
     @app.route(path_prefix + "/stripe/webhook", methods=["POST"])
+    @bypass_token_validation
     def stripe_webhook():
         """
         Stripe webhook接入占位
