@@ -55,6 +55,35 @@ const detectedBrowserLanguage =
 
 export const browserLanguage = normalizeLanguage(detectedBrowserLanguage);
 
+const PREFERRED_LANGUAGE_STORAGE_KEY = 'preferred_language';
+
+const readPreferredLanguage = (): string => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+  try {
+    const storedLanguage = window.localStorage.getItem(
+      PREFERRED_LANGUAGE_STORAGE_KEY,
+    );
+    return storedLanguage ? normalizeLanguage(storedLanguage) : '';
+  } catch {
+    return '';
+  }
+};
+
+const persistPreferredLanguage = (language: string): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.setItem(PREFERRED_LANGUAGE_STORAGE_KEY, language);
+  } catch {
+    // Ignore storage errors in restricted browser modes.
+  }
+};
+
+const initialLanguage = readPreferredLanguage() || browserLanguage;
+
 if (typeof window !== 'undefined' && !i18n.isInitialized) {
   setI18nLoading(true);
   i18n
@@ -68,7 +97,7 @@ if (typeof window !== 'undefined' && !i18n.isInitialized) {
       },
       ns: namespaceList,
       defaultNS: defaultNamespace,
-      lng: browserLanguage,
+      lng: initialLanguage,
       load: 'currentOnly',
       supportedLngs: languageCodes.length ? languageCodes : undefined,
       nonExplicitSupportedLngs: false,
@@ -101,10 +130,12 @@ i18n.changeLanguage = (async (...args: Parameters<ChangeLanguage>) => {
   try {
     return await originalChangeLanguage(...args);
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Failed to change language', error);
     throw error;
   } finally {
     if (requestedLanguage) {
+      persistPreferredLanguage(normalizeLanguage(requestedLanguage));
       clearPendingRequestLanguage(requestedLanguage);
     }
     setI18nLoading(false);
