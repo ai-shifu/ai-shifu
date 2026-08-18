@@ -26,6 +26,32 @@ export const buildCourseLearningUrl = (
   return `/c/${encodeURIComponent(courseId)}`;
 };
 
+const ABSOLUTE_URL_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:/;
+
+export const buildParameterlessCourseUrl = (
+  courseUrl: string,
+  origin = typeof window !== 'undefined'
+    ? window.location.origin
+    : 'http://localhost',
+) => {
+  const normalizedUrl = courseUrl.trim();
+  if (!normalizedUrl) {
+    return '';
+  }
+
+  const url = new URL(normalizedUrl, origin);
+  url.username = '';
+  url.password = '';
+  url.search = '';
+  url.hash = '';
+
+  if (ABSOLUTE_URL_PATTERN.test(normalizedUrl)) {
+    return url.toString();
+  }
+
+  return url.pathname;
+};
+
 export const buildLearningModeUrl = (
   courseUrl: string,
   mode: LearningMode,

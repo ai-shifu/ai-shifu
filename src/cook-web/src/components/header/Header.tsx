@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils';
 import {
   buildCourseLearningUrl,
   buildLearningModeUrl,
+  buildParameterlessCourseUrl,
   isPublishLearningModeAvailable,
   PUBLISH_LEARNING_MODES,
 } from './publishLearningMode';
@@ -232,6 +233,7 @@ const Header = ({
     publishedUrl: string,
     mode?: LearningMode,
   ) => {
+    const shareUrl = buildParameterlessCourseUrl(publishedUrl);
     alert.showAlert({
       title: t('component.header.publishSuccess'),
       confirmText: t('component.header.publishSuccessDone'),
@@ -267,19 +269,19 @@ const Header = ({
             </div>
             <div className='flex items-center gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2'>
               <a
-                href={publishedUrl}
+                href={shareUrl}
                 target='_blank'
                 rel='noopener noreferrer'
                 className='min-w-0 flex-1 break-all text-sm font-medium text-blue-600 hover:underline'
               >
-                {publishedUrl}
+                {shareUrl}
               </a>
               <button
                 type='button'
                 aria-label={t('component.header.copyLearningLink')}
                 className='flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300'
                 onClick={() => {
-                  void copyPublishedUrl(publishedUrl, mode);
+                  void copyPublishedUrl(shareUrl, mode);
                 }}
               >
                 <Copy className='h-4 w-4' />
@@ -336,7 +338,7 @@ const Header = ({
           return;
         }
 
-        showPublishSuccessAlert(buildLearningModeUrl(result, mode), mode);
+        showPublishSuccessAlert(result, mode);
         return;
       }
 
