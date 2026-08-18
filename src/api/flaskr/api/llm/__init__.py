@@ -1378,7 +1378,7 @@ def _build_model_options(
             "LLM_ALLOWED_MODELS"
         )
     display_map: dict[str, str] = (
-        dict(zip(allowed, display_names)) if display_names_enabled else {}
+        dict(zip(allowed, display_names, strict=False)) if display_names_enabled else {}
     )
 
     options = [

@@ -386,7 +386,7 @@ def _build_summary_statement(params: _Params) -> Select:
 
 def _row_to_dict(columns: Sequence[str], values: Sequence[Any]) -> Dict[str, Any]:
     row: Dict[str, Any] = {}
-    for col, val in zip(columns, values):
+    for col, val in zip(columns, values, strict=False):
         row[col] = _coerce_value(val)
     return row
 

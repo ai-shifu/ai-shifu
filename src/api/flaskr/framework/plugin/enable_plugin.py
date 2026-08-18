@@ -24,7 +24,7 @@ def enable_plugins(app: Flask):
         dest_dir = os.path.join("flaskr", "plugins", repo_name)
         if os.path.exists(dest_dir):
             return
-        subprocess.run(["git", "clone", repo_url, dest_dir])
+        subprocess.run(["git", "clone", repo_url, dest_dir], check=False)
 
     @plugin.command(name="delete")
     @click.argument("repo_name")

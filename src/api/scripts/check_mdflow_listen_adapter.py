@@ -530,7 +530,7 @@ def _analyze_stream_only(
             )
 
         for idx, (expected_item, observed_item) in enumerate(
-            zip(expected, observed), start=1
+            zip(expected, observed, strict=False), start=1
         ):
             expected_type = _element_type_from_mdflow_stream(
                 expected_item.stream_type, expected_item.content_text

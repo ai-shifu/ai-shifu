@@ -303,7 +303,7 @@ def verify_phone_code(
     if code != FIX_CHECK_CODE:
         cached = None
         cached_phone = normalized_phone
-        for code_key, lookup_phone in zip(code_keys, lookup_phones):
+        for code_key, lookup_phone in zip(code_keys, lookup_phones, strict=False):
             cached = redis.get(code_key)
             if cached is not None:
                 cached_phone = lookup_phone

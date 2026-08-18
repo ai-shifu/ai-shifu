@@ -694,7 +694,9 @@ def _group_tencent_subtitle_cues_by_source_text(
         bounded_target = max(min(float(target_weight), float(total_cue_weight)), 0.0)
         consumed = 0.0
         last_end_ms = start_ms
-        for index, (cue, weight) in enumerate(zip(normalized_cues, cue_weights)):
+        for index, (cue, weight) in enumerate(
+            zip(normalized_cues, cue_weights, strict=False)
+        ):
             cue_start_ms = int(cue.get("start_ms", 0) or 0)
             cue_end_ms = int(cue.get("end_ms", cue_start_ms) or cue_start_ms)
             cue_end_ms = max(cue_end_ms, cue_start_ms)
@@ -712,6 +714,7 @@ def _group_tencent_subtitle_cues_by_source_text(
                     for next_cue, next_weight in zip(
                         normalized_cues[index + 1 :],
                         cue_weights[index + 1 :],
+                        strict=False,
                     ):
                         if next_weight > 0:
                             break

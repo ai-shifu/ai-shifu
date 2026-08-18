@@ -50,7 +50,7 @@ def grep_paths(root, extra_args=None):
         return set()
     # no quote anchoring: f-strings like f"{base}/api/x/{bid}/export" must hit
     cmd = ["grep", "-rhoE", r"/api/[^'\"`[:space:]]*", root]
-    out = subprocess.run(cmd, capture_output=True, text=True).stdout
+    out = subprocess.run(cmd, capture_output=True, text=True, check=False).stdout
     paths = set()
     for line in out.splitlines():
         p = line.strip().rstrip(".,;:)]}")
@@ -109,7 +109,9 @@ for line in open(BACKEND_ROUTES, encoding="utf-8"):
 def match(be_segs, fe_segs):
     if len(be_segs) != len(fe_segs):
         return False
-    return all(a == b or a == "*" or b == "*" for a, b in zip(be_segs, fe_segs))
+    return all(
+        a == b or a == "*" or b == "*" for a, b in zip(be_segs, fe_segs, strict=False)
+    )
 
 
 rows = []
