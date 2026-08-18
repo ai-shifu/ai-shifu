@@ -210,7 +210,7 @@ def _validate_json_translations(app: Flask, root: Path):
                 problems.append(f"Malformed JSON in {file_path}: {exc}")
 
     if problems:
-        details = "\n - ".join(["Detected translation issues:"] + problems)
+        details = "\n - ".join(["Detected translation issues:", *problems])
         raise RuntimeError(details)
 
 
