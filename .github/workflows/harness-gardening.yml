@@ -47,7 +47,6 @@ jobs:
           if gh issue list --search "$TITLE in:title state:open" --json number --jq 'length' | grep -q '^0$'; then
             gh issue create \
               --title "$TITLE" \
-              --label "harness-gardening" \
               --body-file docs/generated/harness-gardening-summary.md
           else
             echo "Harness gardening issue already open."
