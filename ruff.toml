@@ -55,6 +55,15 @@ select = [
     "G2",      # .error(..., exc_info=True) -> .exception(...)
     "I",       # import sorting and grouping
     "RUF059",  # unused unpacked variable
+    # Rule groups the codebase already satisfies, selected to keep it that way.
+    "FA",      # missing from __future__ import annotations
+    "ICN",     # import naming conventions
+    "INT",     # gettext calls with f-strings
+    "Q",       # quote style, matching the formatter
+    "SLOT",    # subclasses of str/tuple/namedtuple without __slots__
+    "T10",     # leftover debugger calls
+    "W",       # pycodestyle warnings
+    "YTT",     # sys.version checks that break on two-digit versions
     # Mechanical, behavior-preserving cleanups; each was applied repo-wide
     # with `ruff check --fix` in the commit that selected it here.
     "B009",    # getattr with a constant attribute name
