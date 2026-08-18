@@ -11,6 +11,10 @@
 # have violations. Those `off` lists are the backlog for future clean-ups: fix
 # the code, then move the rule code into `select`.
 #
+# A few rules only ever fire in test or tooling code. Those are selected and
+# carved out per directory under `[lint.per-file-ignores]`, so the rule still
+# guards the served backend instead of being dropped entirely.
+#
 # Rules the repo already satisfies but that stay off on purpose:
 # - Formatter-owned rules, per Ruff's own "conflicting lint rules" list: W191,
 #   D206, D300, Q000-Q004, COM819, ISC002. Enforcing them would fight
@@ -58,8 +62,9 @@
 # - D100-D107, D400, D415, D205: the missing-docstring and docstring-wording
 #   rules would either require bulk new prose or rewrite the summary text that
 #   flasgger publishes as the API description.
-# - S101: the pytest suites assert by design, so the rule cannot be enforced
-#   repo-wide without per-directory carve-outs.
+# - UP031: the `%`-formatted strings it flags are raw SQL statements. Rewriting
+#   them with `.format()` makes the interpolation no safer and only pushes the
+#   statement past the line limit.
 # - RET503: the functions it flags end in `raise_error()` / `raise_param_error()`,
 #   which always raise. Ruff does not follow `NoReturn` across modules, so its
 #   fix would append an unreachable `return None` to each of them.
@@ -70,10 +75,13 @@
 # - FLY002: the `"\n".join([...])` calls it flags build provider signing
 #   payloads, where the list form documents the canonical layout line by line
 #   better than an f-string full of `\n` escapes.
-# - The remaining SIM / UP / PL / PTH / TRY members listed as `off` below:
-#   style or modernization churn with no bug-catching value for this codebase
-#   today. Members that are mechanical and behavior-preserving get folded in
-#   one commit at a time, after applying the fix repo-wide.
+# - SIM115 / PTH*: the remaining `open(...)` and `os.path` call sites are in the
+#   one-off inventory scripts under `src/api/scripts/`; moving them to pathlib
+#   and context managers is a rewrite of those scripts, not a local fix.
+# - The remaining SIM / UP / PL / TRY members listed as `off` below: style or
+#   modernization churn with no bug-catching value for this codebase today.
+#   Members that are mechanical and behavior-preserving get folded in one commit
+#   at a time, after applying the fix repo-wide.
 
 # `target-version` states the version Ruff already resolves to today, so a Ruff
 # release cannot move it. It gates the rules that rewrite code into newer syntax
