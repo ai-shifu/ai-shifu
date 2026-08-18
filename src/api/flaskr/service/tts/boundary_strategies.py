@@ -167,6 +167,7 @@ def find_boundary_end(kind: str, raw: str) -> Optional[int]:
         18
         >>> find_boundary_end("video", "<video src='test.mp4'></video>")
         30
+
     """
     strategy = BOUNDARY_STRATEGIES.get(kind)
     if strategy is None:

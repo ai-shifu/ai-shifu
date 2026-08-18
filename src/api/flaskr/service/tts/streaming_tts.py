@@ -442,6 +442,7 @@ class StreamingTTSProcessor:
 
         Returns:
             Number of characters to consume from *raw_text*.
+
         """
         target = processed_text[:processed_end]
         # raw text is always >= preprocessed text in length (preprocessing
@@ -496,6 +497,7 @@ class StreamingTTSProcessor:
             remaining_text: The text to be synthesized
             include_trailing_fragment: Whether to submit trailing text that does
                 not end with sentence punctuation.
+
         """
         if not remaining_text or len(remaining_text) < 2:
             return

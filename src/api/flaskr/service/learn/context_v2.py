@@ -2169,6 +2169,7 @@ class RunScriptContextV2:
                    - str: legacy format (e.g., "Python")
                    - dict: new format from markdown-flow 0.2.27+ (e.g., {"lang": ["Python"]})
             input_type: Input type
+
         """
         self._trace_args["input"] = normalize_langfuse_input_value(input)
         self._trace_args["input_type"] = input_type

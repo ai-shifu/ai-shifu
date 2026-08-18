@@ -1961,6 +1961,7 @@ class EnhancedConfig:
 
         Returns:
             Formatted .env.example content as string
+
         """
 
         # Format values for .env output, handling lists as comma-separated strings
@@ -2147,6 +2148,7 @@ class Config(FlaskConfig):
 
         Returns:
             The configuration value, or default if not found
+
         """
         # Try enhanced config first
         try:
@@ -2231,6 +2233,7 @@ def get_config(key: str, default: Any = None) -> Any:
 
     Returns:
         Configuration value or default
+
     """
     if __INSTANCE__ is None:
         # Before initialization, try to get from environment directly

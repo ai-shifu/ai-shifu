@@ -108,6 +108,7 @@ def publish_shifu_draft(
 
     Returns:
         str: Shifu published URL
+
     """
     with app.app_context():
         now_time = now_utc()

@@ -154,5 +154,6 @@ def get_markdownflow_output_language() -> str:
              Examples: "简体中文" for zh-CN, "English" for en-US,
              and "Français" for fr-FR.
              Defaults to "English" if language not found, otherwise returns the input.
+
     """
     return resolve_markdownflow_output_language()

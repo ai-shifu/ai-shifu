@@ -315,6 +315,7 @@ def enable_commands(app: Flask):
         Args:
             shifu_id: Shifu business identifier
             file_path: Path to save the JSON file
+
         """
         try:
             click.echo(f"Exporting shifu {shifu_id} to {file_path}...")
@@ -352,6 +353,7 @@ def enable_commands(app: Flask):
             file_path: Path to the JSON file to import
             shifu_id: Optional shifu business identifier. If provided and exists, will update existing shifu.
             user_id: User ID for creating/updating the shifu
+
         """
         try:
             # Check if file exists

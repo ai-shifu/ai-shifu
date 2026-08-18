@@ -365,6 +365,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         Returns:
             tuple: (app_key, access_key, resource_id)
+
         """
         app_key = (get_config("VOLCENGINE_TTS_APP_KEY") or "").strip()
         access_key = (get_config("VOLCENGINE_TTS_ACCESS_KEY") or "").strip()
@@ -397,6 +398,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         Notes:
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback.
+
         """
         return VoiceSettings(
             voice_id="zh_female_shuangkuaisisi_moon_bigtts",
@@ -440,6 +442,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         Raises:
             ValueError: If synthesis fails
+
         """
         if not WEBSOCKET_AVAILABLE:
             raise ValueError(

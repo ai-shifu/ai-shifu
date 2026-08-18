@@ -38,6 +38,7 @@ def mark_favorite_shifu(app, user_id: str, shifu_id: str):
 
     Returns:
         bool: True if successful
+
     """
     with app.app_context():
         existing_favorite_shifu = FavoriteScenario.query.filter_by(
@@ -67,6 +68,7 @@ def unmark_favorite_shifu(app, user_id: str, shifu_id: str):
 
     Returns:
         bool: True if successful
+
     """
     with app.app_context():
         favorite_shifu = FavoriteScenario.query.filter_by(
@@ -91,6 +93,7 @@ def mark_or_unmark_favorite_shifu(app, user_id: str, shifu_id: str, is_favorite:
 
     Returns:
         bool: True if successful
+
     """
     if is_favorite:
         return mark_favorite_shifu(app, user_id, shifu_id)
@@ -109,6 +112,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
 
     Returns:
         str: The URL of the uploaded file
+
     """
     with app.app_context():
         isUpdate = False
@@ -172,6 +176,7 @@ def upload_url(app, user_id: str, url: str) -> str:
 
     Returns:
         str: The URL of the uploaded file
+
     """
     with app.app_context():
         try:
@@ -266,6 +271,7 @@ def shifu_permission_verification(
 
     Returns:
         bool: True if the user has the permission
+
     """
     with app.app_context():
         cache_key = f"{get_redis_key_prefix(app)}shifu_permission:{user_id}:{shifu_id}"
@@ -330,6 +336,7 @@ def get_video_info(app, user_id: str, url: str) -> dict:
 
     Returns:
         dict: The video information
+
     """
     with app.app_context():
         try:

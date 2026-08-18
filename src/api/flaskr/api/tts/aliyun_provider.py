@@ -1187,6 +1187,7 @@ class AliyunTTSProvider(BaseTTSProvider):
 
         Returns:
             tuple: (appkey, region)
+
         """
         appkey = get_config("ALIYUN_TTS_APPKEY") or ""
         region = get_config("ALIYUN_TTS_REGION") or "shanghai"
@@ -1205,6 +1206,7 @@ class AliyunTTSProvider(BaseTTSProvider):
         Notes:
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback.
+
         """
         return VoiceSettings(
             voice_id="xiaoyun",
@@ -1249,6 +1251,7 @@ class AliyunTTSProvider(BaseTTSProvider):
 
         Raises:
             ValueError: If synthesis fails
+
         """
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")

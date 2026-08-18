@@ -61,6 +61,7 @@ def _strip_incomplete_fenced_code(text: str) -> tuple[str, bool]:
 
     Returns:
         (text_without_incomplete_block, had_incomplete_block)
+
     """
     fence_count = text.count(_FENCE)
     if fence_count % 2 == 0:
@@ -166,6 +167,7 @@ def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
 
     Returns:
         (text_without_incomplete_blocks, had_any_incomplete_block)
+
     """
     had_incomplete = False
 
@@ -205,6 +207,7 @@ def preprocess_for_tts(text: str) -> str:
 
     Returns:
         Cleaned text suitable for TTS synthesis
+
     """
     if not text:
         return ""

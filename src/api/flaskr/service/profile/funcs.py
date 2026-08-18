@@ -289,6 +289,7 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     This function must follow the same shifu_bid routing rules as
     :func:`save_user_profiles`, otherwise the run context may see values different
     from what the user sees in "个人设置".
+
     """
     PROFILES_LABLES = get_profile_labels()
     profiles_items = get_profile_item_definition_list(app, course_id)

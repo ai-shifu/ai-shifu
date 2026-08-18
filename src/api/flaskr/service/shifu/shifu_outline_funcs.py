@@ -195,6 +195,7 @@ def assert_outline_items_publishable(
 
     Raises:
         AppException: server.shifu.outlineStructureBroken when positions collide
+
     """
     positions: dict[str, list[str]] = {}
     for item in outline_items:
@@ -578,6 +579,7 @@ def create_outlines_batch(
 
     Returns:
         list[SimpleOutlineDto]: created nodes, children populated recursively.
+
     """
     if not isinstance(outlines, list) or not outlines:
         raise_param_error("outlines")
@@ -656,6 +658,7 @@ def reorder_outline_tree(
         outlines: Outline items
     Returns:
         bool: True if reordered, False otherwise
+
     """
     with app.app_context():
         app.logger.info(
@@ -880,6 +883,7 @@ def delete_unit(app, user_id: str, unit_id: str):
 
     Returns:
         bool: True if deleted, False otherwise
+
     """
     with app.app_context():
         now_time = now_utc()

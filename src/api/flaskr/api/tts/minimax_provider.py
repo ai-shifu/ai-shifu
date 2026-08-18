@@ -330,6 +330,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback when callers do not
           specify a voice_id/speed/pitch/emotion.
+
         """
         return VoiceSettings(
             voice_id="male-qn-qingse",
@@ -373,6 +374,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
 
         Raises:
             ValueError: If synthesis fails
+
         """
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
@@ -559,6 +561,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
         Raises:
             ValueError: If API key is not configured
             requests.RequestException: If API call fails
+
         """
         api_key = get_config("MINIMAX_API_KEY")
         tts_model = _resolve_minimax_model(model)

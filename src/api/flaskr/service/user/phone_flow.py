@@ -106,6 +106,7 @@ def _consume_latest_sms_code_from_db(app: Flask, phone: str, code: str) -> str:
       - "ok" when the code is valid and is marked as used.
       - "expired" when no valid code exists (missing/used/expired).
       - "invalid" when a code exists but does not match.
+
     """
     expire_seconds = int(app.config.get("PHONE_CODE_EXPIRE_TIME", 300))
     latest = (

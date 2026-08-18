@@ -151,6 +151,7 @@ def return_shifu_draft_dto(
 
     Returns:
         ShifuDetailDto: Shifu detail dto
+
     """
     normalized_base = base_url.rstrip("/") if base_url else ""
     shifu_path = f"/c/{shifu_draft.shifu_bid}"

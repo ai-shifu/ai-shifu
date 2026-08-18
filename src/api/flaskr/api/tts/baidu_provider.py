@@ -738,6 +738,7 @@ class BaiduTTSProvider(BaseTTSProvider):
 
         Returns:
             tuple: (api_key, secret_key)
+
         """
         api_key = get_config("BAIDU_TTS_API_KEY") or ""
         secret_key = get_config("BAIDU_TTS_SECRET_KEY") or ""
@@ -754,6 +755,7 @@ class BaiduTTSProvider(BaseTTSProvider):
         Notes:
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback.
+
         """
         return VoiceSettings(
             voice_id="0",  # Default to Xiaomei
@@ -798,6 +800,7 @@ class BaiduTTSProvider(BaseTTSProvider):
 
         Raises:
             ValueError: If synthesis fails
+
         """
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
