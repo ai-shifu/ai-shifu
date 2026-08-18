@@ -90,9 +90,9 @@ def include_object(object, name, type_, reflected, compare_to):
         if hasattr(object, "table"):
             table_name = object.table.name
             # the system tables
-            if table_name in system_tables or table_name.startswith("information_"):
-                return False
-            return True
+            return not (
+                table_name in system_tables or table_name.startswith("information_")
+            )
         return False
 
     return True
