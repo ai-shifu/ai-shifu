@@ -56,4 +56,5 @@ select = [
     "RUF021", # unparenthesized and inside or
     "RUF102", # noqa directive naming an unknown rule
     "UP015",  # redundant mode argument to open()
+    "UP024",  # deprecated OSError alias
 ]
