@@ -110,6 +110,7 @@ select = [
     "SIM210",  # True if ... else False
     "SIM212",  # conditional expression with twisted arms
     "SIM300",  # yoda condition
+    "SIM401",  # if-else block instead of dict.get
     "SIM910",  # dict.get(key, None)
     "UP01",    # redundant str.encode/open() arguments
     "UP022",   # stdout/stderr=PIPE that should be capture_output
