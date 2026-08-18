@@ -66,6 +66,7 @@ select = [
     "RUF010", # explicit str()/repr() call inside an f-string
     "RUF021", # unparenthesized and inside or
     "RUF022", # unsorted __all__
+    "RUF023", # unsorted __slots__
     "RUF102", # noqa directive naming an unknown rule
     "SIM114", # if branches with identical bodies
     "SIM910", # dict.get(key, None)

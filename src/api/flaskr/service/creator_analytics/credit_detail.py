@@ -147,13 +147,13 @@ class _Params:
     """Parsed and validated request payload — internal type only."""
 
     __slots__ = (
-        "shifu_bid",
-        "start_date",
         "end_date",
-        "usage_scene",
-        "usage_type",
         "limit",
         "offset",
+        "shifu_bid",
+        "start_date",
+        "usage_scene",
+        "usage_type",
     )
 
     def __init__(
