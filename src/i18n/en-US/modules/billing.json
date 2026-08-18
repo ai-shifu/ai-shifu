@@ -794,6 +794,7 @@
       "currentUsing": "Current plan",
       "downgradeDisabled": "Downgrade unavailable",
       "freeTrial": "Inactive",
+      "monthlySwitchDisabled": "Switching to a monthly plan is unavailable",
       "nonMemberTooltip": "You are currently on the non-member plan. No action is needed.",
       "preorderDowngrade": "Preorder downgrade",
       "preorderLocked": "Preorder locked",

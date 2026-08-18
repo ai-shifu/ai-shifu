@@ -697,6 +697,7 @@ export type I18nKey =
   | 'module.billing.package.actions.currentSubscription'
   | 'module.billing.package.actions.currentUsing'
   | 'module.billing.package.actions.downgradeDisabled'
+  | 'module.billing.package.actions.monthlySwitchDisabled'
   | 'module.billing.package.actions.freeTrial'
   | 'module.billing.package.actions.nonMemberTooltip'
   | 'module.billing.package.actions.preorderDowngrade'

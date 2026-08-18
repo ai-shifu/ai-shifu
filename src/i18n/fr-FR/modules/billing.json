@@ -794,6 +794,7 @@
       "currentUsing": "Forfait actuel",
       "downgradeDisabled": "Rétrogradation indisponible",
       "freeTrial": "Inactif",
+      "monthlySwitchDisabled": "Le passage à un forfait mensuel est indisponible",
       "nonMemberTooltip": "Vous êtes actuellement sur l’offre non membre. Aucune action n’est nécessaire.",
       "preorderDowngrade": "Précommander une rétrogradation",
       "preorderLocked": "Précommande verrouillée",
