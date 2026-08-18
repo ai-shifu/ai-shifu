@@ -29,7 +29,7 @@ class _FakePyMySQLConnection:
         self._sock.close()
 
 
-@pytest.fixture()
+@pytest.fixture
 def sock_pair():
     left, right = socket.socketpair()
     left.setblocking(False)
