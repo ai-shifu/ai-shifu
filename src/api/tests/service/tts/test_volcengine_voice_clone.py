@@ -37,7 +37,7 @@ class _FakeResponse:
 
 
 @pytest.mark.parametrize(
-    "value,expected",
+    ("value", "expected"),
     [
         ("S_xxxxxxxxxx", True),
         ("S_xxxxxxxxx", True),
