@@ -19,6 +19,8 @@ const DEFAULT_OPTIONS: Required<BackendOptions> = {
   requestOptions: { cache: 'no-cache' },
 };
 
+const I18N_FETCH_ATTEMPTS = 2;
+
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
@@ -134,6 +136,32 @@ class UnifiedI18nBackend {
 
   create(): void {}
 
+  private async fetchTranslations(url: string): Promise<Response> {
+    let lastError: unknown = null;
+    for (let attempt = 1; attempt <= I18N_FETCH_ATTEMPTS; attempt += 1) {
+      try {
+        const response = await fetch(url, {
+          ...this.options.requestOptions,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.options.requestOptions.headers ?? {}),
+          },
+        });
+        if (response.ok || attempt === I18N_FETCH_ATTEMPTS) {
+          return response;
+        }
+        lastError = new Error(`Failed to load i18n resources`);
+      } catch (error) {
+        lastError = error;
+        if (attempt === I18N_FETCH_ATTEMPTS) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  }
+
   private getNamespacesToFetch(requestedNamespaces: string[] = []) {
     const configuredNamespaces = this.options.namespaces.length
       ? this.options.namespaces
@@ -197,13 +225,7 @@ class UnifiedI18nBackend {
       }
 
       try {
-        const response = await fetch(url.toString(), {
-          ...this.options.requestOptions,
-          headers: {
-            'Content-Type': 'application/json',
-            ...(this.options.requestOptions.headers ?? {}),
-          },
-        });
+        const response = await this.fetchTranslations(url.toString());
 
         if (!response.ok) {
           throw new Error(`Failed to load i18n resources for ${language}`);

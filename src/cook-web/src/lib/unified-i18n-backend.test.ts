@@ -128,4 +128,43 @@ describe('UnifiedI18nBackend', () => {
       title: 'Course',
     });
   });
+
+  test('retries once when the i18n request is interrupted', async () => {
+    const backend = new UnifiedI18nBackend();
+    backend.init(null, {
+      loadPath: '/api/i18n',
+      namespaces: ['common.core'],
+    });
+
+    const fetchMock = jest
+      .fn()
+      .mockRejectedValueOnce(new TypeError('connection closed'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          translations: {
+            'common.core': {
+              adminTitle: '后台',
+            },
+          },
+        }),
+      } as Response);
+    global.fetch = fetchMock as typeof fetch;
+
+    Object.defineProperty(global, 'window', {
+      configurable: true,
+      value: {
+        location: {
+          origin: 'http://localhost:3000',
+        },
+      },
+    });
+
+    const resources = await readNamespace(backend, 'zh-CN', 'common.core');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(resources).toEqual({
+      adminTitle: '后台',
+    });
+  });
 });
