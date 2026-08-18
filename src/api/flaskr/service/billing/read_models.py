@@ -1194,6 +1194,7 @@ def _resolve_credit_order_kind_filter(kind: str) -> int | None:
     if normalized_kind == "topup":
         return BILLING_PRODUCT_TYPE_TOPUP
     raise_param_error("credit_order_kind")
+    return None
 
 
 def build_operator_credit_orders_page(

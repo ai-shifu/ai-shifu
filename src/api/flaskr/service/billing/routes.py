@@ -152,6 +152,7 @@ def _to_optional_bool(value, field_name: str) -> bool:
     if normalized in {"0", "false", "no", "off"}:
         return False
     raise_param_error(field_name)
+    return None
 
 
 @inject

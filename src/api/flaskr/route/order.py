@@ -119,6 +119,7 @@ def register_order_handler(app: Flask, path_prefix: str):
         if normalized in {"false", "0"}:
             return False
         raise_param_error(field_name)
+        return None
 
     @app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])
     def reqiure_to_pay():

@@ -656,6 +656,7 @@ def generate_charge(
 
         app.logger.error("payment channel not support: %s", payment_channel)
         raise_error("server.pay.payChannelNotSupport")
+    return None
 
 
 def _order_credential_scope(app: Flask, order: Order, context=None):
@@ -1925,6 +1926,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                 )
             finally:
                 lock.release()
+    return None
 
 
 def success_buy_record(app: Flask, record_id: str):
@@ -2151,3 +2153,4 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
             )
 
         raise_error("server.order.orderNotFound")
+    return None

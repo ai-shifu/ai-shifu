@@ -221,6 +221,7 @@ def _parse_boolean_query_param(
     if normalized in {"false", "0", "no"}:
         return False
     raise_param_error(f"{field_name} is not a boolean")
+    return None
 
 
 def _parse_positive_query_int(

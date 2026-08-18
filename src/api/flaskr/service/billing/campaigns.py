@@ -695,6 +695,7 @@ def _resolve_product_type_filter(value: Any) -> int | None:
         }:
             return code
     raise_param_error("product_type")
+    return None
 
 
 def _resolve_benefit_type(value: Any, *, required: bool) -> int | None:
@@ -707,6 +708,7 @@ def _resolve_benefit_type(value: Any, *, required: bool) -> int | None:
         if label == normalized:
             return code
     raise_param_error("benefit_type")
+    return None
 
 
 def _resolve_discount_type(value: Any, *, required: bool) -> int | None:
@@ -719,6 +721,7 @@ def _resolve_discount_type(value: Any, *, required: bool) -> int | None:
         if label == normalized:
             return code
     raise_param_error("discount_type")
+    return None
 
 
 def _load_campaign(campaign_bid: str) -> BillingCampaign | None:
