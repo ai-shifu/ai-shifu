@@ -51,10 +51,12 @@ select = [
     "RUF059", # unused unpacked variable
     # Mechanical, behavior-preserving cleanups; each was applied repo-wide
     # with `ruff check --fix` in the commit that selected it here.
+    "C420",   # dict.fromkeys instead of a constant-value comprehension
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
     "RUF021", # unparenthesized and inside or
     "RUF102", # noqa directive naming an unknown rule
+    "UP012",  # redundant utf-8 argument to str.encode
     "UP015",  # redundant mode argument to open()
     "UP024",  # deprecated OSError alias
     "UP034",  # extraneous parentheses

@@ -70,7 +70,7 @@ def _patch_run_tts_processor(
     def _fake_synthesize_text(**kwargs):
         synthesized_texts.append(kwargs["text"])
         return SimpleNamespace(
-            audio_data=f"fake-audio:{kwargs['text']}".encode("utf-8"),
+            audio_data=f"fake-audio:{kwargs['text']}".encode(),
             duration_ms=123,
             word_count=1,
         )

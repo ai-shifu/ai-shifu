@@ -480,9 +480,7 @@ def _invite_event_stats_by_code(
         stats = result.setdefault(
             invite_code,
             {
-                "event_counts": {
-                    event_type: 0 for event_type in REFERRAL_INVITE_EVENT_TYPES
-                },
+                "event_counts": dict.fromkeys(REFERRAL_INVITE_EVENT_TYPES, 0),
                 "total_event_count": 0,
                 "latest_event_at": None,
             },
@@ -533,15 +531,15 @@ def _serialize_invitation(
     event_stats: dict[str, Any],
     relation_count: int,
 ) -> dict[str, Any]:
-    event_counts = {
-        event_type: 0
-        for event_type in (
+    event_counts = dict.fromkeys(
+        (
             REFERRAL_INVITE_EVENT_LINK_CLICKED,
             REFERRAL_INVITE_EVENT_REGISTRATION_PAGE_VIEWED,
             REFERRAL_INVITE_EVENT_CODE_ENTERED,
             REFERRAL_INVITE_EVENT_REGISTRATION_SUBMITTED,
-        )
-    }
+        ),
+        0,
+    )
     event_counts.update(event_stats.get("event_counts") or {})
     return {
         "invite_code_bid": invitation.invite_code_bid,
