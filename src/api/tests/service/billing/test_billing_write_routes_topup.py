@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from flaskr.service.billing.consts import CREDIT_BUCKET_STATUS_EXHAUSTED
 from tests.service.billing import (
     billing_write_routes_test_helpers as write_route_helpers,
 )
@@ -129,6 +130,70 @@ class TestBillingWriteRoutesTopup:
         price_data = stripe_request["extra"]["line_items"][0]["price_data"]
         assert price_data["unit_amount"] == 5000
         assert "recurring" not in price_data
+
+    def test_repeated_topup_sync_repairs_bucket_snapshot_from_existing_grant(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        add_active_subscription(app, subscription_bid="sub-topup-repair-snapshot-1")
+
+        checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "bill-product-topup-small",
+                "payment_provider": "pingxx",
+                "channel": "alipay_qr",
+            },
+        ).get_json(force=True)
+        bill_order_bid = checkout["data"]["bill_order_bid"]
+
+        first_sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
+            force=True
+        )
+        assert first_sync["code"] == 0
+        assert first_sync["data"]["status"] == "paid"
+
+        with app.app_context():
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=bill_order_bid,
+            ).one()
+            ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=bill_order_bid,
+            ).one()
+            assert ledger.amount == 20
+
+            wallet.available_credits = Decimal("0")
+            bucket.original_credits = Decimal("0")
+            bucket.available_credits = Decimal("0")
+            bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED
+            dao.db.session.commit()
+
+        second_sync = client.post(
+            f"/api/billing/orders/{bill_order_bid}/sync"
+        ).get_json(force=True)
+        assert second_sync["code"] == 0
+        assert second_sync["data"]["status"] == "paid"
+
+        with app.app_context():
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=bill_order_bid,
+            ).one()
+            ledger_count = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=bill_order_bid,
+            ).count()
+
+            assert ledger_count == 1
+            assert bucket.original_credits == 20
+            assert bucket.available_credits == 20
+            assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+            assert wallet.available_credits == 20
 
     def test_topup_grant_expires_with_current_subscription_period(
         self, billing_write_client
