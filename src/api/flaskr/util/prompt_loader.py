@@ -32,7 +32,7 @@ def load_prompt_template(template_name: str) -> str:
 
     # Read file content
     try:
-        with open(template_path, "r", encoding="utf-8") as f:
+        with open(template_path, encoding="utf-8") as f:
             return f.read()
     except Exception as e:
         raise IOError(f"Failed to read prompt template file {template_path}: {str(e)}")
