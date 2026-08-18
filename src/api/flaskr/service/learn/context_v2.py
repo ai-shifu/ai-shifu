@@ -3671,7 +3671,7 @@ class RunScriptContextV2:
         app: Flask,
         reload_generated_block_bid: str,
         *,
-        reload_element_bid: str = None,
+        reload_element_bid: str | None = None,
     ):
         with app.app_context():
             anchor_element = None

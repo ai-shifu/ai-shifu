@@ -263,7 +263,7 @@ def save_shifu_mdflow(
 
 
 def parse_shifu_mdflow(
-    app: Flask, shifu_bid: str, outline_bid: str, data: str = None
+    app: Flask, shifu_bid: str, outline_bid: str, data: str | None = None
 ) -> MdflowDTOParseResult:
     """Parse shifu mdflow"""
     with app.app_context():

@@ -987,7 +987,7 @@ def invoke_llm(
     span: LangfuseObservationHandle,
     model: str,
     message: str,
-    system: str = None,
+    system: str | None = None,
     json: bool = False,
     generation_name: str = "invoke_llm",
     usage_context: Optional[UsageContext] = None,

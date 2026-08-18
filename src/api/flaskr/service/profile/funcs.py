@@ -493,7 +493,7 @@ def update_user_profile_with_lable(
     user_id: str,
     profiles: list,
     update_all: bool = False,
-    course_id: str = None,
+    course_id: str | None = None,
 ):
     app.logger.info(f"update user profile with lable:{course_id}")
     PROFILES_LABLES = get_profile_labels()

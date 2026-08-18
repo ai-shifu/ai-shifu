@@ -81,6 +81,7 @@ select = [
     "RET502",  # implicit return value
     "RET505",  # superfluous else after return
     "RUF010",  # explicit str()/repr() call inside an f-string
+    "RUF013",  # implicit Optional annotation
     "RUF02",   # unparenthesized and inside or, unsorted __all__/__slots__
     "RUF036",  # None not at the end of a union
     "RUF102",  # noqa directive naming an unknown rule

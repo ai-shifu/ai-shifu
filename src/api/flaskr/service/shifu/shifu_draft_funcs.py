@@ -215,10 +215,10 @@ def create_shifu_draft(
     shifu_name: str,
     shifu_description: str,
     shifu_image: str,
-    shifu_keywords: list[str] = None,
-    shifu_model: str = None,
-    shifu_temperature: float = None,
-    shifu_price: float = None,
+    shifu_keywords: list[str] | None = None,
+    shifu_model: str | None = None,
+    shifu_temperature: float | None = None,
+    shifu_price: float | None = None,
 ):
     """Create a shifu draft
     Args:

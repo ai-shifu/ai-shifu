@@ -151,8 +151,8 @@ def generate_token(app: Flask, user_id: str) -> str:
 def send_sms_code(
     app: Flask,
     phone: str,
-    ip: str = None,
-    captcha_ticket: str = None,
+    ip: str | None = None,
+    captcha_ticket: str | None = None,
     require_captcha: bool = True,
 ):
     phone = normalize_phone_identifier(phone)
@@ -230,7 +230,9 @@ def send_sms_code(
         return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"]}
 
 
-def send_email_code(app: Flask, email: str, ip: str = None, language: str = None):
+def send_email_code(
+    app: Flask, email: str, ip: str | None = None, language: str | None = None
+):
     with app.app_context():
         email = str(email or "").strip().lower()
         if not email:

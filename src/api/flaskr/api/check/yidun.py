@@ -73,7 +73,7 @@ def gen_signature(params=None):
 
 
 def yidun_check(
-    app: Flask, data_id: str, content: str, user_id: str = None
+    app: Flask, data_id: str, content: str, user_id: str | None = None
 ) -> CheckResultDTO:
     if not YIDUN_SECRET_ID or not YIDUN_SECRET_KEY or not YIDUN_BUSINESS_ID:
         app.logger.warning(

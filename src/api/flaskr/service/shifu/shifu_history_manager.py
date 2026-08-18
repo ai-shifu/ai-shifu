@@ -484,7 +484,7 @@ def save_outline_tree_history(
     user_id: str,
     shifu_bid: str,
     outline_tree: List[HistoryItem],
-    shifu_id: int = None,
+    shifu_id: int | None = None,
 ):
     """Save outline tree history
     Args:
