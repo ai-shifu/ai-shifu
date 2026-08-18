@@ -352,10 +352,7 @@ export function BillingOverviewTab({
       const resolvedProvider = result.provider;
       if (resolvedProvider === 'stripe' && result.redirect_url) {
         if (result.checkout_session_id) {
-          rememberStripeCheckoutSession(
-            result.checkout_session_id,
-            result.bill_order_bid,
-          );
+          rememberStripeCheckoutSession(result.checkout_session_id);
         }
         setCheckoutTarget(null);
         setCheckoutAgreed(false);

@@ -673,7 +673,6 @@ describe('GlobalBillingPricing', () => {
     expect(mockCheckoutTopup).not.toHaveBeenCalled();
     expect(mockRememberStripeCheckoutSession).toHaveBeenCalledWith(
       'cs_business',
-      'bill-order-business',
     );
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://stripe.test/business',
@@ -735,10 +734,7 @@ describe('GlobalBillingPricing', () => {
       payment_provider: 'stripe',
       product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.credits3000}`,
     });
-    expect(mockRememberStripeCheckoutSession).toHaveBeenCalledWith(
-      'cs_topup',
-      'bill-order-topup',
-    );
+    expect(mockRememberStripeCheckoutSession).toHaveBeenCalledWith('cs_topup');
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://stripe.test/topup',
     );

@@ -1843,7 +1843,6 @@ describe('BillingOverviewTab', () => {
 
     expect(mockRememberStripeCheckoutSession).toHaveBeenCalledWith(
       'cs_test_123',
-      'order-plan-1',
     );
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://stripe.test/checkout',

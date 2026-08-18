@@ -329,10 +329,7 @@ export function GlobalBillingPricing() {
         }
 
         if (result.checkout_session_id) {
-          rememberStripeCheckoutSession(
-            result.checkout_session_id,
-            result.bill_order_bid,
-          );
+          rememberStripeCheckoutSession(result.checkout_session_id);
         }
         openBillingCheckoutUrl(result.redirect_url);
       } catch (error: any) {

@@ -419,15 +419,12 @@ export const PayModal = ({
 
   const handleStripeCheckout = useCallback(() => {
     if (stripeCheckoutUrl) {
-      if (stripePayload.checkout_session_id && orderId) {
-        rememberStripeCheckoutSession(
-          stripePayload.checkout_session_id,
-          orderId,
-        );
+      if (stripePayload.checkout_session_id) {
+        rememberStripeCheckoutSession(stripePayload.checkout_session_id);
       }
       window.location.href = stripeCheckoutUrl;
     }
-  }, [orderId, stripePayload.checkout_session_id, stripeCheckoutUrl]);
+  }, [stripePayload.checkout_session_id, stripeCheckoutUrl]);
 
   const handleStripeError = useCallback(
     (message: string) => {

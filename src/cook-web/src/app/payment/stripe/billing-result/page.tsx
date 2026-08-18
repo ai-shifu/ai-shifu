@@ -89,7 +89,8 @@ export default function StripeBillingResultPage() {
     if (!sessionId) {
       return '';
     }
-    return consumeStripeCheckoutSession(sessionId) || '';
+    consumeStripeCheckoutSession(sessionId);
+    return '';
   }, [providedBillingOrderBid, sessionId]);
 
   const syncBillingOrder = useCallback(
