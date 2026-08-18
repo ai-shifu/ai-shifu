@@ -747,7 +747,7 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch):
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
-    monkeypatch.setattr(admin_courses_module, "now_utc", lambda: FixedDateTime.now())
+    monkeypatch.setattr(admin_courses_module, "now_utc", FixedDateTime.now)
 
     app = Flask(__name__)
     recent_course = DummyCourse(
@@ -888,7 +888,7 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
-    monkeypatch.setattr(admin_courses_module, "now_utc", lambda: FixedDateTime.now())
+    monkeypatch.setattr(admin_courses_module, "now_utc", FixedDateTime.now)
 
     draft_only_bid = uuid.uuid4().hex[:32]
     published_only_bid = uuid.uuid4().hex[:32]

@@ -272,7 +272,7 @@ class RunAsyncInSafeContextTests(unittest.TestCase):
             return "result"
 
         self.assertEqual(
-            ctx._run_async_in_safe_context(lambda: sample()),
+            ctx._run_async_in_safe_context(sample),
             "result",
         )
 
@@ -284,7 +284,7 @@ class RunAsyncInSafeContextTests(unittest.TestCase):
 
         async def runner():
             self.assertEqual(
-                ctx._run_async_in_safe_context(lambda: sample()),
+                ctx._run_async_in_safe_context(sample),
                 "loop",
             )
 

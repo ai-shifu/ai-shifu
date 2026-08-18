@@ -51,9 +51,9 @@ def test_dify_adapter_streams_success_content(app, monkeypatch):
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
     def _fake_post(*_args, **kwargs):
@@ -107,9 +107,9 @@ def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
     def _raise_timeout(*_args, **_kwargs):
@@ -155,9 +155,9 @@ def test_coze_adapter_http_error_raises_provider_error(app, monkeypatch):
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
     http_error = requests.HTTPError("boom")
@@ -196,9 +196,9 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
     def _fake_post(url, **kwargs):
@@ -259,9 +259,9 @@ def test_coze_workflow_adapter_nonzero_code_raises_provider_error(app, monkeypat
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
     monkeypatch.setattr(
@@ -350,9 +350,9 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
     def _fake_post(url, **kwargs):
@@ -391,9 +391,9 @@ def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch):
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
     request_state = {}
@@ -473,9 +473,9 @@ def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatc
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
     request_state = {}
@@ -676,9 +676,9 @@ def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(app, monkeypa
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
     monkeypatch.setattr(
         get_biji_knowledge_adapter.requests,

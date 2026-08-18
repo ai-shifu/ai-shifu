@@ -524,7 +524,7 @@ class TestStreamingSynthesisRetries:
                 }
             ],
         )
-        mock_concat_audio.side_effect = lambda parts: b"".join(parts)
+        mock_concat_audio.side_effect = b"".join
         mock_get_duration.return_value = 500
         mock_upload.return_value = ("https://example.com/audio.mp3", "bucket")
 
@@ -604,7 +604,7 @@ class TestStreamingSynthesisRetries:
                 ],
             ),
         ]
-        mock_concat_audio.side_effect = lambda parts: b"".join(parts)
+        mock_concat_audio.side_effect = b"".join
         mock_get_duration.return_value = 400
         mock_upload.return_value = ("https://example.com/retry.mp3", "bucket")
 
