@@ -205,7 +205,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
     @app.route(f"{path_prefix}/save-profile-item", methods=["POST"])
     def save_profile_item_api():
         """
-        save profile item
+        Save profile item
         ---
         tags:
           - profiles

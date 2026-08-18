@@ -550,7 +550,7 @@ def test_user_users_lookup_by_email_returns_masked_user_identify(
 def test_user_users_nickname_redacted_and_user_identify_masked_independently(
     mock_request_user, test_client, app
 ):
-    """nickname PII fully redacted; user_identify column partially masked — independent."""
+    """Nickname PII fully redacted; user_identify column partially masked — independent."""
     mock_request_user()
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a")
@@ -1061,7 +1061,7 @@ def test_shifu_meta_aggregate_rejected_at_http_layer(
 def test_shifu_meta_title_like_searches_callers_courses(
     mock_request_user, test_client, app
 ):
-    """title `like` with trailing-% is the canonical "find my course by
+    """Title `like` with trailing-% is the canonical "find my course by
     name" path. Combined with creator_scoped filtering, the caller only
     sees their own matches."""
     mock_request_user(user_id="teacher-1")

@@ -354,7 +354,7 @@ def test_select_user_bid_without_group_by_user_bid_is_rejected() -> None:
 
 
 def test_select_user_bid_with_group_by_other_dimension_is_rejected() -> None:
-    """select user_bid + group_by status — caught by the existing select-in-group-by rule.
+    """Select user_bid + group_by status — caught by the existing select-in-group-by rule.
 
     Documented here for clarity: the user_bid guard piggy-backs on the existing
     rule for the aggregate path, but we still want the surface behavior captured.
@@ -665,7 +665,7 @@ def _generated_blocks_payload(**overrides):
 
 
 def test_learn_generated_blocks_status_filterable() -> None:
-    """status is filterable even though sql_builder auto-injects status=1.
+    """Status is filterable even though sql_builder auto-injects status=1.
     Allowing explicit filtering lets a caller debug `status=0` history rows
     in tests / one-off audits if the auto-injection is ever relaxed."""
     payload = _generated_blocks_payload(
@@ -691,7 +691,7 @@ def test_learn_generated_blocks_outline_item_bid_groupable() -> None:
 
 
 def test_learn_generated_blocks_position_selectable() -> None:
-    """position is needed for the four-key follow-up pairing
+    """Position is needed for the four-key follow-up pairing
     (progress_record_bid + shifu_bid + outline_item_bid + position).
     The conversation-replay path (generated_content in select) exempts
     user_bid from the group-by guard, so list mode is the right test."""
@@ -715,7 +715,7 @@ def test_learn_generated_blocks_position_selectable() -> None:
 
 
 def test_learn_generated_blocks_position_not_groupable() -> None:
-    """position is row-ordering, not a dimension; grouping on it would
+    """Position is row-ordering, not a dimension; grouping on it would
     multiply rows. Reject `group_by=["position"]`."""
     payload = _generated_blocks_payload(
         select=["position"],
@@ -791,7 +791,7 @@ def test_shifu_draft_select_parses() -> None:
 
 
 def test_shifu_meta_aggregate_rejected() -> None:
-    """count / count_distinct on metadata tables would leak permission
+    """Count / count_distinct on metadata tables would leak permission
     edges (e.g. count_distinct(shifu_bid) reveals "how many courses do I
     own that match this filter")."""
     payload = {

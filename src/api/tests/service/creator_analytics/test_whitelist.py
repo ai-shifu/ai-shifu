@@ -172,7 +172,7 @@ def test_bill_usage_is_not_whitelisted() -> None:
 
 
 def test_learn_generated_blocks_exposes_new_followup_fields() -> None:
-    """status / position / outline_item_bid are needed for follow-up pairing
+    """Status / position / outline_item_bid are needed for follow-up pairing
     (per the 2026-05-15 follow-up query handbook PDF §6)."""
     spec = WHITELIST["learn_generated_blocks"]
     for col in ("status", "position", "outline_item_bid"):

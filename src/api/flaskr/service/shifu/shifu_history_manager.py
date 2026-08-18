@@ -67,14 +67,14 @@ class HistoryItem(BaseModel, Generic[T]):
 
     def to_json(self):
         """
-        to json
+        To json
         """
         return self.model_dump_json()
 
     @classmethod
     def from_json(cls, json: str):
         """
-        from json to history item
+        From json to history item
         """
         return cls.model_validate_json(json)
 
