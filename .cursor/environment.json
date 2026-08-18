@@ -1,0 +1,21 @@
+{
+  "name": "AI-Shifu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "api",
+      "command": "bash .cursor/run-api.sh",
+      "description": "Flask backend API (gunicorn) on http://localhost:5800"
+    },
+    {
+      "name": "cook-web",
+      "command": "bash .cursor/run-web.sh",
+      "description": "Next.js Cook Web dev server on http://localhost:3000; proxies /api/* to the backend"
+    }
+  ],
+  "ports": [
+    { "name": "cook-web", "port": 3000 },
+    { "name": "api", "port": 5800 }
+  ]
+}
