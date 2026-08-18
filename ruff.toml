@@ -84,6 +84,7 @@ select = [
     "UP012",  # redundant utf-8 argument to str.encode
     "UP015",  # redundant mode argument to open()
     "UP024",  # deprecated OSError alias
+    "UP032", # str.format that should be an f-string
     "UP034",  # extraneous parentheses
 ]
 ignore = [

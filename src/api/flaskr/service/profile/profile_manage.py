@@ -100,7 +100,7 @@ def convert_variable_definition_to_profile_item_definition(
         _("PROFILE.PROFILE_TYPE_TEXT"),
         "",
         scope,
-        _("PROFILE.PROFILE_SCOPE_{}".format(scope).upper()),
+        _(f"PROFILE.PROFILE_SCOPE_{scope}".upper()),
         definition.variable_bid,
         bool(definition.is_hidden),
     )
@@ -269,7 +269,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
                 _("PROFILE.PROFILE_TYPE_TEXT"),
                 "",
                 legacy_scope,
-                _("PROFILE.PROFILE_SCOPE_{}".format(legacy_scope).upper()),
+                _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
                 legacy_item["profile_id"],
                 False,
             )
@@ -353,7 +353,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
             _("PROFILE.PROFILE_TYPE_TEXT"),
             "",
             legacy_scope,
-            _("PROFILE.PROFILE_SCOPE_{}".format(legacy_scope).upper()),
+            _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
             profile_id,
             False,
         )

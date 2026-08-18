@@ -547,7 +547,7 @@ def _append_subscription_user_count_line(msgs: list[str]) -> None:
         .distinct()
         .count()
     )
-    msgs.append("订阅用户数：{}".format(subscription_user_count))
+    msgs.append(f"订阅用户数：{subscription_user_count}")
 
 
 def _build_billing_paid_feishu_message(
@@ -571,22 +571,22 @@ def _build_billing_paid_feishu_message(
     msgs = [
         "手机号：{}".format(getattr(aggregate, "mobile", "")),
         "昵称：{}".format(getattr(aggregate, "name", "")),
-        "{}：{}".format(product_label, product_name),
-        "实付金额：{}".format(amount_text),
-        "订单来源：{}".format(_resolve_feishu_channel_label(order)),
-        "渠道：{}".format(_resolve_user_conversion_source(order.creator_bid)),
-        "{}-{}-{}".format(order_type_label, product_name, amount_text),
+        f"{product_label}：{product_name}",
+        f"实付金额：{amount_text}",
+        f"订单来源：{_resolve_feishu_channel_label(order)}",
+        f"渠道：{_resolve_user_conversion_source(order.creator_bid)}",
+        f"{order_type_label}-{product_name}-{amount_text}",
     ]
     if product is not None:
-        msgs.append("积分数量：{}".format(_format_credit_amount(product.credit_amount)))
+        msgs.append(f"积分数量：{_format_credit_amount(product.credit_amount)}")
     paid_at_text = format_with_app_timezone(
         app,
         order.paid_at,
         "%Y-%m-%d %H:%M:%S",
     )
     if paid_at_text:
-        msgs.append("支付时间：{}".format(paid_at_text))
-    msgs.append("订单号：{}".format(order.bill_order_bid))
+        msgs.append(f"支付时间：{paid_at_text}")
+    msgs.append(f"订单号：{order.bill_order_bid}")
     _append_subscription_user_count_line(msgs)
     return title, msgs
 

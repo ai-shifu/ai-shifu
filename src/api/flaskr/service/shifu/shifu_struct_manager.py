@@ -99,7 +99,7 @@ def get_shifu_outline_tree(
     app: Flask, shifu_bid: str, is_preview: bool = False
 ) -> ShifuInfoDto:
     with app.app_context():
-        app.logger.info("get_shifu_outline_tree:{}".format(shifu_bid))
+        app.logger.info(f"get_shifu_outline_tree:{shifu_bid}")
         struct: HistoryItem = get_shifu_struct(app, shifu_bid, is_preview)
         if is_preview:
             shifu_model = DraftShifu
