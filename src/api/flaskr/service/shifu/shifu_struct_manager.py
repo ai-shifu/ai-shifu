@@ -147,7 +147,7 @@ def get_shifu_outline_tree(
         def recurse_outline_item(item: HistoryItem) -> ShifuOutlineItemDto:
             if item.type == "outline":
                 outline_item: Union[DraftOutlineItem, PublishedOutlineItem] = (
-                    outline_items_map.get(item.id, None)
+                    outline_items_map.get(item.id)
                 )
                 if not outline_item:
                     app.logger.error(f"outline_item not found: {item.id}")
