@@ -601,7 +601,9 @@
   "globalPricing": {
     "actions": {
       "buyCredits": "Buy now",
+      "checkoutLoading": "Opening checkout...",
       "choosePlan": "Subscribe now",
+      "cycleSwitchDisabled": "Billing cycle changes are unavailable",
       "viewMonthly": "View monthly plan"
     },
     "annualSavings": "Save {amount} per year ({percent}%)",

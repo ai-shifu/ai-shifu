@@ -601,7 +601,9 @@
   "globalPricing": {
     "actions": {
       "buyCredits": "Acheter",
+      "checkoutLoading": "Ouverture du paiement...",
       "choosePlan": "S'abonner",
+      "cycleSwitchDisabled": "Le changement de cycle de facturation n’est pas disponible",
       "viewMonthly": "Voir le forfait mensuel"
     },
     "annualSavings": "Économisez {amount}/an ({percent}%)",

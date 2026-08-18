@@ -496,7 +496,7 @@ describe('GlobalBillingPricing', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
-  test('keeps same-tier annual checkout available and disables lower monthly tiers for an active Growth subscription', async () => {
+  test('disables same-tier annual checkout and lower monthly tiers for an active Growth subscription', async () => {
     const user = userEvent.setup();
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -522,9 +522,9 @@ describe('GlobalBillingPricing', () => {
     expect(
       within(await screen.findByTestId('global-plan-growth')).getByRole(
         'button',
-        { name: 'Subscribe now' },
+        { name: 'module.billing.globalPricing.actions.cycleSwitchDisabled' },
       ),
-    ).toBeEnabled();
+    ).toBeDisabled();
     expect(
       within(screen.getByTestId('global-plan-studio')).getByRole('button', {
         name: 'View monthly plan',
@@ -550,6 +550,51 @@ describe('GlobalBillingPricing', () => {
         name: 'Subscribe now',
       }),
     ).toBeEnabled();
+  });
+
+  test('passes immediate upgrade action for a higher-tier active plan checkout', async () => {
+    const user = userEvent.setup();
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        subscription: {
+          subscription_bid: 'subscription-growth',
+          product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.growthMonthly}`,
+          product_code: GLOBAL_BILLING_PRODUCT_CODES.growthMonthly,
+          status: 'active',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-08-01T00:00:00Z',
+          current_period_end_at: '2026-09-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: '2026-08-01T00:00:00Z',
+          last_failed_at: null,
+        },
+      },
+    });
+    mockCheckoutSubscription.mockResolvedValue({
+      bill_order_bid: 'bill-order-business-upgrade',
+      checkout_session_id: 'cs_business_upgrade',
+      provider: 'stripe',
+      payment_mode: 'subscription',
+      redirect_url: 'https://stripe.test/business-upgrade',
+      status: 'pending',
+    });
+
+    renderPricing();
+
+    const business = await screen.findByTestId('global-plan-business');
+    await act(async () => {
+      await user.click(
+        within(business).getByRole('button', { name: 'Subscribe now' }),
+      );
+    });
+
+    expect(mockCheckoutSubscription).toHaveBeenCalledWith({
+      action: 'upgrade_immediate',
+      payment_provider: 'stripe',
+      product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.businessAnnual}`,
+    });
   });
 
   test('blocks monthly plan purchases for an active annual subscription', async () => {

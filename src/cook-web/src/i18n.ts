@@ -128,14 +128,17 @@ i18n.changeLanguage = (async (...args: Parameters<ChangeLanguage>) => {
   }
   setI18nLoading(true);
   try {
-    return await originalChangeLanguage(...args);
+    const result = await originalChangeLanguage(...args);
+    if (requestedLanguage) {
+      persistPreferredLanguage(normalizeLanguage(requestedLanguage));
+    }
+    return result;
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to change language', error);
     throw error;
   } finally {
     if (requestedLanguage) {
-      persistPreferredLanguage(normalizeLanguage(requestedLanguage));
       clearPendingRequestLanguage(requestedLanguage);
     }
     setI18nLoading(false);

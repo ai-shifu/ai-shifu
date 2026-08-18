@@ -263,6 +263,11 @@ class StripeProvider(PaymentProvider):
         stripe, request_options = self._client_options(app)
         return stripe.checkout.Session.retrieve(session_id, **request_options)
 
+    def expire_checkout_session(self, *, session_id: str, app: Flask) -> Dict[str, Any]:
+        stripe, request_options = self._client_options(app)
+        session = stripe.checkout.Session.expire(session_id, **request_options)
+        return session.to_dict() if hasattr(session, "to_dict") else session
+
     def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> Dict[str, Any]:
         stripe, request_options = self._client_options(app)
         return stripe.PaymentIntent.retrieve(intent_id, **request_options)

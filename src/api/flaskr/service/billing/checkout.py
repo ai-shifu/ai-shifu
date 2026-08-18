@@ -875,6 +875,7 @@ def _reopen_existing_billing_order_checkout(
         stored_checkout_result = _build_stored_stripe_checkout_result(app, order)
         if stored_checkout_result is not None:
             return stored_checkout_result
+        _reconcile_stored_stripe_checkout_before_replacement(app, order)
 
     order.channel = requested_channel or _normalize_bid(order.channel) or "alipay_qr"
     return _create_provider_checkout(
@@ -927,6 +928,78 @@ def _build_stored_stripe_checkout_result(
     response["redirect_url"] = redirect_url
     response["checkout_session_id"] = checkout_session_id
     return BillingCheckoutResultDTO(**response)
+
+
+def _as_plain_dict(payload: Any) -> dict[str, Any]:
+    if isinstance(payload, dict):
+        return payload
+    if hasattr(payload, "to_dict"):
+        return payload.to_dict()
+    return {}
+
+
+def _reconcile_stored_stripe_checkout_before_replacement(
+    app: Flask,
+    order: BillingOrder,
+) -> None:
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    checkout_payload = (
+        metadata.get("checkout", {})
+        if isinstance(metadata.get("checkout"), dict)
+        else {}
+    )
+    checkout_session_id = (
+        _normalize_bid(checkout_payload.get("id"))
+        or _normalize_bid(order.provider_reference_id)
+        or ""
+    )
+    if not checkout_session_id:
+        return
+
+    provider = get_payment_provider("stripe")
+    try:
+        session = _as_plain_dict(
+            provider.retrieve_checkout_session(
+                session_id=checkout_session_id,
+                app=app,
+            )
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "Failed to retrieve Stripe checkout session %s before billing order %s replacement: %s",
+            checkout_session_id,
+            order.bill_order_bid,
+            exc,
+        )
+        raise_error("server.order.orderStatusError")
+
+    session_status = str(session.get("status") or "").strip().lower()
+    payment_status = str(session.get("payment_status") or "").strip().lower()
+    if session_status in {"complete", "expired"} or payment_status == "paid":
+        return
+    if session_status != "open":
+        app.logger.warning(
+            "Refusing to replace billing order %s checkout because Stripe session %s has unsafe status %s/%s",
+            order.bill_order_bid,
+            checkout_session_id,
+            session_status,
+            payment_status,
+        )
+        raise_error("server.order.orderStatusError")
+
+    try:
+        provider.expire_checkout_session(
+            session_id=checkout_session_id,
+            app=app,
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "Failed to expire Stripe checkout session %s before billing order %s replacement: %s",
+            checkout_session_id,
+            order.bill_order_bid,
+            exc,
+        )
+        raise_error("server.order.orderStatusError")
 
 
 def _stored_stripe_checkout_urls_match_current_origin(

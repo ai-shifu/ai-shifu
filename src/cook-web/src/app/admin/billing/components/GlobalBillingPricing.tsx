@@ -30,6 +30,7 @@ import type {
   BillingCheckoutResult,
   BillingPlan,
   BillingSubscription,
+  BillingSubscriptionCheckoutAction,
   BillingTopupProduct,
 } from '@/types/billing';
 
@@ -281,11 +282,13 @@ export function GlobalBillingPricing() {
       planName,
       billingInterval,
       sourceTab,
+      checkoutAction,
     }: {
       product: GlobalBillingProduct;
       planName: string;
       billingInterval: 'month' | 'year' | 'one_time';
       sourceTab: PricingTab;
+      checkoutAction?: BillingSubscriptionCheckoutAction;
     }) => {
       const loadingKey = buildCheckoutLoadingKey(product);
       setCheckoutLoadingKey(loadingKey);
@@ -293,6 +296,7 @@ export function GlobalBillingPricing() {
         let result: BillingCheckoutResult;
         if (product.product_type === 'plan') {
           result = (await api.checkoutBillingSubscription({
+            ...(checkoutAction ? { action: checkoutAction } : {}),
             payment_provider: STRIPE_PAYMENT_PROVIDER,
             product_bid: product.product_bid,
           })) as BillingCheckoutResult;
@@ -610,6 +614,7 @@ function PlanCard({
     planName: string;
     billingInterval: 'month' | 'year' | 'one_time';
     sourceTab: PricingTab;
+    checkoutAction?: BillingSubscriptionCheckoutAction;
   }) => void;
 }) {
   const { t } = useGlobalBillingTranslation();
@@ -630,13 +635,38 @@ function PlanCard({
     cycle === 'monthly' &&
     activeSubscriptionProduct?.billing_interval === 'year' &&
     !isCurrentPlan;
+  const sameTierCycleSwitchUnsupported =
+    cycle === 'annual' &&
+    activeSubscriptionProduct?.billing_interval === 'month' &&
+    currentTierRank >= 0 &&
+    targetTierRank >= 0 &&
+    targetTierRank === currentTierRank &&
+    !isCurrentPlan;
   const downgradeUnsupported =
     !isCurrentPlan &&
     !monthlyOnly &&
     !annualSubscriptionSwitchToMonthlyUnsupported &&
+    !sameTierCycleSwitchUnsupported &&
     currentTierRank >= 0 &&
     targetTierRank >= 0 &&
     targetTierRank < currentTierRank;
+  const supportedImmediateUpgrade =
+    !activeSubscription ||
+    (currentTierRank >= 0 &&
+      targetTierRank >= 0 &&
+      targetTierRank > currentTierRank);
+  const unsupportedActivePlanTransition =
+    Boolean(activeSubscription) &&
+    !isCurrentPlan &&
+    !monthlyOnly &&
+    !annualSubscriptionSwitchToMonthlyUnsupported &&
+    !sameTierCycleSwitchUnsupported &&
+    !downgradeUnsupported &&
+    !supportedImmediateUpgrade;
+  const checkoutAction: BillingSubscriptionCheckoutAction | undefined =
+    activeSubscription && supportedImmediateUpgrade
+      ? 'upgrade_immediate'
+      : undefined;
   const planName = t(
     `module.billing.globalPricing.plans.${tierSpec.tier}.name`,
   );
@@ -782,7 +812,23 @@ function PlanCard({
               ? t('module.billing.package.actions.downgradeDisabled')
               : t('module.billing.package.actions.monthlySwitchDisabled')}
           </Button>
+        ) : sameTierCycleSwitchUnsupported ? (
+          <Button
+            variant='secondary'
+            className='min-h-11 w-full border border-slate-200 bg-slate-50 text-slate-500 opacity-100 hover:bg-slate-50 hover:text-slate-500'
+            disabled
+          >
+            {t('module.billing.globalPricing.actions.cycleSwitchDisabled')}
+          </Button>
         ) : downgradeUnsupported ? (
+          <Button
+            variant='secondary'
+            className='min-h-11 w-full border border-slate-200 bg-slate-50 text-slate-500 opacity-100 hover:bg-slate-50 hover:text-slate-500'
+            disabled
+          >
+            {t('module.billing.package.actions.downgradeDisabled')}
+          </Button>
+        ) : unsupportedActivePlanTransition ? (
           <Button
             variant='secondary'
             className='min-h-11 w-full border border-slate-200 bg-slate-50 text-slate-500 opacity-100 hover:bg-slate-50 hover:text-slate-500'
@@ -810,11 +856,12 @@ function PlanCard({
                 billingInterval:
                   product.billing_interval === 'year' ? 'year' : 'month',
                 sourceTab: 'plans',
+                checkoutAction,
               })
             }
           >
             {isCurrentCheckout
-              ? '...'
+              ? t('module.billing.globalPricing.actions.checkoutLoading')
               : t('module.billing.globalPricing.actions.choosePlan')}
           </Button>
         )}

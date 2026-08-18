@@ -282,9 +282,13 @@ class TestBillingWriteRoutesTopup:
         second_sync = client.post(
             f"/api/billing/orders/{second_order_bid}/sync"
         ).get_json(force=True)
+        replay_first_sync = client.post(
+            f"/api/billing/orders/{first_order_bid}/sync"
+        ).get_json(force=True)
 
         assert first_sync["code"] == 0
         assert second_sync["code"] == 0
+        assert replay_first_sync["code"] == 0
 
         with app.app_context():
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()

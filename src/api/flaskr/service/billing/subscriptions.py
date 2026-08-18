@@ -976,7 +976,9 @@ def _repair_existing_paid_order_grant_bucket(
         if bucket.effective_to != effective_to:
             bucket.effective_to = effective_to
             changed = True
-    if bucket.source_bid != order.bill_order_bid:
+    if bucket.source_bid != order.bill_order_bid and (
+        not is_topup_bucket or not bucket_source_bid
+    ):
         bucket.source_bid = order.bill_order_bid
         changed = True
 

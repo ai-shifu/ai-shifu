@@ -601,7 +601,9 @@
   "globalPricing": {
     "actions": {
       "buyCredits": "立即购买",
+      "checkoutLoading": "正在跳转支付...",
       "choosePlan": "立即订阅",
+      "cycleSwitchDisabled": "暂不支持切换付费周期",
       "viewMonthly": "查看月付套餐"
     },
     "annualSavings": "每年节省 {amount}（{percent}%）",
