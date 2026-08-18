@@ -4,7 +4,7 @@
 import base64
 import hmac
 import json
-from hashlib import sha256 as sha256
+from hashlib import sha256
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 

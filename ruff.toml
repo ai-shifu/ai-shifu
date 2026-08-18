@@ -85,6 +85,7 @@ select = [
     "PIE810",  # multiple startswith/endswith calls on one value
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
+    "PLC0414", # import alias that repeats the name
     "PLR1711", # useless return at the end of a function
     "PLR1714", # repeated equality comparison
     "PLR1730", # if-statement that should be min()/max()
