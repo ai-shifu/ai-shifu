@@ -35,7 +35,8 @@
   "complete": "Confirm and save",
   "completeCompact": "Save",
   "dialog": {
-    "autoOptimizing": "Organizing your personal introduction…",
+    "autoOptimizing": "Organizing and improving your introduction…",
+    "autoOptimizingHint": "This takes a moment. You can review and edit it before saving.",
     "cancel": "Cancel",
     "cancelResearch": "Cancel collection",
     "close": "Close",
@@ -64,8 +65,10 @@
     "nicknamePlaceholder": "For example: Alex",
     "onboardingTitle": "Help your AI teacher understand you",
     "optimize": "Improve with AI",
+    "optimizeEmptyHint": "Write a few lines, then let AI help improve them.",
     "optimizeEmptyResponse": "The AI returned no optimized content. Please try again.",
     "optimizeFailed": "Could not improve this right now. You can still save it as written.",
+    "optimizeHint": "AI adds useful detail and organizes the wording without changing your meaning or inventing facts.",
     "optimizeInvalidResponse": "The AI returned an invalid response format. Please try again.",
     "optimizeSuccess": "Improved. You can keep editing.",
     "optimizing": "Improving…",
@@ -83,8 +86,10 @@
     "saving": "Saving…",
     "settingsDescription": "Share your background, goals, and language preferences so your AI teacher can connect course content more closely to your situation.",
     "settingsTitle": "Introduce yourself to your AI teacher",
+    "undoOptimize": "Undo",
     "unifiedDescription": "Help your AI teacher understand your background and preferences so lessons fit you better.",
-    "unifiedTitle": "Personalization settings"
+    "unifiedTitle": "Personalization settings",
+    "useResearchDraft": "Use original draft"
   },
   "guided": {
     "description": "About 1 minute.",

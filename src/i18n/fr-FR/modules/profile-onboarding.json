@@ -35,7 +35,8 @@
   "complete": "Confirmer et enregistrer",
   "completeCompact": "Enregistrer",
   "dialog": {
-    "autoOptimizing": "Organisation de votre présentation personnelle…",
+    "autoOptimizing": "Organisation et amélioration de votre présentation…",
+    "autoOptimizingHint": "Patientez un instant. Vous pourrez vérifier et modifier le texte avant de l’enregistrer.",
     "cancel": "Annuler",
     "cancelResearch": "Annuler la collecte",
     "close": "Fermer",
@@ -64,8 +65,10 @@
     "nicknamePlaceholder": "Par exemple : Camille",
     "onboardingTitle": "Aidez votre enseignant IA à mieux vous connaître",
     "optimize": "Améliorer avec l’IA",
+    "optimizeEmptyHint": "Écrivez quelques lignes, puis laissez l’IA vous aider à les améliorer.",
     "optimizeEmptyResponse": "L’IA n’a renvoyé aucun contenu optimisé. Réessayez.",
     "optimizeFailed": "Impossible d’améliorer ce texte pour le moment. Vous pouvez toujours l’enregistrer tel quel.",
+    "optimizeHint": "L’IA ajoute des détails utiles et organise la formulation sans changer votre intention ni inventer de faits.",
     "optimizeInvalidResponse": "L’IA a renvoyé un format de réponse incorrect. Réessayez.",
     "optimizeSuccess": "Texte amélioré. Vous pouvez continuer à le modifier.",
     "optimizing": "Amélioration…",
@@ -83,8 +86,10 @@
     "saving": "Enregistrement…",
     "settingsDescription": "Présentez votre parcours, vos objectifs et vos préférences de langage afin que votre enseignant IA rapproche davantage le contenu du cours de votre situation.",
     "settingsTitle": "Présentez-vous à votre enseignant IA",
+    "undoOptimize": "Annuler",
     "unifiedDescription": "Aidez votre enseignant IA à comprendre votre parcours et vos préférences afin d’adapter le cours à vos besoins.",
-    "unifiedTitle": "Paramètres de personnalisation"
+    "unifiedTitle": "Paramètres de personnalisation",
+    "useResearchDraft": "Utiliser la première version"
   },
   "guided": {
     "description": "Environ 1 minute.",

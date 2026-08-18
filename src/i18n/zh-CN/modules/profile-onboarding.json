@@ -35,7 +35,8 @@
   "complete": "确认并保存",
   "completeCompact": "保存",
   "dialog": {
-    "autoOptimizing": "正在整理你的个人介绍……",
+    "autoOptimizing": "正在整理并优化你的个人介绍……",
+    "autoOptimizingHint": "请稍候，整理完成后仍可修改再保存。",
     "cancel": "取消",
     "cancelResearch": "取消收集",
     "close": "关闭",
@@ -64,8 +65,10 @@
     "nicknamePlaceholder": "例如：小林",
     "onboardingTitle": "让 AI 老师更懂你",
     "optimize": "帮我优化",
+    "optimizeEmptyHint": "先写几句，就可以让 AI 帮你优化。",
     "optimizeEmptyResponse": "AI 没有返回优化后的内容，请重试。",
     "optimizeFailed": "暂时无法优化，你仍可以直接保存。",
+    "optimizeHint": "AI 会补充有用细节、整理表达，不改变原意或新增事实。",
     "optimizeInvalidResponse": "AI 返回的结果格式不正确，请重试。",
     "optimizeSuccess": "已优化，可继续修改。",
     "optimizing": "正在优化…",
@@ -83,8 +86,10 @@
     "saving": "正在保存…",
     "settingsDescription": "写下你的背景、目标和表达偏好，让 AI 老师在课程中更贴近你的情况。",
     "settingsTitle": "向 AI 老师介绍你自己",
+    "undoOptimize": "撤销",
     "unifiedDescription": "让 AI 老师了解你的背景和偏好，以更适合你的方式讲课。",
-    "unifiedTitle": "个性化设置"
+    "unifiedTitle": "个性化设置",
+    "useResearchDraft": "直接使用初稿"
   },
   "guided": {
     "description": "约 1 分钟。",
