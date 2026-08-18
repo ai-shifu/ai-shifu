@@ -3811,4 +3811,3 @@ class RunScriptContextV2:
         with app.app_context():
             yield from self.run(app)
             db.session.commit()
-        return
