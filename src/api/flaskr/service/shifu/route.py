@@ -289,10 +289,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     def _get_login_methods_enabled() -> set[str]:
         """Resolve enabled login methods from configuration."""
         raw = get_config("LOGIN_METHODS_ENABLED", "phone")
-        if isinstance(raw, (list, tuple, set)):
-            items = raw
-        else:
-            items = str(raw).split(",")
+        items = raw if isinstance(raw, (list, tuple, set)) else str(raw).split(",")
         methods = {str(item).strip().lower() for item in items if str(item).strip()}
         if "google" in methods:
             methods.add("email")

@@ -281,10 +281,7 @@ USER_STATE_TO_OPERATOR_STATUS = {
 def _format_decimal(value: Optional[Decimal]) -> str:
     if value is None:
         return "0"
-    if isinstance(value, str):
-        normalized = value
-    else:
-        normalized = f"{value:.2f}"
+    normalized = value if isinstance(value, str) else f"{value:.2f}"
     if normalized.endswith(".00"):
         return normalized[:-3]
     return normalized

@@ -305,10 +305,7 @@ def get_outline_item_tree(
                 .order_by(Order.id.desc())
                 .first()
             )
-            if not buy_record:
-                is_paid = False
-            else:
-                is_paid = True
+            is_paid = bool(buy_record)
         struct = (
             struct_model.query.filter(
                 struct_model.shifu_bid == shifu_bid, struct_model.deleted == 0

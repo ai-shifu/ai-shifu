@@ -90,10 +90,7 @@ def get_field_schema(typ, description: str = ""):
         elif typ is float:
             field_schema["type"] = "number"
     elif origin in (typing.Union, getattr(__import__("types"), "UnionType", ())):
-        if hasattr(typ, "__args__"):
-            union_types = typ.__args__
-        else:
-            union_types = args
+        union_types = typ.__args__ if hasattr(typ, "__args__") else args
 
         non_none_types = [t for t in union_types if t is not type(None)]
 

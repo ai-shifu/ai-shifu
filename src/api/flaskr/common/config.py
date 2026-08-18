@@ -1938,10 +1938,7 @@ class EnhancedConfig:
             if env_var.group not in groups:
                 groups[env_var.group] = []
             value = self.get(var_name)
-            if env_var.secret and value:
-                display_value = "[REDACTED]"
-            else:
-                display_value = str(value)
+            display_value = "[REDACTED]" if env_var.secret and value else str(value)
             groups[env_var.group].append(f"  {var_name}: {display_value}")
         for group, items in sorted(groups.items()):
             print(f"\n[{group.upper()}]")
