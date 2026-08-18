@@ -56,6 +56,7 @@ select = [
     "C420",   # dict.fromkeys instead of a constant-value comprehension
     "D202",   # blank line after a function docstring
     "FURB136", # if-expression that should be min()/max()
+    "FURB188", # manual prefix/suffix stripping
     "PIE790", # unnecessary pass / ... placeholder
     "PIE804", # unnecessary dict kwargs
     "PIE807", # lambda that reimplements a container builtin

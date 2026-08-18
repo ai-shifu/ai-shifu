@@ -1300,8 +1300,7 @@ def _missing_template_params(
 
 def _is_valid_sms_mobile(mobile: str) -> bool:
     normalized = str(mobile or "").strip()
-    if normalized.startswith("+"):
-        normalized = normalized[1:]
+    normalized = normalized.removeprefix("+")
     return normalized.isdigit() and 5 <= len(normalized) <= 20
 
 

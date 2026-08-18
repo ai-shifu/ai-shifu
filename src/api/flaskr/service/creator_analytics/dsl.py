@@ -649,7 +649,7 @@ def _enforce_shifu_meta_table_constraints(
                     "'title' 'like' only supports an optional trailing '%' "
                     "wildcard (no '_' / no internal '%')",
                 )
-            non_wildcard = value[:-1] if value.endswith("%") else value
+            non_wildcard = value.removesuffix("%")
             if len(non_wildcard) < _LIKE_MIN_NON_WILDCARD_CHARS:
                 _raise(
                     ERR_INVALID_DSL,
