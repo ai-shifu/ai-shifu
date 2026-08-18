@@ -105,11 +105,28 @@ jobs:
                       return "tests"
                   directory = directory.parent
 
-          def is_shared_test_support(path: str) -> bool:
-              # tests/conftest.py and everything under tests/common is imported
-              # from every test package, so narrowing to one package would hide
-              # breakage elsewhere.
-              return path == "tests/conftest.py" or path.startswith("tests/common/")
+          def module_name(path: str) -> str:
+              parts = list(pathlib.PurePath(path).with_suffix("").parts)
+              if parts[-1] == "__init__":
+                  parts.pop()
+              return ".".join(parts)
+
+          def imported_outside(path: str, package: str) -> bool:
+              # Test packages import each other's helpers by dotted path, so a
+              # helper used from another package needs the whole suite.
+              needle = module_name(path)
+              if not needle:
+                  return True
+              inside = f"{package}/"
+              for module in (api_root / "tests").rglob("*.py"):
+                  relative = module.relative_to(api_root).as_posix()
+                  if relative.startswith(inside):
+                      continue
+                  if not is_test_module(relative) and module.name != "conftest.py":
+                      continue
+                  if needle in module.read_text(encoding="utf-8"):
+                      return True
+              return False
 
           def add_target(path: str) -> None:
               global full_run
@@ -117,13 +134,14 @@ jobs:
               if not (api_root / candidate).exists():
                   return
               if (api_root / candidate).is_file() and not is_test_module(candidate):
-                  if is_shared_test_support(candidate):
+                  # Helpers, fixtures and conftest files hold no tests of their
+                  # own, so run the nearest enclosing package that does instead
+                  # of collecting nothing and failing with pytest exit code 5.
+                  package = enclosing_test_dir(candidate)
+                  if candidate.endswith(".py") and imported_outside(candidate, package):
                       full_run = True
                       return
-                  # Helpers and fixtures hold no tests of their own, so run the
-                  # nearest enclosing package that does instead of collecting
-                  # nothing and failing with pytest exit code 5.
-                  candidate = enclosing_test_dir(candidate)
+                  candidate = package
               targets.add(candidate)
 
           def is_control_plane_backend_path(path: str) -> bool:
