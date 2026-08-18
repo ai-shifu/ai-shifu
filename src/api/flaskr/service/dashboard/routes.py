@@ -151,5 +151,3 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
                 timezone_name=_get_timezone_name(),
             )
         )
-
-    return

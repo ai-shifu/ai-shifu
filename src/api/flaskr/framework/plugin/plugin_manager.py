@@ -148,6 +148,5 @@ def extensible_generic(func):
             )
             if result:
                 yield from result
-        return
 
     return wrapper
