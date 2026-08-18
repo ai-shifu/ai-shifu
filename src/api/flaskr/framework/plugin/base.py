@@ -24,8 +24,6 @@ class BasePlugin:
 
     def on_unload(self):
         """插件卸载时调用"""
-        pass
 
     def on_reload(self):
         """插件重载时调用"""
-        pass

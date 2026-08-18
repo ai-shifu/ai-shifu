@@ -321,6 +321,5 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         """
         Get profile item
         """
-        pass
 
     return app
