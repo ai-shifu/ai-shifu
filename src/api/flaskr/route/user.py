@@ -584,6 +584,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
            - user
 
         parameters
+        ----------
           - in: body
             required: true
             schema:
