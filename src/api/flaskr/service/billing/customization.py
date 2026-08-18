@@ -912,7 +912,7 @@ def _probe_stripe_credentials(
         if api_version:
             request_options["stripe_version"] = api_version
         stripe.Account.retrieve(**request_options)
-    except Exception as exc:  # noqa: BLE001 - surface provider probe failure
+    except Exception as exc:
         raise ValueError("Stripe credentials could not be verified") from exc
 
 

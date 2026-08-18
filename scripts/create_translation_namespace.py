@@ -54,7 +54,7 @@ def ensure_namespace_files(namespace: str, keys: List[str] | None, force: bool) 
 
     payload = {"__flat__": {}}
     if keys:
-        payload["__flat__"].update({key: "" for key in keys})
+        payload["__flat__"].update(dict.fromkeys(keys, ""))
 
     for locale_dir in locale_dirs:
         target_path = (locale_dir / relative_path).with_suffix(".json")
@@ -74,7 +74,7 @@ def update_locales_metadata(namespace: str) -> None:
     if LOCALES_FILE.exists():
         try:
             data = json.loads(LOCALES_FILE.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:  # noqa: BLE001
+        except json.JSONDecodeError as exc:
             raise RuntimeError(f"Invalid JSON in {LOCALES_FILE}: {exc}") from exc
 
     namespaces = set(data.get("namespaces", []))

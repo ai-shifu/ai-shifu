@@ -242,15 +242,14 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         if buy_record.shifu_bid and _should_bind_usage_course(coupon, coupon_usage):
             coupon_usage.shifu_bid = buy_record.shifu_bid
         if coupon.discount_type == COUPON_TYPE_FIXED:
-            buy_record.paid_price = (
-                decimal.Decimal(buy_record.paid_price)
-                - decimal.Decimal(coupon_usage.value)  # noqa W503
-            )
+            buy_record.paid_price = decimal.Decimal(
+                buy_record.paid_price
+            ) - decimal.Decimal(coupon_usage.value)
         elif coupon.discount_type == COUPON_TYPE_PERCENT:
-            buy_record.paid_price = (
-                decimal.Decimal(buy_record.paid_price)
-                - decimal.Decimal(buy_record.payable_price)
-                * decimal.Decimal(coupon_usage.value)  # noqa W503
+            buy_record.paid_price = decimal.Decimal(
+                buy_record.paid_price
+            ) - decimal.Decimal(buy_record.payable_price) * decimal.Decimal(
+                coupon_usage.value
             )
         if decimal.Decimal(buy_record.paid_price) < 0:
             buy_record.paid_price = decimal.Decimal(0)

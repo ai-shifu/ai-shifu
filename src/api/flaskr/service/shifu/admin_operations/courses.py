@@ -6,7 +6,7 @@ monkeypatch targets keep working.
 Shim retained for one release cycle per backend-overhaul-master.md B5.
 """
 
-# ruff: noqa: F401, E402
+# ruff: noqa: F401
 
 from __future__ import annotations
 

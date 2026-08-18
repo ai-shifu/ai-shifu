@@ -29,7 +29,7 @@ def iter_locale_dirs() -> Iterable[Path]:
 def load_json(path: Path) -> Dict:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise TranslationError(f"Failed to parse JSON: {path} ({exc})") from exc
 
 
@@ -144,12 +144,10 @@ def validate_locale_files(locale_dirs: Iterable[Path]):
                 loc_placeholders = extract_placeholders(locale_map[key])
                 if ref_placeholders != loc_placeholders:
                     problems.append(
-                        (
-                            "ICU placeholder mismatch for key '"
-                            f"{namespace}.{key.split('.', 1)[-1]}"  # human-friendly
-                            f"' between '{reference_locale}' ({sorted(ref_placeholders)})"
-                            f" and '{locale}' ({sorted(loc_placeholders)})"
-                        )
+                        "ICU placeholder mismatch for key '"
+                        f"{namespace}.{key.split('.', 1)[-1]}"  # human-friendly
+                        f"' between '{reference_locale}' ({sorted(ref_placeholders)})"
+                        f" and '{locale}' ({sorted(loc_placeholders)})"
                     )
 
     if problems:

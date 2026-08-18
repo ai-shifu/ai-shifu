@@ -1870,7 +1870,7 @@ class RunScriptContextV2:
                 except Exception as exc:
                     produce_exc = exc
                     result_queue.put(("error", exc))
-                except BaseException as exc:  # noqa: BLE001 - GreenletExit etc.
+                except BaseException as exc:
                     produce_exc = exc
                     raise
                 finally:

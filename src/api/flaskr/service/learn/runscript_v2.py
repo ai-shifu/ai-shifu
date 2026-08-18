@@ -543,7 +543,7 @@ def _to_sse_chunk(payload: object) -> str:
     return (
         "data: "
         + json.dumps(payload, default=fmt, ensure_ascii=False)
-        + "\n\n".encode("utf-8").decode("utf-8")
+        + b"\n\n".decode("utf-8")
     )
 
 
@@ -816,7 +816,7 @@ def run_script(
                         )
                     else:
                         output_queue.put(("error", exc))
-                except BaseException as exc:  # noqa: BLE001 - GreenletExit etc.
+                except BaseException as exc:
                     producer_exc = exc
                     raise
                 finally:
@@ -936,7 +936,7 @@ def run_script(
                         yield (
                             "data: "
                             + json.dumps(payload, default=fmt, ensure_ascii=False)
-                            + "\n\n".encode("utf-8").decode("utf-8")
+                            + b"\n\n".decode("utf-8")
                         )
                         if isinstance(payload_type, str):
                             last_stream_type = payload_type

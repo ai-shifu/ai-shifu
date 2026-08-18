@@ -51,5 +51,5 @@ export const resolveCourseLearningMode = ({
     return 'read';
   }
 
-  return courseTtsEnabled === true ? 'listen' : 'read';
+  return 'read';
 };

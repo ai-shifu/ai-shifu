@@ -4,11 +4,11 @@ from .yidun import yidun_check
 from .dto import (
     CheckResultDTO,
     CHECK_RESULT_UNKNOWN,
-    CHECK_RESULT_PASS,  # noqa
-    CHECK_RESULT_REJECT,  # noqa
-    CHECK_RESULT_REVIEW,  # noqa
-    CHECK_RESULT_UNCONF,  # noqa
-)  # noqa
+    CHECK_RESULT_PASS,
+    CHECK_RESULT_REJECT,
+    CHECK_RESULT_REVIEW,
+    CHECK_RESULT_UNCONF,
+)
 
 __all__ = [
     "CHECK_RESULT_PASS",

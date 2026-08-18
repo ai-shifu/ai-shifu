@@ -793,7 +793,7 @@ def import_activation_orders(
             results["failed"].append(
                 {"mobile": normalized_mobile, "message": exc.message}
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.exception(
@@ -843,7 +843,7 @@ def import_activation_orders_from_entries(
             results["failed"].append(
                 {"mobile": normalized_mobile, "message": exc.message}
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.exception(
