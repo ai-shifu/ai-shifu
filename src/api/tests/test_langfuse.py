@@ -18,18 +18,18 @@ TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 class CoerceTraceIdTests(unittest.TestCase):
     def test_passes_through_valid_w3c_trace_id(self):
         valid = "0123456789abcdef0123456789abcdef"
-        self.assertEqual(coerce_langfuse_trace_id(valid), valid)
+        assert coerce_langfuse_trace_id(valid) == valid
 
     def test_maps_arbitrary_ids_deterministically(self):
         first = coerce_langfuse_trace_id("my-request-id")
         second = coerce_langfuse_trace_id("my-request-id")
-        self.assertEqual(first, second)
-        self.assertRegex(first, TRACE_ID_RE)
-        self.assertNotEqual(first, coerce_langfuse_trace_id("other-request-id"))
+        assert first == second
+        assert re.search(TRACE_ID_RE, first)
+        assert first != coerce_langfuse_trace_id("other-request-id")
 
     def test_generates_random_id_when_seed_missing(self):
         generated = coerce_langfuse_trace_id(None)
-        self.assertRegex(generated, TRACE_ID_RE)
+        assert re.search(TRACE_ID_RE, generated)
 
 
 class RequestTraceIdTests(unittest.TestCase):
@@ -43,9 +43,8 @@ class RequestTraceIdTests(unittest.TestCase):
         thread_local.request_id = "thread-local-request-id"
 
         with app.test_request_context(headers={"X-Request-ID": "header-request-id"}):
-            self.assertEqual(
-                get_request_trace_id(),
-                coerce_langfuse_trace_id("thread-local-request-id"),
+            assert get_request_trace_id() == coerce_langfuse_trace_id(
+                "thread-local-request-id"
             )
 
     def test_falls_back_to_request_header(self):
@@ -57,9 +56,8 @@ class RequestTraceIdTests(unittest.TestCase):
         original_request = get_request_trace_id.__globals__["request"]
         get_request_trace_id.__globals__["request"] = fake_request
         try:
-            self.assertEqual(
-                get_request_trace_id(),
-                coerce_langfuse_trace_id("header-request-id"),
+            assert get_request_trace_id() == coerce_langfuse_trace_id(
+                "header-request-id"
             )
         finally:
             get_request_trace_id.__globals__["request"] = original_request
@@ -68,7 +66,7 @@ class RequestTraceIdTests(unittest.TestCase):
         fake_uuid = types.SimpleNamespace(hex="0123456789abcdef0123456789abcdef")
 
         with patch("flaskr.api.langfuse.uuid.uuid4", return_value=fake_uuid):
-            self.assertEqual(get_request_trace_id(), fake_uuid.hex)
+            assert get_request_trace_id() == fake_uuid.hex
 
 
 class ResolveLangfuseTraceIdTests(unittest.TestCase):
@@ -79,14 +77,14 @@ class ResolveLangfuseTraceIdTests(unittest.TestCase):
 
     def test_prefers_explicit_string_trace_id(self):
         observation = types.SimpleNamespace(trace_id="observation-trace-id")
-        self.assertEqual(
-            resolve_langfuse_trace_id(observation, "explicit-trace-id"),
-            "explicit-trace-id",
+        assert (
+            resolve_langfuse_trace_id(observation, "explicit-trace-id")
+            == "explicit-trace-id"
         )
 
     def test_falls_back_to_observation_string_trace_id(self):
         observation = types.SimpleNamespace(trace_id="observation-trace-id")
-        self.assertEqual(resolve_langfuse_trace_id(observation), "observation-trace-id")
+        assert resolve_langfuse_trace_id(observation) == "observation-trace-id"
 
     def test_ignores_non_string_trace_id_from_mock_client(self):
         # When Langfuse is disabled, observations are MockClient instances whose
@@ -94,16 +92,14 @@ class ResolveLangfuseTraceIdTests(unittest.TestCase):
         # ``trace_id``. That object must never be used as the trace id.
         thread_local.request_id = "request-trace-id"
 
-        self.assertEqual(
-            resolve_langfuse_trace_id(MockClient()),
-            coerce_langfuse_trace_id("request-trace-id"),
+        assert resolve_langfuse_trace_id(MockClient()) == coerce_langfuse_trace_id(
+            "request-trace-id"
         )
 
     def test_ignores_empty_string_trace_ids(self):
         thread_local.request_id = "request-trace-id"
         observation = types.SimpleNamespace(trace_id="")
 
-        self.assertEqual(
-            resolve_langfuse_trace_id(observation, ""),
-            coerce_langfuse_trace_id("request-trace-id"),
+        assert resolve_langfuse_trace_id(observation, "") == coerce_langfuse_trace_id(
+            "request-trace-id"
         )

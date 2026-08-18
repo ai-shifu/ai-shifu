@@ -98,6 +98,7 @@ select = [
     "PLW3",    # nested min/max calls
     "PT001",   # pytest.fixture with empty parentheses
     "PT006",   # wrong type for parametrize argument names
+    "PT009",   # unittest-style assertion that should be a plain assert
     "PT018",   # composite assertion
     "PT02",    # fixture yielding without teardown, unittest-style assertRaises
     "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
