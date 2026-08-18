@@ -181,14 +181,14 @@ def migrate_user_study_record(
 
     db.session.execute(
         text(
-            "update learn_progress_records set user_bid = '%s' where id in (%s)"
-            % (to_user_id, ",".join(str(attend.id) for attend in migrate_attends))
+            "update learn_progress_records set user_bid = '{}' where id in ({})".format(
+                to_user_id, ",".join(str(attend.id) for attend in migrate_attends)
+            )
         )
     )
     db.session.execute(
         text(
-            "update learn_generated_blocks set user_bid = '%s' where progress_record_bid in (%s)"
-            % (
+            "update learn_generated_blocks set user_bid = '{}' where progress_record_bid in ({})".format(
                 to_user_id,
                 ",".join(
                     "'" + str(attend.progress_record_bid) + "'"
