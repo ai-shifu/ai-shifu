@@ -119,10 +119,7 @@ def extensible(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         result = func(*args, **kwargs)
-        result = plugin_manager.execute_extensions(
-            func.__name__, result, *args, **kwargs
-        )
-        return result
+        return plugin_manager.execute_extensions(func.__name__, result, *args, **kwargs)
 
     return wrapper
 

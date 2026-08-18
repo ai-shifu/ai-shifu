@@ -60,6 +60,16 @@
 #   flasgger publishes as the API description.
 # - S101: the pytest suites assert by design, so the rule cannot be enforced
 #   repo-wide without per-directory carve-outs.
+# - RET503: the functions it flags end in `raise_error()` / `raise_param_error()`,
+#   which always raise. Ruff does not follow `NoReturn` across modules, so its
+#   fix would append an unreachable `return None` to each of them.
+# - D301: the docstrings it flags escape backslashes on purpose. One is the
+#   `description=__doc__` help text of `scripts/migrate_oss_domain.py`, where
+#   `\\` must render as a single backslash, and another is a doctest example.
+#   Adding the `r` prefix would change the text those docstrings render.
+# - FLY002: the `"\n".join([...])` calls it flags build provider signing
+#   payloads, where the list form documents the canonical layout line by line
+#   better than an f-string full of `\n` escapes.
 # - The remaining SIM / UP / PL / PTH / TRY members listed as `off` below:
 #   style or modernization churn with no bug-catching value for this codebase
 #   today. Members that are mechanical and behavior-preserving get folded in
@@ -147,8 +157,8 @@ select = [
     "PTH101", "PTH102", "PTH104", "PTH105", "PTH108", "PTH111", "PTH113",
     "PTH114", "PTH115", "PTH116", "PTH117", "PTH121", "PTH122", "PTH124",
     "PTH201", "PTH202", "PTH203", "PTH204", "PTH205", "PTH207", "PTH21",
-    # flake8-return -- off: RET503, RET504
-    "RET501", "RET502", "RET505", "RET506", "RET507", "RET508",
+    # flake8-return -- off: RET503
+    "RET501", "RET502", "RET504", "RET505", "RET506", "RET507", "RET508",
     # Ruff-specific rules -- off: RUF001, RUF002, RUF003, RUF005, RUF006,
     # RUF007, RUF012, RUF013, RUF043, RUF046, RUF100
     "RUF008", "RUF009", "RUF010", "RUF015", "RUF016", "RUF017", "RUF018",

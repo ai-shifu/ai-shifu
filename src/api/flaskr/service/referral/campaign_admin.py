@@ -353,8 +353,7 @@ def _parse_datetime(value: object, field_name: str) -> datetime | None:
         return None
     for datetime_format in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
         try:
-            parsed = datetime.strptime(normalized, datetime_format)
-            return parsed
+            return datetime.strptime(normalized, datetime_format)
         except ValueError:
             continue
     try:

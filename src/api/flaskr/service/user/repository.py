@@ -238,7 +238,7 @@ def _build_user_aggregate(
     credentials: Optional[List[AuthCredential]] = None,
 ) -> UserAggregate:
     summaries = _summarize_credentials(credentials or [])
-    aggregate = UserAggregate(
+    return UserAggregate(
         user_bid=entity.user_bid,
         identify=entity.user_identify or "",
         nickname=entity.nickname or "",
@@ -256,7 +256,6 @@ def _build_user_aggregate(
         is_creator=bool(entity.is_creator),
         is_operator=bool(entity.is_operator),
     )
-    return aggregate
 
 
 def get_user_entity_by_bid(
