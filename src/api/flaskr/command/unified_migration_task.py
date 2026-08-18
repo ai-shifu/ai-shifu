@@ -274,7 +274,7 @@ class UnifiedMigrationTask:
                 logger.error(
                     f"Batch processing failed for {source_table} at offset {offset}: {e}"
                 )
-                errors.append(f"Batch error at offset {offset}: {str(e)}")
+                errors.append(f"Batch error at offset {offset}: {e!s}")
                 error_count += self.config.batch_size
                 offset += self.config.batch_size
 
@@ -443,7 +443,7 @@ class UnifiedMigrationTask:
 
                 except Exception as e:
                     error_count += 1
-                    error_msg = f"Record migration failed for {getattr(record, key_field)}: {str(e)}"
+                    error_msg = f"Record migration failed for {getattr(record, key_field)}: {e!s}"
                     error_messages.append(error_msg)
                     logger.error(error_msg)
 
@@ -525,7 +525,7 @@ class UnifiedMigrationTask:
                     old_count=0,
                     new_count=0,
                     sample_integrity_passed=False,
-                    data_mismatches=[f"Check failed: {str(e)}"],
+                    data_mismatches=[f"Check failed: {e!s}"],
                 )
 
         return results
@@ -588,7 +588,7 @@ class UnifiedMigrationTask:
 
         except Exception as e:
             logger.error(f"Sample integrity check failed: {e}")
-            return False, [f"Integrity check error: {str(e)}"]
+            return False, [f"Integrity check error: {e!s}"]
         finally:
             session.close()
 

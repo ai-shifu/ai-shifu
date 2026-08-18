@@ -241,12 +241,10 @@ def upload_url(app, user_id: str, url: str) -> str:
             return result.url
 
         except requests.RequestException as e:
-            app.logger.error(
-                f"Failed to download image from URL: {url}, error: {str(e)}"
-            )
+            app.logger.error(f"Failed to download image from URL: {url}, error: {e!s}")
             raise_error("server.file.fileDownloadFailed")
         except Exception as e:
-            app.logger.error(f"Failed to upload image to OSS: {url}, error: {str(e)}")
+            app.logger.error(f"Failed to upload image to OSS: {url}, error: {e!s}")
             raise_error("server.file.fileUploadFailed")
 
 
@@ -381,11 +379,11 @@ def get_video_info(app, user_id: str, url: str) -> dict:
                 raise_error("server.file.videoUnsupportedVideoSite")
 
         except requests.RequestException as e:
-            app.logger.error(f"Failed to fetch video info from {url}: {str(e)}")
+            app.logger.error(f"Failed to fetch video info from {url}: {e!s}")
             raise_error("server.file.videoNetworkError")
         except KeyError as e:
-            app.logger.error(f"Missing expected field in API response: {str(e)}")
+            app.logger.error(f"Missing expected field in API response: {e!s}")
             raise_error("server.file.videoParseError")
         except Exception as e:
-            app.logger.error(f"Unexpected error getting video info: {str(e)}")
+            app.logger.error(f"Unexpected error getting video info: {e!s}")
             raise_error("server.file.videoGetInfoError")
