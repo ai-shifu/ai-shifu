@@ -733,7 +733,7 @@ def serialize_operator_credit_order_grant(
     *,
     source_type: str,
     source_bid: str,
-    granted_credits: int | float,
+    granted_credits: float,
     valid_from,
     valid_to,
 ) -> OperatorCreditOrderGrantDTO:

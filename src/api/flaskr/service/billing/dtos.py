@@ -20,7 +20,7 @@ class BillingBaseDTO(BaseModel):
     def __getitem__(self, key: str) -> Any:
         return self.__json__()[key]
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, dict):
             return self.__json__() == other
         return super().__eq__(other)
