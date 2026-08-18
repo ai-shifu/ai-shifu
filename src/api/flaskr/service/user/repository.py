@@ -206,9 +206,9 @@ def _normalize_identifier(provider: str, identifier: Optional[str]) -> str:
     if not identifier:
         return ""
     normalized = identifier.strip()
-    if provider in {"email"}:
+    if provider == "email":
         return normalized.lower()
-    if provider in {"phone"}:
+    if provider == "phone":
         return normalize_phone_identifier(normalized)
     return normalized
 
