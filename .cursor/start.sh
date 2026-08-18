@@ -19,6 +19,11 @@ set -uo pipefail
 
 MYSQL_DATADIR="${AI_SHIFU_MYSQL_DATADIR:-/var/lib/mysql}"
 MYSQL_ERROR_LOG="${AI_SHIFU_MYSQL_ERROR_LOG:-/var/log/mysql/error.log}"
+# Fixed (not PID-suffixed) heal paths so an interrupted rewrite is recoverable
+# on the next boot regardless of PID: MYSQL_HEAL_BACKUP holds the original
+# datadir moved aside, MYSQL_HEAL_STAGED holds the fresh copy being built.
+MYSQL_HEAL_BACKUP="${MYSQL_DATADIR}.orig"
+MYSQL_HEAL_STAGED="${MYSQL_DATADIR}.reinit"
 
 wait_redis() {
   for _ in $(seq 1 30); do
@@ -56,39 +61,58 @@ mysqld_stopped() {
   ! pgrep -x mysqld >/dev/null 2>&1 && ! sudo mysqladmin ping >/dev/null 2>&1
 }
 
+# Reattach a datadir orphaned by an interrupted prior heal. During a heal the
+# original is moved to MYSQL_HEAL_BACKUP and a fresh copy to MYSQL_HEAL_STAGED
+# is moved into place; an interrupt can leave MYSQL_DATADIR missing while a
+# valid copy sits under one of those fixed names. Recover it before starting,
+# then clear stale leftovers once a real datadir is present.
+recover_orphaned_datadir() {
+  if [ ! -d "$MYSQL_DATADIR" ]; then
+    if [ -d "$MYSQL_HEAL_BACKUP" ]; then
+      echo "[start] recovering datadir from interrupted heal ($MYSQL_HEAL_BACKUP)"
+      sudo mv -T "$MYSQL_HEAL_BACKUP" "$MYSQL_DATADIR" || return 1
+    elif [ -d "$MYSQL_HEAL_STAGED" ]; then
+      echo "[start] recovering datadir from interrupted heal ($MYSQL_HEAL_STAGED)"
+      sudo mv -T "$MYSQL_HEAL_STAGED" "$MYSQL_DATADIR" || return 1
+    fi
+  fi
+  if [ -d "$MYSQL_DATADIR" ]; then
+    sudo rm -rf "$MYSQL_HEAL_BACKUP" "$MYSQL_HEAL_STAGED"
+  fi
+  return 0
+}
+
 # Rewrite the datadir to fresh inodes without ever leaving the data unprotected.
 reallocate_mysql_datadir() {
-  local backup="${MYSQL_DATADIR}.bak.$$"
-  local staged="${MYSQL_DATADIR}.reinit.$$"
-
-  # Clear any leftovers from an interrupted prior recovery (e.g. a reused PID)
-  # so cp/mv cannot nest the datadir inside a pre-existing directory.
-  sudo rm -rf "$staged" "$backup"
-  if [ -e "$staged" ] || [ -e "$backup" ]; then
+  # Clear any leftovers from an interrupted prior recovery so cp/mv cannot nest
+  # the datadir inside a pre-existing directory.
+  sudo rm -rf "$MYSQL_HEAL_STAGED" "$MYSQL_HEAL_BACKUP"
+  if [ -e "$MYSQL_HEAL_STAGED" ] || [ -e "$MYSQL_HEAL_BACKUP" ]; then
     echo "[start] ERROR: could not clear stale recovery paths" >&2
     return 1
   fi
 
-  if ! sudo cp -a "$MYSQL_DATADIR" "$staged"; then
+  if ! sudo cp -a "$MYSQL_DATADIR" "$MYSQL_HEAL_STAGED"; then
     echo "[start] ERROR: datadir copy failed; original left intact" >&2
-    sudo rm -rf "$staged"
+    sudo rm -rf "$MYSQL_HEAL_STAGED"
     return 1
   fi
 
   # Swap with no-target-directory moves so an unexpected existing destination
   # fails loudly instead of nesting. Keep the original as a backup until the
-  # fresh copy is in place.
-  if ! sudo mv -T "$MYSQL_DATADIR" "$backup"; then
+  # fresh copy is in place; if interrupted here, recover_orphaned_datadir
+  # reattaches MYSQL_HEAL_BACKUP (or the completed staged copy) on the next boot.
+  if ! sudo mv -T "$MYSQL_DATADIR" "$MYSQL_HEAL_BACKUP"; then
     echo "[start] ERROR: could not move original datadir aside" >&2
-    sudo rm -rf "$staged"
+    sudo rm -rf "$MYSQL_HEAL_STAGED"
     return 1
   fi
-  if ! sudo mv -T "$staged" "$MYSQL_DATADIR"; then
+  if ! sudo mv -T "$MYSQL_HEAL_STAGED" "$MYSQL_DATADIR"; then
     echo "[start] ERROR: could not install fresh datadir; restoring original" >&2
-    sudo mv -T "$backup" "$MYSQL_DATADIR"
+    sudo mv -T "$MYSQL_HEAL_BACKUP" "$MYSQL_DATADIR"
     return 1
   fi
-  sudo rm -rf "$backup"
+  sudo rm -rf "$MYSQL_HEAL_BACKUP"
   return 0
 }
 
@@ -104,6 +128,11 @@ fi
 echo "[start] redis is ready"
 
 # --- MySQL ---
+# Repair a datadir left orphaned by an interrupted prior heal before starting.
+recover_orphaned_datadir || {
+  echo "[start] ERROR: could not recover an orphaned datadir" >&2
+  exit 1
+}
 if ! sudo mysqladmin ping >/dev/null 2>&1; then
   log_offset="$(mysql_error_log_offset)"
   echo "[start] starting mysql"
