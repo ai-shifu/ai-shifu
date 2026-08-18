@@ -2160,8 +2160,7 @@ class AVStreamingTTSProcessor:
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if (chunk or "").strip():
             self._current_segment_has_speakable_text = True
-        for event in processor.process_chunk(chunk):
-            yield event
+        yield from processor.process_chunk(chunk)
 
     @property
     def next_element_index(self) -> int:
