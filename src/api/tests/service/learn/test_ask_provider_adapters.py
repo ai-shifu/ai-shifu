@@ -32,8 +32,7 @@ class _FakeResponse:
 
     def iter_lines(self, decode_unicode=True):
         _ = decode_unicode
-        for line in self._lines:
-            yield line
+        yield from self._lines
 
     def raise_for_status(self):
         if self._http_error is not None:
