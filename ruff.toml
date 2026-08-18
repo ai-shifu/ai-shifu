@@ -93,6 +93,7 @@ select = [
     "PLW3301", # nested min/max calls
     "PT001",   # pytest.fixture with empty parentheses
     "PT006",   # wrong type for parametrize argument names
+    "PT018",   # composite assertion
     "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
     "RET501",  # unnecessary explicit return None
     "RET502",  # implicit return value
