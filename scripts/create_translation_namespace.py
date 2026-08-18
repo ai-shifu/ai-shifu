@@ -54,7 +54,7 @@ def ensure_namespace_files(namespace: str, keys: List[str] | None, force: bool) 
 
     payload = {"__flat__": {}}
     if keys:
-        payload["__flat__"].update({key: "" for key in keys})
+        payload["__flat__"].update(dict.fromkeys(keys, ""))
 
     for locale_dir in locale_dirs:
         target_path = (locale_dir / relative_path).with_suffix(".json")
