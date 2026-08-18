@@ -104,7 +104,6 @@ def _is_valid_rpm_limits_json(value: Any) -> bool:
 
 def parse_llm_model_max_output_tokens(value: Any) -> Dict[str, int]:
     """Parse a routed model id -> maximum output token JSON map."""
-
     if value in (None, ""):
         return {}
     if isinstance(value, dict):

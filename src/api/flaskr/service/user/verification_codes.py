@@ -50,7 +50,6 @@ def _consume_latest_code_from_db(
       - "expired" when no valid code exists (missing/used/expired).
       - "invalid" when a code exists but does not match.
     """
-
     if kind == "sms":
         expire_seconds = int(app.config.get("PHONE_CODE_EXPIRE_TIME", 300))
         query = UserVerifyCode.query.filter(
@@ -94,7 +93,6 @@ def _decode_cache_value(raw) -> str:
 
 def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None:
     """Validate and consume a verification code for an email or phone identifier."""
-
     identifier = (identifier or "").strip()
     code = (code or "").strip()
     # Keep helper-level parameter checks for direct service callers such as

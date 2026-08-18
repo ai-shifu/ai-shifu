@@ -296,7 +296,6 @@ def claim_billing_renewal_event(
     Pure-DB CAS flow (no external calls), so a deadlock retry is safe: a
     replayed claim either wins the CAS again or reports ``already_claimed``.
     """
-
     with _app_context_scope(app), unit_of_work():
         status, event = _claim_target_renewal_event(
             renewal_event_bid=renewal_event_bid,
@@ -321,7 +320,6 @@ def run_billing_renewal_event(
     creator_bid: str = "",
 ) -> RenewalEventResult:
     """Claim and execute a renewal event with idempotent state transitions."""
-
     with _app_context_scope(app):
         # Must-persist step: the claim (PENDING/FAILED -> PROCESSING plus the
         # attempt_count increment) commits in its own unit of work BEFORE any
@@ -402,7 +400,6 @@ def retry_billing_renewal_event(
     payment_provider: str = "",
 ) -> RenewalEventResult:
     """Resolve the latest renewal order context and sync it with the provider."""
-
     del provider_reference_id, payment_provider
 
     with _app_context_scope(app):

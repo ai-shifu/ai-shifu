@@ -281,7 +281,6 @@ def iter_billing_capabilities() -> list[BillingCapabilityDTO]:
 
 def build_billing_route_bootstrap(path_prefix: str) -> BillingRouteBootstrapDTO:
     """Return the billing route manifest and capability registry."""
-
     creator_routes: list[BillingRouteItemDTO] = []
     admin_routes: list[BillingRouteItemDTO] = []
     for capability in _CAPABILITIES:

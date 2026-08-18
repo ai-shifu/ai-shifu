@@ -33,7 +33,6 @@ def redact_pii(text: str) -> str:
     Empty or non-string input is returned unchanged so callers can apply this
     over heterogeneous result rows without type-guarding every value.
     """
-
     if not isinstance(text, str) or not text:
         return text
     text = _PHONE_CN_RE.sub("[REDACTED-PHONE]", text)

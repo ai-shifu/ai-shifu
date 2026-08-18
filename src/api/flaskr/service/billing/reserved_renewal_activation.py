@@ -138,7 +138,6 @@ def validate_reserved_renewal_cycle_activation(
     effective_from: datetime | None = None,
 ) -> tuple[ReservedActivationTarget, ...]:
     """Validate a renewal cycle can activate every reserved grant atomically."""
-
     resolved_effective_from = effective_from or _resolve_order_effective_from(
         order=order,
         default_effective_from=order.paid_at or now_utc(),

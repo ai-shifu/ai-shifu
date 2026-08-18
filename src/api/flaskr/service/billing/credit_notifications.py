@@ -1744,7 +1744,6 @@ def suppress_pending_expiring_notifications_for_bucket(
     referral_reward_grants extends the bucket and commits both writes
     together), so this function must not commit or open its own unit of work.
     """
-
     normalized_wallet_bucket_bid = _normalize_bid(wallet_bucket_bid)
     if not normalized_wallet_bucket_bid:
         return 0

@@ -569,7 +569,6 @@ def _build_usage_metadata_map(
 
 def build_billing_catalog(app: Flask) -> BillingCatalogDTO:
     """Return plan and topup catalog projections."""
-
     with app.app_context():
         rows = (
             BillingProduct.query.filter(
@@ -605,7 +604,6 @@ def build_billing_overview(
     creator_bid: str,
 ) -> BillingOverviewDTO:
     """Return the wallet snapshot, current subscription, and alerts."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         trial_offer = _resolve_new_creator_trial_offer(
@@ -667,7 +665,6 @@ def build_billing_wallet_buckets(
     creator_bid: str,
 ) -> BillingWalletBucketListDTO:
     """Return wallet bucket projections sorted by actual consumption order."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         rows = (
@@ -813,7 +810,6 @@ def build_billing_ledger_page(
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> BillingLedgerPageDTO:
     """Return paginated credit ledger entries for a creator."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     with app.app_context():
@@ -898,7 +894,6 @@ def build_admin_bill_subscriptions_page(
     attention_only: bool = False,
 ) -> BillingSubscriptionsPageDTO:
     """Return paginated billing subscriptions for the admin billing surface."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_creator_keyword = str(creator_keyword or "").strip()
@@ -1049,7 +1044,6 @@ def build_admin_bill_entitlements_page(
     independent_only: bool = False,
 ) -> BillingEntitlementsPageDTO:
     """Return paginated effective entitlement snapshots for admin billing."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_creator_bid = _normalize_bid(creator_bid)
 
@@ -1177,7 +1171,6 @@ def build_operator_credit_orders_page(
     end_time: Any = "",
 ) -> OperatorCreditOrdersPageDTO:
     """Return paginated operator-facing creator credit orders."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     normalized_payment_provider = str(payment_provider or "").strip()
@@ -1292,7 +1285,6 @@ def build_operator_credit_orders_overview(
     app: Flask,
 ) -> OperatorCreditOrderOverviewDTO:
     """Return aggregate metrics for operator creator credit orders."""
-
     with app.app_context():
         summary = (
             BillingOrder.query.with_entities(
@@ -1401,7 +1393,6 @@ def get_operator_credit_order_detail(
     bill_order_bid: str,
 ) -> OperatorCreditOrderDetailDTO:
     """Return operator-facing creator credit order detail."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         raise_param_error("bill_order_bid")
@@ -1451,7 +1442,6 @@ def build_admin_bill_daily_usage_metrics_page(
     stat_date_to: str = "",
 ) -> AdminBillingDailyUsageMetricsPageDTO:
     """Return paginated cross-creator daily usage rows for admin reporting."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_stat_date_from = _normalize_stat_date_filter(
@@ -1527,7 +1517,6 @@ def build_admin_billing_focus_teachers_page(
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> AdminBillingFocusTeachersPageDTO:
     """Return operator-focused teachers that match billing attention rules."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     today = now_utc().date()
     current_7d_start = today - timedelta(days=6)
@@ -1706,7 +1695,6 @@ def build_admin_bill_daily_ledger_summary_page(
     stat_date_to: str = "",
 ) -> AdminBillingDailyLedgerSummaryPageDTO:
     """Return paginated cross-creator daily ledger rows for admin reporting."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_stat_date_from = _normalize_stat_date_filter(
@@ -1760,7 +1748,6 @@ def adjust_admin_billing_ledger(
     payload: dict[str, Any],
 ) -> BillingLedgerAdjustResultDTO:
     """Apply a manual admin ledger adjustment through wallet buckets."""
-
     normalized_creator_bid = _normalize_bid(payload.get("creator_bid"))
     if not normalized_creator_bid:
         raise_param_error("creator_bid")

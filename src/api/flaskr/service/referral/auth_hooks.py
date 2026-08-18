@@ -18,7 +18,6 @@ def bind_referral_invite_post_auth(
     app: Flask,
 ) -> Any:
     """Best-effort referral binding for new SMS-created users."""
-
     try:
         process_referral_post_auth(app, context)
     except Exception:

@@ -156,7 +156,6 @@ def learner_profile_optimization_admission(
     app: Flask, *, user_id: str
 ) -> Iterator[None]:
     """Allow only one in-flight optimization for each learner."""
-
     try:
         lease = _acquire_admission(app, user_id=user_id)
     except _AdmissionDenied:

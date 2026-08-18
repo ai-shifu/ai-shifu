@@ -211,7 +211,6 @@ def _append_match(
 
 def find_violations_in_text(path: str, text: str) -> list[IdentifierViolation]:
     """Return identifier-example violations for one UTF-8 text file."""
-
     violations: list[IdentifierViolation] = []
 
     for match in VOLCENGINE_VOICE_ID_RE.finditer(text):
@@ -447,7 +446,6 @@ def find_violations(
     validate_fixtures: bool = True,
 ) -> list[IdentifierViolation]:
     """Scan repository text files, or the explicitly supplied paths."""
-
     if validate_fixtures:
         run_self_test()
 

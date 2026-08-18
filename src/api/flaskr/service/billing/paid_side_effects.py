@@ -37,7 +37,6 @@ def stage_billing_paid_order_side_effects(
     previous_status: int | None,
 ) -> BillingPaidOrderSideEffects:
     """Stage idempotent side effects for one paid billing order."""
-
     if order is None or order.status != BILLING_ORDER_STATUS_PAID:
         return BillingPaidOrderSideEffects()
 
@@ -77,7 +76,6 @@ def dispatch_billing_paid_order_side_effects(
     side_effects: BillingPaidOrderSideEffects,
 ) -> None:
     """Dispatch post-commit side effects for one paid billing order."""
-
     if not side_effects.bill_order_bid:
         return
     if side_effects.should_enqueue_subscription_purchase_sms:

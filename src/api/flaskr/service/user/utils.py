@@ -82,7 +82,6 @@ def get_user_language(user):
 
 def mark_creator_role_if_needed(user_id: str) -> bool:
     """Mark an existing user as creator and report whether this is a new grant."""
-
     normalized_user_id = str(user_id or "").strip()
     if not normalized_user_id:
         return False
@@ -108,7 +107,6 @@ def run_creator_granted_post_auth(
     language: str | None = None,
 ) -> None:
     """Run post-auth hooks for flows that grant creator access outside login."""
-
     normalized_user_id = str(user_id or "").strip()
     if not normalized_user_id:
         return

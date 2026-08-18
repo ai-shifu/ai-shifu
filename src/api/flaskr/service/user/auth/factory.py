@@ -20,7 +20,6 @@ _REGISTRY: Dict[str, Type[AuthProvider]] = {}
 
 def register_provider(provider_cls: Type[AuthProvider]) -> None:
     """Register a provider class with the global registry."""
-
     provider_name = getattr(provider_cls, "provider_name", None)
     if not provider_name:
         raise ValueError("Auth providers must define a non-empty provider_name")
@@ -36,7 +35,6 @@ def register_provider(provider_cls: Type[AuthProvider]) -> None:
 
 def get_provider(provider_name: str) -> AuthProvider:
     """Instantiate a provider by name."""
-
     normalized = provider_name.lower()
     provider_cls = _REGISTRY.get(normalized)
     if provider_cls is None:
@@ -46,17 +44,14 @@ def get_provider(provider_name: str) -> AuthProvider:
 
 def has_provider(provider_name: str) -> bool:
     """Return ``True`` when a provider has been registered."""
-
     return provider_name.lower() in _REGISTRY
 
 
 def registered_providers() -> Iterable[str]:
     """Iterate over registered provider names."""
-
     return tuple(_REGISTRY.keys())
 
 
 def clear_providers() -> None:
     """Utility for tests to reset the provider registry."""
-
     _REGISTRY.clear()

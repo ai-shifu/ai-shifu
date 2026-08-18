@@ -125,7 +125,6 @@ def aggregate_daily_usage_metrics(
     now: datetime | None = None,
 ) -> DailyAggregateJobResult:
     """Rebuild one day's usage aggregates from usage and ledger details."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_shifu_bid = str(shifu_bid or "").strip()
     window_started_at, window_ended_at, normalized_stat_date = _resolve_stat_window(
@@ -284,7 +283,6 @@ def finalize_daily_usage_metrics(
     now: datetime | None = None,
 ) -> DailyAggregateJobResult:
     """Close one day's usage aggregate window by recomputing the full day."""
-
     return aggregate_daily_usage_metrics(
         app,
         stat_date=stat_date,
@@ -304,7 +302,6 @@ def aggregate_daily_ledger_summary(
     now: datetime | None = None,
 ) -> DailyAggregateJobResult:
     """Rebuild one day's ledger summary directly from ledger detail rows."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     window_started_at, window_ended_at, normalized_stat_date = _resolve_stat_window(
         stat_date=stat_date,
@@ -395,7 +392,6 @@ def finalize_daily_ledger_summary(
     now: datetime | None = None,
 ) -> DailyAggregateJobResult:
     """Close one day's ledger summary window by recomputing the full day."""
-
     return aggregate_daily_ledger_summary(
         app,
         stat_date=stat_date,
@@ -415,7 +411,6 @@ def rebuild_daily_aggregates(
     now: datetime | None = None,
 ) -> RebuildDailyAggregatesResult:
     """Rebuild usage and ledger daily aggregates across one date window."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_shifu_bid = str(shifu_bid or "").strip()
     start_date, end_date = _resolve_stat_date_range(
@@ -478,7 +473,6 @@ def detect_daily_aggregate_rebuild_range(
     shifu_bid: str = "",
 ) -> tuple[str | None, str | None]:
     """Detect the earliest and latest stat_date that currently need rebuild."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_shifu_bid = str(shifu_bid or "").strip()
 

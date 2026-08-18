@@ -81,7 +81,6 @@ def register_creator_analytics_handler(app: Flask, path_prefix: str) -> Flask:
                                         offset:
                                             type: integer
         """
-
         user_id = request.user.user_id
         payload = request.get_json(silent=True) or {}
         result = run_dsl(app, user_id, payload)
@@ -159,7 +158,6 @@ def register_creator_analytics_handler(app: Flask, path_prefix: str) -> Flask:
                                         offset:
                                             type: integer
         """
-
         user_id = request.user.user_id
         payload = request.get_json(silent=True) or {}
         result = run_credit_detail(app, user_id, payload)

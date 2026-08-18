@@ -36,7 +36,6 @@ def get_analytics_engine(app: Flask) -> Engine:
     cached for the process lifetime. When the URI is empty the primary
     Flask-SQLAlchemy engine is reused and a one-shot warning is emitted.
     """
-
     global _engine, _engine_uri, _FALLBACK_WARNED
 
     uri = (app.config.get("ANALYTICS_DATABASE_URI") or "").strip()
@@ -65,7 +64,6 @@ def get_analytics_engine(app: Flask) -> Engine:
 
 def run_query(app: Flask, stmt: Select) -> Dict[str, Any]:
     """Execute ``stmt`` against the analytics engine and return columns/rows."""
-
     engine = get_analytics_engine(app)
     with engine.connect() as connection:
         result: Result = connection.execute(stmt)
@@ -76,7 +74,6 @@ def run_query(app: Flask, stmt: Select) -> Dict[str, Any]:
 
 def reset_for_tests() -> None:
     """Clear the cached engine — used by the test suite between cases."""
-
     global _engine, _engine_uri, _FALLBACK_WARNED
     with _lock:
         if _engine is not None:

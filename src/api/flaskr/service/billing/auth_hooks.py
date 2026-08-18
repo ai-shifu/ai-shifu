@@ -17,7 +17,6 @@ def bootstrap_creator_trial_post_auth(
     app: Flask,
 ) -> PostAuthContext:
     """Best-effort trial bootstrap for successful auth flows."""
-
     if not context.creator_granted_now:
         return context
 

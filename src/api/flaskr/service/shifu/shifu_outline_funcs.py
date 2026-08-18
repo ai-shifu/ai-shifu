@@ -473,7 +473,6 @@ def create_default_outlines_for_new_shifu(
     concurrent outline writes yet, so we can build the initial structure inside
     the caller's existing transaction without opening a nested outline flow.
     """
-
     normalized_chapter_name = __normalize_outline_name(chapter_name)
     normalized_lesson_name = __normalize_outline_name(lesson_name)
     chapter_bid = generate_id(app)

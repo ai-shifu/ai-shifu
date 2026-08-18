@@ -309,7 +309,6 @@ def upload_creator_brand_logo(
     allow_when_customization_disabled: bool = False,
 ) -> str:
     """Validate and upload a course-owner logo through managed storage."""
-
     creator_bid = normalize_bid(creator_bid)
     normalized_target = _normalize_logo_target(target)
     with app.app_context():
@@ -617,7 +616,6 @@ def resolve_payment_integration_for_new_order(
     app: Flask, creator_bid: str, provider: str
 ) -> ProviderCredentialContext | None:
     """Resolve an eligible active merchant config or preserve global behavior."""
-
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
     if provider not in PAYMENT_PROVIDERS:

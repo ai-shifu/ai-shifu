@@ -353,7 +353,6 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         - Never log credentials (token).
         - Avoid logging full request text; use only text_len.
         """
-
         body_preview = (response.text or "")[:2000]
         # Keep only a small, stable subset of headers to avoid log noise and
         # reduce the risk of accidentally logging sensitive data.

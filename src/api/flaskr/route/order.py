@@ -331,7 +331,6 @@ def register_order_handler(app: Flask, path_prefix: str):
                                 data:
                                     type: object
         """
-
         order_id = request.get_json().get("order_id", "")
         if not order_id:
             raise_param_error("order_id")
@@ -361,7 +360,6 @@ def register_order_handler(app: Flask, path_prefix: str):
             200:
                 description: 同步成功
         """
-
         payload = request.get_json() or {}
         order_id = payload.get("order_id", "")
         if not order_id:
@@ -401,7 +399,6 @@ def register_order_handler(app: Flask, path_prefix: str):
             200:
                 description: 同步成功
         """
-
         payload = request.get_json() or {}
         order_id = payload.get("order_id", "")
         if not order_id:
@@ -427,7 +424,6 @@ def register_order_handler(app: Flask, path_prefix: str):
             202:
                 description: Webhook已接收，具体逻辑待实现
         """
-
         sig_header = request.headers.get("Stripe-Signature", "")
         raw_body = request.get_data() or b""
         payload, status_code = handle_stripe_webhook(app, raw_body, sig_header)

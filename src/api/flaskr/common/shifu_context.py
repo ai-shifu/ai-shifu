@@ -132,7 +132,6 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
 
 def _resolve_host_creator_bid(app, host: str) -> Optional[str]:
     """Resolve creator_bid from a verified custom domain host."""
-
     normalized_host = str(host or "").strip()
     if not normalized_host:
         return None

@@ -88,7 +88,6 @@ def convert_variable_definition_to_profile_item_definition(
     """
     Convert variable definition model to legacy response DTO shape.
     """
-
     scope = (
         CONST_PROFILE_SCOPE_SYSTEM
         if definition.shifu_bid == ""
@@ -467,7 +466,6 @@ def save_profile_item(
     """
     Save (create/update) a custom variable definition.
     """
-
     with app.app_context():
         normalized_parent_id = parent_id or ""
         if normalized_parent_id == "" and user_id != "":

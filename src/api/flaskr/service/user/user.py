@@ -199,7 +199,6 @@ def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
 
 def _wechat_identifiers(app: Flask, open_id: str, union_id: str) -> tuple[str, str]:
     """Scope custom-app subjects while preserving platform-app identifiers."""
-
     creator_bid = str(get_context_creator_bid() or "").strip()
     if not creator_bid:
         return open_id, union_id

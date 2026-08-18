@@ -239,7 +239,6 @@ def _resolve_publish_base_url(app: Flask) -> str:
     domain sees the same base URL for publishing and previews. Falls back to
     the shifu owner's custom domain, then to the default public origin.
     """
-
     host = None
     if has_request_context():
         host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()

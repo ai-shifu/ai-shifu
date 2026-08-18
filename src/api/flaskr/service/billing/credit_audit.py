@@ -116,7 +116,6 @@ def audit_credit_state(
     The audit is intentionally read-only. It reports drift candidates for
     operators or follow-up repair tools, but never mutates billing state.
     """
-
     normalized_creator_bid = str(creator_bid or "").strip()
     if as_of is None:
         audit_at = now_utc()
