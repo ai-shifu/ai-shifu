@@ -1287,19 +1287,17 @@ class AliyunTTSProvider(BaseTTSProvider):
 
         # Use provider-native ranges for Aliyun
         aliyun_speed = (
-            int(round(voice_settings.speed)) if voice_settings.speed is not None else 0
+            round(voice_settings.speed) if voice_settings.speed is not None else 0
         )
         aliyun_speed = max(-500, min(500, aliyun_speed))
 
         aliyun_pitch = (
-            int(round(voice_settings.pitch)) if voice_settings.pitch is not None else 0
+            round(voice_settings.pitch) if voice_settings.pitch is not None else 0
         )
         aliyun_pitch = max(-500, min(500, aliyun_pitch))
 
         aliyun_volume = (
-            int(round(voice_settings.volume))
-            if voice_settings.volume is not None
-            else 50
+            round(voice_settings.volume) if voice_settings.volume is not None else 50
         )
         aliyun_volume = max(0, min(100, aliyun_volume))
 

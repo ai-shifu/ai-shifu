@@ -839,19 +839,17 @@ class BaiduTTSProvider(BaseTTSProvider):
 
         # Use provider-native ranges (0-15) for speed, pitch, and volume
         baidu_speed = (
-            int(round(voice_settings.speed)) if voice_settings.speed is not None else 5
+            round(voice_settings.speed) if voice_settings.speed is not None else 5
         )
         baidu_speed = max(0, min(15, baidu_speed))
 
         baidu_pitch = (
-            int(round(voice_settings.pitch)) if voice_settings.pitch is not None else 5
+            round(voice_settings.pitch) if voice_settings.pitch is not None else 5
         )
         baidu_pitch = max(0, min(15, baidu_pitch))
 
         baidu_volume = (
-            int(round(voice_settings.volume))
-            if voice_settings.volume is not None
-            else 5
+            round(voice_settings.volume) if voice_settings.volume is not None else 5
         )
         baidu_volume = max(0, min(15, baidu_volume))
 

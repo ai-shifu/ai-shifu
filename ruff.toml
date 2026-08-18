@@ -86,6 +86,7 @@ select = [
     "RUF013",  # implicit Optional annotation
     "RUF02",   # unparenthesized and inside or, unsorted __all__/__slots__
     "RUF036",  # None not at the end of a union
+    "RUF046",  # unnecessary int() cast around an int-returning call
     "RUF102",  # noqa directive naming an unknown rule
     "SIM114",  # if branches with identical bodies
     "SIM300",  # yoda condition
