@@ -68,6 +68,7 @@ select = [
     "PT001", # pytest.fixture with empty parentheses
     "PYI032", # __eq__/__ne__ annotated with Any
     "PYI041", # int | float union that float already covers
+    "RET502", # implicit return value
     "RET505", # superfluous else after return
     "RUF010", # explicit str()/repr() call inside an f-string
     "RUF021", # unparenthesized and inside or
