@@ -92,7 +92,7 @@ def check_text_with_llm_response(
             ),
             usage_context=usage_context,
             usage_scene=usage_context.usage_scene,
-            **{"temperature": llm_settings.temperature},
+            temperature=llm_settings.temperature,
         )
         response_text = ""
 
