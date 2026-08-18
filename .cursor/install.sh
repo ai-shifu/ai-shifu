@@ -27,8 +27,10 @@ if [ "$need_packages" = "1" ]; then
     python3.12-venv python3-dev build-essential pkg-config curl
 fi
 
-# 2) Start MySQL + Redis so migrations can run (safe to call repeatedly).
+# 2) Start MySQL + Redis so migrations can run (safe to call repeatedly), then
+#    block until both accept connections before any provisioning below.
 bash "$REPO_ROOT/.cursor/start.sh"
+bash "$REPO_ROOT/.cursor/wait-for-services.sh"
 
 # 3) Per-environment credentials. Generated once and reused on re-runs by
 #    reading them back from an existing .env, so the MySQL account password and
@@ -45,7 +47,16 @@ if [ -f "$API_ENV" ]; then
     echo "[install]        connection string. Fix or remove $API_ENV and re-run." >&2
     exit 1
   fi
-  [ -n "$SECRET_KEY" ] || SECRET_KEY="$(gen_secret)"
+  # A missing SECRET_KEY must be persisted now: the .env write below is skipped
+  # when the file already exists, so an in-memory-only key would be lost.
+  if [ -z "$SECRET_KEY" ]; then
+    SECRET_KEY="$(gen_secret)"
+    if grep -q '^SECRET_KEY=' "$API_ENV"; then
+      sed -i "s|^SECRET_KEY=.*|SECRET_KEY=\"${SECRET_KEY}\"|" "$API_ENV"
+    else
+      printf '\nSECRET_KEY="%s"\n' "$SECRET_KEY" >> "$API_ENV"
+    fi
+  fi
 else
   DB_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
   SECRET_KEY="$(gen_secret)"
@@ -111,7 +122,7 @@ chmod 600 "$API_ENV"
 #    failure is surfaced so a broken import fails the install.
 cd "$REPO_ROOT/src/api"
 export FLASK_APP=app.py
-python scripts/repair_dev_migration_state.py || true
+python scripts/repair_dev_migration_state.py
 flask db upgrade
 flask console update_demo_shifu
 
