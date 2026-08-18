@@ -105,11 +105,11 @@ select = [
     "A003", "A004", "A005",
     # flake8-async -- off: ASYNC230
     "ASYNC1", "ASYNC21", "ASYNC22", "ASYNC24", "ASYNC25",
-    # flake8-bugbear -- off: B006, B007, B017, B023, B026, B035, B904
-    "B002", "B003", "B004", "B005", "B008", "B009", "B010", "B011", "B012",
-    "B013", "B014", "B015", "B016", "B018", "B019", "B020", "B021", "B022",
-    "B024", "B025", "B027", "B028", "B029", "B030", "B031", "B032", "B033",
-    "B034", "B039", "B905", "B91",
+    # flake8-bugbear -- off: B006, B017, B023, B026, B035, B904
+    "B002", "B003", "B004", "B005", "B007", "B008", "B009", "B010", "B011",
+    "B012", "B013", "B014", "B015", "B016", "B018", "B019", "B020", "B021",
+    "B022", "B024", "B025", "B027", "B028", "B029", "B030", "B031", "B032",
+    "B033", "B034", "B039", "B905", "B91",
     # flake8-comprehensions -- off: C901
     "C4",
     # flake8-commas -- off: COM812, COM819
@@ -138,15 +138,15 @@ select = [
     "PERF1", "PERF402", "PERF403",
     # pygrep-hooks -- off: PGH003, PGH004
     "PGH005",
-    # Pylint conventions -- off: PLC0206, PLC0414, PLC0415
-    "PLC01", "PLC0205", "PLC0207", "PLC0208", "PLC1", "PLC2", "PLC3",
+    # Pylint conventions -- off: PLC0206, PLC0415
+    "PLC01", "PLC0205", "PLC0207", "PLC0208", "PLC0414", "PLC1", "PLC2",
+    "PLC3",
     # Pylint refactors -- off: PLR0402, PLR0911, PLR0912, PLR0913, PLR0915,
     # PLR0917, PLR2004
     "PLR01", "PLR02", "PLR17", "PLR204", "PLR5",
-    # Pylint warnings -- off: PLW0108, PLW0127, PLW0602, PLW0603, PLW1641,
-    # PLW2901
-    "PLW0120", "PLW0128", "PLW0129", "PLW013", "PLW017", "PLW02", "PLW04",
-    "PLW0604", "PLW064", "PLW07", "PLW15", "PLW21", "PLW3",
+    # Pylint warnings -- off: PLW0108, PLW0603, PLW1641, PLW2901
+    "PLW012", "PLW013", "PLW017", "PLW02", "PLW04", "PLW0602", "PLW0604",
+    "PLW064", "PLW07", "PLW15", "PLW21", "PLW3",
     # flake8-pytest-style -- off: PT006, PT009, PT011, PT012, PT013, PT017,
     # PT018, PT022, PT027
     "PT001", "PT002", "PT003", "PT007", "PT008", "PT010", "PT014", "PT015",

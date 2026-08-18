@@ -2336,8 +2336,6 @@ class RunScriptContextV2:
         app.logger.info(f"ask_input: {ask_input}")
         if isinstance(ask_input, dict):
             ask_input = ask_input.get("input", "")
-        else:
-            ask_input = ask_input
         if isinstance(ask_input, list):
             ask_input = ",".join(ask_input)
         app.logger.info(f"ask_input: {ask_input}")

@@ -669,8 +669,6 @@ def _get_access_token(api_key: str, secret_key: str) -> str:
 
     Token is cached and refreshed when expired.
     """
-    global _token_cache
-
     # Check cache
     current_time = time.time()
     if _token_cache["access_token"] and _token_cache["expires_at"] > current_time + 300:

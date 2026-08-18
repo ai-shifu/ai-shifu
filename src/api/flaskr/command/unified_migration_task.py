@@ -968,7 +968,7 @@ class UnifiedMigrationTask:
         # Consistency Check Results
         report.append("DATA CONSISTENCY VERIFICATION")
         report.append("-" * 40)
-        for table_name, result in consistency_results.items():
+        for result in consistency_results.values():
             status = "✓ PASSED" if result.is_consistent else "✗ FAILED"
             report.append(f"{status} {result.table_pair}")
             report.append(

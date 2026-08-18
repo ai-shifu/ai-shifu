@@ -28,7 +28,7 @@ def find_node_with_parents(
     if root.bid == target_bid:
         return current_path.copy()
 
-    for i, child in enumerate(root.children):
+    for _i, child in enumerate(root.children):
         result = find_node_with_parents(child, target_bid, current_path)
         if result:
             return result
