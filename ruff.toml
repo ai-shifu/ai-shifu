@@ -110,6 +110,7 @@ select = [
     "SIM300",  # yoda condition
     "SIM910",  # dict.get(key, None)
     "UP01",    # redundant str.encode/open() arguments
+    "UP022",   # stdout/stderr=PIPE that should be capture_output
     "UP024",   # deprecated OSError alias
     "UP028",   # for loop that should be yield from
     "UP032",   # str.format that should be an f-string
