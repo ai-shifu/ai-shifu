@@ -67,6 +67,7 @@ select = [
     "RUF021", # unparenthesized and inside or
     "RUF022", # unsorted __all__
     "RUF023", # unsorted __slots__
+    "RUF036", # None not at the end of a union
     "RUF102", # noqa directive naming an unknown rule
     "SIM114", # if branches with identical bodies
     "SIM910", # dict.get(key, None)
