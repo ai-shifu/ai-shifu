@@ -190,6 +190,11 @@ def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempot
             client_ip="127.0.0.1",
             extra={
                 "mode": "checkout_session",
+                "metadata": {
+                    "bill_order_bid": "bill-order-1",
+                    "creator_bid": "creator-1",
+                    "product_bid": "product-1",
+                },
                 "success_url": "https://app.test/success",
                 "cancel_url": "https://app.test/cancel",
                 "session_params": {"mode": "subscription"},
@@ -208,8 +213,96 @@ def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempot
     assert captured_coupon["api_key"] == "sk_test"
     assert captured_coupon["stripe_version"] == "2024-06-20"
     assert captured_session["discounts"] == [{"coupon": "coupon-1"}]
+    assert captured_session["metadata"] == {
+        "bill_order_bid": "bill-order-1",
+        "creator_bid": "creator-1",
+        "order_bid": "bill-order-1",
+        "product_bid": "product-1",
+        "user_bid": "creator-1",
+        "shifu_bid": "",
+    }
+    assert captured_session["subscription_data"]["metadata"] == {
+        "bill_order_bid": "bill-order-1",
+        "creator_bid": "creator-1",
+        "order_bid": "bill-order-1",
+        "product_bid": "product-1",
+        "user_bid": "creator-1",
+        "shifu_bid": "",
+    }
+    assert "payment_intent_data" not in captured_session
     assert captured_session["api_key"] == "sk_test"
     assert captured_session["stripe_version"] == "2024-06-20"
+
+
+def test_stripe_payment_checkout_session_keeps_payment_intent_metadata(monkeypatch):
+    captured_session: dict[str, object] = {}
+
+    class FakeSession:
+        @staticmethod
+        def create(**kwargs):
+            captured_session.update(kwargs)
+            return type(
+                "SessionResponse",
+                (),
+                {
+                    "to_dict": lambda self: {
+                        "id": "cs_payment_1",
+                        "url": "https://stripe.test/payment-checkout",
+                        "payment_intent": "",
+                    }
+                },
+            )()
+
+    class FakeCheckout:
+        Session = FakeSession
+
+    class FakeStripe:
+        checkout = FakeCheckout
+
+    provider = StripeProvider()
+    monkeypatch.setattr(
+        provider,
+        "_client_options",
+        lambda _app: (FakeStripe, {"api_key": "sk_test"}),
+    )
+
+    result = provider.create_payment(
+        request=PaymentRequest(
+            order_bid="bill-order-payment-1",
+            user_bid="creator-1",
+            shifu_bid="",
+            amount=500,
+            channel="checkout_session",
+            currency="USD",
+            subject="Credit Pack",
+            body="Credit Pack",
+            client_ip="127.0.0.1",
+            extra={
+                "mode": "checkout_session",
+                "success_url": "https://app.test/success",
+                "cancel_url": "https://app.test/cancel",
+                "session_params": {"mode": "payment"},
+                "payment_intent_data": {"metadata": {"checkout_kind": "topup"}},
+                "line_items": [{"price_data": {}, "quantity": 1}],
+            },
+        ),
+        app=Flask(__name__),
+    )
+
+    assert result.checkout_session_id == "cs_payment_1"
+    assert captured_session["metadata"] == {
+        "order_bid": "bill-order-payment-1",
+        "user_bid": "creator-1",
+        "shifu_bid": "",
+        "checkout_kind": "topup",
+    }
+    assert captured_session["payment_intent_data"]["metadata"] == {
+        "order_bid": "bill-order-payment-1",
+        "user_bid": "creator-1",
+        "shifu_bid": "",
+        "checkout_kind": "topup",
+    }
+    assert "subscription_data" not in captured_session
 
 
 def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(

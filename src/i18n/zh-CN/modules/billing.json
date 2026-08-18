@@ -600,8 +600,8 @@
   },
   "globalPricing": {
     "actions": {
-      "buyCredits": "购买积分",
-      "choosePlan": "选择套餐",
+      "buyCredits": "立即购买",
+      "choosePlan": "立即订阅",
       "viewMonthly": "查看月付套餐"
     },
     "annualSavings": "每年节省 {amount}（{percent}%）",
@@ -609,6 +609,7 @@
     "audienceLabel": "适用场景",
     "billedAnnually": "每 12 个月支付 {price}",
     "cancelAnytime": "按月付费，可随时取消。",
+    "checkoutNotice": "安全支付由 Stripe 提供。",
     "comingSoon": {
       "close": "知道了",
       "description": "我们正在开发支付功能，敬请期待。",
@@ -616,13 +617,13 @@
       "title": "支付功能即将上线"
     },
     "creditPacks": {
-      "activeSubscriptionRequired": "使用积分包积分时，账户必须有生效中的订阅。订阅失效后，未使用积分仍保留在账户中；再次开通套餐后即可继续使用。",
-      "instantAndPermanent": "购买后积分立即到账，永久有效。",
+      "activeSubscriptionRequired": "需有生效套餐才可使用积分包；套餐失效时积分保留，重新订阅后可继续使用。",
+      "instantAndPermanent": "购买后立即到账，永久有效。",
       "packName": "{credits} 积分"
     },
     "creditsLabel": "周期积分",
     "creditsPerMonth": "每月 {credits} 积分",
-    "creditsPerYear": "每 12 个月计费周期 {credits} 积分",
+    "creditsPerYear": "每年 {credits} 积分",
     "cycles": {
       "annual": "年付",
       "monthly": "月付"
