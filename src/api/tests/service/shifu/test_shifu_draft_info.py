@@ -446,6 +446,30 @@ def test_save_shifu_draft_info_clears_default_listen_mode_when_tts_is_disabled(
         assert latest.default_listen_mode_enabled == 0
 
 
+@pytest.mark.parametrize(
+    "invalid_value",
+    ["yes", "", " true ", 1, 0, [], {}],
+)
+def test_save_shifu_detail_route_rejects_invalid_default_listen_mode_enabled(
+    app, test_client, monkeypatch, invalid_value
+):
+    shifu_bid = "test-save-shifu-default-listen-invalid"
+    owner_bid = "owner-default-listen-invalid"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_route_user(monkeypatch, owner_bid)
+    _mock_route_permission(monkeypatch, {"edit": True})
+
+    response = test_client.post(
+        f"/api/shifu/shifus/{shifu_bid}/detail",
+        json={"default_listen_mode_enabled": invalid_value},
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] != 0
+
+
 def test_get_draft_meta_route_serializes_utc_timestamp(app, test_client, monkeypatch):
     from flaskr.service.shifu.models import DraftOutlineItem
 

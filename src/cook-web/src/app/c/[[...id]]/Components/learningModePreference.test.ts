@@ -63,6 +63,19 @@ describe('resolveCourseLearningMode', () => {
     ).toBe('read');
   });
 
+  it('keeps read when teacher default listen mode is enabled but course listen capability is still unknown', () => {
+    expect(
+      resolveCourseLearningMode({
+        courseTtsEnabled: null,
+        courseDefaultListenModeEnabled: true,
+        canUseClassroomMode: false,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        storedLearningMode: null,
+      }),
+    ).toBe('read');
+  });
+
   it('respects an explicit stored read preference', () => {
     expect(
       resolveCourseLearningMode({

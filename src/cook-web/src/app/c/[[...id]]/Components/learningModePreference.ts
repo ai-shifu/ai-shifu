@@ -53,7 +53,7 @@ export const resolveCourseLearningMode = ({
     return 'read';
   }
 
-  if (courseDefaultListenModeEnabled === true && courseTtsEnabled !== false) {
+  if (courseDefaultListenModeEnabled === true && courseTtsEnabled === true) {
     return 'listen';
   }
 

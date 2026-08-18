@@ -977,7 +977,14 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         tts_emotion = "" if "tts_emotion" in json_data else None
         default_listen_mode_enabled = json_data.get("default_listen_mode_enabled")
         if isinstance(default_listen_mode_enabled, str):
-            default_listen_mode_enabled = default_listen_mode_enabled.lower() == "true"
+            normalized_value = default_listen_mode_enabled.lower()
+            if normalized_value not in {"true", "false"}:
+                raise_param_error("default_listen_mode_enabled")
+            default_listen_mode_enabled = normalized_value == "true"
+        elif default_listen_mode_enabled is not None and not isinstance(
+            default_listen_mode_enabled, bool
+        ):
+            raise_param_error("default_listen_mode_enabled")
         # Language Output Configuration
         use_learner_language = json_data.get("use_learner_language")
         if isinstance(use_learner_language, str):
