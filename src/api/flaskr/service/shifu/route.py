@@ -663,10 +663,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     defaults={"state": USER_STATE_REGISTERED},
                 )
                 should_grant_demo_permissions = created_new_user
-            else:
-                if aggregate.state == USER_STATE_UNREGISTERED:
-                    set_user_state(aggregate.user_bid, USER_STATE_REGISTERED)
-                    should_grant_demo_permissions = True
+            elif aggregate.state == USER_STATE_UNREGISTERED:
+                set_user_state(aggregate.user_bid, USER_STATE_REGISTERED)
+                should_grant_demo_permissions = True
             if not aggregate or aggregate.user_bid == owner_id:
                 continue
 

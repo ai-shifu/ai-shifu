@@ -299,9 +299,9 @@ def get_i18n_list(app: Flask):
 
 __all__ = [
     "_",
-    "translate_for_language",
-    "set_language",
     "clear_language",
     "get_i18n_list",
     "load_translations",
+    "set_language",
+    "translate_for_language",
 ]

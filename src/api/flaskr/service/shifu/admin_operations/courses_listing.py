@@ -705,9 +705,9 @@ def _apply_latest_nonempty_model_fields(model, rows) -> None:
         if not fallback:
             continue
         if not str(getattr(row, "llm", "") or "").strip():
-            setattr(row, "llm", fallback["llm"])
+            row.llm = fallback["llm"]
         if not str(getattr(row, "tts_model", "") or "").strip():
-            setattr(row, "tts_model", fallback["tts_model"])
+            row.tts_model = fallback["tts_model"]
 
 
 def _load_latest_shifus(
@@ -837,10 +837,8 @@ def _attach_course_prompt_flags(model, rows) -> None:
         for row_id, has_course_prompt in has_course_prompt_rows
     }
     for row in rows:
-        setattr(
-            row,
-            "has_course_prompt",
-            bool(has_course_prompt_map.get(getattr(row, "id", None), False)),
+        row.has_course_prompt = bool(
+            has_course_prompt_map.get(getattr(row, "id", None), False)
         )
 
 

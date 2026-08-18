@@ -459,15 +459,14 @@ def find_violations(
         candidates = [
             (path.as_posix(), path.read_bytes()) for path in paths if path.is_file()
         ]
+    elif staged:
+        candidates = _index_candidates()
     else:
-        if staged:
-            candidates = _index_candidates()
-        else:
-            candidates = []
-            for relative_path in _repository_relative_paths():
-                path = ROOT / relative_path
-                if path.is_file():
-                    candidates.append((relative_path, path.read_bytes()))
+        candidates = []
+        for relative_path in _repository_relative_paths():
+            path = ROOT / relative_path
+            if path.is_file():
+                candidates.append((relative_path, path.read_bytes()))
 
     for path_label, raw in candidates:
         if b"\0" in raw:

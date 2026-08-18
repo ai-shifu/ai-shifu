@@ -11,8 +11,6 @@ from flask import Config as FlaskConfig
 class EnvironmentConfigError(Exception):
     """Exception raised for environment configuration errors."""
 
-    pass
-
 
 @dataclass
 class EnvVar:

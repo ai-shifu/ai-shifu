@@ -371,27 +371,26 @@ class VolcengineProtocol:
                     offset += 4
                     if len(data) >= offset + payload_size:
                         payload = data[offset : offset + payload_size]
-            else:
-                # JSON or other payload - parse payload size first
-                if len(data) >= offset + 4:
-                    payload_size = struct.unpack(">I", data[offset : offset + 4])[0]
-                    offset += 4
-                    if len(data) >= offset + payload_size:
-                        payload_data = data[offset : offset + payload_size]
+            # JSON or other payload - parse payload size first
+            elif len(data) >= offset + 4:
+                payload_size = struct.unpack(">I", data[offset : offset + 4])[0]
+                offset += 4
+                if len(data) >= offset + payload_size:
+                    payload_data = data[offset : offset + payload_size]
 
-                        # Decompress if needed
-                        if compression == CompressionMethod.GZIP:
-                            payload_data = gzip.decompress(payload_data)
+                    # Decompress if needed
+                    if compression == CompressionMethod.GZIP:
+                        payload_data = gzip.decompress(payload_data)
 
-                        # Deserialize
-                        if serialization == SerializationMethod.JSON:
-                            try:
-                                payload = json.loads(payload_data.decode("utf-8"))
-                            except json.JSONDecodeError as e:
-                                logger.error(f"Failed to parse JSON payload: {e}")
-                                payload = payload_data
-                        else:
+                    # Deserialize
+                    if serialization == SerializationMethod.JSON:
+                        try:
+                            payload = json.loads(payload_data.decode("utf-8"))
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Failed to parse JSON payload: {e}")
                             payload = payload_data
+                    else:
+                        payload = payload_data
 
         return ProtocolFrame(
             message_type=message_type,

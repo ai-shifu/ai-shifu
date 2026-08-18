@@ -24,7 +24,6 @@ def upgrade():
 
     Demo shifu import/update is now executed at container startup.
     """
-    pass
 
 
 def downgrade():

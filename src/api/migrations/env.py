@@ -170,10 +170,9 @@ def run_migrations_online() -> None:
                                 if is_meaningful_operation(batch_op):
                                     has_meaningful_changes = True
                                     break
-                        else:
-                            if is_meaningful_operation(op):
-                                has_meaningful_changes = True
-                                break
+                        elif is_meaningful_operation(op):
+                            has_meaningful_changes = True
+                            break
 
                         if has_meaningful_changes:
                             break

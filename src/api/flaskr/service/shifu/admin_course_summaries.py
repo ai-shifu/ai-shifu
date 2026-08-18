@@ -679,10 +679,8 @@ def _attach_course_prompt_flags(model, rows) -> None:
         for row_id, has_course_prompt in has_course_prompt_rows
     }
     for row in rows:
-        setattr(
-            row,
-            "has_course_prompt",
-            bool(has_course_prompt_map.get(getattr(row, "id", None), False)),
+        row.has_course_prompt = bool(
+            has_course_prompt_map.get(getattr(row, "id", None), False)
         )
 
 
