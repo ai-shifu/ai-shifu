@@ -1056,7 +1056,7 @@ async def main():
             logger.info("Starting data consistency verification...")
             consistency_results = await migration_task.verify_data_consistency()
 
-            for table_name, result in consistency_results.items():
+            for result in consistency_results.values():
                 status = "PASSED" if result.is_consistent else "FAILED"
                 print(f"{status}: {result.table_pair}")
                 if not result.is_consistent:
