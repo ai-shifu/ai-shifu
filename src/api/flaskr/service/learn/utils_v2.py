@@ -155,7 +155,7 @@ def get_fmt_prompt(
             app.logger.info("key not found:" + key + " ,user_id:" + user_id)
     app.logger.info(fmt_keys)
     if not keys:
-        prompt = input if not profile_tmplate else profile_tmplate
+        prompt = profile_tmplate or input
     else:
         prompt = safe_format_template(profile_tmplate, fmt_keys)
     app.logger.info(f"fomat input:{prompt}")
