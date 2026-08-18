@@ -4,8 +4,6 @@ import re
 from datetime import datetime, timezone
 
 from flask import Flask, request
-from pydantic import ValidationError
-
 from flaskr.common.config import get_config
 from flaskr.route.common import make_common_response
 from flaskr.service.billing.api import (
@@ -46,6 +44,14 @@ from flaskr.service.referral.api import (
     update_operator_referral_campaign_status,
     update_operator_referral_status,
 )
+from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserPackageGrantRequestDTO,
+)
+from flaskr.service.shifu.admin_operations.config_rates import (
+    get_operator_rate_config,
+    update_operator_rate_config,
+)
 from flaskr.service.shifu.admin_operations.courses import (
     OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
     copy_operator_course,
@@ -73,10 +79,6 @@ from flaskr.service.shifu.admin_operations.credit_notifications import (
     sync_operator_credit_notification_template,
     update_operator_credit_notification_config,
 )
-from flaskr.service.shifu.admin_operations.config_rates import (
-    get_operator_rate_config,
-    update_operator_rate_config,
-)
 from flaskr.service.shifu.admin_operations.profile_onboarding import (
     get_operator_profile_onboarding_config,
     update_operator_profile_onboarding_config,
@@ -101,11 +103,7 @@ from flaskr.service.shifu.admin_operations.voice_clones import (
     list_operator_voice_clones,
     register_operator_voice_clone,
 )
-from flaskr.service.shifu.admin_dtos import (
-    AdminOperationUserCreditGrantRequestDTO,
-    AdminOperationUserPackageGrantRequestDTO,
-)
-
+from pydantic import ValidationError
 
 MAX_CONTACT_LENGTH = 320
 PHONE_PATTERN = re.compile(r"^\d{11}$")

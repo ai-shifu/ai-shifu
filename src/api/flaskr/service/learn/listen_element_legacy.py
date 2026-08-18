@@ -5,7 +5,6 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.service.learn.learn_dtos import (
     BlockType,

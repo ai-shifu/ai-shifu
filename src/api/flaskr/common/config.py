@@ -1,11 +1,12 @@
-import os
-import re
 import json
 import logging
+import os
+import re
 from dataclasses import dataclass, field
-from typing import Any, Optional, Callable, Dict, List, Type
-from flask import Flask
+from typing import Any, Callable, Dict, List, Optional, Type
+
 from flask import Config as FlaskConfig
+from flask import Flask
 
 
 class EnvironmentConfigError(Exception):
@@ -55,7 +56,7 @@ class EnvVar:
             if isinstance(value, str):
                 return value.lower() in ("true", "1", "yes", "on")
             return bool(value)
-        elif self.type is int:
+        if self.type is int:
             try:
                 return int(value)
             except ValueError:
@@ -104,7 +105,6 @@ def _is_valid_rpm_limits_json(value: Any) -> bool:
 
 def parse_llm_model_max_output_tokens(value: Any) -> Dict[str, int]:
     """Parse a routed model id -> maximum output token JSON map."""
-
     if value in (None, ""):
         return {}
     if isinstance(value, dict):
@@ -1827,7 +1827,7 @@ class EnhancedConfig:
                 except Exception as e:
                     # For optional fields, log and continue; required fields remain fatal
                     if env_var.required or not allow_conversion_errors:
-                        validation_errors.append(f"- {var_name}: {str(e)}")
+                        validation_errors.append(f"- {var_name}: {e!s}")
                     else:
                         logging.getLogger(__name__).warning(
                             "Non-fatal config conversion issue for %s: %s",
@@ -1868,7 +1868,7 @@ class EnhancedConfig:
                     logger.warning(
                         f"Failed to convert environment variable '{key}' with value '{value}' "
                         f"to type {env_var.type.__name__}. Using default value '{env_var.default}'. "
-                        f"Error: {str(e)}"
+                        f"Error: {e!s}"
                     )
                     value = env_var.default
             # Apply interpolation

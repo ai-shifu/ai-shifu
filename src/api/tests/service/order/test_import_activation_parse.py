@@ -3,18 +3,17 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
 from flaskr.dao import db
-from flaskr.service.profile.learner_profile import (
-    PROFILE_ONBOARDING_SCENE_KEY,
-    PROFILE_ONBOARDING_VERSION,
-    get_learner_profile,
-)
 from flaskr.service.common.models import AppException
 from flaskr.service.order.admin import (
     import_activation_order,
     normalize_mobile,
     parse_import_activation_entries,
+)
+from flaskr.service.profile.learner_profile import (
+    PROFILE_ONBOARDING_SCENE_KEY,
+    PROFILE_ONBOARDING_VERSION,
+    get_learner_profile,
 )
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import UserInfo, UserOnboardingState
@@ -23,7 +22,6 @@ from flaskr.service.user.repository import (
     load_user_aggregate_by_identifier,
     upsert_credential,
 )
-
 
 PROFILE_UPDATED_AT = datetime(2026, 8, 12, 8, 30, tzinfo=timezone.utc)
 

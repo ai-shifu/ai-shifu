@@ -1,16 +1,14 @@
 from datetime import datetime, timedelta
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.common.models import AppException
+from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.shifu.shifu_history_manager import (
     get_shifu_draft_meta,
     get_shifu_draft_revision,
 )
-from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.shifu.shifu_mdflow_funcs import (
     cleanup_outline_history_versions,
     get_shifu_mdflow,
@@ -21,6 +19,7 @@ from flaskr.service.shifu.shifu_mdflow_funcs import (
     save_shifu_mdflow,
 )
 from flaskr.service.user.models import UserInfo
+from flaskr.util.datetime import now_utc
 
 
 def test_parse_shifu_mdflow_returns_variables(app):

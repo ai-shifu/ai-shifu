@@ -7,39 +7,40 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from .dtos import (
-    ReorderOutlineItemDto,
-    SimpleOutlineDto,
-    OutlineDto,
-    ShifuOutlineTreeNode,
-)
-from .consts import (
-    UNIT_TYPE_VALUES_REVERSE,
-    UNIT_TYPE_VALUES,
-    UNIT_TYPE_VALUE_TRIAL,
-    UNIT_TYPE_TRIAL,
-    UNIT_TYPE_GUEST,
-)
-from .models import DraftOutlineItem
-from .outline_write_lock import lock_shifu_for_outline_write
-from ...dao import db
-from ...util import generate_id
-from ..common.models import raise_error, raise_param_error
-from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from decimal import Decimal
-from .shifu_history_manager import (
-    save_new_outline_history,
-    save_outline_tree_history,
-    HistoryItem,
-    save_outline_history,
-    delete_outline_history,
-)
-from .shifu_mdflow_funcs import cleanup_outline_history_versions
+
+from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
 from sqlalchemy.orm import load_only
 
-from flaskr.common.i18n_utils import get_markdownflow_output_language
+from ...dao import db
+from ...util import generate_id
+from ..common.models import raise_error, raise_param_error
+from .consts import (
+    UNIT_TYPE_GUEST,
+    UNIT_TYPE_TRIAL,
+    UNIT_TYPE_VALUE_TRIAL,
+    UNIT_TYPE_VALUES,
+    UNIT_TYPE_VALUES_REVERSE,
+)
+from .dtos import (
+    OutlineDto,
+    ReorderOutlineItemDto,
+    ShifuOutlineTreeNode,
+    SimpleOutlineDto,
+)
+from .models import DraftOutlineItem
+from .outline_write_lock import lock_shifu_for_outline_write
+from .shifu_history_manager import (
+    HistoryItem,
+    delete_outline_history,
+    save_new_outline_history,
+    save_outline_history,
+    save_outline_tree_history,
+)
+from .shifu_mdflow_funcs import cleanup_outline_history_versions
 
 
 def convert_outline_to_reorder_outline_item_dto(
@@ -473,7 +474,6 @@ def create_default_outlines_for_new_shifu(
     concurrent outline writes yet, so we can build the initial structure inside
     the caller's existing transaction without opening a nested outline flow.
     """
-
     normalized_chapter_name = __normalize_outline_name(chapter_name)
     normalized_lesson_name = __normalize_outline_name(lesson_name)
     chapter_bid = generate_id(app)

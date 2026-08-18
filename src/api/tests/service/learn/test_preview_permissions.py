@@ -1,5 +1,5 @@
-from decimal import Decimal
 import json
+from decimal import Decimal
 from types import SimpleNamespace
 
 import flaskr.dao as dao

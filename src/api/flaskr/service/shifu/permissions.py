@@ -4,10 +4,8 @@ import json
 from typing import Dict, Set
 
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
-
 
 DEFAULT_SHIFU_PERMISSIONS = {"view", "edit", "publish"}
 

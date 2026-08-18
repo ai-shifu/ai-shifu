@@ -10,24 +10,24 @@ API Reference:
 """
 
 import logging
-import requests
-from typing import Optional, List
+from typing import List, Optional
 
-from flaskr.common.config import get_config
-from flaskr.common.log import AppLoggerProxy
-from flaskr.api.tts.base import (
-    BaseTTSProvider,
-    TTSResult,
-    VoiceSettings,
-    AudioSettings,
-    ProviderConfig,
-    ParamRange,
-)
+import requests
+
 from flaskr.api.tts.aliyun_nls_token import (
     get_aliyun_nls_token,
     is_aliyun_nls_token_configured,
 )
-
+from flaskr.api.tts.base import (
+    AudioSettings,
+    BaseTTSProvider,
+    ParamRange,
+    ProviderConfig,
+    TTSResult,
+    VoiceSettings,
+)
+from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
@@ -1371,20 +1371,19 @@ class AliyunTTSProvider(BaseTTSProvider):
                     word_count=len(text),
                 )
 
-            else:
-                # Error response (JSON)
-                try:
-                    result = response.json()
-                    status = result.get("status", "unknown")
-                    message = result.get("message", "Unknown error")
-                    task_id = result.get("task_id", "")
-                    raise ValueError(
-                        f"Aliyun TTS API error {status}: {message} (task_id: {task_id})"
-                    )
-                except ValueError as e:
-                    if "Aliyun TTS API error" in str(e):
-                        raise
-                    raise ValueError(f"Aliyun TTS API error: {response.text[:200]}")
+            # Error response (JSON)
+            try:
+                result = response.json()
+                status = result.get("status", "unknown")
+                message = result.get("message", "Unknown error")
+                task_id = result.get("task_id", "")
+                raise ValueError(
+                    f"Aliyun TTS API error {status}: {message} (task_id: {task_id})"
+                )
+            except ValueError as e:
+                if "Aliyun TTS API error" in str(e):
+                    raise
+                raise ValueError(f"Aliyun TTS API error: {response.text[:200]}")
 
         except requests.RequestException as e:
             logger.error(f"Aliyun TTS request failed: {e}")

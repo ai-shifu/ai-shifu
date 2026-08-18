@@ -4,13 +4,12 @@ from typing import Any, Generator
 
 from flask import Flask
 
-from .consts import ASK_PROVIDER_LLM
-
 from .base import (
     AskProviderChunk,
     AskProviderConfigError,
     AskProviderRuntime,
 )
+from .consts import ASK_PROVIDER_LLM
 
 
 class LlmAskProviderAdapter:

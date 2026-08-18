@@ -21,17 +21,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import FrozenSet, Mapping, Optional, Type
 
+from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
     LearnProgressRecord,
 )
-from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu, ShifuUserArchive
 from flaskr.service.user.models import UserInfo
-
 
 ALLOWED_AGGREGATE_FUNCTIONS: FrozenSet[str] = frozenset(
     {"count", "count_distinct", "sum", "avg", "min", "max"}
@@ -406,5 +405,4 @@ WHITELIST: Mapping[str, TableSpec] = {
 
 def get_table_spec(table_key: str) -> TableSpec:
     """Return the spec for ``table_key`` or raise :class:`KeyError`."""
-
     return WHITELIST[table_key]

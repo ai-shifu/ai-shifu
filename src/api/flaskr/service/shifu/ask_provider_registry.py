@@ -4,14 +4,14 @@ from typing import Any
 
 from flaskr.i18n import _
 from flaskr.service.shifu.shifu_draft_funcs import (
-    ASK_PROVIDER_LLM,
-    ASK_PROVIDER_DIFY,
     ASK_PROVIDER_COZE,
     ASK_PROVIDER_COZE_WORKFLOW,
-    ASK_PROVIDER_VOLC_KNOWLEDGE,
+    ASK_PROVIDER_DIFY,
     ASK_PROVIDER_GET_BIJI_KNOWLEDGE,
+    ASK_PROVIDER_LLM,
     ASK_PROVIDER_MODE_PROVIDER_ONLY,
     ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
+    ASK_PROVIDER_VOLC_KNOWLEDGE,
     normalize_ask_provider_config,
 )
 

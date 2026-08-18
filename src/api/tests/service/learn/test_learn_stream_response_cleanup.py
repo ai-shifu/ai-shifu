@@ -8,9 +8,8 @@ otherwise roll back on a possibly desynced connection.
 """
 
 import pytest
-from sqlalchemy.exc import ResourceClosedError
-
 from flaskr.service.learn import routes as learn_routes
+from sqlalchemy.exc import ResourceClosedError
 
 
 @pytest.fixture()

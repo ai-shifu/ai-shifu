@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 
 from flaskr.service.common.models import ERROR_CODE
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.learn.ask_provider_adapters import AskProviderError
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 
 
 class _FakeObservation:

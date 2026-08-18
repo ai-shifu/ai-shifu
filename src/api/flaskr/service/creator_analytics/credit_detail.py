@@ -45,22 +45,20 @@ result so the summary is stable.
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from datetime import date, datetime
 from flask import Flask
+from flaskr.i18n import _
+from flaskr.service.billing.consts import CREDIT_SOURCE_TYPE_USAGE
+from flaskr.service.billing.models import CreditLedgerEntry
+from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu.permissions import get_user_shifu_permissions
 from sqlalchemy import and_, bindparam, func, select
 from sqlalchemy.sql import Select
 
-from flaskr.service.billing.consts import CREDIT_SOURCE_TYPE_USAGE
-from flaskr.service.billing.models import CreditLedgerEntry
-from flaskr.service.common.models import AppException, ERROR_CODE
-from flaskr.service.metering.models import BillUsageRecord
-from flaskr.service.shifu.permissions import get_user_shifu_permissions
-from flaskr.i18n import _
-
 from .engine import get_analytics_engine
-
 
 # Reuse the DSL-path error names so the HTTP wrapper maps them consistently
 # (the error name → HTTP code mapping lives in error_codes.json).
@@ -85,7 +83,6 @@ def run(app: Flask, user_id: str, payload: Any) -> Dict[str, Any]:
     issues two SQL statements against the analytics engine: one paginated
     detail query and one aggregate summary query.
     """
-
     limit_max = int(app.config.get("ANALYTICS_QUERY_LIMIT_MAX") or 1000)
 
     params = _parse_payload(payload, limit_max=limit_max)
@@ -281,7 +278,6 @@ def _join_conditions(params: _Params):
     ``ix_credit_ledger_entries_source_type_source_bid`` composite index
     rather than scanning every ledger row tied to the matching usage_bid.
     """
-
     bu = BillUsageRecord.__table__
     cle = CreditLedgerEntry.__table__
     return cle.join(
@@ -298,7 +294,6 @@ def _join_conditions(params: _Params):
 
 def _where_clauses(params: _Params):
     """Common WHERE predicates shared by detail + summary queries."""
-
     bu = BillUsageRecord.__table__
     clauses = [bu.c.shifu_bid == bindparam("__shifu_bid", value=params.shifu_bid)]
     if params.start_date is not None:
@@ -432,7 +427,6 @@ def _coerce_value(value: Any) -> Any:
     columns. JSON serialization on either would raise; rendering as strings
     keeps the response stable and lets the CLI / frontend parse on demand.
     """
-
     if isinstance(value, datetime):
         return value.isoformat(sep=" ", timespec="seconds")
     # Decimal carries arbitrary precision; str() keeps the exact value the

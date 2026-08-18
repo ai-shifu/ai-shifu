@@ -4,18 +4,17 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta
-from flaskr.util.datetime import now_utc, to_utc_iso
-from decimal import Decimal
 import json
 import os
-from pathlib import Path
 import sys
 import time
+from datetime import datetime, timedelta
+from decimal import Decimal
+from pathlib import Path
 from typing import Any, Callable
 
+from flaskr.util.datetime import now_utc, to_utc_iso
 from sqlalchemy import Numeric, bindparam, inspect, text
-
 
 API_ROOT = Path(__file__).resolve().parents[1]
 if str(API_ROOT) not in sys.path:
@@ -622,11 +621,11 @@ def summarize(probes: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def run_report(args: argparse.Namespace) -> dict[str, Any]:
+    import pymysql
     from dotenv import load_dotenv
     from flask import Flask
-    from flaskr.common.config import Config
     from flaskr import dao
-    import pymysql
+    from flaskr.common.config import Config
 
     if not os.getenv("SKIP_LOAD_DOTENV"):
         load_dotenv()

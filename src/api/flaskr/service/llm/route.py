@@ -1,7 +1,7 @@
 from flask import Flask
-from flaskr.route.common import make_common_response
-from flaskr.framework.plugin.inject import inject
 from flaskr.api.llm import get_current_models
+from flaskr.framework.plugin.inject import inject
+from flaskr.route.common import make_common_response
 
 
 @inject

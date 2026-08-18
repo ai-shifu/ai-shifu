@@ -1,16 +1,15 @@
-from decimal import Decimal
 from datetime import timedelta
-from flaskr.util.datetime import now_utc
+from decimal import Decimal
 from types import SimpleNamespace
 
 from flaskr.dao import db
-from flaskr.service.order.funs import init_buy_record
 from flaskr.service.order.consts import ORDER_STATUS_INIT
+from flaskr.service.order.funs import init_buy_record
 from flaskr.service.order.models import Order
 from flaskr.service.promo.consts import (
-    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
     COUPON_STATUS_USED,
     COUPON_TYPE_FIXED,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
     PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
     PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
     PROMO_CAMPAIGN_STATUS_ACTIVE,
@@ -21,6 +20,7 @@ from flaskr.service.promo.models import (
     PromoCampaign,
     PromoRedemption,
 )
+from flaskr.util.datetime import now_utc
 
 
 def test_init_buy_record_creates_order(app, monkeypatch):

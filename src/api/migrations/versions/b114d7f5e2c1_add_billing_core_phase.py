@@ -8,10 +8,9 @@ Create Date: 2026-04-09 20:00:00.000000
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
-
 
 revision = "b114d7f5e2c1"
 down_revision = "1c8f4b7a9d2e"

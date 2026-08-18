@@ -4,17 +4,20 @@ from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
+from flaskr.service.billing.charges import (
+    build_usage_metric_charges,
+    resolve_credit_multiplier_label,
+)
 from flaskr.service.billing.consts import (
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_METRIC_LLM_CACHE_TOKENS,
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_METRIC_TTS_OUTPUT_CHARS,
     BILLING_METRIC_TTS_REQUEST_COUNT,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -31,10 +34,6 @@ from flaskr.service.billing.models import (
     CreditUsageRate,
     CreditWallet,
     CreditWalletBucket,
-)
-from flaskr.service.billing.charges import (
-    build_usage_metric_charges,
-    resolve_credit_multiplier_label,
 )
 from flaskr.service.billing.settlement import (
     backfill_bill_usage_settlement,

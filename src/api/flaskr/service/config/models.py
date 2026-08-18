@@ -1,12 +1,13 @@
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     Column,
-    String,
     DateTime,
-    Text,
     SmallInteger,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
+
 from ...dao import db
 
 

@@ -2,25 +2,24 @@ from __future__ import annotations
 
 import json
 import sys
-from types import SimpleNamespace
 from datetime import datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
-
 from flaskr.dao import db
-from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_METRIC_TTS_OUTPUT_CHARS,
     BILLING_METRIC_TTS_REQUEST_COUNT,
-    CREDIT_ROUNDING_MODE_CEIL,
-    CREDIT_USAGE_RATE_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_ROUNDING_MODE_CEIL,
     CREDIT_SOURCE_TYPE_USAGE,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import CreditLedgerEntry, CreditUsageRate
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
@@ -34,8 +33,6 @@ from flaskr.service.learn.models import (
     LearnLessonFeedback,
     LearnProgressRecord,
 )
-from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
-from flaskr.service.order.models import Order
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
@@ -43,11 +40,18 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.models import Order
 from flaskr.service.promo.consts import (
     COUPON_STATUS_USED,
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
 )
 from flaskr.service.promo.models import CouponUsage, PromoRedemption
+from flaskr.service.shifu.admin import (
+    _coerce_operator_datetime,
+    get_operator_course_chapter_detail,
+    get_operator_course_detail,
+)
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_CONTENT_VALUE,
     BLOCK_TYPE_MDANSWER_VALUE,
@@ -65,15 +69,12 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.service.shifu.admin import (
-    _coerce_operator_datetime,
-    get_operator_course_chapter_detail,
-    get_operator_course_detail,
-)
 from flaskr.service.user.models import (
     AuthCredential,
-    UserInfo as UserEntity,
     UserToken,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
 )
 from flaskr.service.user.repository import create_user_entity, upsert_credential
 

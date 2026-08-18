@@ -7,12 +7,13 @@ Author: yfge
 Date: 2025-08-07
 """
 
+from typing import Any
+
 from flask import Flask
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
 )
-from typing import Any
 from pydantic import BaseModel, Field
 
 
@@ -385,11 +386,10 @@ class ShifuOutlineTreeNode:
         """
         if not self.parent_node:
             return self.position
-        else:
-            return (
-                self.parent_node.get_new_position()
-                + f"{self.parent_node.children.index(self) + 1:02d}"
-            )
+        return (
+            self.parent_node.get_new_position()
+            + f"{self.parent_node.children.index(self) + 1:02d}"
+        )
 
 
 @register_schema_to_swagger

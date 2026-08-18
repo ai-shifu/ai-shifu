@@ -1,11 +1,11 @@
 import json
 import uuid
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 
 from flaskr.dao import db
 from flaskr.service.shifu.models import AiCourseAuth, PublishedShifu
 from flaskr.service.user.utils import ensure_demo_course_permissions
+from flaskr.util.datetime import now_utc
 
 
 def _seed_published_shifu(shifu_bid: str) -> None:

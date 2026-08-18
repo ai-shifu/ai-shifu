@@ -99,21 +99,21 @@ if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
 from flaskr.service.learn import context_v2 as context_v2_module
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.context_v2 import (
     BlockType as PreviewBlockType,
+)
+from flaskr.service.learn.context_v2 import (
     MdflowContextV2,
     PaidException,
-    _find_outline_path_or_raise,
-    _resolve_runtime_language_context,
-    _resolve_runtime_output_language,
     RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
+    _find_outline_path_or_raise,
     _PreviewContextStore,
+    _resolve_runtime_language_context,
+    _resolve_runtime_output_language,
 )
-from markdown_flow import MarkdownFlow, USER_ANSWER_CONTEXT_KEY
-from markdown_flow.llm import LLMResult
-from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
     ElementType,
     GeneratedType,
@@ -129,20 +129,22 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
     LEARN_STATUS_NOT_STARTED,
 )
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.util import generate_id
+from markdown_flow import USER_ANSWER_CONTEXT_KEY, MarkdownFlow
+from markdown_flow.llm import LLMResult
 
 
 def _make_context() -> RunScriptContextV2:

@@ -7,9 +7,14 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import Dict, Optional, Sequence
+
 from flask import Flask
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.dao import db
+from flaskr.service.common.models import (
+    raise_error,
+    raise_param_error,
+)
 from flaskr.service.learn.const import (
     LEARN_STATUS_RESET,
     ROLE_STUDENT,
@@ -18,10 +23,6 @@ from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
     LearnProgressRecord,
-)
-from flaskr.service.common.models import (
-    raise_error,
-    raise_param_error,
 )
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
@@ -33,22 +34,11 @@ from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseDetailMetricsDTO,
     AdminOperationCoursePromptDTO,
 )
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDASK_VALUE,
-    UNIT_TYPE_VALUE_GUEST,
-    UNIT_TYPE_VALUE_NORMAL,
-    UNIT_TYPE_VALUE_TRIAL,
-)
-from flaskr.service.shifu.models import (
-    DraftOutlineItem,
-    PublishedOutlineItem,
-)
-
-from flaskr.service.shifu.admin_operations.courses_credit_usage import (
-    _build_operator_course_credit_metrics,
-)
 from flaskr.service.shifu.admin_operations.courses_credit_estimate import (
     build_operator_course_estimated_credit_cost,
+)
+from flaskr.service.shifu.admin_operations.courses_credit_usage import (
+    _build_operator_course_credit_metrics,
 )
 from flaskr.service.shifu.admin_operations.courses_shared import (
     PROMPT_SOURCE_CHAPTER,
@@ -62,6 +52,16 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _load_operator_course_outline_items,
     _load_user_map,
     _resolve_visible_leaf_outline_bids,
+)
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDASK_VALUE,
+    UNIT_TYPE_VALUE_GUEST,
+    UNIT_TYPE_VALUE_NORMAL,
+    UNIT_TYPE_VALUE_TRIAL,
+)
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    PublishedOutlineItem,
 )
 
 

@@ -377,7 +377,8 @@ def test_sms_login_route_logs_in_with_phone_code(test_client):
 
 def test_sms_login_route_does_not_rebind_authenticated_account_phone(test_client, app):
     import flaskr.service.user.phone_flow as phone_flow
-    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+    from flaskr.service.user.models import AuthCredential
+    from flaskr.service.user.models import UserInfo as UserEntity
 
     original_phone = "15500005551"
     next_phone = "15500005552"
@@ -421,7 +422,8 @@ def test_sms_login_route_does_not_rebind_authenticated_account_phone(test_client
 
 
 def test_sms_login_route_normalizes_cn_prefix(test_client, app):
-    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+    from flaskr.service.user.models import AuthCredential
+    from flaskr.service.user.models import UserInfo as UserEntity
 
     phone = "15500004444"
 

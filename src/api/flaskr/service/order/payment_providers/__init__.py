@@ -1,10 +1,10 @@
 from .base import (
-    PaymentProvider,
-    PaymentRequest,
     PaymentCreationResult,
     PaymentNotificationResult,
+    PaymentProvider,
     PaymentRefundRequest,
     PaymentRefundResult,
+    PaymentRequest,
     SubscriptionUpdateResult,
 )
 
@@ -41,7 +41,9 @@ __all__ = [
 ]
 
 # Ensure built-in providers are registered on import.
-from . import pingxx  # noqa: E402,F401
-from . import stripe  # noqa: E402,F401
-from . import alipay  # noqa: E402,F401
-from . import wechatpay  # noqa: E402,F401
+from . import (  # noqa: E402
+    alipay,  # noqa: F401
+    pingxx,  # noqa: F401
+    stripe,  # noqa: F401
+    wechatpay,  # noqa: F401
+)

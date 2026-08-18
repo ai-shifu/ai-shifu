@@ -67,7 +67,6 @@ def optimize_learner_profile(
     output_language: str | None = None,
 ) -> dict[str, str]:
     """Return a reviewable optimization without changing learner profile state."""
-
     normalized = normalize_learner_profile(learner_profile)
     if not normalized:
         raise_param_error("learner_profile")

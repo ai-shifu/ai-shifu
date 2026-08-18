@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
-
 import flaskr.service.promo.admin as promo_admin
+import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.promo.consts import COUPON_STATUS_ACTIVE, COUPON_TYPE_FIXED
 from flaskr.service.promo.models import Coupon, CouponUsage
 

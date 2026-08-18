@@ -173,8 +173,8 @@ def test_minimax_voice_clone_submit_creates_queued_voice(
     monkeypatch,
 ):
     from flaskr.service.tts.models import (
-        TTSMiniMaxClonedVoice,
         TTS_MINIMAX_CLONE_STATUS_QUEUED,
+        TTSMiniMaxClonedVoice,
     )
 
     _prepare_minimax_tables(app)
@@ -282,9 +282,9 @@ def test_minimax_voice_routes_only_expose_current_owner_voices(
     monkeypatch,
 ):
     from flaskr.service.tts.models import (
-        TTSMiniMaxClonedVoice,
         TTS_MINIMAX_CLONE_STATUS_FAILED,
         TTS_MINIMAX_CLONE_STATUS_READY,
+        TTSMiniMaxClonedVoice,
     )
 
     _prepare_minimax_tables(app)

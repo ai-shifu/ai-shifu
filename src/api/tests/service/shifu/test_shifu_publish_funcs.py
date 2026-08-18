@@ -3,7 +3,6 @@ import types
 from datetime import datetime
 
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -165,8 +164,8 @@ def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders():
 
 
 def test_get_summary_updates_trace_and_span_output(monkeypatch):
-    from flaskr.service.shifu import shifu_publish_funcs as module
     from flaskr.api import langfuse as langfuse_module
+    from flaskr.service.shifu import shifu_publish_funcs as module
 
     fake_langfuse = _FakeLangfuseClient()
     monkeypatch.setattr(
@@ -214,6 +213,7 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch):
 
 def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
     from unittest.mock import MagicMock
+
     from flaskr.service.shifu import shifu_publish_funcs as module
 
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
@@ -240,6 +240,7 @@ def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
 
 def test_run_summary_logs_error_for_other_failures(monkeypatch):
     from unittest.mock import MagicMock
+
     from flaskr.service.shifu import shifu_publish_funcs as module
 
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)

@@ -2,33 +2,28 @@
 
 from __future__ import annotations
 
-import uuid
 import datetime
+import uuid
 from typing import Any, Dict, Optional, Tuple, Union
 
 from flask import Flask
-
 from flaskr.common.cache_provider import cache as redis
+from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
-from sqlalchemy import text
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
-from flaskr.service.shifu.models import PublishedShifu, DraftShifu
+from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.consts import (
-    USER_STATE_REGISTERED,
-    USER_STATE_UNREGISTERED,
-    USER_STATE_TRAIL,
     USER_STATE_PAID,
+    USER_STATE_REGISTERED,
+    USER_STATE_TRAIL,
+    USER_STATE_UNREGISTERED,
 )
-from flaskr.service.user.models import UserInfo as UserEntity, UserVerifyCode
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
-from flaskr.service.user.utils import (
-    generate_token,
-    ensure_admin_creator_and_demo_permissions,
-)
+from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.user.models import UserVerifyCode
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
@@ -37,12 +32,17 @@ from flaskr.service.user.repository import (
     load_user_aggregate,
     load_user_aggregate_by_identifier,
     mark_user_roles,
+    transactional_session,
     update_user_entity_fields,
     upsert_credential,
     upsert_wechat_credentials,
-    transactional_session,
 )
-from flaskr.common.config import get_redis_derived_prefix
+from flaskr.service.user.utils import (
+    ensure_admin_creator_and_demo_permissions,
+    generate_token,
+)
+from flaskr.util.datetime import now_utc
+from sqlalchemy import text
 
 FIX_CHECK_CODE = None
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"

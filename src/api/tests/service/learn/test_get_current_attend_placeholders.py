@@ -14,10 +14,9 @@ drive the placeholder loop directly against a real session.
 
 from types import SimpleNamespace
 
+import flaskr.dao as dao
 import pytest
 from flask import Flask
-
-import flaskr.dao as dao
 from flaskr.service.learn.context_v2 import RunScriptContextV2
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import LEARN_STATUS_NOT_STARTED

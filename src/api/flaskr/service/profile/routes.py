@@ -1,16 +1,16 @@
 from flask import Flask, request
-from flaskr.route.common import make_common_response
-from flaskr.service.profile.profile_manage import (
-    get_profile_item_definition_list,
-    add_profile_item_quick,
-    save_profile_item,
-    delete_profile_item,
-    update_profile_item_hidden_state,
-    hide_unused_profile_items,
-    get_profile_variable_usage,
-)
 from flaskr.framework.plugin.inject import inject
+from flaskr.route.common import make_common_response
 from flaskr.service.common import raise_error
+from flaskr.service.profile.profile_manage import (
+    add_profile_item_quick,
+    delete_profile_item,
+    get_profile_item_definition_list,
+    get_profile_variable_usage,
+    hide_unused_profile_items,
+    save_profile_item,
+    update_profile_item_hidden_state,
+)
 
 
 @inject

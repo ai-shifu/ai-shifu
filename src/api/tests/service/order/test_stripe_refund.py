@@ -1,10 +1,9 @@
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.dao import db
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
-from flaskr.service.order.funs import refund_order_payment, get_payment_details
+from flaskr.service.order.funs import get_payment_details, refund_order_payment
 from flaskr.service.order.models import Order, StripeOrder
 from flaskr.service.order.payment_providers.base import PaymentRefundResult
 

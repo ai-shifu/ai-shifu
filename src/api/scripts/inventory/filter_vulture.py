@@ -8,9 +8,9 @@
 Usage: filter_vulture.py <vulture-raw.txt> <src_api_root>
 """
 
+import os
 import re
 import sys
-import os
 from collections import Counter
 
 RAW, ROOT = sys.argv[1], sys.argv[2]

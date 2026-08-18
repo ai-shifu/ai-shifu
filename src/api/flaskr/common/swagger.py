@@ -1,6 +1,6 @@
-import typing
 import ast
 import inspect
+import typing
 from enum import Enum
 
 swagger_config = {
@@ -99,10 +99,9 @@ def get_field_schema(typ, description: str = ""):
 
         if len(non_none_types) == 1:
             return get_field_schema(non_none_types[0], description)
-        else:
-            field_schema["oneOf"] = []
-            for union_type in non_none_types:
-                field_schema["oneOf"].append(get_field_schema(union_type))
+        field_schema["oneOf"] = []
+        for union_type in non_none_types:
+            field_schema["oneOf"].append(get_field_schema(union_type))
     elif origin is list:
         item_type = args[0]
         field_schema["type"] = "array"

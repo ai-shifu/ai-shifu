@@ -1,8 +1,9 @@
 from flask import Flask
 
 from flaskr.api.llm import get_current_models
-from .common import make_common_response, bypass_token_validation
+
 from ..service.common.dicts import get_all_dicts
+from .common import bypass_token_validation, make_common_response
 
 
 def register_dict_handler(app: Flask, path_prefix: str) -> Flask:

@@ -1,23 +1,16 @@
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timedelta, timezone
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
-import sys
-
 from flaskr.dao import db
-from flaskr.service.common.models import AppException, ERROR_CODE
-from flaskr.service.shifu import admin as admin_module
-from flaskr.service.shifu.admin_operations import user_credits as user_credits_module
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_LLM,
-    BILL_USAGE_TYPE_TTS,
+from flaskr.service.billing import (
+    referral_reward_grants as referral_reward_grants_module,
 )
+from flaskr.service.billing.bucket_categories import resolve_credit_bucket_priority
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -36,47 +29,53 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_SOURCE_TYPE_USAGE,
 )
-from flaskr.service.billing import (
-    referral_reward_grants as referral_reward_grants_module,
-)
-from flaskr.service.billing.bucket_categories import resolve_credit_bucket_priority
-from flaskr.service.billing.models import CreditWallet, CreditWalletBucket
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
+    CreditWallet,
+    CreditWalletBucket,
 )
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
     LearnProgressRecord,
 )
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
     ORDER_STATUS_SUCCESS,
 )
 from flaskr.service.order.models import Order
-from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu import admin as admin_module
+from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserListDTO,
+    AdminOperationUserOverviewDTO,
+    AdminOperationUserPackageGrantRequestDTO,
+    AdminOperationUserSummaryDTO,
+)
+from flaskr.service.shifu.admin_operations import user_credits as user_credits_module
+from flaskr.service.shifu.admin_operations.user_credits import (
+    get_operator_user_credit_usage_detail,
+    get_operator_user_credits,
+    get_operator_user_grant_bootstrap,
+    grant_operator_user_credits,
+    grant_operator_user_package,
+)
 from flaskr.service.shifu.admin_operations.users import (
     get_operator_user_detail,
     get_operator_user_overview,
     list_operator_users,
-)
-from flaskr.service.shifu.admin_operations.user_credits import (
-    get_operator_user_grant_bootstrap,
-    grant_operator_user_credits,
-    grant_operator_user_package,
-    get_operator_user_credit_usage_detail,
-    get_operator_user_credits,
-)
-from flaskr.service.shifu.admin_dtos import (
-    AdminOperationUserCreditGrantRequestDTO,
-    AdminOperationUserPackageGrantRequestDTO,
-    AdminOperationUserListDTO,
-    AdminOperationUserOverviewDTO,
-    AdminOperationUserSummaryDTO,
 )
 from flaskr.service.shifu.models import (
     AiCourseAuth,
@@ -94,10 +93,13 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import (
     AuthCredential,
-    UserInfo as UserEntity,
     UserToken,
 )
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+from flaskr.util.datetime import now_utc
 from tests.common.fixtures.billing_products import build_bill_products
 
 

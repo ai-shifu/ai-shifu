@@ -3,19 +3,18 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
-    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_TRIAL_PRODUCT_BID,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -33,13 +32,13 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.billing.referral_plan_rewards import (
-    ReferralPlanRewardRequest,
-    grant_referral_plan_reward,
-)
 from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end_after_boundary,
+)
+from flaskr.service.billing.referral_plan_rewards import (
+    ReferralPlanRewardRequest,
+    grant_referral_plan_reward,
 )
 from flaskr.service.billing.renewal import run_billing_renewal_event
 from flaskr.util.datetime import now_utc

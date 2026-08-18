@@ -4,6 +4,12 @@ from typing import Any, Generator
 
 from flask import Flask
 
+from .base import (
+    AskProviderAdapter,
+    AskProviderChunk,
+    AskProviderConfigError,
+    AskProviderRuntime,
+)
 from .consts import (
     ASK_PROVIDER_COZE,
     ASK_PROVIDER_COZE_WORKFLOW,
@@ -11,13 +17,6 @@ from .consts import (
     ASK_PROVIDER_GET_BIJI_KNOWLEDGE,
     ASK_PROVIDER_LLM,
     ASK_PROVIDER_VOLC_KNOWLEDGE,
-)
-
-from .base import (
-    AskProviderAdapter,
-    AskProviderChunk,
-    AskProviderConfigError,
-    AskProviderRuntime,
 )
 from .coze_adapter import CozeAskProviderAdapter
 from .coze_workflow_adapter import CozeWorkflowAskProviderAdapter

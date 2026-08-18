@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-
 from typing import List
 
-from pydantic import BaseModel, Field
-
 from flaskr.common.swagger import register_schema_to_swagger
+from pydantic import BaseModel, Field
 
 
 @register_schema_to_swagger

@@ -36,7 +36,6 @@ except ImportError:
         segmentation contract to recover text/visual boundaries and normalize
         visual kinds to element protocol types.
         """
-
         raw_content = str(content or "")
         if not raw_content.strip():
             return []
@@ -96,7 +95,6 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
-
 
 SUPPORTED_BLOCK_TYPES = {
     BLOCK_TYPE_MDCONTENT_VALUE,

@@ -11,7 +11,6 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = ROOT / "src" / "cook-web" / "src"
 BACKEND_ROOT = ROOT / "src" / "api"

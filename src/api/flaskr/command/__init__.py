@@ -1,16 +1,18 @@
-from flask import Flask
-import click
 import asyncio
 import logging
 import os
 from io import BytesIO
+
+import click
+from flask import Flask
 from sqlalchemy import create_engine, text
 from werkzeug.datastructures import FileStorage
-from .import_user import import_user
-from .unified_migration_task import UnifiedMigrationTask, MigrationConfig
+
 from ..service.billing.cli import register_billing_commands
 from ..service.shifu.cli import register_shifu_commands
 from ..service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
+from .import_user import import_user
+from .unified_migration_task import MigrationConfig, UnifiedMigrationTask
 from .update_shifu_demo import update_demo_shifu
 
 

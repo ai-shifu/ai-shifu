@@ -12,10 +12,9 @@ locking the whole version range. This removes the deadlock observed under
 concurrent saves of the same outline.
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.exc import SQLAlchemyError
-
 
 # revision identifiers, used by Alembic.
 revision = "e7f1a2b3c4d5"

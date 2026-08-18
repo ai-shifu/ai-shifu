@@ -18,10 +18,10 @@ from typing import Callable, Optional
 
 from flaskr.service.tts.minimax_voice_clone import is_valid_minimax_custom_voice_id
 from flaskr.service.tts.models import (
-    TTSMiniMaxClonedVoice,
     TTS_CLONE_PROVIDER_MINIMAX,
     TTS_CLONE_PROVIDER_VOLCENGINE,
     TTS_MINIMAX_CLONE_STATUS_READY,
+    TTSMiniMaxClonedVoice,
 )
 from flaskr.service.tts.volcengine_voice_clone import (
     is_valid_volcengine_custom_voice_id,

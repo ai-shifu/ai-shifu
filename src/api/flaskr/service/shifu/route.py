@@ -29,54 +29,100 @@ Author: yfge
 Date: 2025-08-07
 """
 
-import os
-import tempfile
 import json
-import uuid
+import os
 import re
+import tempfile
+import uuid
+from enum import Enum
+from functools import wraps
 from pathlib import Path
 
 from flask import (
-    has_request_context,
     Flask,
-    request,
-    current_app,
-    send_file,
-    after_this_request,
     Response,
+    after_this_request,
+    current_app,
+    has_request_context,
+    request,
+    send_file,
 )
-from .funcs import (
-    mark_or_unmark_favorite_shifu,
-    upload_file,
-    upload_url,
-    get_video_info,
-    shifu_permission_verification,
-)
-from flaskr.route.common import make_common_response, bypass_token_validation, fmt
-from flaskr.framework.plugin.inject import inject
-from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
-from flaskr.service.billing.admission import admit_creator_usage
-from flaskr.service.billing.api import assert_creator_debug_allowed
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_DEBUG,
-    BILL_USAGE_SCENE_PREVIEW,
-)
-from functools import wraps
-from enum import Enum
-from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
-from flaskr.common.shifu_context import with_shifu_context
-from flaskr.common.cache_provider import cache as redis
-from flaskr.common.config import get_config, get_redis_key_prefix
-from flaskr.common.public_urls import resolve_public_origin
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
     finalize_langfuse_trace,
     get_langfuse_client,
 )
+from flaskr.common.cache_provider import cache as redis
+from flaskr.common.config import get_config, get_redis_key_prefix
+from flaskr.common.public_urls import resolve_public_origin
+from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao import db
+from flaskr.framework.plugin.inject import inject
+from flaskr.i18n import _, get_current_language, set_language
+from flaskr.route.common import bypass_token_validation, fmt, make_common_response
+from flaskr.service.billing.admission import admit_creator_usage
+from flaskr.service.billing.api import assert_creator_debug_allowed
+from flaskr.service.common.models import ERROR_CODE, raise_error, raise_param_error
+from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
+from flaskr.service.learn.langfuse_naming import (
+    build_langfuse_generation_name,
+    build_langfuse_span_name,
+    build_langfuse_trace_name,
+)
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+)
+from flaskr.service.shifu.admin_operations.route import (
+    register_admin_operations_routes,
+)
+from flaskr.service.shifu.ask_provider_registry import (
+    get_ask_provider_metadata,
+    validate_ask_provider_specific_config,
+)
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.service.shifu.models import AiCourseAuth
+from flaskr.service.shifu.permissions import (
+    _auth_types_to_permissions,
+    _normalize_auth_types,
+)
+from flaskr.service.shifu.shifu_draft_funcs import (
+    SUPPORTED_ASK_ENABLED_STATUSES,
+    SUPPORTED_ASK_PROVIDER_MODES,
+    SUPPORTED_ASK_PROVIDERS,
+    archive_shifu,
+    create_shifu_draft,
+    get_shifu_draft_info,
+    get_shifu_draft_list,
+    normalize_ask_provider_config,
+    save_shifu_draft_info,
+    unarchive_shifu,
+)
+from flaskr.service.shifu.shifu_history_manager import get_shifu_draft_meta
+from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
+from flaskr.service.shifu.shifu_mdflow_funcs import (
+    get_shifu_mdflow,
+    get_shifu_mdflow_history,
+    get_shifu_mdflow_history_version_detail,
+    parse_shifu_mdflow,
+    restore_shifu_mdflow_history_version,
+    save_shifu_mdflow,
+)
+from flaskr.service.shifu.shifu_outline_funcs import (
+    create_outline,
+    create_outlines_batch,
+    delete_unit,
+    get_outline_tree,
+    get_unit_by_id,
+    modify_unit,
+    reorder_outline_tree,
+)
+from flaskr.service.shifu.shifu_publish_funcs import (
+    preview_shifu_draft,
+    publish_shifu_draft,
+)
 from flaskr.service.shifu.utils import get_shifu_creator_bid
+from flaskr.service.user.common import validate_user
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
@@ -85,68 +131,21 @@ from flaskr.service.user.repository import (
     set_user_state,
     upsert_credential,
 )
-from flaskr.i18n import _, get_current_language, set_language
-from flaskr.service.user.common import validate_user
-from flaskr.service.user.utils import get_user_language
 from flaskr.service.user.utils import (
     ensure_demo_course_permissions,
+    get_user_language,
     load_existing_demo_shifu_ids,
     mark_creator_role_if_needed,
     run_creator_granted_post_auth,
 )
 from flaskr.util.uuid import generate_id
 
-
-from flaskr.service.shifu.shifu_draft_funcs import (
-    get_shifu_draft_list,
-    create_shifu_draft,
-    get_shifu_draft_info,
-    save_shifu_draft_info,
-    archive_shifu,
-    unarchive_shifu,
-    normalize_ask_provider_config,
-    SUPPORTED_ASK_PROVIDERS,
-    SUPPORTED_ASK_PROVIDER_MODES,
-    SUPPORTED_ASK_ENABLED_STATUSES,
-)
-from flaskr.service.shifu.admin_operations.route import (
-    register_admin_operations_routes,
-)
-from flaskr.service.shifu.shifu_publish_funcs import (
-    publish_shifu_draft,
-    preview_shifu_draft,
-)
-from flaskr.service.shifu.shifu_outline_funcs import (
-    reorder_outline_tree,
-    create_outline,
-    create_outlines_batch,
-    modify_unit,
-    get_unit_by_id,
-    delete_unit,
-    get_outline_tree,
-)
-from flaskr.service.shifu.shifu_mdflow_funcs import (
-    get_shifu_mdflow,
-    save_shifu_mdflow,
-    parse_shifu_mdflow,
-    get_shifu_mdflow_history,
-    get_shifu_mdflow_history_version_detail,
-    restore_shifu_mdflow_history_version,
-)
-from flaskr.service.shifu.shifu_history_manager import get_shifu_draft_meta
-from flaskr.service.shifu.permissions import (
-    _auth_types_to_permissions,
-    _normalize_auth_types,
-)
-from flaskr.service.shifu.ask_provider_registry import (
-    get_ask_provider_metadata,
-    validate_ask_provider_specific_config,
-)
-from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
-from flaskr.service.learn.langfuse_naming import (
-    build_langfuse_generation_name,
-    build_langfuse_span_name,
-    build_langfuse_trace_name,
+from .funcs import (
+    get_video_info,
+    mark_or_unmark_favorite_shifu,
+    shifu_permission_verification,
+    upload_file,
+    upload_url,
 )
 
 
@@ -239,7 +238,6 @@ def _resolve_publish_base_url(app: Flask) -> str:
     domain sees the same base URL for publishing and previews. Falls back to
     the shifu owner's custom domain, then to the default public origin.
     """
-
     host = None
     if has_request_context():
         host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()

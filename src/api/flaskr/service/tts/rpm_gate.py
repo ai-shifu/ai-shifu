@@ -12,7 +12,6 @@ from typing import Callable, Optional
 
 from flaskr.common.log import AppLoggerProxy
 
-
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
 _LOCAL_STATE: dict[str, float] = {}
@@ -53,7 +52,6 @@ def acquire_tts_rpm_slot(
     unreachable, the local process path still protects a single worker so the
     request can continue with reduced coordination guarantees.
     """
-
     limit = float(rpm_limit or 0)
     if limit <= 0:
         now = now_fn()

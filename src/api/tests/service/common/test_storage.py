@@ -1,6 +1,5 @@
 import flaskr.common.config as common_config
 from flask import Flask
-
 from flaskr.route.storage import register_storage_handler
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES, OSS_PROFILE_DEFAULT
 from flaskr.service.common.storage import (

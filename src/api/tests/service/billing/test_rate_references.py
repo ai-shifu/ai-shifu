@@ -4,13 +4,13 @@ from datetime import datetime
 from decimal import Decimal
 
 from flaskr.dao import db
+from flaskr.service.billing import rate_references
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     CREDIT_ROUNDING_MODE_CEIL,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import CreditUsageRate
-from flaskr.service.billing import rate_references
 from flaskr.service.common import credit_rate_references
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 

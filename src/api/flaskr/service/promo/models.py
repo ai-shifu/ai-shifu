@@ -1,18 +1,19 @@
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     Column,
-    String,
-    Text,
+    DateTime,
     Numeric,
     SmallInteger,
-    DateTime,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
+
 from ...dao import db
 from .consts import (
-    COUPON_TYPE_FIXED,
     COUPON_APPLY_TYPE_ALL,
     COUPON_STATUS_ACTIVE,
+    COUPON_TYPE_FIXED,
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
     PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
     PROMO_CAMPAIGN_STATUS_INACTIVE,

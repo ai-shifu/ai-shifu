@@ -14,13 +14,12 @@ rolling back on it.
 import types
 
 import pytest
-from sqlalchemy.exc import OperationalError, ResourceClosedError
-
 from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.runscript_v2 import (
     _is_protocol_desync_error,
     run_script_inner,
 )
+from sqlalchemy.exc import OperationalError, ResourceClosedError
 
 
 class _FakeSession:

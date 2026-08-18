@@ -4,7 +4,6 @@ import json
 from typing import Any
 
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.common.profile_onboarding import (

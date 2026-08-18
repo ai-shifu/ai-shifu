@@ -3,7 +3,6 @@
 import threading
 
 import pytest
-
 from flaskr import dao
 from flaskr.dao import uow
 from flaskr.service.shifu.models import PublishedShifu

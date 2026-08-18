@@ -1,10 +1,9 @@
 import logging
 from logging.config import fileConfig
 
+from alembic import context
 from flask import current_app
 from flaskr.dao import db
-
-from alembic import context
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -74,16 +73,15 @@ def include_object(object, name, type_, reflected, compare_to):
                     return True
             # if not found the corresponding model, but not the system table, also include (for detection of deletion)
             return True
-        else:
-            # for the model table, check if it belongs to our service module
-            if hasattr(object, "metadata"):
-                for mapper in db.Model.registry.mappers:
-                    if mapper.local_table is object:
-                        model_class = mapper.class_
-                        return model_class.__module__.startswith("flaskr.service")
-            return False
+        # for the model table, check if it belongs to our service module
+        if hasattr(object, "metadata"):
+            for mapper in db.Model.registry.mappers:
+                if mapper.local_table is object:
+                    model_class = mapper.class_
+                    return model_class.__module__.startswith("flaskr.service")
+        return False
 
-    elif type_ in [
+    if type_ in [
         "column",
         "index",
         "unique_constraint",
@@ -297,12 +295,9 @@ def run_migrations_online() -> None:
                     if hasattr(op, "modify_type") and op.modify_type is not None:
                         modifications.append(f"type:{op.modify_type}")
                     return f"{op_type}:{table_name}:{column_name}:{':'.join(modifications)}"
-                else:
-                    return f"{op_type}:{table_name}:{column_name}"
-            else:
-                return f"{op_type}:{table_name}"
-        else:
-            return f"{op_type}:unknown"
+                return f"{op_type}:{table_name}:{column_name}"
+            return f"{op_type}:{table_name}"
+        return f"{op_type}:unknown"
 
     def should_skip_operation(op):
         """judge if it should skip the operation"""
@@ -643,8 +638,7 @@ def run_migrations_online() -> None:
                 signature = f"{metadata_column.table.name}.{metadata_column.name}:{norm_inspected}->{norm_metadata}"
                 if signature in context._comment_change_signature:
                     return False
-                else:
-                    context._comment_change_signature.add(signature)
+                context._comment_change_signature.add(signature)
             else:
                 context._comment_change_signature = set()
                 signature = f"{metadata_column.table.name}.{metadata_column.name}:{norm_inspected}->{norm_metadata}"

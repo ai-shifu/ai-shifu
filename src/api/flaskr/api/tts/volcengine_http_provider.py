@@ -10,21 +10,20 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import Optional, List
+from typing import List, Optional
 
 import requests
 from requests import Response
 
-from flaskr.common.config import get_config, get_explicit_env_override
 from flaskr.api.tts.base import (
+    AudioSettings,
     BaseTTSProvider,
+    ParamRange,
+    ProviderConfig,
     TTSResult,
     VoiceSettings,
-    AudioSettings,
-    ProviderConfig,
-    ParamRange,
 )
-
+from flaskr.common.config import get_config, get_explicit_env_override
 
 logger = logging.getLogger(__name__)
 
@@ -353,7 +352,6 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         - Never log credentials (token).
         - Avoid logging full request text; use only text_len.
         """
-
         body_preview = (response.text or "")[:2000]
         # Keep only a small, stable subset of headers to avoid log noise and
         # reduce the risk of accidentally logging sensitive data.

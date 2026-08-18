@@ -2,7 +2,6 @@ import types
 
 import pytest
 import requests
-
 from flaskr.service.learn import ask_provider_adapters as module
 from flaskr.service.learn.ask_provider_adapters import (
     common,

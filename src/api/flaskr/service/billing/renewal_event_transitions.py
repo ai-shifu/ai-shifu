@@ -6,11 +6,10 @@ from datetime import datetime
 from typing import Any
 
 from flask import Flask
-from sqlalchemy.exc import IntegrityError
-
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from sqlalchemy.exc import IntegrityError
 
 from .consts import (
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,

@@ -2,7 +2,7 @@ import pytest
 
 
 def test_check_text_returns_unconfigured_for_yidun(app):
-    from flaskr.api.check import check_text, CHECK_RESULT_UNCONF
+    from flaskr.api.check import CHECK_RESULT_UNCONF, check_text
 
     with app.app_context():
         app.config["CHECK_PROVIDER"] = "yidun"
@@ -12,7 +12,8 @@ def test_check_text_returns_unconfigured_for_yidun(app):
 
 
 def test_yidun_check_uses_configured_timeout(app, monkeypatch):
-    from flaskr.api.check import CHECK_RESULT_PASS, yidun as yidun_module
+    from flaskr.api.check import CHECK_RESULT_PASS
+    from flaskr.api.check import yidun as yidun_module
 
     captured = {}
 
@@ -57,7 +58,8 @@ def test_ilivedata_send_wraps_oserror_as_urlerror(monkeypatch):
 
 
 def test_ilivedata_check_uses_configured_timeout(app, monkeypatch):
-    from flaskr.api.check import CHECK_RESULT_PASS, ilivedata as ilivedata_module
+    from flaskr.api.check import CHECK_RESULT_PASS
+    from flaskr.api.check import ilivedata as ilivedata_module
 
     captured = {}
 

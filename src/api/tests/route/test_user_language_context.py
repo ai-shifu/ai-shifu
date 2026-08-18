@@ -1,8 +1,7 @@
 from types import SimpleNamespace
 
-from flask import Flask, jsonify
-
 import flaskr.route.user as user_route
+from flask import Flask, jsonify
 from flaskr.i18n import clear_language, get_current_language
 from flaskr.route.user import register_user_handler
 

@@ -1,6 +1,6 @@
+import requests
 from flask import Flask
 
-import requests
 from flaskr.service.config import get_config
 
 

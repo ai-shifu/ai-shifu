@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from decimal import Decimal
-from collections import defaultdict
 import hashlib
 import re
+from collections import defaultdict
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from flask import Flask
-from sqlalchemy import case
-
 from flaskr.dao import db
+from flaskr.i18n import _
 from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import (
     AppException,
@@ -18,7 +17,7 @@ from flaskr.service.common.models import (
     raise_error_with_args,
     raise_param_error,
 )
-from flaskr.i18n import _
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.order.admin_dtos import (
     OrderAdminActivityDTO,
     OrderAdminCouponDTO,
@@ -27,7 +26,6 @@ from flaskr.service.order.admin_dtos import (
     OrderAdminPaymentDTO,
     OrderAdminSummaryDTO,
 )
-from flaskr.service.order.funs import init_buy_record, success_buy_record
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
     ORDER_STATUS_REFUND,
@@ -35,6 +33,7 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_TIMEOUT,
     ORDER_STATUS_TO_BE_PAID,
 )
+from flaskr.service.order.funs import init_buy_record, success_buy_record
 from flaskr.service.order.models import (
     Order,
     PingxxOrder,
@@ -60,7 +59,9 @@ from flaskr.service.promo.models import CouponUsage, PromoRedemption
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.shifu.shifu_draft_funcs import get_user_created_shifu_bids
 from flaskr.service.shifu.utils import get_shifu_creator_bid
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
     get_user_entity_by_bid,
@@ -68,10 +69,8 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.utils import ensure_demo_course_permissions
-from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
-
+from sqlalchemy import case
 
 ORDER_STATUS_KEY_MAP = {
     ORDER_STATUS_INIT: "server.order.orderStatusInit",

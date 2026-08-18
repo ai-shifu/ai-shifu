@@ -7,13 +7,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import case
-
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.datetime import now_utc
+from sqlalchemy import case
 
-from .primitives import coerce_datetime, normalize_bid
 from .consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
     BILLING_DOMAIN_BINDING_STATUS_LABELS,
@@ -26,13 +24,13 @@ from .consts import (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
 )
 from .models import (
     BillingDailyLedgerSummary,
@@ -45,6 +43,7 @@ from .models import (
     BillingSubscription,
     CreditWallet,
 )
+from .primitives import coerce_datetime, normalize_bid
 from .value_objects import PageWindow
 
 _SELF_MANAGED_CYCLE_TIMEZONE = ZoneInfo("Asia/Shanghai")

@@ -7,48 +7,33 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-
-from flaskr.util.datetime import now_utc
-from flaskr.service.common.pagination import MAX_PAGE_SIZE
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
+
 from flask import Flask, current_app
-from sqlalchemy import and_, case, literal, not_, or_
-from sqlalchemy.orm import defer
 from flaskr.dao import db
 from flaskr.service.billing.models import (
     BillingOrder,
 )
+from flaskr.service.common.models import (
+    raise_param_error,
+)
+from flaskr.service.common.pagination import MAX_PAGE_SIZE
 from flaskr.service.learn.const import (
     LEARN_STATUS_RESET,
 )
 from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
-from flaskr.service.common.models import (
-    raise_param_error,
-)
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.shifu.admin_course_summary_mapper import (
+    build_admin_operation_course_summary,
+)
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseListDTO,
     AdminOperationCourseOverviewDTO,
     AdminOperationCourseSummaryDTO,
 )
-from flaskr.service.shifu.admin_course_summary_mapper import (
-    build_admin_operation_course_summary,
-)
-from flaskr.service.shifu.course_activity import load_course_activity_map
-from flaskr.service.shifu.demo_courses import (
-    load_builtin_demo_titles,
-    load_demo_shifu_bids,
-)
-from flaskr.service.shifu.models import (
-    DraftOutlineItem,
-    DraftShifu,
-    PublishedOutlineItem,
-    PublishedShifu,
-)
-
 from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_QUICK_FILTER_CREATED_LAST_7D,
     COURSE_QUICK_FILTER_DRAFT,
@@ -61,6 +46,20 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _load_user_map,
     _merge_courses,
 )
+from flaskr.service.shifu.course_activity import load_course_activity_map
+from flaskr.service.shifu.demo_courses import (
+    load_builtin_demo_titles,
+    load_demo_shifu_bids,
+)
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.util.datetime import now_utc
+from sqlalchemy import and_, case, literal, not_, or_
+from sqlalchemy.orm import defer
 
 
 @dataclass

@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from flask import Flask
-
 from flaskr.i18n import _translations, load_translations
 from flaskr.route.common import register_common_handler
 

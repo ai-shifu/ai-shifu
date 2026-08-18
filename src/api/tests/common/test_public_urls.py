@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import flaskr.common.config as common_config
 import pytest
 from flask import Flask
-
-import flaskr.common.config as common_config
 from flaskr.common.public_urls import (
     build_alipay_notify_url,
     build_google_oauth_callback_url,

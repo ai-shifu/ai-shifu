@@ -1,7 +1,6 @@
 import io
 
 import pytest
-
 from flaskr.service.tts import audio_utils
 
 

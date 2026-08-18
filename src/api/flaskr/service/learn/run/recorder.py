@@ -33,7 +33,6 @@ a context back-reference — so the persistence surface stays portable.
 """
 
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord

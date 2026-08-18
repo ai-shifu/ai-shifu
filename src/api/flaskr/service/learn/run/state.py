@@ -46,7 +46,6 @@ from flaskr.service.shifu.struct_utils import find_node_with_parents
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle guard, typing only
     from flask import Flask
-
     from flaskr.service.learn.context_v2 import RunScriptContextV2, RunScriptInfo
     from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 

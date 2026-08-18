@@ -1,5 +1,6 @@
 def test_run_with_redis_executes_once(app, monkeypatch):
     from flaskr import dao
+
     from tests.common.fixtures.fake_redis import FakeRedis
 
     fake_redis = FakeRedis()

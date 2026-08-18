@@ -1,6 +1,8 @@
-from ...common.swagger import register_schema_to_swagger
-from pydantic import BaseModel, Field
 import datetime
+
+from pydantic import BaseModel, Field
+
+from ...common.swagger import register_schema_to_swagger
 
 
 @register_schema_to_swagger

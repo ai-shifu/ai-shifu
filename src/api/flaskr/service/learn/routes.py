@@ -3,9 +3,7 @@ import sys
 import uuid
 
 from flask import Flask, Response, request, stream_with_context
-from pydantic import ValidationError
-from sqlalchemy import select
-
+from flaskr.common.shifu_context import get_shifu_context_snapshot, with_shifu_context
 from flaskr.dao import (
     db,
     invalidate_session,
@@ -14,27 +12,34 @@ from flaskr.dao import (
 )
 from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import get_current_language
-from flaskr.route.common import make_common_response, bypass_token_validation
+from flaskr.route.common import bypass_token_validation, make_common_response
 from flaskr.service.billing.admission import admit_creator_usage
+from flaskr.service.common import raise_error
 from flaskr.service.common.models import AppException, raise_param_error
+from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
+from flaskr.service.learn.learn_dtos import (
+    PlaygroundPreviewRequest,
+    RunElementSSEMessageDTO,
+)
 from flaskr.service.learn.learn_funcs import (
-    get_shifu_info,
+    get_generated_content,
     get_outline_item_tree,
+    get_shifu_info,
     handle_reaction,
     reset_learn_record,
-    get_generated_content,
     stream_generated_block_audio,
     stream_preview_tts_audio,
 )
-from flaskr.service.learn.listen_elements import get_listen_element_record
 from flaskr.service.learn.lesson_feedback import (
-    submit_lesson_feedback,
     list_lesson_feedbacks,
+    submit_lesson_feedback,
 )
+from flaskr.service.learn.listen_elements import get_listen_element_record
 from flaskr.service.learn.preview_permissions import (
     require_shifu_preview_permission,
     resolve_preview_request_user,
 )
+from flaskr.service.learn.runscript_v2 import get_run_status, run_script
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
@@ -42,13 +47,9 @@ from flaskr.service.metering.consts import (
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.service.shifu.utils import get_shifu_creator_bid
-from flaskr.service.common import raise_error
-from flaskr.service.learn.runscript_v2 import run_script, get_run_status
-from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
-from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
-from flaskr.service.learn.learn_dtos import RunElementSSEMessageDTO
 from flaskr.util import generate_id
-from flaskr.common.shifu_context import with_shifu_context, get_shifu_context_snapshot
+from pydantic import ValidationError
+from sqlalchemy import select
 
 
 def _normalize_user_input(value):

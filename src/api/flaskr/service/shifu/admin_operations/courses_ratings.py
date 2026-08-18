@@ -7,20 +7,20 @@ from __future__ import annotations
 
 import math
 from typing import Optional
+
 from flask import Flask
 from flaskr.dao import db
-from flaskr.service.learn.models import (
-    LearnLessonFeedback,
-)
 from flaskr.service.common.models import (
     raise_param_error,
+)
+from flaskr.service.learn.models import (
+    LearnLessonFeedback,
 )
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseRatingItemDTO,
     AdminOperationCourseRatingListDTO,
     AdminOperationCourseRatingSummaryDTO,
 )
-
 from flaskr.service.shifu.admin_operations.courses_follow_ups import (
     _build_follow_up_user_keyword_filter,
     _resolve_follow_up_matching_outline_bids,

@@ -11,14 +11,13 @@ import datetime
 from typing import Literal, Optional
 
 from flask import Flask
-
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.user.models import UserVerifyCode
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.user.models import UserVerifyCode
+from flaskr.util.datetime import now_utc
 
 CodeKind = Literal["sms", "email"]
 
@@ -50,7 +49,6 @@ def _consume_latest_code_from_db(
       - "expired" when no valid code exists (missing/used/expired).
       - "invalid" when a code exists but does not match.
     """
-
     if kind == "sms":
         expire_seconds = int(app.config.get("PHONE_CODE_EXPIRE_TIME", 300))
         query = UserVerifyCode.query.filter(
@@ -94,7 +92,6 @@ def _decode_cache_value(raw) -> str:
 
 def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None:
     """Validate and consume a verification code for an email or phone identifier."""
-
     identifier = (identifier or "").strip()
     code = (code or "").strip()
     # Keep helper-level parameter checks for direct service callers such as

@@ -7,10 +7,6 @@ import socket as socket_module
 
 from flask import current_app
 from flaskr.dao import db, invalidate_session
-from sqlalchemy import bindparam, text
-from sqlalchemy.exc import ResourceClosedError
-
-
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -41,6 +37,8 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
 )
 from flaskr.service.learn.type_state_machine import TypeInput
+from sqlalchemy import bindparam, text
+from sqlalchemy.exc import ResourceClosedError
 
 
 def _describe_desynced_connection(result, connection) -> str:

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import threading
 from functools import wraps
-from typing import Optional, Dict, Any, Callable
+from typing import Any, Callable, Dict, Optional
 
 _context_local = threading.local()
 
@@ -132,7 +132,6 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
 
 def _resolve_host_creator_bid(app, host: str) -> Optional[str]:
     """Resolve creator_bid from a verified custom domain host."""
-
     normalized_host = str(host or "").strip()
     if not normalized_host:
         return None
@@ -175,7 +174,7 @@ def with_shifu_context(
         @wraps(func)
         def wrapper(*args, **kwargs):
             try:
-                from flask import request, current_app
+                from flask import current_app, request
             except Exception:
                 # If Flask context is not available, just call the function.
                 return func(*args, **kwargs)

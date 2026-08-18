@@ -7,12 +7,11 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from flask import Flask
-from sqlalchemy.exc import IntegrityError
-
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
-from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
+from sqlalchemy.exc import IntegrityError
 
 from .bucket_categories import resolve_credit_bucket_priority
 from .consts import (
@@ -29,8 +28,14 @@ from .grant_results import ManualCreditGrantResult, ReferralRewardSummary
 from .models import CreditLedgerEntry, CreditWalletBucket
 from .primitives import (
     credit_decimal_to_number as _credit_decimal_to_number,
+)
+from .primitives import (
     normalize_bid as _normalize_bid,
+)
+from .primitives import (
     quantize_credit_amount as _quantize_credit_amount,
+)
+from .primitives import (
     to_decimal as _to_decimal,
 )
 from .queries import add_months as _add_months
@@ -192,7 +197,6 @@ def grant_referral_reward_credits_to_user(
     grant_channel: str = "operator_user_management",
 ) -> ManualCreditGrantResult:
     """Grant referral reward credits and extend the referral reward pool."""
-
     with app.app_context():
         normalized_user_bid = _normalize_bid(user_bid)
         normalized_operator_user_bid = _normalize_bid(operator_user_bid)

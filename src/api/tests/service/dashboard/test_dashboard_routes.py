@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from flaskr.util.datetime import now_utc
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.learn.models import (
@@ -35,6 +33,7 @@ from flaskr.service.shifu.models import (
     ShifuUserArchive,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo, UserToken
+from flaskr.util.datetime import now_utc
 
 
 def _clear_dashboard_tables() -> None:

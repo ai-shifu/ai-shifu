@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, datetime
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask
-
 from flaskr.dao import (
     cleanup_session_after,
     db,
@@ -18,6 +17,7 @@ from flaskr.dao import (
     is_abnormal_stream_termination,
 )
 from flaskr.service.common.dtos import UserInfo
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
@@ -26,10 +26,9 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
-
 
 logger = logging.getLogger(__name__)
 
@@ -405,7 +404,6 @@ def ensure_user_aggregate(
     ``defaults`` is forwarded to :func:`upsert_user_entity` when creation or updates
     are required.
     """
-
     defaults = defaults or {}
     entity, created = upsert_user_entity(user_bid=user_bid, defaults=defaults)
     aggregate = load_user_aggregate(entity.user_bid)
@@ -422,7 +420,6 @@ def ensure_user_for_identifier(
     defaults: Optional[Dict[str, Any]] = None,
 ) -> Tuple[UserAggregate, bool]:
     """Find or create a user aggregate bound to a provider identifier."""
-
     defaults = defaults or {}
     normalized = _normalize_identifier(provider, identifier)
     aggregate = load_user_aggregate_by_identifier(normalized, providers=[provider])
@@ -468,7 +465,6 @@ def mark_user_roles(
     is_operator: Optional[bool] = None,
 ) -> None:
     """Persist role flags on the canonical entity."""
-
     if is_creator is None and is_operator is None:
         return
 
@@ -577,7 +573,6 @@ def upsert_user_entity(
 
 def set_user_state(user_bid: str, state: int) -> None:
     """Persist the given user state in the canonical ``user_users`` table."""
-
     entity = _ensure_user_entity(user_bid)
     update_user_entity_fields(entity, state=state)
 

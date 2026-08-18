@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from sqlalchemy import inspect, text
 
@@ -14,7 +14,6 @@ if str(APP_ROOT) not in sys.path:
 
 from app import create_app  # noqa: E402
 from flaskr.dao import db  # noqa: E402
-
 
 TARGET_REVISION = "9f3a0c3aebe0"
 TARGET_TABLE = "profile_item"

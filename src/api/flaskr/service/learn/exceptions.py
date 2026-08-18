@@ -1,4 +1,4 @@
-from flaskr.service.common import AppException, ERROR_CODE
+from flaskr.service.common import ERROR_CODE, AppException
 
 
 class PaidException(AppException):

@@ -11,23 +11,23 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from flask import Flask
-from flaskr.service.shifu.models import (
-    LogPublishedStruct,
-    LogDraftStruct,
-    DraftShifu,
-    DraftOutlineItem,
-    PublishedShifu,
-    PublishedOutlineItem,
-)
-
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.common import raise_error
 import queue
-from typing import List, Union
-from pydantic import BaseModel
 from decimal import Decimal
+from typing import List, Union
+
+from flask import Flask
+from flaskr.service.common import raise_error
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    LogDraftStruct,
+    LogPublishedStruct,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.utils import get_shifu_res_url
+from pydantic import BaseModel
 
 
 class ShifuOutlineItemDto(BaseModel):

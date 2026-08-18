@@ -33,7 +33,6 @@ def load_default_llm_reference_cost(default_model: str | None = None) -> Decimal
     decides which LLM is selected by default. Keep the old function name so
     existing callers share the fixed anchor without a broad rename.
     """
-
     _ = default_model
     return load_llm_credit_1x_unit_cost()
 

@@ -1,29 +1,29 @@
 import json
 import os
-from flask import Flask
-from werkzeug.datastructures import FileStorage
 from decimal import Decimal
 from typing import Dict, Optional
 
+from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
-from flaskr.util import generate_id
-from flaskr.util.datetime import now_utc, to_utc_iso
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.common.models import raise_error
-from flaskr.service.shifu.models import DraftShifu, DraftOutlineItem
+from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_draft_funcs import (
     get_latest_shifu_draft,
     normalize_ask_provider_config,
     serialize_ask_provider_config,
 )
-from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
 from flaskr.service.shifu.shifu_history_manager import (
     HistoryItem,
-    save_shifu_history,
     save_outline_tree_history,
+    save_shifu_history,
 )
-from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc, to_utc_iso
 from markdown_flow import MarkdownFlow
+from werkzeug.datastructures import FileStorage
 
 
 def _extract_import_ask_provider_config(shifu_data: dict) -> str:

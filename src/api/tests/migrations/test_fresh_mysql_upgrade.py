@@ -1,16 +1,15 @@
 import os
-from pathlib import Path
 import subprocess
 import sys
 import textwrap
 import uuid
+from pathlib import Path
 
 import pytest
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import make_url
-
 
 API_ROOT = Path(__file__).resolve().parents[2]
 SMOKE_FLAG = "RUN_MYSQL_MIGRATION_SMOKE"

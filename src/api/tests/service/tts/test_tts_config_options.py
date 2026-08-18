@@ -2,7 +2,6 @@ import json
 from decimal import Decimal
 
 from flask import Flask
-
 from flaskr.api.tts import base
 
 
@@ -314,8 +313,9 @@ def test_parse_tts_display_names_accepts_preparsed_dict(monkeypatch):
 
 
 def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
-    import flaskr.api.tts as tts_api
     from datetime import datetime
+
+    import flaskr.api.tts as tts_api
     from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
     from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
 

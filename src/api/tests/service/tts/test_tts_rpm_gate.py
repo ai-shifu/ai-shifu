@@ -1,5 +1,4 @@
 import pytest
-
 from flaskr.service.tts import rpm_gate
 
 

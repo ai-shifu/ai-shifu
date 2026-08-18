@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.promo.admin import (

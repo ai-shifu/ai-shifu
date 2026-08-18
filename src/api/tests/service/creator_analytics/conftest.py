@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from flaskr.util.datetime import now_utc
 from types import SimpleNamespace
 from typing import Optional
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -28,6 +26,7 @@ from flaskr.service.shifu.models import (
     ShifuUserArchive,
 )
 from flaskr.service.user.models import UserInfo
+from flaskr.util.datetime import now_utc
 
 
 def _clear_tables() -> None:
@@ -126,7 +125,6 @@ def seed_published_shifu(
     """Seed one PublishedShifu row. Pair with seed_owned_course when the test
     needs both the draft and the published version of a course (e.g. to cover
     the "draft title diverges from published title after rename" scenario)."""
-
     now = now_utc()
     db.session.add(
         PublishedShifu(
@@ -274,7 +272,6 @@ def seed_bill_usage_record(
     empty, numeric fields to zero) so callers only have to set what the
     test cares about.
     """
-
     db.session.add(
         BillUsageRecord(
             usage_bid=usage_bid,
@@ -315,7 +312,6 @@ def seed_credit_ledger_entry(
     deductions). ``idempotency_key`` defaults to a per-source-bid value to
     satisfy the (creator_bid, idempotency_key) unique constraint.
     """
-
     db.session.add(
         CreditLedgerEntry(
             ledger_bid=ledger_bid,
@@ -351,7 +347,6 @@ def seed_bill_daily_metric(
     daily_usage_metric_bid: Optional[str] = None,
 ) -> None:
     """Seed one BillingDailyUsageMetric row for E2E credit-query tests."""
-
     bid = (
         daily_usage_metric_bid
         or f"dm-{shifu_bid}-{stat_date}-{usage_type}-{provider}-{model}"

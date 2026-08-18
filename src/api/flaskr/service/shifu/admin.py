@@ -18,13 +18,12 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from json import JSONDecodeError
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
+
 from flask import current_app
-from sqlalchemy import and_, case, literal, not_, or_
-from sqlalchemy.orm import defer
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.common.umami_client import get_course_visit_count_30d
-from flaskr.i18n import _
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
+from flaskr.i18n import _
 from flaskr.service.billing.bucket_categories import (
     resolve_wallet_bucket_runtime_category,
     wallet_bucket_requires_active_subscription,
@@ -54,17 +53,19 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.primitives import (
     credit_decimal_to_number,
+)
+from flaskr.service.billing.primitives import (
     quantize_credit_amount as _quantize_credit_amount,
+)
+from flaskr.service.billing.primitives import (
     safe_int as _safe_int,
 )
 from flaskr.service.billing.queries import load_primary_active_subscription
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_DEBUG,
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_TTS,
+from flaskr.service.common.models import (
+    raise_error,
+    raise_error_with_args,
+    raise_param_error,
 )
-from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_RESET,
@@ -74,72 +75,62 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
-from flaskr.service.common.models import (
-    raise_error,
-    raise_error_with_args,
-    raise_param_error,
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_TTS,
 )
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.shifu import admin_course_summaries as _split_admin_course_summaries
+from flaskr.service.shifu import admin_shared as _split_admin_shared
+from flaskr.service.shifu import admin_user_courses as _split_admin_user_courses
+from flaskr.service.shifu import admin_user_credits as _split_admin_user_credits
+from flaskr.service.shifu import admin_user_profiles as _split_admin_user_profiles
+from flaskr.service.shifu.admin_course_summaries import (
+    OperatorCourseListCandidate,
+    OperatorCourseListSeed,
+    _attach_course_prompt_flags,
+    _build_course_copy_title,
+    _build_course_summary,
+    _build_latest_operator_course_rows_query,
+    _build_latest_operator_course_rows_subquery,
+    _build_latest_outline_activity_subquery,
+    _build_latest_shifus_query,
+    _build_operator_course_candidate_query,
+    _build_operator_course_latest_activity_subquery,
+    _build_operator_course_list_candidate,
+    _build_operator_course_list_seed,
+    _build_operator_visible_course_filter,
+    _build_outline_history_tree,
+    _format_average_score,
+    _is_operator_visible_course,
+    _load_course_activity_map,
+    _load_latest_active_draft_outlines,
+    _load_latest_course_for_transfer,
+    _load_latest_course_versions,
+    _load_latest_courses_by_shifu_bids,
+    _load_latest_shifu_seeds,
+    _load_latest_shifus,
+    _merge_courses,
+    _resolve_course_copy_title,
+    _resolve_course_quick_filter,
+    _resolve_course_rating_mode,
+    _resolve_course_rating_sort_by,
+    _resolve_course_status,
+    _resolve_created_last_7d_window,
+)
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseCreditUsageDetailItemDTO,
     AdminOperationCourseCreditUsageItemDTO,
     AdminOperationCourseSummaryDTO,
+    AdminOperationUserCourseSummaryDTO,
     AdminOperationUserCreditLedgerItemDTO,
     AdminOperationUserCreditSummaryDTO,
-    AdminOperationUserCourseSummaryDTO,
     AdminOperationUserSummaryDTO,
 )
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-    SHIFU_NAME_MAX_LENGTH,
-    UNIT_TYPE_VALUE_GUEST,
-    UNIT_TYPE_VALUE_NORMAL,
-    UNIT_TYPE_VALUE_TRIAL,
-)
-from flaskr.service.shifu.course_activity import load_course_activity_map
-from flaskr.service.shifu.demo_courses import (
-    is_builtin_demo_course,
-    load_builtin_demo_titles,
-    load_demo_shifu_bids,
-)
-from flaskr.service.shifu.shifu_draft_funcs import (
-    check_text_with_risk_control,
-)
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.shifu.models import (
-    AiCourseAuth,
-    DraftOutlineItem,
-    DraftShifu,
-    PublishedOutlineItem,
-    PublishedShifu,
-)
-from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.service.user.consts import (
-    CREDENTIAL_STATE_VERIFIED,
-    USER_STATE_PAID,
-    USER_STATE_REGISTERED,
-    USER_STATE_TRAIL,
-    USER_STATE_UNREGISTERED,
-)
-from flaskr.service.user.models import (
-    AuthCredential,
-    UserInfo as UserEntity,
-    UserToken,
-)
-from flaskr.service.user.utils import (
-    run_creator_granted_post_auth,
-)
-from markdown_flow import MarkdownFlow
-
-from flaskr.service.shifu import admin_shared as _split_admin_shared
-from flaskr.service.shifu import admin_user_credits as _split_admin_user_credits
-from flaskr.service.shifu import admin_user_profiles as _split_admin_user_profiles
-from flaskr.service.shifu import admin_course_summaries as _split_admin_course_summaries
-from flaskr.service.shifu import admin_user_courses as _split_admin_user_courses
-
 from flaskr.service.shifu.admin_shared import (
     COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE,
     COURSE_CREDIT_USAGE_MODE_ASK,
@@ -173,19 +164,19 @@ from flaskr.service.shifu.admin_shared import (
     OPERATOR_TARGET_CONTACT_MAX_LENGTH,
     OPERATOR_TARGET_EMAIL_PATTERN,
     OPERATOR_TARGET_PHONE_PATTERN,
-    OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCES,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_SUBSCRIPTION,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TRIAL_SUBSCRIPTION,
+    OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCES,
     OPERATOR_USER_CREDIT_FILTER_TYPES,
-    OPERATOR_USER_CREDIT_GRANT_SOURCES,
     OPERATOR_USER_CREDIT_GRANT_SOURCE_COMPENSATION,
     OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD,
-    OPERATOR_USER_CREDIT_GRANT_TYPES,
+    OPERATOR_USER_CREDIT_GRANT_SOURCES,
     OPERATOR_USER_CREDIT_GRANT_TYPE_MANUAL,
     OPERATOR_USER_CREDIT_GRANT_TYPE_REFERRAL_REWARD,
+    OPERATOR_USER_CREDIT_GRANT_TYPES,
     OPERATOR_USER_CREDIT_TYPE_ALL,
     OPERATOR_USER_CREDIT_TYPE_CONSUME,
     OPERATOR_USER_CREDIT_TYPE_GRANT,
@@ -236,6 +227,14 @@ from flaskr.service.shifu.admin_shared import (
     _normalize_identifier,
     _normalize_metadata_json,
     _resolve_operator_credit_grant_type,
+)
+from flaskr.service.shifu.admin_user_courses import (
+    _build_operator_user_course_summary,
+    _is_completed_leaf_progress_statuses,
+    _load_learning_progress_counts_by_user_and_course,
+    _load_operator_user_course_count_maps,
+    _load_operator_user_course_maps,
+    _load_visible_published_leaf_outline_bids_by_shifu,
 )
 from flaskr.service.shifu.admin_user_credits import (
     _allocate_usage_detail_credits,
@@ -318,47 +317,53 @@ from flaskr.service.shifu.admin_user_profiles import (
     _resolve_operator_user_status,
     _resolve_recent_days_window,
 )
-from flaskr.service.shifu.admin_course_summaries import (
-    OperatorCourseListCandidate,
-    OperatorCourseListSeed,
-    _attach_course_prompt_flags,
-    _build_course_copy_title,
-    _build_course_summary,
-    _build_latest_operator_course_rows_query,
-    _build_latest_operator_course_rows_subquery,
-    _build_latest_outline_activity_subquery,
-    _build_latest_shifus_query,
-    _build_operator_course_candidate_query,
-    _build_operator_course_latest_activity_subquery,
-    _build_operator_course_list_candidate,
-    _build_operator_course_list_seed,
-    _build_operator_visible_course_filter,
-    _build_outline_history_tree,
-    _format_average_score,
-    _is_operator_visible_course,
-    _load_course_activity_map,
-    _load_latest_active_draft_outlines,
-    _load_latest_course_for_transfer,
-    _load_latest_course_versions,
-    _load_latest_courses_by_shifu_bids,
-    _load_latest_shifu_seeds,
-    _load_latest_shifus,
-    _merge_courses,
-    _resolve_course_copy_title,
-    _resolve_course_quick_filter,
-    _resolve_course_rating_mode,
-    _resolve_course_rating_sort_by,
-    _resolve_course_status,
-    _resolve_created_last_7d_window,
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+    SHIFU_NAME_MAX_LENGTH,
+    UNIT_TYPE_VALUE_GUEST,
+    UNIT_TYPE_VALUE_NORMAL,
+    UNIT_TYPE_VALUE_TRIAL,
 )
-from flaskr.service.shifu.admin_user_courses import (
-    _build_operator_user_course_summary,
-    _is_completed_leaf_progress_statuses,
-    _load_learning_progress_counts_by_user_and_course,
-    _load_operator_user_course_count_maps,
-    _load_operator_user_course_maps,
-    _load_visible_published_leaf_outline_bids_by_shifu,
+from flaskr.service.shifu.course_activity import load_course_activity_map
+from flaskr.service.shifu.demo_courses import (
+    is_builtin_demo_course,
+    load_builtin_demo_titles,
+    load_demo_shifu_bids,
 )
+from flaskr.service.shifu.models import (
+    AiCourseAuth,
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.shifu.shifu_draft_funcs import (
+    check_text_with_risk_control,
+)
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_VERIFIED,
+    USER_STATE_PAID,
+    USER_STATE_REGISTERED,
+    USER_STATE_TRAIL,
+    USER_STATE_UNREGISTERED,
+)
+from flaskr.service.user.models import (
+    AuthCredential,
+    UserToken,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from flaskr.service.user.utils import (
+    run_creator_granted_post_auth,
+)
+from flaskr.util.datetime import now_utc
+from markdown_flow import MarkdownFlow
+from sqlalchemy import and_, case, literal, not_, or_
+from sqlalchemy.orm import defer
 
 # Public compatibility exports for split admin operation modules. Keep these
 # aliases until the remaining legacy helpers are moved out of this module.

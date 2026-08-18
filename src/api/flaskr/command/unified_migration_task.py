@@ -5,15 +5,17 @@ Unified Database Migration Task
 
 import asyncio
 import logging
-from datetime import datetime
-from flaskr.util.datetime import now_utc
-from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor
-from sqlalchemy import text, create_engine
-from sqlalchemy.orm import sessionmaker
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+
+from flaskr.util.datetime import now_utc
 
 # Configure logging
 logging.basicConfig(
@@ -274,7 +276,7 @@ class UnifiedMigrationTask:
                 logger.error(
                     f"Batch processing failed for {source_table} at offset {offset}: {e}"
                 )
-                errors.append(f"Batch error at offset {offset}: {str(e)}")
+                errors.append(f"Batch error at offset {offset}: {e!s}")
                 error_count += self.config.batch_size
                 offset += self.config.batch_size
 
@@ -443,7 +445,7 @@ class UnifiedMigrationTask:
 
                 except Exception as e:
                     error_count += 1
-                    error_msg = f"Record migration failed for {getattr(record, key_field)}: {str(e)}"
+                    error_msg = f"Record migration failed for {getattr(record, key_field)}: {e!s}"
                     error_messages.append(error_msg)
                     logger.error(error_msg)
 
@@ -525,7 +527,7 @@ class UnifiedMigrationTask:
                     old_count=0,
                     new_count=0,
                     sample_integrity_passed=False,
-                    data_mismatches=[f"Check failed: {str(e)}"],
+                    data_mismatches=[f"Check failed: {e!s}"],
                 )
 
         return results
@@ -588,7 +590,7 @@ class UnifiedMigrationTask:
 
         except Exception as e:
             logger.error(f"Sample integrity check failed: {e}")
-            return False, [f"Integrity check error: {str(e)}"]
+            return False, [f"Integrity check error: {e!s}"]
         finally:
             session.close()
 
@@ -605,7 +607,7 @@ class UnifiedMigrationTask:
                     )
                     < 0.01
                 )
-            elif source_table in [
+            if source_table in [
                 "ai_course_lesson_attendscript",
                 "ai_course_lesson_attend",
             ]:
@@ -614,8 +616,7 @@ class UnifiedMigrationTask:
                     hasattr(target_record, "user_bid")
                     and target_record.user_bid is not None
                 )
-            else:
-                return True  # Basic existence check for other tables
+            return True  # Basic existence check for other tables
 
         except Exception as e:
             logger.error(f"Record mapping verification failed: {e}")
