@@ -74,6 +74,7 @@ select = [
     "FURB136", # if-expression that should be min()/max()
     "FURB171", # membership test against a single-item container
     "FURB188", # manual prefix/suffix stripping
+    "PERF102", # dict.items() when only one half is used
     "PIE790",  # unnecessary pass / ... placeholder
     "PIE80",   # unnecessary dict kwargs, builtin-reimplementing lambdas
     "PIE810",  # multiple startswith/endswith calls on one value

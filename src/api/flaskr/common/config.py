@@ -1991,7 +1991,7 @@ class EnhancedConfig:
         groups = {}
 
         # Filter and group variables
-        for var_name, env_var in self.env_vars.items():
+        for env_var in self.env_vars.values():
             # Apply filter
             if filter_type == "required" and not env_var.required:
                 continue
