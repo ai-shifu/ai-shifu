@@ -93,6 +93,7 @@ select = [
     "RUF102",  # noqa directive naming an unknown rule
     "SIM114",  # if branches with identical bodies
     "SIM118",  # key in dict.keys()
+    "SIM210",  # True if ... else False
     "SIM300",  # yoda condition
     "SIM910",  # dict.get(key, None)
     "UP01",    # redundant str.encode/open() arguments
