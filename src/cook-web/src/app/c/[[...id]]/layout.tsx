@@ -133,15 +133,20 @@ export default function ChatLayout({
 
   const {
     courseTtsEnabled,
+    courseDefaultListenModeEnabled,
     updateCourseName,
     updateCourseAvatar,
     updateCourseTtsEnabled,
+    updateCourseDefaultListenModeEnabled,
   } = useCourseStore(
     useShallow((state: CourseStoreState) => ({
       courseTtsEnabled: state.courseTtsEnabled,
+      courseDefaultListenModeEnabled: state.courseDefaultListenModeEnabled,
       updateCourseName: state.updateCourseName,
       updateCourseAvatar: state.updateCourseAvatar,
       updateCourseTtsEnabled: state.updateCourseTtsEnabled,
+      updateCourseDefaultListenModeEnabled:
+        state.updateCourseDefaultListenModeEnabled,
     })),
   );
 
@@ -406,6 +411,7 @@ export default function ChatLayout({
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
     const nextLearningMode = resolveCourseLearningMode({
       courseTtsEnabled,
+      courseDefaultListenModeEnabled,
       canUseClassroomMode: canUseClassroomModeForCourse,
       hasListenModeOverride,
       listenModeParam,
@@ -421,6 +427,7 @@ export default function ChatLayout({
     updateLearningMode(nextLearningMode);
   }, [
     courseTtsEnabled,
+    courseDefaultListenModeEnabled,
     canUseClassroomModeForCourse,
     hasListenModeOverride,
     listenModeParam,
@@ -479,6 +486,8 @@ export default function ChatLayout({
               ? `${window.location.pathname}${window.location.search}`
               : '',
         });
+        updateCourseTtsEnabled(null);
+        updateCourseDefaultListenModeEnabled(null);
         try {
           const resp = await getCourseInfo(courseId, isPreviewMode);
           debugInfo('[course-info] request success', {
@@ -487,11 +496,15 @@ export default function ChatLayout({
             courseName: resp.course_name,
             coursePrice: resp.course_price,
             ttsEnabled: resp.course_tts_enabled,
+            defaultListenModeEnabled: resp.default_listen_mode_enabled,
           });
           setShowVip(resp.course_price > 0);
           updateCourseName(resp.course_name);
           updateCourseAvatar(resp.course_avatar);
           updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
+          updateCourseDefaultListenModeEnabled(
+            resp.default_listen_mode_enabled ?? null,
+          );
           if (isPreviewMode) {
             setClassroomAccessCourseId(courseId);
             updateCanUseClassroomMode(true);
@@ -584,6 +597,7 @@ export default function ChatLayout({
     updateCourseName,
     updateCourseAvatar,
     updateCourseTtsEnabled,
+    updateCourseDefaultListenModeEnabled,
     updateCanUseClassroomMode,
     isPreviewMode,
   ]);

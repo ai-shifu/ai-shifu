@@ -149,6 +149,7 @@ interface Shifu {
   tts_speed?: number;
   tts_pitch?: number;
   tts_emotion?: string;
+  default_listen_mode_enabled?: boolean;
   // Language Output Configuration
   use_learner_language?: boolean;
 }
@@ -243,6 +244,8 @@ export default function ShifuSettingDialog({
   const [ttsVoiceId, setTtsVoiceId] = useState('');
   const [ttsSpeed, setTtsSpeed] = useState<number | null>(1.0);
   const [ttsSpeedInput, setTtsSpeedInput] = useState<string>('1.0');
+  const [defaultListenModeEnabled, setDefaultListenModeEnabled] =
+    useState(false);
   const [minimaxClonedVoices, setMinimaxClonedVoices] = useState<
     MiniMaxClonedVoice[]
   >([]);
@@ -1109,6 +1112,9 @@ export default function ShifuSettingDialog({
           tts_speed: speedValue,
           tts_pitch: 0,
           tts_emotion: '',
+          default_listen_mode_enabled: ttsEnabled
+            ? defaultListenModeEnabled
+            : false,
           // Language Output Configuration
           use_learner_language: useLearnerLanguage,
         };
@@ -1150,6 +1156,7 @@ export default function ShifuSettingDialog({
       ttsModel,
       ttsVoiceId,
       speedValue,
+      defaultListenModeEnabled,
       useLearnerLanguage,
       askConfigMeta,
       askModel,
@@ -1215,6 +1222,9 @@ export default function ShifuSettingDialog({
       setTtsModel(result.tts_model || '');
       setTtsVoiceId(result.tts_voice_id || '');
       setTtsSpeed(result.tts_speed ?? 1.0);
+      setDefaultListenModeEnabled(
+        Boolean(result.tts_enabled && result.default_listen_mode_enabled),
+      );
       setTtsSpeedInput(
         result.tts_speed === null || result.tts_speed === undefined
           ? ''
@@ -1963,6 +1973,24 @@ export default function ShifuSettingDialog({
 
                   {ttsEnabled && (
                     <>
+                      <div className='flex items-start justify-between mb-4 rounded-md border border-border/60 bg-muted/30 px-3 py-3'>
+                        <div className='space-y-1 pr-4'>
+                          <FormLabel className='text-sm font-medium text-foreground'>
+                            {t('module.shifuSetting.defaultListenModeTitle')}
+                          </FormLabel>
+                          <p className='text-xs text-muted-foreground'>
+                            {t(
+                              'module.shifuSetting.defaultListenModeDescription',
+                            )}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={defaultListenModeEnabled}
+                          onCheckedChange={setDefaultListenModeEnabled}
+                          disabled={currentShifu?.readonly}
+                        />
+                      </div>
+
                       {/* Model Selection */}
                       <div className='space-y-2 mb-4'>
                         <FormLabel className='text-sm font-medium text-foreground'>

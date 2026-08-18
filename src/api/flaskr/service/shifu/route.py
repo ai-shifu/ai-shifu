@@ -920,6 +920,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     tts_emotion:
                         type: string
                         description: TTS emotion setting
+                    default_listen_mode_enabled:
+                        type: boolean
+                        description: Default learner mode to listen when TTS is enabled
         responses:
             200:
                 description: save shifu detail success
@@ -984,6 +987,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         tts_speed = json_data.get("tts_speed")
         tts_pitch = 0 if "tts_pitch" in json_data else None
         tts_emotion = "" if "tts_emotion" in json_data else None
+        default_listen_mode_enabled = json_data.get("default_listen_mode_enabled")
+        if isinstance(default_listen_mode_enabled, str):
+            default_listen_mode_enabled = default_listen_mode_enabled.lower() == "true"
         # Language Output Configuration
         use_learner_language = json_data.get("use_learner_language")
         if isinstance(use_learner_language, str):
@@ -1010,6 +1016,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 tts_speed=tts_speed,
                 tts_pitch=tts_pitch,
                 tts_emotion=tts_emotion,
+                default_listen_mode_enabled=default_listen_mode_enabled,
                 use_learner_language=use_learner_language,
                 ask_enabled_status=ask_enabled_status,
                 ask_model=ask_model,
