@@ -38,7 +38,7 @@ def norm(path):
     for s in path.split("/"):
         if not s:
             continue
-        if "${" in s or "{" in s or s.startswith(":") or s.startswith("<"):
+        if "${" in s or "{" in s or s.startswith((":", "<")):
             segs.append("*")
         else:
             segs.append(s)

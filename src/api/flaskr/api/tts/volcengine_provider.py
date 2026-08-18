@@ -59,7 +59,7 @@ def _volcengine_time_ms(item: dict[str, Any], keys: tuple[str, ...]) -> int:
         value = item.get(key)
         if value is None or value == "":
             continue
-        if key.endswith("_ms") or key.endswith("Ms"):
+        if key.endswith(("_ms", "Ms")):
             try:
                 return max(round(float(value)), 0)
             except (TypeError, ValueError):

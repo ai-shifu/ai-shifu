@@ -72,6 +72,7 @@ select = [
     "FURB188", # manual prefix/suffix stripping
     "PIE790",  # unnecessary pass / ... placeholder
     "PIE80",   # unnecessary dict kwargs, builtin-reimplementing lambdas
+    "PIE810",  # multiple startswith/endswith calls on one value
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
     "PLR1711", # useless return at the end of a function

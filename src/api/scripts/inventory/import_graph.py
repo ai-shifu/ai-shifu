@@ -110,8 +110,7 @@ roots = set()
 for name, rel in mods.items():
     if (
         name in ("app", "celery_app")
-        or rel.startswith("scripts" + os.sep)
-        or rel.startswith("flaskr/command")
+        or rel.startswith(("scripts" + os.sep, "flaskr/command"))
         or name == "flaskr.route"
     ):
         roots.add(name)
