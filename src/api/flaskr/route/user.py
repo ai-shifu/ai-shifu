@@ -244,7 +244,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/info", methods=["GET"])
     def info():
         """
-        get user information
+        Get user information
         ---
         tags:
             - user
@@ -327,7 +327,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/update_info", methods=["POST"])
     def update_info():
         """
-        update user information
+        Update user information
         ---
         tags:
             - user
@@ -763,7 +763,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     def get_profile():
         """
-        get user profile
+        Get user profile
         ---
         tags:
             - user
@@ -801,7 +801,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/update_profile", methods=["POST"])
     def update_profile():
         """
-        update user profile
+        Update user profile
         ---
         tags:
             - user
@@ -946,7 +946,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @optional_token_validation
     def sumbit_feedback_api():
         """
-        submit feedback
+        Submit feedback
         ---
         tags:
             - user

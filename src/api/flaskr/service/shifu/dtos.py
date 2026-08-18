@@ -368,21 +368,21 @@ class ShifuOutlineTreeNode:
 
     def add_child(self, child: "ShifuOutlineTreeNode"):
         """
-        add a child to the node
+        Add a child to the node
         """
         self.children.append(child)
         child.parent_node = self
 
     def remove_child(self, child: "ShifuOutlineTreeNode"):
         """
-        remove a child from the node
+        Remove a child from the node
         """
         child.parent_node = None
         self.children.remove(child)
 
     def get_new_position(self):
         """
-        get the new position of the node
+        Get the new position of the node
         """
         if not self.parent_node:
             return self.position
@@ -453,7 +453,7 @@ class ReorderOutlineItemDto:
 
     def __init__(self, bid: str, children: list["ReorderOutlineItemDto"]):
         """
-        init reorder outline item dto
+        Init reorder outline item dto
         """
         self.bid = bid
         self.children = children

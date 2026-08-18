@@ -18,7 +18,7 @@ class PluginManager:
         self.is_enabled = True
 
     def enable_hot_reload(self):
-        """enable the hot reload"""
+        """Enable the hot reload"""
         if not self.is_enabled:
             return
         if not self.hot_reloader:
@@ -26,13 +26,13 @@ class PluginManager:
             self.hot_reloader.start()
 
     def disable_hot_reload(self):
-        """disable the hot reload"""
+        """Disable the hot reload"""
         if self.hot_reloader:
             self.hot_reloader.stop()
             self.hot_reloader = None
 
     def clear_extension(self, target_func_name):
-        """clear all registered functions for the specified extension point"""
+        """Clear all registered functions for the specified extension point"""
         if target_func_name in self.extension_functions:
             del self.extension_functions[target_func_name]
 

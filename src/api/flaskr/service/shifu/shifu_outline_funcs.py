@@ -47,7 +47,7 @@ def convert_outline_to_reorder_outline_item_dto(
     json_array: list[dict],
 ) -> ReorderOutlineItemDto:
     """
-    convert outline to reorder outline item dto
+    Convert outline to reorder outline item dto
     Args:
         json_array: The json array to convert
     Returns:

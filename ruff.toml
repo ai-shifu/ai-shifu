@@ -55,7 +55,8 @@ select = [
     "B010",   # setattr with a constant attribute name
     "C420",   # dict.fromkeys instead of a constant-value comprehension
     "D202",   # blank line after a function docstring
-    "D411",   # missing blank line before section
+    "D403", # first word of a docstring not capitalized
+    "D411", # missing blank line before section
     "FURB136", # if-expression that should be min()/max()
     "FURB188", # manual prefix/suffix stripping
     "PIE790", # unnecessary pass / ... placeholder
