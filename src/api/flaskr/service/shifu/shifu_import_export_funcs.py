@@ -27,8 +27,7 @@ from werkzeug.datastructures import FileStorage
 
 
 def _extract_import_ask_provider_config(shifu_data: dict) -> str:
-    """
-    Extract and normalize ask_provider_config from import payload.
+    """Extract and normalize ask_provider_config from import payload.
     Keep legacy imports compatible by defaulting to "{}" when missing.
     """
     if "ask_provider_config" not in shifu_data:
@@ -37,8 +36,7 @@ def _extract_import_ask_provider_config(shifu_data: dict) -> str:
 
 
 def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
-    """
-    Export a shifu to a JSON file.
+    """Export a shifu to a JSON file.
 
     Args:
         app: Flask application instance
@@ -47,6 +45,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
 
     Returns:
         str: Success message
+
     """
     with app.app_context():
         # Get shifu draft
@@ -146,8 +145,7 @@ def import_shifu(
     user_id: str,
     commit: bool = True,
 ) -> str:
-    """
-    Import a shifu from a JSON file.
+    """Import a shifu from a JSON file.
 
     Args:
         app: Flask application instance
@@ -158,6 +156,7 @@ def import_shifu(
 
     Returns:
         str: The shifu_bid of the imported shifu
+
     """
     with app.app_context():
         # Read JSON file

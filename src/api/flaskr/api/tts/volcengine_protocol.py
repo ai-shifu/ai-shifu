@@ -1,5 +1,4 @@
-"""
-Volcengine TTS WebSocket Binary Protocol Handler.
+"""Volcengine TTS WebSocket Binary Protocol Handler.
 
 This module implements the binary protocol used by Volcengine's
 bidirectional TTS WebSocket API.
@@ -156,8 +155,7 @@ class VolcengineProtocol:
         enable_timestamp: bool = False,
         enable_subtitle: bool = False,
     ) -> bytes:
-        """
-        Encode StartSession frame.
+        """Encode StartSession frame.
 
         Args:
             session_id: Unique session identifier
@@ -172,6 +170,7 @@ class VolcengineProtocol:
 
         Returns:
             Encoded binary frame
+
         """
         self.session_id = session_id
 
@@ -232,8 +231,7 @@ class VolcengineProtocol:
         )
 
     def encode_task_request(self, session_id: str, text: str) -> bytes:
-        """
-        Encode TaskRequest frame with text to synthesize.
+        """Encode TaskRequest frame with text to synthesize.
 
         Args:
             session_id: Session identifier
@@ -241,6 +239,7 @@ class VolcengineProtocol:
 
         Returns:
             Encoded binary frame
+
         """
         payload = {
             "user": {"uid": "ai-shifu"},
@@ -274,14 +273,14 @@ class VolcengineProtocol:
         )
 
     def decode_frame(self, data: bytes) -> ProtocolFrame:
-        """
-        Decode a binary frame from server.
+        """Decode a binary frame from server.
 
         Args:
             data: Raw binary data
 
         Returns:
             Parsed ProtocolFrame
+
         """
         if len(data) < 4:
             raise ValueError(f"Frame too short: {len(data)} bytes")

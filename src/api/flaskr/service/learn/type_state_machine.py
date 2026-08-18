@@ -88,6 +88,7 @@ class TypeStateMachine:
         ------
         ValueError
             If the transition is illegal (e.g. feeding after ``TERMINATED``).
+
         """
         if self._state is TypeState.TERMINATED:
             raise ValueError(

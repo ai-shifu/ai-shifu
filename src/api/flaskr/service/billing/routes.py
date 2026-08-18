@@ -882,5 +882,3 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 payload=request.get_json(silent=True) or {},
             )
         )
-
-    return None

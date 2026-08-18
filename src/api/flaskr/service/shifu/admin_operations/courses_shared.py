@@ -317,7 +317,7 @@ def _format_decimal(value: Optional[Decimal]) -> str:
     if isinstance(value, str):
         normalized = value
     else:
-        normalized = "{0:.2f}".format(value)
+        normalized = f"{value:.2f}"
     if normalized.endswith(".00"):
         return normalized[:-3]
     return normalized
@@ -357,7 +357,7 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
 def _format_average_score(value: Optional[Decimal]) -> str:
     if value is None:
         return ""
-    return "{0:.1f}".format(value)
+    return f"{value:.1f}"
 
 
 def _normalize_metadata_json(value: Any) -> Dict[str, Any]:

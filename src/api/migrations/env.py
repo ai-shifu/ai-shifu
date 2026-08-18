@@ -45,9 +45,7 @@ target_db = current_app.extensions["migrate"].db
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    """
-    The simplest mode to avoid separation
-    """
+    """The simplest mode to avoid separation"""
     # the system tables
     system_tables = [
         "alembic_version",
@@ -186,7 +184,7 @@ def run_migrations_online() -> None:
                         merge_related_changes(script)
 
     def is_meaningful_operation(op):
-        """judge if an operation is meaningful (not meaningless type conversion)"""
+        """Judge if an operation is meaningful (not meaningless type conversion)"""
         op_type = type(op).__name__
 
         # for the ALTER COLUMN operation, check if it is meaningless type conversion
@@ -238,7 +236,7 @@ def run_migrations_online() -> None:
         return True
 
     def filter_unnecessary_operations(script):
-        """filter out the unnecessary or duplicate operations"""
+        """Filter out the unnecessary or duplicate operations"""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
 
@@ -272,7 +270,7 @@ def run_migrations_online() -> None:
             )
 
     def get_operation_signature(op):
-        """generate the unique signature of the operation to detect duplication"""
+        """Generate the unique signature of the operation to detect duplication"""
         op_type = type(op).__name__
 
         if hasattr(op, "table_name"):
@@ -300,12 +298,12 @@ def run_migrations_online() -> None:
         return f"{op_type}:unknown"
 
     def should_skip_operation(op):
-        """judge if it should skip the operation"""
+        """Judge if it should skip the operation"""
         op_type = type(op).__name__
 
         # dynamically get the application table prefixes, based on the actual defined models
         def get_app_table_prefixes():
-            """dynamically get the table prefixes from the actual models"""
+            """Dynamically get the table prefixes from the actual models"""
             prefixes = set()
 
             # traverse all the registered models
@@ -336,7 +334,7 @@ def run_migrations_online() -> None:
 
         # get all registered application table names
         def get_app_table_names():
-            """get all registered application table names"""
+            """Get all registered application table names"""
             table_names = set()
             for mapper in db.Model.registry.mappers:
                 model_class = mapper.class_
@@ -488,7 +486,7 @@ def run_migrations_online() -> None:
         return False
 
     def merge_related_changes(script):
-        """merge the related changes into the same migration"""
+        """Merge the related changes into the same migration"""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
 

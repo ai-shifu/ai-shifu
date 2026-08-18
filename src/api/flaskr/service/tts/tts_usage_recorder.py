@@ -1,5 +1,4 @@
-"""
-TTS usage recording helpers.
+"""TTS usage recording helpers.
 
 Provides utility functions to record TTS usage with consistent metadata construction.
 """
@@ -21,8 +20,7 @@ def build_tts_metadata(
     voice_settings: "VoiceSettings",
     audio_settings: "AudioSettings",
 ) -> dict:
-    """
-    Build metadata dict from voice and audio settings.
+    """Build metadata dict from voice and audio settings.
 
     Args:
         voice_settings: TTS voice configuration
@@ -30,6 +28,7 @@ def build_tts_metadata(
 
     Returns:
         Metadata dict with voice and audio parameters
+
     """
     return {
         "voice_id": voice_settings.voice_id or "",
@@ -58,8 +57,7 @@ def record_tts_segment_usage(
     segment_index: int,
     usage_characters: int = 0,
 ) -> None:
-    """
-    Record TTS usage for a single segment.
+    """Record TTS usage for a single segment.
 
     This is a segment-level recording (record_level=1) used during streaming synthesis.
 
@@ -78,6 +76,7 @@ def record_tts_segment_usage(
         is_stream: Whether this is a streaming request
         parent_usage_bid: Parent usage record ID for aggregation
         segment_index: Index of this segment in the sequence
+
     """
     segment_length = len(segment_text or "")
     output_chars = resolve_tts_billable_chars(segment_text, usage_characters)
@@ -119,8 +118,7 @@ def record_tts_aggregated_usage(
     is_stream: bool = True,
     total_usage_characters: int = 0,
 ) -> None:
-    """
-    Record aggregated TTS usage for all segments.
+    """Record aggregated TTS usage for all segments.
 
     This is an aggregated recording (record_level=0) used after all segments
     have been synthesized.
@@ -140,6 +138,7 @@ def record_tts_aggregated_usage(
         voice_settings: TTS voice configuration
         audio_settings: TTS audio configuration
         is_stream: Whether this is a streaming request
+
     """
     extra = build_tts_metadata(voice_settings, audio_settings)
     output_chars = resolve_tts_billable_chars(cleaned_text, total_usage_characters)

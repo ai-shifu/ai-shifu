@@ -1,5 +1,4 @@
-"""
-Centralized regex patterns for TTS text processing and AV segmentation.
+"""Centralized regex patterns for TTS text processing and AV segmentation.
 
 All compiled regex patterns used across the TTS service layer are defined
 here. Import patterns from this module rather than defining them locally.

@@ -2,8 +2,7 @@ import os
 
 
 def load_prompt_template(template_name: str) -> str:
-    """
-    Load the specified prompt template file
+    """Load the specified prompt template file
 
     Args:
         template_name: Template file name (without .md extension)
@@ -13,6 +12,7 @@ def load_prompt_template(template_name: str) -> str:
 
     Raises:
         FileNotFoundError: When template file does not exist
+
     """
     # Get the directory of current file
     current_dir = os.path.dirname(os.path.abspath(__file__))

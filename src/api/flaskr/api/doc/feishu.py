@@ -12,7 +12,7 @@ def send_notify(app: Flask, title, msgs):
     url = get_config("FEISHU_NOTIFY_URL", None)
     if not url:
         app.logger.warning("feishu notify url not found")
-        return
+        return None
     headers = {"Content-Type": "application/json"}
     data = {
         "msg_type": "post",

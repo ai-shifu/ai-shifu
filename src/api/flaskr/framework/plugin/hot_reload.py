@@ -57,6 +57,7 @@ class PluginHotReloader:
             3. Call lifecycle hooks
             4. Clean up registered extensions
             5. Remove from sys.modules
+
         """
         try:
             import sys
@@ -96,6 +97,7 @@ class PluginHotReloader:
             1. Initialize plugin class if exists
             2. Call lifecycle hooks
             3. Register new extensions
+
         """
         try:
             # Initialize plugin if Plugin class exists

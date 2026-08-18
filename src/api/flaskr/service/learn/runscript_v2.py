@@ -327,9 +327,7 @@ def run_script_inner(
     element_adapter: ListenElementRunAdapter | None = None,
     manage_app_context: bool = True,
 ) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
-    """
-    Core function for running course scripts
-    """
+    """Core function for running course scripts"""
 
     def _finalize_langfuse_if_available(
         context: RunScriptContextV2 | None,

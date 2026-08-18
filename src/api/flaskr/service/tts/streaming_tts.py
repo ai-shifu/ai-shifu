@@ -1,5 +1,4 @@
-"""
-Streaming TTS Processor with async synthesis.
+"""Streaming TTS Processor with async synthesis.
 
 This module provides real-time TTS synthesis during content streaming.
 - Generic providers synthesize sentence-by-sentence as boundaries appear
@@ -254,8 +253,7 @@ class _MinimaxFallbackAudio:
 
 
 class StreamingTTSProcessor:
-    """
-    Processes text for TTS in real-time during content streaming.
+    """Processes text for TTS in real-time during content streaming.
 
     Uses background threads for TTS synthesis to avoid blocking content streaming.
     """
@@ -352,8 +350,7 @@ class StreamingTTSProcessor:
             )
 
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
-        """
-        Process a chunk of streaming content.
+        """Process a chunk of streaming content.
 
         Submits TTS tasks to background threads and yields completed segments.
         """
@@ -442,6 +439,7 @@ class StreamingTTSProcessor:
 
         Returns:
             Number of characters to consume from *raw_text*.
+
         """
         target = processed_text[:processed_end]
         # raw text is always >= preprocessed text in length (preprocessing
@@ -486,8 +484,7 @@ class StreamingTTSProcessor:
         *,
         include_trailing_fragment: bool = True,
     ):
-        """
-        Submit text sentence-by-sentence.
+        """Submit text sentence-by-sentence.
 
         When ``include_trailing_fragment`` is True, any trailing text without
         sentence-ending punctuation is submitted as one final segment.
@@ -496,6 +493,7 @@ class StreamingTTSProcessor:
             remaining_text: The text to be synthesized
             include_trailing_fragment: Whether to submit trailing text that does
                 not end with sentence punctuation.
+
         """
         if not remaining_text or len(remaining_text) < 2:
             return
@@ -1973,9 +1971,7 @@ class StreamingTTSProcessor:
     def finalize(
         self, *, commit: bool = True
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        """
-        Finalize TTS processing after content streaming is complete.
-        """
+        """Finalize TTS processing after content streaming is complete."""
         raw_text = self._buffer
         cleaned_text = ""
         cleaned_text_length = 0
@@ -2067,8 +2063,7 @@ class StreamingTTSProcessor:
 
 
 class AVStreamingTTSProcessor:
-    """
-    Streaming TTS processor that segments audio by AV boundaries (e.g. SVG, fences).
+    """Streaming TTS processor that segments audio by AV boundaries (e.g. SVG, fences).
 
     Each speakable segment (text gap between visual elements) is synthesized as a
     separate audio track, identified by `position` (0-based) within the same

@@ -1,5 +1,4 @@
-"""
-Shifu dtos
+"""Shifu dtos
 
 This module contains dtos for shifu.
 
@@ -29,9 +28,7 @@ def resolve_demo_course_for_language(
 
 @register_schema_to_swagger
 class ShifuDto(BaseModel):
-    """
-    Shifu dto
-    """
+    """Shifu dto"""
 
     bid: str = Field(..., description="shifu id", required=False)
     name: str = Field(..., description="shifu name", required=False)
@@ -104,9 +101,7 @@ class ShifuDto(BaseModel):
 
 @register_schema_to_swagger
 class ShifuDetailDto(BaseModel):
-    """
-    Shifu detail dto
-    """
+    """Shifu detail dto"""
 
     bid: str = Field(..., description="shifu id", required=False)
     name: str = Field(..., description="shifu name", required=False)
@@ -287,9 +282,7 @@ class ShifuDetailDto(BaseModel):
 
 @register_schema_to_swagger
 class SimpleOutlineDto(BaseModel):
-    """
-    Simple outline dto
-    """
+    """Simple outline dto"""
 
     bid: str = Field(..., description="outline id", required=False)
     position: str = Field(..., description="outline position", required=False)
@@ -359,9 +352,7 @@ class SimpleOutlineDto(BaseModel):
 # 2. add a child to the node
 # 3. remove a child from the node
 class ShifuOutlineTreeNode:
-    """
-    Shifu outline tree node
-    """
+    """Shifu outline tree node"""
 
     def __init__(self, outline_item: DraftOutlineItem):
         self.outline = outline_item
@@ -375,23 +366,17 @@ class ShifuOutlineTreeNode:
         self.parent_node = None
 
     def add_child(self, child: "ShifuOutlineTreeNode"):
-        """
-        add a child to the node
-        """
+        """Add a child to the node"""
         self.children.append(child)
         child.parent_node = self
 
     def remove_child(self, child: "ShifuOutlineTreeNode"):
-        """
-        remove a child from the node
-        """
+        """Remove a child from the node"""
         child.parent_node = None
         self.children.remove(child)
 
     def get_new_position(self):
-        """
-        get the new position of the node
-        """
+        """Get the new position of the node"""
         if not self.parent_node:
             return self.position
         return (
@@ -402,9 +387,7 @@ class ShifuOutlineTreeNode:
 
 @register_schema_to_swagger
 class OutlineDto(BaseModel):
-    """
-    Outline dto
-    """
+    """Outline dto"""
 
     bid: str = Field(..., description="outline id", required=False)
     position: str = Field(..., description="outline no", required=False)
@@ -452,17 +435,13 @@ class OutlineDto(BaseModel):
 
 @register_schema_to_swagger
 class ReorderOutlineItemDto:
-    """
-    Reorder outline item dto
-    """
+    """Reorder outline item dto"""
 
     bid: str
     children: list["ReorderOutlineItemDto"]
 
     def __init__(self, bid: str, children: list["ReorderOutlineItemDto"]):
-        """
-        init reorder outline item dto
-        """
+        """Init reorder outline item dto"""
         self.bid = bid
         self.children = children
 
@@ -475,9 +454,7 @@ class ReorderOutlineItemDto:
 
 @register_schema_to_swagger
 class ReorderOutlineDto:
-    """
-    Reorder outline dto
-    """
+    """Reorder outline dto"""
 
     outlines: list[ReorderOutlineItemDto]
 

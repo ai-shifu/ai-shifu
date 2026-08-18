@@ -2161,14 +2161,14 @@ class RunScriptContextV2:
         return bool(str(input_value).strip())
 
     def set_input(self, input: str | dict, input_type: str):
-        """
-        Set user input.
+        """Set user input.
 
         Args:
             input: User input, can be:
                    - str: legacy format (e.g., "Python")
                    - dict: new format from markdown-flow 0.2.27+ (e.g., {"lang": ["Python"]})
             input_type: Input type
+
         """
         self._trace_args["input"] = normalize_langfuse_input_value(input)
         self._trace_args["input_type"] = input_type
@@ -3811,4 +3811,3 @@ class RunScriptContextV2:
         with app.app_context():
             yield from self.run(app)
             db.session.commit()
-        return

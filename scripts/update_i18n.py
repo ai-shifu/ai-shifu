@@ -9,6 +9,7 @@ Default behavior:
 
 Notes:
 - Requires namespaces to already be declared and mapped to files. To add a new namespace, use scripts/create_translation_namespace.py first.
+
 """
 
 from __future__ import annotations

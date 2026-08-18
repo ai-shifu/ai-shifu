@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Replay exported generated blocks through markdown-flow 0.2.55 StreamFormatter
+"""Replay exported generated blocks through markdown-flow 0.2.55 StreamFormatter
 and the listen-mode element adapter.
 
 This script validates the new internal chain:

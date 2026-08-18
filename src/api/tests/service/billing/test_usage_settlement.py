@@ -1621,7 +1621,6 @@ def test_resolve_credit_multiplier_label_uses_utc_default_settlement(monkeypatch
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
         captured.append(settlement_at)
-        return None
 
     monkeypatch.setattr(charges, "load_usage_rate", fake_load_usage_rate)
 

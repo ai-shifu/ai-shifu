@@ -126,8 +126,7 @@ class RunStateResolver:
         return False
 
     def get_current_outline_block_count(self) -> int:
-        """
-        Determine the completion threshold for the current outline.
+        """Determine the completion threshold for the current outline.
 
         History metadata (`child_count` / block children) can lag behind the
         latest mdflow document. When that happens, relying on the history tree

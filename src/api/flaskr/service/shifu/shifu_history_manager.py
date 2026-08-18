@@ -1,5 +1,4 @@
-"""
-Shifu history manager
+"""Shifu history manager
 
 This module contains functions for managing shifu history.
 
@@ -54,8 +53,7 @@ OUTLINE_CONTENT_LOOKBACK_LIMIT = 1000
 
 
 class HistoryItem(BaseModel, Generic[T]):
-    """
-    History item
+    """History item
     will be saved to database as json
     """
 
@@ -66,16 +64,12 @@ class HistoryItem(BaseModel, Generic[T]):
     child_count: int = 0
 
     def to_json(self):
-        """
-        to json
-        """
+        """To json"""
         return self.model_dump_json()
 
     @classmethod
     def from_json(cls, json: str):
-        """
-        from json to history item
-        """
+        """From json to history item"""
         return cls.model_validate_json(json)
 
 
@@ -261,8 +255,7 @@ def get_shifu_draft_meta(
 
 
 def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
-    """
-    Get shifu history
+    """Get shifu history
     Args:
         app: Flask application instance
         shifu_bid: Shifu bid
@@ -286,8 +279,7 @@ def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
 def __save_shifu_history(
     app: Flask, user_id: str, shifu_bid: str, history: HistoryItem
 ):
-    """
-    Save shifu history
+    """Save shifu history
     Args:
         app: Flask application instance
         user_id: User ID
@@ -312,8 +304,7 @@ def __save_shifu_history(
 
 
 def save_shifu_history(app: Flask, user_id: str, shifu_bid: str, id: int):
-    """
-    Save shifu history
+    """Save shifu history
     Args:
         app: Flask application instance
         user_id: User ID
@@ -337,8 +328,7 @@ def __save_new_item_history(
     type: str,
     index: int = 0,
 ):
-    """
-    Save new item history
+    """Save new item history
     internal function
     Args:
         app: Flask application instance
@@ -393,8 +383,7 @@ def __save_new_item_history(
 
 
 def __delete_item_history(app: Flask, user_id: str, shifu_bid: str, item_bid: str):
-    """
-    Delete item history
+    """Delete item history
     internal function
     Args:
         app: Flask application instance
@@ -428,8 +417,7 @@ def save_new_outline_history(
     parent_bid: str,
     index: int = 0,
 ):
-    """
-    Save new outline history
+    """Save new outline history
     Args:
         app: Flask application instance
         user_id: User ID
@@ -452,8 +440,7 @@ def save_outline_history(
     id: int,
     child_count: int = 0,
 ):
-    """
-    Save outline history
+    """Save outline history
     Args:
         app: Flask application instance
         user_id: User ID
@@ -480,8 +467,7 @@ def save_outline_history(
 
 
 def delete_outline_history(app: Flask, user_id: str, shifu_bid: str, outline_bid: str):
-    """
-    Delete outline history
+    """Delete outline history
     Args:
         app: Flask application instance
         user_id: User ID
@@ -500,8 +486,7 @@ def save_outline_tree_history(
     outline_tree: List[HistoryItem],
     shifu_id: int = None,
 ):
-    """
-    Save outline tree history
+    """Save outline tree history
     Args:
         app: Flask application instance
         user_id: User ID

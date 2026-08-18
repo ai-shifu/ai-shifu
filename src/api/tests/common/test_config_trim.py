@@ -1,6 +1,4 @@
-"""
-Unit tests for environment variable trimming functionality.
-"""
+"""Unit tests for environment variable trimming functionality."""
 
 import pytest
 from flaskr.common.config import EnhancedConfig, EnvVar

@@ -39,51 +39,67 @@
 #   BLE001 / DTZ001 / SLF001 / S102` markers as unused simply because those
 #   rules are off here, so enforcing it would delete documentation of
 #   intentional exceptions. Stale directives are pruned by hand instead.
+# - D405 / D406 / D407: route docstrings carry the flasgger/Swagger spec after
+#   a `---` line, and these rules read YAML keys such as `parameters:` as
+#   numpydoc section headers. Their fixes strip the colon and insert a dashed
+#   underline, which turns the embedded spec into invalid YAML and breaks the
+#   generated API docs. D209 / D212 / D403 / D411 / D413 are safe here because
+#   they never rewrite a line inside the YAML block.
 
 [lint]
 select = [
-    "E",      # pycodestyle errors (E501 ignored below)
-    "F",      # pyflakes
-    "DTZ",    # process-time-zone-dependent datetime calls (see ignore below)
-    "EXE",    # shebang vs executable-bit consistency
-    "G2",     # .error(..., exc_info=True) -> .exception(...)
-    "I",      # import sorting and grouping
-    "RUF059", # unused unpacked variable
+    "E",       # pycodestyle errors (E501 ignored below)
+    "F",       # pyflakes
+    "DTZ",     # process-time-zone-dependent datetime calls (see ignore below)
+    "EXE",     # shebang vs executable-bit consistency
+    "G2",      # .error(..., exc_info=True) -> .exception(...)
+    "I",       # import sorting and grouping
+    "RUF059",  # unused unpacked variable
     # Mechanical, behavior-preserving cleanups; each was applied repo-wide
     # with `ruff check --fix` in the commit that selected it here.
-    "B009",   # getattr with a constant attribute name
-    "B010",   # setattr with a constant attribute name
-    "C420",   # dict.fromkeys instead of a constant-value comprehension
-    "D202",   # blank line after a function docstring
+    "B009",    # getattr with a constant attribute name
+    "B010",    # setattr with a constant attribute name
+    "C420",    # dict.fromkeys instead of a constant-value comprehension
+    "D202",    # blank line after a function docstring
+    "D209",    # closing quotes of a multi-line docstring not on their own line
+    "D212",    # multi-line docstring summary not on the first line
+    "D403",    # first word of a docstring not capitalized
+    "D411",    # missing blank line before section
+    "D413",    # missing blank line after the last docstring section
     "FURB136", # if-expression that should be min()/max()
     "FURB188", # manual prefix/suffix stripping
-    "PIE790", # unnecessary pass / ... placeholder
-    "PIE804", # unnecessary dict kwargs
-    "PIE807", # lambda that reimplements a container builtin
+    "PIE790",  # unnecessary pass / ... placeholder
+    "PIE804",  # unnecessary dict kwargs
+    "PIE807",  # lambda that reimplements a container builtin
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
+    "PLR1711", # useless return at the end of a function
     "PLR1730", # if-statement that should be min()/max()
     "PLR5501", # else: if ... that should be elif
-    "PYI032", # __eq__/__ne__ annotated with Any
-    "PYI041", # int | float union that float already covers
-    "RET505", # superfluous else after return
-    "RUF010", # explicit str()/repr() call inside an f-string
-    "RUF021", # unparenthesized and inside or
-    "RUF022", # unsorted __all__
-    "RUF023", # unsorted __slots__
-    "RUF036", # None not at the end of a union
-    "RUF102", # noqa directive naming an unknown rule
-    "SIM114", # if branches with identical bodies
-    "SIM300", # yoda condition
-    "SIM910", # dict.get(key, None)
-    "UP012",  # redundant utf-8 argument to str.encode
-    "UP015",  # redundant mode argument to open()
-    "UP024",  # deprecated OSError alias
-    "UP034",  # extraneous parentheses
+    "PT001",   # pytest.fixture with empty parentheses
+    "PYI032",  # __eq__/__ne__ annotated with Any
+    "PYI041",  # int | float union that float already covers
+    "RET501",  # unnecessary explicit return None
+    "RET502",  # implicit return value
+    "RET505",  # superfluous else after return
+    "RUF010",  # explicit str()/repr() call inside an f-string
+    "RUF021",  # unparenthesized and inside or
+    "RUF022",  # unsorted __all__
+    "RUF023",  # unsorted __slots__
+    "RUF036",  # None not at the end of a union
+    "RUF102",  # noqa directive naming an unknown rule
+    "SIM114",  # if branches with identical bodies
+    "SIM300",  # yoda condition
+    "SIM910",  # dict.get(key, None)
+    "UP012",   # redundant utf-8 argument to str.encode
+    "UP015",   # redundant mode argument to open()
+    "UP024",   # deprecated OSError alias
+    "UP032",   # str.format that should be an f-string
+    "UP034",   # extraneous parentheses
 ]
 ignore = [
-    "DTZ001", # naive datetime() -- naive UTC is the house convention
-    "DTZ007", # naive strptime() -- naive UTC is the house convention
-    "DTZ901", # datetime.min/max -- naive UTC is the house convention
-    "E501",   # line length is owned by the formatter
+    "DTZ001",  # naive datetime() -- naive UTC is the house convention
+    "DTZ007",  # naive strptime() -- naive UTC is the house convention
+    "DTZ901",  # datetime.min/max -- naive UTC is the house convention
+    "E501",    # line length is owned by the formatter
 ]

@@ -64,8 +64,7 @@ def _pick_coupon_candidate(
     shifu_bid: str,
     user_id: str,
 ) -> Tuple[Optional[CouponUsageModel], Optional[Coupon], bool]:
-    """
-    Pick a coupon_usage/coupon pair that matches the current course.
+    """Pick a coupon_usage/coupon pair that matches the current course.
     Returns (usage, coupon, has_candidate_with_same_code).
     """
     has_candidate_with_same_code = bool(active_usages or coupons_by_code)
@@ -122,24 +121,23 @@ def send_feishu_coupon_code(
                 "feishu coupon notify skipped: user aggregate missing for %s", user_id
             )
             return
-        msgs.append("手机号：{}".format(user_info.mobile))
-        msgs.append("昵称：{}".format(user_info.name))
-        msgs.append("优惠码：{}".format(discount_code))
-        msgs.append("优惠名称：{}".format(discount_name))
-        msgs.append("优惠额度：{}".format(discount_value))
+        msgs.append(f"手机号：{user_info.mobile}")
+        msgs.append(f"昵称：{user_info.name}")
+        msgs.append(f"优惠码：{discount_code}")
+        msgs.append(f"优惠名称：{discount_name}")
+        msgs.append(f"优惠额度：{discount_value}")
         user_convertion = UserConversion.query.filter(
             UserConversion.user_id == user_id
         ).first()
         channel = ""
         if user_convertion:
             channel = user_convertion.conversion_source
-        msgs.append("渠道：{}".format(channel))
+        msgs.append(f"渠道：{channel}")
         send_notify(app, title, msgs)
 
 
 def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
-    """
-    Use coupon code
+    """Use coupon code
     Args:
         app: Flask app
         user_id: User id
@@ -220,7 +218,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         if coupon.start > now:
             raise_error("server.discount.discountNotStart")
         if coupon.end < now:
-            app.logger.info("coupon expired: end={} now={}".format(coupon.end, now))
+            app.logger.info(f"coupon expired: end={coupon.end} now={now}")
             raise_error("server.discount.discountAlreadyExpired")
         if coupon.used_count + 1 > coupon.total_count:
             raise_error("server.discount.discountLimitExceeded")

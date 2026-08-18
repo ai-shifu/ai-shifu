@@ -3,7 +3,8 @@
 
 def test_transactional_session_classifies_before_savepoint_rollback(app, monkeypatch):
     """Abnormal terminations must invalidate WITHOUT any savepoint rollback
-    reaching the wire; ordinary errors keep the legacy full-rollback path."""
+    reaching the wire; ordinary errors keep the legacy full-rollback path.
+    """
     import flaskr.service.user.repository as repo_module
     from sqlalchemy.exc import ResourceClosedError
 

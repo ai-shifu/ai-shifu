@@ -1,5 +1,4 @@
-"""
-Volcengine TTS Provider.
+"""Volcengine TTS Provider.
 
 This module provides TTS synthesis using Volcengine's bidirectional
 WebSocket TTS API (ByteDance/Doubao).
@@ -351,8 +350,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         return ""
 
     def _get_credentials(self, resource_id: str = "") -> tuple[str, str, str]:
-        """
-        Get Volcengine TTS credentials.
+        """Get Volcengine TTS credentials.
 
         Uses VOLCENGINE_TTS_* config for authentication.
 
@@ -365,6 +363,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         Returns:
             tuple: (app_key, access_key, resource_id)
+
         """
         app_key = (get_config("VOLCENGINE_TTS_APP_KEY") or "").strip()
         access_key = (get_config("VOLCENGINE_TTS_ACCESS_KEY") or "").strip()
@@ -397,6 +396,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         Notes:
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback.
+
         """
         return VoiceSettings(
             voice_id="zh_female_shuangkuaisisi_moon_bigtts",
@@ -427,8 +427,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         audio_settings: Optional[AudioSettings] = None,
         model: Optional[str] = None,
     ) -> TTSResult:
-        """
-        Synthesize text to speech using Volcengine TTS.
+        """Synthesize text to speech using Volcengine TTS.
 
         Args:
             text: Text to synthesize
@@ -440,6 +439,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         Raises:
             ValueError: If synthesis fails
+
         """
         if not WEBSOCKET_AVAILABLE:
             raise ValueError(

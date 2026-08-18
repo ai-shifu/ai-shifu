@@ -1,5 +1,4 @@
-"""
-High-level TTS pipeline helpers.
+"""High-level TTS pipeline helpers.
 
 This module provides a top-level, provider-agnostic pipeline that:
 1) preprocesses text for TTS,
@@ -77,8 +76,7 @@ _AV_SPEAKABLE_SANDBOX_ROOT_TAGS = {"div", "section", "article", "main", "templat
 
 
 def _get_fence_ranges(raw: str) -> list[tuple[int, int]]:
-    """
-    Return ranges for triple-backtick fenced blocks: [(start, end), ...].
+    """Return ranges for triple-backtick fenced blocks: [(start, end), ...].
 
     If a fence is not closed, the range will extend to the end of the string.
     """
@@ -109,9 +107,7 @@ def _is_index_in_ranges(index: int, ranges: list[tuple[int, int]]) -> bool:
 def _find_first_match_outside_fence(
     raw: str, pattern: re.Pattern[str], fence_ranges: list[tuple[int, int]]
 ) -> re.Match[str] | None:
-    """
-    Find the first regex match whose start index is not inside a fenced block.
-    """
+    """Find the first regex match whose start index is not inside a fenced block."""
     match = pattern.search(raw)
     while match:
         if not _is_index_in_ranges(match.start(), fence_ranges):
@@ -121,8 +117,7 @@ def _find_first_match_outside_fence(
 
 
 def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int, bool]:
-    """
-    Best-effort end boundary for a sandbox HTML block.
+    """Best-effort end boundary for a sandbox HTML block.
 
     Returns: (end, complete)
 
@@ -199,8 +194,7 @@ def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int,
 
 
 def _rewind_fixed_marker_start(raw: str, start_index: int) -> int:
-    """
-    If `raw` contains a MarkdownFlow fixed marker prefix on the same line as a
+    """If `raw` contains a MarkdownFlow fixed marker prefix on the same line as a
     visual tag (e.g. `=== <iframe ...`), rewind start to include the marker.
     """
     if not raw or start_index <= 0:
@@ -221,8 +215,7 @@ def _rewind_fixed_marker_start(raw: str, start_index: int) -> int:
 
 
 def _extend_fixed_marker_end(raw: str, end_index: int) -> int:
-    """
-    If `raw` contains a trailing fixed marker suffix on the same line as a
+    """If `raw` contains a trailing fixed marker suffix on the same line as a
     visual close tag (e.g. `</iframe> ===`), extend end to include it (and one
     trailing newline if present).
     """
@@ -243,8 +236,7 @@ def _extend_fixed_marker_end(raw: str, end_index: int) -> int:
 def _find_markdown_table_block(
     raw: str, fence_ranges: list[tuple[int, int]]
 ) -> tuple[int, int, bool] | None:
-    """
-    Find the first Markdown table block outside fences.
+    """Find the first Markdown table block outside fences.
 
     Returns: (start, end, complete)
     """
@@ -314,11 +306,11 @@ def _find_next_av_boundary(
     *,
     include_partial_md_image: bool = False,
 ) -> tuple[str, int, int, bool] | None:
-    """
-    Return the earliest AV boundary candidate from `raw`.
+    """Return the earliest AV boundary candidate from `raw`.
 
     Returns:
         (kind, start, end, complete), where `end` is exclusive.
+
     """
     if not raw:
         return None
@@ -431,8 +423,7 @@ def _find_next_av_boundary(
 
 
 def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
-    """
-    Build a shared AV segmentation contract used by backend and frontend.
+    """Build a shared AV segmentation contract used by backend and frontend.
 
     Contract shape:
     - visual_boundaries[]: {kind, position, block_bid, source_span}
@@ -516,8 +507,7 @@ def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
 
 
 def split_av_speakable_segments(raw: str) -> list[str]:
-    """
-    Split raw Markdown/HTML content into ordered speakable segments for AV sync.
+    """Split raw Markdown/HTML content into ordered speakable segments for AV sync.
 
     The output segments correspond to "text" gaps between visual blocks such as
     SVG, images, fenced code/mermaid blocks, and sandbox HTML blocks.
@@ -531,8 +521,7 @@ def split_av_speakable_segments(raw: str) -> list[str]:
 
 
 def _split_by_sentence_and_newline(text: str) -> list[str]:
-    """
-    Split text into small units using newlines and sentence-ending punctuation.
+    """Split text into small units using newlines and sentence-ending punctuation.
 
     This is intentionally conservative and avoids provider-specific assumptions.
     """
@@ -603,8 +592,7 @@ def _split_text_by_max_bytes(
     max_bytes: int,
     encoding: str,
 ) -> list[str]:
-    """
-    Ensure every segment stays within max bytes for a given encoding.
+    """Ensure every segment stays within max bytes for a given encoding.
 
     This is mainly required for providers like Baidu which enforce byte limits.
     """
@@ -649,8 +637,7 @@ def split_text_for_tts(
     provider_name: str,
     max_segment_chars: Optional[int] = None,
 ) -> list[str]:
-    """
-    Split text into segments suitable for unified TTS synthesis.
+    """Split text into segments suitable for unified TTS synthesis.
 
     - Applies `preprocess_for_tts` (removes markdown/code/SVG, etc).
     - Splits by newline and sentence endings.
@@ -711,13 +698,13 @@ def synthesize_long_text_to_oss(
     usage_context: Optional[UsageContext] = None,
     parent_usage_bid: Optional[str] = None,
 ) -> SynthesizeToOssResult:
-    """
-    Synthesize a long text, upload the final audio to OSS, and return URL + metrics.
+    """Synthesize a long text, upload the final audio to OSS, and return URL + metrics.
 
     Notes:
     - Uses the unified TTS client (`flaskr.api.tts.synthesize_text`).
     - Segments are synthesized in parallel (bounded by `max_workers`).
     - Final output is uploaded as an MP3 file for browser playback.
+
     """
     provider = (provider_name or "").strip().lower()
     if not provider:

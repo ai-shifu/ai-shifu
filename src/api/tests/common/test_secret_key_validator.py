@@ -1,6 +1,4 @@
-"""
-Unit tests for SECRET_KEY validator functionality.
-"""
+"""Unit tests for SECRET_KEY validator functionality."""
 
 import pytest
 from flaskr.common.config import (

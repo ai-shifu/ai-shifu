@@ -36,8 +36,7 @@ def _get_latest_variable_value(
     variable_key: str,
     shifu_bid: str,
 ) -> Optional[VariableValue]:
-    """
-    Return the newest variable value row from a pre-fetched, id-desc sorted
+    """Return the newest variable value row from a pre-fetched, id-desc sorted
     collection.
 
     Matching is by key only (not variable_bid) so the newest row for the
@@ -289,6 +288,7 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     This function must follow the same shifu_bid routing rules as
     :func:`save_user_profiles`, otherwise the run context may see values different
     from what the user sees in "个人设置".
+
     """
     PROFILES_LABLES = get_profile_labels()
     profiles_items = get_profile_item_definition_list(app, course_id)
@@ -367,8 +367,7 @@ def get_user_profile_labels(
     *,
     include_nickname: bool = True,
 ) -> UserProfileLabelDTO:
-    """
-    Get user profile labels
+    """Get user profile labels
     Args:
         app: Flask application instance
         user_id: User id
@@ -376,7 +375,7 @@ def get_user_profile_labels(
     Returns:
         list: User profile labels
     """
-    app.logger.info("get user profile labels:{}".format(course_id))
+    app.logger.info(f"get user profile labels:{course_id}")
     candidate_shifus = [course_id or ""]
     if course_id:
         candidate_shifus.append("")
@@ -463,7 +462,7 @@ def get_user_profile_labels(
                     shifu_bid="",
                 )
         else:
-            app.logger.info("profile_item not found:{}".format(profile_key))
+            app.logger.info(f"profile_item not found:{profile_key}")
         if user_value is None and user_values:
             user_value = _get_latest_variable_value(
                 user_values,
@@ -496,7 +495,7 @@ def update_user_profile_with_lable(
     update_all: bool = False,
     course_id: str = None,
 ):
-    app.logger.info("update user profile with lable:{}".format(course_id))
+    app.logger.info(f"update user profile with lable:{course_id}")
     PROFILES_LABLES = get_profile_labels()
     if isinstance(profiles, UserProfileLabelDTO):
         profiles = profiles.profiles or []

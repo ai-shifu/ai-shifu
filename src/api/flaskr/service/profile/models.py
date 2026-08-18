@@ -42,8 +42,7 @@ CONST_PROFILE_SCOPE_SYSTEM = "system"
 
 
 class Variable(db.Model):
-    """
-    Variable definition table for MarkdownFlow-based shifu.
+    """Variable definition table for MarkdownFlow-based shifu.
 
     Defines variables referenced in course content (via MarkdownFlow markers) and used to
     collect learner inputs. Variables can be scoped to a specific Shifu or defined at
@@ -131,8 +130,7 @@ class Variable(db.Model):
 
 
 class VariableValue(db.Model):
-    """
-    User variable value table for variables.
+    """User variable value table for variables.
 
     Stores the actual values entered during learning for variables defined in var_variables.
     Each record represents a user's value for a variable within a Shifu or global/system
