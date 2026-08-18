@@ -68,6 +68,7 @@ select = [
     "D403",    # first word of a docstring not capitalized
     "D411",    # missing blank line before section
     "D413",    # missing blank line after the last docstring section
+    "FLY002",  # static str.join that should be an f-string
     "FURB110", # conditional expression that should be or
     "FURB136", # if-expression that should be min()/max()
     "FURB171", # membership test against a single-item container

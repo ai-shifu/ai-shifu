@@ -36,15 +36,8 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
     )
     signed_headers = "content-type;host;x-tc-action"
     hashed_payload = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
-    canonical_request = "\n".join(
-        [
-            "POST",
-            "/",
-            "",
-            canonical_headers,
-            signed_headers,
-            hashed_payload,
-        ]
+    canonical_request = (
+        f"POST\n/\n\n{canonical_headers}\n{signed_headers}\n{hashed_payload}"
     )
     credential_scope = f"{date}/{service}/tc3_request"
     string_to_sign = "\n".join(
