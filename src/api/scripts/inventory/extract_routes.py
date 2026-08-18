@@ -141,7 +141,7 @@ for rel in sorted(route_files):
             ):
                 env[arg.arg] = a.defaults[di].value
         # keyword-only defaults
-        for arg, d in zip(a.kwonlyargs, a.kw_defaults):
+        for arg, d in zip(a.kwonlyargs, a.kw_defaults, strict=False):
             if (
                 d is not None
                 and isinstance(d, ast.Constant)
