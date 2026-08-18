@@ -34,14 +34,22 @@ bash "$REPO_ROOT/.cursor/start.sh"
 #    reading them back from an existing .env, so the MySQL account password and
 #    the connection string never drift apart.
 gen_secret() { python3 -c 'import secrets; print(secrets.token_urlsafe(32))'; }
-DB_PASSWORD=""
-SECRET_KEY=""
 if [ -f "$API_ENV" ]; then
+  # Reuse the existing credentials so the MySQL account and the connection
+  # string never drift apart (.env is only (re)written when absent).
   DB_PASSWORD="$(sed -n 's|^SQLALCHEMY_DATABASE_URI="mysql://aishifu:\([^@]*\)@.*|\1|p' "$API_ENV" | head -n1)"
   SECRET_KEY="$(sed -n 's|^SECRET_KEY="\(.*\)"$|\1|p' "$API_ENV" | head -n1)"
+  if [ -z "$DB_PASSWORD" ]; then
+    echo "[install] ERROR: could not read the DB password from existing $API_ENV;" >&2
+    echo "[install]        refusing to reset it, which would desync MySQL from the" >&2
+    echo "[install]        connection string. Fix or remove $API_ENV and re-run." >&2
+    exit 1
+  fi
+  [ -n "$SECRET_KEY" ] || SECRET_KEY="$(gen_secret)"
+else
+  DB_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+  SECRET_KEY="$(gen_secret)"
 fi
-DB_PASSWORD="${DB_PASSWORD:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')}"
-SECRET_KEY="${SECRET_KEY:-$(gen_secret)}"
 
 # 4) Application database and local-only account (idempotent). The account is
 #    scoped to localhost/127.0.0.1 and to the ai-shifu schema, with no GRANT
