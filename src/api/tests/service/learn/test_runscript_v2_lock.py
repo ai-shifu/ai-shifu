@@ -1057,7 +1057,7 @@ def test_run_script_inner_emits_audio_backfill_ready_after_break_commit(monkeypa
                 type=GeneratedType.CONTENT,
                 content="hello",
             )
-            raise runscript_v2.BreakException()
+            raise runscript_v2.BreakException
 
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
 
