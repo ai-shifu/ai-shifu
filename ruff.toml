@@ -51,5 +51,6 @@ select = [
     # with `ruff check --fix` in the commit that selected it here.
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
+    "RUF021", # unparenthesized and inside or
     "RUF102", # noqa directive naming an unknown rule
 ]
