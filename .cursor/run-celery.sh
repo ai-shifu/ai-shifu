@@ -6,6 +6,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_DIR="${AI_SHIFU_VENV:-$HOME/.venvs/ai-shifu}"
 
+# Wait for MySQL + Redis (started by the `start` hook) before consuming tasks.
+bash "$REPO_ROOT/.cursor/wait-for-services.sh"
+
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 cd "$REPO_ROOT/src/api"
