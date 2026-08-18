@@ -3,6 +3,7 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
+import { useBillingOverview } from '@/hooks/useBillingData';
 import type { BillingPlan, BillingTopupProduct } from '@/types/billing';
 const mockTrackEvent = jest.fn();
 
@@ -28,6 +29,10 @@ jest.mock('@/hooks/useToast', () => ({
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
+
+jest.mock('@/hooks/useBillingData', () => ({
+  useBillingOverview: jest.fn(),
 }));
 
 jest.mock('@/api', () => ({
@@ -187,6 +192,12 @@ jest.mock('react-i18next', () => ({
           '50 - 150 learner sessions',
         'module.billing.globalPricing.tabs.creditPacks': 'Credit Packs',
         'module.billing.globalPricing.tabs.plans': 'Plans',
+        'module.billing.package.actions.currentSubscription':
+          'Current subscription',
+        'module.billing.package.actions.downgradeDisabled':
+          'Downgrade unavailable',
+        'module.billing.package.actions.monthlySwitchDisabled':
+          'Switching to a monthly plan is unavailable',
         'module.billing.globalPricing.validity.annual':
           'Valid for 12 months from the day credits are granted. Ends at 23:59 on the expiry day.',
         'module.billing.globalPricing.validity.monthly':
@@ -240,6 +251,7 @@ const { GLOBAL_BILLING_PRODUCT_CODES, GlobalBillingPricing } =
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
 const mockCheckoutSubscription = api.checkoutBillingSubscription as jest.Mock;
 const mockCheckoutTopup = api.checkoutBillingTopup as jest.Mock;
+const mockUseBillingOverview = useBillingOverview as jest.Mock;
 
 function plan(
   productCode: string,
@@ -315,6 +327,7 @@ describe('GlobalBillingPricing', () => {
     mockRememberStripeCheckoutSession.mockReset();
     mockToast.mockReset();
     mockGetBillingCatalog.mockResolvedValue(buildGlobalCatalog());
+    mockUseBillingOverview.mockReturnValue({ data: { subscription: null } });
   });
 
   test('renders the approved annual plans by default with DeepSeek estimates', async () => {
@@ -448,6 +461,145 @@ describe('GlobalBillingPricing', () => {
         name: 'Subscribe now',
       }),
     ).toBeInTheDocument();
+  });
+
+  test('shows the current subscription state for Studio on the annual tab', async () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        subscription: {
+          subscription_bid: 'subscription-studio',
+          product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.studioMonthly}`,
+          product_code: GLOBAL_BILLING_PRODUCT_CODES.studioMonthly,
+          status: 'active',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-08-01T00:00:00Z',
+          current_period_end_at: '2026-09-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: '2026-08-01T00:00:00Z',
+          last_failed_at: null,
+        },
+      },
+    });
+
+    renderPricing();
+
+    const studio = await screen.findByTestId('global-plan-studio');
+    const currentButton = within(studio).getByRole('button', {
+      name: 'Current subscription',
+    });
+
+    expect(currentButton).toBeDisabled();
+    expect(within(studio).getByText('Monthly only')).toBeInTheDocument();
+    expect(studio.className).toContain('bg-primary/[0.05]');
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test('keeps same-tier annual checkout available and disables lower monthly tiers for an active Growth subscription', async () => {
+    const user = userEvent.setup();
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        subscription: {
+          subscription_bid: 'subscription-growth',
+          product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.growthMonthly}`,
+          product_code: GLOBAL_BILLING_PRODUCT_CODES.growthMonthly,
+          status: 'active',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-08-01T00:00:00Z',
+          current_period_end_at: '2026-09-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: '2026-08-01T00:00:00Z',
+          last_failed_at: null,
+        },
+      },
+    });
+
+    renderPricing();
+
+    expect(
+      within(await screen.findByTestId('global-plan-growth')).getByRole(
+        'button',
+        { name: 'Subscribe now' },
+      ),
+    ).toBeEnabled();
+    expect(
+      within(screen.getByTestId('global-plan-studio')).getByRole('button', {
+        name: 'View monthly plan',
+      }),
+    ).toBeEnabled();
+
+    await act(async () => {
+      await user.click(screen.getByRole('tab', { name: 'Monthly' }));
+    });
+
+    expect(
+      within(screen.getByTestId('global-plan-growth')).getByRole('button', {
+        name: 'Current subscription',
+      }),
+    ).toBeDisabled();
+    expect(
+      within(screen.getByTestId('global-plan-studio')).getByRole('button', {
+        name: 'Downgrade unavailable',
+      }),
+    ).toBeDisabled();
+    expect(
+      within(screen.getByTestId('global-plan-business')).getByRole('button', {
+        name: 'Subscribe now',
+      }),
+    ).toBeEnabled();
+  });
+
+  test('blocks monthly plan purchases for an active annual subscription', async () => {
+    const user = userEvent.setup();
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        subscription: {
+          subscription_bid: 'subscription-business-yearly',
+          product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.businessAnnual}`,
+          product_code: GLOBAL_BILLING_PRODUCT_CODES.businessAnnual,
+          status: 'active',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-08-18T05:35:39Z',
+          current_period_end_at: '2027-08-18T05:35:39Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: '2026-08-18T05:35:39Z',
+          last_failed_at: null,
+        },
+      },
+    });
+
+    renderPricing();
+
+    await screen.findByTestId('global-plan-business');
+    await act(async () => {
+      await user.click(screen.getByRole('tab', { name: 'Monthly' }));
+    });
+
+    expect(
+      within(screen.getByTestId('global-plan-studio')).getByRole('button', {
+        name: 'Downgrade unavailable',
+      }),
+    ).toBeDisabled();
+    expect(
+      within(screen.getByTestId('global-plan-growth')).getByRole('button', {
+        name: 'Downgrade unavailable',
+      }),
+    ).toBeDisabled();
+    expect(
+      within(screen.getByTestId('global-plan-business')).getByRole('button', {
+        name: 'Switching to a monthly plan is unavailable',
+      }),
+    ).toBeDisabled();
+    expect(
+      within(screen.getByTestId('global-plan-scale')).getByRole('button', {
+        name: 'Switching to a monthly plan is unavailable',
+      }),
+    ).toBeDisabled();
   });
 
   test('starts Stripe subscription checkout from a plan click', async () => {

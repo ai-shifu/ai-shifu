@@ -10,6 +10,7 @@ import { TopupCard } from '@/components/billing/BillingOverviewCards';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/hooks/useToast';
+import { useBillingOverview } from '@/hooks/useBillingData';
 import {
   Card,
   CardContent,
@@ -28,6 +29,7 @@ import { cn } from '@/lib/utils';
 import type {
   BillingCheckoutResult,
   BillingPlan,
+  BillingSubscription,
   BillingTopupProduct,
 } from '@/types/billing';
 
@@ -167,6 +169,11 @@ const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 const STRIPE_PAYMENT_PROVIDER = 'stripe' as const;
 const LEARNER_ESTIMATE_MARKER = '①';
 const CREDIT_VALIDITY_MARKER = '②';
+const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
+  'canceled',
+  'expired',
+  'draft',
+]);
 const LEARNER_SESSIONS_PER_100_CREDITS = {
   minimum: 5,
   maximum: 15,
@@ -187,6 +194,24 @@ function useGlobalBillingTranslation() {
 
 function normalizeCurrency(currency: unknown): string {
   return typeof currency === 'string' ? currency.toUpperCase() : '';
+}
+
+function resolvePlanTierRank(productCode: string | null | undefined): number {
+  const normalized = String(productCode || '').trim();
+
+  return PLAN_TIERS.findIndex(
+    tier =>
+      tier.monthlyCode === normalized ||
+      (tier.annualCode ? tier.annualCode === normalized : false),
+  );
+}
+
+function isBillingSubscriptionActive(
+  subscription: BillingSubscription | null | undefined,
+): subscription is BillingSubscription {
+  return (
+    !!subscription && !INACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)
+  );
 }
 
 function resolveGlobalProducts(
@@ -241,10 +266,14 @@ export function GlobalBillingPricing() {
       )) as BillingCatalogResponse,
     { revalidateOnFocus: false },
   );
+  const { data: overview } = useBillingOverview();
   const globalProducts = React.useMemo(
     () => resolveGlobalProducts(data),
     [data],
   );
+  const activeSubscription = isBillingSubscriptionActive(overview?.subscription)
+    ? overview.subscription
+    : null;
 
   const handlePaymentClick = React.useCallback(
     async ({
@@ -384,6 +413,7 @@ export function GlobalBillingPricing() {
                     tierSpec={tierSpec}
                     cycle={billingCycle}
                     products={globalProducts}
+                    activeSubscription={activeSubscription}
                     locale={locale}
                     onViewMonthly={() => setBillingCycle('monthly')}
                     checkoutLoadingKey={checkoutLoadingKey}
@@ -562,6 +592,7 @@ function PlanCard({
   tierSpec,
   cycle,
   products,
+  activeSubscription,
   locale,
   onViewMonthly,
   checkoutLoadingKey,
@@ -570,6 +601,7 @@ function PlanCard({
   tierSpec: (typeof PLAN_TIERS)[number];
   cycle: BillingCycle;
   products: Map<string, GlobalBillingProduct>;
+  activeSubscription: BillingSubscription | null;
   locale: string;
   onViewMonthly: () => void;
   checkoutLoadingKey: string;
@@ -588,6 +620,23 @@ function PlanCard({
   const monthlyOnly = cycle === 'annual' && !annualProduct;
   const product =
     cycle === 'annual' && annualProduct ? annualProduct : monthlyProduct;
+  const activeSubscriptionProduct = activeSubscription
+    ? (products.get(activeSubscription.product_code) as BillingPlan | undefined)
+    : undefined;
+  const isCurrentPlan = activeSubscription?.product_bid === product.product_bid;
+  const currentTierRank = resolvePlanTierRank(activeSubscription?.product_code);
+  const targetTierRank = resolvePlanTierRank(product.product_code);
+  const annualSubscriptionSwitchToMonthlyUnsupported =
+    cycle === 'monthly' &&
+    activeSubscriptionProduct?.billing_interval === 'year' &&
+    !isCurrentPlan;
+  const downgradeUnsupported =
+    !isCurrentPlan &&
+    !monthlyOnly &&
+    !annualSubscriptionSwitchToMonthlyUnsupported &&
+    currentTierRank >= 0 &&
+    targetTierRank >= 0 &&
+    targetTierRank < currentTierRank;
   const planName = t(
     `module.billing.globalPricing.plans.${tierSpec.tier}.name`,
   );
@@ -614,13 +663,21 @@ function PlanCard({
 
   return (
     <Card
-      className='relative flex h-full min-w-0 flex-col overflow-hidden rounded-xl border-border shadow-sm'
+      className={cn(
+        'relative flex h-full min-w-0 flex-col overflow-hidden rounded-xl border-border shadow-sm',
+        isCurrentPlan && 'bg-primary/[0.05]',
+      )}
       data-testid={`global-plan-${tierSpec.tier}`}
     >
       <CardHeader className='space-y-4 p-5 pb-4 2xl:p-6 2xl:pb-4'>
         <div className='flex min-h-8 items-center justify-between gap-2'>
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
-            <h3 className='text-xl font-semibold text-foreground'>
+            <h3
+              className={cn(
+                'text-xl font-semibold text-foreground',
+                isCurrentPlan && 'text-primary',
+              )}
+            >
               {planName}
             </h3>
             {tierSpec.tier === 'business' ? (
@@ -707,7 +764,33 @@ function PlanCard({
       </CardHeader>
 
       <CardFooter className='px-5 pb-5 pt-0 2xl:px-6'>
-        {monthlyOnly ? (
+        {isCurrentPlan ? (
+          <Button
+            variant='secondary'
+            className='min-h-11 w-full border border-slate-200 bg-slate-50 text-slate-500 opacity-100 hover:bg-slate-50 hover:text-slate-500'
+            disabled
+          >
+            {t('module.billing.package.actions.currentSubscription')}
+          </Button>
+        ) : annualSubscriptionSwitchToMonthlyUnsupported ? (
+          <Button
+            variant='secondary'
+            className='min-h-11 w-full border border-slate-200 bg-slate-50 text-slate-500 opacity-100 hover:bg-slate-50 hover:text-slate-500'
+            disabled
+          >
+            {targetTierRank < currentTierRank
+              ? t('module.billing.package.actions.downgradeDisabled')
+              : t('module.billing.package.actions.monthlySwitchDisabled')}
+          </Button>
+        ) : downgradeUnsupported ? (
+          <Button
+            variant='secondary'
+            className='min-h-11 w-full border border-slate-200 bg-slate-50 text-slate-500 opacity-100 hover:bg-slate-50 hover:text-slate-500'
+            disabled
+          >
+            {t('module.billing.package.actions.downgradeDisabled')}
+          </Button>
+        ) : monthlyOnly ? (
           <Button
             variant='outline'
             className='min-h-11 w-full'

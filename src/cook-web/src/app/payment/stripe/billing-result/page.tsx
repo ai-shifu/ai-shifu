@@ -13,9 +13,17 @@ type BillingSyncResponse = {
   status?: string;
 };
 
+type StripeBillingResultMessageKey =
+  | 'module.billing.result.missingOrder'
+  | 'module.billing.result.processing'
+  | 'module.billing.result.pending'
+  | 'module.billing.result.success'
+  | 'module.billing.result.errorTitle';
+
 type StripeBillingResultState = {
   status: BillingResultStatus;
-  message: string;
+  messageKey?: StripeBillingResultMessageKey;
+  messageText?: string;
   billingOrderBid?: string;
 };
 
@@ -25,18 +33,13 @@ export default function StripeBillingResultPage() {
   const { t } = useTranslation();
   const [state, setState] = useState<StripeBillingResultState>({
     status: 'loading',
-    message: '',
+    messageKey: 'module.billing.result.processing',
   });
   const [redirectCountdown, setRedirectCountdown] = useState(3);
   const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const syncAttemptedRef = useRef<string | null>(null);
   const providedBillingOrderBid = searchParams.get('bill_order_bid') || '';
   const sessionId = searchParams.get('session_id') || '';
-  const missingOrderMessage = t('module.billing.result.missingOrder');
-  const processingMessage = t('module.billing.result.processing');
-  const pendingMessage = t('module.billing.result.pending');
-  const successMessage = t('module.billing.result.success');
-  const errorTitle = t('module.billing.result.errorTitle');
 
   const billingOrderBid = useMemo(() => {
     if (providedBillingOrderBid) {
@@ -53,14 +56,14 @@ export default function StripeBillingResultPage() {
       if (!orderBid) {
         setState({
           status: 'error',
-          message: missingOrderMessage,
+          messageKey: 'module.billing.result.missingOrder',
         });
         return;
       }
 
       setState({
         status: 'loading',
-        message: processingMessage,
+        messageKey: 'module.billing.result.processing',
         billingOrderBid: orderBid,
       });
 
@@ -75,7 +78,7 @@ export default function StripeBillingResultPage() {
         if (result.status === 'pending') {
           setState({
             status: 'pending',
-            message: pendingMessage,
+            messageKey: 'module.billing.result.pending',
             billingOrderBid: orderBid,
           });
           return;
@@ -83,32 +86,28 @@ export default function StripeBillingResultPage() {
 
         setState({
           status: 'success',
-          message: successMessage,
+          messageKey: 'module.billing.result.success',
           billingOrderBid: orderBid,
         });
       } catch (error: any) {
         setState({
           status: 'error',
-          message: error?.message || errorTitle,
+          messageKey: error?.message
+            ? undefined
+            : 'module.billing.result.errorTitle',
+          messageText: error?.message || undefined,
           billingOrderBid: orderBid,
         });
       }
     },
-    [
-      errorTitle,
-      missingOrderMessage,
-      pendingMessage,
-      processingMessage,
-      sessionId,
-      successMessage,
-    ],
+    [sessionId],
   );
 
   useEffect(() => {
     if (!billingOrderBid) {
       setState({
         status: 'error',
-        message: missingOrderMessage,
+        messageKey: 'module.billing.result.missingOrder',
       });
       syncAttemptedRef.current = null;
       return;
@@ -120,7 +119,18 @@ export default function StripeBillingResultPage() {
     }
     syncAttemptedRef.current = syncKey;
     void syncBillingOrder(billingOrderBid);
-  }, [billingOrderBid, missingOrderMessage, sessionId, syncBillingOrder]);
+  }, [billingOrderBid, sessionId, syncBillingOrder]);
+
+  const message = useMemo(() => {
+    if (state.messageText) {
+      return state.messageText;
+    }
+    if (!state.messageKey) {
+      return '';
+    }
+    const translated = t(state.messageKey);
+    return translated === state.messageKey ? '' : translated;
+  }, [state.messageKey, state.messageText, t]);
 
   const heading = useMemo(() => {
     if (state.status === 'success') {
@@ -152,7 +162,6 @@ export default function StripeBillingResultPage() {
             clearInterval(redirectTimerRef.current);
             redirectTimerRef.current = null;
           }
-          router.push('/admin/billing');
           return 0;
         }
         return prev - 1;
@@ -167,12 +176,18 @@ export default function StripeBillingResultPage() {
     };
   }, [router, state.status]);
 
+  useEffect(() => {
+    if (state.status === 'success' && redirectCountdown === 0) {
+      router.push('/admin/billing');
+    }
+  }, [redirectCountdown, router, state.status]);
+
   return (
     <div className='mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-6 px-6 text-center'>
       <div className='space-y-3'>
         <h1 className='text-2xl font-semibold'>{heading}</h1>
-        {state.message ? (
-          <p className='text-base text-muted-foreground'>{state.message}</p>
+        {message ? (
+          <p className='text-base text-muted-foreground'>{message}</p>
         ) : null}
         {state.status === 'success' ? (
           <p className='text-sm text-muted-foreground'>

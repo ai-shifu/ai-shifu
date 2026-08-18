@@ -794,6 +794,7 @@
       "currentUsing": "当前使用",
       "downgradeDisabled": "不支持降级",
       "freeTrial": "已失效",
+      "monthlySwitchDisabled": "不支持切换到月套餐",
       "nonMemberTooltip": "当前为非会员状态，无需操作",
       "preorderDowngrade": "预购降级",
       "preorderLocked": "预购锁定",
