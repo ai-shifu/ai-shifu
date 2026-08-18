@@ -134,11 +134,11 @@ class ListenElementRunStreamMixin:
             position = self._normalize_live_audio_position(raw_position)
             if position not in positions:
                 positions.append(position)
-        for raw_position in state.audio_by_position.keys():
+        for raw_position in state.audio_by_position:
             position = self._normalize_live_audio_position(raw_position)
             if position not in positions:
                 positions.append(position)
-        for raw_position in state.live_audio_by_position.keys():
+        for raw_position in state.live_audio_by_position:
             position = self._normalize_live_audio_position(raw_position)
             if position not in positions:
                 positions.append(position)
