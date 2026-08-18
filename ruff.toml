@@ -1,16 +1,40 @@
 # Repo-wide Ruff configuration (used by lefthook.yml and .github/workflows/lint.yml).
 #
-# The lint rule set is pinned explicitly. Ruff 0.16 broadened its built-in
-# default rule selection, which would surface thousands of new violations
-# across this repo; pinning keeps the enforced rule set stable and independent
-# of the installed Ruff version. Widening the rule set is a deliberate
-# decision, not a side effect of a version bump.
+# Policy: enforce every stable Ruff rule that the repository already satisfies,
+# and nothing else. The rule set is written out explicitly rather than inherited
+# from Ruff's built-in defaults, so a Ruff version bump can neither silently
+# widen nor narrow what is enforced; widening stays a deliberate change.
 #
-# Whole groups are selected only where every rule in the group is already
-# satisfied repo-wide; the individually listed rules below are the members of
-# groups that stay off as a whole (selecting their group would surface new
-# violations). The `ignore` block carves out the few members of an otherwise
-# fully selected group that conflict with house conventions.
+# A whole group is selected only where every stable rule in the group is already
+# satisfied repo-wide. Elsewhere the satisfied members are listed individually,
+# and the `-- off:` comment on each of those blocks names the members that still
+# have violations. Those `off` lists are the backlog for future clean-ups: fix
+# the code, then move the rule code into `select`.
+#
+# Rules the repo already satisfies but that stay off on purpose:
+# - Formatter-owned rules, per Ruff's own "conflicting lint rules" list: W191,
+#   D206, D300, Q000-Q004, COM819, ISC002. Enforcing them would fight
+#   `ruff format`, which owns quoting, indentation, and trailing commas.
+# - D203 and D213: Ruff reports both as incompatible with D211 / D212, which are
+#   the formatter-compatible members of those pairs and are selected instead.
+# - The numpydoc section rules D214, D215, D405-D410, D412, D414, D416. Route
+#   docstrings carry the flasgger/Swagger spec after a `---` line, and these
+#   rules read YAML keys such as `parameters:` as numpydoc section headers.
+#   Their fixes strip the colon or insert a dashed underline, which turns the
+#   embedded spec into invalid YAML and breaks the generated API docs. D209 /
+#   D211 / D212 / D403 / D411 / D413 are safe here because they never rewrite a
+#   line inside the YAML block, and D207 / D208 only ever dedent the docstring
+#   uniformly, which preserves the relative indentation YAML depends on.
+# - RUF100: the repo carries deliberate `# noqa: BLE001 / DTZ001 / SLF001`
+#   markers, and Ruff reports a `noqa` for a rule that is not enforced as
+#   unused, so enforcing RUF100 would delete documentation of intentional
+#   exceptions. Stale directives are pruned by hand instead.
+#
+# Some selected groups are inert today and guard future code instead: AIR, DJ,
+# FAST, NPY, and PD only fire in files that import the matching framework, ICN
+# and INT key off import conventions and gettext calls, and TID251 / TID253 /
+# W505 need a `banned-api`, `banned-module-level-imports`, or `max-doc-length`
+# setting before they can fire.
 #
 # DTZ selection is intentionally partial. The repo's UTC contract (AGENTS.md)
 # stores naive-UTC datetimes and provides `now_utc()` as the sanctioned naive
@@ -22,8 +46,8 @@
 # which are exactly the UTC-vs-local drifts the contract forbids; use
 # `now_utc()` instead.
 #
-# Other rule groups from ruff 0.16's broadened defaults were evaluated and
-# deliberately left off:
+# Notable rules that stay off because the code does not satisfy them, and where
+# conforming would be churn rather than a fix:
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
 #   tuples/lists, not a missed comma.
 # - BLE001 / S110 / S112: blind/except-pass handlers are deliberate fail-open
@@ -31,66 +55,134 @@
 # - G001 / G003 / G004: f-string logging is the established house style; the
 #   lazy-%-formatting argument does not outweigh the churn. G201 IS enabled --
 #   `.exception(...)` is strictly equivalent to `.error(..., exc_info=True)`.
-# - SIM* / RUF012 / RUF013 / RUF046 / UP* as whole groups: style or
-#   modernization churn with no bug-catching value for this codebase today.
-#   Individual members that are mechanical and behavior-preserving are listed
-#   in the select block below; the rest stay off.
-# - RUF100: with a narrow select list, ruff reports deliberate `# noqa:
-#   BLE001 / DTZ001 / SLF001 / S102` markers as unused simply because those
-#   rules are off here, so enforcing it would delete documentation of
-#   intentional exceptions. Stale directives are pruned by hand instead.
-# - D405 / D406 / D407: route docstrings carry the flasgger/Swagger spec after
-#   a `---` line, and these rules read YAML keys such as `parameters:` as
-#   numpydoc section headers. Their fixes strip the colon and insert a dashed
-#   underline, which turns the embedded spec into invalid YAML and breaks the
-#   generated API docs. D209 / D212 / D403 / D411 / D413 are safe here because
-#   they never rewrite a line inside the YAML block.
+# - D100-D107, D400, D415, D205: the missing-docstring and docstring-wording
+#   rules would either require bulk new prose or rewrite the summary text that
+#   flasgger publishes as the API description.
+# - S101: the pytest suites assert by design, so the rule cannot be enforced
+#   repo-wide without per-directory carve-outs.
+# - The remaining SIM / UP / PL / PTH / TRY members listed as `off` below:
+#   style or modernization churn with no bug-catching value for this codebase
+#   today. Members that are mechanical and behavior-preserving get folded in
+#   one commit at a time, after applying the fix repo-wide.
 
 [lint]
 select = [
-    "E",       # pycodestyle errors (E501 ignored below)
-    "F",       # pyflakes
-    "DTZ",     # process-time-zone-dependent datetime calls (see ignore below)
-    "EXE",     # shebang vs executable-bit consistency
-    "G2",      # .error(..., exc_info=True) -> .exception(...)
-    "I",       # import sorting and grouping
-    "RUF059",  # unused unpacked variable
-    # Mechanical, behavior-preserving cleanups; each was applied repo-wide
-    # with `ruff check --fix` in the commit that selected it here.
-    "B009",    # getattr with a constant attribute name
-    "B010",    # setattr with a constant attribute name
-    "C420",    # dict.fromkeys instead of a constant-value comprehension
-    "D202",    # blank line after a function docstring
-    "D209",    # closing quotes of a multi-line docstring not on their own line
-    "D212",    # multi-line docstring summary not on the first line
-    "D403",    # first word of a docstring not capitalized
-    "D411",    # missing blank line before section
-    "D413",    # missing blank line after the last docstring section
-    "FURB136", # if-expression that should be min()/max()
-    "FURB188", # manual prefix/suffix stripping
-    "PIE790",  # unnecessary pass / ... placeholder
-    "PIE80",   # unnecessary dict kwargs, builtin-reimplementing lambdas
-    "PLC0207", # str.split without maxsplit when one segment is used
-    "PLC0208", # iteration over a set literal
-    "PLR1711", # useless return at the end of a function
-    "PLR1730", # if-statement that should be min()/max()
-    "PLR5501", # else: if ... that should be elif
-    "PT001",   # pytest.fixture with empty parentheses
-    "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
-    "RET501",  # unnecessary explicit return None
-    "RET502",  # implicit return value
-    "RET505",  # superfluous else after return
-    "RUF010",  # explicit str()/repr() call inside an f-string
-    "RUF02",   # unparenthesized and inside or, unsorted __all__/__slots__
-    "RUF036",  # None not at the end of a union
-    "RUF102",  # noqa directive naming an unknown rule
-    "SIM114",  # if branches with identical bodies
-    "SIM300",  # yoda condition
-    "SIM910",  # dict.get(key, None)
-    "UP01",    # redundant str.encode/open() arguments
-    "UP024",   # deprecated OSError alias
-    "UP032",   # str.format that should be an f-string
-    "UP034",   # extraneous parentheses
+    # --- Groups where every stable rule is already satisfied ---------------
+    "AIR",   # Airflow
+    "DJ",    # flake8-django
+    "EXE",   # flake8-executable
+    "F",     # Pyflakes
+    "FA",    # flake8-future-annotations
+    "FAST",  # FastAPI
+    "I",     # isort
+    "ICN",   # flake8-import-conventions
+    "INT",   # flake8-gettext
+    "NPY",   # NumPy-specific rules
+    "PD",    # pandas-vet
+    "PLE",   # Pylint errors
+    "PYI",   # flake8-pyi
+    "SLOT",  # flake8-slots
+    "YTT",   # flake8-2020
+
+    # --- Groups selected whole, with the unsatisfied members in `ignore` ---
+    "E",     # pycodestyle errors (E501 ignored below)
+    "DTZ",   # flake8-datetimez (DTZ001/DTZ007/DTZ901 ignored below)
+
+    # --- Partially selected groups -----------------------------------------
+    # flake8-builtins -- off: A001, A002, A006
+    "A003", "A004", "A005",
+    # flake8-async -- off: ASYNC230
+    "ASYNC1", "ASYNC21", "ASYNC22", "ASYNC24", "ASYNC25",
+    # flake8-bugbear -- off: B006, B007, B017, B023, B026, B035, B904, B905
+    "B002", "B003", "B004", "B005", "B008", "B009", "B010", "B011", "B012",
+    "B013", "B014", "B015", "B016", "B018", "B019", "B020", "B021", "B022",
+    "B024", "B025", "B027", "B028", "B029", "B030", "B031", "B032", "B033",
+    "B034", "B039", "B91",
+    # flake8-comprehensions -- off: C401, C408, C414, C416, C901
+    "C400", "C402", "C403", "C404", "C405", "C406", "C409", "C410", "C411",
+    "C413", "C415", "C417", "C418", "C419", "C42",
+    # flake8-commas -- off: COM812, COM819
+    "COM818",
+    # pydocstyle -- off: D100, D101, D102, D103, D104, D105, D107, D203, D205,
+    # D206, D213, D214, D215, D300, D301, D400, D401, D405, D406, D407, D408,
+    # D409, D410, D412, D414, D415, D416, D417
+    "D106", "D200", "D201", "D202", "D204", "D207", "D208", "D209", "D210",
+    "D211", "D212", "D402", "D403", "D404", "D411", "D413", "D418", "D419",
+    # flake8-errmsg -- off: EM101, EM102
+    "EM103",
+    # flake8-fixme -- off: FIX002
+    "FIX001", "FIX003", "FIX004",
+    # refurb -- off: FURB110, FURB157, FURB171, FURB187, FURB192
+    "FURB10", "FURB116", "FURB12", "FURB13", "FURB16", "FURB177", "FURB181",
+    "FURB188",
+    # flake8-logging-format -- off: G001, G003, G004
+    "G002", "G01", "G1", "G2",
+    # flake8-implicit-str-concat -- off: ISC002, ISC004
+    "ISC001", "ISC003",
+    # flake8-logging -- off: LOG014
+    "LOG00", "LOG015",
+    # pep8-naming -- off: N801, N802, N803, N806, N813, N815, N818
+    "N804", "N805", "N807", "N811", "N812", "N814", "N816", "N817", "N9",
+    # Perflint -- off: PERF102, PERF203, PERF401
+    "PERF101", "PERF402", "PERF403",
+    # pygrep-hooks -- off: PGH003, PGH004
+    "PGH005",
+    # flake8-pie -- off: PIE810
+    "PIE7", "PIE80",
+    # Pylint conventions -- off: PLC0206, PLC0414, PLC0415
+    "PLC01", "PLC0205", "PLC0207", "PLC0208", "PLC1", "PLC2", "PLC3",
+    # Pylint refactors -- off: PLR0402, PLR0911, PLR0912, PLR0913, PLR0915,
+    # PLR0917, PLR1714, PLR2004
+    "PLR01", "PLR02", "PLR170", "PLR1711", "PLR1716", "PLR172", "PLR173",
+    "PLR204", "PLR5",
+    # Pylint warnings -- off: PLW0108, PLW0127, PLW0602, PLW0603, PLW1510,
+    # PLW1641, PLW2901, PLW3301
+    "PLW0120", "PLW0128", "PLW0129", "PLW013", "PLW017", "PLW02", "PLW04",
+    "PLW0604", "PLW064", "PLW07", "PLW150", "PLW21",
+    # flake8-pytest-style -- off: PT006, PT009, PT011, PT012, PT013, PT017,
+    # PT018, PT022, PT027
+    "PT001", "PT002", "PT003", "PT007", "PT008", "PT010", "PT014", "PT015",
+    "PT016", "PT019", "PT020", "PT021", "PT023", "PT024", "PT025", "PT026",
+    "PT028", "PT03",
+    # flake8-use-pathlib -- off: PTH100, PTH103, PTH106, PTH107, PTH109,
+    # PTH110, PTH112, PTH118, PTH119, PTH120, PTH123, PTH206, PTH208
+    "PTH101", "PTH102", "PTH104", "PTH105", "PTH108", "PTH111", "PTH113",
+    "PTH114", "PTH115", "PTH116", "PTH117", "PTH121", "PTH122", "PTH124",
+    "PTH201", "PTH202", "PTH203", "PTH204", "PTH205", "PTH207", "PTH21",
+    # flake8-return -- off: RET503, RET504
+    "RET501", "RET502", "RET505", "RET506", "RET507", "RET508",
+    # Ruff-specific rules -- off: RUF001, RUF002, RUF003, RUF005, RUF006,
+    # RUF007, RUF012, RUF013, RUF043, RUF046, RUF100
+    "RUF008", "RUF009", "RUF010", "RUF015", "RUF016", "RUF017", "RUF018",
+    "RUF019", "RUF02", "RUF03", "RUF040", "RUF041", "RUF048", "RUF049",
+    "RUF05", "RUF06", "RUF101", "RUF102", "RUF103", "RUF104", "RUF2",
+    # flake8-bandit -- off: S101, S104, S105, S106, S107, S108, S110, S112,
+    # S113, S310, S311, S324, S603, S605, S607, S608
+    "S102", "S103", "S2", "S30", "S312", "S313", "S314", "S315", "S316",
+    "S317", "S318", "S319", "S321", "S323", "S5", "S601", "S602", "S604",
+    "S606", "S609", "S61", "S7",
+    # flake8-simplify -- off: SIM102, SIM103, SIM105, SIM108, SIM115, SIM117,
+    # SIM118, SIM210, SIM212, SIM401
+    "SIM101", "SIM107", "SIM109", "SIM110", "SIM112", "SIM113", "SIM114",
+    "SIM116", "SIM20", "SIM211", "SIM22", "SIM3", "SIM9",
+    # flake8-debugger -- off: T201
+    "T1", "T203",
+    # flake8-type-checking -- off: TC001, TC002, TC003
+    "TC004", "TC005", "TC006", "TC007", "TC01",
+    # flake8-todos -- off: TD002, TD003
+    "TD001", "TD004", "TD005", "TD006", "TD007",
+    # flake8-tidy-imports -- off: TID252
+    "TID251", "TID253",
+    # tryceratops -- off: TRY002, TRY003, TRY004, TRY203, TRY300, TRY301,
+    # TRY400, TRY401
+    "TRY201",
+    # pyupgrade -- off: UP006, UP007, UP022, UP028, UP031, UP035, UP037, UP045
+    "UP001", "UP003", "UP004", "UP005", "UP008", "UP009", "UP01", "UP020",
+    "UP021", "UP023", "UP024", "UP025", "UP026", "UP029", "UP030", "UP032",
+    "UP033", "UP034", "UP036", "UP039", "UP040", "UP041", "UP042", "UP043",
+    "UP044", "UP046", "UP047", "UP049", "UP05",
+    # pycodestyle warnings -- off: W191
+    "W2", "W5", "W6",
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
