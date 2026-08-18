@@ -1338,9 +1338,7 @@ def _is_stripe_payment_successful(
             return True
         if session.get("status") == "complete":
             return True
-    if intent and intent.get("status") == "succeeded":
-        return True
-    return False
+    return bool(intent and intent.get("status") == "succeeded")
 
 
 def _apply_native_snapshot_update(

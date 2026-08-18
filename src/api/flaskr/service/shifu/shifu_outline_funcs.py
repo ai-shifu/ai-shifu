@@ -752,7 +752,7 @@ def get_unit_by_id(app, user_id: str, unit_id: str):
         if not unit:
             raise_error("server.shifu.unitNotFound")
         unit_type: str = UNIT_TYPE_VALUES_REVERSE.get(unit.type, UNIT_TYPE_TRIAL)
-        is_hidden: bool = True if unit.hidden == 1 else False
+        is_hidden: bool = unit.hidden == 1
 
         return OutlineDto(
             bid=unit.outline_item_bid,

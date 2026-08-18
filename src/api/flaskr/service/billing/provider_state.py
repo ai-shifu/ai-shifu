@@ -561,9 +561,7 @@ def _is_stripe_checkout_paid(
         return True
     if session.get("status") == "complete" and not session.get("payment_status"):
         return True
-    if intent and intent.get("status") == "succeeded":
-        return True
-    return False
+    return bool(intent and intent.get("status") == "succeeded")
 
 
 apply_billing_order_provider_update = _apply_billing_order_provider_update

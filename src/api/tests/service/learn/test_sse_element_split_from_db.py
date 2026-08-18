@@ -442,14 +442,14 @@ class TestSSEElementSplitFromDB:
             # Extract meaningful text tokens from original (skip markdown syntax)
             import re
 
-            original_words = set(
+            original_words = {
                 w
                 for w in re.findall(r"[\w\u4e00-\u9fff]+", original_content)
                 if len(w) > 1
-            )
-            combined_words = set(
+            }
+            combined_words = {
                 w for w in re.findall(r"[\w\u4e00-\u9fff]+", combined) if len(w) > 1
-            )
+            }
 
             if original_words:
                 coverage = len(original_words & combined_words) / len(original_words)
@@ -505,7 +505,7 @@ class TestSSEElementSplitFromDB:
                 ct = j.get("content", "")
 
                 # SVG content should have SVG element type
-                if "<svg" in ct.lower() and et != "svg" and et != "html":
+                if "<svg" in ct.lower() and et not in {"svg", "html"}:
                     # Diagnose: check what av_contract produced
                     with app.app_context():
                         av = build_av_segmentation_contract(content, bid)

@@ -155,7 +155,7 @@ def get_fmt_prompt(
             app.logger.info("key not found:" + key + " ,user_id:" + user_id)
     app.logger.info(fmt_keys)
     if not keys:
-        prompt = input if not profile_tmplate else profile_tmplate
+        prompt = profile_tmplate or input
     else:
         prompt = safe_format_template(profile_tmplate, fmt_keys)
     app.logger.info(f"fomat input:{prompt}")
@@ -220,16 +220,14 @@ def get_follow_up_info_v2(
     shifu_ask_provider_config = normalize_ask_provider_config(
         getattr(shifu_info, "ask_provider_config", "{}")
     )
-    ask_model = shifu_info.ask_llm if shifu_info.ask_llm else shifu_info.llm
+    ask_model = shifu_info.ask_llm or shifu_info.llm
 
     for p in path:
         if p.type == "outline":
             outline_info = outline_infos_map.get(p.bid)
             if outline_info.ask_enabled_status != ASK_MODE_DEFAULT:
                 return FollowUpInfo(
-                    ask_model=outline_info.ask_llm
-                    if outline_info.ask_llm
-                    else ask_model,
+                    ask_model=outline_info.ask_llm or ask_model,
                     ask_prompt=outline_info.ask_llm_system_prompt,
                     ask_history_count=10,
                     ask_limit_count=10,

@@ -1259,11 +1259,7 @@ class TencentTTSProvider(BaseTTSProvider):
                 if line.startswith(":"):
                     continue
                 lower_line = line.lower()
-                if (
-                    lower_line.startswith("event:")
-                    or lower_line.startswith("id:")
-                    or lower_line.startswith("retry:")
-                ):
+                if lower_line.startswith(("event:", "id:", "retry:")):
                     continue
                 if line.startswith("data:"):
                     line = line[5:].strip()

@@ -509,11 +509,9 @@ def _load_operator_user_registration_source_map(
         return {}
 
     resolved_credential_rows = sorted(
-        list(
-            credential_rows
-            if credential_rows is not None
-            else _load_operator_user_auth_credentials(normalized_user_bids)
-        ),
+        credential_rows
+        if credential_rows is not None
+        else _load_operator_user_auth_credentials(normalized_user_bids),
         key=lambda credential: (
             getattr(credential, "created_at", None) or datetime.min,
             int(getattr(credential, "id", 0) or 0),
@@ -660,11 +658,9 @@ def _load_operator_user_contact_map(
         return {}
 
     resolved_credential_rows = sorted(
-        list(
-            credential_rows
-            if credential_rows is not None
-            else _load_operator_user_auth_credentials(user_bids)
-        ),
+        credential_rows
+        if credential_rows is not None
+        else _load_operator_user_auth_credentials(user_bids),
         key=lambda credential: int(getattr(credential, "id", 0) or 0),
         reverse=True,
     )

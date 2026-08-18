@@ -67,7 +67,7 @@ def gen_signature(params=None):
     for k in sorted(params.keys()):
         buff += str(k) + str(params[k])
     buff += YIDUN_SECRET_KEY
-    if "signatureMethod" in params.keys() and params["signatureMethod"] == "SM3":
+    if "signatureMethod" in params and params["signatureMethod"] == "SM3":
         return sm3.sm3_hash(func.bytes_to_list(bytes(buff, encoding="utf8")))
     return hashlib.md5(buff.encode("utf8")).hexdigest()
 

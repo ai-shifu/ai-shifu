@@ -412,9 +412,7 @@ def get_shifu_mdflow_history_version_detail(
                     else ""
                 )
                 user_name = (
-                    (user.nickname if user.nickname else "")
-                    or masked_identifier
-                    or version.updated_user_bid
+                    user.nickname or masked_identifier or version.updated_user_bid
                 )
 
         return {

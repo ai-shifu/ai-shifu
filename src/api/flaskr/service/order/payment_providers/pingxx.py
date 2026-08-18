@@ -123,7 +123,7 @@ class PingxxProvider(PaymentProvider):
 
         charge = client.Charge.create(
             order_no=request.order_bid,
-            app=dict(id=app_id),
+            app={"id": app_id},
             channel=request.channel,
             amount=request.amount,
             client_ip=request.client_ip,

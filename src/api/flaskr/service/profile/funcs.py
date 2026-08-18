@@ -151,9 +151,7 @@ def check_text_content(
         1 if res.check_result == CHECK_RESULT_PASS else 0,
         "check_text",
     )
-    if res.check_result == CHECK_RESULT_REJECT:
-        return False
-    return True
+    return res.check_result != CHECK_RESULT_REJECT
 
 
 def get_profile_labels():
@@ -432,7 +430,7 @@ def get_user_profile_labels(
                     items=meta.get("items"),
                 )
             )
-    for key in PROFILES_LABLES.keys():
+    for key in PROFILES_LABLES:
         if key in mapping_keys:
             continue
         profile_key = key
@@ -444,11 +442,7 @@ def get_user_profile_labels(
                 ("select" if "items" in PROFILES_LABLES[profile_key] else "text"),
             ),
             "value": "",
-            "items": (
-                PROFILES_LABLES[profile_key]["items"]
-                if "items" in PROFILES_LABLES[profile_key]
-                else None
-            ),
+            "items": PROFILES_LABLES[profile_key].get("items"),
         }
         user_value = None
         profile_item = next(

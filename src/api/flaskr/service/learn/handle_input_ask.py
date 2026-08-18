@@ -351,7 +351,7 @@ def handle_input_ask(
         )
     )
     llm_system_prompt = follow_up_info.ask_prompt.replace(
-        "{shifu_system_message}", base_system_prompt if base_system_prompt else ""
+        "{shifu_system_message}", base_system_prompt or ""
     )
     # Append language instruction if use_learner_language is enabled
     if use_learner_language:
@@ -392,7 +392,7 @@ def handle_input_ask(
             .limit(ask_max_history_len)
             .all()
         )
-        history_scripts = history_scripts[::-1]
+        history_scripts.reverse()
         for script in history_scripts:
             if script.type in [BLOCK_TYPE_MDASK_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]:
                 history_message = {

@@ -79,8 +79,10 @@ select = [
     "INT",   # flake8-gettext
     "NPY",   # NumPy-specific rules
     "PD",    # pandas-vet
+    "PIE",   # flake8-pie
     "PLE",   # Pylint errors
     "PYI",   # flake8-pyi
+    "RSE",   # flake8-raise
     "SLOT",  # flake8-slots
     "YTT",   # flake8-2020
 
@@ -98,9 +100,8 @@ select = [
     "B013", "B014", "B015", "B016", "B018", "B019", "B020", "B021", "B022",
     "B024", "B025", "B027", "B028", "B029", "B030", "B031", "B032", "B033",
     "B034", "B039", "B905", "B91",
-    # flake8-comprehensions -- off: C401, C408, C414, C416, C901
-    "C400", "C402", "C403", "C404", "C405", "C406", "C409", "C410", "C411",
-    "C413", "C415", "C417", "C418", "C419", "C42",
+    # flake8-comprehensions -- off: C901
+    "C4",
     # flake8-commas -- off: COM812, COM819
     "COM818",
     # pydocstyle -- off: D100, D101, D102, D103, D104, D105, D107, D203, D205,
@@ -112,9 +113,9 @@ select = [
     "EM103",
     # flake8-fixme -- off: FIX002
     "FIX001", "FIX003", "FIX004",
-    # refurb -- off: FURB110, FURB157, FURB171, FURB187, FURB192
-    "FURB10", "FURB116", "FURB12", "FURB13", "FURB16", "FURB177", "FURB181",
-    "FURB188",
+    # refurb -- off: FURB157
+    "FURB10", "FURB11", "FURB12", "FURB13", "FURB16", "FURB17", "FURB18",
+    "FURB19",
     # flake8-logging-format -- off: G001, G003, G004
     "G002", "G01", "G1", "G2",
     # flake8-implicit-str-concat -- off: ISC002, ISC004
@@ -123,22 +124,19 @@ select = [
     "LOG00", "LOG015",
     # pep8-naming -- off: N801, N802, N803, N806, N813, N815, N818
     "N804", "N805", "N807", "N811", "N812", "N814", "N816", "N817", "N9",
-    # Perflint -- off: PERF102, PERF203, PERF401
-    "PERF101", "PERF402", "PERF403",
+    # Perflint -- off: PERF203, PERF401
+    "PERF1", "PERF402", "PERF403",
     # pygrep-hooks -- off: PGH003, PGH004
     "PGH005",
-    # flake8-pie -- off: PIE810
-    "PIE7", "PIE80",
     # Pylint conventions -- off: PLC0206, PLC0414, PLC0415
     "PLC01", "PLC0205", "PLC0207", "PLC0208", "PLC1", "PLC2", "PLC3",
     # Pylint refactors -- off: PLR0402, PLR0911, PLR0912, PLR0913, PLR0915,
-    # PLR0917, PLR1714, PLR2004
-    "PLR01", "PLR02", "PLR170", "PLR1711", "PLR1716", "PLR172", "PLR173",
-    "PLR204", "PLR5",
+    # PLR0917, PLR2004
+    "PLR01", "PLR02", "PLR17", "PLR204", "PLR5",
     # Pylint warnings -- off: PLW0108, PLW0127, PLW0602, PLW0603, PLW1641,
-    # PLW2901, PLW3301
+    # PLW2901
     "PLW0120", "PLW0128", "PLW0129", "PLW013", "PLW017", "PLW02", "PLW04",
-    "PLW0604", "PLW064", "PLW07", "PLW15", "PLW21",
+    "PLW0604", "PLW064", "PLW07", "PLW15", "PLW21", "PLW3",
     # flake8-pytest-style -- off: PT006, PT009, PT011, PT012, PT013, PT017,
     # PT018, PT022, PT027
     "PT001", "PT002", "PT003", "PT007", "PT008", "PT010", "PT014", "PT015",
@@ -161,10 +159,9 @@ select = [
     "S102", "S103", "S2", "S30", "S312", "S313", "S314", "S315", "S316",
     "S317", "S318", "S319", "S321", "S323", "S5", "S601", "S602", "S604",
     "S606", "S609", "S61", "S7",
-    # flake8-simplify -- off: SIM102, SIM103, SIM105, SIM108, SIM115, SIM117,
-    # SIM118, SIM210, SIM212, SIM401
-    "SIM101", "SIM107", "SIM109", "SIM110", "SIM112", "SIM113", "SIM114",
-    "SIM116", "SIM20", "SIM211", "SIM22", "SIM3", "SIM9",
+    # flake8-simplify -- off: SIM102, SIM105, SIM108, SIM115, SIM117
+    "SIM101", "SIM103", "SIM107", "SIM109", "SIM110", "SIM112", "SIM113",
+    "SIM114", "SIM116", "SIM118", "SIM2", "SIM3", "SIM4", "SIM9",
     # flake8-debugger -- off: T201
     "T1", "T203",
     # flake8-type-checking -- off: TC001, TC002, TC003

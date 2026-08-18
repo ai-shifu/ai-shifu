@@ -84,10 +84,8 @@ def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:
 
     metadata = _normalize_metadata_json(getattr(row, "extra", None))
     generation_name = str(metadata.get("generation_name", "") or "").strip().lower()
-    if (
-        "/user_follow_ask/" in generation_name
-        or generation_name.startswith("lesson_ask/")
-        or generation_name.startswith("lesson_preview_ask/")
+    if "/user_follow_ask/" in generation_name or generation_name.startswith(
+        ("lesson_ask/", "lesson_preview_ask/")
     ):
         return COURSE_CREDIT_USAGE_MODE_ASK
 

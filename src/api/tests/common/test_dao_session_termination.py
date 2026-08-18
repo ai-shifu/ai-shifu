@@ -167,7 +167,7 @@ def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch):
 
     with pytest.raises(_Interrupt):
         with app.app_context():
-            raise _Interrupt()
+            raise _Interrupt
 
     assert order[0] == "invalidate:appcontext teardown interrupt"
     assert "remove" in order
@@ -213,7 +213,7 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
 
     with app.app_context():
         try:
-            raise _Interrupt()
+            raise _Interrupt
         except _Interrupt:
             pass
         # No in-flight exception here: plain removal, no invalidate.
@@ -223,7 +223,7 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
 
         try:
             try:
-                raise _Interrupt()
+                raise _Interrupt
             finally:
                 # In-flight BaseException visible via sys.exc_info in finally:
                 # invalidate must run BEFORE removal, otherwise remove() emits

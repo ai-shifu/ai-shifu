@@ -40,7 +40,7 @@ def _shared_json_root() -> Path:
 
 def _flatten_dict(data, prefix: str = ""):
     if not isinstance(data, dict):
-        key = prefix if prefix else ""
+        key = prefix or ""
         return {key: data} if key else {}
 
     flattened = {}

@@ -55,11 +55,7 @@ def _user_message_for_error(code: str, reason: str) -> str | None:
         return str(_("server.learn.askProviderNotMember"))
     if code in _AUTH_ERROR_CODES:
         return str(_("server.learn.askProviderAuthFailed"))
-    if (
-        code in _RATE_LIMIT_ERROR_CODES
-        or reason.startswith("qps_")
-        or reason.startswith("quota_")
-    ):
+    if code in _RATE_LIMIT_ERROR_CODES or reason.startswith(("qps_", "quota_")):
         return str(_("server.learn.askProviderRateLimited"))
     return None
 

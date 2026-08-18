@@ -2426,7 +2426,7 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
         ctx = _make_context()
 
         def _raise_paid(_app):
-            raise PaidException()
+            raise PaidException
 
         ctx.run_inner = _raise_paid
         ctx._emit_feedback_after_exception_gate = lambda: iter(["feedback"])

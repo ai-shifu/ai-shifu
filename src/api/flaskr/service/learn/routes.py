@@ -270,7 +270,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         app.logger.info(
             f"get shifu, shifu_bid: {shifu_bid}, preview_mode: {preview_mode}"
         )
-        preview_mode = True if preview_mode.lower() == "true" else False
+        preview_mode = preview_mode.lower() == "true"
         if preview_mode:
             user = resolve_preview_request_user(app)
             require_shifu_preview_permission(app, user.user_id, shifu_bid)
@@ -310,7 +310,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         app.logger.info(
             f"get outline item tree, shifu_bid: {shifu_bid}, preview_mode: {preview_mode}"
         )
-        preview_mode = True if preview_mode.lower() == "true" else False
+        preview_mode = preview_mode.lower() == "true"
         user_bid = request.user.user_id
         if preview_mode:
             require_shifu_preview_permission(app, user_bid, shifu_bid)
@@ -384,7 +384,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         app.logger.info(
             f"run outline item, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}, listen: {listen}"
         )
-        preview_mode = True if preview_mode.lower() == "true" else False
+        preview_mode = preview_mode.lower() == "true"
         if preview_mode:
             require_shifu_preview_permission(app, user_bid, shifu_bid)
         _admit_creator_usage_for_shifu(
@@ -656,10 +656,8 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         app.logger.info(
             f"get learn element record, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}"
         )
-        preview_mode = True if preview_mode.lower() == "true" else False
-        include_non_navigable = (
-            True if include_non_navigable.lower() == "true" else False
-        )
+        preview_mode = preview_mode.lower() == "true"
+        include_non_navigable = include_non_navigable.lower() == "true"
         user_bid = request.user.user_id
         if preview_mode:
             require_shifu_preview_permission(app, user_bid, shifu_bid)

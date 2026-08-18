@@ -59,7 +59,7 @@ def _volcengine_time_ms(item: dict[str, Any], keys: tuple[str, ...]) -> int:
         value = item.get(key)
         if value is None or value == "":
             continue
-        if key.endswith("_ms") or key.endswith("Ms"):
+        if key.endswith(("_ms", "Ms")):
             try:
                 return max(int(round(float(value))), 0)
             except (TypeError, ValueError):
@@ -708,7 +708,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         if subtitle_cues:
             total_duration_ms = max(
                 total_duration_ms,
-                max(int(cue.get("end_ms", 0) or 0) for cue in subtitle_cues),
+                *(int(cue.get("end_ms", 0) or 0) for cue in subtitle_cues),
             )
 
         logger.info(
