@@ -77,7 +77,7 @@ def main() -> int:
                 rel = str(file_path.relative_to(code_dir).with_suffix(""))
                 namespaces.add(rel.replace("/", "."))
 
-    locales_meta["namespaces"] = sorted(list(namespaces))
+    locales_meta["namespaces"] = sorted(namespaces)
 
     LOCALES_FILE.write_text(
         json.dumps(locales_meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
