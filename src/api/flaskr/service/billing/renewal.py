@@ -1134,7 +1134,7 @@ def _load_target_renewal_event(
         )
         query = query.filter(
             BillingRenewalEvent.status.in_(
-                _CLAIMABLE_EVENT_STATUSES + (BILLING_RENEWAL_EVENT_STATUS_PROCESSING,)
+                (*_CLAIMABLE_EVENT_STATUSES, BILLING_RENEWAL_EVENT_STATUS_PROCESSING)
             )
         )
     else:

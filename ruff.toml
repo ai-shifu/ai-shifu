@@ -86,6 +86,7 @@ select = [
     "RET504",  # unnecessary assignment before return
     "RET505",  # superfluous else after return
     "RSE102",  # unnecessary parentheses on a raised exception
+    "RUF005",  # list concatenation that should be unpacking
     "RUF010",  # explicit str()/repr() call inside an f-string
     "RUF013",  # implicit Optional annotation
     "RUF02",   # unparenthesized and inside or, unsorted __all__/__slots__

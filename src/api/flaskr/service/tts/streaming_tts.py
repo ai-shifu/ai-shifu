@@ -1227,7 +1227,7 @@ class StreamingTTSProcessor:
             int(tail_candidate.get("end_ms", 0) or 0),
         )
         remaining = [dict(cue) for cue in incoming[incoming_tail_index + 1 :]]
-        return frozen_prefix + [previous_tail] + remaining
+        return [*frozen_prefix, previous_tail, *remaining]
 
     def _normalize_minimax_live_request_cues(
         self,
