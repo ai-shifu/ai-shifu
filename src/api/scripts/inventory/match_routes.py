@@ -109,7 +109,9 @@ for line in open(BACKEND_ROUTES, encoding="utf-8"):
 def match(be_segs, fe_segs):
     if len(be_segs) != len(fe_segs):
         return False
-    return all(a == b or a == "*" or b == "*" for a, b in zip(be_segs, fe_segs))
+    return all(
+        a == b or a == "*" or b == "*" for a, b in zip(be_segs, fe_segs, strict=False)
+    )
 
 
 rows = []

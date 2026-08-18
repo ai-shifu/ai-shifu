@@ -59,6 +59,7 @@ select = [
     # with `ruff check --fix` in the commit that selected it here.
     "B009",    # getattr with a constant attribute name
     "B010",    # setattr with a constant attribute name
+    "B905",    # zip() without an explicit strict argument
     "C420",    # dict.fromkeys instead of a constant-value comprehension
     "D202",    # blank line after a function docstring
     "D209",    # closing quotes of a multi-line docstring not on their own line
