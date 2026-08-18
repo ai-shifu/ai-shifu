@@ -1,0 +1,21 @@
+{
+  "name": "AI-Shifu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "api",
+      "command": "cd src/api && . .venv/bin/activate && FLASK_APP=app.py exec gunicorn -k gevent -w 1 -b 0.0.0.0:5800 app:app --timeout 300 --log-level info --access-logfile -",
+      "description": "AI-Shifu Flask backend API on port 5800 (gunicorn/gevent)."
+    },
+    {
+      "name": "web",
+      "command": "cd src/cook-web && NEXT_TELEMETRY_DISABLED=1 exec npm run dev -- -H 0.0.0.0 -p 3000",
+      "description": "Cook Web Next.js frontend (learner + authoring console) on port 3000. Proxies /api to the backend."
+    }
+  ],
+  "ports": [
+    { "name": "web", "port": 3000 },
+    { "name": "api", "port": 5800 }
+  ]
+}
