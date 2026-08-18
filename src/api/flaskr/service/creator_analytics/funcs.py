@@ -146,4 +146,4 @@ def _raise(error_name: str) -> None:
     raise AppException(message, code)
 
 
-__all__ = ["run_dsl", "ERR_NO_PERMISSION"]
+__all__ = ["ERR_NO_PERMISSION", "run_dsl"]

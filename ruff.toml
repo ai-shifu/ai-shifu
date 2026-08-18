@@ -59,6 +59,7 @@ select = [
     "PLR1730", # if-statement that should be min()/max()
     "PLR5501", # else: if ... that should be elif
     "RUF021", # unparenthesized and inside or
+    "RUF022", # unsorted __all__
     "RUF102", # noqa directive naming an unknown rule
     "SIM114", # if branches with identical bodies
     "SIM910", # dict.get(key, None)
