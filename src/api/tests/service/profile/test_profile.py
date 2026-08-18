@@ -1,4 +1,4 @@
-import flaskr.service.profile.profile_manage as profile_manage
+from flaskr.service.profile import profile_manage
 from flaskr.service.profile.profile_manage import (
     add_profile_item_quick,
     get_profile_item_definition_list,

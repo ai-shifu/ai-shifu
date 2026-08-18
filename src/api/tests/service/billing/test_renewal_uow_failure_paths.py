@@ -25,9 +25,9 @@ from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.dao import uow
 from flaskr.service.billing import renewal as billing_renewal
 from flaskr.service.billing import renewal_event_transitions

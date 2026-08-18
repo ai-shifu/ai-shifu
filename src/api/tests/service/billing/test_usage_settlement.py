@@ -4,9 +4,9 @@ from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.charges import (
     build_usage_metric_charges,
     resolve_credit_multiplier_label,

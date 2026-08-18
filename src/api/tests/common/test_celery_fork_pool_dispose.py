@@ -44,7 +44,7 @@ def test_worker_process_init_signal_disposes_pools(app):
 
 
 def test_one_failing_bind_does_not_block_the_rest(app, monkeypatch):
-    import flaskr.dao as dao
+    from flaskr import dao
 
     disposed = []
 

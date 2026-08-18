@@ -1,9 +1,9 @@
 import os
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import flaskr.service.config.funcs as config_funcs
 import pytest
+from flaskr import dao
 
 _dummy_lock = SimpleNamespace(
     acquire=lambda *args, **kwargs: False, release=lambda *args, **kwargs: None

@@ -5,9 +5,9 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import flaskr.common.config as common_config
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.util.datetime import now_utc
 

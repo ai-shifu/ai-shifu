@@ -15,9 +15,9 @@ import pytest
 
 @pytest.fixture
 def adapter_app():
-    import flaskr.dao as dao
     import flaskr.service.learn.models  # noqa: F401
     from flask import Flask
+    from flaskr import dao
 
     app = Flask("test-handle-ask-adapter")
     app.config.update(

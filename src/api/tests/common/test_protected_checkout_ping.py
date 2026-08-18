@@ -9,8 +9,8 @@ record BEFORE any interruption propagates.
 
 import socket
 
-import flaskr.dao as dao
 import pytest
+from flaskr import dao
 from sqlalchemy.exc import DisconnectionError
 
 

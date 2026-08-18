@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover - optional dependency
     redis_stub.Redis = _RedisStub
     sys.modules["redis"] = redis_stub
 
-import flaskr.dao as dao
+from flaskr import dao
 
 # Ensure SQLAlchemy is available for model declarations.
 if dao.db is None:

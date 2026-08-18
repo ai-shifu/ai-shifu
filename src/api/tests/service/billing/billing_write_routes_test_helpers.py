@@ -5,10 +5,10 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import flaskr.common.config as common_config
-import flaskr.dao as dao
 import flaskr.service.billing.checkout as billing_checkout_module
 import flaskr.service.billing.subscriptions as billing_subscriptions_module
 from flask import Flask, jsonify, request
+from flaskr import dao
 from flaskr.i18n import load_translations, set_language
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,

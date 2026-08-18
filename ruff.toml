@@ -148,9 +148,9 @@ select = [
     # Pylint conventions -- off: PLC0206, PLC0415
     "PLC01", "PLC0205", "PLC0207", "PLC0208", "PLC0414", "PLC1", "PLC2",
     "PLC3",
-    # Pylint refactors -- off: PLR0402, PLR0911, PLR0912, PLR0913, PLR0915,
-    # PLR0917, PLR2004
-    "PLR01", "PLR02", "PLR17", "PLR204", "PLR5",
+    # Pylint refactors -- off: PLR0911, PLR0912, PLR0913, PLR0915, PLR0917,
+    # PLR2004
+    "PLR01", "PLR02", "PLR0402", "PLR17", "PLR204", "PLR5",
     # Pylint warnings -- off: PLW0108, PLW0603, PLW1641, PLW2901
     "PLW012", "PLW013", "PLW017", "PLW02", "PLW04", "PLW0602", "PLW0604",
     "PLW064", "PLW07", "PLW15", "PLW21", "PLW3",

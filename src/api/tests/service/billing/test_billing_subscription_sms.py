@@ -5,9 +5,9 @@ import types
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.i18n import load_translations
 from flaskr.service.billing.checkout import sync_billing_order
 from flaskr.service.billing.consts import (

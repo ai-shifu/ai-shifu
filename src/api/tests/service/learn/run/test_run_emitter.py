@@ -8,8 +8,8 @@ a payload smoke for emitter-side event construction.
 import types
 import unittest
 
-import flaskr.dao as dao
 from flask import Flask
+from flaskr import dao
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.context_v2 import RunScriptContextV2
 from flaskr.service.learn.learn_dtos import GeneratedType

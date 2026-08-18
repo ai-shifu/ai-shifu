@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.route.callback import register_callback_handler
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_CANCELED,

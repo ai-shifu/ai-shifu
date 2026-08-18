@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.shifu.consts import STATUS_DRAFT, STATUS_PUBLISHED
 from flaskr.service.shifu.models import (
     DraftOutlineItem,

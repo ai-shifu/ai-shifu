@@ -42,7 +42,7 @@ def test_reset_password_does_not_create_new_user(test_client, app):
 
 
 def test_set_password_requires_login_and_verification_code(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.service.user import phone_flow
 
     phone = "15500001111"
 
@@ -86,7 +86,7 @@ def test_set_password_requires_login_and_verification_code(test_client, app):
 
 
 def test_password_login_after_setting_password(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.service.user import phone_flow
 
     phone = "15500002222"
     password = "Abcd1234"
@@ -118,13 +118,13 @@ def test_password_login_after_setting_password(test_client, app):
 
 
 def test_password_login_merges_authenticated_guest_learner_profile(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
     from flaskr.dao import db
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_VERSION,
         load_learner_profile_state,
     )
+    from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo, UserOnboardingState
     from flaskr.service.user.repository import create_user_entity
     from flaskr.service.user.utils import generate_token
@@ -245,8 +245,8 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
 
 
 def test_password_login_never_merges_from_a_registered_account(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
     from flaskr.dao import db
+    from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo
 
     source_phone = "15500002334"
@@ -296,8 +296,8 @@ def test_password_login_never_merges_from_a_registered_account(test_client, app)
 
 
 def test_password_login_ignores_invalid_and_expired_optional_tokens(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
     from flaskr.dao import db
+    from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo
     from flaskr.service.user.repository import create_user_entity
 
@@ -376,7 +376,7 @@ def test_sms_login_route_logs_in_with_phone_code(test_client):
 
 
 def test_sms_login_route_does_not_rebind_authenticated_account_phone(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.service.user import phone_flow
     from flaskr.service.user.models import AuthCredential
     from flaskr.service.user.models import UserInfo as UserEntity
 
