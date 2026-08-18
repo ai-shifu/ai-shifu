@@ -121,14 +121,14 @@ describe('LearningModeSwitch', () => {
     }
   });
 
-  it('renders listen mode first without a beta badge', () => {
+  it('renders read mode first without a beta badge', () => {
     render(<LearningModeSwitch />);
 
     const radios = screen.getAllByRole('radio');
 
     expect(radios[0]).toHaveAttribute(
       'aria-label',
-      'module.chat.learningModeListen',
+      'module.chat.learningModeRead',
     );
     expect(screen.queryByText(/beta/i)).not.toBeInTheDocument();
   });
