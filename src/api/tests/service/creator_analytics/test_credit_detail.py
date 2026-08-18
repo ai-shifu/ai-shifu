@@ -85,7 +85,8 @@ def _seed_usage_with_ledger(
 def test_credit_detail_returns_summary_and_rows(mock_request_user, test_client, app):
     """3 paired usage / ledger rows → summary aggregates them and rows
     list each charge. amount stored as a negative number; API returns
-    the absolute value as `credits`."""
+    the absolute value as `credits`.
+    """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -145,7 +146,8 @@ def test_credit_detail_excludes_non_usage_ledger_entries(
     """A ledger entry with source_type != USAGE (e.g. subscription / topup)
     must never appear in the result, even if its source_bid happens to
     match an existing bill_usage.usage_bid (which would not happen in
-    production, but the filter must be defensive)."""
+    production, but the filter must be defensive).
+    """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -189,7 +191,8 @@ def test_credit_detail_summary_unique_wallets_counts_distinct_creators(
     across multiple wallets for the same shifu. The summary must surface
     this as a distinct count so a caller does not treat the per-row
     wallet_creator_bid as "the" wallet for the course (raised on PR #1771
-    review of the original `min(creator_bid)` aggregate)."""
+    review of the original `min(creator_bid)` aggregate).
+    """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -256,7 +259,8 @@ def test_credit_detail_results_are_scoped_to_requested_shifu(
     mock_request_user, test_client, app
 ):
     """Even when the caller owns multiple shifu, only the requested one's
-    rows surface — the join is anchored on bill_usage.shifu_bid."""
+    rows surface — the join is anchored on bill_usage.shifu_bid.
+    """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -438,7 +442,8 @@ def test_credit_detail_empty_when_bill_usage_has_no_ledger_entries(
     mock_request_user, test_client, app
 ):
     """If settlement failed for every usage row (no ledger entry exists),
-    the join collapses to zero rows — surfaces as empty summary."""
+    the join collapses to zero rows — surfaces as empty summary.
+    """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")

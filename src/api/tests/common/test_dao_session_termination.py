@@ -144,7 +144,8 @@ def test_cleanup_escalates_to_invalidate_when_rollback_fails():
 
 def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch):
     """The global teardown guard must fire on abnormal context exits and run
-    BEFORE Flask-SQLAlchemy's remove (reverse registration order)."""
+    BEFORE Flask-SQLAlchemy's remove (reverse registration order).
+    """
     import flaskr.dao as dao
 
     order = []
