@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from flaskr.dao import db
@@ -33,12 +33,12 @@ from flaskr.service.user.repository import (
 )
 from sqlalchemy.orm.attributes import set_committed_value
 
-PROFILE_UPDATED_AT = datetime(2026, 8, 2, 6, 30, tzinfo=timezone.utc)
+PROFILE_UPDATED_AT = datetime(2026, 8, 2, 6, 30, tzinfo=UTC)
 
 
 def _assert_orm_utc(value: datetime | None, expected: datetime) -> None:
     assert value is not None
-    assert value.replace(tzinfo=timezone.utc) == expected
+    assert value.replace(tzinfo=UTC) == expected
 
 
 class _FakeRedis:
@@ -186,7 +186,7 @@ def test_merge_helper_preserves_target_profile_and_state(app):
             learner_profile="source profile",
             learner_profile_updated_at=PROFILE_UPDATED_AT,
         )
-        target_updated_at = datetime(2026, 8, 3, 7, 45, tzinfo=timezone.utc)
+        target_updated_at = datetime(2026, 8, 3, 7, 45, tzinfo=UTC)
         target = _create_user(
             identify=uuid.uuid4().hex,
             nickname="Target name",

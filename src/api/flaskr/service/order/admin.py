@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -222,7 +222,7 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
     except ValueError:
         return None
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
     return None
 

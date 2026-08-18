@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from build_repo_knowledge_index import (
@@ -46,7 +46,7 @@ RETIRED_TERM_SCAN_PATHS = (
 
 def stale_review_docs() -> list[str]:
     stale: list[str] = []
-    cutoff = datetime.now(timezone.utc).date().toordinal() - REVIEW_WINDOW_DAYS
+    cutoff = datetime.now(UTC).date().toordinal() - REVIEW_WINDOW_DAYS
     for category in ("design-docs", "product-specs"):
         for path in sorted((DOCS_ROOT / category).glob("*.md")):
             if path.name == "index.md":

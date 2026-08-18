@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Dict, Optional, Sequence
 
 from flask import current_app
@@ -14,7 +14,7 @@ def coerce_operator_datetime(value: Any) -> Optional[datetime]:
         return None
     if isinstance(value, datetime):
         if value.tzinfo is not None:
-            return value.astimezone(timezone.utc).replace(tzinfo=None)
+            return value.astimezone(UTC).replace(tzinfo=None)
         return value
     if isinstance(value, str):
         normalized = value.strip()
@@ -31,7 +31,7 @@ def coerce_operator_datetime(value: Any) -> Optional[datetime]:
             )
             return None
         if parsed.tzinfo is not None:
-            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            return parsed.astimezone(UTC).replace(tzinfo=None)
         return parsed
     current_app.logger.warning(
         "Unexpected operator datetime value type '%s'",
