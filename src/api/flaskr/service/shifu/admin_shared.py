@@ -284,7 +284,7 @@ def _format_decimal(value: Optional[Decimal]) -> str:
     if isinstance(value, str):
         normalized = value
     else:
-        normalized = "{0:.2f}".format(value)
+        normalized = f"{value:.2f}"
     if normalized.endswith(".00"):
         return normalized[:-3]
     return normalized

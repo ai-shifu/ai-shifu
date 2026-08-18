@@ -677,10 +677,10 @@ def init_redis(app: Flask):
 
 def run_with_redis(app, key, timeout: int, func, args):
     with app.app_context():
-        app.logger.info("run_with_redis start {}".format(key))
+        app.logger.info(f"run_with_redis start {key}")
         lock = redis_client.lock(key, timeout=timeout, blocking_timeout=timeout)
         if lock.acquire(blocking=False):
-            app.logger.info("run_with_redis get lock {}".format(key))
+            app.logger.info(f"run_with_redis get lock {key}")
             try:
                 return func(*args)
             finally:
@@ -689,5 +689,5 @@ def run_with_redis(app, key, timeout: int, func, args):
                 except Exception:
                     pass
         else:
-            app.logger.info("run_with_redis get lock failed {}".format(key))
+            app.logger.info(f"run_with_redis get lock failed {key}")
             return None
