@@ -1664,7 +1664,7 @@ class RunScriptContextV2:
     def _stop_if_requested(self) -> None:
         if self._stop_requested():
             self.app.logger.info("run_script context cancelled")
-            raise GeneratorExit()
+            raise GeneratorExit
 
     def _iter_until_active(self, items: Iterable[Any]) -> Generator[Any, None, None]:
         for item in items:
@@ -1960,14 +1960,14 @@ class RunScriptContextV2:
                 raise_error("server.shifu.lessonNotFoundInCourse")
             if outline_item_info_db.type == UNIT_TYPE_VALUE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
-                    raise PaidException()
+                    raise PaidException
             elif outline_item_info_db.type == UNIT_TYPE_VALUE_TRIAL:
                 if (
                     not self._preview_mode
                     and not self._user_info.mobile
                     and not self._user_info.email
                 ):
-                    raise UserNotLoginException()
+                    raise UserNotLoginException
             parent_path = _find_outline_path_or_raise(self._struct, outline_bid)
             attend_info = None
             new_records: list[LearnProgressRecord] = []
