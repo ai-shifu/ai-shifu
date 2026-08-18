@@ -66,6 +66,7 @@ select = [
     "YTT",     # sys.version checks that break on two-digit versions
     # Mechanical, behavior-preserving cleanups; each was applied repo-wide
     # with `ruff check --fix` in the commit that selected it here.
+    "B007",    # loop control variable not used in the loop body
     "B009",    # getattr with a constant attribute name
     "B010",    # setattr with a constant attribute name
     "B905",    # zip() without an explicit strict argument
