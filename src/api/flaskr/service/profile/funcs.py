@@ -282,7 +282,7 @@ def save_user_profiles(
 def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     """Get user profiles for Mdflow run.
 
-    NOTE:
+    Note:
     - Some profile keys ("labels") are stored globally with ``shifu_bid=''``.
     - Other profile keys are stored per-course with ``shifu_bid=course_id``.
 

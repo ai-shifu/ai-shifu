@@ -55,6 +55,7 @@ select = [
     "B010",   # setattr with a constant attribute name
     "C420",   # dict.fromkeys instead of a constant-value comprehension
     "D202",   # blank line after a function docstring
+    "D405", # non-capitalized section name
     "D406", # section name should end with a newline
     "D407", # missing dashed underline after section
     "D411", # missing blank line before section
