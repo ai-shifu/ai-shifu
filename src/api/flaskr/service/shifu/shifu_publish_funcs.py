@@ -105,6 +105,7 @@ def publish_shifu_draft(
         sync_summary: If True, generate summary/ask prompts synchronously in the
             current process (useful for one-off console commands). Default False
             keeps existing async background behavior.
+
     Returns:
         str: Shifu published URL
     """
