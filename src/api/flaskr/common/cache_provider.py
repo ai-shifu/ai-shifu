@@ -254,7 +254,7 @@ class InMemoryCacheProvider:
             if entry.expires_at is None:
                 return -1
             remaining = int(entry.expires_at - self._now())
-            return remaining if remaining > 0 else 0
+            return max(0, remaining)
 
     def lock(
         self,

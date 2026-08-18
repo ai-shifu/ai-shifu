@@ -124,7 +124,7 @@ class FakeRedis:
         if expires_at is None:
             return -1
         remaining = int(expires_at - self._now())
-        return remaining if remaining > 0 else 0
+        return max(0, remaining)
 
     def lock(
         self,
