@@ -36,8 +36,7 @@ def redact_pii(text: str) -> str:
         return text
     text = _PHONE_CN_RE.sub("[REDACTED-PHONE]", text)
     text = _EMAIL_RE.sub("[REDACTED-EMAIL]", text)
-    text = _ID_CARD_RE.sub("[REDACTED-IDCARD]", text)
-    return text
+    return _ID_CARD_RE.sub("[REDACTED-IDCARD]", text)
 
 
 # ---------------------------------------------------------------------------

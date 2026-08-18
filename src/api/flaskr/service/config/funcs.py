@@ -156,8 +156,7 @@ def get_config(key: str, default: str | None = None) -> str:
     with nullcontext():
         # Only explicit env vars should bypass DB-backed config lookups.
         if has_explicit_env_override(key):
-            env_value = get_config_from_common(key, default)
-            return env_value
+            return get_config_from_common(key, default)
         try:
             cache_key = _get_config_cache_key(app, key)
             cache = redis.get(cache_key)

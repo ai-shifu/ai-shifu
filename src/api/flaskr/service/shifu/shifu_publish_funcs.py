@@ -472,7 +472,7 @@ def _make_ask_prompt(
     Returns:
         Ask prompt
     """
-    result = ask_prompt.format(
+    return ask_prompt.format(
         learned=("\n" + learned_text) if learned_text else "",
         unlearned=("\n" + unlearned_text) if unlearned_text else "",
         # Runtime placeholders: shifu_system_message is filled on every ask;
@@ -483,7 +483,6 @@ def _make_ask_prompt(
         knowledge_rule="{knowledge_rule}",
         knowledge_section="{knowledge_section}",
     )
-    return result
 
 
 def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):

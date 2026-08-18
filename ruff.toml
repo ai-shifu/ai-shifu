@@ -80,6 +80,7 @@ select = [
     "RET501",  # unnecessary explicit return None
     "RET502",  # implicit return value
     "RET503",  # missing explicit return on a fall-through path
+    "RET504",  # unnecessary assignment before return
     "RET505",  # superfluous else after return
     "RUF010",  # explicit str()/repr() call inside an f-string
     "RUF013",  # implicit Optional annotation

@@ -532,8 +532,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         if not tmp_id:
             raise_param_error("temp_id")
         user_token = generate_temp_user(app, tmp_id, source, wx_code, language)
-        resp = make_response(make_common_response(user_token))
-        return resp
+        return make_response(make_common_response(user_token))
 
     @app.route(path_prefix + "/captcha", methods=["GET"])
     @bypass_token_validation
@@ -734,8 +733,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                     **referral_fields,
                 ),
             )
-            resp = make_response(make_common_response(auth_result.token))
-            return resp
+            return make_response(make_common_response(auth_result.token))
 
     @app.route(path_prefix + "/login_sms", methods=["POST"])
     @bypass_token_validation

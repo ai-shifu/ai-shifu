@@ -47,7 +47,7 @@ STATE_TTL = 900
 
 def _encode_state(app, payload: Dict[str, Any]) -> str:
     now = int(time.time())
-    token = jwt.encode(
+    return jwt.encode(
         {
             "iat": now,
             "exp": now + STATE_TTL,
@@ -57,7 +57,6 @@ def _encode_state(app, payload: Dict[str, Any]) -> str:
         app.config["SECRET_KEY"],
         algorithm="HS256",
     )
-    return token
 
 
 def _decode_state(app, state: str) -> Optional[Dict[str, Any]]:

@@ -176,8 +176,7 @@ def _simulate_sse_for_block(app, block, *, with_av_contract=True):
             ]
         )
 
-        streamed = list(adapter.process(events))
-    return streamed
+        return list(adapter.process(events))
 
 
 # ---------------------------------------------------------------------------

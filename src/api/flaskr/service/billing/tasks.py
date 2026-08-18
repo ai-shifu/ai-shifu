@@ -183,8 +183,7 @@ def _coerce_positive_int(
 def _normalize_optional_queue(value: Any, *, enabled: Any = False) -> str:
     if not _coerce_bool(enabled):
         return ""
-    queue = str(value or "").strip()
-    return queue
+    return str(value or "").strip()
 
 
 def _recover_stale_processing_renewal_events(

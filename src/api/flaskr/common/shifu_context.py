@@ -97,8 +97,7 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
         lock_key = f"{cache_key}:lock"
         lock = cache_provider.lock(lock_key, timeout=5, blocking_timeout=1)
         if lock is None:
-            creator_bid = get_shifu_creator_bid(app, shifu_bid)
-            return creator_bid
+            return get_shifu_creator_bid(app, shifu_bid)
 
         acquired = lock.acquire(blocking=True)
         try:

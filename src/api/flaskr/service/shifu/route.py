@@ -2513,12 +2513,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 prompt_file.content_type if prompt_file is not None else ""
             ),
         )
-        response = current_app.response_class(
+        return current_app.response_class(
             response=make_common_response(serialize_minimax_cloned_voice(row)),
             status=202,
             mimetype="application/json",
         )
-        return response
 
     @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
