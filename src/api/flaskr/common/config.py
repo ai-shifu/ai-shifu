@@ -1815,7 +1815,7 @@ class EnhancedConfig:
                 missing_required.append(f"- {var_name}: {env_var.description}")
                 continue
             # Get value (from environment or default)
-            value = raw_value if raw_value else env_var.default
+            value = raw_value or env_var.default
             # Validate value if present
             if value is not None and value != "":
                 try:

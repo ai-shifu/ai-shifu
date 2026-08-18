@@ -694,8 +694,7 @@ class ListenElementRunStreamMixin:
                 position=position,
                 subtitle_cues=(
                     progressive_subtitle_cues
-                    if progressive_subtitle_cues
-                    else list(getattr(current_audio, "subtitle_cues", []) or [])
+                    or list(getattr(current_audio, "subtitle_cues", []) or [])
                 ),
             )
             segment_data = _audio_segment_payload(content)
