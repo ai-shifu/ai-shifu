@@ -108,15 +108,14 @@ select = [
     "DTZ",   # flake8-datetimez (DTZ001/DTZ007/DTZ901 ignored below)
 
     # --- Partially selected groups -----------------------------------------
-    # flake8-builtins -- off: A001, A002, A006
-    "A003", "A004", "A005",
+    # flake8-builtins -- off: A001, A002
+    "A003", "A004", "A005", "A006",
+    # flake8-unused-arguments -- off: ARG001, ARG002, ARG004
+    "ARG003", "ARG005",
     # flake8-async -- off: ASYNC230
     "ASYNC1", "ASYNC21", "ASYNC22", "ASYNC24", "ASYNC25",
-    # flake8-bugbear -- off: B006, B017, B023, B026, B035, B904
-    "B002", "B003", "B004", "B005", "B007", "B008", "B009", "B010", "B011",
-    "B012", "B013", "B014", "B015", "B016", "B018", "B019", "B020", "B021",
-    "B022", "B024", "B025", "B027", "B028", "B029", "B030", "B031", "B032",
-    "B033", "B034", "B039", "B905", "B91",
+    # flake8-bugbear -- off: B904
+    "B0", "B905", "B91",
     # flake8-comprehensions -- off: C901
     "C4",
     # flake8-commas -- off: COM812, COM819
@@ -139,15 +138,15 @@ select = [
     "ISC001", "ISC003",
     # flake8-logging -- off: LOG014
     "LOG00", "LOG015",
-    # pep8-naming -- off: N801, N802, N803, N806, N813, N815, N818
-    "N804", "N805", "N807", "N811", "N812", "N814", "N816", "N817", "N9",
+    # pep8-naming -- off: N802, N803, N806, N813, N815, N818
+    "N801", "N804", "N805", "N807", "N811", "N812", "N814", "N816", "N817",
+    "N9",
     # Perflint -- off: PERF203, PERF401
     "PERF1", "PERF402", "PERF403",
     # pygrep-hooks -- off: PGH003
     "PGH004", "PGH005",
-    # Pylint conventions -- off: PLC0206, PLC0415
-    "PLC01", "PLC0205", "PLC0207", "PLC0208", "PLC0414", "PLC1", "PLC2",
-    "PLC3",
+    # Pylint conventions -- off: PLC0415
+    "PLC01", "PLC02", "PLC0414", "PLC1", "PLC2", "PLC3",
     # Pylint refactors -- off: PLR0911, PLR0912, PLR0913, PLR0915, PLR0917,
     # PLR2004
     "PLR01", "PLR02", "PLR0402", "PLR17", "PLR204", "PLR5",
@@ -165,14 +164,14 @@ select = [
     # flake8-return -- off: RET503
     "RET501", "RET502", "RET504", "RET505", "RET506", "RET507", "RET508",
     # Ruff-specific rules -- off: RUF001, RUF002, RUF003, RUF006, RUF012,
-    # RUF013, RUF043, RUF100
+    # RUF013, RUF100
     "RUF005", "RUF007", "RUF008", "RUF009", "RUF010", "RUF015", "RUF016",
-    "RUF017", "RUF018", "RUF019", "RUF02", "RUF03", "RUF040", "RUF041",
-    "RUF046", "RUF048", "RUF049", "RUF05", "RUF06", "RUF101", "RUF102",
-    "RUF103", "RUF104", "RUF2",
-    # flake8-bandit -- off: S101, S104, S105, S106, S107, S108, S110, S112,
-    # S113, S310, S311, S324, S603, S605, S607, S608
-    "S102", "S103", "S2", "S30", "S312", "S313", "S314", "S315", "S316",
+    "RUF017", "RUF018", "RUF019", "RUF02", "RUF03", "RUF04", "RUF05", "RUF06",
+    "RUF101", "RUF102", "RUF103", "RUF104", "RUF2",
+    # flake8-bandit -- off: S104, S105, S108, S110, S112, S113, S310, S311,
+    # S324, S603, S605, S607, S608
+    "S101", "S102", "S103", "S106", "S107",
+    "S2", "S30", "S312", "S313", "S314", "S315", "S316",
     "S317", "S318", "S319", "S321", "S323", "S5", "S601", "S602", "S604",
     "S606", "S609", "S61", "S7",
     # flake8-simplify -- off: SIM102, SIM105, SIM108, SIM115, SIM117
@@ -202,4 +201,20 @@ ignore = [
     "DTZ007",  # naive strptime() -- naive UTC is the house convention
     "DTZ901",  # datetime.min/max -- naive UTC is the house convention
     "E501",    # line length is owned by the formatter
+]
+
+# Rules that only ever fire in test or tooling code, carved out per directory so
+# they stay enforced for the served backend. Without these carve-outs the rules
+# could not be selected at all.
+[lint.per-file-ignores]
+"src/api/tests/**" = [
+    "A006",    # `id`/`type` lambda parameters in stubs mirror the API being faked
+    "ARG003",  # fake classes keep the signature of the class they stand in for
+    "ARG005",  # patch targets are replaced by lambdas that ignore their arguments
+    "S101",    # a pytest suite asserts by design
+    "S106",    # fixtures pass obvious dummy credentials
+    "S107",    # fixtures default to obvious dummy credentials
+]
+"scripts/**" = [
+    "S101",    # the repo-maintenance scripts assert their own invariants
 ]

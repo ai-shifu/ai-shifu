@@ -67,11 +67,12 @@ def test_profile_onboarding_config_roundtrip(app, monkeypatch):
 
 
 def test_profile_onboarding_config_rejects_non_whitelisted_variable(app):
+    from flaskr.service.common.models import AppException
     from flaskr.service.common.profile_onboarding import (
         update_profile_onboarding_config,
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(AppException):
         update_profile_onboarding_config(
             app,
             payload={

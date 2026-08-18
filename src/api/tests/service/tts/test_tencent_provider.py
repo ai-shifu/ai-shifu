@@ -131,6 +131,7 @@ def test_tencent_provider_config_validation_and_explicit_only(monkeypatch):
     import flaskr.api.tts as tts_api
     from flaskr.api.tts import tencent_provider
     from flaskr.common.config import ENV_VARS
+    from flaskr.service.common.models import AppException
     from flaskr.service.tts.validation import validate_tts_settings_strict
 
     expected_config_keys = {
@@ -176,7 +177,7 @@ def test_tencent_provider_config_validation_and_explicit_only(monkeypatch):
     assert validated.provider == "tencent"
     assert validated.model == ""
 
-    with pytest.raises(Exception):
+    with pytest.raises(AppException):
         validate_tts_settings_strict(
             provider="tencent",
             model="",
@@ -386,7 +387,7 @@ def test_tencent_provider_raises_sanitized_error_on_sse_error(monkeypatch):
 
     with pytest.raises(
         ValueError,
-        match="Tencent TTS error InvalidParameter.Voice",
+        match=r"Tencent TTS error InvalidParameter\.Voice",
     ):
         list(
             tencent_provider.TencentTTSProvider().stream_synthesize(

@@ -123,7 +123,7 @@ def test_provider_config_exposes_two_model_tiers_with_tagged_voices():
     large_voices = [
         voice for voice in cfg.voices if voice["resource_id"] == "large-model"
     ]
-    assert {"value": v["value"] for v in premium_voices}  # non-empty
+    assert {v["value"] for v in premium_voices}  # non-empty
     assert all(v["value"].startswith("101") for v in premium_voices)
     assert all(v["value"][:3] in {"501", "601"} for v in large_voices)
 

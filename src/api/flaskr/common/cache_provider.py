@@ -311,11 +311,11 @@ class FallbackCacheProvider:
             "set",
             key,
             value,
+            *args,
             ex=ex,
             px=px,
             nx=nx,
             xx=xx,
-            *args,
             **kwargs,
         )
 

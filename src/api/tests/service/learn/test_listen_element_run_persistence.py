@@ -231,7 +231,8 @@ def test_desync_forensics_capture_fingerprints_the_stale_response():
             return 555001
 
     class _FakeConnection:
-        class connection:
+        # Mirrors SQLAlchemy's lowercase `connection.connection` attribute chain.
+        class connection:  # noqa: N801
             dbapi_connection = _FakeRaw()
 
     described = _describe_desynced_connection(_FakeResult(), _FakeConnection())
@@ -280,7 +281,8 @@ def test_desync_forensics_logs_only_packet_header_not_payload():
                 return 1
 
         class _FakeConnection:
-            class connection:
+            # Mirrors SQLAlchemy's lowercase `connection.connection` chain.
+            class connection:  # noqa: N801
                 dbapi_connection = None
 
         _FakeConnection.connection.dbapi_connection = _FakeRaw()

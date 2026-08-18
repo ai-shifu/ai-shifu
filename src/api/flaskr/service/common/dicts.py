@@ -26,8 +26,8 @@ def register_dict(name, desp, items: dict):
     if name in DICTS:
         return
     dictItems = []
-    for key in items:
-        dictItems.append(DictItem(key, items[key]))
+    for key, value in items.items():
+        dictItems.append(DictItem(key, value))
     DICTS[name] = Dict(name, desp, dictItems)
 
 
