@@ -176,6 +176,7 @@ def normalize_contact_identifier(identifier: str, contact_type: str) -> str:
     if contact_type == "phone":
         return normalize_mobile(identifier)
     raise_param_error("contact_type")
+    return None
 
 
 def _format_decimal(value: Optional[Decimal]) -> str:

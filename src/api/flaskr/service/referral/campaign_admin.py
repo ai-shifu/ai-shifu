@@ -375,6 +375,7 @@ def _parse_bool(value: object, field_name: str) -> bool:
     if normalized in {"false", "0", "no"}:
         return False
     raise_param_error(field_name)
+    return None
 
 
 def _parse_positive_int(value: object, field_name: str) -> int:
@@ -425,6 +426,7 @@ def _parse_json_object(value: object, field_name: str) -> dict[str, Any]:
         if isinstance(parsed, dict):
             return parsed
     raise_param_error(field_name)
+    return None
 
 
 def _normalize_payload(
@@ -715,6 +717,7 @@ def _apply_status_filter(query, status: str, *, now: datetime):
             )
         )
     raise_param_error("status")
+    return None
 
 
 def _computed_status(campaign: ReferralCampaign, *, now: datetime) -> str:

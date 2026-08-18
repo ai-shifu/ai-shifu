@@ -234,6 +234,7 @@ def _require_mapping(value: Any, field_name: str) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     raise_param_error(field_name)
+    return None
 
 
 def _normalize_string_list(value: Any, field_name: str) -> list[str]:
