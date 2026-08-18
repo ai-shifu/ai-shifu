@@ -448,7 +448,7 @@ def test_save_shifu_draft_info_clears_default_listen_mode_when_tts_is_disabled(
 
 @pytest.mark.parametrize(
     "invalid_value",
-    ["yes", "", " true ", 1, 0, [], {}],
+    ["yes", "", " true ", "TRUE", 1, 0, [], {}],
 )
 def test_save_shifu_detail_route_rejects_invalid_default_listen_mode_enabled(
     app, test_client, monkeypatch, invalid_value

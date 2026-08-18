@@ -475,6 +475,8 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
+    let canceled = false;
+
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (courseId) {
@@ -490,6 +492,9 @@ export default function ChatLayout({
         updateCourseDefaultListenModeEnabled(null);
         try {
           const resp = await getCourseInfo(courseId, isPreviewMode);
+          if (canceled) {
+            return;
+          }
           debugInfo('[course-info] request success', {
             courseId,
             previewMode: isPreviewMode,
@@ -535,6 +540,9 @@ export default function ChatLayout({
           const isCourseNotFound = Boolean(
             (error as { isCourseNotFound?: boolean })?.isCourseNotFound,
           );
+          if (canceled) {
+            return;
+          }
           debugError('[course-info] request failed', {
             courseId,
             previewMode: isPreviewMode,
@@ -589,6 +597,9 @@ export default function ChatLayout({
       }
     };
     fetchCourseInfo();
+    return () => {
+      canceled = true;
+    };
   }, [
     courseId,
     envDataInitialized,
