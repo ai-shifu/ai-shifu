@@ -40,7 +40,7 @@ if [ -f "$API_ENV" ]; then
   # Reuse the existing credentials so the MySQL account and the connection
   # string never drift apart (.env is only (re)written when absent).
   DB_PASSWORD="$(sed -n 's|^SQLALCHEMY_DATABASE_URI="mysql://aishifu:\([^@]*\)@.*|\1|p' "$API_ENV" | head -n1)"
-  SECRET_KEY="$(sed -n 's|^SECRET_KEY="\(.*\)"$|\1|p' "$API_ENV" | head -n1)"
+  SECRET_KEY="$(sed -nE 's/^SECRET_KEY="?([^"]*)"?$/\1/p' "$API_ENV" | head -n1)"
   if [ -z "$DB_PASSWORD" ]; then
     echo "[install] ERROR: could not read the DB password from existing $API_ENV;" >&2
     echo "[install]        refusing to reset it, which would desync MySQL from the" >&2
