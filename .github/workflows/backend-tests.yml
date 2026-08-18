@@ -90,15 +90,30 @@ jobs:
                   return False
               return name.startswith("test_") or name.endswith("_test.py")
 
+          def has_test_module(directory: pathlib.Path) -> bool:
+              return any(
+                  is_test_module(str(child))
+                  for child in directory.rglob("*.py")
+              )
+
+          def enclosing_test_dir(path: str) -> str:
+              directory = pathlib.PurePath(path).parent
+              while True:
+                  if has_test_module(api_root / directory):
+                      return str(directory)
+                  if directory == pathlib.PurePath("tests") or not directory.parts:
+                      return "tests"
+                  directory = directory.parent
+
           def add_target(path: str) -> None:
               candidate = normalize(path)
               if not (api_root / candidate).exists():
                   return
               if (api_root / candidate).is_file() and not is_test_module(candidate):
                   # Helpers, fixtures and conftest files hold no tests of their
-                  # own, so run the package around them instead of collecting
-                  # nothing and failing with pytest exit code 5.
-                  candidate = str(pathlib.PurePath(candidate).parent)
+                  # own, so run the nearest enclosing package that does instead
+                  # of collecting nothing and failing with pytest exit code 5.
+                  candidate = enclosing_test_dir(candidate)
               targets.add(candidate)
 
           def is_control_plane_backend_path(path: str) -> bool:
