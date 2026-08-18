@@ -6,14 +6,21 @@
 # of the installed Ruff version. Widening the rule set is a deliberate
 # decision, not a side effect of a version bump.
 #
+# Whole groups are selected only where every rule in the group is already
+# satisfied repo-wide; the individually listed rules below are the members of
+# groups that stay off as a whole (selecting their group would surface new
+# violations). The `ignore` block carves out the few members of an otherwise
+# fully selected group that conflict with house conventions.
+#
 # DTZ selection is intentionally partial. The repo's UTC contract (AGENTS.md)
 # stores naive-UTC datetimes and provides `now_utc()` as the sanctioned naive
 # "now", so the rules that demand tz-aware values everywhere (DTZ001 naive
 # datetime(), DTZ007 naive strptime(), DTZ901 datetime.min/max) would fight
-# the house convention -- naive-UTC construction is correct here. The enabled
-# DTZ rules catch only calls whose result depends on the process time zone
-# (now()/today()/utcnow()/fromtimestamp() without tz), which are exactly the
-# UTC-vs-local drifts the contract forbids; use `now_utc()` instead.
+# the house convention -- naive-UTC construction is correct here; they are
+# ignored. The remaining DTZ rules catch only calls whose result depends on
+# the process time zone (now()/today()/utcnow()/fromtimestamp() without tz),
+# which are exactly the UTC-vs-local drifts the contract forbids; use
+# `now_utc()` instead.
 #
 # Other rule groups from ruff 0.16's broadened defaults were evaluated and
 # deliberately left off:
@@ -35,19 +42,12 @@
 
 [lint]
 select = [
-    "E4",
-    "E7",
-    "E9",
-    "F",
-    "DTZ002", # datetime.today()
-    "DTZ003", # datetime.utcnow()
-    "DTZ004", # datetime.utcfromtimestamp()
-    "DTZ005", # datetime.now() without tz
-    "DTZ006", # datetime.fromtimestamp() without tz
-    "DTZ011", # date.today()
-    "DTZ012", # date.fromtimestamp()
+    "E",      # pycodestyle errors (E501 ignored below)
+    "F",      # pyflakes
+    "DTZ",    # process-time-zone-dependent datetime calls (see ignore below)
     "EXE",    # shebang vs executable-bit consistency
-    "G201",   # .error(..., exc_info=True) -> .exception(...)
+    "G2",     # .error(..., exc_info=True) -> .exception(...)
+    "I",      # import sorting and grouping
     "RUF059", # unused unpacked variable
     # Mechanical, behavior-preserving cleanups; each was applied repo-wide
     # with `ruff check --fix` in the commit that selected it here.
@@ -55,7 +55,6 @@ select = [
     "B010",   # setattr with a constant attribute name
     "C420",   # dict.fromkeys instead of a constant-value comprehension
     "D202",   # blank line after a function docstring
-    "I001",   # unsorted or ungrouped imports
     "PIE790", # unnecessary pass / ... placeholder
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
@@ -72,4 +71,10 @@ select = [
     "UP015",  # redundant mode argument to open()
     "UP024",  # deprecated OSError alias
     "UP034",  # extraneous parentheses
+]
+ignore = [
+    "DTZ001", # naive datetime() -- naive UTC is the house convention
+    "DTZ007", # naive strptime() -- naive UTC is the house convention
+    "DTZ901", # datetime.min/max -- naive UTC is the house convention
+    "E501",   # line length is owned by the formatter
 ]
