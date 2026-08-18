@@ -152,8 +152,8 @@ def verify_sms_code(
     user_id,
     phone: str,
     chekcode: str,
-    course_id: str = None,
-    language: str = None,
+    course_id: str | None = None,
+    language: str | None = None,
     login_context: Optional[str] = None,
 ) -> UserToken:
     provider = get_provider("phone")

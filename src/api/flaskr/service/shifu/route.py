@@ -468,7 +468,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         page_index = request.args.get("page_index", 1)
         page_size = request.args.get("page_size", 10)
         is_favorite = request.args.get("is_favorite", "False")
-        is_favorite = True if is_favorite.lower() == "true" else False
+        is_favorite = is_favorite.lower() == "true"
         archived_param = request.args.get("archived")
         archived = False
         if archived_param is not None:
@@ -1062,7 +1062,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         shifu_bid = request.view_args.get("shifu_bid")
         is_favorite = request.get_json().get("is_favorite")
         if isinstance(is_favorite, str):
-            is_favorite = True if is_favorite.lower() == "true" else False
+            is_favorite = is_favorite.lower() == "true"
         elif isinstance(is_favorite, bool):
             is_favorite = is_favorite
         else:
@@ -2526,12 +2526,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 prompt_file.content_type if prompt_file is not None else ""
             ),
         )
-        response = current_app.response_class(
+        return current_app.response_class(
             response=make_common_response(serialize_minimax_cloned_voice(row)),
             status=202,
             mimetype="application/json",
         )
-        return response
 
     @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)

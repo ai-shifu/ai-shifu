@@ -1845,7 +1845,7 @@ def test_listen_run_persists_exception_gate_block_before_element_rows(app):
         )
 
         def _raise_paid(self, current_app):
-            raise PaidException()
+            raise PaidException
             yield  # pragma: no cover
 
         ctx.run_inner = types.MethodType(_raise_paid, ctx)

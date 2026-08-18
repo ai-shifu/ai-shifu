@@ -67,13 +67,13 @@ def gen_signature(params=None):
     for k in sorted(params.keys()):
         buff += str(k) + str(params[k])
     buff += YIDUN_SECRET_KEY
-    if "signatureMethod" in params.keys() and params["signatureMethod"] == "SM3":
+    if "signatureMethod" in params and params["signatureMethod"] == "SM3":
         return sm3.sm3_hash(func.bytes_to_list(bytes(buff, encoding="utf8")))
     return hashlib.md5(buff.encode("utf8")).hexdigest()
 
 
 def yidun_check(
-    app: Flask, data_id: str, content: str, user_id: str = None
+    app: Flask, data_id: str, content: str, user_id: str | None = None
 ) -> CheckResultDTO:
     if not YIDUN_SECRET_ID or not YIDUN_SECRET_KEY or not YIDUN_BUSINESS_ID:
         app.logger.warning(

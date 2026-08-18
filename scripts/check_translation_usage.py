@@ -187,7 +187,7 @@ def collect_backend_keys() -> Set[str]:
                 if "." not in match:
                     continue
                 # Only consider backend namespaces we intentionally allow in Python.
-                if match.startswith("server.") or match.startswith("module."):
+                if match.startswith(("server.", "module.")):
                     used.add(match)
                     # Add alias (with domain remap where needed)
                     if match.startswith("server."):

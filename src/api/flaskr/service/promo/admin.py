@@ -167,6 +167,7 @@ def _parse_bool_value(value: object, field_name: str) -> bool:
     if normalized in {"false", "0"}:
         return False
     raise_param_error(field_name)
+    return None
 
 
 def _resolve_update_datetime(
@@ -305,6 +306,7 @@ def _build_coupon_status_filter(status: str):
             Coupon.end < now,
         )
     raise_param_error("status")
+    return None
 
 
 def _build_campaign_status_filter(status: str):
@@ -332,6 +334,7 @@ def _build_campaign_status_filter(status: str):
             PromoCampaign.end_at < now,
         )
     raise_param_error("status")
+    return None
 
 
 def _generate_random_coupon_code(length: int = 12) -> str:
@@ -352,6 +355,7 @@ def _generate_unique_coupon_code() -> str:
         if not usage_exists:
             return code
     raise_error("server.discount.couponCodeGenerationFailed")
+    return None
 
 
 def _generate_unique_coupon_codes(count: int) -> list[str]:

@@ -20,7 +20,7 @@ def test_unit_of_work_invalidates_on_base_exception(app, monkeypatch):
     with app.app_context():
         with pytest.raises(_Interrupt):
             with unit_of_work():
-                raise _Interrupt()
+                raise _Interrupt
 
     assert invalidations == ["unit_of_work interrupt"]
 

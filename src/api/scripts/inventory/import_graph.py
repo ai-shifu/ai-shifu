@@ -43,7 +43,7 @@ def add_tree(base_pkg, base_dir):
             if fn == "__init__.py":
                 name = ".".join(parts)
             else:
-                name = ".".join(parts + [fn[:-3]])
+                name = ".".join([*parts, fn[:-3]])
             mods[name] = os.path.join(rel, fn)
 
 
@@ -110,8 +110,7 @@ roots = set()
 for name, rel in mods.items():
     if (
         name in ("app", "celery_app")
-        or rel.startswith("scripts" + os.sep)
-        or rel.startswith("flaskr/command")
+        or rel.startswith(("scripts" + os.sep, "flaskr/command"))
         or name == "flaskr.route"
     ):
         roots.add(name)

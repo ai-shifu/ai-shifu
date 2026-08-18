@@ -243,9 +243,7 @@ def apply_billing_stripe_notification(
             _persist_billing_stripe_raw_snapshot(
                 order,
                 create_if_missing=False,
-                metadata=(metadata or refund_metadata)
-                if (metadata or refund_metadata)
-                else None,
+                metadata=(metadata or refund_metadata) or None,
                 checkout_session_id=(
                     stripe_object_id if stripe_object_id.startswith("cs_") else ""
                 ),

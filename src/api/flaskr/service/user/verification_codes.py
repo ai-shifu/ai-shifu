@@ -181,7 +181,9 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
 
     cached = None
     cached_identifier = identifier
-    for cache_key, lookup_identifier in zip(cache_keys, lookup_identifiers):
+    for cache_key, lookup_identifier in zip(
+        cache_keys, lookup_identifiers, strict=False
+    ):
         cached = redis.get(cache_key)
         if cached is not None:
             cached_identifier = lookup_identifier

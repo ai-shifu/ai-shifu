@@ -2426,7 +2426,7 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
         ctx = _make_context()
 
         def _raise_paid(_app):
-            raise PaidException()
+            raise PaidException
 
         ctx.run_inner = _raise_paid
         ctx._emit_feedback_after_exception_gate = lambda: iter(["feedback"])
@@ -2506,7 +2506,7 @@ class BuildContextFromBlocksTests(unittest.TestCase):
         self.assertTrue(all("?[" not in m["content"] for m in transformed))
         # Roles strictly alternate: no two adjacent user messages.
         roles = [m["role"] for m in transformed]
-        for prev, cur in zip(roles, roles[1:]):
+        for prev, cur in zip(roles, roles[1:], strict=False):
             self.assertFalse(
                 prev == "user" and cur == "user",
                 f"adjacent user messages in {roles}",

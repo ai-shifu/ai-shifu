@@ -271,8 +271,7 @@ def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
             .first()
         )
         if not shifu_history:
-            init_history = HistoryItem(bid=shifu_bid, id=0, type="shifu", children=[])
-            return init_history
+            return HistoryItem(bid=shifu_bid, id=0, type="shifu", children=[])
         return HistoryItem.from_json(shifu_history.struct)
 
 
@@ -484,7 +483,7 @@ def save_outline_tree_history(
     user_id: str,
     shifu_bid: str,
     outline_tree: List[HistoryItem],
-    shifu_id: int = None,
+    shifu_id: int | None = None,
 ):
     """Save outline tree history
     Args:

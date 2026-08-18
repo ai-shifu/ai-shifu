@@ -38,7 +38,7 @@ def norm(path):
     for s in path.split("/"):
         if not s:
             continue
-        if "${" in s or "{" in s or s.startswith(":") or s.startswith("<"):
+        if "${" in s or "{" in s or s.startswith((":", "<")):
             segs.append("*")
         else:
             segs.append(s)
@@ -109,7 +109,9 @@ for line in open(BACKEND_ROUTES, encoding="utf-8"):
 def match(be_segs, fe_segs):
     if len(be_segs) != len(fe_segs):
         return False
-    return all(a == b or a == "*" or b == "*" for a, b in zip(be_segs, fe_segs))
+    return all(
+        a in (b, "*") or b == "*" for a, b in zip(be_segs, fe_segs, strict=False)
+    )
 
 
 rows = []
@@ -122,7 +124,7 @@ for method, path, segs, src in be:
     low = path.lower() + " " + src.lower()
     if re.search(r"callback|notify|webhook", low) or path.startswith("/api/open-api/"):
         consumers.append("external-callback")
-    if path in ("/health",) or path.startswith("/internal/") or "observability" in src:
+    if path == "/health" or path.startswith("/internal/") or "observability" in src:
         consumers.append("ops")
     if not consumers:
         consumers = ["NO-KNOWN-CONSUMER"]

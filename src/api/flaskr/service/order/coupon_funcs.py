@@ -230,7 +230,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
                 coupon_filter = {}
             if "course_id" in coupon_filter:
                 course_id = coupon_filter["course_id"]
-                if course_id and course_id != "" and course_id != buy_record.shifu_bid:
+                if course_id and course_id not in ("", buy_record.shifu_bid):
                     raise_error("server.discount.discountNotApply")
 
         coupon_usage.status = COUPON_STATUS_USED

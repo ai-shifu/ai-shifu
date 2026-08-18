@@ -234,8 +234,8 @@ def isolate_env_for_non_app_tests(request):
     if "app" in request.fixturenames:
         yield
         return
-    original = {key: os.environ.get(key) for key in ENV_VARS.keys()}
-    for key in ENV_VARS.keys():
+    original = {key: os.environ.get(key) for key in ENV_VARS}
+    for key in ENV_VARS:
         os.environ.pop(key, None)
 
     # Some tests monkeypatch env vars while a session-scoped Flask app has

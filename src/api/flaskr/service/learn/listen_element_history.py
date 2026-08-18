@@ -292,7 +292,7 @@ def _enrich_elements_with_persisted_audio(
         return elements
 
     available_positions_by_block: dict[str, list[int]] = {}
-    for block_bid, position in latest_audio_by_key.keys():
+    for block_bid, position in latest_audio_by_key:
         available_positions_by_block.setdefault(block_bid, []).append(position)
     available_positions_by_block = {
         block_bid: sorted(set(positions))

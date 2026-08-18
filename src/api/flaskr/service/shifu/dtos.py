@@ -400,14 +400,14 @@ class OutlineDto(BaseModel):
 
     def __init__(
         self,
-        bid: str = None,
-        position: str = None,
-        name: str = None,
-        description: str = None,
-        type: str = None,
-        index: int = None,
-        system_prompt: str = None,
-        is_hidden: bool = None,
+        bid: str | None = None,
+        position: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        type: str | None = None,
+        index: int | None = None,
+        system_prompt: str | None = None,
+        is_hidden: bool | None = None,
     ):
         super().__init__(
             bid=bid,

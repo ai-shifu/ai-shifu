@@ -47,7 +47,7 @@ VOLCENGINE_TTS_WS_URL = "wss://openspeech.bytedance.com/api/v3/tts/bidirection"
 
 def _timestamp_seconds_to_ms(value: Any) -> int:
     try:
-        return max(int(round(float(value) * 1000)), 0)
+        return max(round(float(value) * 1000), 0)
     except (TypeError, ValueError):
         return 0
 
@@ -59,9 +59,9 @@ def _volcengine_time_ms(item: dict[str, Any], keys: tuple[str, ...]) -> int:
         value = item.get(key)
         if value is None or value == "":
             continue
-        if key.endswith("_ms") or key.endswith("Ms"):
+        if key.endswith(("_ms", "Ms")):
             try:
-                return max(int(round(float(value))), 0)
+                return max(round(float(value)), 0)
             except (TypeError, ValueError):
                 return 0
         return _timestamp_seconds_to_ms(value)

@@ -193,7 +193,7 @@ def _detect_issues(
         )
 
     for idx, (expected, observed) in enumerate(
-        zip(expected_segments, observed_segments), start=1
+        zip(expected_segments, observed_segments, strict=False), start=1
     ):
         if expected != observed:
             if _normalize_text(expected) == _normalize_text(observed):
