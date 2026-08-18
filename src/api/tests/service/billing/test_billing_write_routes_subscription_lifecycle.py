@@ -236,6 +236,58 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert orders[0].status == BILLING_ORDER_STATUS_PENDING
             assert orders[0].expires_at is not None
 
+    def test_subscription_checkout_recreates_pending_stripe_order_when_callback_origin_changes(
+        self, billing_write_client, monkeypatch
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            order.metadata_json = {
+                **(order.metadata_json or {}),
+                "checkout": {
+                    **((order.metadata_json or {}).get("checkout") or {}),
+                    "id": "cs_billing_test",
+                    "url": "https://stripe.test/checkout",
+                    "success_url": "https://billing.example.com/payment/stripe/billing-result?bill_order_bid="
+                    f"{order.bill_order_bid}",
+                    "cancel_url": "https://billing.example.com/payment/stripe/billing-result?canceled=1&bill_order_bid="
+                    f"{order.bill_order_bid}",
+                },
+            }
+            dao.db.session.add(order)
+            dao.db.session.commit()
+
+        monkeypatch.setenv("HOST_URL", "https://billing-2.example.com")
+        write_route_helpers._reset_config_cache("HOST_URL", "PATH_PREFIX")
+
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            == first_checkout["data"]["bill_order_bid"]
+        )
+        assert second_checkout["data"]["reused_existing_order"] is True
+        assert len(billing_write_client["stripe_requests"]) == 2
+
     def test_subscription_checkout_cancels_pending_order_when_switching_package(
         self, billing_write_client
     ) -> None:

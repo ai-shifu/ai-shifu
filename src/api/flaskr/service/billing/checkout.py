@@ -873,7 +873,7 @@ def _reopen_existing_billing_order_checkout(
     requested_channel: str = "",
 ) -> BillingCheckoutResultDTO:
     if _normalize_bid(order.payment_provider) == "stripe":
-        stored_checkout_result = _build_stored_stripe_checkout_result(order)
+        stored_checkout_result = _build_stored_stripe_checkout_result(app, order)
         if stored_checkout_result is not None:
             return stored_checkout_result
 
@@ -891,6 +891,7 @@ def _reopen_existing_billing_order_checkout(
 
 
 def _build_stored_stripe_checkout_result(
+    app: Flask,
     order: BillingOrder,
 ) -> BillingCheckoutResultDTO | None:
     if _normalize_bid(order.payment_provider) != "stripe":
@@ -908,6 +909,12 @@ def _build_stored_stripe_checkout_result(
         or _normalize_bid(order.provider_reference_id)
         or None
     )
+    if not _stored_stripe_checkout_urls_match_current_origin(
+        app,
+        order=order,
+        checkout_payload=checkout_payload,
+    ):
+        return None
     if not redirect_url:
         return None
 
@@ -921,6 +928,44 @@ def _build_stored_stripe_checkout_result(
     response["redirect_url"] = redirect_url
     response["checkout_session_id"] = checkout_session_id
     return BillingCheckoutResultDTO(**response)
+
+
+def _stored_stripe_checkout_urls_match_current_origin(
+    app: Flask,
+    *,
+    order: BillingOrder,
+    checkout_payload: dict[str, Any],
+) -> bool:
+    stored_success_url = str(checkout_payload.get("success_url") or "").strip()
+    stored_cancel_url = str(checkout_payload.get("cancel_url") or "").strip()
+
+    # Older stored payloads may not include callback URLs. In that case, keep
+    # the legacy reuse behavior instead of forcing a provider refresh.
+    if not stored_success_url and not stored_cancel_url:
+        return True
+
+    expected_success_url = _inject_billing_query(
+        build_stripe_billing_result_url(),
+        order.bill_order_bid,
+    )
+    expected_cancel_url = _inject_billing_query(
+        build_stripe_billing_result_url(canceled=True),
+        order.bill_order_bid,
+    )
+
+    if stored_success_url and stored_success_url != expected_success_url:
+        app.logger.info(
+            "Skipping Stripe checkout reuse for billing order %s because success_url changed",
+            order.bill_order_bid,
+        )
+        return False
+    if stored_cancel_url and stored_cancel_url != expected_cancel_url:
+        app.logger.info(
+            "Skipping Stripe checkout reuse for billing order %s because cancel_url changed",
+            order.bill_order_bid,
+        )
+        return False
+    return True
 
 
 def refund_billing_order(
