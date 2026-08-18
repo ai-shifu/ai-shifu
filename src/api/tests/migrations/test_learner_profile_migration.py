@@ -27,7 +27,8 @@ def _load_migration_module(path=MIGRATION_PATH):
         "test_learner_profile_migration_module",
         path,
     )
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
