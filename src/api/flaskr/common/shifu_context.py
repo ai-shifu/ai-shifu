@@ -24,6 +24,7 @@ def set_shifu_context(
     Args:
         shifu_bid: Shifu business identifier
         shifu_creator_bid: Shifu creator user business identifier
+
     """
     _context_local.shifu_bid = shifu_bid
     _context_local.shifu_creator_bid = shifu_creator_bid
@@ -59,6 +60,7 @@ def apply_shifu_context_snapshot(snapshot: Optional[Dict[str, Any]]) -> None:
 
     Args:
         snapshot: Snapshot returned by get_shifu_context_snapshot
+
     """
     if not snapshot:
         return

@@ -22,6 +22,7 @@ def get_shifu_res_url(res_bid: str):
 
     Returns:
         str: The URL of the resource
+
     """
     res = Resource.query.filter_by(resource_id=res_bid).first()
     if res:
@@ -38,6 +39,7 @@ def get_shifu_res_url_dict(res_bids: list[str]) -> dict[str, str]:
 
     Returns:
         dict[str, str]: The URL of the resource
+
     """
     res_url_map = {}
     res = Resource.query.filter(Resource.resource_id.in_(res_bids)).all()
@@ -55,6 +57,7 @@ def parse_shifu_res_bid(res_url: str):
 
     Returns:
         str: The resource ID
+
     """
     if res_url:
         return res_url.rsplit("/", maxsplit=1)[-1]
@@ -71,6 +74,7 @@ def get_shifu_creator_bid(app: Flask, shifu_bid: str) -> Optional[str]:
 
     Returns:
         Optional[str]: Creator user business identifier if found, otherwise None
+
     """
     from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 

@@ -85,6 +85,7 @@ def concat_audio_mp3(
     Raises:
         ImportError: If pydub is not available
         ValueError: If no segments provided
+
     """
     if not PYDUB_AVAILABLE:
         raise ImportError(
@@ -307,6 +308,7 @@ def get_audio_duration_ms(audio_data: bytes, format: str = "mp3") -> int:
 
     Returns:
         Duration in milliseconds
+
     """
     duration_ms = try_get_audio_duration_ms(audio_data, format=format)
     if duration_ms is not None:

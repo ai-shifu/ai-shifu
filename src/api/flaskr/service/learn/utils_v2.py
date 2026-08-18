@@ -188,6 +188,7 @@ def get_follow_up_info_v2(
 
     Returns:
         FollowUpInfo: The follow up information for the given parameters.
+
     """
     struct_info = get_shifu_struct(app, shifu_bid, is_preview)
     path = find_node_with_parents(struct_info, outline_item_bid)

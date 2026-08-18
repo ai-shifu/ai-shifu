@@ -319,6 +319,7 @@ def _find_next_av_boundary(
 
     Returns:
         (kind, start, end, complete), where `end` is exclusive.
+
     """
     if not raw:
         return None
@@ -718,6 +719,7 @@ def synthesize_long_text_to_oss(
     - Uses the unified TTS client (`flaskr.api.tts.synthesize_text`).
     - Segments are synthesized in parallel (bounded by `max_workers`).
     - Final output is uploaded as an MP3 file for browser playback.
+
     """
     provider = (provider_name or "").strip().lower()
     if not provider:

@@ -13,6 +13,7 @@ def load_prompt_template(template_name: str) -> str:
 
     Raises:
         FileNotFoundError: When template file does not exist
+
     """
     # Get the directory of current file
     current_dir = os.path.dirname(os.path.abspath(__file__))

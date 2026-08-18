@@ -51,6 +51,7 @@ def _process_demo_shifu(
 
     Returns:
         str: The shifu_bid of the processed shifu
+
     """
     # Read file content
     # File is in src/api/demo_shifus/ directory, command is in src/api/flaskr/command/
@@ -105,6 +106,7 @@ def _ensure_creator_permissions(app: Flask, shifu_bid: str):
     Args:
         app: Flask application instance
         shifu_bid: Shifu business identifier
+
     """
     users = UserInfo.query.filter(UserInfo.is_creator == 1).all()
     for user in users:

@@ -66,6 +66,7 @@ def validate_tts_settings_strict(
     Notes:
     - Provider, voice_id, speed, and pitch must be explicit (no "system default").
     - `model` is required for providers that expose model/resource selection.
+
     """
     normalized_provider = (provider or "").strip().lower()
     if not normalized_provider:

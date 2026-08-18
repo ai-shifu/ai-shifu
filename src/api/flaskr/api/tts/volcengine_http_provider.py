@@ -133,6 +133,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         Notes:
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback.
+
         """
         return VoiceSettings(
             voice_id="BV700_streaming",
@@ -351,6 +352,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         Notes:
         - Never log credentials (token).
         - Avoid logging full request text; use only text_len.
+
         """
         body_preview = (response.text or "")[:2000]
         # Keep only a small, stable subset of headers to avoid log noise and

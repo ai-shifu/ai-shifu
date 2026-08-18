@@ -86,6 +86,7 @@ def _encrypt_config(app: Flask, value: str) -> str:
 
     Returns:
         Encrypted value as base64 string
+
     """
     with app.app_context():
         fernet = _get_fernet(app)
@@ -106,6 +107,7 @@ def _decrypt_config(app: Flask, encrypted_value: str) -> str:
 
     Raises:
         ValueError: If decryption fails (invalid token or corrupted data)
+
     """
     with app.app_context():
         try:
@@ -144,6 +146,7 @@ def get_config(key: str, default: str = None) -> str:
         None if config not found
     Raises:
         ValueError: If config not found or decryption fails
+
     """
     from contextlib import nullcontext
 

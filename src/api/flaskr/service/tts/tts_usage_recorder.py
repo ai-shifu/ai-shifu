@@ -30,6 +30,7 @@ def build_tts_metadata(
 
     Returns:
         Metadata dict with voice and audio parameters
+
     """
     return {
         "voice_id": voice_settings.voice_id or "",
@@ -78,6 +79,7 @@ def record_tts_segment_usage(
         is_stream: Whether this is a streaming request
         parent_usage_bid: Parent usage record ID for aggregation
         segment_index: Index of this segment in the sequence
+
     """
     segment_length = len(segment_text or "")
     output_chars = resolve_tts_billable_chars(segment_text, usage_characters)
@@ -140,6 +142,7 @@ def record_tts_aggregated_usage(
         voice_settings: TTS voice configuration
         audio_settings: TTS audio configuration
         is_stream: Whether this is a streaming request
+
     """
     extra = build_tts_metadata(voice_settings, audio_settings)
     output_chars = resolve_tts_billable_chars(cleaned_text, total_usage_characters)

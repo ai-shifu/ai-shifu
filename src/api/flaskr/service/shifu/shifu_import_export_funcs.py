@@ -47,6 +47,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
 
     Returns:
         str: Success message
+
     """
     with app.app_context():
         # Get shifu draft
@@ -158,6 +159,7 @@ def import_shifu(
 
     Returns:
         str: The shifu_bid of the imported shifu
+
     """
     with app.app_context():
         # Read JSON file

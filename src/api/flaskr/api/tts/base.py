@@ -161,6 +161,7 @@ class BaseTTSProvider(ABC):
 
         Raises:
             ValueError: If synthesis fails
+
         """
 
     @abstractmethod
@@ -186,4 +187,5 @@ class BaseTTSProvider(ABC):
 
         Returns:
             ProviderConfig with parameter ranges, voices, models, etc.
+
         """

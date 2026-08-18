@@ -172,6 +172,7 @@ class VolcengineProtocol:
 
         Returns:
             Encoded binary frame
+
         """
         self.session_id = session_id
 
@@ -241,6 +242,7 @@ class VolcengineProtocol:
 
         Returns:
             Encoded binary frame
+
         """
         payload = {
             "user": {"uid": "ai-shifu"},
@@ -282,6 +284,7 @@ class VolcengineProtocol:
 
         Returns:
             Parsed ProtocolFrame
+
         """
         if len(data) < 4:
             raise ValueError(f"Frame too short: {len(data)} bytes")

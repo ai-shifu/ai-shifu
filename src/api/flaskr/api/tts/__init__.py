@@ -143,6 +143,7 @@ def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
 
     Raises:
         ValueError: If no configured provider is available
+
     """
     global _provider_instances
 
@@ -192,6 +193,7 @@ def synthesize_text(
 
     Raises:
         ValueError: If synthesis fails
+
     """
     provider = get_tts_provider(provider_name)
     return provider.synthesize(
@@ -211,6 +213,7 @@ def is_tts_configured(provider_name: str = "") -> bool:
 
     Returns:
         True if at least one provider is configured
+
     """
     if provider_name:
         try:
@@ -526,6 +529,7 @@ def get_all_provider_configs() -> dict:
 
     Returns:
         Dictionary with provider configurations for frontend
+
     """
     providers = []
     provider_payloads: list[tuple[str, dict]] = []
