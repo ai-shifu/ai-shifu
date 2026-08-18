@@ -504,7 +504,7 @@ class TestSSEElementSplitFromDB:
                 ct = j.get("content", "")
 
                 # SVG content should have SVG element type
-                if "<svg" in ct.lower() and et != "svg" and et != "html":
+                if "<svg" in ct.lower() and et not in {"svg", "html"}:
                     # Diagnose: check what av_contract produced
                     with app.app_context():
                         av = build_av_segmentation_contract(content, bid)

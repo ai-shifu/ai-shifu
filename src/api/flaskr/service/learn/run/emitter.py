@@ -111,9 +111,9 @@ class RunEventEmitter:
                     )
                     continue
                 ctx._current_attend = ctx._get_current_attend(update.outline_bid)
-                if (
-                    ctx._current_attend.status == LEARN_STATUS_NOT_STARTED
-                    or ctx._current_attend.status == LEARN_STATUS_LOCKED
+                if ctx._current_attend.status in (
+                    LEARN_STATUS_NOT_STARTED,
+                    LEARN_STATUS_LOCKED,
                 ):
                     recorder.update_progress_pointer(
                         ctx._current_attend,

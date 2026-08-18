@@ -305,7 +305,7 @@ def shifu_permission_verification(
                         permissions.add("view")
                     if lowered in {"edit", "write"} or lowered == "2":
                         permissions.update({"view", "edit"})
-                    if lowered == "publish" or lowered == "4":
+                    if lowered in {"publish", "4"}:
                         permissions.add("publish")
                 # Fallback to raw values if mapping failed
                 permissions = permissions or set(normalized)
