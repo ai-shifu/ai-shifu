@@ -69,6 +69,7 @@ select = [
     "D413",    # missing blank line after the last docstring section
     "FURB110", # conditional expression that should be or
     "FURB136", # if-expression that should be min()/max()
+    "FURB171", # membership test against a single-item container
     "FURB188", # manual prefix/suffix stripping
     "PIE790",  # unnecessary pass / ... placeholder
     "PIE80",   # unnecessary dict kwargs, builtin-reimplementing lambdas

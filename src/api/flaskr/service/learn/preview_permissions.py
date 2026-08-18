@@ -72,7 +72,7 @@ def _auth_types_to_permissions(auth_types: set[str]) -> set[str]:
             permissions.add("view")
         if lowered in {"edit", "write"} or lowered == "2":
             permissions.update({"view", "edit"})
-        if lowered in {"publish"} or lowered == "4":
+        if lowered == "publish" or lowered == "4":
             permissions.add("publish")
     return permissions
 

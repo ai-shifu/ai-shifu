@@ -124,7 +124,7 @@ for method, path, segs, src in be:
     low = path.lower() + " " + src.lower()
     if re.search(r"callback|notify|webhook", low) or path.startswith("/api/open-api/"):
         consumers.append("external-callback")
-    if path in ("/health",) or path.startswith("/internal/") or "observability" in src:
+    if path == "/health" or path.startswith("/internal/") or "observability" in src:
         consumers.append("ops")
     if not consumers:
         consumers = ["NO-KNOWN-CONSUMER"]
