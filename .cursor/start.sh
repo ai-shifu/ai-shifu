@@ -1,36 +1,80 @@
 #!/usr/bin/env bash
 # Per-boot startup for the AI-Shifu Cloud Agent environment.
-# Starts Redis and MySQL, ensures the database and a TCP root user exist,
-# writes a local dev .env if missing, and applies DB migrations plus the
-# bundled demo courses. This script must return; the long-running API and web
-# servers run as `terminals` (see .cursor/environment.json).
+#
+# Starts Redis and MySQL, ensures the database and users exist, writes a local
+# dev .env if missing, applies DB migrations, and imports the bundled demo
+# courses. This script must return; the long-running API and web servers run as
+# `terminals` (see .cursor/environment.json).
+#
+# MySQL is started directly against a fresh, writable datadir under /tmp instead
+# of the apt/systemd service. A datadir baked into an environment-build snapshot
+# lives in the overlayfs lower layer, where InnoDB fails to open its system
+# files (OS error 122 on copy-up). Because migrations + the demo import rebuild
+# all state every boot, re-initializing a clean datadir is safe and avoids that
+# failure as well as any dependency on systemd.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+MYSQLD="$(command -v mysqld || echo /usr/sbin/mysqld)"
+MYSQL_DATADIR="/tmp/ai-shifu-mysql-data"
+MYSQL_SOCK="/tmp/ai-shifu-mysql.sock"
+MYSQL_PIDFILE="/tmp/ai-shifu-mysql.pid"
+MYSQL_ERRLOG="/tmp/ai-shifu-mysql.err"
+MYSQL_PORT="3306"
+
 echo "[start] Starting Redis..."
-sudo service redis-server start || true
+if ! redis-cli ping >/dev/null 2>&1; then
+  redis-server --daemonize yes --save "" --appendonly no --dir /tmp \
+    >/tmp/ai-shifu-redis.log 2>&1 || sudo service redis-server start || true
+fi
 
-echo "[start] Starting MySQL..."
-sudo service mysql start || true
-echo "[start] Waiting for MySQL to accept connections..."
-for _ in $(seq 1 60); do
-  if sudo mysqladmin ping >/dev/null 2>&1; then
-    break
-  fi
-  sleep 1
-done
+echo "[start] Ensuring MySQL is running on 127.0.0.1:${MYSQL_PORT}..."
+if ! mysqladmin --host=127.0.0.1 --port="${MYSQL_PORT}" --user=root \
+      --password=ai-shifu ping >/dev/null 2>&1; then
+  # No usable server yet: (re)initialize a clean datadir in the writable layer.
+  # The database will be empty, so drop any stale Redis cache (demo course
+  # bids/hashes, sessions, locks) that would otherwise point at data this fresh
+  # datadir no longer has and make the demo import skip or fail.
+  echo "[start] Flushing Redis cache to match the fresh database..."
+  redis-cli flushall >/dev/null 2>&1 || true
 
-echo "[start] Ensuring database and TCP root user (idempotent)..."
-sudo mysql <<'SQL' || true
+  echo "[start] Initializing a fresh MySQL datadir at ${MYSQL_DATADIR}..."
+  rm -rf "${MYSQL_DATADIR}"
+  mkdir -p "${MYSQL_DATADIR}"
+  "${MYSQLD}" --initialize-insecure --datadir="${MYSQL_DATADIR}" \
+    --user="$(id -un)" --log-error="${MYSQL_ERRLOG}"
+
+  echo "[start] Launching mysqld..."
+  "${MYSQLD}" --datadir="${MYSQL_DATADIR}" --socket="${MYSQL_SOCK}" \
+    --port="${MYSQL_PORT}" --bind-address=127.0.0.1 \
+    --pid-file="${MYSQL_PIDFILE}" --log-error="${MYSQL_ERRLOG}" \
+    --innodb_use_native_aio=0 --innodb_flush_method=fsync --daemonize
+
+  echo "[start] Waiting for mysqld socket..."
+  for _ in $(seq 1 60); do
+    if mysqladmin --socket="${MYSQL_SOCK}" --user=root ping >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+
+  echo "[start] Creating database and users (idempotent)..."
+  mysql --socket="${MYSQL_SOCK}" --user=root <<'SQL'
 CREATE DATABASE IF NOT EXISTS `ai-shifu` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ALTER USER 'root'@'localhost' IDENTIFIED WITH caching_sha2_password BY 'ai-shifu';
 CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED WITH caching_sha2_password BY 'ai-shifu';
 CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED WITH caching_sha2_password BY 'ai-shifu';
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 SQL
+else
+  echo "[start] MySQL already running; ensuring database exists..."
+  mysql --host=127.0.0.1 --port="${MYSQL_PORT}" --user=root --password=ai-shifu \
+    -e "CREATE DATABASE IF NOT EXISTS \`ai-shifu\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true
+fi
 
 ENV_FILE="$REPO_ROOT/src/api/.env"
 if [ ! -f "$ENV_FILE" ]; then
