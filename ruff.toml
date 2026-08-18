@@ -78,6 +78,7 @@ select = [
     "FURB171", # membership test against a single-item container
     "FURB187", # list reversal via slicing
     "FURB188", # manual prefix/suffix stripping
+    "FURB192", # sorted() only to take the first item
     "PERF102", # dict.items() when only one half is used
     "PIE790",  # unnecessary pass / ... placeholder
     "PIE80",   # unnecessary dict kwargs, builtin-reimplementing lambdas
