@@ -70,6 +70,7 @@ select = [
     "RUF036", # None not at the end of a union
     "RUF102", # noqa directive naming an unknown rule
     "SIM114", # if branches with identical bodies
+    "SIM300", # yoda condition
     "SIM910", # dict.get(key, None)
     "UP012",  # redundant utf-8 argument to str.encode
     "UP015",  # redundant mode argument to open()

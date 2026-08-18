@@ -86,7 +86,7 @@ class TestConfigInitialization:
         config = Config(parent_config, app)
 
         # Check global instance is set
-        assert config_module.__INSTANCE__ == config
+        assert config == config_module.__INSTANCE__
 
 
 class TestConfigGetItem:
