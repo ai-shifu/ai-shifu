@@ -6,21 +6,19 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from typing import Any, Dict, Optional, Sequence, Set
-from sqlalchemy import case, or_
+
 from flaskr.dao import db
+from flaskr.service.common.models import (
+    raise_error,
+    raise_param_error,
+)
 from flaskr.service.learn.const import (
     LEARN_STATUS_RESET,
 )
 from flaskr.service.learn.models import (
     LearnProgressRecord,
-)
-from flaskr.service.common.models import (
-    raise_error,
-    raise_param_error,
 )
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
@@ -28,21 +26,6 @@ from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserCourseSummaryDTO,
     AdminOperationUserSummaryDTO,
 )
-from flaskr.service.shifu.models import (
-    AiCourseAuth,
-)
-from flaskr.service.user.consts import (
-    CREDENTIAL_STATE_VERIFIED,
-    USER_STATE_PAID,
-    USER_STATE_REGISTERED,
-    USER_STATE_TRAIL,
-)
-from flaskr.service.user.models import (
-    AuthCredential,
-    UserInfo as UserEntity,
-    UserToken,
-)
-
 from flaskr.service.shifu.admin_shared import (
     COURSE_USER_LEARNING_STATUS_COMPLETED,
     COURSE_USER_LEARNING_STATUS_LEARNING,
@@ -68,6 +51,24 @@ from flaskr.service.shifu.admin_shared import (
     _format_decimal,
     _normalize_identifier,
 )
+from flaskr.service.shifu.models import (
+    AiCourseAuth,
+)
+from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_VERIFIED,
+    USER_STATE_PAID,
+    USER_STATE_REGISTERED,
+    USER_STATE_TRAIL,
+)
+from flaskr.service.user.models import (
+    AuthCredential,
+    UserToken,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from flaskr.util.datetime import now_utc
+from sqlalchemy import case, or_
 
 
 def _load_course_user_contact_map(

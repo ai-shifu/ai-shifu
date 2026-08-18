@@ -7,23 +7,24 @@ Author: yfge
 Date: 2025-08-07
 """
 
+from flaskr.util.compare import compare_decimal
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    TIMESTAMP,
     DECIMAL,
-    Text,
-    SmallInteger,
+    TIMESTAMP,
+    Column,
     DateTime,
-    UniqueConstraint,
     Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
-from flaskr.util.datetime import now_utc
+
 from ...dao import db
 from .consts import ASK_MODE_DEFAULT
-from flaskr.util.compare import compare_decimal
 
 
 class ResourceType:

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from flaskr.util.datetime import now_utc
-from decimal import Decimal
 import uuid
+from decimal import Decimal
 
 from flaskr.dao import db
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
 from flaskr.service.shifu.shifu_draft_funcs import get_shifu_draft_list
 from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.util.datetime import now_utc
 
 
 def test_get_shifu_draft_list_marks_builtin_guide_course(app, monkeypatch):

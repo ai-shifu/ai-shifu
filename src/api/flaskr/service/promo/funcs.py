@@ -2,32 +2,35 @@
 Promo functions
 """
 
-from contextlib import nullcontext
 import decimal
+from contextlib import nullcontext
 
+from flask import Flask, has_app_context
 from sqlalchemy import and_, func, or_
 
-from .models import (
-    CouponUsage as CouponUsageModel,
-    PromoCampaign,
-    PromoRedemption,
-)
 from ...dao import db
+from ...util import generate_id
 from ...util.datetime import now_utc
 from .consts import (
     COUPON_BATCH_STATUS_ACTIVE,
     COUPON_BATCH_STATUS_INACTIVE,
     COUPON_STATUS_ACTIVE,
     COUPON_STATUS_USED,
+    COUPON_TYPE_FIXED,
+    COUPON_TYPE_PERCENT,
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
     PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
     PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
     PROMO_CAMPAIGN_STATUS_ACTIVE,
     PROMO_CAMPAIGN_STATUS_INACTIVE,
 )
-from flask import Flask, has_app_context
-from ...util import generate_id
-from .consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
+from .models import (
+    CouponUsage as CouponUsageModel,
+)
+from .models import (
+    PromoCampaign,
+    PromoRedemption,
+)
 
 
 def _is_legacy_operator_promotion(record: object) -> bool:

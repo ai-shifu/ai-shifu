@@ -8,7 +8,6 @@ SQL build → SQLite engine. The token middleware is bypassed by mocking
 from __future__ import annotations
 
 import pytest
-
 from flaskr.service.creator_analytics import engine as analytics_engine
 
 from .conftest import (
@@ -20,7 +19,6 @@ from .conftest import (
     seed_published_shifu,
     seed_user_info,
 )
-
 
 ENDPOINT = "/api/creator-analytics/query"
 

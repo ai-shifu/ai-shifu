@@ -8,21 +8,21 @@ from __future__ import annotations
 import math
 from datetime import datetime
 from typing import Any, Dict, Optional, Sequence, Set
+
 from flask import Flask
-from sqlalchemy import and_, or_
 from flaskr.dao import db
-from flaskr.service.learn.learn_dtos import ElementType
-from flaskr.service.learn.listen_element_payloads import _deserialize_payload
+from flaskr.service.common.models import (
+    raise_param_error,
+)
 from flaskr.service.learn.const import (
     ROLE_STUDENT,
     ROLE_TEACHER,
 )
+from flaskr.service.learn.learn_dtos import ElementType
+from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
-)
-from flaskr.service.common.models import (
-    raise_param_error,
 )
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseFollowUpCurrentRecordDTO,
@@ -33,17 +33,6 @@ from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseFollowUpSummaryDTO,
     AdminOperationCourseFollowUpTimelineItemDTO,
 )
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDASK_VALUE,
-    BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-)
-from flaskr.service.user.models import (
-    AuthCredential,
-    UserInfo as UserEntity,
-)
-
 from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_FOLLOW_UP_LIST_MAX_PAGE_SIZE,
     _build_course_outline_context_map,
@@ -51,6 +40,19 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _load_user_map,
     _normalize_identifier,
 )
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
+from flaskr.service.user.models import (
+    AuthCredential,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from sqlalchemy import and_, or_
 
 
 def _build_course_follow_up_base_subquery(shifu_bid: str):

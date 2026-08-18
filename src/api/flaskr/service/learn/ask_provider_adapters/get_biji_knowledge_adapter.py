@@ -13,10 +13,7 @@ from typing import Any, Generator
 
 import requests
 from flask import Flask
-
 from flaskr.i18n import _
-
-from .consts import ASK_PROVIDER_GET_BIJI_KNOWLEDGE
 
 from .base import (
     AskProviderChunk,
@@ -26,7 +23,7 @@ from .base import (
     AskProviderTimeoutError,
 )
 from .common import extract_text, provider_timeout_seconds, raise_for_provider_response
-
+from .consts import ASK_PROVIDER_GET_BIJI_KNOWLEDGE
 
 GET_BIJI_BASE_URL = "https://openapi.biji.com"
 GET_BIJI_KNOWLEDGE_RECALL_PATH = "/open/api/v1/resource/recall/knowledge"

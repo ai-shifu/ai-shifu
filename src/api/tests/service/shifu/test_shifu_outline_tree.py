@@ -8,15 +8,14 @@ blocked with a clear error instead of shipping a broken course.
 """
 
 import pytest
-from sqlalchemy import inspect as sa_inspect
-
 from flaskr.dao import db
 from flaskr.service.common.models import AppException
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.shifu.shifu_outline_funcs import (
-    build_outline_tree,
     assert_outline_tree_publishable,
+    build_outline_tree,
 )
+from sqlalchemy import inspect as sa_inspect
 
 
 def _mk_item(shifu_bid, bid, position, parent_bid=""):

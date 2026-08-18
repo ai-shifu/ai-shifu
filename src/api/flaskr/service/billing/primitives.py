@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from flask import has_app_context
-
 from flaskr.common.config import get_config as get_common_config
 from flaskr.service.config.funcs import get_config
 from flaskr.service.metering.consts import (

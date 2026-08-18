@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-
 SMS_MOBILE_PATTERN = re.compile(r"^1\d{10}$")
 
 

@@ -7,7 +7,6 @@ from decimal import Decimal
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.common.models import raise_error
 from flaskr.util.datetime import now_utc
 

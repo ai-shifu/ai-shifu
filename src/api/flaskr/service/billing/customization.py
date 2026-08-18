@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from io import BytesIO
-from dataclasses import dataclass
 import base64
 import binascii
 import hashlib
 import hmac
-from importlib import import_module
 import json
+from dataclasses import dataclass
+from importlib import import_module
+from io import BytesIO
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -17,15 +17,14 @@ from cryptography import x509
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from flask import Flask, current_app, has_app_context
-from PIL import Image, ImageOps, UnidentifiedImageError
-from werkzeug.datastructures import FileStorage
-
-from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
 from flaskr.service.common.models import AppException, raise_error, raise_param_error
+from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
 from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config.funcs import get_config
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+from PIL import Image, ImageOps, UnidentifiedImageError
+from werkzeug.datastructures import FileStorage
 
 from .domains import build_creator_domain_bindings
 from .entitlements import (

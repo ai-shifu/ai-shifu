@@ -9,8 +9,8 @@ import math
 import re
 from decimal import Decimal
 from typing import Any, Dict, Optional, Sequence
+
 from flask import Flask
-from sqlalchemy import and_, case, false, literal, not_, or_
 from flaskr.api.llm import PROVIDER_STATES, get_current_models
 from flaskr.api.tts import get_all_provider_configs
 from flaskr.dao import db
@@ -22,13 +22,9 @@ from flaskr.service.billing.models import (
     CreditLedgerEntry,
 )
 from flaskr.service.billing.primitives import credit_decimal_to_number
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_DEBUG,
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_TTS,
+from flaskr.service.common.models import (
+    raise_param_error,
 )
-from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
 )
@@ -37,25 +33,19 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
-from flaskr.service.common.models import (
-    raise_param_error,
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_TTS,
 )
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseCreditUsageDetailItemDTO,
     AdminOperationCourseCreditUsageDetailListDTO,
     AdminOperationCourseCreditUsageItemDTO,
     AdminOperationCourseCreditUsageListDTO,
 )
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-)
-from flaskr.service.user.models import (
-    AuthCredential,
-    UserInfo as UserEntity,
-)
-
 from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE,
     COURSE_CREDIT_USAGE_MODE_ASK,
@@ -73,6 +63,18 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _normalize_metadata_json,
     _resolve_visible_leaf_outline_bids,
 )
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
+from flaskr.service.user.models import (
+    AuthCredential,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from sqlalchemy import and_, case, false, literal, not_, or_
 
 
 def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:

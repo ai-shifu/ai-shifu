@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 
 import bcrypt
-
 from flaskr.service.common.models import raise_error
 
 

@@ -5,10 +5,9 @@ import json
 import uuid
 from decimal import Decimal
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.framework.plugin import plugin_manager as plugin_manager_module
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
@@ -58,11 +57,15 @@ def _post_json(client, path: str, payload: dict, headers: dict | None = None):
 @pytest.fixture
 def user_trial_client(monkeypatch, tmp_path):
     import flaskr.service.billing.auth_hooks as _billing_auth_hooks  # noqa: F401
-    from flaskr.service.user.auth.providers import password as _password_provider  # noqa: F401
-    from flaskr.service.user.auth.providers import phone as _phone_provider  # noqa: F401
     import flaskr.service.user.email_flow as email_flow
     import flaskr.service.user.phone_flow as phone_flow
     import flaskr.service.user.utils as user_utils
+    from flaskr.service.user.auth.providers import (
+        password as _password_provider,  # noqa: F401
+    )
+    from flaskr.service.user.auth.providers import (
+        phone as _phone_provider,  # noqa: F401
+    )
 
     db_path = tmp_path / "user-trial.db"
     db_uri = f"sqlite:///{db_path}"

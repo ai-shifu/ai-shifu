@@ -6,7 +6,6 @@ These exercise the static metadata only — no DB, no Flask app.
 from __future__ import annotations
 
 import pytest
-
 from flaskr.service.creator_analytics.whitelist import (
     ALLOWED_AGGREGATE_FUNCTIONS,
     ALLOWED_OPERATORS,
@@ -14,7 +13,6 @@ from flaskr.service.creator_analytics.whitelist import (
     TableSpec,
     get_table_spec,
 )
-
 
 EXPECTED_TABLE_KEYS = {
     "learn_progress_records",

@@ -8,23 +8,23 @@ API Reference:
 - Documentation: https://cloud.baidu.com/doc/SPEECH/s/mlbxh7xie
 """
 
-import logging
-import requests
-import time
 import hashlib
-from typing import Optional, List
+import logging
+import time
+from typing import List, Optional
 
-from flaskr.common.config import get_config
-from flaskr.common.log import AppLoggerProxy
+import requests
+
 from flaskr.api.tts.base import (
+    AudioSettings,
     BaseTTSProvider,
+    ParamRange,
+    ProviderConfig,
     TTSResult,
     VoiceSettings,
-    AudioSettings,
-    ProviderConfig,
-    ParamRange,
 )
-
+from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 

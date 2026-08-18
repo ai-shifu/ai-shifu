@@ -1,7 +1,8 @@
 # Desc: Common models for the application
-from flaskr.i18n import _
 import json
 from pathlib import Path
+
+from flaskr.i18n import _
 
 
 class AppException(Exception):

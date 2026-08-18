@@ -3,17 +3,19 @@ Integration tests for the complete configuration system.
 """
 
 import os
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from flask import Flask
 from flaskr.common.config import (
+    ENV_VARS,
     Config,
     EnhancedConfig,
-    EnvVar,
-    ENV_VARS,
     EnvironmentConfigError,
+    EnvVar,
     get_config,
 )
+
 from tests.common.fixtures.config_data import (
     DOCKER_ENV_CONFIG,
     PRODUCTION_ENV_CONFIG,

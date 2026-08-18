@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 from flaskr.dao import db
-from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.service.tts.models import (
     AUDIO_STATUS_COMPLETED,
     LearnGeneratedAudio,
 )
+from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
 
 def build_completed_audio_record(

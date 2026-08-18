@@ -4,24 +4,61 @@ import json
 import re
 from contextlib import contextmanager, nullcontext
 from typing import Any, Dict, Iterator, List, Optional, Tuple
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+import pytz
 from flask import Flask
-
+from flaskr.api.doc.feishu import send_notify
+from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.common.public_urls import build_stripe_learner_result_url
-from flaskr.util.datetime import now_utc
-from flaskr.service.config import get_config
+from flaskr.common.shifu_context import set_shifu_context
 from flaskr.common.swagger import register_schema_to_swagger
+from flaskr.dao import db, retry_on_deadlock, uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
+from flaskr.service.billing.api import (
+    build_provider_config_overrides,
+    resolve_creator_public_integrations,
+    resolve_payment_integration_for_new_order,
+    resolve_provider_credential_context,
+)
 from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
+from flaskr.service.common.models import raise_error
+from flaskr.service.common.native_payment_status import (
+    extract_native_trade_payload,
+    extract_native_trade_status,
+    native_snapshot_status,
+)
+from flaskr.service.config import config_overrides, get_config
 from flaskr.service.learn.learn_dtos import LearnShifuInfoDTO
 from flaskr.service.learn.learn_funcs import get_shifu_info
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
-    ORDER_STATUS_SUCCESS,
     ORDER_STATUS_REFUND,
-    ORDER_STATUS_TO_BE_PAID,
+    ORDER_STATUS_SUCCESS,
     ORDER_STATUS_TIMEOUT,
+    ORDER_STATUS_TO_BE_PAID,
     ORDER_STATUS_VALUES,
+)
+from flaskr.service.order.models import (
+    Order,
+    PingxxOrder,
+    StripeOrder,
+)
+from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
+from flaskr.service.order.payment_providers import PaymentRequest, get_payment_provider
+from flaskr.service.order.payment_providers.base import (
+    PaymentNotificationResult,
+    PaymentRefundRequest,
+)
+from flaskr.service.order.raw_snapshots import (
+    RAW_BIZ_DOMAIN_ORDER,
+    legacy_native_snapshot_query,
+    legacy_pingxx_snapshot_query,
+    legacy_stripe_snapshot_query,
+    native_snapshot_model,
+    should_update_native_snapshot_status,
+    upsert_native_snapshot,
 )
 from flaskr.service.promo.consts import (
     COUPON_STATUS_USED,
@@ -37,59 +74,21 @@ from flaskr.service.promo.funcs import (
 )
 from flaskr.service.promo.models import (
     Coupon,
-    CouponUsage as CouponUsageModel,
     PromoCampaign,
     PromoRedemption,
 )
+from flaskr.service.promo.models import (
+    CouponUsage as CouponUsageModel,
+)
+from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     load_user_aggregate,
     set_user_state,
 )
-from flaskr.api.doc.feishu import send_notify
-from flaskr.service.order.payment_providers import PaymentRequest, get_payment_provider
-from flaskr.service.order.payment_providers.base import (
-    PaymentNotificationResult,
-    PaymentRefundRequest,
-)
-from flaskr.service.common.native_payment_status import (
-    extract_native_trade_payload,
-    extract_native_trade_status,
-    native_snapshot_status,
-)
-from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
+from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id as get_uuid
-from flaskr.common.cache_provider import cache as cache_provider
-from flaskr.dao import db, retry_on_deadlock
-from flaskr.dao import uow
-from flaskr.dao.uow import app_context_scope, unit_of_work
-from flaskr.service.common.models import raise_error
-from flaskr.service.order.models import (
-    Order,
-    PingxxOrder,
-    StripeOrder,
-)
-from flaskr.service.order.raw_snapshots import (
-    RAW_BIZ_DOMAIN_ORDER,
-    legacy_native_snapshot_query,
-    legacy_pingxx_snapshot_query,
-    legacy_stripe_snapshot_query,
-    native_snapshot_model,
-    should_update_native_snapshot_status,
-    upsert_native_snapshot,
-)
-import pytz
-from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
-from flaskr.common.shifu_context import set_shifu_context
-from flaskr.service.shifu.utils import get_shifu_creator_bid
-from flaskr.service.billing.api import (
-    build_provider_config_overrides,
-    resolve_creator_public_integrations,
-    resolve_payment_integration_for_new_order,
-    resolve_provider_credential_context,
-)
-from flaskr.service.config import config_overrides
 
 
 @register_schema_to_swagger

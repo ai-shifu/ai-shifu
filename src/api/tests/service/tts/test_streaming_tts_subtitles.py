@@ -1,7 +1,6 @@
+import flaskr.dao as dao
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-
-import flaskr.dao as dao
 
 if dao.db is None:
     _test_app = Flask("test-streaming-tts-subtitles")

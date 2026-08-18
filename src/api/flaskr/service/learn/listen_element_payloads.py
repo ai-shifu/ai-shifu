@@ -9,11 +9,11 @@ from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementPayloadDTO,
     ElementType,
-    SubtitleCueDTO,
     ElementVisualDTO,
+    SubtitleCueDTO,
 )
-from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.service.learn.listen_element_types import _visual_type_for_element
+from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
 
 def _payload_from_stream_element(

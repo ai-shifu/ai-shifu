@@ -8,7 +8,6 @@ from decimal import Decimal
 from typing import Literal
 
 from flask import has_app_context
-
 from flaskr.dao import db
 
 from .bucket_categories import (

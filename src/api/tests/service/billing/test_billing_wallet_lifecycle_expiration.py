@@ -3,12 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from flask import Flask
-import pytest
-from sqlalchemy.orm import attributes
-from sqlalchemy.orm.exc import ObjectDeletedError
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -27,7 +24,8 @@ from flaskr.service.billing.wallets import (
     _build_expire_ledger_idempotency_key,
     expire_credit_wallet_buckets,
 )
-
+from sqlalchemy.orm import attributes
+from sqlalchemy.orm.exc import ObjectDeletedError
 
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
 

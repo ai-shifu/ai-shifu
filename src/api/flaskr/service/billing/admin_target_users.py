@@ -4,7 +4,6 @@ from importlib import import_module
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,

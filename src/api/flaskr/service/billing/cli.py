@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 import hashlib
 import json
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -26,27 +26,31 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
 
 from .checkout import reconcile_billing_provider_reference
-from .credit_audit import audit_credit_state
 from .consts import (
     ALLOCATION_INTERVAL_MANUAL,
     ALLOCATION_INTERVAL_ONE_TIME,
     ALLOCATION_INTERVAL_PER_CYCLE,
-    BILLING_METRIC_LLM_INPUT_TOKENS,
-    BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    BILL_SYS_CONFIG_SEEDS,
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
     BILLING_INTERVAL_DAY,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_NONE,
     BILLING_INTERVAL_YEAR,
+    BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_MODE_MANUAL,
     BILLING_MODE_ONE_TIME,
     BILLING_MODE_RECURRING,
     BILLING_ORDER_STATUS_FAILED,
-    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -66,16 +70,12 @@ from .consts import (
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
+    BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
-    BILLING_SUBSCRIPTION_STATUS_LABELS,
-    BILL_SYS_CONFIG_SEEDS,
-    BILL_USAGE_SCENE_DEBUG,
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_LLM,
     CREDIT_USAGE_RATE_SEEDS,
 )
+from .credit_audit import audit_credit_state
 from .daily_aggregates import (
     detect_daily_aggregate_rebuild_range,
     rebuild_daily_aggregates,

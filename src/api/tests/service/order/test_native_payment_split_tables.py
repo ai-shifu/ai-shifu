@@ -2,12 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from flask import Flask
-import pytest
-from sqlalchemy import inspect
-from sqlalchemy.exc import IntegrityError
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.billing.checkout import (
     _persist_billing_native_raw_snapshot,
     load_billing_order_for_native_event,
@@ -26,6 +23,8 @@ from flaskr.service.order.raw_snapshots import (
     legacy_native_snapshot_query,
     upsert_native_snapshot,
 )
+from sqlalchemy import inspect
+from sqlalchemy.exc import IntegrityError
 
 
 @pytest.fixture

@@ -6,6 +6,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+from flaskr.dao import db
+from flaskr.service.common.models import raise_param_error
+from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
+
 from .consts import (
     BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
     BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS,
@@ -19,16 +24,11 @@ from .consts import (
 )
 from .dtos import BillingEntitlementsDTO
 from .models import BillingEntitlement, BillingProduct
+from .primitives import normalize_bid as _normalize_bid
 from .queries import (
     load_primary_active_subscription as _load_primary_active_subscription,
 )
-from .primitives import normalize_bid as _normalize_bid
 from .value_objects import JsonObjectMap
-
-from flaskr.dao import db
-from flaskr.service.common.models import raise_param_error
-from flaskr.util.uuid import generate_id
-from flaskr.util.datetime import now_utc
 
 
 @dataclass(slots=True, frozen=True)

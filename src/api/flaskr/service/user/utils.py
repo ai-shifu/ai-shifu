@@ -1,33 +1,32 @@
-from flask import Flask, has_app_context
-import jwt
-import time
-import string
+import json
 import random
 import smtplib
-from email.mime.text import MIMEText
+import string
+import time
 from email.mime.multipart import MIMEMultipart
-from flaskr.i18n import _
+from email.mime.text import MIMEText
 
-from ..common.models import raise_error, raise_param_error
-from flaskr.common.cache_provider import cache as redis
-from ...dao import db
+import jwt
+from flask import Flask, has_app_context
 from flaskr.api.sms.aliyun import send_sms_code_ali
-from flaskr.service.user.captcha import consume_captcha_ticket
+from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
-from .models import UserVerifyCode
-
-import json
-
-from flaskr.service.config.funcs import get_config as get_dynamic_config
-from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+from flaskr.i18n import _
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
     normalize_phone_identifier,
 )
+from flaskr.service.config.funcs import get_config as get_dynamic_config
+from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+from flaskr.service.user.captcha import consume_captcha_ticket
 from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
 from flaskr.service.user.token_store import token_store
-from flaskr.util.datetime import now_utc
 from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
+
+from ...dao import db
+from ..common.models import raise_error, raise_param_error
+from .models import UserVerifyCode
 
 
 def _redis_prefix(app: Flask, config_key: str) -> str:

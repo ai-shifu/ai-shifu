@@ -25,11 +25,9 @@ from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
-from flask import Flask
-import pytest
-from sqlalchemy.orm import sessionmaker
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.dao import uow
 from flaskr.service.billing import renewal as billing_renewal
 from flaskr.service.billing import renewal_event_transitions
@@ -44,7 +42,6 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
-    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_RENEWAL_EVENT_TYPE_RECONCILE,
@@ -52,6 +49,7 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
+    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
@@ -60,6 +58,7 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.renewal import run_billing_renewal_event
 from flaskr.util.datetime import now_utc
+from sqlalchemy.orm import sessionmaker
 from tests.common.fixtures.bill_products import build_bill_products
 
 CREATOR_BID = "creator-uow-renewal"

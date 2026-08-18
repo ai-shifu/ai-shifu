@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import Numeric
-
 from flaskr.service.billing.models import (
     BillingRenewalEvent,
     CreditLedgerEntry,
@@ -11,6 +9,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from sqlalchemy import Numeric
 
 _API_ROOT = Path(__file__).resolve().parents[3]
 

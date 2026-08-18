@@ -1,6 +1,8 @@
-from ...common.swagger import register_schema_to_swagger
-from pydantic import BaseModel, Field
 import math
+
+from pydantic import BaseModel, Field
+
+from ...common.swagger import register_schema_to_swagger
 
 USER_STATE_UNREGISTERED = 0
 USER_STATE_REGISTERED = 1

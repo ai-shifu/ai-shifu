@@ -6,16 +6,24 @@ from dataclasses import dataclass
 
 from flask import Flask
 
+from .consts import BILLING_ORDER_STATUS_PAID
 from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
+)
+from .credit_notifications import (
     stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
 )
-from .consts import BILLING_ORDER_STATUS_PAID
 from .models import BillingOrder
 from .notifications import (
     enqueue_billing_paid_feishu as _enqueue_billing_paid_feishu,
+)
+from .notifications import (
     enqueue_subscription_purchase_sms as _enqueue_subscription_purchase_sms,
+)
+from .notifications import (
     stage_billing_paid_feishu_for_paid_order as _stage_billing_paid_feishu_for_paid_order,
+)
+from .notifications import (
     stage_subscription_purchase_sms_for_paid_order as _stage_subscription_purchase_sms_for_paid_order,
 )
 from .preorders import is_preorder_order as _is_preorder_order

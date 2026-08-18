@@ -12,19 +12,19 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from flask import Flask, has_app_context, has_request_context, request
-from sqlalchemy import func
-
-from flaskr.util.datetime import now_utc, to_utc_iso
-from sqlalchemy.exc import IntegrityError
-
 from flaskr.common.config import get_config as get_common_config
 from flaskr.dao import db
 from flaskr.service.billing.api import (
     ReferralPlanRewardRequest,
+)
+from flaskr.service.billing.api import (
     grant_referral_plan_reward as _grant_referral_plan_reward_request,
 )
 from flaskr.service.user.models import UserInfo
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from .consts import (
     REFERRAL_CAMPAIGN_STATUS_ACTIVE,
@@ -52,7 +52,6 @@ from .models import (
     ReferralInviteReward,
 )
 from .reward_queue import build_referral_reward_queue
-
 
 _INVITE_CODE_ALPHABET = string.ascii_uppercase + string.digits
 _INVITE_CODE_LENGTH = 8

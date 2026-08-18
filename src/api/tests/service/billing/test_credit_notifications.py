@@ -1,23 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from decimal import Decimal
 import os
 import secrets
 import sys
 import time as time_module
+from datetime import datetime, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.i18n import load_translations
 from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
     CREDIT_NOTIFICATION_STATUS_PENDING,
     CREDIT_NOTIFICATION_STATUS_SENT,

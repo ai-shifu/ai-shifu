@@ -3,10 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Union, get_args, get_origin
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
-
 from flaskr.common.swagger import register_schema_to_swagger
-
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 _EMPTY_DATETIME_VALUES = {"", "0000-00-00", "0000-00-00 00:00:00"}
 

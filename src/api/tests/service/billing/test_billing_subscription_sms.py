@@ -5,11 +5,11 @@ import types
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.i18n import load_translations
+from flaskr.service.billing.checkout import sync_billing_order
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
@@ -21,13 +21,14 @@ from flaskr.service.billing.consts import (
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_TRIAL_PRODUCT_BID,
 )
-from flaskr.service.billing.checkout import sync_billing_order
 from flaskr.service.billing.models import BillingOrder, BillingSubscription
 from flaskr.service.billing.notifications import (
     BILLING_PAID_FEISHU_TASK_NAME,
-    TASK_NAME as SUBSCRIPTION_SMS_TASK_NAME,
     deliver_subscription_purchase_sms,
     requeue_subscription_purchase_sms,
+)
+from flaskr.service.billing.notifications import (
+    TASK_NAME as SUBSCRIPTION_SMS_TASK_NAME,
 )
 from flaskr.service.billing.tasks import (
     BillingPaidFeishuRetryableError,
@@ -35,8 +36,10 @@ from flaskr.service.billing.tasks import (
     send_billing_paid_feishu_task,
     send_subscription_purchase_sms_task,
 )
-from flaskr.service.billing.webhooks import apply_billing_stripe_notification
-from flaskr.service.billing.webhooks import handle_billing_pingxx_webhook
+from flaskr.service.billing.webhooks import (
+    apply_billing_stripe_notification,
+    handle_billing_pingxx_webhook,
+)
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import UserConversion

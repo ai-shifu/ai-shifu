@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from flask import Flask
-
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.auth.base import (
     AuthProvider,
     AuthResult,
@@ -15,9 +15,8 @@ from flaskr.service.user.auth.factory import (
     has_provider,
     register_provider,
 )
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
-from flaskr.service.user.repository import find_credential, load_user_aggregate
 from flaskr.service.user.phone_flow import verify_phone_code
+from flaskr.service.user.repository import find_credential, load_user_aggregate
 from flaskr.service.user.utils import send_sms_code
 
 

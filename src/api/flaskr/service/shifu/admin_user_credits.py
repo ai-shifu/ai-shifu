@@ -7,13 +7,11 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from json import JSONDecodeError
 from typing import Any, Dict, Optional, Sequence
+
 from flask import current_app
-from sqlalchemy import case, not_, or_
 from flaskr.dao import db
 from flaskr.service.billing.bucket_categories import (
     resolve_wallet_bucket_runtime_category,
@@ -46,17 +44,14 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.primitives import (
     credit_decimal_to_number,
+)
+from flaskr.service.billing.primitives import (
     quantize_credit_amount as _quantize_credit_amount,
+)
+from flaskr.service.billing.primitives import (
     safe_int as _safe_int,
 )
 from flaskr.service.billing.queries import load_primary_active_subscription
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_DEBUG,
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_TTS,
-)
-from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
 )
@@ -65,6 +60,17 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_TTS,
+)
+from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu.admin_course_summaries import (
+    _load_latest_courses_by_shifu_bids,
+    _merge_courses,
+)
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseCreditUsageDetailItemDTO,
     AdminOperationCourseCreditUsageItemDTO,
@@ -72,25 +78,6 @@ from flaskr.service.shifu.admin_dtos_courses import (
 from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserCreditLedgerItemDTO,
     AdminOperationUserCreditSummaryDTO,
-)
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-)
-from flaskr.service.shifu.models import (
-    DraftOutlineItem,
-    DraftShifu,
-    PublishedOutlineItem,
-    PublishedShifu,
-)
-from flaskr.service.user.models import (
-    UserInfo as UserEntity,
-)
-
-from flaskr.service.shifu.admin_course_summaries import (
-    _load_latest_courses_by_shifu_bids,
-    _merge_courses,
 )
 
 # The legacy flaskr.service.shifu.admin module bound these names from
@@ -112,18 +99,34 @@ from flaskr.service.shifu.admin_shared import (
     COURSE_CREDIT_USAGE_SCENE_PREVIEW,
     COURSE_CREDIT_USAGE_VIEW_GROUPED,
     COURSE_CREDIT_USAGE_VIEW_RAW,
-    OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCES,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_SUBSCRIPTION,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TRIAL_SUBSCRIPTION,
+    OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCES,
     OPERATOR_USER_CREDIT_FILTER_TYPES,
     OPERATOR_USER_CREDIT_GRANT_SOURCES,
     OPERATOR_USER_CREDIT_TYPE_ALL,
     _format_decimal,
     _normalize_metadata_json,
 )
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from flaskr.util.datetime import now_utc
+from sqlalchemy import case, not_, or_
 
 
 def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:

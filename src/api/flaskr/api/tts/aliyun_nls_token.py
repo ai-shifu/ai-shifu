@@ -29,7 +29,6 @@ from flaskr.common.cache_provider import cache
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
 
-
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
 

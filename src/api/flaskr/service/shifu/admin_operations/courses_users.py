@@ -8,30 +8,24 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional, Sequence, Set
+
 from flask import Flask
 from flaskr.dao import db
+from flaskr.service.common.dtos import PageNationDTO
+from flaskr.service.common.models import (
+    raise_param_error,
+)
 from flaskr.service.learn.const import (
     LEARN_STATUS_RESET,
 )
 from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
-from flaskr.service.common.dtos import PageNationDTO
-from flaskr.service.common.models import (
-    raise_param_error,
-)
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseUserDTO,
 )
-from flaskr.service.shifu.models import (
-    AiCourseAuth,
-)
-from flaskr.service.user.models import (
-    UserInfo as UserEntity,
-)
-
 from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_USER_LIST_MAX_PAGE_SIZE,
     _build_course_order_amount_expr,
@@ -43,6 +37,12 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _resolve_course_user_learning_status,
     _resolve_course_user_role,
     _resolve_visible_leaf_outline_bids,
+)
+from flaskr.service.shifu.models import (
+    AiCourseAuth,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
 )
 
 

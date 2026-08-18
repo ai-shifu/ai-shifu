@@ -1,6 +1,7 @@
-from sqlalchemy import Column, String, Integer, TIMESTAMP
-from sqlalchemy.dialects.mysql import BIGINT
 from flaskr.util.datetime import now_utc
+from sqlalchemy import TIMESTAMP, Column, Integer, String
+from sqlalchemy.dialects.mysql import BIGINT
+
 from ...dao import db
 
 

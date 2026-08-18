@@ -3,6 +3,11 @@ from flask import Flask, request
 from flaskr.common.config import ENV_VARS
 from flaskr.common.public_urls import build_google_oauth_callback_url
 from flaskr.common.shifu_context import get_shifu_creator_bid, with_shifu_context
+from flaskr.service.billing.customization import (
+    build_customization_capabilities,
+    is_creator_customization_enabled,
+    resolve_creator_public_integrations,
+)
 from flaskr.service.billing.dtos import (
     RuntimeConfigDTO,
     RuntimeLegalUrlsDTO,
@@ -15,11 +20,6 @@ from flaskr.service.billing.primitives import (
 from flaskr.service.billing.runtime_config import (
     build_default_runtime_billing_context,
     build_runtime_billing_context,
-)
-from flaskr.service.billing.customization import (
-    build_customization_capabilities,
-    is_creator_customization_enabled,
-    resolve_creator_public_integrations,
 )
 from flaskr.service.config.funcs import get_config
 

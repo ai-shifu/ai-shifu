@@ -4,7 +4,6 @@ import uuid
 from typing import Iterable
 
 from flask import Flask
-
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     LearnElementRecordDTO,
@@ -12,15 +11,15 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.learn_funcs import get_learn_record
+from flaskr.service.learn.legacy_record_builder import build_legacy_record_for_progress
 from flaskr.service.learn.listen_element_history import (
     get_listen_element_record as _get_listen_element_record,
 )
-from flaskr.service.learn.listen_element_mdflow_backfill import (
-    backfill_learn_generated_elements_batch,
-)
-from flaskr.service.learn.legacy_record_builder import build_legacy_record_for_progress
 from flaskr.service.learn.listen_element_legacy import (
     build_listen_elements_from_legacy_record,
+)
+from flaskr.service.learn.listen_element_mdflow_backfill import (
+    backfill_learn_generated_elements_batch,
 )
 from flaskr.service.learn.listen_element_run_persistence import (
     ListenElementRunPersistenceMixin,

@@ -3,18 +3,20 @@ Unit tests for Config class (Flask integration).
 """
 
 import os
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 from flask import Flask
 from flaskr.common.config import (
+    __ENHANCED_CONFIG__,
     Config,
     EnvironmentConfigError,
     get_config,
     get_redis_derived_prefix,
     get_redis_key_prefix,
     has_explicit_env_override,
-    __ENHANCED_CONFIG__,
 )
+
 from tests.common.fixtures.config_data import DOCKER_ENV_CONFIG
 
 

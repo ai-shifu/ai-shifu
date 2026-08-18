@@ -16,12 +16,10 @@ import threading
 from typing import Any, Dict, List, Optional
 
 from flask import Flask
+from flaskr.dao import db
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, Result
 from sqlalchemy.sql import Select
-
-from flaskr.dao import db
-
 
 _FALLBACK_WARNED = False
 _lock = threading.Lock()

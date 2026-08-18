@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from flask import Flask
-
 from flaskr.framework.plugin.plugin_manager import extension
 from flaskr.service.user.post_auth import PostAuthContext
 

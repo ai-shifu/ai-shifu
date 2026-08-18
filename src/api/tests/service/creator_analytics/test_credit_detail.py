@@ -14,7 +14,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 import pytest
-
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
@@ -26,7 +25,6 @@ from .conftest import (
     seed_credit_ledger_entry,
     seed_owned_course,
 )
-
 
 ENDPOINT = "/api/creator-analytics/credit-detail"
 

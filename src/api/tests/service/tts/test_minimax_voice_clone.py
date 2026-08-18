@@ -4,10 +4,9 @@ from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.billing.consts import (
     BILLING_METRIC_TTS_REQUEST_COUNT,
     CREDIT_BUCKET_CATEGORY_FREE,
@@ -20,7 +19,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu
@@ -271,10 +270,10 @@ def test_run_minimax_voice_clone_success_captures_credit_once(
     monkeypatch,
 ) -> None:
     from flaskr.service.tts.minimax_voice_clone import (
-        TTS_MINIMAX_CLONE_STATUS_READY,
         TTS_MINIMAX_CLONE_STATUS_QUEUED,
-        submit_minimax_voice_clone,
+        TTS_MINIMAX_CLONE_STATUS_READY,
         run_minimax_voice_clone,
+        submit_minimax_voice_clone,
     )
     from flaskr.service.tts.models import TTSMiniMaxClonedVoice
 
@@ -689,8 +688,8 @@ def test_run_minimax_voice_clone_releases_credit_on_normalization_failure(
 ) -> None:
     from flaskr.service.tts.minimax_voice_clone import (
         TTS_MINIMAX_CLONE_STATUS_FAILED,
-        submit_minimax_voice_clone,
         run_minimax_voice_clone,
+        submit_minimax_voice_clone,
     )
     from flaskr.service.tts.models import TTSMiniMaxClonedVoice
 

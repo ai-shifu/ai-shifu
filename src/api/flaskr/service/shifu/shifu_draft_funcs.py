@@ -7,59 +7,60 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from typing import Any, Optional
-import math
 import json
+import math
+from datetime import datetime
 from time import perf_counter
+from typing import Any, Optional
 
 from flask import Flask
-from ...dao import db
-from datetime import datetime
-from flaskr.util.datetime import now_utc
-from .dtos import ShifuDto, ShifuDetailDto
-from ...util import generate_id
-from .consts import (
-    STATUS_DRAFT,
-    STATUS_PUBLISHED,
-    SHIFU_NAME_MAX_LENGTH,
-    ASK_MODE_DEFAULT,
-    ASK_MODE_DISABLE,
-    ASK_MODE_ENABLE,
-)
-from ..check_risk.funcs import check_text_with_risk_control
-from ..common.models import raise_error, raise_error_with_args
-from .utils import (
-    get_shifu_res_url,
-    parse_shifu_res_bid,
-    get_shifu_res_url_dict,
-)
-from .models import DraftShifu, FavoriteScenario, ShifuUserArchive, PublishedShifu
-from .permissions import get_user_shifu_permissions
-from .course_activity import load_course_activity_map
-from .shifu_history_manager import save_shifu_history
-from ..common.dtos import PageNationDTO
-from ...service.config import get_config
-from .funcs import shifu_permission_verification
-from .shifu_outline_funcs import create_default_outlines_for_new_shifu
-from .demo_courses import is_builtin_demo_course
 from flaskr.i18n import _
-from ..tts.validation import validate_tts_settings_strict
+from flaskr.util.datetime import now_utc
+
+from ...dao import db
+from ...service.config import get_config
+from ...util import generate_id
+from ..check_risk.funcs import check_text_with_risk_control
+from ..common.dtos import PageNationDTO
+from ..common.models import raise_error, raise_error_with_args
 
 # Deprecation-window shim: the ask-provider constants moved to their canonical
 # home in flaskr/service/learn/ask_provider_adapters/consts.py. They are
 # re-exported here so existing importers keep working; import from the new
 # location in new code.
 from ..learn.ask_provider_adapters.consts import (  # noqa: F401
-    ASK_PROVIDER_LLM,
-    ASK_PROVIDER_DIFY,
     ASK_PROVIDER_COZE,
     ASK_PROVIDER_COZE_WORKFLOW,
-    ASK_PROVIDER_VOLC_KNOWLEDGE,
+    ASK_PROVIDER_DIFY,
     ASK_PROVIDER_GET_BIJI_KNOWLEDGE,
+    ASK_PROVIDER_LLM,
     ASK_PROVIDER_MODE_PROVIDER_ONLY,
     ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
-    SUPPORTED_ASK_PROVIDERS,
+    ASK_PROVIDER_VOLC_KNOWLEDGE,
     SUPPORTED_ASK_PROVIDER_MODES,
+    SUPPORTED_ASK_PROVIDERS,
+)
+from ..tts.validation import validate_tts_settings_strict
+from .consts import (
+    ASK_MODE_DEFAULT,
+    ASK_MODE_DISABLE,
+    ASK_MODE_ENABLE,
+    SHIFU_NAME_MAX_LENGTH,
+    STATUS_DRAFT,
+    STATUS_PUBLISHED,
+)
+from .course_activity import load_course_activity_map
+from .demo_courses import is_builtin_demo_course
+from .dtos import ShifuDetailDto, ShifuDto
+from .funcs import shifu_permission_verification
+from .models import DraftShifu, FavoriteScenario, PublishedShifu, ShifuUserArchive
+from .permissions import get_user_shifu_permissions
+from .shifu_history_manager import save_shifu_history
+from .shifu_outline_funcs import create_default_outlines_for_new_shifu
+from .utils import (
+    get_shifu_res_url,
+    get_shifu_res_url_dict,
+    parse_shifu_res_bid,
 )
 
 SUPPORTED_ASK_ENABLED_STATUSES = {

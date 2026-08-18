@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from decimal import Decimal, ROUND_HALF_UP
-from datetime import date, datetime, timedelta
 import json
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from flask import Flask
-from sqlalchemy import and_, case, false, or_
-from sqlalchemy.orm import aliased
-
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.dashboard.dtos import (
     DashboardCourseDetailBasicInfoDTO,
@@ -27,10 +23,10 @@ from flaskr.service.dashboard.dtos import (
     DashboardCourseFollowUpItemDTO,
     DashboardCourseFollowUpListDTO,
     DashboardCourseFollowUpSummaryDTO,
+    DashboardCourseFollowUpTimelineItemDTO,
     DashboardCourseRatingItemDTO,
     DashboardCourseRatingListDTO,
     DashboardCourseRatingSummaryDTO,
-    DashboardCourseFollowUpTimelineItemDTO,
     DashboardEntryCourseItemDTO,
     DashboardEntryDTO,
     DashboardEntrySummaryDTO,
@@ -61,8 +57,12 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.util.datetime import now_utc
 from flaskr.util.timezone import _coerce_datetime
+from sqlalchemy import and_, case, false, or_
+from sqlalchemy.orm import aliased
 
 
 @dataclass(frozen=True)

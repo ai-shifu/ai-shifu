@@ -10,7 +10,6 @@ Date: 2025-08-07
 from typing import Optional
 
 from flask import Flask
-
 from flaskr.service.resource.models import Resource
 
 

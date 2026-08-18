@@ -18,9 +18,9 @@ from flaskr.service.promo.admin import (
 from flaskr.service.promo.creator_redemption import (
     create_creator_course_redemption_coupon,
     get_creator_course_redemption_coupon_detail,
-    list_creator_course_redemption_coupons,
     list_creator_course_redemption_coupon_codes,
     list_creator_course_redemption_coupon_usages,
+    list_creator_course_redemption_coupons,
     update_creator_course_redemption_coupon,
     update_creator_course_redemption_coupon_status,
 )

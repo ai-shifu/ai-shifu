@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from flask import Flask
 from typing import Any, Set
 
+from flask import Flask
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 
 BUILTIN_DEMO_TITLES: Set[str] = {

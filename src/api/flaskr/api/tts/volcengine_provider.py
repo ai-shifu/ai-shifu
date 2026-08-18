@@ -9,27 +9,27 @@ API Reference:
 - Uses custom binary protocol for frame encoding/decoding
 """
 
-import re
-import uuid
 import logging
+import re
 import threading
-from typing import Any, Optional, List
+import uuid
+from typing import Any, List, Optional
 
-from flaskr.common.config import get_config
-from flaskr.common.log import AppLoggerProxy
 from flaskr.api.tts.base import (
+    AudioSettings,
     BaseTTSProvider,
+    ParamRange,
+    ProviderConfig,
     TTSResult,
     VoiceSettings,
-    AudioSettings,
-    ProviderConfig,
-    ParamRange,
 )
 from flaskr.api.tts.volcengine_protocol import (
-    VolcengineProtocol,
     Event,
     MessageType,
+    VolcengineProtocol,
 )
+from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 
 try:
     import websocket

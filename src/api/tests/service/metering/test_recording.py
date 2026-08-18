@@ -1,7 +1,6 @@
-from flask import Flask
-import pytest
-
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.metering import UsageContext, record_llm_usage, record_tts_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -341,9 +340,8 @@ def test_persist_cleanup_targets_failed_session_inside_context(app, monkeypatch)
     failed) and classify the failure: ordinary errors roll back, protocol
     interrupts invalidate."""
     from flask import current_app
-    from sqlalchemy.exc import ResourceClosedError
-
     from flaskr.service.metering import recorder as recorder_module
+    from sqlalchemy.exc import ResourceClosedError
 
     events = []
 

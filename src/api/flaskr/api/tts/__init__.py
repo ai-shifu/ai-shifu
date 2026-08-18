@@ -12,38 +12,45 @@ This module provides integration with multiple Text-to-Speech providers:
 The provider can be selected per-Shifu configuration.
 """
 
-import logging
 import json
+import logging
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 from flask import has_request_context, request
 
+from flaskr.api.tts.aliyun_nls_token import is_aliyun_nls_token_configured
+from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
+from flaskr.api.tts.baidu_provider import BaiduTTSProvider
+from flaskr.api.tts.base import (
+    AudioSettings as AudioSettings,
+)
+from flaskr.api.tts.base import (
+    BaseTTSProvider as BaseTTSProvider,
+)
+
+# Re-export base classes for backward compatibility
+from flaskr.api.tts.base import (
+    TTSProvider as TTSProvider,
+)
+from flaskr.api.tts.base import (
+    TTSResult as TTSResult,
+)
+from flaskr.api.tts.base import (
+    VoiceSettings as VoiceSettings,
+)
+from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
+from flaskr.api.tts.tencent_provider import TencentTTSProvider
+from flaskr.api.tts.tencent_texttovoice_provider import TencentTextToVoiceProvider
+from flaskr.api.tts.volcengine_http_provider import VolcengineHttpTTSProvider
+from flaskr.api.tts.volcengine_provider import VolcengineTTSProvider
 from flaskr.common.config import get_config
-from flaskr.util.datetime import now_utc
 from flaskr.common.log import AppLoggerProxy
 from flaskr.i18n import get_current_language
 from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
 from flaskr.service.billing.rate_references import load_llm_credit_1x_unit_cost
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_TTS
-
-# Re-export base classes for backward compatibility
-from flaskr.api.tts.base import (
-    TTSProvider as TTSProvider,
-    TTSResult as TTSResult,
-    VoiceSettings as VoiceSettings,
-    AudioSettings as AudioSettings,
-    BaseTTSProvider as BaseTTSProvider,
-)
-from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
-from flaskr.api.tts.volcengine_provider import VolcengineTTSProvider
-from flaskr.api.tts.volcengine_http_provider import VolcengineHttpTTSProvider
-from flaskr.api.tts.baidu_provider import BaiduTTSProvider
-from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
-from flaskr.api.tts.aliyun_nls_token import is_aliyun_nls_token_configured
-from flaskr.api.tts.tencent_provider import TencentTTSProvider
-from flaskr.api.tts.tencent_texttovoice_provider import TencentTextToVoiceProvider
-
+from flaskr.util.datetime import now_utc
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 TTS_DEFAULT_MODEL_TOKEN = "default"

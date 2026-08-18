@@ -5,27 +5,10 @@
 
 import uuid
 from urllib.parse import urlsplit
+
 from flask import Flask
-
-from ..common.models import raise_error
-
-from .utils import generate_token
-from ...service.common.dtos import USER_STATE_UNREGISTERED, UserToken
-from ...service.user.models import UserConversion
-from ...dao import db
-from ...api.wechat import get_wechat_access_token
 from flaskr.common.shifu_context import get_shifu_creator_bid as get_context_creator_bid
 from flaskr.service.billing.api import resolve_creator_public_integrations
-from .repository import (
-    build_user_info_from_aggregate,
-    create_user_entity,
-    ensure_user_aggregate,
-    find_credential,
-    get_user_entity_by_bid,
-    load_user_aggregate,
-    upsert_wechat_credentials,
-    update_user_entity_fields,
-)
 from flaskr.service.common.oss_utils import (
     OSS_PROFILE_DEFAULT,
     create_oss_bucket,
@@ -39,6 +22,23 @@ from flaskr.service.common.storage import (
     get_local_storage_path,
     upload_to_storage,
 )
+
+from ...api.wechat import get_wechat_access_token
+from ...dao import db
+from ...service.common.dtos import USER_STATE_UNREGISTERED, UserToken
+from ...service.user.models import UserConversion
+from ..common.models import raise_error
+from .repository import (
+    build_user_info_from_aggregate,
+    create_user_entity,
+    ensure_user_aggregate,
+    find_credential,
+    get_user_entity_by_bid,
+    load_user_aggregate,
+    update_user_entity_fields,
+    upsert_wechat_credentials,
+)
+from .utils import generate_token
 
 # generate temp user for anonymous user
 # author: yfge

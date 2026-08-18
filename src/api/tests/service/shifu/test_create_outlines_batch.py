@@ -14,11 +14,10 @@ position-allocation behavior rather than lock contention.
 from __future__ import annotations
 
 import pytest
-
 from flaskr.dao import db
-from flaskr.service.common.models import AppException, ERROR_CODE
-from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.shifu import shifu_outline_funcs
+from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_outline_funcs import (
     assert_outline_tree_publishable,
     create_outline,

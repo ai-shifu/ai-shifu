@@ -1,5 +1,5 @@
-from flaskr.service.shifu import ask_provider_registry as module
 from flaskr.i18n import set_language
+from flaskr.service.shifu import ask_provider_registry as module
 
 
 def test_validate_dify_requires_shifu_level_base_url_and_api_key():

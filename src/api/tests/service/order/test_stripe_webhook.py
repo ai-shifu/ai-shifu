@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
 import importlib
-
-from flask import Flask
-import pytest
+from datetime import datetime
 
 import flaskr.dao as dao
+import pytest
+from flask import Flask
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
@@ -17,8 +16,6 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingSubscription,
-)
-from flaskr.service.billing.models import (
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,

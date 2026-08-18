@@ -3,9 +3,8 @@ from __future__ import annotations
 import sys
 import types
 
-from flask import Flask, current_app
-
 import flaskr.common.celery_app as celery_app_module
+from flask import Flask, current_app
 
 
 def _assert_cron_schedule(

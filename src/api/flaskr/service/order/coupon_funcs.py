@@ -1,28 +1,30 @@
+import decimal
+import json
+from typing import List, Optional, Tuple
+
 from flask import Flask
-from flaskr.service.promo.models import Coupon, CouponUsage as CouponUsageModel
+from flaskr.api.doc.feishu import send_notify
+from flaskr.dao import db
+from flaskr.service.common import raise_error
+from flaskr.service.order.funs import query_buy_record, success_buy_record
 from flaskr.service.order.models import Order
-from flaskr.service.order.funs import success_buy_record, query_buy_record
-from flaskr.service.promo.consts import (
-    COUPON_APPLY_TYPE_SPECIFIC,
-    COUPON_STATUS_USED,
-    COUPON_STATUS_ACTIVE,
-    COUPON_TYPE_FIXED,
-    COUPON_TYPE_PERCENT,
-)
 from flaskr.service.promo.api import (
     build_coupon_enabled_expression,
     is_coupon_enabled_for_runtime,
 )
-from flaskr.service.common import raise_error
-from flaskr.util import generate_id
-from flaskr.util.datetime import now_utc
-from flaskr.api.doc.feishu import send_notify
+from flaskr.service.promo.consts import (
+    COUPON_APPLY_TYPE_SPECIFIC,
+    COUPON_STATUS_ACTIVE,
+    COUPON_STATUS_USED,
+    COUPON_TYPE_FIXED,
+    COUPON_TYPE_PERCENT,
+)
+from flaskr.service.promo.models import Coupon
+from flaskr.service.promo.models import CouponUsage as CouponUsageModel
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.repository import load_user_aggregate
-import json
-from flaskr.dao import db
-import decimal
-from typing import List, Tuple, Optional
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
 
 
 def _get_course_id_from_filter(coupon: Coupon) -> Optional[str]:

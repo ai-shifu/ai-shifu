@@ -1,10 +1,9 @@
 import types
 import unittest
 
+import flaskr.dao as dao
 from flask import Flask, request
 from flask_sqlalchemy import SQLAlchemy
-
-import flaskr.dao as dao
 
 if dao.db is None:
     _test_app = Flask("test-learn-record")
@@ -23,19 +22,19 @@ if dao.db is None:
 from flaskr.i18n import _
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import BlockType
+from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
     is_lesson_feedback_interaction,
 )
-from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
 )
+from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 from flaskr.service.shifu.models import LogPublishedStruct, PublishedOutlineItem
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 from flaskr.util import generate_id
 
 

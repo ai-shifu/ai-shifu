@@ -6,10 +6,9 @@ Create Date: 2026-05-17
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
-
 
 revision = "4f2b7d8e9c1a"
 down_revision = "1d8c4e7f9a2b"

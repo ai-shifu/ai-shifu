@@ -12,13 +12,13 @@ from .consts import (
     BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS,
     BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE,
 )
+from .domains import normalize_domain_host, resolve_runtime_domain_result
 from .dtos import (
     RuntimeBillingBrandingDTO,
     RuntimeBillingContextDTO,
     RuntimeBillingDomainDTO,
     RuntimeBillingEntitlementsDTO,
 )
-from .domains import normalize_domain_host, resolve_runtime_domain_result
 from .entitlements import (
     resolve_creator_entitlement_state,
     serialize_creator_entitlements,

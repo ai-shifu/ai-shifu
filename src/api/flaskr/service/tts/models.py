@@ -4,23 +4,21 @@ TTS Database Models.
 This module defines the database models for storing TTS audio records.
 """
 
+from flaskr.dao import db
+from flaskr.util.datetime import now_utc, to_utc_iso
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    DateTime,
-    Text,
-    SmallInteger,
     JSON,
-    Numeric,
+    Column,
+    DateTime,
     Index,
+    Integer,
+    Numeric,
+    SmallInteger,
+    String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc, to_utc_iso
-
-from flaskr.dao import db
-
 
 # Audio status constants
 AUDIO_STATUS_PENDING = 0

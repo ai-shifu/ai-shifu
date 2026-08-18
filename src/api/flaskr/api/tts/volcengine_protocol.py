@@ -9,13 +9,13 @@ Protocol Reference:
 - Uses custom binary frame format with 4-byte header
 """
 
-import struct
-import json
 import gzip
+import json
 import logging
+import struct
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, Union
 from enum import IntEnum
+from typing import Any, Dict, Optional, Union
 
 from flaskr.common.log import AppLoggerProxy
 

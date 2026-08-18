@@ -3,9 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, Iterable, Optional, Set
 
-from sqlalchemy import and_, or_
-
 from flaskr.dao import db
+from sqlalchemy import and_, or_
 
 from .models import DraftOutlineItem, DraftShifu, PublishedOutlineItem, PublishedShifu
 

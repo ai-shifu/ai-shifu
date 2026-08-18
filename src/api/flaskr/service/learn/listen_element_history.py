@@ -4,8 +4,6 @@ from collections import OrderedDict
 from typing import Any, Callable
 
 from flask import Flask
-from sqlalchemy import and_, or_
-
 from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementDTO,
@@ -33,6 +31,7 @@ from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.util.datetime import to_utc_iso
+from sqlalchemy import and_, or_
 
 
 def _load_interaction_user_input_by_block_bid(

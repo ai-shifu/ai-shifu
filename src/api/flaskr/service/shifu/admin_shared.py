@@ -9,6 +9,7 @@ import re
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, Optional
+
 from flask import current_app
 from flaskr.service.user.consts import (
     USER_STATE_PAID,
@@ -16,7 +17,6 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
-
 
 COURSE_STATUS_PUBLISHED = "published"
 

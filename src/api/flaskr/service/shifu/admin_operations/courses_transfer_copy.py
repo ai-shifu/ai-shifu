@@ -6,23 +6,35 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 from datetime import datetime
-
-from flaskr.util.datetime import now_utc
 from typing import Any, Dict, Sequence
+
 from flask import Flask, current_app
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
-from flaskr.i18n import _
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
+from flaskr.i18n import _
 from flaskr.service.common.models import (
     raise_error,
     raise_error_with_args,
     raise_param_error,
 )
 from flaskr.service.profile.models import Variable
-from flaskr.util import generate_id
+from flaskr.service.shifu.admin_operations.courses_shared import (
+    OPERATOR_TARGET_CONTACT_MAX_LENGTH,
+    OPERATOR_TARGET_EMAIL_PATTERN,
+    OPERATOR_TARGET_PHONE_PATTERN,
+    _get_legacy_admin_symbol,
+    _is_operator_visible_course,
+    _normalize_identifier,
+)
 from flaskr.service.shifu.consts import (
     SHIFU_NAME_MAX_LENGTH,
+)
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedShifu,
 )
 from flaskr.service.shifu.shifu_draft_funcs import (
     check_text_with_risk_control,
@@ -33,12 +45,6 @@ from flaskr.service.shifu.shifu_history_manager import (
     save_outline_tree_history,
     save_shifu_history,
 )
-from flaskr.service.shifu.models import (
-    DraftOutlineItem,
-    DraftShifu,
-    PublishedShifu,
-)
-from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.user.consts import (
     USER_STATE_REGISTERED,
     USER_STATE_UNREGISTERED,
@@ -55,16 +61,9 @@ from flaskr.service.user.utils import (
     mark_creator_role_if_needed,
     run_creator_granted_post_auth,
 )
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
-
-from flaskr.service.shifu.admin_operations.courses_shared import (
-    OPERATOR_TARGET_CONTACT_MAX_LENGTH,
-    OPERATOR_TARGET_EMAIL_PATTERN,
-    OPERATOR_TARGET_PHONE_PATTERN,
-    _get_legacy_admin_symbol,
-    _is_operator_visible_course,
-    _normalize_identifier,
-)
 
 
 def _load_latest_course_for_transfer(shifu_bid: str):

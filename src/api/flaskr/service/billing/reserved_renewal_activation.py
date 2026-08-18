@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Protocol
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Protocol
 
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 
@@ -20,6 +19,8 @@ from .consts import (
 )
 from .credit_mutations import (
     activate_reserved_grant_credit,
+)
+from .credit_mutations import (
     reserved_grant_state as _reserved_grant_state,
 )
 from .cycle_transitions import (
@@ -38,6 +39,8 @@ from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 from .queries import (
     extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
+)
+from .queries import (
     load_subscription_by_bid as _load_subscription_by_bid,
 )
 from .wallets import (

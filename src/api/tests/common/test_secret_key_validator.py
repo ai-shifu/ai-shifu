@@ -4,10 +4,10 @@ Unit tests for SECRET_KEY validator functionality.
 
 import pytest
 from flaskr.common.config import (
-    EnhancedConfig,
-    EnvVar,
-    EnvironmentConfigError,
     ENV_VARS,
+    EnhancedConfig,
+    EnvironmentConfigError,
+    EnvVar,
 )
 
 

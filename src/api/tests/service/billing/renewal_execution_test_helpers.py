@@ -3,19 +3,18 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     BILLING_INTERVAL_MONTH,
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
-    BILLING_ORDER_STATUS_PAID,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import (
     BillingOrder,

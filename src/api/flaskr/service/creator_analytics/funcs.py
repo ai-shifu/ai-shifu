@@ -5,16 +5,14 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from flask import Flask
-
-from flaskr.service.common.models import AppException, ERROR_CODE
-from flaskr.service.shifu.permissions import get_user_shifu_permissions
 from flaskr.i18n import _
+from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.shifu.permissions import get_user_shifu_permissions
 
 from .dsl import parse_dsl
 from .engine import get_analytics_engine, run_query
 from .pii import mask_user_identify, redact_pii
 from .sql_builder import build_statement
-
 
 ERR_NO_PERMISSION = "server.creatorAnalytics.noPermission"
 

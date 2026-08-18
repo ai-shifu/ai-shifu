@@ -1,31 +1,32 @@
-from flask import Flask
-
-
-from .constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
-from .models import VariableValue
-from ...dao import db
+import datetime
+import logging
 from typing import Optional
 
-import logging
+from flask import Flask
+from flaskr.api.check import (
+    CHECK_RESULT_PASS,
+    CHECK_RESULT_REJECT,
+    check_text,
+)
+from flaskr.service.common import raise_error
+from flaskr.service.profile.dtos import ProfileToSave
+from flaskr.service.profile.profile_manage import get_profile_item_definition_list
+from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
 from flaskr.service.user.repository import (
     UserAggregate,
-    _ensure_user_entity as ensure_user_entity,
     load_user_aggregate,
     update_user_entity_fields,
 )
-from ...i18n import _
-import datetime
-from ..check_risk.funcs import add_risk_control_result
-from flaskr.api.check import (
-    check_text,
-    CHECK_RESULT_PASS,
-    CHECK_RESULT_REJECT,
+from flaskr.service.user.repository import (
+    _ensure_user_entity as ensure_user_entity,
 )
 from flaskr.util.uuid import generate_id
-from flaskr.service.common import raise_error
-from flaskr.service.profile.profile_manage import get_profile_item_definition_list
-from flaskr.service.profile.dtos import ProfileToSave
-from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
+
+from ...dao import db
+from ...i18n import _
+from ..check_risk.funcs import add_risk_control_result
+from .constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
+from .models import VariableValue
 
 logger = logging.getLogger(__name__)
 

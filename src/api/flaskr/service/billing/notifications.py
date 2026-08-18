@@ -8,7 +8,6 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from flask import Flask
-
 from flaskr.api.doc.feishu import send_notify
 from flaskr.api.sms.aliyun import send_sms_ali
 from flaskr.dao import db
@@ -16,8 +15,8 @@ from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.repository import load_user_aggregate
-from flaskr.util.timezone import format_with_app_timezone
 from flaskr.util.datetime import now_utc, to_utc_iso
+from flaskr.util.timezone import format_with_app_timezone
 
 from .consts import (
     BILLING_ORDER_STATUS_PAID,
@@ -35,6 +34,8 @@ from .models import BillingOrder, BillingProduct, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .queries import (
     extract_resolved_order_cycle_end_at as _extract_resolved_order_cycle_end_at,
+)
+from .queries import (
     load_subscription_by_bid as _load_subscription_by_bid,
 )
 

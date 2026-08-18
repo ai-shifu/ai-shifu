@@ -30,15 +30,13 @@ os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
 
 from flask_sqlalchemy import SQLAlchemy
-
 from flaskr import dao
 
 if dao.db is None:
     dao.db = SQLAlchemy()
 
-from flaskr.service.tts.pipeline import split_av_speakable_segments
 from flaskr.service.tts import streaming_tts as streaming_tts_module
-
+from flaskr.service.tts.pipeline import split_av_speakable_segments
 
 DEFAULT_CHUNK_SIZES = (1, 2, 3, 5, 8, 13)
 VISUAL_LEAK_PATTERN = re.compile(

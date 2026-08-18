@@ -1,14 +1,15 @@
 from flask import Flask
-from .ilivedata import ilivedata_check
-from .yidun import yidun_check
+
 from .dto import (
-    CheckResultDTO,
-    CHECK_RESULT_UNKNOWN,
     CHECK_RESULT_PASS,
     CHECK_RESULT_REJECT,
     CHECK_RESULT_REVIEW,
     CHECK_RESULT_UNCONF,
+    CHECK_RESULT_UNKNOWN,
+    CheckResultDTO,
 )
+from .ilivedata import ilivedata_check
+from .yidun import yidun_check
 
 __all__ = [
     "CHECK_RESULT_PASS",

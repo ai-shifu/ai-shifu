@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from flask import Flask
+    from flaskr.api.tts import AudioSettings, VoiceSettings
     from flaskr.service.metering import UsageContext
-    from flaskr.api.tts import VoiceSettings, AudioSettings
 
 from flaskr.service.metering import record_tts_usage
 from flaskr.service.tts import resolve_tts_billable_chars

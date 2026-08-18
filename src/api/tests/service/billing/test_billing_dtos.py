@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-
 from decimal import Decimal
 
 from flaskr.service.billing.dtos import (
@@ -14,8 +13,8 @@ from flaskr.service.billing.dtos import (
     BillingOverviewDTO,
     BillingSubscriptionDTO,
     BillingTrialOfferDTO,
-    BillingWalletBucketListDTO,
     BillingWalletBucketDTO,
+    BillingWalletBucketListDTO,
     BillingWalletSnapshotDTO,
     RuntimeBillingBrandingDTO,
     RuntimeBillingContextDTO,

@@ -1,9 +1,7 @@
-import pytest
 import jwt
-
+import pytest
 from flask import Flask
-
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.user.common import validate_user
 
 

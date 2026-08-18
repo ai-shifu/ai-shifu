@@ -25,7 +25,6 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import BillingProduct
 
-
 _TEST_BILLING_PRODUCT_ROWS: tuple[dict[str, Any], ...] = (
     {
         "product_bid": BILLING_TRIAL_PRODUCT_BID,

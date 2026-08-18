@@ -1,8 +1,9 @@
 import importlib
 import time
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+
 from flask import Flask
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 
 class PluginHotReloader:
@@ -59,6 +60,7 @@ class PluginHotReloader:
         """
         try:
             import sys
+
             from .plugin_manager import plugin_manager
 
             # Convert path to module name

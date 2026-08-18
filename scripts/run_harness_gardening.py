@@ -15,14 +15,13 @@ from build_repo_knowledge_index import (
 )
 from check_architecture_boundaries import (
     BACKEND_ROOT,
-    FRONTEND_ROOT,
     DEFAULT_BASELINE,
+    FRONTEND_ROOT,
     collect_backend_violations,
     collect_frontend_violations,
     dedupe_violations,
     load_baseline,
 )
-
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SUMMARY = ROOT / "docs" / "generated" / "harness-gardening-summary.md"

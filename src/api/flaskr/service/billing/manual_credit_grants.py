@@ -7,16 +7,19 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
 
 from .credit_notifications import stage_credit_granted_notification
 from .grant_results import ManualCreditGrantResult
 from .primitives import (
     credit_decimal_to_number as _credit_decimal_to_number,
+)
+from .primitives import (
     normalize_bid as _normalize_bid,
+)
+from .primitives import (
     quantize_credit_amount as _quantize_credit_amount,
 )
 from .queries import add_months as _add_months
