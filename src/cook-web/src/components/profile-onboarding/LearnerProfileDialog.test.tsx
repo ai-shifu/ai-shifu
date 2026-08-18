@@ -587,6 +587,9 @@ describe('LearnerProfileDialog', () => {
     });
     expect(optimizationCard).toContainElement(optimizeButton);
     expect(optimizeButton).toHaveClass('bg-primary', 'shadow-sm');
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.optimizeHint'),
+    ).toBeInTheDocument();
   });
 
   test('cancels a clean dismissible save without persisting', async () => {
@@ -628,6 +631,9 @@ describe('LearnerProfileDialog', () => {
         name: 'module.profileOnboarding.dialog.cancel',
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.optimizeEmptyHint'),
+    ).toBeInTheDocument();
   });
 
   test('auto-optimizes a terminal research draft without persisting early', async () => {
@@ -647,6 +653,9 @@ describe('LearnerProfileDialog', () => {
       'module.profileOnboarding.dialog.autoOptimizing',
     );
     await waitFor(() => expect(optimizingHeading).toHaveFocus());
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.autoOptimizingHint'),
+    ).toBeInTheDocument();
     expect(mockOptimizeLearnerProfile).toHaveBeenCalledWith('Collection draft');
     expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
     expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
@@ -714,10 +723,10 @@ describe('LearnerProfileDialog', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Optimizer unavailable')).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', {
+      screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.useResearchDraft',
       }),
-    ).not.toBeInTheDocument();
+    ).toBeEnabled();
     expect(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.complete',
@@ -734,7 +743,7 @@ describe('LearnerProfileDialog', () => {
     ).toBeInTheDocument();
   });
 
-  test('uses the optimized collection draft without extra restore guidance', async () => {
+  test('can directly restore the raw collection draft after successful optimization', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
     mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
 
@@ -745,12 +754,12 @@ describe('LearnerProfileDialog', () => {
       await screen.findByDisplayValue('Optimized learner introduction'),
     ).toBeInTheDocument();
 
-    expect(
-      screen.queryByRole('button', {
+    fireEvent.click(
+      screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.useResearchDraft',
       }),
-    ).not.toBeInTheDocument();
-    expect(profileInput()).toHaveValue('Optimized learner introduction');
+    );
+    expect(profileInput()).toHaveValue('Collection draft');
   });
 
   test('persists a guided result once with its session, trigger, and changed nickname', async () => {
@@ -1087,7 +1096,7 @@ describe('LearnerProfileDialog', () => {
     );
   });
 
-  test('optimizes a direct edit in place with only a concise result status', async () => {
+  test('optimizes a direct edit in place and lets the learner undo it', async () => {
     renderDialog();
     await screen.findByDisplayValue(existingProfile.learner_profile);
     fireEvent.change(profileInput(), { target: { value: 'Draft to improve' } });
@@ -1103,11 +1112,12 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.getByText('module.profileOnboarding.dialog.optimizeSuccess'),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', {
+    fireEvent.click(
+      screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.undoOptimize',
       }),
-    ).not.toBeInTheDocument();
+    );
+    expect(profileInput()).toHaveValue('Draft to improve');
   });
 
   test('keeps a direct draft savable after optimization fails', async () => {

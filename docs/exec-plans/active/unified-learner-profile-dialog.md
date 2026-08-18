@@ -36,6 +36,10 @@ operation that persists the canonical learner profile and profile-v2 state.
       collection into the footer's left-aligned action slot.
 - [x] 2026-08-18 CST: Revalidated the responsive footer and optimization card,
       updated the feature branch, and deployed the follow-up safely to `dev`.
+- [x] 2026-08-18 CST: Restored the complete approved optimization interaction,
+      including default and empty guidance, processing help, original-draft
+      recovery, retry, and undo controls, without restoring removed save-page
+      guidance or a second dialog.
 
 ## Surprises & Discoveries
 
@@ -87,9 +91,10 @@ fixed footer.
   success replaces the draft; failure exposes the research draft with retry
   and still permits saving.
 - Opening an existing profile never optimizes or rewrites it automatically.
-- Restarting research with dirty edits requires explicit confirmation. Once a
-  new terminal result is produced it replaces the in-memory draft without an
-  undo path; nothing is persisted until final save.
+- Restarting research with dirty edits requires explicit confirmation. A new
+  terminal result replaces the in-memory draft, while the optimization card
+  keeps an explicit action for returning to that collection draft; nothing is
+  persisted until final save.
 - Fresh research uses the `onboarding` intent. Reruns use `settings`.
 - Course blocking retains its single explicit defer action and cannot close by
   Escape, outside click, or an X button. Settings keeps normal close and dirty
@@ -103,16 +108,17 @@ fixed footer.
   collapsed information-usage disclosure.
 - The save view keeps the nickname label without presenting it as optional,
   the learner-profile editor, contextual optimization feedback, and footer
-  actions. It removes the prompt cards, default optimization explanation,
-  confirmation description, and persistent reassurance copy.
+  actions. It removes the prompt cards, confirmation description, and
+  persistent reassurance copy, while retaining the optimization area's own
+  default and empty-state guidance.
 - "互动收集" is a secondary footer action in the footer's left-aligned slot.
   Dismissible save views retain a separate "取消" action beside save, while
   blocking views never expose ordinary cancel. Blocking keeps "以后再说"
   visually separate as its low-emphasis defer action.
 - The optimization affordance keeps the approved tinted primary card and
-  primary-button treatment. Only active success, failure, or loading feedback
-  appears there; the removed default explanation and legacy guidance do not
-  return.
+  primary-button treatment together with its prior UI logic: default and
+  empty-state guidance, processing help, success and failure feedback,
+  retry, direct use of the collection draft, and undo for direct edits.
 - Internal state uses the neutral collection phases `collect`, `processing`,
   and `save`, but the only implemented collector remains guided MarkdownFlow.
   Familiar-AI import, paste UX, method selection, browser draft storage, and
@@ -165,6 +171,12 @@ dismissible cancel action, left-aligned collection action, and blocking-only
 defer boundary. Evidence is retained under
 `/private/tmp/profile-onboarding-footer-visual/`; temporary harness files and
 browser state were removed.
+
+The optimization-interaction restoration keeps the compact save page while
+returning all controls that belong specifically to "帮我优化". Focused tests
+cover its default, empty, processing, success, failure, retry, original-draft,
+and undo states; removed prompt cards, long page-level guidance, and PR3-only
+collection routes remain absent.
 
 ## Context and Orientation
 

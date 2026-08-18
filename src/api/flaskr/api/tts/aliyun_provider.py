@@ -1342,10 +1342,8 @@ class AliyunTTSProvider(BaseTTSProvider):
             # Check content type to determine if error or audio
             content_type = response.headers.get("Content-Type", "")
 
-            if (
-                "audio" in content_type
-                or response.status_code == 200
-                and "application/json" not in content_type
+            if "audio" in content_type or (
+                response.status_code == 200 and "application/json" not in content_type
             ):
                 # Success - got audio data
                 audio_data = response.content

@@ -24,8 +24,10 @@
 # - G001 / G003 / G004: f-string logging is the established house style; the
 #   lazy-%-formatting argument does not outweigh the churn. G201 IS enabled --
 #   `.exception(...)` is strictly equivalent to `.error(..., exc_info=True)`.
-# - SIM* / RUF012 / RUF013 / RUF046 / UP*: style or modernization churn with
-#   no bug-catching value for this codebase today; revisit deliberately.
+# - SIM* / RUF012 / RUF013 / RUF046 / UP* as whole groups: style or
+#   modernization churn with no bug-catching value for this codebase today.
+#   Individual members that are mechanical and behavior-preserving are listed
+#   in the select block below; the rest stay off.
 # - RUF100: with a narrow select list, ruff reports deliberate `# noqa:
 #   BLE001 / DTZ001 / SLF001 / S102` markers as unused simply because those
 #   rules are off here, so enforcing it would delete documentation of
@@ -49,5 +51,15 @@ select = [
     "RUF059", # unused unpacked variable
     # Mechanical, behavior-preserving cleanups; each was applied repo-wide
     # with `ruff check --fix` in the commit that selected it here.
+    "C420",   # dict.fromkeys instead of a constant-value comprehension
+    "PLC0207", # str.split without maxsplit when one segment is used
+    "PLC0208", # iteration over a set literal
+    "PLR1730", # if-statement that should be min()/max()
+    "RUF021", # unparenthesized and inside or
     "RUF102", # noqa directive naming an unknown rule
+    "SIM910", # dict.get(key, None)
+    "UP012",  # redundant utf-8 argument to str.encode
+    "UP015",  # redundant mode argument to open()
+    "UP024",  # deprecated OSError alias
+    "UP034",  # extraneous parentheses
 ]
