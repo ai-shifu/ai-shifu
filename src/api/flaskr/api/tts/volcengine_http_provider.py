@@ -1,5 +1,4 @@
-"""
-Volcengine HTTP TTS Provider.
+"""Volcengine HTTP TTS Provider.
 
 This module provides TTS synthesis using Volcengine's HTTP v1/tts API
 (ByteDance TTS). See docs/bytedance-tts-api.md for request/response format.
@@ -133,6 +132,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         Notes:
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback.
+
         """
         return VoiceSettings(
             voice_id="BV700_streaming",
@@ -165,8 +165,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         return rate
 
     def _resolve_pitch_ratio(self, pitch: int) -> float:
-        """
-        Convert integer pitch to Volcengine pitch_ratio (0.1-3.0).
+        """Convert integer pitch to Volcengine pitch_ratio (0.1-3.0).
 
         The UI uses integer pitch values, where 10 maps to 1.0.
         """
@@ -351,6 +350,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         Notes:
         - Never log credentials (token).
         - Avoid logging full request text; use only text_len.
+
         """
         body_preview = (response.text or "")[:2000]
         # Keep only a small, stable subset of headers to avoid log noise and

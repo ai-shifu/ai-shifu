@@ -354,7 +354,7 @@ def test_select_user_bid_without_group_by_user_bid_is_rejected() -> None:
 
 
 def test_select_user_bid_with_group_by_other_dimension_is_rejected() -> None:
-    """select user_bid + group_by status — caught by the existing select-in-group-by rule.
+    """Select user_bid + group_by status — caught by the existing select-in-group-by rule.
 
     Documented here for clarity: the user_bid guard piggy-backs on the existing
     rule for the aggregate path, but we still want the surface behavior captured.
@@ -665,9 +665,10 @@ def _generated_blocks_payload(**overrides):
 
 
 def test_learn_generated_blocks_status_filterable() -> None:
-    """status is filterable even though sql_builder auto-injects status=1.
+    """Status is filterable even though sql_builder auto-injects status=1.
     Allowing explicit filtering lets a caller debug `status=0` history rows
-    in tests / one-off audits if the auto-injection is ever relaxed."""
+    in tests / one-off audits if the auto-injection is ever relaxed.
+    """
     payload = _generated_blocks_payload(
         where=[
             {"field": "type", "op": "=", "value": 321},
@@ -691,10 +692,11 @@ def test_learn_generated_blocks_outline_item_bid_groupable() -> None:
 
 
 def test_learn_generated_blocks_position_selectable() -> None:
-    """position is needed for the four-key follow-up pairing
+    """Position is needed for the four-key follow-up pairing
     (progress_record_bid + shifu_bid + outline_item_bid + position).
     The conversation-replay path (generated_content in select) exempts
-    user_bid from the group-by guard, so list mode is the right test."""
+    user_bid from the group-by guard, so list mode is the right test.
+    """
     payload = {
         "shifu_bid": "shifu-abc",
         "table": "learn_generated_blocks",
@@ -715,8 +717,9 @@ def test_learn_generated_blocks_position_selectable() -> None:
 
 
 def test_learn_generated_blocks_position_not_groupable() -> None:
-    """position is row-ordering, not a dimension; grouping on it would
-    multiply rows. Reject `group_by=["position"]`."""
+    """Position is row-ordering, not a dimension; grouping on it would
+    multiply rows. Reject `group_by=["position"]`.
+    """
     payload = _generated_blocks_payload(
         select=["position"],
         group_by=["position"],
@@ -733,7 +736,8 @@ def test_learn_generated_blocks_position_not_groupable() -> None:
 def test_bill_daily_creator_bid_groupable() -> None:
     """creator_bid lets the author see which wallet absorbed the course's
     credit cost — shifu_bid isolation guarantees the value is the caller's
-    own bid, but exposing it confirms that explicitly in the result."""
+    own bid, but exposing it confirms that explicitly in the result.
+    """
     payload = _daily_metric_payload(
         select=["creator_bid", "stat_date"],
         aggregate=[{"fn": "sum", "field": "consumed_credits", "alias": "credits"}],
@@ -747,7 +751,8 @@ def test_bill_daily_creator_bid_groupable() -> None:
 def test_bill_daily_creator_bid_filter_rejected() -> None:
     """Filtering by creator_bid is intentionally blocked — shifu_bid scope
     already binds the value, so an explicit filter is either redundant
-    (same caller) or an attempt to look at someone else's wallet."""
+    (same caller) or an attempt to look at someone else's wallet.
+    """
     payload = _daily_metric_payload(
         where=[
             {"field": "usage_scene", "op": "=", "value": 1203},
@@ -791,9 +796,10 @@ def test_shifu_draft_select_parses() -> None:
 
 
 def test_shifu_meta_aggregate_rejected() -> None:
-    """count / count_distinct on metadata tables would leak permission
+    """Count / count_distinct on metadata tables would leak permission
     edges (e.g. count_distinct(shifu_bid) reveals "how many courses do I
-    own that match this filter")."""
+    own that match this filter").
+    """
     payload = {
         "shifu_bid": "shifu-abc",
         "table": "shifu_published_shifus",
@@ -807,7 +813,8 @@ def test_shifu_meta_group_by_rejected() -> None:
     """group_by has no row-lookup use. With groupable=frozenset(), the
     parser actually rejects at the column-membership check (column not
     groupable) before reaching the per-table guard; either rejection
-    satisfies the security goal."""
+    satisfies the security goal.
+    """
     payload = _shifu_meta_payload(
         select=["title"],
         group_by=["title"],
@@ -817,7 +824,8 @@ def test_shifu_meta_group_by_rejected() -> None:
 
 def test_shifu_meta_title_like_too_short_rejected() -> None:
     """`title like 'a%'` is rejected — 1 non-wildcard char approaches full
-    enumeration. Minimum is 2 non-wildcard chars."""
+    enumeration. Minimum is 2 non-wildcard chars.
+    """
     payload = _shifu_meta_payload(
         where=[{"field": "title", "op": "like", "value": "a%"}],
     )
@@ -836,7 +844,8 @@ def test_shifu_meta_title_like_minimum_accepted() -> None:
 def test_shifu_meta_title_like_underscore_rejected() -> None:
     """SQL `_` single-char wildcard would let a caller scan with `'a_%'`
     (one literal char + a wildcard floor). The metadata contract is strict
-    prefix matching — reject any `_` regardless of position."""
+    prefix matching — reject any `_` regardless of position.
+    """
     payload = _shifu_meta_payload(
         where=[{"field": "title", "op": "like", "value": "a_%"}],
     )
@@ -845,7 +854,8 @@ def test_shifu_meta_title_like_underscore_rejected() -> None:
 
 def test_shifu_meta_title_like_double_underscore_rejected() -> None:
     """Original bypass case raised in PR #1769 review: `'__%'` passes the
-    `rstrip('%')` length check (2 chars) but is wildcard-only. Must reject."""
+    `rstrip('%')` length check (2 chars) but is wildcard-only. Must reject.
+    """
     payload = _shifu_meta_payload(
         where=[{"field": "title", "op": "like", "value": "__%"}],
     )
@@ -854,7 +864,8 @@ def test_shifu_meta_title_like_double_underscore_rejected() -> None:
 
 def test_shifu_meta_title_like_internal_percent_rejected() -> None:
     """`'a%b'` would be 3 non-wildcard chars under naive counting, but the
-    middle `%` violates the prefix-only contract — reject."""
+    middle `%` violates the prefix-only contract — reject.
+    """
     payload = _shifu_meta_payload(
         where=[{"field": "title", "op": "like", "value": "a%b"}],
     )
@@ -863,7 +874,8 @@ def test_shifu_meta_title_like_internal_percent_rejected() -> None:
 
 def test_shifu_meta_title_like_exact_match_accepted() -> None:
     """A `like` value without any wildcard is just an exact match;
-    accepting it preserves the "look up this exact title" use case."""
+    accepting it preserves the "look up this exact title" use case.
+    """
     payload = _shifu_meta_payload(
         where=[{"field": "title", "op": "like", "value": "AI"}],
     )
@@ -887,7 +899,8 @@ def test_shifu_meta_limit_50_accepted() -> None:
 
 def test_shifu_meta_caller_user_id_threaded() -> None:
     """parse_dsl propagates user_id into QueryDSL.caller_user_id; the SQL
-    builder reads it to inject WHERE created_user_bid = :__user_id."""
+    builder reads it to inject WHERE created_user_bid = :__user_id.
+    """
     payload = _shifu_meta_payload()
     dsl = parse_dsl(payload, limit_max=DEFAULT_LIMIT_MAX, user_id="teacher-1")
     assert dsl.caller_user_id == "teacher-1"
@@ -895,6 +908,7 @@ def test_shifu_meta_caller_user_id_threaded() -> None:
 
 def test_shifu_meta_select_forbidden_field_rejected() -> None:
     """Author-secret fields like `llm_system_prompt` must not be selectable
-    even on the caller's own course."""
+    even on the caller's own course.
+    """
     payload = _shifu_meta_payload(select=["title", "llm_system_prompt"])
     _assert_error(payload, ERR_INVALID_COLUMN)

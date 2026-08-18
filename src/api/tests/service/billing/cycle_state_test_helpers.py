@@ -60,7 +60,7 @@ def create_cycle_state_renewal_order(
     creator_bid: str = "creator-renewal-activation-boundary",
     metadata_json: dict | None = None,
     payment_provider: str = "pingxx",
-    paid_at: datetime | None | object = _UNSET,
+    paid_at: datetime | object | None = _UNSET,
     order_type: int = BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
 ) -> BillingOrder:
     return BillingOrder(

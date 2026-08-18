@@ -254,7 +254,7 @@ class InMemoryCacheProvider:
             if entry.expires_at is None:
                 return -1
             remaining = int(entry.expires_at - self._now())
-            return remaining if remaining > 0 else 0
+            return max(0, remaining)
 
     def lock(
         self,
@@ -271,8 +271,7 @@ class InMemoryCacheProvider:
 
 
 class FallbackCacheProvider:
-    """
-    Cache provider that prefers Redis when configured, and falls back to a
+    """Cache provider that prefers Redis when configured, and falls back to a
     process-local in-memory cache when Redis is unavailable.
     """
 

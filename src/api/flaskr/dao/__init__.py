@@ -434,8 +434,7 @@ def release_session_classified(*, source: str) -> None:
 
 
 def _rollback_quietly() -> bool:
-    """
-    Roll back the current session after a failed transaction. An OperationalError
+    """Roll back the current session after a failed transaction. An OperationalError
     leaves the session in a broken state, so this must run on every catch -
     including non-retryable errors and the final attempt - otherwise later
     operations in the same context raise InvalidRequestError. A rollback
@@ -465,8 +464,7 @@ def _rollback_quietly() -> bool:
 
 
 def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
-    """
-    Retry a transactional function when MySQL reports a deadlock (1213) or a
+    """Retry a transactional function when MySQL reports a deadlock (1213) or a
     lock wait timeout (1205). The failed transaction is rolled back on every
     caught error so the session is left clean; retryable errors are retried with
     exponential backoff plus jitter, while non-retryable errors and the final
@@ -677,10 +675,10 @@ def init_redis(app: Flask):
 
 def run_with_redis(app, key, timeout: int, func, args):
     with app.app_context():
-        app.logger.info("run_with_redis start {}".format(key))
+        app.logger.info(f"run_with_redis start {key}")
         lock = redis_client.lock(key, timeout=timeout, blocking_timeout=timeout)
         if lock.acquire(blocking=False):
-            app.logger.info("run_with_redis get lock {}".format(key))
+            app.logger.info(f"run_with_redis get lock {key}")
             try:
                 return func(*args)
             finally:
@@ -689,5 +687,5 @@ def run_with_redis(app, key, timeout: int, func, args):
                 except Exception:
                     pass
         else:
-            app.logger.info("run_with_redis get lock failed {}".format(key))
+            app.logger.info(f"run_with_redis get lock failed {key}")
             return None

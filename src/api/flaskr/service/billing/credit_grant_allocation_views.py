@@ -517,7 +517,7 @@ def _asset_kind_from_metadata_value(
 
 
 def _asset_kind_from_bucket_category(
-    bucket_category: int | float | None,
+    bucket_category: float | None,
 ) -> tuple[CreditAssetKind | None, bool]:
     try:
         category = int(bucket_category or 0)

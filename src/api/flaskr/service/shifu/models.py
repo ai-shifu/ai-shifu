@@ -1,5 +1,4 @@
-"""
-Shifu models
+"""Shifu models
 
 This module contains models for shifu.
 
@@ -34,9 +33,7 @@ class ResourceType:
 
 
 class FavoriteScenario(db.Model):
-    """
-    Favorite scenario
-    """
+    """Favorite scenario"""
 
     __tablename__ = "scenario_favorite"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
@@ -58,9 +55,7 @@ class FavoriteScenario(db.Model):
 
 
 class ScenarioResource(db.Model):
-    """
-    Scenario resource
-    """
+    """Scenario resource"""
 
     __tablename__ = "scenario_resource"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
@@ -84,9 +79,7 @@ class ScenarioResource(db.Model):
 
 
 class AiCourseAuth(db.Model):
-    """
-    Ai course auth
-    """
+    """Ai course auth"""
 
     __tablename__ = "ai_course_auth"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
@@ -116,9 +109,7 @@ class AiCourseAuth(db.Model):
 
 # per-user archive status for a shifu
 class ShifuUserArchive(db.Model):
-    """
-    Per-user archive state for a shifu
-    """
+    """Per-user archive state for a shifu"""
 
     __tablename__ = "shifu_user_archives"
     __table_args__ = (
@@ -169,9 +160,7 @@ class ShifuUserArchive(db.Model):
 
 # draft shifu's model
 class DraftShifu(db.Model):
-    """
-    Shifu draft shifu
-    """
+    """Shifu draft shifu"""
 
     __tablename__ = "shifu_draft_shifus"
     id = Column(BIGINT, primary_key=True, autoincrement=True)

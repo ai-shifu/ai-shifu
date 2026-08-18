@@ -1,5 +1,4 @@
-"""
-Baidu TTS Provider.
+"""Baidu TTS Provider.
 
 This module provides TTS synthesis using Baidu's Short Text Online Synthesis API.
 
@@ -666,8 +665,7 @@ _token_cache = {
 
 
 def _get_access_token(api_key: str, secret_key: str) -> str:
-    """
-    Get Baidu access token using API Key and Secret Key.
+    """Get Baidu access token using API Key and Secret Key.
 
     Token is cached and refreshed when expired.
     """
@@ -733,11 +731,11 @@ class BaiduTTSProvider(BaseTTSProvider):
         return "baidu"
 
     def _get_credentials(self) -> tuple:
-        """
-        Get Baidu TTS credentials.
+        """Get Baidu TTS credentials.
 
         Returns:
             tuple: (api_key, secret_key)
+
         """
         api_key = get_config("BAIDU_TTS_API_KEY") or ""
         secret_key = get_config("BAIDU_TTS_SECRET_KEY") or ""
@@ -754,6 +752,7 @@ class BaiduTTSProvider(BaseTTSProvider):
         Notes:
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback.
+
         """
         return VoiceSettings(
             voice_id="0",  # Default to Xiaomei
@@ -784,8 +783,7 @@ class BaiduTTSProvider(BaseTTSProvider):
         audio_settings: Optional[AudioSettings] = None,
         model: Optional[str] = None,
     ) -> TTSResult:
-        """
-        Synthesize text to speech using Baidu TTS.
+        """Synthesize text to speech using Baidu TTS.
 
         Args:
             text: Text to synthesize (max 1024 GBK bytes, ~60 Chinese chars)
@@ -798,6 +796,7 @@ class BaiduTTSProvider(BaseTTSProvider):
 
         Raises:
             ValueError: If synthesis fails
+
         """
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")

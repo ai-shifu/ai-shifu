@@ -1,5 +1,4 @@
-"""
-Minimax TTS Provider.
+"""Minimax TTS Provider.
 
 This module provides TTS synthesis using Minimax's Text-to-Speech API (t2a_v2).
 """
@@ -330,6 +329,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback when callers do not
           specify a voice_id/speed/pitch/emotion.
+
         """
         return VoiceSettings(
             voice_id="male-qn-qingse",
@@ -359,8 +359,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
         audio_settings: Optional[AudioSettings] = None,
         model: Optional[str] = None,
     ) -> TTSResult:
-        """
-        Synthesize text to speech using Minimax TTS.
+        """Synthesize text to speech using Minimax TTS.
 
         Args:
             text: Text to synthesize
@@ -373,6 +372,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
 
         Raises:
             ValueError: If synthesis fails
+
         """
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
@@ -425,8 +425,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
         audio_settings: Optional[AudioSettings] = None,
         model: Optional[str] = None,
     ) -> Iterator[MinimaxHTTPStreamChunk]:
-        """
-        Synthesize text with MiniMax HTTP streaming.
+        """Synthesize text with MiniMax HTTP streaming.
 
         The returned audio chunks are raw MiniMax MP3 stream bytes. Callers that
         expose chunks to browser playback must repackage them into independently
@@ -543,8 +542,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
         output_format: str = "hex",
         model: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Call Minimax TTS API.
+        """Call Minimax TTS API.
 
         Args:
             text: Text to synthesize
@@ -559,6 +557,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
         Raises:
             ValueError: If API key is not configured
             requests.RequestException: If API call fails
+
         """
         api_key = get_config("MINIMAX_API_KEY")
         tts_model = _resolve_minimax_model(model)

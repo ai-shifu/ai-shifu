@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Migrate OSS domain names in the database.
+"""Migrate OSS domain names in the database.
 
 Replaces occurrences of the old OSS base URL with a new one across all
 relevant tables and columns.
@@ -26,6 +25,7 @@ Notes:
     - DB credentials are masked in terminal output.
     - After running, remember to flush any application-layer / CDN caches that
       may still hold the old URLs.
+
 """
 
 import argparse

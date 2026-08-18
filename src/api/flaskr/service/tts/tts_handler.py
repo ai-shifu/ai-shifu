@@ -1,5 +1,4 @@
-"""
-TTS Handler for Content Generation.
+"""TTS Handler for Content Generation.
 
 This module provides OSS upload utility for TTS audio files.
 """
@@ -18,8 +17,7 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 def upload_audio_to_oss(
     app: Flask, audio_content: bytes, audio_bid: str
 ) -> Tuple[str, str]:
-    """
-    Upload audio to OSS.
+    """Upload audio to OSS.
 
     Args:
         app: Flask application instance
@@ -28,6 +26,7 @@ def upload_audio_to_oss(
 
     Returns:
         Tuple of (oss_url, bucket_name)
+
     """
     file_id = f"tts-audio/{audio_bid}.mp3"
     content_type = "audio/mpeg"

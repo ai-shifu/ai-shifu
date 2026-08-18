@@ -33,8 +33,7 @@ def _normalize_auth_types(raw_value: object) -> Set[str]:
 
 
 def _auth_types_to_permissions(auth_types: Set[str]) -> Set[str]:
-    """
-    Map stored auth_type values (strings or numeric codes) to normalized permissions.
+    """Map stored auth_type values (strings or numeric codes) to normalized permissions.
     Codes: 1=view, 2=edit, 4=publish.
     """
     perms: Set[str] = set()

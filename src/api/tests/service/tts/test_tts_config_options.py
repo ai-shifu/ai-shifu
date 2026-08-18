@@ -327,7 +327,6 @@ def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
         captured["settlement_at"] = settlement_at
-        return None
 
     monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
@@ -347,7 +346,8 @@ def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
 def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
     """The local three-tier lineup: tencent premium first, then tencent
     large-model (configured default), then volcengine seed-tts-2.0, with zh
-    display names. The default marker must not reorder the allowlist."""
+    display names. The default marker must not reorder the allowlist.
+    """
     import json as json_module
 
     import flaskr.api.tts as tts_api

@@ -12,7 +12,7 @@ from flaskr.service.learn import routes as learn_routes
 from sqlalchemy.exc import ResourceClosedError
 
 
-@pytest.fixture()
+@pytest.fixture
 def invalidations(monkeypatch):
     calls = []
     monkeypatch.setattr(

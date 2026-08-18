@@ -1,5 +1,4 @@
-"""
-Aliyun TTS Provider.
+"""Aliyun TTS Provider.
 
 This module provides TTS synthesis using Aliyun's Intelligent Speech Interaction
 RESTful API.
@@ -1182,11 +1181,11 @@ class AliyunTTSProvider(BaseTTSProvider):
         return "aliyun"
 
     def _get_settings(self) -> tuple:
-        """
-        Get Aliyun TTS settings.
+        """Get Aliyun TTS settings.
 
         Returns:
             tuple: (appkey, region)
+
         """
         appkey = get_config("ALIYUN_TTS_APPKEY") or ""
         region = get_config("ALIYUN_TTS_REGION") or "shanghai"
@@ -1205,6 +1204,7 @@ class AliyunTTSProvider(BaseTTSProvider):
         Notes:
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback.
+
         """
         return VoiceSettings(
             voice_id="xiaoyun",
@@ -1235,8 +1235,7 @@ class AliyunTTSProvider(BaseTTSProvider):
         audio_settings: Optional[AudioSettings] = None,
         model: Optional[str] = None,
     ) -> TTSResult:
-        """
-        Synthesize text to speech using Aliyun TTS.
+        """Synthesize text to speech using Aliyun TTS.
 
         Args:
             text: Text to synthesize (max 300 characters)
@@ -1249,6 +1248,7 @@ class AliyunTTSProvider(BaseTTSProvider):
 
         Raises:
             ValueError: If synthesis fails
+
         """
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")

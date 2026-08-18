@@ -2195,7 +2195,8 @@ def _make_preview_store(
 class PreviewSentPromptCaptureTests(unittest.TestCase):
     """The preview flow stores the exact user message markdown-flow sent to
     the LLM (LLMResult.prompt) instead of a locally re-rendered block, so the
-    replayed preview context stays byte-identical to the sent request."""
+    replayed preview context stays byte-identical to the sent request.
+    """
 
     def test_iter_preview_generated_events_captures_prompt(self):
         app = Flask("preview-prompt-capture")
@@ -2441,7 +2442,8 @@ class BuildContextFromBlocksTests(unittest.TestCase):
     """build_context_from_blocks should hand interaction blocks to markdown-flow
     as raw ?[...] assistant messages so its _transform_context_messages can
     expand them, instead of dropping them or flattening input into a bare user
-    message."""
+    message.
+    """
 
     DOC = (
         "Content one.\n"
@@ -2516,7 +2518,8 @@ class BuildContextGenerationPromptReplayTests(unittest.TestCase):
     rebuilt history stays byte-identical to the request previously sent to
     the LLM (keeping provider-side prefix caching effective); legacy rows
     without it fall back to re-rendering the block source with the current
-    variables."""
+    variables.
+    """
 
     DOC = (
         "Content one {{nickname}}.\n"
@@ -2582,7 +2585,8 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
     """_phase_stream_content_block captures LLMResult.prompt (the exact user
     message markdown-flow sent to the LLM) and hands it to the recorder;
     prompt-less streams (preserved content) freeze the variables-rendered
-    block source instead."""
+    block source instead.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -2677,7 +2681,8 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
     in generated_content to the interaction message via the user_answer
     extension field (markdown-flow >= 0.3.0); the library then expands it
     into {user: answer} + {assistant: "ok"}, or skips the turn when the
-    answer is empty."""
+    answer is empty.
+    """
 
     DOC = (
         "Content one.\n"
@@ -2743,7 +2748,8 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
     def test_library_expands_answer_and_skips_empty_turns(self):
         """End-to-end: the context built here goes through markdown-flow's
         message transform and comes out with the real answer, no raw ?[...]
-        syntax, and no fabricated "ok" for unanswered interactions."""
+        syntax, and no fabricated "ok" for unanswered interactions.
+        """
         app = Flask(__name__)
         with app.app_context():
             answered = MdflowContextV2.build_context_from_blocks(

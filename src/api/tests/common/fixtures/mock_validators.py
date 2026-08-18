@@ -1,6 +1,4 @@
-"""
-Mock validators for testing configuration validation.
-"""
+"""Mock validators for testing configuration validation."""
 
 
 def mock_port_validator(value):

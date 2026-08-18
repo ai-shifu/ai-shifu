@@ -27,8 +27,7 @@ except ImportError:
     }
 
     def format_content(content: str) -> list[_FormattedContentPart]:
-        """
-        Compatibility formatter for older markdown_flow builds that do not
+        """Compatibility formatter for older markdown_flow builds that do not
         export `format_content`.
 
         The backfill only needs stable ordered stream parts so the listen

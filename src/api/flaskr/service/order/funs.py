@@ -93,9 +93,7 @@ from flaskr.util.uuid import generate_id as get_uuid
 
 @register_schema_to_swagger
 class PayItemDto:
-    """
-    PayItemDto
-    """
+    """PayItemDto"""
 
     name: str
     price_name: str
@@ -121,9 +119,7 @@ class PayItemDto:
 
 @register_schema_to_swagger
 class AICourseBuyRecordDTO:
-    """
-    AICourseBuyRecordDTO
-    """
+    """AICourseBuyRecordDTO"""
 
     order_id: str
     user_id: str
@@ -161,7 +157,7 @@ class AICourseBuyRecordDTO:
             if isinstance(value, str):
                 formatted_value = value  # Convert to string with two decimal places
             else:
-                formatted_value = "{0:.2f}".format(value)
+                formatted_value = f"{value:.2f}"
             # If the decimal part is .00, remove it
             if formatted_value.endswith(".00"):
                 return formatted_value[:-3]
@@ -206,34 +202,34 @@ def send_order_feishu(app: Flask, record_id: str):
     }
     title = "购买课程通知"
     msgs = []
-    msgs.append("手机号：{}".format(aggregate.mobile))
-    msgs.append("昵称：{}".format(aggregate.name))
-    msgs.append("课程名称：{}".format(shifu_info.title))
-    msgs.append("实付金额：{}".format(order_info.price))
+    msgs.append(f"手机号：{aggregate.mobile}")
+    msgs.append(f"昵称：{aggregate.name}")
+    msgs.append(f"课程名称：{shifu_info.title}")
+    msgs.append(f"实付金额：{order_info.price}")
     channel = getattr(order_info, "payment_channel", "") or ""
     source_label = _CHANNEL_LABEL.get(channel, channel or "未知")
-    msgs.append("订单来源：{}".format(source_label))
+    msgs.append(f"订单来源：{source_label}")
     user_convertion = UserConversion.query.filter(
         UserConversion.user_id == order_info.user_id
     ).first()
     channel = ""
     if user_convertion:
         channel = user_convertion.conversion_source
-    msgs.append("渠道：{}".format(channel))
+    msgs.append(f"渠道：{channel}")
     for item in order_info.price_item:
-        msgs.append("{}-{}-{}".format(item.name, item.price_name, item.price))
+        msgs.append(f"{item.name}-{item.price_name}-{item.price}")
         if item.is_discount:
-            msgs.append("优惠码：{}".format(item.discount_code))
+            msgs.append(f"优惠码：{item.discount_code}")
     user_count = UserEntity.query.filter(
         UserEntity.state == USER_STATE_PAID, UserEntity.deleted == 0
     ).count()
-    msgs.append("总付费用户数：{}".format(user_count))
+    msgs.append(f"总付费用户数：{user_count}")
     user_reg_count = UserEntity.query.filter(
         UserEntity.state >= USER_STATE_REGISTERED, UserEntity.deleted == 0
     ).count()
-    msgs.append("总注册用户数：{}".format(user_reg_count))
+    msgs.append(f"总注册用户数：{user_reg_count}")
     user_total_count = UserEntity.query.filter(UserEntity.deleted == 0).count()
-    msgs.append("总访客数：{}".format(user_total_count))
+    msgs.append(f"总访客数：{user_total_count}")
     send_notify(app, title, msgs)
 
 
@@ -244,9 +240,9 @@ def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
     shifu_info: LearnShifuInfoDTO = get_shifu_info(app, order.shifu_bid, False)
     title = "取消课程授权通知"
     msgs = [
-        "用户标识：{}".format(user_identify),
-        "课程名称：{}".format(shifu_info.title if shifu_info else order.shifu_bid),
-        "订单号：{}".format(order_bid),
+        f"用户标识：{user_identify}",
+        f"课程名称：{shifu_info.title if shifu_info else order.shifu_bid}",
+        f"订单号：{order_bid}",
         "来源：Open API",
     ]
     send_notify(app, title, msgs)
@@ -280,8 +276,7 @@ def is_order_has_timeout(app: Flask, origin_record: Order) -> bool:
 
 @contextmanager
 def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]:
-    """
-    Serialize order initialization for a user-course pair to avoid duplicate
+    """Serialize order initialization for a user-course pair to avoid duplicate
     unpaid orders created by concurrent requests.
     """
     lock = None
@@ -483,9 +478,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
 
 @register_schema_to_swagger
 class BuyRecordDTO:
-    """
-    BuyRecordDTO
-    """
+    """BuyRecordDTO"""
 
     order_id: str
     user_id: str  # 用户id
@@ -530,13 +523,9 @@ def generate_charge(
     client_ip: str,
     payment_channel: Optional[str] = None,
 ) -> BuyRecordDTO:
-    """
-    Generate charge
-    """
+    """Generate charge"""
     with _app_context_scope(app), unit_of_work():
-        app.logger.info(
-            "generate charge for record:{} channel:{}".format(record_id, channel)
-        )
+        app.logger.info(f"generate charge for record:{record_id} channel:{channel}")
 
         buy_record: Order = Order.query.filter(
             Order.order_bid == record_id,
@@ -550,9 +539,9 @@ def generate_charge(
         shifu_info: LearnShifuInfoDTO = get_shifu_info(app, buy_record.shifu_bid, False)
         if not shifu_info:
             raise_error("server.shifu.shifuNotFound")
-        app.logger.info("buy record found:{}".format(buy_record))
+        app.logger.info(f"buy record found:{buy_record}")
         if buy_record.status == ORDER_STATUS_SUCCESS:
-            app.logger.warning("buy record:{} status is not init".format(record_id))
+            app.logger.warning(f"buy record:{record_id} status is not init")
             return BuyRecordDTO(
                 buy_record.order_bid,
                 buy_record.user_bid,
@@ -1874,9 +1863,7 @@ def success_buy_record_from_native(
 
 
 def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
-    """
-    Success buy record from pingxx
-    """
+    """Success buy record from pingxx"""
     with _app_context_scope(app):
         pingxx_order = (
             legacy_pingxx_snapshot_query()
@@ -1884,7 +1871,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
             .first()
         )
         if not pingxx_order:
-            return
+            return None
         lock = cache_provider.lock(
             "success_buy_record_from_pingxx" + charge_id,
             timeout=10,
@@ -1892,12 +1879,10 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
         )
 
         if not lock:
-            app.logger.error('lock failed for charge:"{}"'.format(charge_id))
+            app.logger.error(f'lock failed for charge:"{charge_id}"')
         if lock.acquire(blocking=True):
             try:
-                app.logger.info(
-                    'success buy record from pingxx charge:"{}"'.format(charge_id)
-                )
+                app.logger.info(f'success buy record from pingxx charge:"{charge_id}"')
                 with unit_of_work():
                     pingxx_order = (
                         legacy_pingxx_snapshot_query()
@@ -1920,9 +1905,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                     ):
                         # Pre-uow behavior: the snapshot mutation was never
                         # committed on this path, so do not mutate it at all.
-                        app.logger.error(
-                            "record:{} not found".format(pingxx_order.order_bid)
-                        )
+                        app.logger.error(f"record:{pingxx_order.order_bid} not found")
                         return None
                     pingxx_order.update = now_utc()
                     pingxx_order.status = 1
@@ -1936,24 +1919,21 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                 return query_buy_record(app, buy_record.order_bid)
             except Exception as e:
                 app.logger.error(
-                    'success buy record from pingxx charge:"{}" error:{}'.format(
-                        charge_id, e
-                    )
+                    f'success buy record from pingxx charge:"{charge_id}" error:{e}'
                 )
             finally:
                 lock.release()
 
 
 def success_buy_record(app: Flask, record_id: str):
-    """
-    Success buy record
+    """Success buy record
 
     Owns a unit of work so legacy callers (coupon_funcs, order admin) keep
     their self-committing behavior; when invoked inside another unit of work
     (generate_charge, payment webhooks, sync flows) the nested block joins
     the caller's transaction and the caller commits.
     """
-    app.logger.info('success buy record:"{}"'.format(record_id))
+    app.logger.info(f'success buy record:"{record_id}"')
     buy_record = Order.query.filter(Order.order_bid == record_id).first()
     if buy_record:
         with unit_of_work():
@@ -1973,7 +1953,7 @@ def success_buy_record(app: Flask, record_id: str):
             order_bid = buy_record.order_bid
             uow.on_commit(lambda: send_order_feishu(app, order_bid))
         return query_buy_record(app, record_id)
-    app.logger.error("record:{} not found".format(record_id))
+    app.logger.error(f"record:{record_id} not found")
     return None
 
 
@@ -2075,9 +2055,7 @@ def calculate_discount_value(
     campaign_applications: list,
     discount_records: list[CouponUsageModel],
 ) -> DiscountInfo:
-    """
-    Calculate discount value
-    """
+    """Calculate discount value"""
     discount_value = 0
     items = []
     if campaign_applications is not None and len(campaign_applications) > 0:
@@ -2122,7 +2100,7 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
     with _app_context_scope(app):
-        app.logger.info('query buy record:"{}"'.format(record_id))
+        app.logger.info(f'query buy record:"{record_id}"')
         buy_record: Order = Order.query.filter(Order.order_bid == record_id).first()
         if buy_record:
             item = []

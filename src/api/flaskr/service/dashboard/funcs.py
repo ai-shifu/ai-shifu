@@ -104,7 +104,7 @@ def _format_percentage(numerator: int, denominator: int) -> str:
 def _format_average_score(value: Optional[Decimal]) -> str:
     if value is None:
         return ""
-    return "{0:.1f}".format(value)
+    return f"{value:.1f}"
 
 
 def _normalize_dashboard_identifier(value: str) -> str:

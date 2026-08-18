@@ -1080,7 +1080,8 @@ def _normalize_home_url(value: Any) -> str:
 
 def _normalize_home_url_lenient(value: Any) -> str:
     """Draft-side variant: drop invalid values instead of raising, so the
-    admin draft autosave never fails on a partially typed URL."""
+    admin draft autosave never fails on a partially typed URL.
+    """
     try:
         return _normalize_home_url(value)
     except AppException:

@@ -53,7 +53,7 @@ from sqlalchemy.orm import defer
 def _format_average_score(value: Optional[Decimal]) -> str:
     if value is None:
         return ""
-    return "{0:.1f}".format(value)
+    return f"{value:.1f}"
 
 
 def _resolve_course_rating_mode(value: str) -> str:

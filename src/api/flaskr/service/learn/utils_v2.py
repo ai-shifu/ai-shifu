@@ -18,9 +18,7 @@ from ...service.profile.funcs import get_user_profiles
 
 
 class FollowUpInfo:
-    """
-    Follow up info
-    """
+    """Follow up info"""
 
     ask_model: str
     ask_prompt: str
@@ -74,9 +72,7 @@ def extract_variables(template: str) -> list:
 
 
 def safe_format_template(template: str, variables: dict) -> str:
-    """
-    Safe format template
-    """
+    """Safe format template"""
     # Replace {xxx} or {{xxx}} with values from variables dict, keep original if not found
     pattern = re.compile(r"(\{{1,2})([^{}]+)(\}{1,2})")
 
@@ -126,8 +122,7 @@ def get_fmt_prompt(
     *,
     profile_overrides: dict | None = None,
 ) -> str:
-    """
-    Get fmt prompt
+    """Get fmt prompt
     Args:
         app: Flask application instance
         user_id: User id
@@ -174,8 +169,7 @@ def get_follow_up_info_v2(
     attend_id: str,
     is_preview: bool = False,
 ) -> FollowUpInfo:
-    """
-    Get follow up info.
+    """Get follow up info.
 
     Args:
         app (Flask): The Flask application instance.
@@ -188,6 +182,7 @@ def get_follow_up_info_v2(
 
     Returns:
         FollowUpInfo: The follow up information for the given parameters.
+
     """
     struct_info = get_shifu_struct(app, shifu_bid, is_preview)
     path = find_node_with_parents(struct_info, outline_item_bid)

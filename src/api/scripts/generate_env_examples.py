@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Generate the .env.example.full file for AI-Shifu configuration.
+"""Generate the .env.example.full file for AI-Shifu configuration.
 
 Usage:
     python scripts/generate_env_examples.py

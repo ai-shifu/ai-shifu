@@ -338,7 +338,8 @@ def test_record_tts_usage_marks_builtin_demo_course_non_billable(
 def test_persist_cleanup_targets_failed_session_inside_context(app, monkeypatch):
     """Cleanup must run inside the pushed context (targeting the session that
     failed) and classify the failure: ordinary errors roll back, protocol
-    interrupts invalidate."""
+    interrupts invalidate.
+    """
     from flask import current_app
     from flaskr.service.metering import recorder as recorder_module
     from sqlalchemy.exc import ResourceClosedError

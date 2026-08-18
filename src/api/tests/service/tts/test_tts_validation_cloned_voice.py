@@ -81,7 +81,8 @@ def _validate(provider: str, model: str, voice_id: str):
 def test_volcengine_registered_clone_keeps_teacher_selected_model(app):
     """A registered cloned voice validates under the teacher's normal model
     (e.g. seed-tts-2.0); the clone resource id is inferred inside the
-    provider, never selected as a model."""
+    provider, never selected as a model.
+    """
     _prepare_tables(app)
     _seed_ready_clone(app, provider="volcengine", voice_id="S_xxxxxxxxxx")
     with app.app_context():
@@ -117,7 +118,8 @@ def test_volcengine_bad_shape_custom_voice_is_rejected(app):
 
 def test_minimax_format_bypass_does_not_require_db_row(app):
     """Regression: the historical MiniMax bypass stays format-only (no DB row
-    needed), so stale-but-well-formed ids keep passing strict validation."""
+    needed), so stale-but-well-formed ids keep passing strict validation.
+    """
     _prepare_tables(app)
     with app.app_context():
         validated = _validate("minimax", "speech-2.8-turbo", "AiShifu_no_row_here")

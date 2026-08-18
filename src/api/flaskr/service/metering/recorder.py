@@ -1,5 +1,4 @@
-"""
-Usage metering recorder.
+"""Usage metering recorder.
 
 Provides best-effort helpers to persist LLM and TTS usage records.
 Billing settlement stays asynchronous; request threads stop after raw

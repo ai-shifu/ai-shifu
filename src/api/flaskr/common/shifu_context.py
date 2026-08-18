@@ -1,5 +1,4 @@
-"""
-Shifu context utilities.
+"""Shifu context utilities.
 
 This module provides a simple thread-local context for shifu-related
 metadata that should be accessible during a single API request, including
@@ -18,12 +17,12 @@ _context_local = threading.local()
 def set_shifu_context(
     shifu_bid: Optional[str], shifu_creator_bid: Optional[str]
 ) -> None:
-    """
-    Set the shifu context for the current thread.
+    """Set the shifu context for the current thread.
 
     Args:
         shifu_bid: Shifu business identifier
         shifu_creator_bid: Shifu creator user business identifier
+
     """
     _context_local.shifu_bid = shifu_bid
     _context_local.shifu_creator_bid = shifu_creator_bid
@@ -42,8 +41,7 @@ def get_shifu_creator_bid() -> Optional[str]:
 
 
 def get_shifu_context_snapshot() -> Dict[str, Any]:
-    """
-    Capture the current shifu context as a plain dict.
+    """Capture the current shifu context as a plain dict.
 
     This snapshot can be passed into a background thread and applied there.
     """
@@ -54,11 +52,11 @@ def get_shifu_context_snapshot() -> Dict[str, Any]:
 
 
 def apply_shifu_context_snapshot(snapshot: Optional[Dict[str, Any]]) -> None:
-    """
-    Apply a previously captured shifu context snapshot to the current thread.
+    """Apply a previously captured shifu context snapshot to the current thread.
 
     Args:
         snapshot: Snapshot returned by get_shifu_context_snapshot
+
     """
     if not snapshot:
         return
@@ -69,8 +67,7 @@ def apply_shifu_context_snapshot(snapshot: Optional[Dict[str, Any]]) -> None:
 
 
 def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
-    """
-    Resolve creator bid for a shifu with a lightweight Redis cache.
+    """Resolve creator bid for a shifu with a lightweight Redis cache.
 
     The mapping (shifu_bid -> creator_bid) is effectively immutable, so we can
     safely cache it with a short TTL to avoid repeated database lookups.
@@ -158,8 +155,7 @@ def _extract_request_host(request) -> Optional[str]:
 def with_shifu_context(
     resolve_shifu_bid: Optional[Callable[..., Optional[str]]] = None,
 ) -> Callable:
-    """
-    Decorator to automatically populate shifu context for a route handler.
+    """Decorator to automatically populate shifu context for a route handler.
 
     By default it tries to resolve shifu_bid from:
       - path parameters: request.view_args["shifu_bid"]

@@ -1,5 +1,4 @@
-"""
-Tencent Cloud TextToVoice TTS Provider.
+"""Tencent Cloud TextToVoice TTS Provider.
 
 Calls the standard Tencent Cloud TTS API (tts.tencentcloudapi.com,
 Action=TextToVoice) with TC3-HMAC-SHA256 signing. This is a different

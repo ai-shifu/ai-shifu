@@ -110,7 +110,8 @@ def test_natural_exhaustion_does_not_invalidate_producer_session(app, monkeypatc
 
 def test_tts_finalize_failure_runs_classified_cleanup(app, monkeypatch):
     """A DB failure swallowed by the TTS finalize wrapper must still run the
-    classified cleanup so an interrupted exchange discards the connection."""
+    classified cleanup so an interrupted exchange discards the connection.
+    """
     import types
 
     from flaskr.service.learn import context_v2

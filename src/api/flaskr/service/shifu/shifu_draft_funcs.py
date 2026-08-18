@@ -1,5 +1,4 @@
-"""
-Shifu draft functions
+"""Shifu draft functions
 
 This module contains functions for managing shifu draft.
 
@@ -71,9 +70,7 @@ SUPPORTED_ASK_ENABLED_STATUSES = {
 
 
 def normalize_ask_provider_config(raw_config: Any) -> dict[str, Any]:
-    """
-    Normalize ask_provider_config into a stable object shape.
-    """
+    """Normalize ask_provider_config into a stable object shape."""
     parsed: dict[str, Any] = {}
     if isinstance(raw_config, dict):
         parsed = raw_config
@@ -107,16 +104,13 @@ def normalize_ask_provider_config(raw_config: Any) -> dict[str, Any]:
 
 
 def serialize_ask_provider_config(raw_config: Any) -> str:
-    """
-    Serialize ask_provider_config into canonical JSON for persistence.
-    """
+    """Serialize ask_provider_config into canonical JSON for persistence."""
     normalized = normalize_ask_provider_config(raw_config)
     return json.dumps(normalized, ensure_ascii=False, sort_keys=True)
 
 
 def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
-    """
-    Get the latest shifu draft
+    """Get the latest shifu draft
     Args:
         shifu_id: Shifu ID
     Returns:
@@ -141,15 +135,16 @@ def return_shifu_draft_dto(
     can_manage_archive: bool = False,
     can_publish: bool = False,
 ) -> ShifuDetailDto:
-    """
-    Return shifu draft dto
+    """Return shifu draft dto
     Args:
         shifu_draft: Shifu draft
         base_url: Base URL to build shifu links
         readonly: Whether the current user has read-only permission
         archived_override: Optional override for archived state (per-user)
+
     Returns:
         ShifuDetailDto: Shifu detail dto
+
     """
     normalized_base = base_url.rstrip("/") if base_url else ""
     shifu_path = f"/c/{shifu_draft.shifu_bid}"
@@ -203,9 +198,7 @@ def return_shifu_draft_dto(
 
 
 def _get_user_archive_map(app, user_id: str, shifu_ids: list[str]) -> dict[str, bool]:
-    """
-    Load per-user archive states for the given shifu ids.
-    """
+    """Load per-user archive states for the given shifu ids."""
     if not shifu_ids:
         return {}
     with app.app_context():
@@ -227,8 +220,7 @@ def create_shifu_draft(
     shifu_temperature: float = None,
     shifu_price: float = None,
 ):
-    """
-    Create a shifu draft
+    """Create a shifu draft
     Args:
         app: Flask application instance
         user_id: User ID
@@ -342,8 +334,7 @@ def create_shifu_draft(
 def get_shifu_draft_info(
     app, user_id: str, shifu_id: str, base_url: str
 ) -> ShifuDetailDto:
-    """
-    Get shifu draft info
+    """Get shifu draft info
     Args:
         app: Flask application instance
         user_id: User ID
@@ -407,8 +398,7 @@ def save_shifu_draft_info(
     ask_system_prompt: str | None = None,
     ask_provider_config: Any = None,
 ):
-    """
-    Save shifu draft info
+    """Save shifu draft info
     Args:
         app: Flask application instance
         user_id: User ID
@@ -707,8 +697,7 @@ def get_shifu_draft_list(
     archived: bool = False,
     creator_only: bool = False,
 ):
-    """
-    Get shifu draft list
+    """Get shifu draft list
     Args:
         app: Flask application instance
         user_id: User ID

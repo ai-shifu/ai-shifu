@@ -38,7 +38,7 @@ def _make_conn(sock, ping_exc=None):
     return _Conn()
 
 
-@pytest.fixture()
+@pytest.fixture
 def clean_sock():
     left, right = socket.socketpair()
     yield left

@@ -1,6 +1,4 @@
-"""
-Test data for configuration tests.
-"""
+"""Test data for configuration tests."""
 
 from flaskr.common.config import EnvVar
 

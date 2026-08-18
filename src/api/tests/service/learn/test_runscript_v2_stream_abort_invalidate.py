@@ -83,7 +83,7 @@ def _patch_run_dependencies(monkeypatch, script):
         runscript_v2,
         "get_outline_item_dto",
         lambda _app, _bid, _preview: types.SimpleNamespace(
-            bid="outline-1", shifu_bid="shifu-1", __json__=lambda: {}
+            bid="outline-1", shifu_bid="shifu-1", __json__=dict
         ),
     )
     monkeypatch.setattr(

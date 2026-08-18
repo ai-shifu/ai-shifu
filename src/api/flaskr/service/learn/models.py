@@ -15,9 +15,7 @@ from ...dao import db
 
 
 class LearnProgressRecord(db.Model):
-    """
-    Learn progress record
-    """
+    """Learn progress record"""
 
     __tablename__ = "learn_progress_records"
     __table_args__ = {"comment": "Learn progress records"}
@@ -89,9 +87,7 @@ class LearnProgressRecord(db.Model):
 
 
 class LearnGeneratedBlock(db.Model):
-    """
-    Learn generated block
-    """
+    """Learn generated block"""
 
     __tablename__ = "learn_generated_blocks"
     __table_args__ = {"comment": "Learn generated blocks"}
