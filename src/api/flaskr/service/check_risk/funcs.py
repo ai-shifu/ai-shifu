@@ -63,3 +63,4 @@ def check_text_with_risk_control(
     )
     if res.check_result == CHECK_RESULT_REJECT:
         raise_error("server.check.checkRiskControlReject")
+    return None

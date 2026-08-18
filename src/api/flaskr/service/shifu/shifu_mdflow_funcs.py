@@ -263,7 +263,7 @@ def save_shifu_mdflow(
 
 
 def parse_shifu_mdflow(
-    app: Flask, shifu_bid: str, outline_bid: str, data: str = None
+    app: Flask, shifu_bid: str, outline_bid: str, data: str | None = None
 ) -> MdflowDTOParseResult:
     """Parse shifu mdflow"""
     with app.app_context():
@@ -412,7 +412,7 @@ def get_shifu_mdflow_history_version_detail(
                     else ""
                 )
                 user_name = (
-                    (user.nickname if user.nickname else "")
+                    (user.nickname or "")
                     or masked_identifier
                     or version.updated_user_bid
                 )

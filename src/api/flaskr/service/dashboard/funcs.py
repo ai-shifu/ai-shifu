@@ -973,12 +973,11 @@ def _load_dashboard_course_created_at(shifu_bid: str) -> Optional[datetime]:
     if latest_draft and latest_draft.created_at:
         return latest_draft.created_at
 
-    earliest_published_created_at = (
+    return (
         db.session.query(db.func.min(PublishedShifu.created_at))
         .filter(PublishedShifu.shifu_bid == shifu_bid)
         .scalar()
     )
-    return earliest_published_created_at
 
 
 def _resolve_dashboard_course_status(shifu_bid: str) -> str:

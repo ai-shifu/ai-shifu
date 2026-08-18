@@ -129,7 +129,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
 
         # Write to file
         os.makedirs(
-            os.path.dirname(file_path) if os.path.dirname(file_path) else ".",
+            os.path.dirname(file_path) or ".",
             exist_ok=True,
         )
         with open(file_path, "w", encoding="utf-8") as f:
@@ -423,7 +423,7 @@ def import_shifu(
             new_structure = rebuild_structure(structure_data)
             if new_structure:
                 # Save outline tree history
-                outline_tree = new_structure.children if new_structure.children else []
+                outline_tree = new_structure.children or []
                 save_outline_tree_history(
                     app, user_id, shifu_bid, outline_tree, new_shifu.id
                 )

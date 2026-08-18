@@ -259,8 +259,7 @@ def _escape_markdown_cell(value: Any) -> str:
     # Avoid breaking Markdown tables.
     cell = cell.replace("|", "\\|")
     # Render newlines as <br> so the table stays intact.
-    cell = cell.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>")
-    return cell
+    return cell.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>")
 
 
 def _render_markdown(rows: list[ReportRow], *, output_path: str) -> str:

@@ -113,6 +113,7 @@ def get_image_content_type(filename: str) -> str:
     if extension == "gif":
         return "image/gif"
     raise_error("server.file.fileTypeNotSupport")
+    return None
 
 
 def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:

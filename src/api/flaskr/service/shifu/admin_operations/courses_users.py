@@ -400,16 +400,11 @@ def get_operator_course_users(
                 if not any(keyword in value for value in haystack if value):
                     continue
 
-            if (
-                user_role_filter
-                and user_role_filter != "all"
-                and user_role != user_role_filter
-            ):
+            if user_role_filter and user_role_filter not in ("all", user_role):
                 continue
-            if (
-                learning_status_filter
-                and learning_status_filter != "all"
-                and learning_status != learning_status_filter
+            if learning_status_filter and learning_status_filter not in (
+                "all",
+                learning_status,
             ):
                 continue
             if payment_status_filter == "paid" and not is_paid:

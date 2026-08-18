@@ -80,7 +80,7 @@ def test_aggregate_functions_are_allowed(table_key: str) -> None:
 def test_shifu_user_archives_has_no_deleted_column() -> None:
     spec = WHITELIST["shifu_user_archives"]
     assert spec.has_deleted is False
-    assert "deleted" not in spec.model.__table__.c.keys()
+    assert "deleted" not in spec.model.__table__.c
 
 
 @pytest.mark.parametrize(
@@ -90,14 +90,14 @@ def test_shifu_user_archives_has_no_deleted_column() -> None:
 def test_other_tables_have_deleted_column(table_key: str) -> None:
     spec = WHITELIST[table_key]
     assert spec.has_deleted is True
-    assert "deleted" in spec.model.__table__.c.keys()
+    assert "deleted" in spec.model.__table__.c
 
 
 @pytest.mark.parametrize("table_key", sorted(SHIFU_SCOPED_TABLE_KEYS))
 def test_shifu_scoped_tables_have_shifu_bid_column(table_key: str) -> None:
     spec = WHITELIST[table_key]
     assert spec.has_shifu_bid is True
-    assert "shifu_bid" in spec.model.__table__.c.keys(), (
+    assert "shifu_bid" in spec.model.__table__.c, (
         f"{table_key} declares has_shifu_bid=True but the column is missing"
     )
 
@@ -106,7 +106,7 @@ def test_user_users_is_global_table() -> None:
     """user_users has no shifu_bid column; gated by permission check instead."""
     spec = WHITELIST["user_users"]
     assert spec.has_shifu_bid is False
-    assert "shifu_bid" not in spec.model.__table__.c.keys()
+    assert "shifu_bid" not in spec.model.__table__.c
 
 
 def test_shifu_bid_and_deleted_are_never_user_addressable() -> None:

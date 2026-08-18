@@ -132,8 +132,7 @@ def _normalize_dt_to_utc(
 def _resolve_published_effective_updated_at(
     outline_item: PublishedOutlineItem,
 ) -> datetime | None:
-    updated_at = _normalize_dt_to_utc(getattr(outline_item, "updated_at", None))
-    return updated_at
+    return _normalize_dt_to_utc(getattr(outline_item, "updated_at", None))
 
 
 def _resolve_progress_effective_updated_at(

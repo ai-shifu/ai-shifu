@@ -40,7 +40,7 @@ def _shared_json_root() -> Path:
 
 def _flatten_dict(data, prefix: str = ""):
     if not isinstance(data, dict):
-        key = prefix if prefix else ""
+        key = prefix or ""
         return {key: data} if key else {}
 
     flattened = {}
@@ -210,7 +210,7 @@ def _validate_json_translations(app: Flask, root: Path):
                 problems.append(f"Malformed JSON in {file_path}: {exc}")
 
     if problems:
-        details = "\n - ".join(["Detected translation issues:"] + problems)
+        details = "\n - ".join(["Detected translation issues:", *problems])
         raise RuntimeError(details)
 
 

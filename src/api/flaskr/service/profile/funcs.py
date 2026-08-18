@@ -151,9 +151,7 @@ def check_text_content(
         1 if res.check_result == CHECK_RESULT_PASS else 0,
         "check_text",
     )
-    if res.check_result == CHECK_RESULT_REJECT:
-        return False
-    return True
+    return res.check_result != CHECK_RESULT_REJECT
 
 
 def get_profile_labels():
@@ -432,7 +430,7 @@ def get_user_profile_labels(
                     items=meta.get("items"),
                 )
             )
-    for key in PROFILES_LABLES.keys():
+    for key in PROFILES_LABLES:
         if key in mapping_keys:
             continue
         profile_key = key
@@ -493,7 +491,7 @@ def update_user_profile_with_lable(
     user_id: str,
     profiles: list,
     update_all: bool = False,
-    course_id: str = None,
+    course_id: str | None = None,
 ):
     app.logger.info(f"update user profile with lable:{course_id}")
     PROFILES_LABLES = get_profile_labels()

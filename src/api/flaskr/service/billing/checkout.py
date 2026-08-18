@@ -1792,6 +1792,7 @@ def _build_native_provider_options(
             return {"open_id": open_id}
         raise_error("server.pay.payChannelNotSupport")
     raise_error("server.pay.payChannelNotSupport")
+    return None
 
 
 def _persist_billing_raw_snapshot_from_checkout(

@@ -351,7 +351,7 @@ def handle_input_ask(
         )
     )
     llm_system_prompt = follow_up_info.ask_prompt.replace(
-        "{shifu_system_message}", base_system_prompt if base_system_prompt else ""
+        "{shifu_system_message}", base_system_prompt or ""
     )
     # Append language instruction if use_learner_language is enabled
     if use_learner_language:

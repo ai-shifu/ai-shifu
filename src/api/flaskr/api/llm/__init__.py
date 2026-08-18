@@ -987,7 +987,7 @@ def invoke_llm(
     span: LangfuseObservationHandle,
     model: str,
     message: str,
-    system: str = None,
+    system: str | None = None,
     json: bool = False,
     generation_name: str = "invoke_llm",
     usage_context: Optional[UsageContext] = None,
@@ -1074,7 +1074,7 @@ def invoke_llm(
                 response_text += res.choices[0].delta.content
                 yield LLMStreamResponse(
                     res.id,
-                    True if res.choices[0].finish_reason else False,
+                    bool(res.choices[0].finish_reason),
                     False,
                     res.choices[0].delta.content,
                     res.choices[0].finish_reason,
@@ -1249,7 +1249,7 @@ def chat_llm(
                     response_text += res.choices[0].delta.content
                     yield LLMStreamResponse(
                         res.id,
-                        True if res.choices[0].finish_reason else False,
+                        bool(res.choices[0].finish_reason),
                         False,
                         res.choices[0].delta.content,
                         res.choices[0].finish_reason,
@@ -1378,7 +1378,7 @@ def _build_model_options(
             "LLM_ALLOWED_MODELS"
         )
     display_map: dict[str, str] = (
-        dict(zip(allowed, display_names)) if display_names_enabled else {}
+        dict(zip(allowed, display_names, strict=False)) if display_names_enabled else {}
     )
 
     options = [

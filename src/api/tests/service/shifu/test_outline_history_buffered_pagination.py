@@ -101,5 +101,5 @@ def test_skips_deleted_versions(app):
             for row in iter_outline_item_versions_desc(SHIFU, OUTLINE, batch_size=2)
         ]
 
-        assert got == [ids[0]] + ids[2:]
+        assert got == [ids[0], *ids[2:]]
         _cleanup()

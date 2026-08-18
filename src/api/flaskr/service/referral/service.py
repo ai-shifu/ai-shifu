@@ -139,9 +139,7 @@ def _within_window(
 ) -> bool:
     if starts_at is not None and starts_at > now:
         return False
-    if ends_at is not None and ends_at <= now:
-        return False
-    return True
+    return not (ends_at is not None and ends_at <= now)
 
 
 def _campaign_runtime_enabled(campaign: ReferralCampaign, *, now: datetime) -> bool:

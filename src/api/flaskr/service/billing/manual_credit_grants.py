@@ -93,6 +93,7 @@ def _resolve_manual_credit_grant_expiry(
     if normalized_preset == MANUAL_CREDIT_VALIDITY_1Y:
         return _add_years(granted_at, 1)
     raise_param_error("validity_preset")
+    return None
 
 
 def grant_manual_credits_to_user(

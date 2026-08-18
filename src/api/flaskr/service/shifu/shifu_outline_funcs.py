@@ -408,7 +408,7 @@ def create_outline(
     parent_id: str,
     outline_name: str,
     outline_type: str = UNIT_TYPE_GUEST,
-    system_prompt: str = None,
+    system_prompt: str | None = None,
     is_hidden: bool = False,
 ):
     """Create outline
@@ -752,7 +752,7 @@ def get_unit_by_id(app, user_id: str, unit_id: str):
         if not unit:
             raise_error("server.shifu.unitNotFound")
         unit_type: str = UNIT_TYPE_VALUES_REVERSE.get(unit.type, UNIT_TYPE_TRIAL)
-        is_hidden: bool = True if unit.hidden == 1 else False
+        is_hidden: bool = unit.hidden == 1
 
         return OutlineDto(
             bid=unit.outline_item_bid,
@@ -772,9 +772,9 @@ def modify_unit(
     app,
     user_id: str,
     unit_id: str,
-    unit_name: str = None,
-    unit_description: str = None,
-    unit_system_prompt: str = None,
+    unit_name: str | None = None,
+    unit_description: str | None = None,
+    unit_system_prompt: str | None = None,
     unit_is_hidden: bool | None = None,
     unit_type: str | None = None,
 ):

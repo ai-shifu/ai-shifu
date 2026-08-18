@@ -326,7 +326,7 @@ def _build_detail_statement(params: _Params) -> Select:
     bu = BillUsageRecord.__table__
     cle = CreditLedgerEntry.__table__
 
-    stmt = (
+    return (
         select(
             bu.c.usage_bid,
             bu.c.created_at,
@@ -346,14 +346,13 @@ def _build_detail_statement(params: _Params) -> Select:
         .limit(params.limit)
         .offset(params.offset)
     )
-    return stmt
 
 
 def _build_summary_statement(params: _Params) -> Select:
     bu = BillUsageRecord.__table__
     cle = CreditLedgerEntry.__table__
 
-    stmt = (
+    return (
         select(
             func.count().label("total_records"),
             func.coalesce(func.sum(func.abs(cle.c.amount)), 0).label("total_credits"),
@@ -376,7 +375,6 @@ def _build_summary_statement(params: _Params) -> Select:
         .select_from(_join_conditions(params))
         .where(and_(*_where_clauses(params)))
     )
-    return stmt
 
 
 # ---------------------------------------------------------------------------
@@ -386,7 +384,7 @@ def _build_summary_statement(params: _Params) -> Select:
 
 def _row_to_dict(columns: Sequence[str], values: Sequence[Any]) -> Dict[str, Any]:
     row: Dict[str, Any] = {}
-    for col, val in zip(columns, values):
+    for col, val in zip(columns, values, strict=False):
         row[col] = _coerce_value(val)
     return row
 

@@ -821,8 +821,8 @@ class StreamingTTSProcessor:
                 int(cue.get("end_ms", source_start_ms) or source_start_ms),
                 source_start_ms,
             )
-            start_ms = timeline_start_ms + int(round(source_start_ms * scale))
-            end_ms = timeline_start_ms + int(round(source_cue_end_ms * scale))
+            start_ms = timeline_start_ms + round(source_start_ms * scale)
+            end_ms = timeline_start_ms + round(source_cue_end_ms * scale)
             start_ms = min(max(start_ms, last_end_ms), timeline_end_ms)
             if start_ms >= timeline_end_ms:
                 continue
@@ -930,7 +930,7 @@ class StreamingTTSProcessor:
             if raw_value is None or raw_value == "":
                 continue
             try:
-                return int(round(float(raw_value)))
+                return round(float(raw_value))
             except (TypeError, ValueError):
                 continue
         return int(default_ms or 0)
@@ -1034,8 +1034,8 @@ class StreamingTTSProcessor:
             if index == len(units) - 1:
                 unit_duration_ms = remaining_duration_ms
             elif safe_duration_ms > 0:
-                unit_duration_ms = int(
-                    round(remaining_duration_ms * weights[index] / remaining_weight)
+                unit_duration_ms = round(
+                    remaining_duration_ms * weights[index] / remaining_weight
                 )
                 unit_duration_ms = max(min(unit_duration_ms, remaining_duration_ms), 0)
             else:
@@ -1161,11 +1161,11 @@ class StreamingTTSProcessor:
                 source_start_ms,
             )
             start_ms = min(
-                int(round(source_start_ms * scale)),
+                round(source_start_ms * scale),
                 safe_live_request_end_ms,
             )
             end_ms = min(
-                int(round(source_cue_end_ms * scale)),
+                round(source_cue_end_ms * scale),
                 safe_live_request_end_ms,
             )
             live_cues.append(
@@ -1227,7 +1227,7 @@ class StreamingTTSProcessor:
             int(tail_candidate.get("end_ms", 0) or 0),
         )
         remaining = [dict(cue) for cue in incoming[incoming_tail_index + 1 :]]
-        return frozen_prefix + [previous_tail] + remaining
+        return [*frozen_prefix, previous_tail, *remaining]
 
     def _normalize_minimax_live_request_cues(
         self,

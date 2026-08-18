@@ -388,7 +388,7 @@ def test_persist_invalidates_on_base_exception_interrupt(app, monkeypatch):
             pass
 
         def commit(self):
-            raise _Interrupt()
+            raise _Interrupt
 
     monkeypatch.setattr(
         recorder_module, "db", type("D", (), {"session": _InterruptedSession()})

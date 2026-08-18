@@ -121,9 +121,7 @@ class RunStateResolver:
                 return True
             if outline_item_info.children[0].type == "outline":
                 return False
-        if outline_item_info.type == "outline":
-            return True
-        return False
+        return outline_item_info.type == "outline"
 
     def get_current_outline_block_count(self) -> int:
         """Determine the completion threshold for the current outline.

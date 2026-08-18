@@ -206,9 +206,9 @@ def _normalize_identifier(provider: str, identifier: Optional[str]) -> str:
     if not identifier:
         return ""
     normalized = identifier.strip()
-    if provider in {"email"}:
+    if provider == "email":
         return normalized.lower()
-    if provider in {"phone"}:
+    if provider == "phone":
         return normalize_phone_identifier(normalized)
     return normalized
 
@@ -238,7 +238,7 @@ def _build_user_aggregate(
     credentials: Optional[List[AuthCredential]] = None,
 ) -> UserAggregate:
     summaries = _summarize_credentials(credentials or [])
-    aggregate = UserAggregate(
+    return UserAggregate(
         user_bid=entity.user_bid,
         identify=entity.user_identify or "",
         nickname=entity.nickname or "",
@@ -256,7 +256,6 @@ def _build_user_aggregate(
         is_creator=bool(entity.is_creator),
         is_operator=bool(entity.is_operator),
     )
-    return aggregate
 
 
 def get_user_entity_by_bid(
