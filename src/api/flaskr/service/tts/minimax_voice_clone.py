@@ -149,7 +149,7 @@ def normalize_audio_blob(
             "unable to decode audio; please record again or upload mp3, m4a, or wav"
         ) from exc
 
-    duration_ms = int(len(segment))
+    duration_ms = len(segment)
     if purpose == "source":
         if duration_ms < _SOURCE_MIN_DURATION_MS:
             raise ValueError("source audio must be at least 10 seconds")

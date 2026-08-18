@@ -75,6 +75,13 @@
 #   today. Members that are mechanical and behavior-preserving get folded in
 #   one commit at a time, after applying the fix repo-wide.
 
+# `target-version` states the version Ruff already resolves to today, so a Ruff
+# release cannot move it. It gates the rules that rewrite code into newer syntax
+# (UP017 `datetime.UTC`, FURB162, UP042 `StrEnum`, UP040 `type X = ...`), and
+# pinning it keeps those rewrites from landing on their own and raising the
+# minimum interpreter the backend needs.
+target-version = "py310"
+
 [lint]
 select = [
     # --- Groups where every stable rule is already satisfied ---------------
@@ -159,11 +166,12 @@ select = [
     "PTH201", "PTH202", "PTH203", "PTH204", "PTH205", "PTH207", "PTH21",
     # flake8-return -- off: RET503
     "RET501", "RET502", "RET504", "RET505", "RET506", "RET507", "RET508",
-    # Ruff-specific rules -- off: RUF001, RUF002, RUF003, RUF005, RUF006,
-    # RUF007, RUF012, RUF013, RUF043, RUF046, RUF100
-    "RUF008", "RUF009", "RUF010", "RUF015", "RUF016", "RUF017", "RUF018",
-    "RUF019", "RUF02", "RUF03", "RUF040", "RUF041", "RUF048", "RUF049",
-    "RUF05", "RUF06", "RUF101", "RUF102", "RUF103", "RUF104", "RUF2",
+    # Ruff-specific rules -- off: RUF001, RUF002, RUF003, RUF006, RUF012,
+    # RUF013, RUF043, RUF100
+    "RUF005", "RUF007", "RUF008", "RUF009", "RUF010", "RUF015", "RUF016",
+    "RUF017", "RUF018", "RUF019", "RUF02", "RUF03", "RUF040", "RUF041",
+    "RUF046", "RUF048", "RUF049", "RUF05", "RUF06", "RUF101", "RUF102",
+    "RUF103", "RUF104", "RUF2",
     # flake8-bandit -- off: S101, S104, S105, S106, S107, S108, S110, S112,
     # S113, S310, S311, S324, S603, S605, S607, S608
     "S102", "S103", "S2", "S30", "S312", "S313", "S314", "S315", "S316",
@@ -183,11 +191,11 @@ select = [
     # tryceratops -- off: TRY002, TRY003, TRY004, TRY203, TRY300, TRY301,
     # TRY400, TRY401
     "TRY201",
-    # pyupgrade -- off: UP006, UP007, UP022, UP028, UP031, UP035, UP037, UP045
+    # pyupgrade -- off: UP006, UP007, UP028, UP031, UP035, UP037, UP045
     "UP001", "UP003", "UP004", "UP005", "UP008", "UP009", "UP01", "UP020",
-    "UP021", "UP023", "UP024", "UP025", "UP026", "UP029", "UP030", "UP032",
-    "UP033", "UP034", "UP036", "UP039", "UP040", "UP041", "UP042", "UP043",
-    "UP044", "UP046", "UP047", "UP049", "UP05",
+    "UP021", "UP022", "UP023", "UP024", "UP025", "UP026", "UP029", "UP030",
+    "UP032", "UP033", "UP034", "UP036", "UP039", "UP040", "UP041", "UP042",
+    "UP043", "UP044", "UP046", "UP047", "UP049", "UP05",
     # pycodestyle warnings -- off: W191
     "W2", "W5", "W6",
 ]

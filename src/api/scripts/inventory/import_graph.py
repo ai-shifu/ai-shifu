@@ -43,7 +43,7 @@ def add_tree(base_pkg, base_dir):
             if fn == "__init__.py":
                 name = ".".join(parts)
             else:
-                name = ".".join(parts + [fn[:-3]])
+                name = ".".join([*parts, fn[:-3]])
             mods[name] = os.path.join(rel, fn)
 
 

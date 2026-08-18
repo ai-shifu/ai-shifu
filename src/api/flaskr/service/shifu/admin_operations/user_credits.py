@@ -564,7 +564,7 @@ def get_operator_user_credit_usage_detail(
         )
         generated_block_bids = [
             str(getattr(row, "generated_block_bid", "") or "").strip()
-            for row in detail_rows + [main_usage_row]
+            for row in [*detail_rows, main_usage_row]
         ]
         block_content_map = _load_generated_block_content_map(generated_block_bids)
         fallback_content = block_content_map.get(
