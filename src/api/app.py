@@ -79,7 +79,7 @@ def create_app() -> Flask:
 
     # Init LLM
     with app.app_context():
-        from flaskr.api import llm  # noqa
+        from flaskr.api import llm  # noqa: F401
     # init langfuse
     from flaskr import api
 

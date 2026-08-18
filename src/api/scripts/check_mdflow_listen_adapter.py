@@ -240,7 +240,7 @@ def _format_stream_parts(
 def _group_expected_stream_elements(
     parts: list[tuple[str, str, int]],
 ) -> list[ExpectedStreamElement]:
-    grouped: "OrderedDict[int, ExpectedStreamElement]" = OrderedDict()
+    grouped: OrderedDict[int, ExpectedStreamElement] = OrderedDict()
     for content, stream_type, number in parts:
         if not content or not stream_type:
             continue

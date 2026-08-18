@@ -17,8 +17,7 @@ class _FakeSSEStreamingResponse:
 
     def iter_lines(self, decode_unicode=True):
         _ = decode_unicode
-        for line in self._lines:
-            yield line
+        yield from self._lines
 
     def close(self):
         self.closed = True

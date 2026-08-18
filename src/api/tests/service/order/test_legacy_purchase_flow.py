@@ -218,7 +218,7 @@ class _FakeSaasColumn:
     def __eq__(self, value: object) -> tuple[str, object]:  # type: ignore[override]
         return self.name, value
 
-    def desc(self) -> "_FakeSaasColumn":
+    def desc(self) -> _FakeSaasColumn:
         return self
 
 
@@ -231,10 +231,10 @@ class _FakeSaasQuery:
         self._fake_saas = fake_saas
         self._conditions = conditions or []
 
-    def filter(self, *conditions: tuple[str, object]) -> "_FakeSaasQuery":
+    def filter(self, *conditions: tuple[str, object]) -> _FakeSaasQuery:
         return _FakeSaasQuery(self._fake_saas, [*self._conditions, *conditions])
 
-    def order_by(self, *_args) -> "_FakeSaasQuery":
+    def order_by(self, *_args) -> _FakeSaasQuery:
         return self
 
     def first(self):

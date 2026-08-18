@@ -414,7 +414,8 @@ def test_replace_and_clear_learner_profile(app, monkeypatch):
     assert loaded["has_learner_profile"] is True
     assert loaded["nickname"] == "小明"
     assert loaded["max_length"] == 1000
-    assert first_updated_at is not None and first_updated_at.endswith("Z")
+    assert first_updated_at is not None
+    assert first_updated_at.endswith("Z")
     assert unchanged["learner_profile_updated_at"] == first_updated_at
     assert cleared["learner_profile"] == ""
     assert cleared["learner_profile_updated_at"] is None

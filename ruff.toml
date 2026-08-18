@@ -143,8 +143,8 @@ select = [
     "N804", "N805", "N807", "N811", "N812", "N814", "N816", "N817", "N9",
     # Perflint -- off: PERF203, PERF401
     "PERF1", "PERF402", "PERF403",
-    # pygrep-hooks -- off: PGH003, PGH004
-    "PGH005",
+    # pygrep-hooks -- off: PGH003
+    "PGH004", "PGH005",
     # Pylint conventions -- off: PLC0206, PLC0415
     "PLC01", "PLC0205", "PLC0207", "PLC0208", "PLC0414", "PLC1", "PLC2",
     "PLC3",
@@ -154,11 +154,9 @@ select = [
     # Pylint warnings -- off: PLW0108, PLW0603, PLW1641, PLW2901
     "PLW012", "PLW013", "PLW017", "PLW02", "PLW04", "PLW0602", "PLW0604",
     "PLW064", "PLW07", "PLW15", "PLW21", "PLW3",
-    # flake8-pytest-style -- off: PT006, PT009, PT011, PT012, PT013, PT017,
-    # PT018, PT022, PT027
-    "PT001", "PT002", "PT003", "PT007", "PT008", "PT010", "PT014", "PT015",
-    "PT016", "PT019", "PT020", "PT021", "PT023", "PT024", "PT025", "PT026",
-    "PT028", "PT03",
+    # flake8-pytest-style -- off: PT009, PT011, PT012
+    "PT001", "PT002", "PT003", "PT006", "PT007", "PT008", "PT010", "PT013",
+    "PT014", "PT015", "PT016", "PT017", "PT018", "PT019", "PT02", "PT03",
     # flake8-use-pathlib -- off: PTH100, PTH103, PTH106, PTH107, PTH109,
     # PTH110, PTH112, PTH118, PTH119, PTH120, PTH123, PTH206, PTH208
     "PTH101", "PTH102", "PTH104", "PTH105", "PTH108", "PTH111", "PTH113",
@@ -191,11 +189,11 @@ select = [
     # tryceratops -- off: TRY002, TRY003, TRY004, TRY203, TRY300, TRY301,
     # TRY400, TRY401
     "TRY201",
-    # pyupgrade -- off: UP006, UP007, UP028, UP031, UP035, UP037, UP045
+    # pyupgrade -- off: UP006, UP007, UP031, UP035, UP045
     "UP001", "UP003", "UP004", "UP005", "UP008", "UP009", "UP01", "UP020",
-    "UP021", "UP022", "UP023", "UP024", "UP025", "UP026", "UP029", "UP030",
-    "UP032", "UP033", "UP034", "UP036", "UP039", "UP040", "UP041", "UP042",
-    "UP043", "UP044", "UP046", "UP047", "UP049", "UP05",
+    "UP021", "UP022", "UP023", "UP024", "UP025", "UP026", "UP028", "UP029",
+    "UP030", "UP032", "UP033", "UP034", "UP036", "UP037", "UP039", "UP040",
+    "UP041", "UP042", "UP043", "UP044", "UP046", "UP047", "UP049", "UP05",
     # pycodestyle warnings -- off: W191
     "W2", "W5", "W6",
 ]

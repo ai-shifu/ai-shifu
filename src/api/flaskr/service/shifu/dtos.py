@@ -298,7 +298,7 @@ class SimpleOutlineDto(BaseModel):
         type: str | None = None,
         is_hidden: bool | None = None,
     ):
-        normalized_children: list["SimpleOutlineDto"] = []
+        normalized_children: list[SimpleOutlineDto] = []
         if children:
             for child in children:
                 if isinstance(child, SimpleOutlineDto):
