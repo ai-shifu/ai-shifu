@@ -327,7 +327,7 @@ def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
         captured["settlement_at"] = settlement_at
-        return None
+        return
 
     monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",

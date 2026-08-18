@@ -152,4 +152,4 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
             )
         )
 
-    return None
+    return

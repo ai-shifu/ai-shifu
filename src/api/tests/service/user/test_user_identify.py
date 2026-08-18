@@ -197,7 +197,7 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
 
         def sendmail(self, _sender, recipient, _message):
             self.sent_to = recipient
-            return None
+            return
 
         def quit(self):
             return None
