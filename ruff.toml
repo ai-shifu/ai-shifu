@@ -85,6 +85,7 @@ select = [
     "FURB17",  # membership test against a single-item container
     "FURB18",  # list reversal via slicing, manual prefix/suffix stripping
     "FURB19",  # sorted() only to take the first item
+    "LOG",     # flake8-logging (exc_info must name the exception outside except blocks)
     "PERF1",   # dict.items() when only one half is used
     "PIE",     # flake8-pie (redundant placeholders, dict kwargs, startswith)
     "PLC0207", # str.split without maxsplit when one segment is used

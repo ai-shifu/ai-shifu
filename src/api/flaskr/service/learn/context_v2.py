@@ -3432,7 +3432,7 @@ class RunScriptContextV2:
             app.logger.warning(
                 "Idle streaming TTS drain failed; disable for this block: %s",
                 exc,
-                exc_info=True,
+                exc_info=exc,
             )
             _disable_all_tts()
 

@@ -104,7 +104,7 @@ class FeishuLogHandler(logging.Handler):
         try:
             from flask import current_app
 
-            current_app.logger.warning(message, exc, exc_info=True)
+            current_app.logger.warning(message, exc, exc_info=exc)
         except Exception:
             logging.getLogger(__name__).warning(message, exc, exc_info=True)
 
