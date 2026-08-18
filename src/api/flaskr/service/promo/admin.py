@@ -1130,8 +1130,7 @@ def _calculate_coupon_usage_discount_amount(
         int(usage.discount_type or COUPON_TYPE_FIXED),
         decimal.Decimal(usage.value or 0),
     )
-    if discount_amount > payable_price:
-        discount_amount = payable_price
+    discount_amount = min(discount_amount, payable_price)
     return _format_decimal(discount_amount)
 
 

@@ -54,6 +54,7 @@ select = [
     "C420",   # dict.fromkeys instead of a constant-value comprehension
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
+    "PLR1730", # if-statement that should be min()/max()
     "RUF021", # unparenthesized and inside or
     "RUF102", # noqa directive naming an unknown rule
     "UP012",  # redundant utf-8 argument to str.encode
