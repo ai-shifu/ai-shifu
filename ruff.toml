@@ -95,6 +95,7 @@ select = [
     "RUF036",  # None not at the end of a union
     "RUF046",  # unnecessary int() cast around an int-returning call
     "RUF102",  # noqa directive naming an unknown rule
+    "SIM103",  # condition returned as True/False branches
     "SIM114",  # if branches with identical bodies
     "SIM118",  # key in dict.keys()
     "SIM210",  # True if ... else False
