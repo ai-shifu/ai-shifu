@@ -116,12 +116,11 @@ if __name__ == "__main__":
     app = create_app()
     # Only enable debug mode if explicitly running in development environment
     app.run(host="0.0.0.0", port=5800, debug=app.config.get("ENV") == "development")
-else:
-    if not os.getenv("SKIP_APP_AUTOCREATE"):
-        app = create_app()
-        from flaskr.framework.plugin.enable_plugin import enable_plugins
+elif not os.getenv("SKIP_APP_AUTOCREATE"):
+    app = create_app()
+    from flaskr.framework.plugin.enable_plugin import enable_plugins
 
-        enable_plugins(app)
-        from flaskr.command import enable_commands
+    enable_plugins(app)
+    from flaskr.command import enable_commands
 
-        enable_commands(app)
+    enable_commands(app)
