@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -420,7 +421,5 @@ def grant_manual_plan_to_user(
                 reused_existing_request=False,
             )
         finally:
-            try:
+            with contextlib.suppress(LockError):
                 grant_lock.release()
-            except LockError:
-                pass

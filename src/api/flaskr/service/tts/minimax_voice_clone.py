@@ -24,6 +24,8 @@ except Exception:  # pragma: no cover - exercised only when pydub is missing.
             raise RuntimeError("audio decoder is not available")
 
 
+import contextlib
+
 from flaskr.common.config import get_config
 from flaskr.dao import db
 from flaskr.service.billing.api import (
@@ -988,10 +990,8 @@ def _delete_resource_object(app: Flask, resource_bid: str) -> None:
         return
     _PENDING_AUDIO_BLOBS.pop(normalized, None)
     temp_path = _temp_resource_path(normalized)
-    try:
+    with contextlib.suppress(Exception):
         temp_path.unlink(missing_ok=True)
-    except Exception:
-        pass
     with app.app_context():
         resource = Resource.query.filter(Resource.resource_id == normalized).first()
         if resource is not None:
@@ -1025,10 +1025,8 @@ def _read_resource_bytes(resource_bid: str) -> bytes:
 def _cleanup_raw_resources(app: Flask, row: TTSMiniMaxClonedVoice) -> None:
     for resource_bid in (row.source_audio_resource_bid, row.prompt_audio_resource_bid):
         if resource_bid:
-            try:
+            with contextlib.suppress(Exception):
                 _delete_resource_object(app, resource_bid)
-            except Exception:
-                pass
 
 
 def _remember_resource_bytes(resource_bid: str, data: bytes) -> None:

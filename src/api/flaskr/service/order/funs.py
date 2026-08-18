@@ -2,7 +2,7 @@ import datetime
 import decimal
 import json
 import re
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager, nullcontext, suppress
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -295,10 +295,8 @@ def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]
         yield
     finally:
         if acquired and lock is not None:
-            try:
+            with suppress(Exception):
                 lock.release()
-            except Exception:
-                pass
 
 
 def _sync_order_campaign_pricing(

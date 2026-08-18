@@ -13,6 +13,7 @@ turns the anonymous stderr traceback into an attributable event.
 
 from __future__ import annotations
 
+import contextlib
 import os
 
 _OBSERVER_FLAG = "_ai_shifu_hub_error_observer"
@@ -58,7 +59,7 @@ def install_hub_error_observer(logger, hub=None) -> bool:
         # Log BEFORE delegating: the original handler may re-raise for
         # system errors. Nothing in here may raise or block - a failure in
         # the error path would take down the hub itself.
-        try:
+        with contextlib.suppress(Exception):
             logger.error(
                 "gevent hub error (pid=%s): context=%s exc=%s: %s. "
                 "A crashed hub callback can break a greenlet wakeup and "
@@ -69,8 +70,6 @@ def install_hub_error_observer(logger, hub=None) -> bool:
                 value,
                 exc_info=(exc_type, value, tb) if exc_type is not None else None,
             )
-        except Exception:
-            pass
         return original_handle_error(context, exc_type, value, tb)
 
     hub.handle_error = handle_error

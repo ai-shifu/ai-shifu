@@ -7,6 +7,7 @@ background threads spawned from that request.
 
 from __future__ import annotations
 
+import contextlib
 import threading
 from functools import wraps
 from typing import Any, Callable, Dict, Optional
@@ -114,10 +115,8 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
             return creator_bid
         finally:
             if acquired:
-                try:
+                with contextlib.suppress(Exception):
                     lock.release()
-                except Exception:
-                    pass
     except Exception:
         try:
             from flaskr.service.shifu.utils import get_shifu_creator_bid  # type: ignore
