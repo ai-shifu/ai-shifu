@@ -1641,7 +1641,8 @@ def _patch_retryable_stream_errors(monkeypatch):
 
 def _patch_scripted_streams(monkeypatch, scripts):
     """Each call to _stream_litellm_completion consumes the next script;
-    a script is a list of chunks and/or exceptions raised in order."""
+    a script is a list of chunks and/or exceptions raised in order.
+    """
     calls = {"count": 0}
 
     def _factory(_app, _requested, _invoke, _messages, _params, _kwargs):
@@ -1757,7 +1758,8 @@ def test_stream_non_retryable_error_raises_immediately(monkeypatch, app):
 
 def test_stream_retry_noop_when_exception_types_unavailable(monkeypatch, app):
     """The litellm test stub has no exceptions submodule; the wrapper must
-    degrade to raising instead of crashing on type resolution."""
+    degrade to raising instead of crashing on type resolution.
+    """
     monkeypatch.delattr(llm.litellm, "exceptions", raising=False)
     calls = _patch_scripted_streams(
         monkeypatch, [[_FakeAPIConnectionError("connection died")]]
