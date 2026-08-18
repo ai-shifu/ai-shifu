@@ -1884,7 +1884,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
             .first()
         )
         if not pingxx_order:
-            return
+            return None
         lock = cache_provider.lock(
             "success_buy_record_from_pingxx" + charge_id,
             timeout=10,

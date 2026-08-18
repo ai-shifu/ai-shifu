@@ -227,7 +227,7 @@ def add_config(
     with app.app_context():
         normalized_updated_by = _normalize_updated_by(updated_by)
         if has_explicit_env_override(key):
-            return
+            return None
         # Check if config already exists in database
         existing_config = (
             Config.query.filter(

@@ -75,7 +75,7 @@ def _safe_asyncio_run(coro, *args, **kwargs):
         except Exception:
             # If even scheduling fails, swallow the error so logging/caching
             # failures do not break the main application.
-            return
+            return None
 
 
 asyncio.run = _safe_asyncio_run
