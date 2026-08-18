@@ -69,30 +69,25 @@ select = [
     "FURB136", # if-expression that should be min()/max()
     "FURB188", # manual prefix/suffix stripping
     "PIE790",  # unnecessary pass / ... placeholder
-    "PIE804",  # unnecessary dict kwargs
-    "PIE807",  # lambda that reimplements a container builtin
+    "PIE80",   # unnecessary dict kwargs, builtin-reimplementing lambdas
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
     "PLR1711", # useless return at the end of a function
     "PLR1730", # if-statement that should be min()/max()
     "PLR5501", # else: if ... that should be elif
     "PT001",   # pytest.fixture with empty parentheses
-    "PYI032",  # __eq__/__ne__ annotated with Any
-    "PYI041",  # int | float union that float already covers
+    "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
     "RET501",  # unnecessary explicit return None
     "RET502",  # implicit return value
     "RET505",  # superfluous else after return
     "RUF010",  # explicit str()/repr() call inside an f-string
-    "RUF021",  # unparenthesized and inside or
-    "RUF022",  # unsorted __all__
-    "RUF023",  # unsorted __slots__
+    "RUF02",   # unparenthesized and inside or, unsorted __all__/__slots__
     "RUF036",  # None not at the end of a union
     "RUF102",  # noqa directive naming an unknown rule
     "SIM114",  # if branches with identical bodies
     "SIM300",  # yoda condition
     "SIM910",  # dict.get(key, None)
-    "UP012",   # redundant utf-8 argument to str.encode
-    "UP015",   # redundant mode argument to open()
+    "UP01",    # redundant str.encode/open() arguments
     "UP024",   # deprecated OSError alias
     "UP032",   # str.format that should be an f-string
     "UP034",   # extraneous parentheses
