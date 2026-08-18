@@ -60,6 +60,7 @@ select = [
     "B009",    # getattr with a constant attribute name
     "B010",    # setattr with a constant attribute name
     "B905",    # zip() without an explicit strict argument
+    "C401",    # unnecessary generator inside set()
     "C414",    # unnecessary list() inside sorted()
     "C420",    # dict.fromkeys instead of a constant-value comprehension
     "D202",    # blank line after a function docstring
