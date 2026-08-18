@@ -21,7 +21,7 @@ _TENCENT_MESSAGE = (
 
 
 @pytest.mark.parametrize(
-    "message,expected",
+    ("message", "expected"),
     [
         (_TENCENT_MESSAGE, True),
         ("HTTP 429 Too many requests", True),

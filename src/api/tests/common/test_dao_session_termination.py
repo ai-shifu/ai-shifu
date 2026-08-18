@@ -39,7 +39,7 @@ def _operational(errno: int) -> OperationalError:
 
 
 @pytest.mark.parametrize(
-    "exc,expected",
+    ("exc", "expected"),
     [
         (GeneratorExit(), True),
         (_FakeGreenletExit(), True),
