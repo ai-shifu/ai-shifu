@@ -1,6 +1,4 @@
-"""
-Promo functions
-"""
+"""Promo functions"""
 
 import decimal
 from contextlib import nullcontext
@@ -90,8 +88,7 @@ def _app_context_scope(app: Flask):
 
 
 def timeout_coupon_code_rollback(app: Flask, user_bid, order_bid):
-    """
-    Timeout coupon code rollback
+    """Timeout coupon code rollback
     Args:
         app: Flask app
         user_bid: User bid

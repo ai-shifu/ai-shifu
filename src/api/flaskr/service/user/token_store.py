@@ -17,8 +17,7 @@ class TokenLookupResult:
 
 
 class TokenStoreProvider:
-    """
-    Cache-backed token store.
+    """Cache-backed token store.
 
     - Always persists tokens to the database so the system can run without Redis.
     - Uses the configured cache provider (Redis when available, otherwise in-memory)

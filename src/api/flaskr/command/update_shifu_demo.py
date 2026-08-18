@@ -37,8 +37,7 @@ def _process_demo_shifu(
     hash_config_key: str,
     hash_config_remark: str,
 ) -> str:
-    """
-    Process demo shifu: skip import if file unchanged, otherwise import/update and
+    """Process demo shifu: skip import if file unchanged, otherwise import/update and
     upsert configs for shifu bid and file hash.
 
     Args:
@@ -100,8 +99,7 @@ def _process_demo_shifu(
 
 
 def _ensure_creator_permissions(app: Flask, shifu_bid: str):
-    """
-    Ensure all creator users have permissions for the given shifu.
+    """Ensure all creator users have permissions for the given shifu.
 
     Args:
         app: Flask application instance

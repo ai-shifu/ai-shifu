@@ -1,5 +1,4 @@
-"""
-Boundary detection strategies for TTS visual element skipping.
+"""Boundary detection strategies for TTS visual element skipping.
 
 Provides a strategy pattern for finding the end positions of different
 visual element types (fence, svg, iframe, video, table, sandbox, image).
@@ -151,8 +150,7 @@ BOUNDARY_STRATEGIES = {
 
 
 def find_boundary_end(kind: str, raw: str) -> Optional[int]:
-    """
-    Find the end position of a visual element boundary.
+    """Find the end position of a visual element boundary.
 
     Args:
         kind: The type of visual element (fence, svg, iframe, video, html_table,

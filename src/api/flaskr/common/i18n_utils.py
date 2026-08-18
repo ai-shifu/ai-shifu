@@ -146,8 +146,7 @@ def resolve_markdownflow_output_language(language: str | None = None) -> str:
 
 
 def get_markdownflow_output_language() -> str:
-    """
-    Get the output language string for MarkdownFlow based on current user language.
+    """Get the output language string for MarkdownFlow based on current user language.
 
     Returns:
         str: The full language name for MarkdownFlow output in native form.

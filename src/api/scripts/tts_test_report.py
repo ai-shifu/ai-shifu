@@ -1,5 +1,4 @@
-"""
-Generate a full TTS provider test report (HTML with <audio> playback).
+"""Generate a full TTS provider test report (HTML with <audio> playback).
 
 Requirements implemented:
 1) Uses the unified top-level pipeline (segmentation, synthesis, concat, OSS upload).
@@ -89,8 +88,7 @@ def _safe_str(value: Any) -> str:
 
 
 def _build_cases(*, provider_name: str, matrix: str) -> list[dict[str, str]]:
-    """
-    Build test cases for a provider.
+    """Build test cases for a provider.
 
     matrix="coverage":
       - test all models (each with 1 representative voice)

@@ -73,8 +73,7 @@ def get_oss_config(profile: str = OSS_PROFILE_DEFAULT) -> OSSConfig:
 
 
 def is_oss_profile_configured(profile: str = OSS_PROFILE_DEFAULT) -> bool:
-    """
-    Return True if the OSS profile has enough configuration to attempt uploads.
+    """Return True if the OSS profile has enough configuration to attempt uploads.
 
     Notes:
     - This is intentionally conservative and checks credentials + bucket.
@@ -117,9 +116,7 @@ def get_image_content_type(filename: str) -> str:
 
 
 def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
-    """
-    Warm up a CDN URL.
-    """
+    """Warm up a CDN URL."""
     try:
         from aliyunsdkcdn.request.v20180510.DescribeRefreshTasksRequest import (
             DescribeRefreshTasksRequest,

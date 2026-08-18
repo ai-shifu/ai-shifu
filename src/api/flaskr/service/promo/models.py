@@ -21,9 +21,7 @@ from .consts import (
 
 
 class Coupon(db.Model):
-    """
-    Coupon
-    """
+    """Coupon"""
 
     __tablename__ = "promo_coupons"
     __table_args__ = {"comment": "Promo coupons"}
@@ -116,8 +114,7 @@ class Coupon(db.Model):
 
 
 class CouponUsage(db.Model):
-    """
-    Coupon Usage Record
+    """Coupon Usage Record
     Generated:
 
     1. Generated one when user use a coupon code that could be used multiple times

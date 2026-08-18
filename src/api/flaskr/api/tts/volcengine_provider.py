@@ -1,5 +1,4 @@
-"""
-Volcengine TTS Provider.
+"""Volcengine TTS Provider.
 
 This module provides TTS synthesis using Volcengine's bidirectional
 WebSocket TTS API (ByteDance/Doubao).
@@ -351,8 +350,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         return ""
 
     def _get_credentials(self, resource_id: str = "") -> tuple[str, str, str]:
-        """
-        Get Volcengine TTS credentials.
+        """Get Volcengine TTS credentials.
 
         Uses VOLCENGINE_TTS_* config for authentication.
 
@@ -429,8 +427,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         audio_settings: Optional[AudioSettings] = None,
         model: Optional[str] = None,
     ) -> TTSResult:
-        """
-        Synthesize text to speech using Volcengine TTS.
+        """Synthesize text to speech using Volcengine TTS.
 
         Args:
             text: Text to synthesize

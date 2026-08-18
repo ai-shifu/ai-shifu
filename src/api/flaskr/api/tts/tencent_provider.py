@@ -1,5 +1,4 @@
-"""
-Tencent Cloud TTS provider.
+"""Tencent Cloud TTS provider.
 
 Tencent's conversational SSE API is used server-side only. The browser keeps
 the existing generic TTS/SSE contract and never receives Tencent credentials.

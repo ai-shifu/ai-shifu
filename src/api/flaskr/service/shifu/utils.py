@@ -1,5 +1,4 @@
-"""
-Shifu utils
+"""Shifu utils
 
 This module contains utility functions for shifu.
 
@@ -14,8 +13,7 @@ from flaskr.service.resource.models import Resource
 
 
 def get_shifu_res_url(res_bid: str):
-    """
-    Get the URL of a resource.
+    """Get the URL of a resource.
 
     Args:
         res_bid: The ID of the resource
@@ -31,8 +29,7 @@ def get_shifu_res_url(res_bid: str):
 
 
 def get_shifu_res_url_dict(res_bids: list[str]) -> dict[str, str]:
-    """
-    Get the URL of a resource.
+    """Get the URL of a resource.
 
     Args:
         res_bids: The IDs of the resources
@@ -49,8 +46,7 @@ def get_shifu_res_url_dict(res_bids: list[str]) -> dict[str, str]:
 
 
 def parse_shifu_res_bid(res_url: str):
-    """
-    Parse the resource ID from a URL.
+    """Parse the resource ID from a URL.
 
     Args:
         res_url: The URL of the resource
@@ -65,8 +61,7 @@ def parse_shifu_res_bid(res_url: str):
 
 
 def get_shifu_creator_bid(app: Flask, shifu_bid: str) -> Optional[str]:
-    """
-    Resolve the creator user business identifier for a given shifu.
+    """Resolve the creator user business identifier for a given shifu.
 
     Args:
         app: Flask application instance

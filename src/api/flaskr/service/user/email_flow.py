@@ -52,8 +52,7 @@ def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
 
 
 def _consume_latest_email_code_from_db(app: Flask, email: str, code: str) -> str:
-    """
-    Consume the latest sent email verification code from the database.
+    """Consume the latest sent email verification code from the database.
 
     Returns:
       - "ok" when the code is valid and is marked as used.

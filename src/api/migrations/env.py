@@ -45,9 +45,7 @@ target_db = current_app.extensions["migrate"].db
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    """
-    The simplest mode to avoid separation
-    """
+    """The simplest mode to avoid separation"""
     # the system tables
     system_tables = [
         "alembic_version",

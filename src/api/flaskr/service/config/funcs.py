@@ -55,8 +55,7 @@ def _normalize_updated_by(value: str) -> str:
 
 
 def _get_fernet_key(app: Flask) -> bytes:
-    """
-    Generate Fernet key from SECRET_KEY.
+    """Generate Fernet key from SECRET_KEY.
     Fernet requires a 32-byte key, so we hash SECRET_KEY with SHA256.
     """
     with app.app_context():
@@ -69,16 +68,13 @@ def _get_fernet_key(app: Flask) -> bytes:
 
 
 def _get_fernet(app: Flask) -> Fernet:
-    """
-    Get Fernet instance for encryption/decryption.
-    """
+    """Get Fernet instance for encryption/decryption."""
     key = _get_fernet_key(app)
     return Fernet(key)
 
 
 def _encrypt_config(app: Flask, value: str) -> str:
-    """
-    Encrypt config value and store it in database.
+    """Encrypt config value and store it in database.
 
     Args:
         app: Flask application instance
@@ -95,8 +91,7 @@ def _encrypt_config(app: Flask, value: str) -> str:
 
 
 def _decrypt_config(app: Flask, encrypted_value: str) -> str:
-    """
-    Decrypt config value.
+    """Decrypt config value.
 
     Args:
         app: Flask application instance
@@ -134,8 +129,7 @@ def _get_config_lock_key(app: Flask, key: str) -> str:
 
 @extensible
 def get_config(key: str, default: str = None) -> str:
-    """
-    Get config value by key, automatically decrypt if is_secret=1.
+    """Get config value by key, automatically decrypt if is_secret=1.
 
     Args:
         key: Config key
@@ -224,9 +218,7 @@ def add_config(
     remark: str = "",
     updated_by: str = "system",
 ) -> bool | None:
-    """
-    Add config to database.
-    """
+    """Add config to database."""
     with app.app_context():
         normalized_updated_by = _normalize_updated_by(updated_by)
         if has_explicit_env_override(key):
@@ -289,9 +281,7 @@ def update_config(
     remark: str = "",
     updated_by: str = "system",
 ) -> bool:
-    """
-    Update config in database.
-    """
+    """Update config in database."""
     with app.app_context():
         normalized_updated_by = _normalize_updated_by(updated_by)
         if has_explicit_env_override(key):

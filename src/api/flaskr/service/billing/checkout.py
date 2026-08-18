@@ -377,8 +377,7 @@ def _build_subscription_checkout_lock_key(app: Flask, creator_bid: str) -> str:
 
 @contextmanager
 def _subscription_checkout_lock(app: Flask, creator_bid: str) -> Iterator[None]:
-    """
-    Serialize subscription checkout per creator to avoid duplicate pending
+    """Serialize subscription checkout per creator to avoid duplicate pending
     orders without taking row locks on the pending-order query itself.
     """
     lock = cache_provider.cache.lock(

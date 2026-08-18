@@ -1,5 +1,4 @@
-"""
-Tests for TTS streaming finalize segmentation improvements.
+"""Tests for TTS streaming finalize segmentation improvements.
 
 Verifies that the finalize() method properly segments remaining text
 instead of submitting it all at once, preventing burst delivery of

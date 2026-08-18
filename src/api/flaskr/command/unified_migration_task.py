@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-Unified Database Migration Task
-"""
+"""Unified Database Migration Task"""
 
 import asyncio
 import logging

@@ -1,5 +1,4 @@
-"""
-Aliyun NLS token helper.
+"""Aliyun NLS token helper.
 
 Aliyun RESTful TTS requires a short-lived NLS access token. This module fetches
 the token via Aliyun POP OpenAPI (CreateToken) and caches it in Redis when
@@ -56,18 +55,14 @@ class AliyunNlsToken:
 
 
 def _percent_encode(value: Any) -> str:
-    """
-    RFC3986 percent encoding compatible with Aliyun POP signing rules.
-    """
+    """RFC3986 percent encoding compatible with Aliyun POP signing rules."""
     if value is None:
         value = ""
     return quote(str(value), safe="-_.~")
 
 
 def _canonicalized_query(params: dict[str, Any]) -> str:
-    """
-    Build canonicalized query string from params (excluding Signature).
-    """
+    """Build canonicalized query string from params (excluding Signature)."""
     parts: list[str] = []
     for key in sorted(params.keys()):
         parts.append(f"{_percent_encode(key)}={_percent_encode(params[key])}")
@@ -140,8 +135,7 @@ def _store_cache_value(value: AliyunNlsToken) -> None:
 
 
 def _get_access_keys() -> Tuple[str, str]:
-    """
-    Resolve AccessKeyId/AccessKeySecret for NLS CreateToken.
+    """Resolve AccessKeyId/AccessKeySecret for NLS CreateToken.
 
     Prefer the dedicated variables from Aliyun docs. Fall back to OSS keys when
     present to reduce configuration friction in deployments that already have
@@ -221,8 +215,7 @@ def get_aliyun_nls_token(
     force_refresh: bool = False,
     refresh_leeway_seconds: int = _DEFAULT_REFRESH_LEEWAY_SECONDS,
 ) -> str:
-    """
-    Get a valid Aliyun NLS access token for RESTful TTS.
+    """Get a valid Aliyun NLS access token for RESTful TTS.
 
     Resolution order:
     1) Use `ALIYUN_TTS_TOKEN` when explicitly configured (manual override).
@@ -290,8 +283,7 @@ def get_aliyun_nls_token(
 
 
 def is_aliyun_nls_token_configured() -> bool:
-    """
-    Return True if the service has enough configuration to obtain an NLS token.
+    """Return True if the service has enough configuration to obtain an NLS token.
 
     This function does not perform any network requests.
     """

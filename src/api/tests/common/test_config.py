@@ -1,6 +1,4 @@
-"""
-Unit tests for Config class (Flask integration).
-"""
+"""Unit tests for Config class (Flask integration)."""
 
 import os
 from unittest.mock import MagicMock, patch

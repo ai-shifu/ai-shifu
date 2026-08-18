@@ -1,5 +1,4 @@
-"""
-Aliyun TTS Provider.
+"""Aliyun TTS Provider.
 
 This module provides TTS synthesis using Aliyun's Intelligent Speech Interaction
 RESTful API.
@@ -1182,8 +1181,7 @@ class AliyunTTSProvider(BaseTTSProvider):
         return "aliyun"
 
     def _get_settings(self) -> tuple:
-        """
-        Get Aliyun TTS settings.
+        """Get Aliyun TTS settings.
 
         Returns:
             tuple: (appkey, region)
@@ -1237,8 +1235,7 @@ class AliyunTTSProvider(BaseTTSProvider):
         audio_settings: Optional[AudioSettings] = None,
         model: Optional[str] = None,
     ) -> TTSResult:
-        """
-        Synthesize text to speech using Aliyun TTS.
+        """Synthesize text to speech using Aliyun TTS.
 
         Args:
             text: Text to synthesize (max 300 characters)

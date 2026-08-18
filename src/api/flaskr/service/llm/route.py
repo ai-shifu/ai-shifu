@@ -10,8 +10,7 @@ def register_llm_routes(app: Flask, path_prefix="/api/llm"):
 
     @app.route(path_prefix + "/model-list", methods=["GET"])
     def model_list_api():
-        """
-        Get model list
+        """Get model list
         ---
         tags:
             - llm

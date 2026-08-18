@@ -43,8 +43,7 @@ def build_visual_segments_for_block(
     av_contract: dict[str, Any] | None,
     element_index_offset: int = 0,
 ) -> tuple[list[VisualSegment], dict[int, str]]:
-    """
-    Build visual segments for one generated block from its av_contract.
+    """Build visual segments for one generated block from its av_contract.
 
     Returns:
     - segments: ordered visual segments for this block

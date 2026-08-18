@@ -1,5 +1,4 @@
-"""
-TTS Database Models.
+"""TTS Database Models.
 
 This module defines the database models for storing TTS audio records.
 """
@@ -45,8 +44,7 @@ TTS_CREDIT_NUMERIC = Numeric(20, 10)
 
 
 class LearnGeneratedAudio(db.Model):
-    """
-    TTS audio record for generated content blocks.
+    """TTS audio record for generated content blocks.
 
     This model stores the synthesized audio for AI-generated content,
     including both streaming segments and final concatenated audio.

@@ -1,6 +1,4 @@
-"""
-Integration tests for the complete configuration system.
-"""
+"""Integration tests for the complete configuration system."""
 
 import os
 from unittest.mock import MagicMock, patch
