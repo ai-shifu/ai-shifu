@@ -95,6 +95,7 @@ select = [
     "PT006",   # wrong type for parametrize argument names
     "PT018",   # composite assertion
     "PT022",   # fixture that yields without teardown
+    "PT027",   # unittest-style assertRaises
     "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
     "RET501",  # unnecessary explicit return None
     "RET502",  # implicit return value

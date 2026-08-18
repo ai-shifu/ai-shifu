@@ -100,6 +100,7 @@ if not hasattr(dao, "redis_client"):
 
 import itertools
 
+import pytest
 from flaskr.service.learn import context_v2 as context_v2_module
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.context_v2 import (
@@ -224,7 +225,7 @@ class OutlinePathGuardTests(unittest.TestCase):
             "flaskr.service.learn.context_v2.raise_error",
             side_effect=RuntimeError("lesson missing"),
         ) as raise_error_mock:
-            with self.assertRaises(RuntimeError):
+            with pytest.raises(RuntimeError):
                 _find_outline_path_or_raise(root, "missing-outline")
 
         raise_error_mock.assert_called_once_with("server.shifu.lessonNotFoundInCourse")
@@ -803,7 +804,7 @@ class StreamTtsGateTests(unittest.TestCase):
 
             stop_event.set()
             stream.release_second.set()
-            with self.assertRaises(GeneratorExit):
+            with pytest.raises(GeneratorExit):
                 next(iterator)
 
         assert stream.close_calls == 1
