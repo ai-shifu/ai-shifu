@@ -28,11 +28,18 @@ export const buildCourseLearningUrl = (
 
 const ABSOLUTE_URL_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:/;
 
-export const buildParameterlessCourseUrl = (
+const getDefaultOrigin = () =>
+  typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+
+const buildCourseUrl = (
   courseUrl: string,
-  origin = typeof window !== 'undefined'
-    ? window.location.origin
-    : 'http://localhost',
+  {
+    mode,
+    origin = getDefaultOrigin(),
+  }: {
+    mode?: LearningMode;
+    origin?: string;
+  } = {},
 ) => {
   const normalizedUrl = courseUrl.trim();
   if (!normalizedUrl) {
@@ -45,6 +52,11 @@ export const buildParameterlessCourseUrl = (
   url.search = '';
   url.hash = '';
 
+  if (mode) {
+    url.searchParams.set('mode', mode);
+    return url.toString();
+  }
+
   if (ABSOLUTE_URL_PATTERN.test(normalizedUrl)) {
     return url.toString();
   }
@@ -52,15 +64,13 @@ export const buildParameterlessCourseUrl = (
   return url.pathname;
 };
 
+export const buildParameterlessCourseUrl = (
+  courseUrl: string,
+  origin?: string,
+) => buildCourseUrl(courseUrl, { origin });
+
 export const buildLearningModeUrl = (
   courseUrl: string,
   mode: LearningMode,
-  origin = typeof window !== 'undefined'
-    ? window.location.origin
-    : 'http://localhost',
-) => {
-  const url = new URL(courseUrl, origin);
-  url.searchParams.set('mode', mode);
-  url.searchParams.delete('listen');
-  return url.toString();
-};
+  origin?: string,
+) => buildCourseUrl(courseUrl, { mode, origin });

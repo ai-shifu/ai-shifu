@@ -18,15 +18,13 @@ describe('publish learning mode urls', () => {
     expect(buildCourseLearningUrl('course 1')).toBe('/c/course%201');
   });
 
-  test('sets mode and removes legacy listen query while preserving other url parts', () => {
+  test('builds a learning-mode url from a stripped course link', () => {
     expect(
       buildLearningModeUrl(
         `${TEST_ORIGIN}/c/course-1?listen=1&lessonid=lesson-2#outline`,
         'classroom',
       ),
-    ).toBe(
-      `${TEST_ORIGIN}/c/course-1?lessonid=lesson-2&mode=classroom#outline`,
-    );
+    ).toBe(`${TEST_ORIGIN}/c/course-1?mode=classroom`);
   });
 
   test('resolves relative course urls with the provided origin', () => {
