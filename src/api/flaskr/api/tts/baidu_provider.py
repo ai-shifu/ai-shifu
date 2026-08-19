@@ -828,7 +828,9 @@ class BaiduTTSProvider(BaseTTSProvider):
         access_token = _get_access_token(api_key, secret_key)
 
         # Generate unique client ID
-        cuid = hashlib.md5(f"ai-shifu-{api_key}".encode()).hexdigest()[:32]
+        cuid = hashlib.md5(
+            f"ai-shifu-{api_key}".encode(), usedforsecurity=False
+        ).hexdigest()[:32]
 
         # Map audio format
         audio_format = audio_settings.format.lower()
