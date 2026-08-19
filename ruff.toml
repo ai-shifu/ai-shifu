@@ -111,6 +111,7 @@ select = [
     "PT001",   # pytest.fixture with empty parentheses
     "PT006",   # wrong type for parametrize argument names
     "PT009",   # unittest-style assertion that should be a plain assert
+    "PT013",   # pytest imported with an alias or from-import
     "PT018",   # composite assertion
     "PT02",    # fixture yielding without teardown, unittest-style assertRaises
     "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
@@ -122,6 +123,7 @@ select = [
     "RUF013",  # implicit Optional annotation
     "RUF02",   # unparenthesized and inside or, unsorted __all__/__slots__
     "RUF03",   # None not at the end of a union
+    "RUF043",  # pytest.raises match pattern with unescaped metacharacters
     "RUF046",  # unnecessary int() cast around an int-returning call
     "RUF102",  # noqa directive naming an unknown rule
     "SIM103",  # condition returned as True/False branches
