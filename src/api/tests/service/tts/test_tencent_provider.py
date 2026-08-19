@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 
 import pytest
 
@@ -379,7 +380,7 @@ def test_tencent_provider_raises_sanitized_error_on_sse_error(monkeypatch):
 
     with pytest.raises(
         ValueError,
-        match="Tencent TTS error InvalidParameter.Voice",
+        match=re.escape("Tencent TTS error InvalidParameter.Voice"),
     ):
         list(
             tencent_provider.TencentTTSProvider().stream_synthesize(
