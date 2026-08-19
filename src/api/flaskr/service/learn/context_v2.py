@@ -1672,7 +1672,7 @@ class RunScriptContextV2:
             yield item
 
     @staticmethod
-    def get_current_context(app: Flask) -> Union["RunScriptContextV2", None]:
+    def get_current_context(_app: Flask) -> Union["RunScriptContextV2", None]:
         if not hasattr(context_local, "current_context"):
             return None
         return context_local.current_context
