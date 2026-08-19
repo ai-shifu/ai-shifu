@@ -131,6 +131,7 @@ select = [
     "RUF043",  # pytest.raises match pattern with unescaped metacharacters
     "RUF046",  # unnecessary int() cast around an int-returning call
     "RUF102",  # noqa directive naming an unknown rule
+    "SIM102",  # nested if that should be a single compound if
     "SIM103",  # condition returned as True/False branches
     "SIM105",  # try-except-pass that should be contextlib.suppress
     "SIM108",  # if-else assignment that should be a ternary

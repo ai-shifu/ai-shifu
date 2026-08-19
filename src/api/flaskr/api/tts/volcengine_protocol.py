@@ -341,23 +341,27 @@ class VolcengineProtocol:
                         )
                         offset += conn_id_len
                         self.connection_id = connection_id
-            elif event and event in [
-                Event.SESSION_STARTED,
-                Event.SESSION_CANCELED,
-                Event.SESSION_FINISHED,
-                Event.SESSION_FAILED,
-                Event.TTS_SENTENCE_START,
-                Event.TTS_SENTENCE_END,
-                Event.TTS_RESPONSE,
-                Event.TTS_SUBTITLE,
-            ]:
-                # Session events have session_id
-                if len(data) >= offset + 4:
-                    sess_id_len = struct.unpack(">I", data[offset : offset + 4])[0]
-                    offset += 4
-                    if len(data) >= offset + sess_id_len:
-                        session_id = data[offset : offset + sess_id_len].decode("utf-8")
-                        offset += sess_id_len
+            # Session events have session_id
+            elif (
+                event
+                and event
+                in [
+                    Event.SESSION_STARTED,
+                    Event.SESSION_CANCELED,
+                    Event.SESSION_FINISHED,
+                    Event.SESSION_FAILED,
+                    Event.TTS_SENTENCE_START,
+                    Event.TTS_SENTENCE_END,
+                    Event.TTS_RESPONSE,
+                    Event.TTS_SUBTITLE,
+                ]
+                and len(data) >= offset + 4
+            ):
+                sess_id_len = struct.unpack(">I", data[offset : offset + 4])[0]
+                offset += 4
+                if len(data) >= offset + sess_id_len:
+                    session_id = data[offset : offset + sess_id_len].decode("utf-8")
+                    offset += sess_id_len
 
         # Parse payload
         payload: bytes | Dict[str, Any] | None = None

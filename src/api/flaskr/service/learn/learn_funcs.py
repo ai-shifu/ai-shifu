@@ -450,15 +450,14 @@ def get_outline_item_tree(
                 banner_info=banner_info_dto,
                 outline_items=outline_items,
             )
-        if not is_paid:
-            if add_banner:
-                banner_info_dto = LearnBannerInfoDTO(
-                    title=_("server.banner.bannerTitle"),
-                    pop_up_title=_("server.banner.bannerPopUpTitle"),
-                    pop_up_content=_("server.banner.bannerPopUpContent"),
-                    pop_up_confirm_text=_("server.banner.bannerPopUpConfirmText"),
-                    pop_up_cancel_text=_("server.banner.bannerPopUpCancelText"),
-                )
+        if not is_paid and add_banner:
+            banner_info_dto = LearnBannerInfoDTO(
+                title=_("server.banner.bannerTitle"),
+                pop_up_title=_("server.banner.bannerPopUpTitle"),
+                pop_up_content=_("server.banner.bannerPopUpContent"),
+                pop_up_confirm_text=_("server.banner.bannerPopUpConfirmText"),
+                pop_up_cancel_text=_("server.banner.bannerPopUpCancelText"),
+            )
         return LearnOutlineItemsWithBannerInfoDTO(
             banner_info=banner_info_dto,
             outline_items=outline_items,
@@ -516,9 +515,10 @@ def get_learn_record(
                     for button in parsed_interaction.get("buttons"):
                         if button.get("value") == "_sys_pay":
                             pass
-                        if button.get("value") == "_sys_login":
-                            if bool(request.user.mobile):
-                                records.remove(last_record)
+                        if button.get("value") == "_sys_login" and bool(
+                            request.user.mobile
+                        ):
+                            records.remove(last_record)
         struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
         outline_item_model = DraftOutlineItem if preview_mode else PublishedOutlineItem
         has_next_outline = False

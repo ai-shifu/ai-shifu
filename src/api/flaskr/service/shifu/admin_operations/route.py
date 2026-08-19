@@ -295,9 +295,8 @@ def _validate_contacts(contact_type: str, contacts: list[str]) -> list[str]:
         if contact_type == "phone":
             if not PHONE_PATTERN.match(contact):
                 raise_param_error("mobile")
-        elif contact_type == "email":
-            if not EMAIL_PATTERN.match(candidate):
-                raise_param_error("email")
+        elif contact_type == "email" and not EMAIL_PATTERN.match(candidate):
+            raise_param_error("email")
         normalized.append(candidate)
     return normalized
 

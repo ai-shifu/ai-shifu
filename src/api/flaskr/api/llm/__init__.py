@@ -367,12 +367,13 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
         base_url = get_config(config.base_url_env)
     if not base_url:
         base_url = config.default_base_url
-    if config.key == "gemini" and base_url:
-        if "generativelanguage.googleapis.com" in base_url:
-            base_url = None
-            _log_info(
-                "Skipping GEMINI_API_URL override to use LiteLLM default endpoint"
-            )
+    if (
+        config.key == "gemini"
+        and base_url
+        and "generativelanguage.googleapis.com" in base_url
+    ):
+        base_url = None
+        _log_info("Skipping GEMINI_API_URL override to use LiteLLM default endpoint")
     params: Dict[str, str] = {"api_key": api_key}
     if base_url:
         params["api_base"] = base_url

@@ -400,12 +400,10 @@ def _load_user_map(user_bids: list[str]) -> Dict[str, Dict[str, str]]:
     for credential in credentials:
         if not credential.user_bid:
             continue
-        if credential.provider_name == "phone":
-            if credential.user_bid not in phone_map:
-                phone_map[credential.user_bid] = credential.identifier or ""
-        if credential.provider_name == "email":
-            if credential.user_bid not in email_map:
-                email_map[credential.user_bid] = credential.identifier or ""
+        if credential.provider_name == "phone" and credential.user_bid not in phone_map:
+            phone_map[credential.user_bid] = credential.identifier or ""
+        if credential.provider_name == "email" and credential.user_bid not in email_map:
+            email_map[credential.user_bid] = credential.identifier or ""
 
     users = UserEntity.query.filter(UserEntity.user_bid.in_(user_bids)).all()
     user_map: Dict[str, Dict[str, str]] = {}

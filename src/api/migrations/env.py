@@ -676,9 +676,12 @@ def run_migrations_online() -> None:
         varchar_pattern = r"VARCHAR\((\d+)\)"
         inspected_match = re.search(varchar_pattern, inspected_str)
         metadata_match = re.search(varchar_pattern, metadata_str)
-        if inspected_match and metadata_match:
-            if inspected_match.group(1) == metadata_match.group(1):
-                return False
+        if (
+            inspected_match
+            and metadata_match
+            and inspected_match.group(1) == metadata_match.group(1)
+        ):
+            return False
 
         # TEXT 类型的处理 - MySQL 的 TEXT, LONGTEXT 等都映射到 SQLAlchemy 的 TEXT
         if "TEXT" in inspected_str and "TEXT" in metadata_str:

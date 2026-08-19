@@ -301,9 +301,12 @@ def add_years(value: datetime, years: int) -> datetime:
 
 def add_self_managed_years(value: datetime, years: int) -> datetime:
     target_year = value.year + years
-    if value.month == 2 and value.day == 29:
-        if calendar.monthrange(target_year, 2)[1] < 29:
-            return value.replace(year=target_year, month=3, day=1)
+    if (
+        value.month == 2
+        and value.day == 29
+        and calendar.monthrange(target_year, 2)[1] < 29
+    ):
+        return value.replace(year=target_year, month=3, day=1)
     return value.replace(year=target_year)
 
 
