@@ -100,7 +100,6 @@ export const getCourseInfo = async (
       course_teacher_avatar: res.avatar,
       course_avatar: res.avatar,
       course_tts_enabled: !!res?.tts_enabled,
-      default_listen_mode_enabled: !!res?.default_listen_mode_enabled,
     };
   } catch (rawError: any) {
     const error = new CourseInfoFetchError(rawError);

@@ -52,7 +52,6 @@ class ShifuInfoDto(BaseModel):
     avatar: str
     price: Decimal
     outline_items: List["ShifuOutlineItemDto"]
-    default_listen_mode_enabled: bool = False
     use_learner_language: bool = False
 
     def __json__(self):
@@ -136,9 +135,6 @@ def get_shifu_outline_tree(
             avatar=get_shifu_res_url(shifu.avatar_res_bid),
             price=shifu.price,
             outline_items=[],
-            default_listen_mode_enabled=bool(
-                getattr(shifu, "default_listen_mode_enabled", 0)
-            ),
             use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
         )
 
@@ -206,9 +202,6 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
         avatar=get_shifu_res_url(shifu.avatar_res_bid),
         price=shifu.price,
         outline_items=[],
-        default_listen_mode_enabled=bool(
-            getattr(shifu, "default_listen_mode_enabled", 0)
-        ),
         use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
     )
 

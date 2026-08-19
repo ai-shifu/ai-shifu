@@ -186,9 +186,6 @@ def return_shifu_draft_dto(
         else 1.0,
         tts_pitch=int(shifu_draft.tts_pitch) if shifu_draft.tts_pitch else 0,
         tts_emotion=shifu_draft.tts_emotion or "",
-        default_listen_mode_enabled=bool(
-            getattr(shifu_draft, "default_listen_mode_enabled", 0)
-        ),
         use_learner_language=bool(getattr(shifu_draft, "use_learner_language", 0)),
         ask_enabled_status=int(
             getattr(shifu_draft, "ask_enabled_status", ASK_MODE_DEFAULT)
@@ -394,7 +391,6 @@ def save_shifu_draft_info(
     tts_speed: float | None = None,
     tts_pitch: int | None = None,
     tts_emotion: str | None = None,
-    default_listen_mode_enabled: bool | None = None,
     use_learner_language: bool | None = None,
     ask_enabled_status: int | None = None,
     ask_model: str | None = None,
@@ -423,7 +419,6 @@ def save_shifu_draft_info(
         tts_speed: TTS speech speed
         tts_pitch: TTS pitch adjustment
         tts_emotion: TTS emotion setting
-        default_listen_mode_enabled: Default learner mode to listen when TTS is enabled
         use_learner_language: Whether to use learner's language for AI output
         ask_enabled_status: Ask mode status
         ask_model: Ask model name
@@ -505,8 +500,6 @@ def save_shifu_draft_info(
             tts_speed = validated.speed
             tts_pitch = validated.pitch
             tts_emotion = validated.emotion
-        if not merged_tts_enabled:
-            default_listen_mode_enabled = False
 
         # Validate input lengths (only when provided — PATCH callers may omit
         # name/description entirely, which must mean "leave unchanged").
@@ -587,7 +580,6 @@ def save_shifu_draft_info(
                 tts_speed=tts_speed if tts_speed is not None else 1.0,
                 tts_pitch=tts_pitch if tts_pitch is not None else 0,
                 tts_emotion=tts_emotion or "",
-                default_listen_mode_enabled=(1 if default_listen_mode_enabled else 0),
                 use_learner_language=1 if use_learner_language else 0,
                 deleted=0,
                 created_user_bid=user_id,
@@ -640,10 +632,6 @@ def save_shifu_draft_info(
                 new_shifu_draft.tts_pitch = tts_pitch
             if tts_emotion_provided:
                 new_shifu_draft.tts_emotion = tts_emotion or ""
-            if default_listen_mode_enabled is not None:
-                new_shifu_draft.default_listen_mode_enabled = (
-                    1 if default_listen_mode_enabled else 0
-                )
             if use_learner_language is not None:
                 new_shifu_draft.use_learner_language = 1 if use_learner_language else 0
             new_shifu_draft.updated_user_bid = user_id

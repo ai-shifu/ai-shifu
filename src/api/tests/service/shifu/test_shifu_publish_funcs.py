@@ -8,7 +8,6 @@ from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
     PublishedOutlineItem,
-    PublishedShifu,
 )
 
 
@@ -287,8 +286,6 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
             title="Draft",
             description="Desc",
             keywords="a,b",
-            tts_enabled=1,
-            default_listen_mode_enabled=1,
         )
         outline = DraftOutlineItem(
             outline_item_bid="publish-preserve-outline-lesson",
@@ -321,19 +318,9 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
             .order_by(PublishedOutlineItem.id.desc())
             .first()
         )
-        published_shifu = (
-            PublishedShifu.query.filter_by(
-                shifu_bid="publish-preserve-outline-updated-at",
-                deleted=0,
-            )
-            .order_by(PublishedShifu.id.desc())
-            .first()
-        )
 
     assert published_outline is not None
     assert published_outline.updated_at == draft_updated_at
-    assert published_shifu is not None
-    assert published_shifu.default_listen_mode_enabled == 1
     assert outline_load_calls == [
         (("publish-preserve-outline-updated-at",), {"include_content": True})
     ]

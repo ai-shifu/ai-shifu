@@ -23,8 +23,6 @@ def test_get_shifu_info_returns_dto(app):
             description="Desc",
             price=Decimal("9.99"),
             keywords="a,b",
-            tts_enabled=1,
-            default_listen_mode_enabled=1,
         )
         db.session.add(shifu)
         db.session.commit()
@@ -34,9 +32,6 @@ def test_get_shifu_info_returns_dto(app):
     assert dto.title == "Test Shifu"
     assert dto.price == "9.99"
     assert dto.keywords == ["a", "b"]
-    assert dto.tts_enabled is True
-    assert dto.default_listen_mode_enabled is True
-    assert dto.__json__()["default_listen_mode_enabled"] is True
 
 
 def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
@@ -48,7 +43,6 @@ def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
             price=Decimal("1.00"),
             keywords="listen",
             tts_enabled=1,
-            default_listen_mode_enabled=1,
         )
         published = PublishedShifu(
             shifu_bid="shifu-learn-tts",
@@ -57,7 +51,6 @@ def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
             price=Decimal("2.00"),
             keywords="listen",
             tts_enabled=0,
-            default_listen_mode_enabled=0,
         )
         db.session.add_all([draft, published])
         db.session.commit()
@@ -67,10 +60,8 @@ def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
 
     assert preview_dto.title == "Draft Shifu"
     assert preview_dto.tts_enabled is True
-    assert preview_dto.default_listen_mode_enabled is True
     assert live_dto.title == "Published Shifu"
     assert live_dto.tts_enabled is False
-    assert live_dto.default_listen_mode_enabled is False
 
 
 def test_get_outline_item_tree_preview_mode(app):
