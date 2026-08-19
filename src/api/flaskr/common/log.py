@@ -1,5 +1,4 @@
 import logging
-import os
 import socket
 import threading
 import time
@@ -232,7 +231,7 @@ def init_log(app: Flask) -> Flask:
     )
     log_file = app.config.get("LOGGING_PATH", "logs/ai-shifu.log")
     log_dir = str(Path(log_file).parent)
-    if not os.path.exists(log_dir):
+    if not Path(log_dir).exists():
         Path(log_dir).mkdir(parents=True)
     file_handler = TimedRotatingFileHandler(log_file, when="midnight", backupCount=7)
     file_handler.setFormatter(formatter)

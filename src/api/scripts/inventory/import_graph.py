@@ -51,7 +51,7 @@ def add_tree(base_pkg, base_dir):
 add_tree("flaskr", "flaskr")
 add_tree("scripts", "scripts")
 for top in ("app.py", "celery_app.py"):
-    if os.path.exists(os.path.join(ROOT, top)):
+    if Path(os.path.join(ROOT, top)).exists():
         mods[top[:-3]] = top
 
 # ---- parse imports ---------------------------------------------------------

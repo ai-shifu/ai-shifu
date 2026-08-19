@@ -88,7 +88,7 @@ surfaces["cook-web"] = fe
 cli = grep_paths(SKILLS)
 # relative paths in shifu-cli.py are joined onto /api/shifu
 cli_file = os.path.join(SKILLS, "skills/ai-shifu-course-creator/scripts/shifu-cli.py")
-if os.path.exists(cli_file):
+if Path(cli_file).exists():
     with open(cli_file, encoding="utf-8") as cli_source:
         src = cli_source.read()
     for m in re.finditer(

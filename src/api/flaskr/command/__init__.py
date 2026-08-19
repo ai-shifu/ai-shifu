@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from io import BytesIO
 from pathlib import Path
 
@@ -358,7 +357,7 @@ def enable_commands(app: Flask):
         """
         try:
             # Check if file exists
-            if not os.path.exists(file_path):
+            if not Path(file_path).exists():
                 raise click.ClickException(f"File not found: {file_path}")
 
             click.echo(f"Importing shifu from {file_path}...")
