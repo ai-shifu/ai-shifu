@@ -15,7 +15,7 @@ def _guess_mimetype(path: Path) -> str:
         return guessed
 
     try:
-        with open(path, "rb") as f:
+        with path.open("rb") as f:
             header = f.read(16)
     except OSError:
         return "application/octet-stream"

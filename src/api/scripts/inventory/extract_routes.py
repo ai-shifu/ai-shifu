@@ -38,7 +38,7 @@ for base in ("flaskr/route", "flaskr/service", "flaskr/common"):
         for fn in filenames:
             if fn.endswith(".py"):
                 p = os.path.join(dirpath, fn)
-                with open(p, encoding="utf-8") as route_file:
+                with Path(p).open(encoding="utf-8") as route_file:
                     if ".route(" in route_file.read():
                         route_files.append(os.path.relpath(p, ROOT))
 
@@ -125,7 +125,7 @@ def collect_routes(scope_body, env, rel):
 
 
 for rel in sorted(route_files):
-    with open(os.path.join(ROOT, rel), encoding="utf-8") as route_file:
+    with Path(os.path.join(ROOT, rel)).open(encoding="utf-8") as route_file:
         src = route_file.read()
     tree = ast.parse(src)
     for fn in tree.body:

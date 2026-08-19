@@ -8,6 +8,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -1050,7 +1051,7 @@ async def main():
                 output_file = args.output_file
 
                 def _write_report() -> None:
-                    with open(output_file, "w", encoding="utf-8") as handle:
+                    with Path(output_file).open("w", encoding="utf-8") as handle:
                         handle.write(report)
 
                 await asyncio.to_thread(_write_report)
