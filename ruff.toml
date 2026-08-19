@@ -77,6 +77,7 @@ select = [
     "B023",    # closure that captures a loop variable by reference
     "B026",    # star-arg unpacking after a keyword argument
     "B035",    # dict comprehension with a static key
+    "B904",    # raise inside except without from
     "B905",    # zip() without an explicit strict argument
     "C4",      # comprehension and collection-literal simplifications
     "D202",    # blank line after a function docstring

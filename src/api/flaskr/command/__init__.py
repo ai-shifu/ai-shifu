@@ -162,7 +162,7 @@ def enable_commands(app: Flask):
 
         except Exception as e:
             logger.error(f"Migration failed: {e}")
-            raise click.ClickException(f"Migration failed: {e}")
+            raise click.ClickException(f"Migration failed: {e}") from e
         finally:
             if "migration_task" in locals():
                 migration_task.close()
@@ -217,7 +217,7 @@ def enable_commands(app: Flask):
 
         except Exception as e:
             logger.error(f"Verification failed: {e}")
-            raise click.ClickException(f"Verification failed: {e}")
+            raise click.ClickException(f"Verification failed: {e}") from e
         finally:
             if "migration_task" in locals():
                 migration_task.close()
@@ -301,7 +301,7 @@ def enable_commands(app: Flask):
 
         except Exception as e:
             logger.error(f"Status check failed: {e}")
-            raise click.ClickException(f"Status check failed: {e}")
+            raise click.ClickException(f"Status check failed: {e}") from e
         finally:
             if "migration_task" in locals():
                 migration_task.close()
@@ -334,7 +334,7 @@ def enable_commands(app: Flask):
                 )
         except Exception as e:
             click.echo(click.style(f"❌ Export failed: {e}", fg="red"))
-            raise click.ClickException(f"Export failed: {e}")
+            raise click.ClickException(f"Export failed: {e}") from e
 
     @console.command(name="import_shifu")
     @click.argument("file_path")
@@ -396,7 +396,7 @@ def enable_commands(app: Flask):
 
         except Exception as e:
             click.echo(click.style(f"❌ Import failed: {e}", fg="red"))
-            raise click.ClickException(f"Import failed: {e}")
+            raise click.ClickException(f"Import failed: {e}") from e
 
     @console.command(name="update_demo_shifu")
     def update_demo_shifu_command():

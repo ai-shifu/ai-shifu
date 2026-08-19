@@ -145,4 +145,4 @@ def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECOND
     except URLError:
         raise
     except OSError as err:
-        raise URLError(err)
+        raise URLError(err) from err

@@ -702,7 +702,7 @@ def _get_access_token(api_key: str, secret_key: str) -> str:
 
     except requests.RequestException as e:
         logger.error(f"Failed to get Baidu access token: {e}")
-        raise ValueError(f"Failed to get Baidu access token: {e}")
+        raise ValueError(f"Failed to get Baidu access token: {e}") from e
 
 
 # Frontend-formatted voice list
@@ -910,12 +910,12 @@ class BaiduTTSProvider(BaseTTSProvider):
                 error_code = result.get("err_no", "unknown")
                 error_msg = result.get("err_msg", "Unknown error")
                 raise ValueError(f"Baidu TTS API error {error_code}: {error_msg}")
-            except ValueError:
-                raise ValueError(f"Baidu TTS API error: {response.text[:200]}")
+            except ValueError as e:
+                raise ValueError(f"Baidu TTS API error: {response.text[:200]}") from e
 
         except requests.RequestException as e:
             logger.error(f"Baidu TTS request failed: {e}")
-            raise ValueError(f"Baidu TTS request failed: {e}")
+            raise ValueError(f"Baidu TTS request failed: {e}") from e
 
     def get_provider_config(self) -> ProviderConfig:
         """Get Baidu provider configuration for frontend."""
