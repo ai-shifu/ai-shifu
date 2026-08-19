@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -55,6 +55,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install coverage pytest-testmon
+
+      - name: Run contract tests
+        working-directory: src/api
+        run: python -m pytest tests/contract -v --tb=short
 
       - name: Select test targets (PR only)
         if: github.event_name == 'pull_request'

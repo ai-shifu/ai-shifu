@@ -171,11 +171,12 @@ prod**.
 ### Rule: `main` must pin RELEASE versions of both libraries
 
 dev builds are for feature-branch / cross-repo testing only. `main` must always
-pin **release** versions (`X.Y.Z`) of both libraries. Two CI checks enforce this
-on every PR into `main` and fail on a pre-release/dev pin:
+pin **release** versions (`X.Y.Z`) of both libraries. The **Static Checks** job
+in `repo-harness.yml` enforces this on every PR into `main` and fails on a
+pre-release/dev pin:
 
-- **Check markdown-flow release pin** (`check-markdown-flow-release.yml`) — backend.
-- **Check markdown-flow-ui release pin** (`check-markdown-flow-ui-release.yml`) — frontend.
+- The `markdown-flow` release pin is checked in `src/api/requirements.txt`.
+- The `markdown-flow-ui` release pin is checked in `src/cook-web/package.json`.
 
 Pin release versions of both before merging.
 

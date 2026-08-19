@@ -1,21 +1,26 @@
-name: Repo Harness
+name: Static Checks
 
 on:
   pull_request:
   push:
     branches:
       - main
+      - develop
+      - refactor_i18n
+  schedule:
+    # Twice a week at 03:00 UTC to catch drift in long-lived branches
+    - cron: '0 3 * * 1,4'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  repo-harness:
+  static-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -48,3 +53,89 @@ jobs:
         run: |
           python scripts/check_repo_harness.py
           python scripts/check_architecture_boundaries.py
+
+      - name: Install translation tooling
+        run: python -m pip install --upgrade pip
+
+      - name: Verify translation parity
+        run: python scripts/check_translations.py
+
+      - name: Verify translation key usage
+        run: python scripts/check_translation_usage.py --fail-on-unused
+
+      - name: Ensure locales metadata is up to date
+        run: |
+          python scripts/generate_languages.py
+          git diff --exit-code -- src/i18n/locales.json
+
+      - name: Install markdown-flow pin check tooling
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: pip install --upgrade packaging
+
+      - name: Check markdown-flow release pin
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: |
+          python - <<'PY'
+          import re
+          import sys
+
+          from packaging.version import InvalidVersion, Version
+
+          path = "src/api/requirements.txt"
+          with open(path, encoding="utf-8") as f:
+              text = f.read()
+
+          match = re.search(r"(?m)^markdown-flow==(.+)$", text)
+          if not match:
+              print(f"::error::No 'markdown-flow==' pin found in {path}.")
+              sys.exit(1)
+
+          raw = match.group(1).strip()
+          try:
+              version = Version(raw)
+          except InvalidVersion:
+              print(f"::error::Invalid markdown-flow version '{raw}' in {path}.")
+              sys.exit(1)
+
+          if version.is_prerelease or version.is_devrelease:
+              print(
+                  f"::error::markdown-flow=={raw} is a pre-release/dev build and cannot be "
+                  "merged into main. Pin a release version (X.Y.Z) first — publish a release "
+                  "build from markdown-flow-agent-py, then update the pin."
+              )
+              sys.exit(1)
+
+          print(f"OK: markdown-flow=={raw} is a release version.")
+          PY
+
+      - name: Check markdown-flow-ui release pin
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+
+          const path = "src/cook-web/package.json";
+          const pkg = JSON.parse(fs.readFileSync(path, "utf8"));
+          const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+          const raw = deps["markdown-flow-ui"];
+
+          if (!raw) {
+            console.error(`::error::No 'markdown-flow-ui' dependency found in ${path}.`);
+            process.exit(1);
+          }
+
+          // Strip any range prefix (^, ~, >=, spaces, ...) to get the core version.
+          const core = raw.replace(/^[^\d]*/, "");
+
+          // semver pre-release = anything after a hyphen (e.g. 0.1.128-dev.1)
+          if (core.includes("-")) {
+            console.error(
+              `::error::markdown-flow-ui ${raw} is a pre-release/dev build and cannot be ` +
+                "merged into main. Pin a release version (X.Y.Z) first — publish a release " +
+                "build from markdown-flow-ui, then update the pin.",
+            );
+            process.exit(1);
+          }
+
+          console.log(`OK: markdown-flow-ui ${raw} is a release version.`);
+          NODE
