@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, PrivateAttr
@@ -364,7 +364,7 @@ class AudioSegmentDTO(BaseModel):
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
         av_contract: Dict[str, Any] | None = None,
-        subtitle_cues: Optional[List[SubtitleCueDTO]] = None,
+        subtitle_cues: List[SubtitleCueDTO] | None = None,
     ):
         super().__init__(
             position=position,
@@ -432,7 +432,7 @@ class AudioCompleteDTO(BaseModel):
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
         av_contract: Dict[str, Any] | None = None,
-        subtitle_cues: Optional[List[SubtitleCueDTO]] = None,
+        subtitle_cues: List[SubtitleCueDTO] | None = None,
     ):
         super().__init__(
             position=position,
@@ -533,7 +533,7 @@ class ElementAudioDTO(BaseModel):
         audio_bid: str,
         duration_ms: int,
         position: int = 0,
-        subtitle_cues: Optional[List[SubtitleCueDTO]] = None,
+        subtitle_cues: List[SubtitleCueDTO] | None = None,
     ):
         super().__init__(
             position=position,
@@ -586,7 +586,7 @@ class ElementPayloadDTO(BaseModel):
     def __init__(
         self,
         audio: ElementAudioDTO | None = None,
-        previous_visuals: Optional[List[ElementVisualDTO]] = None,
+        previous_visuals: List[ElementVisualDTO] | None = None,
         anchor_element_bid: str | None = None,
         ask_element_bid: str | None = None,
         user_input: str | None = None,
@@ -891,33 +891,33 @@ class RunMarkdownFlowDTO(BaseModel):
 
 
 class PlaygroundPreviewRequest(BaseModel):
-    content: Optional[str] = Field(
+    content: str | None = Field(
         default=None, description="Markdown-Flow document content"
     )
     block_index: int = Field(..., description="Block index to preview")
-    context: Optional[List[Dict[str, str]]] = Field(
+    context: List[Dict[str, str]] | None = Field(
         default=None, description="Conversation context messages"
     )
-    variables: Optional[Dict[str, Any]] = Field(
+    variables: Dict[str, Any] | None = Field(
         default=None,
         description="Variables to replace inside Markdown-Flow document",
     )
-    user_input: Optional[Dict[str, List[str]]] = Field(
+    user_input: Dict[str, List[str]] | None = Field(
         default=None, description="User input when previewing interaction blocks"
     )
-    document_prompt: Optional[str] = Field(
+    document_prompt: str | None = Field(
         default=None, description="Document level system prompt"
     )
-    interaction_prompt: Optional[str] = Field(
+    interaction_prompt: str | None = Field(
         default=None, description="Interaction render prompt override"
     )
-    interaction_error_prompt: Optional[str] = Field(
+    interaction_error_prompt: str | None = Field(
         default=None, description="Interaction error prompt override"
     )
-    model: Optional[str] = Field(
+    model: str | None = Field(
         default=None, description="Target LLM model used during preview"
     )
-    temperature: Optional[float] = Field(
+    temperature: float | None = Field(
         default=None,
         ge=0.0,
         le=2.0,
@@ -937,19 +937,19 @@ class LearnElementRecordDTO(BaseModel):
     elements: List[ElementDTO] = Field(
         default_factory=list, description="Listen-mode final element snapshots"
     )
-    events: Optional[List[RunElementSSEMessageDTO]] = Field(
+    events: List[RunElementSSEMessageDTO] | None = Field(
         default=None, description="Optional listen-mode event stream replay"
     )
-    last_progress_updated_at: Optional[str] = Field(
+    last_progress_updated_at: str | None = Field(
         default=None,
         description="Latest update time for the learner's progress on this lesson",
     )
 
     def __init__(
         self,
-        elements: Optional[List[ElementDTO]] = None,
-        events: Optional[List[RunElementSSEMessageDTO]] = None,
-        last_progress_updated_at: Optional[str] = None,
+        elements: List[ElementDTO] | None = None,
+        events: List[RunElementSSEMessageDTO] | None = None,
+        last_progress_updated_at: str | None = None,
     ):
         super().__init__(
             elements=elements or [],

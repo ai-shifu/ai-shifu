@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, List, Tuple
 
 import requests
 
@@ -95,23 +95,23 @@ class ProviderConfig:
     wildcard_prefixes: Tuple[str, ...] = ()
     config_hint: str = ""
     custom_llm_provider: str | None = None
-    model_loader: Optional[
+    model_loader: (
         Callable[
-            ["ProviderConfig", Dict[str, str], Optional[str]],
-            List[str | Tuple[str, str]],
+            ["ProviderConfig", Dict[str, str], str | None], List[str | Tuple[str, str]]
         ]
-    ] = None
-    reload_params: Optional[Callable[[str, float], Dict[str, Any]]] = None
+        | None
+    ) = None
+    reload_params: Callable[[str, float], Dict[str, Any]] | None = None
 
 
 @dataclass
 class ProviderState:
     enabled: bool
-    params: Optional[Dict[str, str]]
+    params: Dict[str, str] | None
     models: List[str]
     prefix: str = ""
     wildcard_prefixes: Tuple[str, ...] = ()
-    reload_params: Optional[Callable[[str, float], Dict[str, Any]]] = None
+    reload_params: Callable[[str, float], Dict[str, Any]] | None = None
 
 
 MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
@@ -570,7 +570,7 @@ def _iter_stream_with_precontent_retry(
             )
 
 
-def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
+def _resolve_provider_for_model(model: str) -> Tuple[str | None, str]:
     alias = MODEL_ALIAS_MAP.get(model)
     if alias:
         return alias
@@ -585,7 +585,7 @@ def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
 
 
 def _load_gemini_models(
-    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
+    config: ProviderConfig, params: Dict[str, str], base_url: str | None
 ) -> List[str | Tuple[str, str]]:
     models: List[str | Tuple[str, str]] = []
     api_key = params.get("api_key")
@@ -622,7 +622,7 @@ def _load_gemini_models(
 
 
 def _load_deepseek_models(
-    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
+    config: ProviderConfig, params: Dict[str, str], base_url: str | None
 ) -> List[str | Tuple[str, str]]:
     api_key = params.get("api_key", "")
     try:
@@ -991,12 +991,12 @@ def invoke_llm(
     system: str | None = None,
     json: bool = False,
     generation_name: str = "invoke_llm",
-    usage_context: Optional[UsageContext] = None,
-    usage_scene: Optional[str | int] = None,
-    billable: Optional[int] = None,
-    request_id: Optional[str] = None,
-    trace_id: Optional[str] = None,
-    usage_metadata: Optional[Dict[str, Any]] = None,
+    usage_context: UsageContext | None = None,
+    usage_scene: str | int | None = None,
+    billable: int | None = None,
+    request_id: str | None = None,
+    trace_id: str | None = None,
+    usage_metadata: Dict[str, Any] | None = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     stream_flag = bool(kwargs.get("stream", True))
@@ -1174,12 +1174,12 @@ def chat_llm(
     messages: list,
     json: bool = False,
     generation_name: str = "user_follow_ask",
-    usage_context: Optional[UsageContext] = None,
-    usage_scene: Optional[str | int] = None,
-    billable: Optional[int] = None,
-    request_id: Optional[str] = None,
-    trace_id: Optional[str] = None,
-    usage_metadata: Optional[Dict[str, Any]] = None,
+    usage_context: UsageContext | None = None,
+    usage_scene: str | int | None = None,
+    billable: int | None = None,
+    request_id: str | None = None,
+    trace_id: str | None = None,
+    usage_metadata: Dict[str, Any] | None = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     app.logger.info(f"chat_llm [{model}] {messages} ,json:{json} ,kwargs:{kwargs}")

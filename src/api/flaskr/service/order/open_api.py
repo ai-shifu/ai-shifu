@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from flask import Flask
 from flaskr.dao import db
@@ -27,7 +27,7 @@ def verify_course_ownership(app: Flask, owner_bid: str, shifu_bid: str) -> None:
         raise_error("server.openapi.courseOwnershipRequired")
 
 
-def _find_active_order(user_bid: str, shifu_bid: str) -> Optional[Order]:
+def _find_active_order(user_bid: str, shifu_bid: str) -> Order | None:
     """Find the latest active order for a user and course."""
     return (
         Order.query.filter(

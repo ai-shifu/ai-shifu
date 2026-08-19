@@ -20,7 +20,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Any, Tuple
 from urllib.parse import quote
 
 import requests
@@ -50,7 +50,7 @@ class AliyunNlsToken:
     def expires_in_seconds(self) -> int:
         return max(0, int(self.expire_time - time.time()))
 
-    def is_expired(self, now: Optional[float] = None) -> bool:
+    def is_expired(self, now: float | None = None) -> bool:
         now_ts = time.time() if now is None else float(now)
         return self.expire_time <= int(now_ts)
 
@@ -104,7 +104,7 @@ def _get_lock_key() -> str:
     return f"{prefix}tts:aliyun:nls_token:lock"
 
 
-def _decode_cache_value(raw: Any) -> Optional[AliyunNlsToken]:
+def _decode_cache_value(raw: Any) -> AliyunNlsToken | None:
     if raw is None:
         return None
     if isinstance(raw, bytes):

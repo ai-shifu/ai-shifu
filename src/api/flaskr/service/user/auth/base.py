@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from flask import Flask
 from flaskr.service.common.dtos import UserInfo, UserToken
@@ -48,14 +48,12 @@ class VerificationRequest(_BaseDTO):
 class OAuthCallbackRequest(_BaseDTO):
     """Normalized payload for OAuth callback handlers."""
 
-    state: Optional[str] = Field(
-        None, description="Opaque state value returned by OAuth"
-    )
-    code: Optional[str] = Field(None, description="Authorization code or token")
+    state: str | None = Field(None, description="Opaque state value returned by OAuth")
+    code: str | None = Field(None, description="Authorization code or token")
     raw_request_args: Dict[str, Any] = Field(
         default_factory=dict, description="Complete callback request arguments"
     )
-    current_user_id: Optional[str] = Field(
+    current_user_id: str | None = Field(
         None,
         description="User ID resolved from temporary token, if any",
     )
@@ -66,7 +64,7 @@ class AuthResult(_BaseDTO):
 
     user: UserInfo = Field(..., description="Resolved user information DTO")
     token: UserToken = Field(..., description="Issued login token")
-    credential: Optional[AuthCredential] = Field(
+    credential: AuthCredential | None = Field(
         None, description="Persisted credential record when available"
     )
     is_new_user: bool = Field(

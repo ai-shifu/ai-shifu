@@ -3,7 +3,7 @@ import decimal
 import json
 import re
 from contextlib import contextmanager, nullcontext, suppress
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Tuple
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pytz
@@ -303,7 +303,7 @@ def _sync_order_campaign_pricing(
     buy_record: Order,
     user_id: str,
     course_id: str,
-    active_id: Optional[str],
+    active_id: str | None,
 ) -> Tuple[List, decimal.Decimal]:
     """Refresh eligible campaigns for an unpaid order and recalculate paid price.
 
@@ -492,7 +492,7 @@ class BuyRecordDTO:
         channel,
         qr_url,
         payment_channel: str = "",
-        payment_payload: Optional[Dict[str, Any]] = None,
+        payment_payload: Dict[str, Any] | None = None,
     ):
         self.order_id = record_id
         self.user_id = user_id
@@ -519,7 +519,7 @@ def generate_charge(
     record_id: str,
     channel: str,
     client_ip: str,
-    payment_channel: Optional[str] = None,
+    payment_channel: str | None = None,
 ) -> BuyRecordDTO:
     """Generate charge"""
     with _app_context_scope(app), unit_of_work():
@@ -673,10 +673,10 @@ def _order_credential_scope(app: Flask, order: Order, context=None):
 
 def _resolve_payment_channel(
     *,
-    payment_channel_hint: Optional[str],
-    channel_hint: Optional[str],
-    stored_channel: Optional[str],
-    additional_enabled_providers: Optional[set[str]] = None,
+    payment_channel_hint: str | None,
+    channel_hint: str | None,
+    stored_channel: str | None,
+    additional_enabled_providers: set[str] | None = None,
 ) -> Tuple[str, str]:
     """Resolve the provider and provider-specific channel based on hints."""
     return resolve_payment_channel(
@@ -718,9 +718,7 @@ def _format_response_channel(payment_channel: str, provider_channel: str) -> str
     return provider_channel
 
 
-def _sanitize_pingxx_text(
-    value: Optional[str], *, fallback: str, max_length: int
-) -> str:
+def _sanitize_pingxx_text(value: str | None, *, fallback: str, max_length: int) -> str:
     text = (value or fallback or "").strip()
     text = re.sub(r"[\r\n\t]+", " ", text)
     text = re.sub(r"\s{2,}", " ", text).strip()
@@ -746,7 +744,7 @@ def _generate_pingxx_charge(
     pingpp_id = get_config("PINGXX_APP_ID")
     provider_options: Dict[str, Any] = {"app_id": pingpp_id}
     charge_extra: Dict[str, Any] = {}
-    qr_url_key: Optional[str] = None
+    qr_url_key: str | None = None
     product_id = course.bid
 
     if channel == "wx_pub_qr":  # wxpay scan
@@ -1150,8 +1148,8 @@ def _generate_wechatpay_charge(
 def sync_stripe_checkout_session(
     app: Flask,
     order_id: str,
-    session_id: Optional[str] = None,
-    expected_user: Optional[str] = None,
+    session_id: str | None = None,
+    expected_user: str | None = None,
 ):
     with _app_context_scope(app), unit_of_work():
         order = (
@@ -1215,8 +1213,8 @@ def sync_native_payment_order(
     app: Flask,
     order_id: str,
     *,
-    expected_user: Optional[str] = None,
-    payment_channel: Optional[str] = None,
+    expected_user: str | None = None,
+    payment_channel: str | None = None,
 ):
     with _app_context_scope(app), unit_of_work():
         order = (
@@ -1298,7 +1296,7 @@ def _update_stripe_order_snapshot(
     *,
     stripe_order: StripeOrder,
     session: Dict[str, Any],
-    intent: Optional[Dict[str, Any]],
+    intent: Dict[str, Any] | None,
 ):
     if session:
         stripe_order.checkout_session_id = session.get(
@@ -1330,7 +1328,7 @@ def _update_stripe_order_snapshot(
 
 
 def _is_stripe_payment_successful(
-    *, session: Optional[Dict[str, Any]], intent: Optional[Dict[str, Any]]
+    *, session: Dict[str, Any] | None, intent: Dict[str, Any] | None
 ) -> bool:
     if session:
         if session.get("payment_status") == "paid":
@@ -1402,7 +1400,7 @@ def _is_native_payment_successful(
 def _extract_native_notification_amount(
     provider: str,
     payload: Dict[str, Any],
-) -> Optional[int]:
+) -> int | None:
     trade_payload = extract_native_trade_payload(payload)
     if provider == "alipay":
         total_amount = (
@@ -1523,7 +1521,7 @@ def handle_stripe_webhook(
         }, 202
 
     with _app_context_scope(app), unit_of_work():
-        stripe_order: Optional[StripeOrder] = (
+        stripe_order: StripeOrder | None = (
             legacy_stripe_snapshot_query()
             .filter(StripeOrder.order_bid == order_bid)
             .order_by(StripeOrder.id.desc())
@@ -1612,8 +1610,8 @@ def handle_stripe_webhook(
 def refund_order_payment(
     app: Flask,
     order_bid: str,
-    amount: Optional[int] = None,
-    reason: Optional[str] = None,
+    amount: int | None = None,
+    reason: str | None = None,
 ) -> Dict[str, Any]:
     with _app_context_scope(app), unit_of_work():
         order = Order.query.filter(Order.order_bid == order_bid).first()

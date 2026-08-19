@@ -7,7 +7,7 @@ import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from flask import Flask
 from flaskr.dao import (
@@ -63,7 +63,7 @@ class CredentialSummary:
     subject_id: str
     subject_format: str
     state: int
-    metadata: Dict[str, Optional[str]] = field(default_factory=dict)
+    metadata: Dict[str, str | None] = field(default_factory=dict)
 
     @property
     def is_verified(self) -> bool:
@@ -76,14 +76,14 @@ class UserAggregate:
     identify: str
     nickname: str
     learner_profile: str
-    learner_profile_updated_at: Optional[datetime]
+    learner_profile_updated_at: datetime | None
     avatar: str
-    birthday: Optional[date]
+    birthday: date | None
     language: str
     state: int
     deleted: bool
     created_at: datetime
-    creator_activated_at: Optional[datetime]
+    creator_activated_at: datetime | None
     updated_at: datetime
     credentials: List[CredentialSummary] = field(default_factory=list)
     is_creator: bool = False
@@ -91,7 +91,7 @@ class UserAggregate:
 
     def _preferred_identifier(
         self, provider: str, *, prefer_verified: bool = True
-    ) -> Optional[CredentialSummary]:
+    ) -> CredentialSummary | None:
         matches = [c for c in self.credentials if c.provider == provider]
         if not matches:
             return None
@@ -202,7 +202,7 @@ class UserAggregate:
         )
 
 
-def _normalize_identifier(provider: str, identifier: Optional[str]) -> str:
+def _normalize_identifier(provider: str, identifier: str | None) -> str:
     if not identifier:
         return ""
     normalized = identifier.strip()
@@ -235,7 +235,7 @@ def _summarize_credentials(
 def _build_user_aggregate(
     entity: UserEntity,
     *,
-    credentials: Optional[List[AuthCredential]] = None,
+    credentials: List[AuthCredential] | None = None,
 ) -> UserAggregate:
     summaries = _summarize_credentials(credentials or [])
     return UserAggregate(
@@ -260,7 +260,7 @@ def _build_user_aggregate(
 
 def get_user_entity_by_bid(
     user_bid: str, *, include_deleted: bool = False
-) -> Optional[UserEntity]:
+) -> UserEntity | None:
     query = UserEntity.query.filter_by(user_bid=user_bid)
     if not include_deleted:
         query = query.filter_by(deleted=0)
@@ -272,10 +272,10 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     if entity:
         return entity
     identify = user_bid
-    nickname: Optional[str] = None
-    language: Optional[str] = None
-    avatar: Optional[str] = None
-    birthday: Optional[date] = None
+    nickname: str | None = None
+    language: str | None = None
+    avatar: str | None = None
+    birthday: date | None = None
 
     try:
         from flaskr.service.profile.models import VariableValue  # type: ignore
@@ -331,7 +331,7 @@ def load_user_aggregate(
     *,
     include_deleted: bool = False,
     with_credentials: bool = True,
-) -> Optional[UserAggregate]:
+) -> UserAggregate | None:
     entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
     if not entity:
         return None
@@ -344,8 +344,8 @@ def load_user_aggregate(
 def load_user_aggregate_by_identifier(
     identifier: str,
     *,
-    providers: Optional[List[str]] = None,
-) -> Optional[UserAggregate]:
+    providers: List[str] | None = None,
+) -> UserAggregate | None:
     normalized = identifier.strip() if identifier else ""
     if not normalized:
         return None
@@ -395,7 +395,7 @@ def ensure_user_aggregate(
     app: Flask,
     *,
     user_bid: str,
-    defaults: Optional[Dict[str, Any]] = None,
+    defaults: Dict[str, Any] | None = None,
 ) -> Tuple[UserAggregate, bool]:
     """Ensure a user aggregate exists for ``user_bid``.
 
@@ -416,7 +416,7 @@ def ensure_user_for_identifier(
     *,
     provider: str,
     identifier: str,
-    defaults: Optional[Dict[str, Any]] = None,
+    defaults: Dict[str, Any] | None = None,
 ) -> Tuple[UserAggregate, bool]:
     """Find or create a user aggregate bound to a provider identifier."""
     defaults = defaults or {}
@@ -460,8 +460,8 @@ def ensure_user_for_identifier(
 def mark_user_roles(
     user_bid: str,
     *,
-    is_creator: Optional[bool] = None,
-    is_operator: Optional[bool] = None,
+    is_creator: bool | None = None,
+    is_operator: bool | None = None,
 ) -> None:
     """Persist role flags on the canonical entity."""
     if is_creator is None and is_operator is None:
@@ -479,13 +479,13 @@ def create_user_entity(
     *,
     user_bid: str,
     identify: str,
-    nickname: Optional[str] = None,
-    learner_profile: Optional[str] = None,
-    learner_profile_updated_at: Optional[datetime] = None,
-    language: Optional[str] = None,
-    avatar: Optional[str] = None,
-    state: Optional[int] = None,
-    birthday: Optional[date] = None,
+    nickname: str | None = None,
+    learner_profile: str | None = None,
+    learner_profile_updated_at: datetime | None = None,
+    language: str | None = None,
+    avatar: str | None = None,
+    state: int | None = None,
+    birthday: date | None = None,
 ) -> UserEntity:
     entity = UserEntity(
         user_bid=user_bid,
@@ -509,16 +509,16 @@ def create_user_entity(
 def update_user_entity_fields(
     entity: UserEntity,
     *,
-    identify: Optional[str] = None,
-    nickname: Optional[str] = None,
-    learner_profile: Optional[str] = None,
-    learner_profile_updated_at: Optional[datetime] = None,
+    identify: str | None = None,
+    nickname: str | None = None,
+    learner_profile: str | None = None,
+    learner_profile_updated_at: datetime | None = None,
     update_learner_profile_timestamp: bool = False,
-    avatar: Optional[str] = None,
-    language: Optional[str] = None,
-    state: Optional[int] = None,
-    birthday: Optional[date] = None,
-    deleted: Optional[bool] = None,
+    avatar: str | None = None,
+    language: str | None = None,
+    state: int | None = None,
+    birthday: date | None = None,
+    deleted: bool | None = None,
 ) -> UserEntity:
     if identify is not None:
         entity.user_identify = _normalize_identifier("", identify)
@@ -545,7 +545,7 @@ def update_user_entity_fields(
 def upsert_user_entity(
     *,
     user_bid: str,
-    defaults: Optional[Dict[str, Any]] = None,
+    defaults: Dict[str, Any] | None = None,
 ) -> Tuple[UserEntity, bool]:
     defaults = dict(defaults or {})
     entity = get_user_entity_by_bid(user_bid, include_deleted=True)
@@ -618,7 +618,7 @@ def _normalize_user_state(raw_state) -> int:
 class UserProfileSnapshot:
     user_bid: str
     legacy: Dict[str, Any] = field(default_factory=dict)
-    credentials: List[Dict[str, Optional[str]]] = field(default_factory=list)
+    credentials: List[Dict[str, str | None]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -664,15 +664,13 @@ def build_user_profile_snapshot_from_aggregate(
     )
 
 
-def serialize_raw_profile(
-    provider_name: str, metadata: Dict[str, Optional[str]]
-) -> str:
+def serialize_raw_profile(provider_name: str, metadata: Dict[str, str | None]) -> str:
     return json.dumps(
         {"provider": provider_name, "metadata": metadata}, ensure_ascii=False
     )
 
 
-def deserialize_raw_profile(record: AuthCredential) -> Dict[str, Optional[str]]:
+def deserialize_raw_profile(record: AuthCredential) -> Dict[str, str | None]:
     if not record.raw_profile:
         return {}
     try:
@@ -715,7 +713,7 @@ def upsert_credential(
     subject_id: str,
     subject_format: str,
     identifier: str,
-    metadata: Dict[str, Optional[str]],
+    metadata: Dict[str, str | None],
     verified: bool,
 ) -> AuthCredential:
     raw_identifier = (identifier or "").strip()
@@ -763,8 +761,8 @@ def upsert_credential(
 
 
 def find_credential(
-    *, provider_name: str, identifier: str, user_bid: Optional[str] = None
-) -> Optional[AuthCredential]:
+    *, provider_name: str, identifier: str, user_bid: str | None = None
+) -> AuthCredential | None:
     raw_identifier = (identifier or "").strip()
     identifier = _normalize_identifier(provider_name, identifier)
     lookup_identifiers = [identifier]
@@ -781,7 +779,7 @@ def find_credential(
 
 
 def list_credentials(
-    *, user_bid: str, provider_name: Optional[str] = None
+    *, user_bid: str, provider_name: str | None = None
 ) -> List[AuthCredential]:
     query = AuthCredential.query.filter_by(user_bid=user_bid, deleted=0)
     if provider_name:
@@ -789,7 +787,7 @@ def list_credentials(
     return query.all()
 
 
-def get_first_verified_credential_created_at(*, user_bid: str) -> Optional[datetime]:
+def get_first_verified_credential_created_at(*, user_bid: str) -> datetime | None:
     row = (
         AuthCredential.query.filter(
             AuthCredential.deleted == 0,
@@ -809,11 +807,11 @@ def upsert_wechat_credentials(
     app: Flask,
     *,
     user_bid: str,
-    open_id: Optional[str],
-    union_id: Optional[str],
-    open_identifier: Optional[str] = None,
-    union_identifier: Optional[str] = None,
-    metadata: Optional[Dict[str, Optional[str]]] = None,
+    open_id: str | None,
+    union_id: str | None,
+    open_identifier: str | None = None,
+    union_identifier: str | None = None,
+    metadata: Dict[str, str | None] | None = None,
     verified: bool = True,
 ) -> List[AuthCredential]:
     metadata = metadata or {}

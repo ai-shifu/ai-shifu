@@ -14,7 +14,6 @@ The provider can be selected per-Shifu configuration.
 import json
 import logging
 from decimal import Decimal, InvalidOperation
-from typing import Optional
 
 from flask import has_request_context, request
 
@@ -169,9 +168,9 @@ def get_default_audio_settings(provider_name: str = "") -> AudioSettings:
 
 def synthesize_text(
     text: str,
-    voice_settings: Optional[VoiceSettings] = None,
-    audio_settings: Optional[AudioSettings] = None,
-    model: Optional[str] = None,
+    voice_settings: VoiceSettings | None = None,
+    audio_settings: AudioSettings | None = None,
+    model: str | None = None,
     provider_name: str = "",
 ) -> TTSResult:
     """Synthesize text to speech.

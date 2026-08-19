@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from flask import current_app
 from flaskr.service.user.consts import (
@@ -278,7 +278,7 @@ USER_STATE_TO_OPERATOR_STATUS = {
 }
 
 
-def _format_decimal(value: Optional[Decimal]) -> str:
+def _format_decimal(value: Decimal | None) -> str:
     if value is None:
         return "0"
     normalized = value if isinstance(value, str) else f"{value:.2f}"
@@ -287,7 +287,7 @@ def _format_decimal(value: Optional[Decimal]) -> str:
     return normalized
 
 
-def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
+def _coerce_operator_datetime(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):

@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Callable, Dict, List, Type
 
 from flask import Config as FlaskConfig
 from flask import Flask
@@ -23,7 +23,7 @@ class EnvVar:
     example: Any = None  # Optional value to emit in generated example files
     type: Type = str  # Using Type annotation to avoid conflict
     description: str = ""
-    validator: Optional[Callable[[Any], bool]] = None
+    validator: Callable[[Any], bool] | None = None
     secret: bool = False
     group: str = "general"
     depends_on: List[str] = field(default_factory=list)
@@ -2251,7 +2251,7 @@ def has_explicit_env_override(key: str) -> bool:
     return key in os.environ
 
 
-def get_explicit_env_override(key: str) -> Optional[str]:
+def get_explicit_env_override(key: str) -> str | None:
     """Return the raw environment value for a config key, or None when unset.
 
     Unlike ``get_config``, this never substitutes the registry default and

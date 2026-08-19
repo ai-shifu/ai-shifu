@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
 class FakeRedisLock:
@@ -8,7 +8,7 @@ class FakeRedisLock:
         self._key = key
         self._held = False
 
-    def acquire(self, blocking: bool = True, blocking_timeout: Optional[int] = None):
+    def acquire(self, blocking: bool = True, blocking_timeout: int | None = None):
         if self._locks.get(self._key, False):
             return False
         self._locks[self._key] = True
@@ -54,7 +54,7 @@ class FakeRedis:
             return None
         return self._store.get(key)
 
-    def getex(self, key: str, ex: Optional[int] = None, px: Optional[int] = None):
+    def getex(self, key: str, ex: int | None = None, px: int | None = None):
         value = self.get(key)
         if value is None:
             return None
@@ -68,8 +68,8 @@ class FakeRedis:
         self,
         key: str,
         value: Any,
-        ex: Optional[int] = None,
-        px: Optional[int] = None,
+        ex: int | None = None,
+        px: int | None = None,
         nx: bool = False,
         xx: bool = False,
         *args,
@@ -126,8 +126,8 @@ class FakeRedis:
     def lock(
         self,
         key: str,
-        timeout: Optional[int] = None,
-        blocking_timeout: Optional[int] = None,
+        timeout: int | None = None,
+        blocking_timeout: int | None = None,
     ):
         return FakeRedisLock(self._locks, key)
 

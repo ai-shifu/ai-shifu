@@ -3,7 +3,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import List, Optional
+from typing import List
 
 from flaskr.route.common import fmt
 from flaskr.service.common.dto_base import AutoJsonMixin
@@ -19,9 +19,9 @@ class SampleDTO(AutoJsonMixin, BaseModel):
     text: str = Field(...)
     number: int = Field(...)
     flag: bool = Field(...)
-    amount: Optional[Decimal] = Field(default=None)
-    happened_at: Optional[datetime] = Field(default=None)
-    child: Optional[ChildDTO] = Field(default=None)
+    amount: Decimal | None = Field(default=None)
+    happened_at: datetime | None = Field(default=None)
+    child: ChildDTO | None = Field(default=None)
     children: List[ChildDTO] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
 

@@ -14,7 +14,7 @@ import time
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Dict, Generator, List
 
 from flask import Flask
 from flaskr.api.tts import (
@@ -232,12 +232,12 @@ class TTSSegment:
 
     index: int
     text: str
-    audio_data: Optional[bytes] = None
+    audio_data: bytes | None = None
     duration_ms: int = 0
     word_count: int = 0
     usage_characters: int = 0
     latency_ms: int = 0
-    error: Optional[str] = None
+    error: str | None = None
     is_ready: bool = False
     subtitle_cues: list[dict[str, Any]] = field(default_factory=list)
 
@@ -275,7 +275,7 @@ class StreamingTTSProcessor:
         tts_model: str = "",
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
-        av_contract: Optional[Dict[str, Any]] = None,
+        av_contract: Dict[str, Any] | None = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
     ):
         self.app = app
@@ -764,7 +764,7 @@ class StreamingTTSProcessor:
         audio_data: bytes,
         duration_ms: int,
         is_final: bool = False,
-        subtitle_cues: Optional[list[dict[str, Any]]] = None,
+        subtitle_cues: list[dict[str, Any]] | None = None,
     ) -> RunMarkdownFlowDTO:
         base64_audio = base64.b64encode(audio_data).decode("utf-8")
         return RunMarkdownFlowDTO(
@@ -1282,7 +1282,7 @@ class StreamingTTSProcessor:
         provider_offset_ms: int,
         live_offset_ms: int,
         live_request_end_ms: int,
-        previous_live_cues: Optional[list[dict[str, Any]]] = None,
+        previous_live_cues: list[dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         incoming_live_cues = self._scale_minimax_cues_to_live_request(
             subtitle_cues,
@@ -1306,7 +1306,7 @@ class StreamingTTSProcessor:
         audio_data: bytes,
         duration_ms: int,
         text: str,
-        subtitle_cues: Optional[list[dict[str, Any]]] = None,
+        subtitle_cues: list[dict[str, Any]] | None = None,
     ) -> tuple[int, RunMarkdownFlowDTO]:
         with self._lock:
             segment_index = self._segment_index
@@ -1333,8 +1333,8 @@ class StreamingTTSProcessor:
         raw_text: str,
         cleaned_text: str,
         cleaned_text_length: int,
-        subtitle_cues: Optional[list[dict[str, Any]]] = None,
-        event_subtitle_cues: Optional[list[dict[str, Any]]] = None,
+        subtitle_cues: list[dict[str, Any]] | None = None,
+        event_subtitle_cues: list[dict[str, Any]] | None = None,
         commit: bool = True,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if not all_segments:
@@ -1462,7 +1462,7 @@ class StreamingTTSProcessor:
         request_text: str,
         request_format: str,
         request_index: int,
-    ) -> Optional[_MinimaxFallbackAudio]:
+    ) -> _MinimaxFallbackAudio | None:
         try:
             result = provider.synthesize(
                 text=request_text,
@@ -1708,7 +1708,7 @@ class StreamingTTSProcessor:
                 )
                 yield event
 
-            fallback_audio: Optional[_MinimaxFallbackAudio] = None
+            fallback_audio: _MinimaxFallbackAudio | None = None
             if live_request_emitted_ms <= 0:
                 fallback_audio = self._synthesize_minimax_complete_fallback(
                     provider,
@@ -2108,16 +2108,16 @@ class AVStreamingTTSProcessor:
         self.element_index_offset = int(element_index_offset or 0)
 
         self._position_cursor = 0
-        self._current_processor: Optional[StreamingTTSProcessor] = None
+        self._current_processor: StreamingTTSProcessor | None = None
         self._raw_buffer = ""
         self._raw_full_content = ""
-        self._av_contract: Optional[Dict[str, Any]] = None
+        self._av_contract: Dict[str, Any] | None = None
         self._next_element_index = self.element_index_offset
         self._current_segment_has_speakable_text = False
 
         # When we hit a non-speakable block boundary (e.g. `<svg>`), we may need to
         # wait for its closing marker before resuming segmentation.
-        self._skip_mode: Optional[str] = (
+        self._skip_mode: str | None = (
             None
             # 'fence' | 'svg' | 'iframe' | 'video' | 'html_table' | 'md_table' | 'sandbox' | 'md_img'
         )
@@ -2199,7 +2199,7 @@ class AVStreamingTTSProcessor:
         if did_complete or had_speakable_text:
             self._position_cursor += 1
 
-    def _find_next_boundary(self, raw: str) -> Optional[tuple[str, int, int, bool]]:
+    def _find_next_boundary(self, raw: str) -> tuple[str, int, int, bool] | None:
         return _find_next_av_boundary(raw, include_partial_md_image=True)
 
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:

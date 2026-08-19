@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import datetime
 from dataclasses import dataclass
-from typing import Optional
 
 from flask import Flask
 from flaskr.common.cache_provider import cache
@@ -66,7 +65,7 @@ class TokenStoreProvider:
 
     def get_and_refresh(
         self, app: Flask, *, token: str, expected_user_id: str, ttl_seconds: int
-    ) -> Optional[TokenLookupResult]:
+    ) -> TokenLookupResult | None:
         if not token or not expected_user_id:
             return None
 

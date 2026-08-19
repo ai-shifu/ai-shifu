@@ -9,7 +9,7 @@ API Reference:
 """
 
 import logging
-from typing import List, Optional
+from typing import List
 
 import requests
 
@@ -1231,9 +1231,9 @@ class AliyunTTSProvider(BaseTTSProvider):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         """Synthesize text to speech using Aliyun TTS.
 

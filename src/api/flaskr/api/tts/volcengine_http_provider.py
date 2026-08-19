@@ -9,7 +9,7 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import List, Optional
+from typing import List
 
 import requests
 from requests import Response
@@ -178,9 +178,9 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")

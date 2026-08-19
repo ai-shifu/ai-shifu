@@ -6,14 +6,12 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from typing import Optional
-
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 
 def find_node_with_parents(
-    root: HistoryItem, target_bid: str, current_path: Optional[list[HistoryItem]] = None
-) -> Optional[list[HistoryItem]]:
+    root: HistoryItem, target_bid: str, current_path: list[HistoryItem] | None = None
+) -> list[HistoryItem] | None:
     """Find node with parents
     Args:
         root: Root node

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Iterable, Optional, Set
+from typing import Any, Dict, Iterable, Set
 
 from flaskr.dao import db
 from sqlalchemy import and_, or_
@@ -13,7 +13,7 @@ def _record_course_activity(
     activity_map: Dict[str, Dict[str, Any]],
     *,
     shifu_bid: str,
-    updated_at: Optional[datetime],
+    updated_at: datetime | None,
     updated_user_bid: str,
     prefer_on_equal: bool = False,
 ) -> None:

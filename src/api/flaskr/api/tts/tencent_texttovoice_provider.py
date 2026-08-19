@@ -26,7 +26,7 @@ import json
 import logging
 import time
 import uuid
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import requests
 
@@ -159,7 +159,7 @@ def build_texttovoice_tc3_headers(
     payload_json: str,
     secret_id: str,
     secret_key: str,
-    timestamp: Optional[int] = None,
+    timestamp: int | None = None,
 ) -> Dict[str, str]:
     request_timestamp = int(timestamp if timestamp is not None else time.time())
     request_date = dt.datetime.fromtimestamp(
@@ -216,7 +216,7 @@ def build_texttovoice_tc3_headers(
     }
 
 
-def _resolve_sample_rate(voice_id: str, model: Optional[str]) -> int:
+def _resolve_sample_rate(voice_id: str, model: str | None) -> int:
     voice_model = _VOICE_MODEL_BY_ID.get(str(voice_id or "").strip())
     effective_model = voice_model or (model or "").strip()
     if effective_model == TENCENT_TEXTTOVOICE_LARGE_MODEL:
@@ -380,9 +380,9 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")

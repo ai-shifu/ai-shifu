@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 from decimal import Decimal
 from json import JSONDecodeError
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Sequence
 
 from flask import current_app
 from flaskr.dao import db
@@ -374,7 +374,7 @@ def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str):
 def _build_operator_course_credit_usage_base_query(
     shifu_bid: str,
     *,
-    outline_item_bids: Optional[Sequence[str]] = None,
+    outline_item_bids: Sequence[str] | None = None,
 ):
     ledger_totals = _build_operator_course_credit_usage_ledger_totals_subquery(
         shifu_bid
@@ -643,7 +643,7 @@ def _load_course_credit_usage_output_summary_map(
 def _build_operator_course_credit_usage_detail_item(
     usage_row: BillUsageRecord,
     ledger_amount: Any,
-    output_summary: Optional[str] = None,
+    output_summary: str | None = None,
 ) -> AdminOperationCourseCreditUsageDetailItemDTO:
     return AdminOperationCourseCreditUsageDetailItemDTO(
         usage_bid=str(getattr(usage_row, "usage_bid", "") or ""),
@@ -1148,7 +1148,7 @@ def _resolve_operator_user_credit_grant_source_filter(value: str) -> str:
 def _build_operator_user_credit_merged_metadata(
     row: CreditLedgerEntry,
     *,
-    order_map: Optional[Dict[str, BillingOrder]] = None,
+    order_map: Dict[str, BillingOrder] | None = None,
 ) -> Dict[str, Any]:
     metadata = _normalize_metadata_json(row.metadata_json)
     normalized_source_bid = str(row.source_bid or "").strip()
@@ -1241,12 +1241,12 @@ def _load_operator_user_credit_summary_map(
     order_map = _load_billing_order_map(
         [str(bucket.source_bid or "").strip() for bucket in buckets]
     )
-    order_type_cache: Dict[str, Optional[int]] = {
+    order_type_cache: Dict[str, int | None] = {
         bill_order_bid: int(order.order_type or 0)
         for bill_order_bid, order in order_map.items()
     }
 
-    def load_order_type(bill_order_bid: str) -> Optional[int]:
+    def load_order_type(bill_order_bid: str) -> int | None:
         normalized_bill_order_bid = str(bill_order_bid or "").strip()
         if not normalized_bill_order_bid:
             return None
@@ -1695,8 +1695,8 @@ def _resolve_usage_detail_item_content(
 def _build_operator_user_credit_ledger_item(
     row: CreditLedgerEntry,
     *,
-    order_map: Optional[Dict[str, BillingOrder]] = None,
-    usage_context_map: Optional[Dict[str, Dict[str, str]]] = None,
+    order_map: Dict[str, BillingOrder] | None = None,
+    usage_context_map: Dict[str, Dict[str, str]] | None = None,
 ) -> AdminOperationUserCreditLedgerItemDTO:
     merged_metadata = _build_operator_user_credit_merged_metadata(
         row,

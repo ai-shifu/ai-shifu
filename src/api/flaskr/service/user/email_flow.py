@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as redis
@@ -34,7 +34,7 @@ from flaskr.util.datetime import now_utc
 FIX_CHECK_CODE = None
 
 
-def configure_fix_check_code(value: Optional[str]) -> None:
+def configure_fix_check_code(value: str | None) -> None:
     global FIX_CHECK_CODE
     FIX_CHECK_CODE = value
 
@@ -84,12 +84,12 @@ def _consume_latest_email_code_from_db(app: Flask, email: str, code: str) -> str
 
 def verify_email_code(
     app: Flask,
-    user_id: Optional[str],
+    user_id: str | None,
     email: str,
     code: str,
-    course_id: Optional[str] = None,
-    language: Optional[str] = None,
-) -> Tuple[UserToken, bool, Dict[str, Optional[str]]]:
+    course_id: str | None = None,
+    language: str | None = None,
+) -> Tuple[UserToken, bool, Dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
     from flaskr.service.profile.funcs import (
         get_user_profile_labels,

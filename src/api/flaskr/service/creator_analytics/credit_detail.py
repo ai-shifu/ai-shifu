@@ -46,7 +46,7 @@ result so the summary is stable.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 from flask import Flask
 from flaskr.i18n import _
@@ -160,10 +160,10 @@ class _Params:
         self,
         *,
         shifu_bid: str,
-        start_date: Optional[date],
-        end_date: Optional[date],
-        usage_scene: Optional[Tuple[int, ...]],
-        usage_type: Optional[Tuple[int, ...]],
+        start_date: date | None,
+        end_date: date | None,
+        usage_scene: Tuple[int, ...] | None,
+        usage_type: Tuple[int, ...] | None,
         limit: int,
         offset: int,
     ) -> None:
@@ -215,7 +215,7 @@ def _parse_payload(payload: Any, limit_max: int) -> _Params:
     )
 
 
-def _parse_optional_date(raw: Any, field_name: str) -> Optional[date]:
+def _parse_optional_date(raw: Any, field_name: str) -> date | None:
     if raw is None or raw == "":
         return None
     if not isinstance(raw, str):
@@ -233,7 +233,7 @@ def _parse_optional_date(raw: Any, field_name: str) -> Optional[date]:
 
 def _parse_int_set(
     raw: Any, field_name: str, allowed: Iterable[int]
-) -> Optional[Tuple[int, ...]]:
+) -> Tuple[int, ...] | None:
     if raw is None:
         return None
     if not isinstance(raw, list) or not raw:
@@ -444,7 +444,7 @@ def _coerce_value(value: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def _raise(error_name: str, detail: Optional[str] = None) -> None:
+def _raise(error_name: str, detail: str | None = None) -> None:
     message = _(error_name)
     if detail:
         message = f"{message} ({detail})"

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Tuple
 
 from flaskr.service.common.models import raise_error
 from flaskr.service.config import get_config
@@ -8,11 +8,11 @@ from flaskr.service.config import get_config
 
 def resolve_payment_channel(
     *,
-    payment_channel_hint: Optional[str],
-    channel_hint: Optional[str],
-    stored_channel: Optional[str],
-    default_pingxx_channel: Optional[str] = None,
-    additional_enabled_providers: Optional[Iterable[str]] = None,
+    payment_channel_hint: str | None,
+    channel_hint: str | None,
+    stored_channel: str | None,
+    default_pingxx_channel: str | None = None,
+    additional_enabled_providers: Iterable[str] | None = None,
 ) -> Tuple[str, str]:
     """Resolve the payment provider and provider-specific channel from config."""
     requested_payment_channel = (payment_channel_hint or "").strip().lower()

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, Optional, Sequence, Set
+from typing import Any, Dict, Sequence, Set
 
 from flaskr.dao import db
 from flaskr.service.common.models import (
@@ -252,7 +252,7 @@ def _build_course_order_amount_expr():
     )
 
 
-def _find_matching_creator_bids(keyword: str) -> Optional[Set[str]]:
+def _find_matching_creator_bids(keyword: str) -> Set[str] | None:
     normalized = _normalize_identifier(keyword)
     if not normalized:
         return None
@@ -307,7 +307,7 @@ def _resolve_operator_user_quick_filter(value: str) -> str:
 
 def _resolve_recent_days_window(
     days: int,
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> tuple[datetime, datetime]:
     safe_days = max(int(days or 0), 1)
     current = now or now_utc()
@@ -449,7 +449,7 @@ def _build_registered_user_timestamp_subquery():
     )
 
 
-def _load_learner_user_bids(user_bids: Optional[Sequence[str]] = None) -> Set[str]:
+def _load_learner_user_bids(user_bids: Sequence[str] | None = None) -> Set[str]:
     learner_subquery = _build_learner_user_bid_subquery()
     query = db.session.query(learner_subquery.c.user_bid)
     normalized_user_bids = [
@@ -499,8 +499,8 @@ def _load_operator_user_auth_credentials(
 def _load_operator_user_registration_source_map(
     user_bids: Sequence[str],
     *,
-    users: Optional[Sequence[UserEntity]] = None,
-    credential_rows: Optional[Sequence[AuthCredential]] = None,
+    users: Sequence[UserEntity] | None = None,
+    credential_rows: Sequence[AuthCredential] | None = None,
 ) -> Dict[str, str]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
@@ -651,8 +651,8 @@ def _load_operator_user_last_learning_map(
 def _load_operator_user_contact_map(
     user_bids: Sequence[str],
     *,
-    users: Optional[Sequence[UserEntity]] = None,
-    credential_rows: Optional[Sequence[AuthCredential]] = None,
+    users: Sequence[UserEntity] | None = None,
+    credential_rows: Sequence[AuthCredential] | None = None,
 ) -> Dict[str, Dict[str, Any]]:
     if not user_bids:
         return {}
@@ -724,7 +724,7 @@ def _load_operator_user_contact_map(
     return contact_map
 
 
-def _find_matching_user_bids_by_identifier(keyword: str) -> Optional[Set[str]]:
+def _find_matching_user_bids_by_identifier(keyword: str) -> Set[str] | None:
     normalized = str(keyword or "").strip()
     if not normalized:
         return None
@@ -761,14 +761,12 @@ def _build_operator_user_summary(
     last_learning_map: Dict[str, datetime],
     credit_summary_map: Dict[str, Dict[str, Any]],
     *,
-    learning_courses_map: Optional[
-        Dict[str, list[AdminOperationUserCourseSummaryDTO]]
-    ] = None,
-    created_courses_map: Optional[
-        Dict[str, list[AdminOperationUserCourseSummaryDTO]]
-    ] = None,
-    learning_course_count_map: Optional[Dict[str, int]] = None,
-    created_course_count_map: Optional[Dict[str, int]] = None,
+    learning_courses_map: Dict[str, list[AdminOperationUserCourseSummaryDTO]]
+    | None = None,
+    created_courses_map: Dict[str, list[AdminOperationUserCourseSummaryDTO]]
+    | None = None,
+    learning_course_count_map: Dict[str, int] | None = None,
+    created_course_count_map: Dict[str, int] | None = None,
 ) -> AdminOperationUserSummaryDTO:
     user_bid = str(user.user_bid or "").strip()
     contact = contact_map.get(user.user_bid or "", {})

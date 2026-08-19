@@ -13,7 +13,7 @@ plain ``{"columns": [...], "rows": [...]}`` dict suitable for the HTTP layer.
 from __future__ import annotations
 
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from flask import Flask
 from flaskr.dao import db
@@ -23,8 +23,8 @@ from sqlalchemy.sql import Select
 
 _FALLBACK_WARNED = False
 _lock = threading.Lock()
-_engine: Optional[Engine] = None
-_engine_uri: Optional[str] = None
+_engine: Engine | None = None
+_engine_uri: str | None = None
 
 
 def get_analytics_engine(app: Flask) -> Engine:
