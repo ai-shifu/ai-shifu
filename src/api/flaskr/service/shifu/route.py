@@ -2104,7 +2104,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         @after_this_request
         def cleanup(response):
             try:
-                os.remove(file_path)
+                file_path.unlink()
                 os.rmdir(temp_dir)
             except OSError:
                 current_app.logger.warning(
