@@ -221,12 +221,14 @@ class OutlinePathGuardTests(unittest.TestCase):
     def test_find_outline_path_raises_app_error_when_outline_missing(self):
         root = HistoryItem(bid="shifu-bid", id=1, type="shifu", children=[])
 
-        with patch(
-            "flaskr.service.learn.context_v2.raise_error",
-            side_effect=RuntimeError("lesson missing"),
-        ) as raise_error_mock:
-            with pytest.raises(RuntimeError):
-                _find_outline_path_or_raise(root, "missing-outline")
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.raise_error",
+                side_effect=RuntimeError("lesson missing"),
+            ) as raise_error_mock,
+            pytest.raises(RuntimeError),
+        ):
+            _find_outline_path_or_raise(root, "missing-outline")
 
         raise_error_mock.assert_called_once_with("server.shifu.lessonNotFoundInCourse")
 

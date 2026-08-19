@@ -41,17 +41,15 @@ def test_transactional_session_classifies_before_savepoint_rollback(app, monkeyp
     import pytest
 
     # Desync inside the body: invalidate only, savepoint untouched.
-    with pytest.raises(ResourceClosedError):
-        with repo_module.transactional_session():
-            raise ResourceClosedError("desynced")
+    with pytest.raises(ResourceClosedError), repo_module.transactional_session():
+        raise ResourceClosedError("desynced")
     assert events == [("invalidate", "transactional_session desync")]
     assert nested.rollbacks == 0
     events.clear()
 
     # Ordinary error: savepoint rollback then classified session cleanup.
-    with pytest.raises(ValueError):
-        with repo_module.transactional_session():
-            raise ValueError("business")
+    with pytest.raises(ValueError), repo_module.transactional_session():
+        raise ValueError("business")
     assert events == [("cleanup", "transactional_session")]
     assert nested.rollbacks == 1
     events.clear()

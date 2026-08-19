@@ -378,16 +378,18 @@ class TestGetConfig:
 
     def test_config_overrides_override_get_config(self, app):
         """Config overrides should win over env and DB-backed lookups."""
-        with app.app_context():
-            with patch(
+        with (
+            app.app_context(),
+            patch(
                 "flaskr.service.config.funcs.get_config_from_common"
-            ) as mock_get_config_from_common:
-                with config_overrides({"test_key": "override-value"}):
-                    assert has_config_override("test_key") is True
-                    assert get_config("test_key", "default-value") == "override-value"
+            ) as mock_get_config_from_common,
+        ):
+            with config_overrides({"test_key": "override-value"}):
+                assert has_config_override("test_key") is True
+                assert get_config("test_key", "default-value") == "override-value"
 
-                assert has_config_override("test_key") is False
-                mock_get_config_from_common.assert_not_called()
+            assert has_config_override("test_key") is False
+            mock_get_config_from_common.assert_not_called()
 
     def test_config_overrides_restore_previous_values(self, app):
         """Nested overrides restore the outer and original values correctly."""

@@ -35,9 +35,12 @@ class _LockFactory:
 def test_subscription_checkout_lock_conflict_returns_busy_error(app, monkeypatch):
     monkeypatch.setattr(checkout_module.cache_provider, "cache", _LockFactory())
 
-    with app.app_context(), pytest.raises(AppException) as exc_info:
-        with checkout_module._subscription_checkout_lock(app, "creator-busy"):
-            raise AssertionError("lock body should not execute")
+    with (
+        app.app_context(),
+        pytest.raises(AppException) as exc_info,
+        checkout_module._subscription_checkout_lock(app, "creator-busy"),
+    ):
+        raise AssertionError("lock body should not execute")
 
     assert exc_info.value.code == ERROR_CODE["server.billing.subscriptionCheckoutBusy"]
 

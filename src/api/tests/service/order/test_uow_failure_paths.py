@@ -280,11 +280,10 @@ def test_success_buy_record_commits_alone_but_joins_outer_unit_of_work(
     # Nested: an outer failure must roll the success flip back too, and the
     # Feishu notification scheduled via uow.on_commit must be dropped — the
     # old code notified for a flip that could later be rolled back.
-    with pytest.raises(RuntimeError, match="outer boom"):
-        with uow.unit_of_work():
-            success_buy_record(order_app, order_bid)
-            assert feishu_calls == []  # not yet durable, must not notify
-            raise RuntimeError("outer boom")
+    with pytest.raises(RuntimeError, match="outer boom"), uow.unit_of_work():
+        success_buy_record(order_app, order_bid)
+        assert feishu_calls == []  # not yet durable, must not notify
+        raise RuntimeError("outer boom")
     dao.db.session.expire_all()
     order = Order.query.filter(Order.order_bid == order_bid).first()
     assert order.status == ORDER_STATUS_TO_BE_PAID

@@ -11,16 +11,18 @@ def test_rpm_queue_timeout_maps_to_rate_limited_not_unknown(app, caplog):
         raise TTSRpmQueueTimeout("TTS RPM queue wait exceeded 10.00s")
         yield  # pragma: no cover
 
-    with app.app_context():
-        with caplog.at_level(logging.WARNING):
-            with pytest.raises(AppException) as exc_info:
-                list(
-                    _yield_with_tts_error_mapping(
-                        app,
-                        unknown_error_log="AV TTS synthesis failed",
-                        body=_body,
-                    )
-                )
+    with (
+        app.app_context(),
+        caplog.at_level(logging.WARNING),
+        pytest.raises(AppException) as exc_info,
+    ):
+        list(
+            _yield_with_tts_error_mapping(
+                app,
+                unknown_error_log="AV TTS synthesis failed",
+                body=_body,
+            )
+        )
 
     # Backpressure surfaces as the dedicated retryable code, not a generic 500.
     assert exc_info.value.code == ERROR_CODE["server.learn.ttsRateLimited"]
@@ -34,15 +36,17 @@ def test_unexpected_error_still_maps_to_unknown_error(app, caplog):
         raise RuntimeError("tts worker crashed")
         yield  # pragma: no cover
 
-    with app.app_context():
-        with caplog.at_level(logging.ERROR):
-            with pytest.raises(AppException) as exc_info:
-                list(
-                    _yield_with_tts_error_mapping(
-                        app,
-                        unknown_error_log="AV TTS synthesis failed",
-                        body=_body,
-                    )
-                )
+    with (
+        app.app_context(),
+        caplog.at_level(logging.ERROR),
+        pytest.raises(AppException) as exc_info,
+    ):
+        list(
+            _yield_with_tts_error_mapping(
+                app,
+                unknown_error_log="AV TTS synthesis failed",
+                body=_body,
+            )
+        )
 
     assert exc_info.value.code == ERROR_CODE["server.common.unknownError"]

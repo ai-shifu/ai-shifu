@@ -312,11 +312,11 @@ def test_audit_credit_state_does_not_flush_pending_session_mutations(
 def test_audit_credit_state_rejects_invalid_explicit_as_of(
     billing_credit_audit_app: Flask,
 ) -> None:
-    with billing_credit_audit_app.app_context():
-        with pytest.raises(ValueError, match="Unable to parse as_of value"):
-            audit_credit_state(
-                creator_bid="creator-audit-invalid-time", as_of="bad-date"
-            )
+    with (
+        billing_credit_audit_app.app_context(),
+        pytest.raises(ValueError, match="Unable to parse as_of value"),
+    ):
+        audit_credit_state(creator_bid="creator-audit-invalid-time", as_of="bad-date")
 
     runner = billing_credit_audit_app.test_cli_runner()
     result = runner.invoke(
