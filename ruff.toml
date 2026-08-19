@@ -199,6 +199,7 @@ select = [
     "PTH107", # os.remove to Path.unlink
     "PTH106", # os.rmdir to Path.rmdir
     "ARG004", # unused staticmethod argument
+    "PLW1641", # __eq__ without __hash__
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention

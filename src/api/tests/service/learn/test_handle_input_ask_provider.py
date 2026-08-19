@@ -80,6 +80,8 @@ GeneratedType = importlib.import_module("flaskr.service.learn.learn_dtos").Gener
 
 
 class _DummyColumn:
+    __hash__ = None
+
     def __eq__(self, _other):
         return True
 

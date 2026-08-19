@@ -213,6 +213,8 @@ class _FakeSaasConfigFuncs:
 
 
 class _FakeSaasColumn:
+    __hash__ = None
+
     def __init__(self, name: str) -> None:
         self.name = name
 
