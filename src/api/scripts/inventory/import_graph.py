@@ -25,16 +25,14 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = str(
-    Path(os.path.join(str(Path(__file__).resolve().parent), "..", "..")).resolve()
-)
+ROOT = str((Path(__file__).resolve().parent / ".." / "..").resolve())
 
 # ---- collect all project modules -----------------------------------------
 mods = {}  # module name -> relative file path
 
 
 def add_tree(base_pkg, base_dir):
-    for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, base_dir)):
+    for dirpath, dirnames, filenames in os.walk(str(Path(ROOT) / base_dir)):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
         rel = os.path.relpath(dirpath, ROOT)
         parts = Path(rel).parts
@@ -45,20 +43,20 @@ def add_tree(base_pkg, base_dir):
                 name = ".".join(parts)
             else:
                 name = ".".join([*parts, fn[:-3]])
-            mods[name] = os.path.join(rel, fn)
+            mods[name] = str(Path(rel) / fn)
 
 
 add_tree("flaskr", "flaskr")
 add_tree("scripts", "scripts")
 for top in ("app.py", "celery_app.py"):
-    if Path(os.path.join(ROOT, top)).exists():
+    if (Path(ROOT) / top).exists():
         mods[top[:-3]] = top
 
 # ---- parse imports ---------------------------------------------------------
 edges = defaultdict(set)
 for name, rel in mods.items():
     try:
-        with Path(os.path.join(ROOT, rel)).open(encoding="utf-8") as source_file:
+        with (Path(ROOT) / rel).open(encoding="utf-8") as source_file:
             tree = ast.parse(source_file.read())
     except SyntaxError as e:
         print(f"SYNTAX ERROR {rel}: {e}", file=sys.stderr)
@@ -118,9 +116,9 @@ for name, rel in mods.items():
         roots.add(name)
 
 # plugin scan: emulate load_plugins_from_dir over flaskr/service
-svc_dir = os.path.join(ROOT, "flaskr", "service")
+svc_dir = str(Path(ROOT) / "flaskr" / "service")
 for top in sorted(path.name for path in Path(svc_dir).iterdir()):
-    top_path = os.path.join(svc_dir, top)
+    top_path = str(Path(svc_dir) / top)
     if not Path(top_path).is_dir():
         continue
     for dirpath, dirnames, filenames in os.walk(top_path):
@@ -131,7 +129,7 @@ for top in sorted(path.name for path in Path(svc_dir).iterdir()):
         ]
         for fn in filenames:
             if fn.endswith(".py") and fn != "__init__.py" and not fn.startswith("."):
-                rel = os.path.relpath(os.path.join(dirpath, fn), ROOT)
+                rel = os.path.relpath(str(Path(dirpath) / fn), ROOT)
                 name = rel[:-3].replace(os.sep, ".")
                 if name in mods:
                     roots.add(name)

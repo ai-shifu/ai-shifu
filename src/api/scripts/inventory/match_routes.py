@@ -24,12 +24,10 @@ import subprocess
 from pathlib import Path
 
 _SCRIPT_DIR = str(Path(__file__).resolve().parent)
-ROOT = str(Path(os.path.join(_SCRIPT_DIR, "..", "..", "..", "..")).resolve())
+ROOT = str((Path(_SCRIPT_DIR) / ".." / ".." / ".." / "..").resolve())
 SP = os.environ.get("INVENTORY_WORK_DIR", str(Path.cwd()))
-BACKEND_ROUTES = os.path.join(SP, "routes-backend.txt")
-SKILLS = os.environ.get(
-    "SKILLS_REPO", str(Path(os.path.join(ROOT, "..", "skills")).resolve())
-)
+BACKEND_ROUTES = str(Path(SP) / "routes-backend.txt")
+SKILLS = os.environ.get("SKILLS_REPO", str((Path(ROOT) / ".." / "skills").resolve()))
 MINIAPP = os.environ.get("MINIAPP_REPO", "")
 
 
@@ -70,7 +68,7 @@ surfaces = {}
 # --- cook-web ---------------------------------------------------------------
 fe = set()
 cat = None
-with Path(os.path.join(ROOT, "src/cook-web/src/api/api.ts")).open(
+with (Path(ROOT) / "src/cook-web/src/api/api.ts").open(
     encoding="utf-8"
 ) as catalog_file:
     cat = catalog_file.read()
@@ -81,13 +79,13 @@ for m in re.finditer(
     if not p.startswith("http"):
         p = "/api" + p
     fe.add(norm(p))
-fe |= grep_paths(os.path.join(ROOT, "src/cook-web/src"))
+fe |= grep_paths(str(Path(ROOT) / "src/cook-web/src"))
 surfaces["cook-web"] = fe
 
 # --- skills CLI --------------------------------------------------------------
 cli = grep_paths(SKILLS)
 # relative paths in shifu-cli.py are joined onto /api/shifu
-cli_file = os.path.join(SKILLS, "skills/ai-shifu-course-creator/scripts/shifu-cli.py")
+cli_file = str(Path(SKILLS) / "skills/ai-shifu-course-creator/scripts/shifu-cli.py")
 if Path(cli_file).exists():
     with Path(cli_file).open(encoding="utf-8") as cli_source:
         src = cli_source.read()

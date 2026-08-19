@@ -8,7 +8,6 @@
 Usage: filter_vulture.py <vulture-raw.txt> <src_api_root>
 """
 
-import os
 import re
 import sys
 from collections import Counter
@@ -26,7 +25,7 @@ file_cache = {}
 def get_lines(path):
     if path not in file_cache:
         try:
-            with Path(os.path.join(ROOT, path)).open(encoding="utf-8") as f:
+            with (Path(ROOT) / path).open(encoding="utf-8") as f:
                 file_cache[path] = f.readlines()
         except OSError:
             file_cache[path] = []
