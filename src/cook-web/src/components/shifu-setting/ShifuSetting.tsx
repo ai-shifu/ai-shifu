@@ -255,6 +255,7 @@ export default function ShifuSettingDialog({
   const [minimaxCloneDialogOpen, setMinimaxCloneDialogOpen] = useState(false);
   const [minimaxManualVoiceId, setMinimaxManualVoiceId] = useState('');
   const ttsProviderToastShownRef = useRef(false);
+  const settingsRequestSeqRef = useRef(0);
 
   // Language Output Configuration state
   const [useLearnerLanguage, setUseLearnerLanguage] = useState(false);
@@ -1173,6 +1174,10 @@ export default function ShifuSettingDialog({
   );
 
   const init = async () => {
+    const requestSeq = settingsRequestSeqRef.current + 1;
+    settingsRequestSeqRef.current = requestSeq;
+    const isActiveRequest = () => settingsRequestSeqRef.current === requestSeq;
+
     ttsProviderToastShownRef.current = false;
     setSettingsLoading(true);
     try {
@@ -1181,6 +1186,10 @@ export default function ShifuSettingDialog({
           shifu_bid: shifuId,
         })) as Shifu,
       );
+
+      if (!isActiveRequest()) {
+        return;
+      }
 
       if (result) {
         form.reset({
@@ -1237,6 +1246,9 @@ export default function ShifuSettingDialog({
         setUseLearnerLanguage(result.use_learner_language ?? false);
       }
     } catch (error) {
+      if (!isActiveRequest()) {
+        return;
+      }
       console.error('Failed to load shifu settings:', error);
       toast({
         title:
@@ -1246,7 +1258,9 @@ export default function ShifuSettingDialog({
         variant: 'destructive',
       });
     } finally {
-      setSettingsLoading(false);
+      if (isActiveRequest()) {
+        setSettingsLoading(false);
+      }
     }
   };
 
