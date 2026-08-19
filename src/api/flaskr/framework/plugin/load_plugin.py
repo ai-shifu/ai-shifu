@@ -2,6 +2,7 @@ import importlib
 import os
 from functools import partial
 from inspect import getmembers, isfunction
+from pathlib import Path
 
 from flask import Flask
 
@@ -49,7 +50,7 @@ def load_plugins_from_dir(
             file_path = os.path.join(directory, filename)
             if filename == TRANSLATIONS_DEFAULT_NAME:
                 load_translations(app, file_path)
-            elif os.path.isdir(file_path):
+            elif Path(file_path).is_dir():
                 load_from_directory(file_path, plugin_manager)
             elif filename.endswith(".py") and filename != "__init__.py":
                 module_name = filename[:-3]
@@ -65,7 +66,7 @@ def load_plugins_from_dir(
     with app.app_context():
         files = os.listdir(plugins_dir)
         for file in files:
-            if os.path.isdir(os.path.join(plugins_dir, file)):
+            if Path(os.path.join(plugins_dir, file)).is_dir():
                 app.logger.info(f"begin load plugin: {file}")
                 try:
                     load_from_directory(os.path.join(plugins_dir, file), plugin_manager)

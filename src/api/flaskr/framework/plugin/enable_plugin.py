@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+from pathlib import Path
 
 import click
 from alembic import command
@@ -42,7 +43,7 @@ def enable_plugins(app: Flask):
         plugins = [
             name
             for name in os.listdir(plugins_dir)
-            if os.path.isdir(os.path.join(plugins_dir, name))
+            if Path(os.path.join(plugins_dir, name)).is_dir()
         ]
         for plugin in plugins:
             if plugin == "__pycache__":
