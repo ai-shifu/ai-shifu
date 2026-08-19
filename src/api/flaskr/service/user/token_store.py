@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import datetime
 from dataclasses import dataclass
 from typing import Optional
@@ -104,10 +105,8 @@ class TokenStoreProvider:
         with db.session.begin_nested():
             record.token_expired_at = new_expires_at
 
-        try:
+        with contextlib.suppress(Exception):
             self._cache.set(cache_key, expected_user_id, ex=ttl_seconds)
-        except Exception:
-            pass
 
         return TokenLookupResult(user_id=expected_user_id)
 

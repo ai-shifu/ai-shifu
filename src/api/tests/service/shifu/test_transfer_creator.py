@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import uuid
 from datetime import datetime
@@ -125,10 +126,8 @@ def _mock_operator(monkeypatch, user_id: str = "operator-1"):
 
 
 def _clear_config_caches() -> None:
-    try:
+    with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    except Exception:
-        pass
     try:
         if config_module.__INSTANCE__ is not None:
             config_module.__INSTANCE__.enhanced._cache.clear()

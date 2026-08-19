@@ -1,3 +1,4 @@
+import contextlib
 from functools import wraps
 
 from flask import Flask, current_app, make_response, request
@@ -667,10 +668,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         # Best-effort language override for the email subject.
         if language:
-            try:
+            with contextlib.suppress(Exception):
                 set_language(language)
-            except Exception:
-                pass
 
         if "X-Forwarded-For" in request.headers:
             client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
@@ -1045,10 +1044,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         password = request.get_json().get("password", None)
         language = request.get_json().get("language", None)
         if language:
-            try:
+            with contextlib.suppress(Exception):
                 set_language(language)
-            except Exception:
-                pass
         if not identifier:
             raise_param_error("identifier")
         if not password:

@@ -1,5 +1,6 @@
 """Shared helpers for ask provider adapters."""
 
+import contextlib
 import json
 from functools import lru_cache
 from typing import Any, Iterable
@@ -155,10 +156,8 @@ def extract_text(payload: Any) -> str:
 
     nested_data = payload.get("data")
     if isinstance(nested_data, str):
-        try:
+        with contextlib.suppress(Exception):
             nested_data = json.loads(nested_data)
-        except Exception:
-            pass
     nested_text = extract_text(nested_data)
     if nested_text:
         return nested_text

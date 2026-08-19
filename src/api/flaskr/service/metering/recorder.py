@@ -7,6 +7,7 @@ Billing settlement stays asynchronous; request threads stop after raw
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -57,11 +58,9 @@ def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
             db.session.commit()
             return True
         except Exception as exc:
-            try:
+            # Never mask the persistence failure with a logging failure.
+            with contextlib.suppress(Exception):
                 app.logger.exception("Usage metering persist failed: %s", exc)
-            except Exception:
-                # Never mask the persistence failure with a logging failure.
-                pass
             # Clean up INSIDE the pushed context so it targets the session
             # that actually failed - the previous cleanup ran after the
             # context pop and rolled back the CALLER's session instead.
@@ -107,14 +106,12 @@ def _enqueue_usage_settlement(app: Flask, *, usage_bid: str) -> None:
             return
         task.apply_async(kwargs={"usage_bid": normalized_usage_bid})
     except Exception as exc:
-        try:
+        with contextlib.suppress(Exception):
             app.logger.exception(
                 "Usage settlement enqueue failed for usage_bid=%s: %s",
                 normalized_usage_bid,
                 exc,
             )
-        except Exception:
-            pass
 
 
 def record_llm_usage(

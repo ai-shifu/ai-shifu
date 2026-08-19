@@ -12,6 +12,7 @@ Docs:
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import hmac
 import json
@@ -276,10 +277,8 @@ def get_aliyun_nls_token(
             raise
     finally:
         if acquired:
-            try:
+            with contextlib.suppress(Exception):
                 lock.release()
-            except Exception:
-                pass
 
 
 def is_aliyun_nls_token_configured() -> bool:
