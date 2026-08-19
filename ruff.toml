@@ -73,6 +73,7 @@ select = [
     "B007",    # loop control variable not used in the loop body
     "B009",    # getattr with a constant attribute name
     "B010",    # setattr with a constant attribute name
+    "B017",    # pytest.raises(Exception) that should name a concrete type
     "B023",    # closure that captures a loop variable by reference
     "B026",    # star-arg unpacking after a keyword argument
     "B035",    # dict comprehension with a static key
