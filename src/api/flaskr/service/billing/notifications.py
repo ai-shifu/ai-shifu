@@ -489,9 +489,9 @@ def _load_notification_product(order: BillingOrder) -> BillingProduct | None:
 
 def _format_minor_currency_amount(currency: str | None, amount: Any) -> str:
     try:
-        major_amount = Decimal(str(amount or 0)) / Decimal("100")
+        major_amount = Decimal(str(amount or 0)) / Decimal(100)
     except (InvalidOperation, TypeError, ValueError):
-        major_amount = Decimal("0")
+        major_amount = Decimal(0)
     return f"{_normalize_bid(currency) or 'CNY'} {major_amount:.2f}"
 
 
@@ -499,7 +499,7 @@ def _format_credit_amount(amount: Any) -> str:
     try:
         credit_amount = Decimal(str(amount or 0))
     except (InvalidOperation, TypeError, ValueError):
-        credit_amount = Decimal("0")
+        credit_amount = Decimal(0)
     if credit_amount == credit_amount.to_integral_value():
         return str(int(credit_amount))
     return format(credit_amount.normalize(), "f").rstrip("0").rstrip(".")

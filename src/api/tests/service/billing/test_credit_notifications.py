@@ -211,9 +211,9 @@ def _seed_wallet(
             wallet_bid=f"wallet-{creator_bid}",
             creator_bid=creator_bid,
             available_credits=Decimal(available_credits),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal(available_credits),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
         )
     )
 
@@ -237,9 +237,9 @@ def _seed_bucket(
             priority=10,
             original_credits=Decimal(available_credits),
             available_credits=Decimal(available_credits),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 5, 1, 0, 0, 0),
             effective_to=effective_to,
             status=CREDIT_BUCKET_STATUS_ACTIVE,

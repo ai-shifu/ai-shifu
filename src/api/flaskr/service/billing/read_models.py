@@ -315,7 +315,7 @@ def _load_numeric_credit_order_product_bids(keyword: str) -> list[str]:
     if numeric_value >= 0:
         if numeric_value == numeric_value.to_integral_value():
             price_amount_candidates.add(int(numeric_value))
-        price_amount_minor = numeric_value * Decimal("100")
+        price_amount_minor = numeric_value * Decimal(100)
         if price_amount_minor == price_amount_minor.to_integral_value():
             price_amount_candidates.add(int(price_amount_minor))
     if price_amount_candidates:
@@ -663,7 +663,7 @@ def build_billing_overview(
         subscription = _load_current_subscription(normalized_creator_bid)
 
         wallet_payload = _serialize_wallet(wallet)
-        available_credits = Decimal("0")
+        available_credits = Decimal(0)
         if wallet is not None:
             available_credits, reserved_credits = (
                 calculate_credit_wallet_snapshot_values(
@@ -1598,14 +1598,14 @@ def build_admin_billing_focus_teachers_page(
                 creator_bid,
                 {
                     "creator_bid": creator_bid,
-                    "credits_7d": Decimal("0"),
-                    "credits_prev_7d": Decimal("0"),
-                    "credits_30d": Decimal("0"),
+                    "credits_7d": Decimal(0),
+                    "credits_prev_7d": Decimal(0),
+                    "credits_30d": Decimal(0),
                     "record_count_7d": 0,
                     "active_days_7d": set(),
-                    "production_credits_30d": Decimal("0"),
-                    "debug_preview_credits_30d": Decimal("0"),
-                    "total_credits_30d": Decimal("0"),
+                    "production_credits_30d": Decimal(0),
+                    "debug_preview_credits_30d": Decimal(0),
+                    "total_credits_30d": Decimal(0),
                     "latest_usage_at": None,
                 },
             )
@@ -1650,14 +1650,14 @@ def build_admin_billing_focus_teachers_page(
             active_days_7d = len(stats["active_days_7d"])
 
             reasons: set[str] = set()
-            if credits_30d >= Decimal("8"):
+            if credits_30d >= Decimal(8):
                 reasons.add("high_consumption")
             if record_count_7d >= 5:
                 reasons.add("high_frequency")
-            if production_credits_30d >= Decimal("8"):
+            if production_credits_30d >= Decimal(8):
                 reasons.add("active_production")
             if (
-                total_credits_30d >= Decimal("8")
+                total_credits_30d >= Decimal(8)
                 and total_credits_30d > 0
                 and (debug_preview_credits_30d / total_credits_30d) >= Decimal("0.7")
             ):
@@ -1668,15 +1668,15 @@ def build_admin_billing_focus_teachers_page(
             growth_delta = credits_7d - credits_prev_7d
             if credits_prev_7d > 0:
                 growth_ratio = growth_delta / credits_prev_7d
-                if growth_ratio >= Decimal("1") and growth_delta >= Decimal("8"):
+                if growth_ratio >= Decimal(1) and growth_delta >= Decimal(8):
                     reasons.add("rapid_growth")
-            elif credits_7d >= Decimal("8"):
+            elif credits_7d >= Decimal(8):
                 reasons.add("rapid_growth")
 
             if not reasons:
                 continue
 
-            production_ratio_30d = Decimal("0")
+            production_ratio_30d = Decimal(0)
             if total_credits_30d > 0:
                 production_ratio_30d = production_credits_30d / total_credits_30d
 

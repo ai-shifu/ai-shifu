@@ -1000,7 +1000,7 @@ def _expire_credit_bucket_balance_for_transition(
 ) -> Decimal:
     available = _to_decimal(bucket.available_credits)
     if available <= 0:
-        return Decimal("0")
+        return Decimal(0)
 
     idempotency_key = f"cycle_expire:{order.bill_order_bid}"
     existing_entry = (
@@ -1013,10 +1013,10 @@ def _expire_credit_bucket_balance_for_transition(
         .first()
     )
     if existing_entry is not None:
-        return Decimal("0")
+        return Decimal(0)
 
     previous_effective_to = bucket.effective_to
-    bucket.available_credits = Decimal("0")
+    bucket.available_credits = Decimal(0)
     bucket.expired_credits = _quantize_credit_amount(
         _to_decimal(bucket.expired_credits) + available
     )
@@ -1207,7 +1207,7 @@ def _void_reserved_subscription_grant_for_order(
             _to_decimal(bucket.reserved_credits) - release_amount
         )
         bucket.original_credits = _quantize_credit_amount(
-            max(Decimal("0"), _to_decimal(bucket.original_credits) - release_amount)
+            max(Decimal(0), _to_decimal(bucket.original_credits) - release_amount)
         )
         bucket.metadata_json = {
             **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
@@ -1275,7 +1275,7 @@ def _void_reserved_campaign_bonus_grant_for_order(
             _to_decimal(bucket.reserved_credits) - release_amount
         )
         bucket.original_credits = _quantize_credit_amount(
-            max(Decimal("0"), _to_decimal(bucket.original_credits) - release_amount)
+            max(Decimal(0), _to_decimal(bucket.original_credits) - release_amount)
         )
         bucket.updated_at = now
         sync_credit_bucket_status(bucket)
@@ -1706,10 +1706,10 @@ def _load_or_create_credit_wallet(app: Flask, creator_bid: str) -> CreditWallet:
     wallet = CreditWallet(
         wallet_bid=generate_id(app),
         creator_bid=creator_bid,
-        available_credits=Decimal("0"),
-        reserved_credits=Decimal("0"),
-        lifetime_granted_credits=Decimal("0"),
-        lifetime_consumed_credits=Decimal("0"),
+        available_credits=Decimal(0),
+        reserved_credits=Decimal(0),
+        lifetime_granted_credits=Decimal(0),
+        lifetime_consumed_credits=Decimal(0),
         last_settled_usage_id=0,
         version=0,
     )

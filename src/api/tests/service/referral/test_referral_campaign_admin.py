@@ -103,7 +103,7 @@ def test_operator_referral_campaign_create_list_detail_and_status(referral_app):
         ).one()
         assert campaign.campaign_status == REFERRAL_CAMPAIGN_STATUS_ACTIVE
         assert rule.rule_status == REFERRAL_RULE_STATUS_ACTIVE
-        assert rule.reward_credit_amount == Decimal("1000")
+        assert rule.reward_credit_amount == Decimal(1000)
 
         listed = list_operator_referral_campaigns(
             referral_app,
@@ -201,7 +201,7 @@ def test_operator_referral_campaign_update_changes_future_rule_not_snapshot(
             reward_type="billing_plan_cycle",
             reward_product_code="creator-plan-monthly-pro",
             reward_cycle_count=1,
-            reward_credit_amount=Decimal("1000"),
+            reward_credit_amount=Decimal(1000),
             reward_credit_validity_days=30,
             reward_cap_scope=REFERRAL_REWARD_CAP_SCOPE_PER_INVITER,
             reward_cap_count=12,
@@ -230,7 +230,7 @@ def test_operator_referral_campaign_update_changes_future_rule_not_snapshot(
         campaign = ReferralCampaign.query.filter_by(campaign_bid=campaign_bid).one()
         assert campaign.campaign_code == "domestic_creator_invite_202606"
         assert campaign.campaign_name == "Updated invite"
-        assert rule.reward_credit_amount == Decimal("1200")
+        assert rule.reward_credit_amount == Decimal(1200)
         assert rule.reward_cap_count == 15
         assert rule.priority == 20
         assert reward.rule_snapshot == {"reward_credit_amount": "1000"}
@@ -285,7 +285,7 @@ def test_operator_referral_campaign_list_includes_invite_funnel_counts(
             reward_type="billing_plan_cycle",
             reward_product_code="creator-plan-monthly-pro",
             reward_cycle_count=1,
-            reward_credit_amount=Decimal("1000"),
+            reward_credit_amount=Decimal(1000),
             reward_credit_validity_days=30,
             reward_cap_scope=REFERRAL_REWARD_CAP_SCOPE_PER_INVITER,
             reward_cap_count=12,

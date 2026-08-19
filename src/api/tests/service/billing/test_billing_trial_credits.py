@@ -276,9 +276,9 @@ def test_legacy_trial_ledger_marks_offer_granted_and_blocks_new_bootstrap(
             wallet_bid="wallet-legacy-trial",
             creator_bid="creator-trial",
             available_credits=Decimal("100.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("100.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -426,9 +426,9 @@ def test_trial_welcome_ack_route_falls_back_to_legacy_trial_ledger_metadata(
             wallet_bid="wallet-legacy-ack",
             creator_bid="creator-trial",
             available_credits=Decimal("100.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("100.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )

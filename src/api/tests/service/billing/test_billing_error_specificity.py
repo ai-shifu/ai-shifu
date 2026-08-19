@@ -68,7 +68,7 @@ def test_manual_credit_grant_failure_returns_specific_error(app, monkeypatch):
             status="failed",
             ledger_bid="",
             metadata_json={},
-            amount=Decimal("0"),
+            amount=Decimal(0),
         ),
     )
 

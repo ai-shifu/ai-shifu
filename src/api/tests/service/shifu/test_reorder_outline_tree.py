@@ -38,7 +38,7 @@ def _seed_shifu(shifu_bid: str) -> None:
             keywords="",
             llm="gpt-test",
             llm_temperature=Decimal("0.3"),
-            price=Decimal("0"),
+            price=Decimal(0),
             deleted=0,
             created_user_bid="creator-1",
             updated_user_bid="creator-1",

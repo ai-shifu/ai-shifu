@@ -98,7 +98,7 @@ def _format_money(value: Decimal) -> str:
 def _format_percentage(numerator: int, denominator: int) -> str:
     if denominator <= 0:
         return "0.00"
-    return _format_money((Decimal(numerator) * Decimal("100")) / Decimal(denominator))
+    return _format_money((Decimal(numerator) * Decimal(100)) / Decimal(denominator))
 
 
 def _format_average_score(value: Optional[Decimal]) -> str:
@@ -1595,13 +1595,13 @@ def build_dashboard_entry(
                     learner_count=metrics.learner_count_map.get(shifu_bid, 0),
                     order_count=metrics.order_count_map.get(shifu_bid, 0),
                     order_amount=_format_money(
-                        metrics.order_amount_map.get(shifu_bid, Decimal("0"))
+                        metrics.order_amount_map.get(shifu_bid, Decimal(0))
                     ),
                     last_active_at=last_active,
                 )
             )
 
-        total_order_amount = Decimal("0")
+        total_order_amount = Decimal(0)
         for value in metrics.order_amount_map.values():
             total_order_amount += value
 

@@ -82,9 +82,9 @@ def _seed_course(shifu_bid: str, creator_user_bid: str) -> None:
         avatar_res_bid="",
         keywords="",
         llm="gpt-test",
-        llm_temperature=Decimal("0"),
+        llm_temperature=Decimal(0),
         llm_system_prompt="",
-        price=Decimal("0"),
+        price=Decimal(0),
         created_user_bid=creator_user_bid,
         updated_user_bid=creator_user_bid,
     )
@@ -100,9 +100,9 @@ def _seed_published_course(shifu_bid: str, creator_user_bid: str) -> None:
         avatar_res_bid="",
         keywords="",
         llm="gpt-test",
-        llm_temperature=Decimal("0"),
+        llm_temperature=Decimal(0),
         llm_system_prompt="",
-        price=Decimal("0"),
+        price=Decimal(0),
         created_user_bid=creator_user_bid,
         updated_user_bid=creator_user_bid,
     )

@@ -1048,8 +1048,13 @@ async def main():
             )
 
             if args.output_file:
-                with open(args.output_file, "w", encoding="utf-8") as f:
-                    f.write(report)
+                output_file = args.output_file
+
+                def _write_report() -> None:
+                    with open(output_file, "w", encoding="utf-8") as handle:
+                        handle.write(report)
+
+                await asyncio.to_thread(_write_report)
                 logger.info(f"Report saved to: {args.output_file}")
             else:
                 print(report)

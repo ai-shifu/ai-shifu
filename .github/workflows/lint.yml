@@ -11,8 +11,10 @@ name: Lint
 # not duplicated here. ESLint mirrors the old pre-commit.ci behaviour (auto-fix
 # only, never a hard gate), since cook-web carries known eslint warnings.
 #
-# Auto-fixes are scoped to the files changed in the PR (like pre-commit.ci), so
-# pre-existing non-conforming files elsewhere are never reformatted.
+# Auto-fixes stay scoped to the files changed in the PR (like pre-commit.ci),
+# so unrelated trees are not rewritten. Ruff check and format are then
+# enforced on the whole repository so the pinned rule set in ruff.toml is a
+# repo-wide gate, including PRs that only change ruff.toml.
 
 on:
   pull_request:
@@ -120,6 +122,7 @@ jobs:
           [ -n "$txt" ] && check-merge-conflict $txt
           all=$(cat /tmp/changed.txt)
           [ -n "$all" ] && check-symlinks $all
-          py=$(sel '\.py$'); [ -n "$py" ] && ruff check $py
+          ruff check .
+          ruff format --check .
           python3 scripts/check_backend_hardcoded_cn.py
           echo "Lint hard-fail checks passed."

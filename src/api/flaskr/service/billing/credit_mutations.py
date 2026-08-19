@@ -22,8 +22,8 @@ class CreditMutationResult:
     status: str
     ledger_bid: str | None = None
     wallet_bucket_bid: str | None = None
-    expected_amount: Decimal = Decimal("0")
-    moved_amount: Decimal = Decimal("0")
+    expected_amount: Decimal = Decimal(0)
+    moved_amount: Decimal = Decimal(0)
     failure_reason: str | None = None
 
 

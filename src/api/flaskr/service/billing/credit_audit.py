@@ -37,7 +37,7 @@ from .primitives import (
 from .queries import load_primary_active_subscription
 from .wallets import calculate_credit_wallet_snapshot_values
 
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 
 
 @dataclass(slots=True, frozen=True)

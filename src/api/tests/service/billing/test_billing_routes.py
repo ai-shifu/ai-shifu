@@ -217,9 +217,9 @@ def billing_test_client(monkeypatch):
             wallet_bid="wallet-2",
             creator_bid="creator-2",
             available_credits=Decimal("999.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("999.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             created_at=datetime(2026, 4, 1, 9, 0, 0),
             updated_at=datetime(2026, 4, 6, 10, 0, 0),
         )
@@ -293,9 +293,9 @@ def billing_test_client(monkeypatch):
                     priority=1,
                     original_credits=Decimal("20.0000000000"),
                     available_credits=Decimal("20.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 1, 0, 0, 0),
                     effective_to=datetime(2026, 4, 10, 0, 0, 0),
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -312,9 +312,9 @@ def billing_test_client(monkeypatch):
                     priority=2,
                     original_credits=Decimal("80.5000000000"),
                     available_credits=Decimal("80.5000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 1, 0, 0, 0),
                     effective_to=datetime(2026, 5, 1, 0, 0, 0),
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -331,9 +331,9 @@ def billing_test_client(monkeypatch):
                     priority=3,
                     original_credits=Decimal("20.0000000000"),
                     available_credits=Decimal("20.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 3, 0, 0, 0),
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -350,9 +350,9 @@ def billing_test_client(monkeypatch):
                     priority=1,
                     original_credits=Decimal("999.0000000000"),
                     available_credits=Decimal("999.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 1, 0, 0, 0),
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -827,8 +827,8 @@ class TestBillingRoutes:
             wallet = CreditWallet.query.filter(
                 CreditWallet.wallet_bid == "wallet-1",
             ).one()
-            wallet.available_credits = Decimal("0")
-            wallet.reserved_credits = Decimal("0")
+            wallet.available_credits = Decimal(0)
+            wallet.reserved_credits = Decimal(0)
             dao.db.session.add(wallet)
             dao.db.session.commit()
 
@@ -838,7 +838,7 @@ class TestBillingRoutes:
             assert overview.wallet.reserved_credits == 0
             assert overview.credit_status == "normal"
             assert overview.debug_allowed is True
-            assert wallet.available_credits == Decimal("0")
+            assert wallet.available_credits == Decimal(0)
 
     def test_overview_limit_state_uses_current_consumable_bucket_balance(
         self,
@@ -866,7 +866,7 @@ class TestBillingRoutes:
                 if bucket.wallet_bucket_bid == "bucket-topup":
                     bucket.available_credits = Decimal("20.0000000000")
                 else:
-                    bucket.available_credits = Decimal("0")
+                    bucket.available_credits = Decimal(0)
             dao.db.session.commit()
 
             overview = build_billing_overview(app, "creator-1")
@@ -889,11 +889,11 @@ class TestBillingRoutes:
             wallet = CreditWallet.query.filter(
                 CreditWallet.wallet_bid == "wallet-1",
             ).one()
-            wallet.available_credits = Decimal("0")
+            wallet.available_credits = Decimal(0)
             for bucket in CreditWalletBucket.query.filter(
                 CreditWalletBucket.wallet_bid == "wallet-1",
             ).all():
-                bucket.available_credits = Decimal("0")
+                bucket.available_credits = Decimal(0)
             dao.db.session.commit()
 
             overview = build_billing_overview(app, "creator-1")
@@ -911,8 +911,8 @@ class TestBillingRoutes:
                 CreditWallet(
                     wallet_bid="wallet-stale-active",
                     creator_bid="creator-stale-active",
-                    available_credits=Decimal("0"),
-                    reserved_credits=Decimal("0"),
+                    available_credits=Decimal(0),
+                    reserved_credits=Decimal(0),
                     lifetime_granted_credits=Decimal("100.0000000000"),
                     lifetime_consumed_credits=Decimal("100.0000000000"),
                     created_at=datetime(2026, 3, 1, 0, 0, 0),
@@ -965,8 +965,8 @@ class TestBillingRoutes:
                 CreditWallet(
                     wallet_bid="wallet-stale-trial",
                     creator_bid="creator-stale-trial",
-                    available_credits=Decimal("0"),
-                    reserved_credits=Decimal("0"),
+                    available_credits=Decimal(0),
+                    reserved_credits=Decimal(0),
                     lifetime_granted_credits=Decimal("100.0000000000"),
                     lifetime_consumed_credits=Decimal("100.0000000000"),
                     created_at=datetime(2026, 3, 1, 0, 0, 0),
@@ -1030,7 +1030,7 @@ class TestBillingRoutes:
                     discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
                     discount_amount=0,
                     discount_percent=Decimal("20.00"),
-                    bonus_credit_amount=Decimal("0"),
+                    bonus_credit_amount=Decimal(0),
                     enabled=1,
                     start_at=datetime(2026, 4, 1, 0, 0, 0),
                     end_at=datetime(2026, 4, 30, 23, 59, 0),
@@ -1256,9 +1256,9 @@ class TestBillingRoutes:
                         priority=4,
                         original_credits=Decimal("3.0000000000"),
                         available_credits=Decimal("3.0000000000"),
-                        reserved_credits=Decimal("0"),
-                        consumed_credits=Decimal("0"),
-                        expired_credits=Decimal("0"),
+                        reserved_credits=Decimal(0),
+                        consumed_credits=Decimal(0),
+                        expired_credits=Decimal(0),
                         effective_from=datetime(2026, 4, 7, 9, 0, 0),
                         effective_to=None,
                         status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1276,9 +1276,9 @@ class TestBillingRoutes:
                         priority=5,
                         original_credits=Decimal("4.0000000000"),
                         available_credits=Decimal("4.0000000000"),
-                        reserved_credits=Decimal("0"),
-                        consumed_credits=Decimal("0"),
-                        expired_credits=Decimal("0"),
+                        reserved_credits=Decimal(0),
+                        consumed_credits=Decimal(0),
+                        expired_credits=Decimal(0),
                         effective_from=datetime(2026, 4, 7, 10, 0, 0),
                         effective_to=None,
                         status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1540,9 +1540,9 @@ class TestBillingRoutes:
                     priority=4,
                     original_credits=Decimal("6.0000000000"),
                     available_credits=Decimal("6.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 7, 9, 30, 0),
                     effective_to=datetime(2026, 5, 7, 9, 30, 0),
                     status=CREDIT_BUCKET_STATUS_ACTIVE,

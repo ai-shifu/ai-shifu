@@ -69,7 +69,7 @@ def test_generate_unique_coupon_codes_failure_returns_specific_error(app, monkey
                     code=code,
                     name="Duplicate Usage",
                     discount_type=COUPON_TYPE_FIXED,
-                    value=Decimal("1"),
+                    value=Decimal(1),
                     status=COUPON_STATUS_ACTIVE,
                     deleted=0,
                 )

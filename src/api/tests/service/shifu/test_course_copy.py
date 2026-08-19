@@ -556,9 +556,9 @@ def test_copy_course_rejects_builtin_demo_course(app):
             avatar_res_bid="",
             keywords="",
             llm="gpt-test",
-            llm_temperature=Decimal("0"),
+            llm_temperature=Decimal(0),
             llm_system_prompt="",
-            price=Decimal("0"),
+            price=Decimal(0),
             created_user_bid="system",
             updated_user_bid="system",
         )

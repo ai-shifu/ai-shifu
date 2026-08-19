@@ -46,7 +46,7 @@ from .wallets import (
     sync_credit_bucket_status,
 )
 
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 _SETTLEMENT_LOCK_TIMEOUT_SECONDS = 60
 _SETTLEMENT_LOCK_BLOCKING_TIMEOUT_SECONDS = 60
 

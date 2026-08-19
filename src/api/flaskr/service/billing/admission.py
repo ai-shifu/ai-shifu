@@ -22,7 +22,7 @@ from .primitives import is_billing_enabled
 from .primitives import to_decimal as _to_decimal
 from .subscriptions import load_effective_topup_subscription
 
-_ZERO_CREDITS = Decimal("0")
+_ZERO_CREDITS = Decimal(0)
 
 
 @dataclass(slots=True, frozen=True)

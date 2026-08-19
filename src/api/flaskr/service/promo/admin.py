@@ -872,7 +872,7 @@ def create_operator_promotion_coupon(
         if discount_type not in {COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT}:
             raise_param_error("discount_type")
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         total_count = payload.get("total_count")
         if total_count in (None, ""):
@@ -960,7 +960,7 @@ def update_operator_promotion_coupon(
             raise_param_error("discount_type")
 
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         if value != decimal.Decimal(coupon.value or 0).quantize(
             decimal.Decimal("0.01")
@@ -1574,7 +1574,7 @@ def list_operator_promotion_campaigns(
             course_map,
             int(stats_map.get(campaign.promo_bid or "", {}).get("count", 0)),
             stats_map.get(campaign.promo_bid or "", {}).get(
-                "discount_amount", decimal.Decimal("0")
+                "discount_amount", decimal.Decimal(0)
             ),
             bool(
                 stats_map.get(campaign.promo_bid or "", {}).get("redemption_count", 0)
@@ -1634,7 +1634,7 @@ def create_operator_promotion_campaign(
         if discount_type not in {COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT}:
             raise_param_error("discount_type")
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         start_at = _parse_datetime(payload.get("start_at"), "start_at")
         end_at = _parse_datetime(payload.get("end_at"), "end_at", is_end=True)
@@ -1690,7 +1690,7 @@ def update_operator_promotion_campaign(
         if discount_type != int(campaign.discount_type or COUPON_TYPE_FIXED):
             raise_param_error("discount_type")
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         strategy_fields_editable = _campaign_strategy_fields_editable(campaign)
         if value != decimal.Decimal(campaign.value or 0).quantize(
@@ -1761,7 +1761,7 @@ def get_operator_promotion_campaign_detail(
         campaign,
         course_map,
         int(stats.get("count", 0)),
-        stats.get("discount_amount", decimal.Decimal("0")),
+        stats.get("discount_amount", decimal.Decimal(0)),
         bool(stats.get("redemption_count", 0)),
         user_name_map,
     )

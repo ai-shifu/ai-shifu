@@ -63,9 +63,9 @@ def _seed_course_and_wallet(
         wallet_bid=f"wallet-{creator_bid}",
         creator_bid=creator_bid,
         available_credits=Decimal(amount),
-        reserved_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
         lifetime_granted_credits=Decimal(amount),
-        lifetime_consumed_credits=Decimal("0"),
+        lifetime_consumed_credits=Decimal(0),
         version=0,
     )
     bucket = CreditWalletBucket(
@@ -78,9 +78,9 @@ def _seed_course_and_wallet(
         priority=10,
         original_credits=Decimal(amount),
         available_credits=Decimal(amount),
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
         effective_from=datetime(2026, 1, 1, 0, 0, 0),
         status=CREDIT_BUCKET_STATUS_ACTIVE,
     )

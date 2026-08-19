@@ -72,9 +72,9 @@ def _seed_preview_route_course(
                 avatar_res_bid="avatar-1",
                 keywords="test",
                 llm="gpt-test",
-                llm_temperature=Decimal("0"),
+                llm_temperature=Decimal(0),
                 llm_system_prompt="",
-                price=Decimal("0"),
+                price=Decimal(0),
                 created_user_bid=owner_bid,
                 updated_user_bid=owner_bid,
             )

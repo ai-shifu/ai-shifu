@@ -80,7 +80,7 @@ def _bucket(
         available_credits=Decimal("7.0000000000"),
         reserved_credits=Decimal("2.0000000000"),
         consumed_credits=Decimal("1.0000000000"),
-        expired_credits=Decimal("0"),
+        expired_credits=Decimal(0),
         effective_from=datetime(2026, 4, 1, 0, 0, 0),
         effective_to=datetime(2026, 5, 1, 0, 0, 0),
         status=CREDIT_BUCKET_STATUS_ACTIVE,

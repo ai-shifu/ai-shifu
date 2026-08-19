@@ -287,8 +287,8 @@ def test_expire_event_releases_reserved_subscription_renewal_on_same_bucket(
                 original_credits=Decimal("8.0000000000"),
                 available_credits=Decimal("3.0000000000"),
                 reserved_credits=Decimal("5.0000000000"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=current_cycle_start,
                 effective_to=current_cycle_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -366,7 +366,7 @@ def test_expire_event_releases_reserved_subscription_renewal_on_same_bucket(
         assert subscription.current_period_end_at == next_cycle_end
         assert bucket.source_bid == "bill-pingxx-expire-reserved-1"
         assert bucket.available_credits == Decimal("5.0000000000")
-        assert bucket.reserved_credits == Decimal("0")
+        assert bucket.reserved_credits == Decimal(0)
         assert bucket.expired_credits == Decimal("3.0000000000")
         assert bucket.effective_from == current_cycle_end
         assert bucket.effective_to == next_cycle_end
@@ -474,7 +474,7 @@ def test_expire_event_allows_shared_bucket_after_activated_grant_was_consumed(
                 available_credits=Decimal("2.0000000000"),
                 reserved_credits=Decimal("5.0000000000"),
                 consumed_credits=Decimal("3.0000000000"),
-                expired_credits=Decimal("0"),
+                expired_credits=Decimal(0),
                 effective_from=current_cycle_end,
                 effective_to=next_cycle_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -564,7 +564,7 @@ def test_expire_event_allows_shared_bucket_after_activated_grant_was_consumed(
         ).one()
 
         assert bucket.available_credits == Decimal("7.0000000000")
-        assert bucket.reserved_credits == Decimal("0")
+        assert bucket.reserved_credits == Decimal(0)
         assert bucket.consumed_credits == Decimal("3.0000000000")
         assert wallet.available_credits == Decimal("7.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
@@ -644,8 +644,8 @@ def test_expire_event_fails_when_reserved_renewal_activation_is_incomplete(
                 original_credits=Decimal("8.0000000000"),
                 available_credits=Decimal("3.0000000000"),
                 reserved_credits=Decimal("4.0000000000"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=current_cycle_start,
                 effective_to=current_cycle_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
