@@ -30,6 +30,8 @@ export interface CourseInfo {
   course_desc: string;
   course_keywords: string;
   course_price: number;
+  course_tts_enabled?: boolean;
+  default_listen_mode_enabled?: boolean;
   [key: string]: any;
 }
 
