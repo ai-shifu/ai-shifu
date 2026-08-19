@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import Any, Callable, Dict, Generator, List, Tuple
+from typing import Any, Callable, Generator
 
 import requests
 
