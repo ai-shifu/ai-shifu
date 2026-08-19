@@ -146,6 +146,7 @@ select = [
     "UP031",   # percent formatting that should be str.format
     "UP032",   # str.format that should be an f-string
     "UP034",   # extraneous parentheses
+    "UP037",   # quoted annotation that can be a bare type
     "UP042",   # str-and-Enum class that should be StrEnum
 ]
 ignore = [

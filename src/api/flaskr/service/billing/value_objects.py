@@ -57,7 +57,7 @@ class JsonObjectMap(MutableMapping[str, Any]):
     def get(self, key: str, default: Any = None) -> Any:
         return self.values.get(key, default)
 
-    def copy(self) -> "JsonObjectMap":
+    def copy(self) -> JsonObjectMap:
         return JsonObjectMap(values=dict(self.values))
 
     def to_metadata_json(self) -> dict[str, Any]:

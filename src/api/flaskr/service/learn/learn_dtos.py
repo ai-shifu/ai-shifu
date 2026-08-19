@@ -258,7 +258,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
         description="Whether the published lesson content is newer than this user's latest learning progress",
         required=False,
     )
-    children: list["LearnOutlineItemInfoDTO"] = Field(
+    children: list[LearnOutlineItemInfoDTO] = Field(
         ..., description="outline children", required=False
     )
 
@@ -270,7 +270,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
         status: LearnStatus,
         type: OutlineType,
         is_paid: bool,
-        children: list["LearnOutlineItemInfoDTO"],
+        children: list[LearnOutlineItemInfoDTO],
         has_content_update_for_current_user: bool = False,
     ):
         super().__init__(
@@ -349,7 +349,7 @@ class AudioSegmentDTO(BaseModel):
     is_final: bool = Field(
         default=False, description="Whether this is the last segment"
     )
-    subtitle_cues: List["SubtitleCueDTO"] = Field(
+    subtitle_cues: List[SubtitleCueDTO] = Field(
         default_factory=list,
         description="Subtitle cues available up to the current streamed segment",
     )
@@ -364,7 +364,7 @@ class AudioSegmentDTO(BaseModel):
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
         av_contract: Dict[str, Any] | None = None,
-        subtitle_cues: Optional[List["SubtitleCueDTO"]] = None,
+        subtitle_cues: Optional[List[SubtitleCueDTO]] = None,
     ):
         super().__init__(
             position=position,
@@ -418,7 +418,7 @@ class AudioCompleteDTO(BaseModel):
     audio_url: str = Field(..., description="OSS URL of complete audio")
     audio_bid: str = Field(..., description="Audio business identifier")
     duration_ms: int = Field(..., description="Total audio duration in milliseconds")
-    subtitle_cues: List["SubtitleCueDTO"] = Field(
+    subtitle_cues: List[SubtitleCueDTO] = Field(
         default_factory=list,
         description="Subtitle cue list aligned with synthesized TTS segments",
     )
@@ -432,7 +432,7 @@ class AudioCompleteDTO(BaseModel):
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
         av_contract: Dict[str, Any] | None = None,
-        subtitle_cues: Optional[List["SubtitleCueDTO"]] = None,
+        subtitle_cues: Optional[List[SubtitleCueDTO]] = None,
     ):
         super().__init__(
             position=position,
@@ -703,7 +703,7 @@ class ElementDTO(BaseModel):
         "sequence_number",
     )
 
-    def apply_patch(self, patch: "ElementDTO") -> None:
+    def apply_patch(self, patch: ElementDTO) -> None:
         for field_name in self._PATCH_FIELDS:
             setattr(self, field_name, getattr(patch, field_name))
 
@@ -857,7 +857,7 @@ class RunMarkdownFlowDTO(BaseModel):
 
     def set_mdflow_stream_parts(
         self, parts: list[tuple[str, str, int]] | None
-    ) -> "RunMarkdownFlowDTO":
+    ) -> RunMarkdownFlowDTO:
         normalized_parts: list[tuple[str, str, int]] = []
         for item in parts or []:
             if not isinstance(item, tuple) or len(item) != 3:
