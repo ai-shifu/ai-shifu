@@ -1060,9 +1060,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         is_favorite = request.get_json().get("is_favorite")
         if isinstance(is_favorite, str):
             is_favorite = is_favorite.lower() == "true"
-        elif isinstance(is_favorite, bool):
-            is_favorite = is_favorite
-        else:
+        elif not isinstance(is_favorite, bool):
             raise_param_error("is_favorite is not a boolean")
         return make_common_response(
             mark_or_unmark_favorite_shifu(app, user_id, shifu_bid, is_favorite)

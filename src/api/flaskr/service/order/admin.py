@@ -218,7 +218,7 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
         except ValueError:
             continue
     try:
-        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(normalized)
     except ValueError:
         return None
     if parsed.tzinfo is not None:

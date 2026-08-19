@@ -54,7 +54,7 @@ def _parse_metadata_datetime(value: Any) -> datetime | None:
     if not normalized:
         return None
     try:
-        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(normalized)
     except ValueError:
         return None
     return parsed.replace(tzinfo=None) if parsed.tzinfo is not None else parsed

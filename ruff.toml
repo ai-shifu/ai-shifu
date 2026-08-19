@@ -69,9 +69,13 @@ select = [
     "YTT",     # sys.version checks that break on two-digit versions
     # Mechanical, behavior-preserving cleanups; each was applied repo-wide
     # with `ruff check --fix` in the commit that selected it here.
+    "B006",    # mutable default argument value
     "B007",    # loop control variable not used in the loop body
     "B009",    # getattr with a constant attribute name
     "B010",    # setattr with a constant attribute name
+    "B023",    # closure that captures a loop variable by reference
+    "B026",    # star-arg unpacking after a keyword argument
+    "B035",    # dict comprehension with a static key
     "B905",    # zip() without an explicit strict argument
     "C4",      # comprehension and collection-literal simplifications
     "D202",    # blank line after a function docstring
@@ -86,22 +90,28 @@ select = [
     "FLY",     # static str.join that should be an f-string
     "FURB11",  # conditional expression that should be or
     "FURB13",  # if-expression that should be min()/max()
+    "FURB162", # unnecessary Z-offset replacement before fromisoformat
     "FURB17",  # membership test against a single-item container
     "FURB18",  # list reversal via slicing, manual prefix/suffix stripping
     "FURB19",  # sorted() only to take the first item
     "LOG",     # flake8-logging (exc_info must name the exception outside except blocks)
     "PERF1",   # dict.items() when only one half is used
     "PIE",     # flake8-pie (redundant placeholders, dict kwargs, startswith)
+    "PLC0206", # dict iteration that extracts values by key lookup
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
     "PLC0414", # import alias that repeats the name
     "PLR1",    # useless return, repeated comparison, manual min()/max()
     "PLR5",    # else: if ... that should be elif
     "PLW0108", # lambda that only forwards its arguments
+    "PLW0127", # self-assignment of a variable
+    "PLW0602", # global declaration without assignment
+    "PLW1510", # subprocess.run without an explicit check argument
     "PLW3",    # nested min/max calls
     "PT001",   # pytest.fixture with empty parentheses
     "PT006",   # wrong type for parametrize argument names
     "PT009",   # unittest-style assertion that should be a plain assert
+    "PT013",   # pytest imported with an alias or from-import
     "PT018",   # composite assertion
     "PT02",    # fixture yielding without teardown, unittest-style assertRaises
     "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
@@ -113,6 +123,7 @@ select = [
     "RUF013",  # implicit Optional annotation
     "RUF02",   # unparenthesized and inside or, unsorted __all__/__slots__
     "RUF03",   # None not at the end of a union
+    "RUF043",  # pytest.raises match pattern with unescaped metacharacters
     "RUF046",  # unnecessary int() cast around an int-returning call
     "RUF102",  # noqa directive naming an unknown rule
     "SIM103",  # condition returned as True/False branches
@@ -124,11 +135,13 @@ select = [
     "SIM3",    # yoda condition
     "SIM4",    # if-else block instead of dict.get
     "SIM9",    # dict.get(key, None)
+    "TRY203",  # exception handler that only re-raises
     "UP01",    # redundant str.encode/open() arguments
     "UP02",    # capture_output, deprecated OSError alias, yield from
     "UP031",   # percent formatting that should be str.format
     "UP032",   # str.format that should be an f-string
     "UP034",   # extraneous parentheses
+    "UP042",   # str-and-Enum class that should be StrEnum
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention

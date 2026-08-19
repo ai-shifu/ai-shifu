@@ -162,7 +162,7 @@ def coerce_datetime(value: Any) -> datetime | None:
             return None
         return datetime.fromtimestamp(epoch_seconds, UTC).replace(tzinfo=None)
     try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
     if parsed.tzinfo is not None:
