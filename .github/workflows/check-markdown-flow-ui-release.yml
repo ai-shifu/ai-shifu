@@ -18,6 +18,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: check-markdown-flow-ui-release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-markdown-flow-ui-release:
     runs-on: ubuntu-latest

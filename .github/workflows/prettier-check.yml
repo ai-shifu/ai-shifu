@@ -4,11 +4,20 @@ on:
   pull_request:
     paths:
       - 'src/cook-web/**'
+      - '.github/workflows/prettier-check.yml'
   push:
     branches:
       - main
     paths:
       - 'src/cook-web/**'
+      - '.github/workflows/prettier-check.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prettier-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   prettier:
@@ -23,6 +32,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
+          cache: npm
+          cache-dependency-path: src/cook-web/package-lock.json
 
       - name: Install dependencies
         run: |

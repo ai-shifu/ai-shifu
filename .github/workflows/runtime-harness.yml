@@ -22,6 +22,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: runtime-harness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   runtime-harness:
     runs-on: ubuntu-latest
@@ -76,6 +80,18 @@ jobs:
         working-directory: docker
         run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker-compose.dev.yml up -d --build
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-${{ hashFiles('src/cook-web/package-lock.json') }}
+
+      - name: Install frontend dependencies
+        working-directory: src/cook-web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
       - name: Wait for API and observability health
         run: |
           for attempt in $(seq 1 60); do
@@ -92,12 +108,6 @@ jobs:
           docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml ps
           docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml logs ai-shifu-api-dev
           exit 1
-
-      - name: Install frontend dependencies
-        working-directory: src/cook-web
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
 
       - name: Run smoke harness
         working-directory: src/cook-web

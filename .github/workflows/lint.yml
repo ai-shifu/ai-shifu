@@ -43,20 +43,9 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-
-      - name: Set up Node.js (match Cook Web engines)
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.16.0"
-
-      - name: Install tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install "ruff==0.16.3" "pre-commit-hooks==6.0.0"
-          (cd src/cook-web && npm ci)
 
       - name: Collect files changed in this PR
         run: |
@@ -69,6 +58,32 @@ jobs:
           # whitespace/eof fixers never corrupt PNGs and other binaries.
           while read -r f; do [ -f "$f" ] && grep -Iq . "$f" && printf '%s\n' "$f"; done \
             < /tmp/changed.txt > /tmp/changed_text.txt || true
+
+      - name: Decide whether Cook Web tooling is needed
+        id: frontend
+        run: |
+          if grep -qE '^src/cook-web/' /tmp/changed.txt; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node.js (match Cook Web engines)
+        if: steps.frontend.outputs.needed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.16.0"
+          cache: npm
+          cache-dependency-path: src/cook-web/package-lock.json
+
+      - name: Install Python lint tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ruff==0.16.3" "pre-commit-hooks==6.0.0"
+
+      - name: Install Cook Web lint tools
+        if: steps.frontend.outputs.needed == 'true'
+        run: (cd src/cook-web && npm ci)
 
       - name: Auto-fix (changed files only; never fails this step)
         run: |
