@@ -65,11 +65,7 @@ def _safe_asyncio_run(coro, *args, **kwargs):
         if "cannot be called from a running event loop" not in message:
             # Preserve original behaviour for unrelated errors.
             raise
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            # No running loop available, re-raise the original error.
-            raise
+        loop = asyncio.get_running_loop()
         try:
             loop.create_task(coro)
         except Exception:

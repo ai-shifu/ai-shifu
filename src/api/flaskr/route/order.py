@@ -79,7 +79,7 @@ def register_order_handler(app: Flask, path_prefix: str):
             except ValueError:
                 continue
         try:
-            parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(normalized)
         except ValueError:
             raise_param_error(field_name)
         if parsed.tzinfo is not None:

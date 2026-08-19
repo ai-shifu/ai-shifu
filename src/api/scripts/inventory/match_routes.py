@@ -50,7 +50,7 @@ def grep_paths(root, extra_args=None):
         return set()
     # no quote anchoring: f-strings like f"{base}/api/x/{bid}/export" must hit
     cmd = ["grep", "-rhoE", r"/api/[^'\"`[:space:]]*", root]
-    out = subprocess.run(cmd, capture_output=True, text=True).stdout
+    out = subprocess.run(cmd, capture_output=True, text=True, check=False).stdout
     paths = set()
     for line in out.splitlines():
         p = line.strip().rstrip(".,;:)]}")

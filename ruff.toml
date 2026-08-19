@@ -90,12 +90,14 @@ select = [
     "FLY",     # static str.join that should be an f-string
     "FURB11",  # conditional expression that should be or
     "FURB13",  # if-expression that should be min()/max()
+    "FURB162", # unnecessary Z-offset replacement before fromisoformat
     "FURB17",  # membership test against a single-item container
     "FURB18",  # list reversal via slicing, manual prefix/suffix stripping
     "FURB19",  # sorted() only to take the first item
     "LOG",     # flake8-logging (exc_info must name the exception outside except blocks)
     "PERF1",   # dict.items() when only one half is used
     "PIE",     # flake8-pie (redundant placeholders, dict kwargs, startswith)
+    "PLC0206", # dict iteration that extracts values by key lookup
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
     "PLC0414", # import alias that repeats the name
@@ -104,6 +106,7 @@ select = [
     "PLW0108", # lambda that only forwards its arguments
     "PLW0127", # self-assignment of a variable
     "PLW0602", # global declaration without assignment
+    "PLW1510", # subprocess.run without an explicit check argument
     "PLW3",    # nested min/max calls
     "PT001",   # pytest.fixture with empty parentheses
     "PT006",   # wrong type for parametrize argument names
@@ -130,11 +133,13 @@ select = [
     "SIM3",    # yoda condition
     "SIM4",    # if-else block instead of dict.get
     "SIM9",    # dict.get(key, None)
+    "TRY203",  # exception handler that only re-raises
     "UP01",    # redundant str.encode/open() arguments
     "UP02",    # capture_output, deprecated OSError alias, yield from
     "UP031",   # percent formatting that should be str.format
     "UP032",   # str.format that should be an f-string
     "UP034",   # extraneous parentheses
+    "UP042",   # str-and-Enum class that should be StrEnum
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
