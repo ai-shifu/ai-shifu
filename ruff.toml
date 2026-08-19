@@ -117,6 +117,7 @@ select = [
     "SIM9",    # dict.get(key, None)
     "UP01",    # redundant str.encode/open() arguments
     "UP02",    # capture_output, deprecated OSError alias, yield from
+    "UP031",   # percent formatting that should be str.format
     "UP032",   # str.format that should be an f-string
     "UP034",   # extraneous parentheses
 ]
