@@ -182,7 +182,7 @@ def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
         lambda *, source, session=None: invalidations.append(source) or True,
     )
 
-    with pytest.raises(ValueError), app.app_context():
+    with pytest.raises(ValueError, match="business"), app.app_context():
         raise ValueError("business")
 
     assert invalidations == []

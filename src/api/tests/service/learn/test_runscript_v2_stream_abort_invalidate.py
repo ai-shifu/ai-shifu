@@ -158,7 +158,7 @@ def test_ordinary_error_still_rolls_back_pooled_connection(app, monkeypatch):
 
     with app.app_context():
         generator = _start_stream(app)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="business failure"):
             next(generator)
 
     assert session.invalidations == 0

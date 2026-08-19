@@ -228,6 +228,7 @@ select = [
     "S108",  # hardcoded /tmp path instead of tempfile.gettempdir()
     "A001",  # local variable shadowing a builtin
     "D401",  # docstring first line not in imperative mood
+    "PT011",  # pytest.raises without match/specific exception
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention

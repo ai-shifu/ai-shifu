@@ -1750,7 +1750,7 @@ def test_stream_non_retryable_error_raises_immediately(monkeypatch, app):
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(monkeypatch, [[ValueError("business error")]])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="business error"):
         _collect_retry_stream(app)
 
     assert calls["count"] == 1
