@@ -158,7 +158,7 @@ def _extract_request_host(request) -> str | None:
 def with_shifu_context(
     resolve_shifu_bid: Callable[..., str | None] | None = None,
 ) -> Callable:
-    """Decorator to automatically populate shifu context for a route handler.
+    """Populate shifu context for a route handler.
 
     By default it tries to resolve shifu_bid from:
       - path parameters: request.view_args["shifu_bid"]

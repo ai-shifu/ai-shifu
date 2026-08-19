@@ -13,7 +13,7 @@ def port_validator(value):
 
 
 def email_validator(value):
-    """Simple email validator for testing."""
+    """Validate an email address (test helper)."""
     import re
 
     pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"

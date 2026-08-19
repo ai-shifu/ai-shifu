@@ -1009,7 +1009,7 @@ class UnifiedMigrationTask:
 
 
 async def main():
-    """Main execution function"""
+    """Run the unified migration task"""
     import argparse
 
     parser = argparse.ArgumentParser(description="Unified Database Migration Task")

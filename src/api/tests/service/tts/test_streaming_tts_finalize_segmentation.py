@@ -22,7 +22,7 @@ def mock_app():
 
 
 def create_test_processor(mock_app, **kwargs):
-    """Helper to create a StreamingTTSProcessor with test defaults."""
+    """Create a StreamingTTSProcessor with test defaults."""
     defaults = {
         "app": mock_app,
         "generated_block_bid": "test-block",

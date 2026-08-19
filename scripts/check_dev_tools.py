@@ -102,7 +102,7 @@ def _hooks_dir() -> Path | None:
 
 
 def _lefthook_hook_installed() -> bool:
-    """True when ``lefthook install`` has wired the pre-commit hook in."""
+    """Report whether ``lefthook install`` has wired the pre-commit hook in."""
     hooks_dir = _hooks_dir()
     if hooks_dir is None:
         return False
@@ -155,7 +155,7 @@ def _report(title: str, checks: list[Check]) -> None:
 
 
 def _fix_lines(missing: list[Check]) -> list[str]:
-    """Unique fix commands, preserving first-seen order."""
+    """Collect unique fix commands, preserving first-seen order."""
     seen: list[str] = []
     for check in missing:
         if check.fix not in seen:

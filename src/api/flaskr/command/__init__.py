@@ -18,7 +18,7 @@ from .update_shifu_demo import update_demo_shifu
 
 
 def setup_migration_logging():
-    """Setup logging for migration commands"""
+    """Set up logging for migration commands"""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",

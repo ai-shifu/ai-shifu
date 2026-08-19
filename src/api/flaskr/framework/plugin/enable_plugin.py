@@ -60,7 +60,7 @@ def enable_plugins(app: Flask):
 
     @plugin.group(name="db")
     def plugin_db():
-        """The plugin database management commands"""
+        """Manage the plugin database"""
 
     def get_version_table_name(plugin_name: str) -> str:
         """Get version table name"""

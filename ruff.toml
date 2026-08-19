@@ -227,6 +227,7 @@ select = [
     "S324",  # hashlib md5/sha1 without usedforsecurity=False
     "S108",  # hardcoded /tmp path instead of tempfile.gettempdir()
     "A001",  # local variable shadowing a builtin
+    "D401",  # docstring first line not in imperative mood
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention

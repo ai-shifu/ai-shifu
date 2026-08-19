@@ -294,7 +294,7 @@ def _join_conditions(params: _Params):
 
 
 def _where_clauses(params: _Params):
-    """Common WHERE predicates shared by detail + summary queries."""
+    """Build the WHERE predicates shared by detail + summary queries."""
     bu = BillUsageRecord.__table__
     clauses = [bu.c.shifu_bid == bindparam("__shifu_bid", value=params.shifu_bid)]
     if params.start_date is not None:

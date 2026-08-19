@@ -503,7 +503,7 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/admin/orders/shifus", methods=["GET"])
     def admin_order_shifu_list():
-        """Created shifu list for order admin filters
+        """List created shifus for order admin filters
         ---
         tags:
             - 订单
