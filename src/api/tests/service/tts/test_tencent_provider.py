@@ -5,6 +5,7 @@ import json
 import re
 
 import pytest
+from flaskr.service.common.models import AppException
 
 
 class _FakeSSEStreamingResponse:
@@ -170,7 +171,7 @@ def test_tencent_provider_config_validation_and_explicit_only(monkeypatch):
     assert validated.provider == "tencent"
     assert validated.model == ""
 
-    with pytest.raises(Exception):
+    with pytest.raises(AppException):
         validate_tts_settings_strict(
             provider="tencent",
             model="",
