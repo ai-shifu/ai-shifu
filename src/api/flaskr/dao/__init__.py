@@ -599,8 +599,10 @@ def init_db(app: Flask):
                 conn, cursor, statement, parameters, context, executemany
             ):
                 stack = traceback.extract_stack()
-                project_root = os.path.abspath(
-                    os.path.join(str(Path(__file__).parent), "../../../")
+                project_root = str(
+                    Path(
+                        os.path.join(str(Path(__file__).parent), "../../../")
+                    ).resolve()
                 )
                 caller_info = "Unknown location"
 

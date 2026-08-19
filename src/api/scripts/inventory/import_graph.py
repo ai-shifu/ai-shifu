@@ -25,8 +25,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = os.path.abspath(
-    os.path.join(str(Path(os.path.abspath(__file__)).parent), "..", "..")
+ROOT = str(
+    Path(os.path.join(str(Path(__file__).resolve().parent), "..", "..")).resolve()
 )
 
 # ---- collect all project modules -----------------------------------------
