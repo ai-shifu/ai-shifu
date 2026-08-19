@@ -325,7 +325,7 @@ class TestStreamingSynthesisRetries:
         assert result.error == "No audio data received from Tencent TTS"
         assert result.is_ready is True
         warning_args = mock_logger.warning.call_args.args
-        error_args = mock_logger.error.call_args.args
+        error_args = mock_logger.exception.call_args.args
         assert "text_preview=%r" in warning_args[0]
         assert "这句有文字但腾讯没返回。" in warning_args
         assert "text_preview=%r" in error_args[0]
