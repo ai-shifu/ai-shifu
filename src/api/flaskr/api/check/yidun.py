@@ -69,7 +69,7 @@ def gen_signature(params=None):
     buff += YIDUN_SECRET_KEY
     if "signatureMethod" in params and params["signatureMethod"] == "SM3":
         return sm3.sm3_hash(func.bytes_to_list(bytes(buff, encoding="utf8")))
-    return hashlib.md5(buff.encode("utf8")).hexdigest()
+    return hashlib.md5(buff.encode("utf8"), usedforsecurity=False).hexdigest()
 
 
 def yidun_check(
