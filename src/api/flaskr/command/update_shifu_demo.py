@@ -1,6 +1,5 @@
 import hashlib
 import json
-import os
 from io import BytesIO
 from pathlib import Path
 
@@ -74,7 +73,7 @@ def _process_demo_shifu(
     # Create FileStorage from bytes
     file_storage = FileStorage(
         stream=BytesIO(file_content),
-        filename=os.path.basename(demo_file_path),
+        filename=demo_file_path.name,
         name="file",
     )
 

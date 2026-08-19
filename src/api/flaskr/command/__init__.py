@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 from io import BytesIO
+from pathlib import Path
 
 import click
 from flask import Flask
@@ -374,7 +375,7 @@ def enable_commands(app: Flask):
             # Create FileStorage from bytes
             file_storage = FileStorage(
                 stream=BytesIO(file_content),
-                filename=os.path.basename(file_path),
+                filename=Path(file_path).name,
                 name="file",
             )
 
