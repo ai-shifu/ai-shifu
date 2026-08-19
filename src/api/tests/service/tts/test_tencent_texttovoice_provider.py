@@ -239,7 +239,7 @@ def test_synthesize_raises_on_api_error_with_code(monkeypatch):
     )
 
     provider = module.TencentTextToVoiceProvider()
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ValueError, match="InvalidParameterValue") as exc_info:
         provider.synthesize(
             "你好",
             voice_settings=module.VoiceSettings(voice_id="101001"),
@@ -261,7 +261,9 @@ def test_synthesize_raises_on_empty_audio(monkeypatch):
     )
 
     provider = module.TencentTextToVoiceProvider()
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(
+        ValueError, match="No audio data received from Tencent TextToVoice"
+    ) as exc_info:
         provider.synthesize(
             "你好",
             voice_settings=module.VoiceSettings(voice_id="101001"),
@@ -274,7 +276,9 @@ def test_synthesize_rejects_non_numeric_voice_id(monkeypatch):
 
     _patch_credentials(monkeypatch)
     provider = module.TencentTextToVoiceProvider()
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(
+        ValueError, match="Invalid Tencent TextToVoice voice id"
+    ) as exc_info:
         provider.synthesize(
             "你好",
             voice_settings=module.VoiceSettings(voice_id="v-female-R2s4N9qJ"),

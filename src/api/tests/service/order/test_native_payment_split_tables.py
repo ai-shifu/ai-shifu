@@ -148,7 +148,7 @@ def test_native_snapshot_upsert_preserves_zero_amount_and_requires_identifier(
             == 0
         )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="requires a stable identifier"):
             upsert_native_snapshot(
                 biz_domain="order",
                 payment_provider="alipay",

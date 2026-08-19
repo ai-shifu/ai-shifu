@@ -225,7 +225,7 @@ class TestElementType:
     def test_invalid_value_raises(self):
         from flaskr.service.learn.learn_dtos import ElementType
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="nonexistent"):
             ElementType("nonexistent")
 
     def test_element_type_codes_complete(self):

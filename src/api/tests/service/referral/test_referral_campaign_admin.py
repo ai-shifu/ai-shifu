@@ -7,7 +7,7 @@ import pytest
 from flaskr.dao import db
 from flaskr.service.billing.consts import BILLING_PRODUCT_TYPE_PLAN
 from flaskr.service.billing.models import BillingProduct
-from flaskr.service.common.models import ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppException
 from flaskr.service.referral.admin import (
     list_operator_referral_campaign_invitations,
     list_operator_referrals,
@@ -555,7 +555,7 @@ def test_operator_referral_filters_accept_user_identifier(referral_app):
 def test_operator_referral_campaign_rejects_invalid_payload(referral_app, payload):
     with referral_app.app_context():
         _seed_plan_product()
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(AppException) as exc_info:
             create_operator_referral_campaign(
                 referral_app,
                 operator_user_bid="operator-1",
@@ -580,7 +580,7 @@ def test_operator_referral_campaign_rejects_enabling_ended_campaign(referral_app
             ),
         )
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(AppException) as exc_info:
             update_operator_referral_campaign_status(
                 referral_app,
                 operator_user_bid="operator-1",
@@ -601,7 +601,7 @@ def test_operator_referral_campaign_duplicate_code_is_rejected(referral_app):
             operator_user_bid="operator-1",
             payload=_payload(),
         )
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(AppException) as exc_info:
             create_operator_referral_campaign(
                 referral_app,
                 operator_user_bid="operator-1",

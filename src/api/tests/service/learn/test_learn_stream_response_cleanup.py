@@ -90,7 +90,7 @@ def test_sse_business_error_does_not_invalidate(app, invalidations):
         )
         stream = iter(response.response)
         next(stream)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="business"):
             next(stream)
 
     assert invalidations == []

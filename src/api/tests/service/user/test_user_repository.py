@@ -48,7 +48,10 @@ def test_transactional_session_classifies_before_savepoint_rollback(app, monkeyp
     events.clear()
 
     # Ordinary error: savepoint rollback then classified session cleanup.
-    with pytest.raises(ValueError), repo_module.transactional_session():
+    with (
+        pytest.raises(ValueError, match="business"),
+        repo_module.transactional_session(),
+    ):
         raise ValueError("business")
     assert events == [("cleanup", "transactional_session")]
     assert nested.rollbacks == 1
