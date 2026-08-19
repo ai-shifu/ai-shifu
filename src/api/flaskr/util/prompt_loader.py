@@ -28,7 +28,7 @@ def load_prompt_template(template_name: str) -> str:
     template_path = os.path.join(prompts_dir, template_name)
 
     # Check if file exists
-    if not os.path.exists(template_path):
+    if not Path(template_path).exists():
         raise FileNotFoundError(f"Prompt template file not found: {template_path}")
 
     # Read file content

@@ -206,6 +206,7 @@ select = [
     "PTH112", # os.path.isdir to Path.is_dir
     "PTH120", # os.path.dirname to Path.parent
     "PTH100", # os.path.abspath to Path.resolve
+    "PTH110", # os.path.exists to Path.exists
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention

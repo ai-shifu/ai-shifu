@@ -23,7 +23,7 @@ def enable_plugins(app: Flask):
         """Add a plugin by cloning the repository."""
         repo_name = repo_url.split("/")[-1].replace(".git", "")
         dest_dir = os.path.join("flaskr", "plugins", repo_name)
-        if os.path.exists(dest_dir):
+        if Path(dest_dir).exists():
             return
         subprocess.run(["git", "clone", repo_url, dest_dir], check=False)
 
@@ -32,7 +32,7 @@ def enable_plugins(app: Flask):
     def delete(repo_name):
         """Delete a plugin by its repository name."""
         dest_dir = os.path.join("flaskr", "plugins", repo_name)
-        if not os.path.exists(dest_dir):
+        if not Path(dest_dir).exists():
             return
         shutil.rmtree(dest_dir)
 
@@ -59,7 +59,7 @@ def enable_plugins(app: Flask):
             app.logger.info(
                 f"plugin: {plugin.name}, migration_dir: {plugin.migration_dir}"
             )
-            if plugin.migration_dir and os.path.exists(plugin.migration_dir):
+            if plugin.migration_dir and Path(plugin.migration_dir).exists():
                 plugins.append(plugin)
         return plugins
 

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import re
 import threading
 from functools import wraps
+from pathlib import Path
 from typing import Any
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -70,7 +70,7 @@ class PingxxProvider(PaymentProvider):
         private_key_path = get_config("PINGXX_PRIVATE_KEY_PATH")
         if not private_key and not private_key_path:
             raise RuntimeError("Pingxx private key is not configured")
-        if not private_key and not os.path.exists(private_key_path):
+        if not private_key and not Path(private_key_path).exists():
             app.logger.error("Pingxx private key not found at %s", private_key_path)
             raise FileNotFoundError(private_key_path)
 
