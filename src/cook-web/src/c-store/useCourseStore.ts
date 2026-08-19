@@ -15,9 +15,6 @@ export const useCourseStore = create<
     courseTtsEnabled: null,
     updateCourseTtsEnabled: courseTtsEnabled =>
       set(() => ({ courseTtsEnabled })),
-    courseDefaultListenModeEnabled: null,
-    updateCourseDefaultListenModeEnabled: courseDefaultListenModeEnabled =>
-      set(() => ({ courseDefaultListenModeEnabled })),
     lessonId: undefined,
     updateLessonId: lessonId => set(() => ({ lessonId })),
     chapterId: '',

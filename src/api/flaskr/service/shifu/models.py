@@ -272,12 +272,6 @@ class DraftShifu(db.Model):
         default="",
         comment="TTS emotion setting",
     )
-    default_listen_mode_enabled = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="Default learner mode to listen when TTS is enabled",
-    )
 
     # Language Output Configuration
     use_learner_language = Column(
@@ -341,7 +335,6 @@ class DraftShifu(db.Model):
             tts_speed=self.tts_speed,
             tts_pitch=self.tts_pitch,
             tts_emotion=self.tts_emotion,
-            default_listen_mode_enabled=self.default_listen_mode_enabled,
             use_learner_language=self.use_learner_language,
             deleted=self.deleted,
             created_at=self.created_at,
@@ -373,7 +366,6 @@ class DraftShifu(db.Model):
             and compare_decimal(self.tts_speed, other.tts_speed)
             and self.tts_pitch == other.tts_pitch
             and self.tts_emotion == other.tts_emotion
-            and (self.default_listen_mode_enabled == other.default_listen_mode_enabled)
             and self.use_learner_language == other.use_learner_language
         )
 
@@ -711,12 +703,6 @@ class PublishedShifu(db.Model):
         nullable=False,
         default="",
         comment="TTS emotion setting",
-    )
-    default_listen_mode_enabled = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="Default learner mode to listen when TTS is enabled",
     )
 
     # Language Output Configuration

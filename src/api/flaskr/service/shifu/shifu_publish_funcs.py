@@ -140,9 +140,6 @@ def publish_shifu_draft(
         shifu_published.tts_speed = shifu_draft.tts_speed
         shifu_published.tts_pitch = shifu_draft.tts_pitch
         shifu_published.tts_emotion = shifu_draft.tts_emotion
-        shifu_published.default_listen_mode_enabled = getattr(
-            shifu_draft, "default_listen_mode_enabled", 0
-        )
         # Learner language setting
         shifu_published.use_learner_language = getattr(
             shifu_draft, "use_learner_language", 0

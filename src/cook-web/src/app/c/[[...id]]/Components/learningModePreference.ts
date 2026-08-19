@@ -2,7 +2,6 @@ import type { LearningMode } from './learningModeOptions';
 
 type ResolveCourseLearningModeArgs = {
   courseTtsEnabled: boolean | null;
-  courseDefaultListenModeEnabled?: boolean | null;
   canUseClassroomMode: boolean | null;
   hasListenModeOverride: boolean;
   listenModeParam: boolean | null;
@@ -12,7 +11,6 @@ type ResolveCourseLearningModeArgs = {
 
 export const resolveCourseLearningMode = ({
   courseTtsEnabled,
-  courseDefaultListenModeEnabled = null,
   canUseClassroomMode,
   hasListenModeOverride,
   listenModeParam,
@@ -51,10 +49,6 @@ export const resolveCourseLearningMode = ({
 
   if (storedLearningMode === 'read') {
     return 'read';
-  }
-
-  if (courseDefaultListenModeEnabled === true && courseTtsEnabled === true) {
-    return 'listen';
   }
 
   return 'read';
