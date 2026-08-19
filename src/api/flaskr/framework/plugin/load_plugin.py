@@ -1,8 +1,8 @@
 import importlib
 import os
 from functools import partial
-from pathlib import Path
 from inspect import getmembers, isfunction
+from pathlib import Path
 
 from flask import Flask
 
