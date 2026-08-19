@@ -46,10 +46,11 @@ def _get_pingpp_client() -> Any:
         import pingpp  # type: ignore[import-untyped]
 
         _PINGPP_CLIENT = pingpp
-        return pingpp
     except Exception as exc:  # pragma: no cover
         _PINGPP_IMPORT_ERROR = exc
         raise
+    else:
+        return pingpp
 
 
 class PingxxProvider(PaymentProvider):

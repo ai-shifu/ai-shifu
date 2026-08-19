@@ -471,16 +471,16 @@ class UnifiedMigrationTask:
                     session, f"{source_table}_sync", latest_id
                 )
 
+        except Exception:
+            session.rollback()
+            logger.exception("Batch processing failed")
+            raise
+        else:
             return {
                 "synced": synced_count,
                 "errors": error_count,
                 "error_messages": error_messages,
             }
-
-        except Exception:
-            session.rollback()
-            logger.exception("Batch processing failed")
-            raise
         finally:
             session.close()
 
@@ -591,11 +591,11 @@ class UnifiedMigrationTask:
             )
             passed = success_rate >= 0.95  # 95% success rate required
 
-            return passed, mismatches
-
         except Exception as e:
             logger.exception("Sample integrity check failed")
             return False, [f"Integrity check error: {e!s}"]
+        else:
+            return passed, mismatches
         finally:
             session.close()
 
@@ -621,11 +621,12 @@ class UnifiedMigrationTask:
                     hasattr(target_record, "user_bid")
                     and target_record.user_bid is not None
                 )
-            return True  # Basic existence check for other tables
 
         except Exception:
             logger.exception("Record mapping verification failed")
             return False
+        else:
+            return True  # Basic existence check for other tables
 
     # Table mapping functions
     def _map_attendscript_to_progress_record(self, record) -> dict:
@@ -716,10 +717,11 @@ class UnifiedMigrationTask:
             result = session.execute(
                 text(f"SHOW TABLES LIKE '{table_name}'")
             ).fetchone()
-            return result is not None
         except Exception:
             logger.exception(f"Error checking table existence {table_name}")
             return False
+        else:
+            return result is not None
         finally:
             session.close()
 
@@ -733,10 +735,11 @@ class UnifiedMigrationTask:
                 query += f" WHERE {where_clause}"
 
             count = session.execute(text(query)).scalar()
-            return count or 0
         except Exception:
             logger.exception(f"Error getting table count for {table_name}")
             return 0
+        else:
+            return count or 0
 
     def _check_column_exists_with_session(
         self, session, table_name: str, column_name: str
@@ -753,7 +756,9 @@ class UnifiedMigrationTask:
             """
                 )
             ).scalar()
-            return result > 0
+            # Compared inside the try: scalar() returns None when the
+            # information_schema query matches nothing.
+            return result > 0  # noqa: TRY300
         except Exception:
             logger.exception(
                 f"Error checking column existence {table_name}.{column_name}"
@@ -778,10 +783,11 @@ class UnifiedMigrationTask:
                 query += f" WHERE {where_clause}"
 
             count = session.execute(text(query)).scalar()
-            return count or 0
         except Exception:
             logger.exception(f"Error getting table count for {table_name}")
             return 0
+        else:
+            return count or 0
         finally:
             session.close()
 

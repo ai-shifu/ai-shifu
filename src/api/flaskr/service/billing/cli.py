@@ -2011,10 +2011,11 @@ def grant_billing_plan_by_identify(
             )
             payload["sms_enqueue_status"] = str(sms_payload.get("status") or "")
             payload["sms_enqueued"] = bool(sms_payload.get("enqueued"))
-        return payload
     except Exception:
         db.session.rollback()
         raise
+    else:
+        return payload
 
 
 def grant_operator_credits_by_cli(
@@ -2092,10 +2093,11 @@ def grant_operator_credits_by_cli(
                 "mobile": getattr(aggregate, "mobile", ""),
             }
         )
-        return payload
     except Exception:
         db.session.rollback()
         raise
+    else:
+        return payload
 
 
 def _build_cli_credit_grant_request_id(

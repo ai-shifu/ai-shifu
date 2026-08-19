@@ -555,7 +555,6 @@ def _iter_stream_with_precontent_retry(
                 else:
                     yield res
             yield from pending_reasoning_chunks
-            return
         except Exception as exc:
             attempts += 1
             retryable = _retryable_stream_error_types()
@@ -571,6 +570,8 @@ def _iter_stream_with_precontent_retry(
                 f"(attempt {attempts}/{_STREAM_PRECONTENT_RETRY_ATTEMPTS + 1}); "
                 f"reissuing request: {exc}"
             )
+        else:
+            return
 
 
 def _resolve_provider_for_model(model: str) -> tuple[str | None, str]:
@@ -599,9 +600,10 @@ def _load_gemini_models(
     if base_url and "generativelanguage.googleapis.com" not in base_url:
         try:
             models.extend(_fetch_provider_models(api_key, base_url))
-            return models
         except Exception as exc:
             _log_warning(f"load gemini models via custom base error: {exc}")
+        else:
+            return models
 
     # Default to Google Gemini ListModels endpoint (v1beta).
     google_base = base_url or "https://generativelanguage.googleapis.com"
@@ -1513,10 +1515,11 @@ def _attach_credit_multipliers(
                     "is_default": model == default_model,
                 }
             )
-        return enriched
     except Exception as exc:
         _log_warning(f"load LLM credit multipliers error: {exc}")
         return [{**option, "credit_multiplier": None} for option in options]
+    else:
+        return enriched
 
 
 def get_current_models(app: Flask) -> list[dict[str, Any]]:

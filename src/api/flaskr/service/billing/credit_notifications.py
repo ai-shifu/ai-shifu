@@ -2949,11 +2949,6 @@ def enqueue_credit_notification(app: Flask, *, notification_bid: str) -> dict[st
                 "enqueued": False,
             }
         task.apply_async(kwargs={"notification_bid": normalized_notification_bid})
-        return {
-            "status": "enqueued",
-            "notification_bid": normalized_notification_bid,
-            "enqueued": True,
-        }
     except Exception as exc:
         app.logger.exception(
             "Failed to enqueue %s for notification_bid=%s",
@@ -2965,6 +2960,12 @@ def enqueue_credit_notification(app: Flask, *, notification_bid: str) -> dict[st
             "notification_bid": normalized_notification_bid,
             "message": str(exc),
             "enqueued": False,
+        }
+    else:
+        return {
+            "status": "enqueued",
+            "notification_bid": normalized_notification_bid,
+            "enqueued": True,
         }
 
 

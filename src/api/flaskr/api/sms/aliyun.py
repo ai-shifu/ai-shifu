@@ -99,9 +99,10 @@ def send_sms_ali(
                 _body_value(res, "biz_id") or "<empty>",
             )
             return None
-        return res
     except Exception as error:
         _log_provider_error(app, error)
+    else:
+        return res
     return None
 
 

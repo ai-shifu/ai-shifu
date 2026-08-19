@@ -191,8 +191,6 @@ def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
             if retry_count < max_retries:
                 time.sleep(1)
 
-        return False
-
     except Exception as exc:
         app.logger.warning("CDN preheating failed: %s", exc)
         app.logger.warning("Preheating URL: %s", url)
@@ -200,6 +198,8 @@ def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
             "ObjectPath: %s",
             object_path if "object_path" in locals() else "Not set",
         )
+        return False
+    else:
         return False
 
 

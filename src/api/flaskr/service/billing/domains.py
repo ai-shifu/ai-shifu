@@ -660,9 +660,10 @@ def _is_invalid_host(host: str) -> bool:
         return True
     try:
         ipaddress.ip_address(host)
-        return True
     except ValueError:
         pass
+    else:
+        return True
     labels = host.split(".")
     if any(not label or len(label) > 63 for label in labels):
         return True

@@ -214,9 +214,10 @@ def _parse_datetime(value: str, is_end: bool = False) -> datetime | None:
                     parsed = parsed.replace(hour=23, minute=59, second=59)
                 else:
                     parsed = parsed.replace(hour=0, minute=0, second=0)
-            return parsed
         except ValueError:
             continue
+        else:
+            return parsed
     try:
         parsed = datetime.fromisoformat(normalized)
     except ValueError:

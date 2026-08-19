@@ -697,11 +697,12 @@ def _get_access_token(api_key: str, secret_key: str) -> str:
         _token_cache["expires_at"] = current_time + expires_in
 
         logger.info(f"Baidu access token obtained, expires in {expires_in} seconds")
-        return access_token
 
     except requests.RequestException as e:
         logger.exception("Failed to get Baidu access token")
         raise ValueError(f"Failed to get Baidu access token: {e}") from e
+    else:
+        return access_token
 
 
 # Frontend-formatted voice list

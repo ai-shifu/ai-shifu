@@ -238,14 +238,14 @@ def upload_url(app, user_id: str, url: str) -> str:
             db.session.add(resource)
             db.session.commit()
 
-            return result.url
-
         except requests.RequestException:
             app.logger.exception(f"Failed to download image from URL: {url}")
             raise_error("server.file.fileDownloadFailed")
         except Exception:
             app.logger.exception(f"Failed to upload image to OSS: {url}")
             raise_error("server.file.fileUploadFailed")
+        else:
+            return result.url
 
 
 def shifu_permission_verification(
@@ -273,9 +273,10 @@ def shifu_permission_verification(
         if cache_result is not None:
             try:
                 cached_auth_types = json.loads(cache_result)
-                return auth_type in cached_auth_types
             except (json.JSONDecodeError, TypeError):
                 redis.delete(cache_key)
+            else:
+                return auth_type in cached_auth_types
         # If it is not in the cache, query the database
         creator_bid = get_shifu_creator_bid(app, shifu_id)
         if creator_bid and creator_bid == user_id:
@@ -311,9 +312,10 @@ def shifu_permission_verification(
                 permissions = permissions or set(normalized)
                 result = auth_type in permissions
                 redis.set(cache_key, json.dumps(list(permissions)), cache_key_expire)
-                return result
             except (json.JSONDecodeError, TypeError):
                 return False
+            else:
+                return result
         else:
             return False
 

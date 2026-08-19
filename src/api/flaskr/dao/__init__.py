@@ -122,7 +122,9 @@ def _pool_diagnostics_logger():
     try:
         from flask import current_app
 
-        return current_app.logger
+        # Resolved inside the try: attribute access on current_app raises
+        # outside an application context.
+        return current_app.logger  # noqa: TRY300
     except Exception:  # noqa: BLE001 - outside app context
         return logger
 
@@ -375,12 +377,13 @@ def invalidate_session(*, source: str, session=None) -> bool:
         if not hasattr(target, "invalidate") and callable(target):
             target = target()
         target.invalidate()
-        return True
     except Exception:  # noqa: BLE001 - termination cleanup must not raise
         _pool_diagnostics_logger().warning(
             "%s: session invalidate failed", source, exc_info=True
         )
         return False
+    else:
+        return True
 
 
 def cleanup_session_after(
@@ -403,7 +406,6 @@ def cleanup_session_after(
         return "noop"
     try:
         target.rollback()
-        return "rolled_back"
     except Exception:  # noqa: BLE001 - escalate, never raise from cleanup
         _pool_diagnostics_logger().warning(
             "%s: rollback failed; escalating to session invalidate",
@@ -412,6 +414,8 @@ def cleanup_session_after(
         )
         invalidate_session(source=source, session=session)
         return "invalidated"
+    else:
+        return "rolled_back"
 
 
 def release_session_classified(*, source: str) -> None:
@@ -448,7 +452,6 @@ def _rollback_quietly() -> bool:
         return True
     try:
         db.session.rollback()
-        return True
     except SQLAlchemyError as rollback_exc:
         # A database-layer rollback failure means the connection itself is
         # broken; escalate to invalidate and tell the caller to stop
@@ -463,6 +466,8 @@ def _rollback_quietly() -> bool:
         # Environmental failures (e.g. no app context in unit tests) keep the
         # legacy tolerant behavior: log and let the retry loop proceed.
         logger.warning("retry_on_deadlock rollback failed: %s", rollback_exc)
+        return True
+    else:
         return True
 
 

@@ -265,7 +265,6 @@ def get_aliyun_nls_token(
                 "Fetched Aliyun NLS token (expires_in=%ss)",
                 max(0, int(fresh.expire_time - time.time())),
             )
-            return fresh.token
         except Exception as exc:
             # If we still have a cached token that hasn't expired, use it as a fallback.
             if cached and not cached.is_expired(now=now):
@@ -275,6 +274,8 @@ def get_aliyun_nls_token(
                 )
                 return cached.token
             raise
+        else:
+            return fresh.token
     finally:
         if acquired:
             with contextlib.suppress(Exception):

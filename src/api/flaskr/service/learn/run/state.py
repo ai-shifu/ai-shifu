@@ -166,7 +166,6 @@ class RunStateResolver:
                 ).get_all_blocks()
             )
             block_count_cache[outline_bid] = block_count
-            return block_count
         except Exception as exc:
             self.app.logger.warning(
                 "Load runtime block count failed for outline %s: %s",
@@ -175,6 +174,8 @@ class RunStateResolver:
                 exc_info=True,
             )
             return history_block_count
+        else:
+            return block_count
 
     # get the outline items to start or complete
     def get_next_outline_item(self) -> list[OutlineItemUpdateDTO]:
