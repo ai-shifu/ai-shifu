@@ -30,7 +30,7 @@ def load_plugins_from_dir(
                     plugin_obj = importlib.import_module(
                         f"{directory}.{SRC_DIR}.{filename[:-3]}".replace(os.sep, ".")
                     )
-                    for name, obj in getmembers(plugin_obj):
+                    for _name, obj in getmembers(plugin_obj):
                         if (
                             isinstance(obj, type)
                             and issubclass(obj, BasePlugin)

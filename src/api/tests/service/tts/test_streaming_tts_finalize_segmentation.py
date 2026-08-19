@@ -109,7 +109,7 @@ class TestFinalizeSegmentation:
         # Verify multiple segments were submitted
         assert len(submitted_texts) > 0
         # Each segment should end at a sentence boundary (except possibly the last)
-        for i, text in enumerate(submitted_texts[:-1]):
+        for _i, text in enumerate(submitted_texts[:-1]):
             assert text.rstrip().endswith((".", "!", "?", "。", "！", "？"))
 
     @patch("flaskr.service.tts.streaming_tts._tts_executor")
