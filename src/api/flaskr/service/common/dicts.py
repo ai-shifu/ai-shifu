@@ -25,10 +25,10 @@ class Dict:
 def register_dict(name, desp, items: dict):
     if name in DICTS:
         return
-    dictItems = []
+    dict_items = []
     for key, value in items.items():
-        dictItems.append(DictItem(key, value))
-    DICTS[name] = Dict(name, desp, dictItems)
+        dict_items.append(DictItem(key, value))
+    DICTS[name] = Dict(name, desp, dict_items)
 
 
 def get_all_dicts(app: Flask) -> dict:

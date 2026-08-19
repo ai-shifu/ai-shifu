@@ -110,7 +110,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
 
     """
     with app.app_context():
-        isUpdate = False
+        is_update = False
         if resource_id == "":
             file_id = str(uuid.uuid4()).replace("-", "")
             resource = None
@@ -118,7 +118,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
             file_id = resource_id
             resource = Resource.query.filter_by(resource_id=file_id).first()
             if resource is not None:
-                isUpdate = True
+                is_update = True
             else:
                 app.logger.warning(
                     "upload_file received missing resource_id=%s; creating a new resource",
@@ -134,7 +134,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
             profile=OSS_PROFILE_COURSES,
         )
 
-        if isUpdate:
+        if is_update:
             resource.name = file.filename
             resource.oss_bucket = result.bucket
             resource.oss_name = result.object_key
