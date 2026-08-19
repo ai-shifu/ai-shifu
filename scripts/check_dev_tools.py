@@ -81,6 +81,7 @@ def _hooks_dir() -> Path | None:
             cwd=ROOT,
             capture_output=True,
             text=True,
+            check=False,
         )
         if configured.returncode == 0 and configured.stdout.strip():
             # git config values may use ~ / ~user; Path() does not expand it.

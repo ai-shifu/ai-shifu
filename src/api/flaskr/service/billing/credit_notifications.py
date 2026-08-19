@@ -1236,7 +1236,7 @@ def _format_sms_datetime(app: Flask, value: Any) -> str:
         if not raw_value:
             return ""
         try:
-            resolved = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+            resolved = datetime.fromisoformat(raw_value)
         except ValueError:
             return raw_value
     return str(format_with_app_timezone(app, resolved, "%Y-%m-%d %H:%M:%S") or "")
