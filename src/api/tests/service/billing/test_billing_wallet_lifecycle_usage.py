@@ -51,9 +51,9 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
             wallet_bid="wallet-consistency-1",
             creator_bid="creator-consistency-1",
             available_credits=Decimal("4.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("4.5000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -77,9 +77,9 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
                     priority=10,
                     original_credits=Decimal("1.0000000000"),
                     available_credits=Decimal("1.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 8, 0, 0, 0),
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -95,9 +95,9 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
                     priority=20,
                     original_credits=Decimal("1.5000000000"),
                     available_credits=Decimal("1.5000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 8, 0, 0, 0),
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -113,9 +113,9 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
                     priority=30,
                     original_credits=Decimal("2.0000000000"),
                     available_credits=Decimal("2.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 8, 0, 0, 0),
                     effective_to=datetime(2026, 4, 9, 0, 0, 0),
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -238,20 +238,20 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
         assert buckets["bucket-consistency-topup"].available_credits == Decimal(
             "2.0000000000"
         )
-        assert buckets["bucket-consistency-topup"].expired_credits == Decimal("0")
+        assert buckets["bucket-consistency-topup"].expired_credits == Decimal(0)
         assert buckets["bucket-consistency-topup"].status == CREDIT_BUCKET_STATUS_ACTIVE
 
         bucket_available_total = sum(
             (bucket.available_credits for bucket in buckets.values()),
-            start=Decimal("0"),
+            start=Decimal(0),
         )
         bucket_consumed_total = sum(
             (bucket.consumed_credits for bucket in buckets.values()),
-            start=Decimal("0"),
+            start=Decimal(0),
         )
         bucket_expired_total = sum(
             (bucket.expired_credits for bucket in buckets.values()),
-            start=Decimal("0"),
+            start=Decimal(0),
         )
         ledger_reduction_total = sum(
             (
@@ -260,12 +260,12 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
                     creator_bid="creator-consistency-1"
                 ).all()
             ),
-            start=Decimal("0"),
+            start=Decimal(0),
         )
 
         assert bucket_available_total == wallet.available_credits
         assert bucket_consumed_total == Decimal("2.5000000000")
-        assert bucket_expired_total == Decimal("0")
+        assert bucket_expired_total == Decimal(0)
         assert ledger_reduction_total == Decimal("2.5000000000")
         for bucket in buckets.values():
             assert bucket.original_credits == (

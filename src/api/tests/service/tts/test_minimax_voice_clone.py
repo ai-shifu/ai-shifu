@@ -63,9 +63,9 @@ def _seed_course_wallet_and_rate(app: Flask) -> None:
             wallet_bid="wallet-creator-1",
             creator_bid="creator-1",
             available_credits=Decimal("10.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("10.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             version=0,
         )
         bucket = CreditWalletBucket(
@@ -78,9 +78,9 @@ def _seed_course_wallet_and_rate(app: Flask) -> None:
             priority=10,
             original_credits=Decimal("10.0000000000"),
             available_credits=Decimal("10.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 1, 1, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
         )
@@ -517,7 +517,7 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
             self.source_audio_filename = "source.webm"
             self.prompt_audio_filename = ""
             self.billing_reservation_bid = ""
-            self.estimated_credits = Decimal("0")
+            self.estimated_credits = Decimal(0)
 
         def __getattribute__(self, name):
             protected = {

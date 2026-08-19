@@ -251,9 +251,9 @@ def golden_shifu(app):
             avatar_res_bid="",
             keywords="golden,regression",
             llm="gpt-test",
-            llm_temperature=Decimal("0"),
+            llm_temperature=Decimal(0),
             llm_system_prompt="",
-            price=Decimal("0"),
+            price=Decimal(0),
             created_user_bid=GOLDEN_CREATOR_BID,
             updated_user_bid=GOLDEN_CREATOR_BID,
         )

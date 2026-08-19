@@ -36,7 +36,7 @@ from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .subscriptions import load_effective_topup_subscription
 from .wallets import persist_credit_wallet_snapshot, sync_credit_bucket_status
 
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 
 
 @dataclass(slots=True, frozen=True)

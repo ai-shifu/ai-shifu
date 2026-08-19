@@ -26,7 +26,7 @@ from .ownership import resolve_usage_creator_bid
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 
 
 @dataclass(slots=True, frozen=True)

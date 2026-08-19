@@ -223,7 +223,7 @@ def _add_ledger_entry(
             source_bid=f"source-{ledger_bid}",
             idempotency_key=f"idempotency-{ledger_bid}",
             amount=amount,
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             metadata_json={},
             created_at=created_at,
             updated_at=created_at,

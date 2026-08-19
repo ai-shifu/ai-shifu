@@ -194,7 +194,7 @@ def test_run_billing_downgrade_event_applies_paid_preorder_with_referral_reward(
                 available_credits=Decimal("3.0000000000"),
                 reserved_credits=Decimal("1005.0000000000"),
                 consumed_credits=Decimal("97.0000000000"),
-                expired_credits=Decimal("0"),
+                expired_credits=Decimal(0),
                 effective_from=current_cycle_start,
                 effective_to=current_cycle_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -348,7 +348,7 @@ def test_run_billing_downgrade_event_applies_paid_preorder_with_referral_reward(
         assert order.metadata_json["preorder_effective_at_source"] == "cycle_boundary"
         assert bucket.source_bid == "bill-preorder-downgrade-1"
         assert bucket.available_credits == Decimal("1005.0000000000")
-        assert bucket.reserved_credits == Decimal("0")
+        assert bucket.reserved_credits == Decimal(0)
         assert wallet.available_credits == Decimal("1005.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
         assert grant_entry.metadata_json["bucket_credit_state"] == "available"
@@ -443,7 +443,7 @@ def test_run_billing_same_plan_preorder_starts_new_cycle_at_boundary(
                 available_credits=Decimal("3.0000000000"),
                 reserved_credits=Decimal("5.0000000000"),
                 consumed_credits=Decimal("7.0000000000"),
-                expired_credits=Decimal("0"),
+                expired_credits=Decimal(0),
                 effective_from=current_cycle_start,
                 effective_to=current_cycle_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -515,7 +515,7 @@ def test_run_billing_same_plan_preorder_starts_new_cycle_at_boundary(
         assert order.metadata_json["preorder_state"] == "effective_applied"
         assert bucket.source_bid == "bill-preorder-same-plan-1"
         assert bucket.available_credits == Decimal("5.0000000000")
-        assert bucket.reserved_credits == Decimal("0")
+        assert bucket.reserved_credits == Decimal(0)
         assert wallet.available_credits == Decimal("5.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
         assert grant_entry.metadata_json["bucket_credit_state"] == "available"

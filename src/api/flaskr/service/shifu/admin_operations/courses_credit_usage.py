@@ -873,7 +873,7 @@ def _build_operator_course_credit_metrics(
         )
     )
     completed_credit_user_count = 0
-    completed_credit_total = Decimal("0")
+    completed_credit_total = Decimal(0)
     if completed_user_subquery is not None:
         completed_row = (
             db.session.query(

@@ -474,7 +474,7 @@ def _resolve_order_source(
         return ORDER_SOURCE_OPEN_API, ORDER_SOURCE_KEY_MAP[ORDER_SOURCE_OPEN_API]
 
     normalized_paid_price = Decimal(str(paid_price or 0))
-    if coupon_codes and normalized_paid_price == Decimal("0"):
+    if coupon_codes and normalized_paid_price == Decimal(0):
         return ORDER_SOURCE_COUPON_REDEEM, ORDER_SOURCE_KEY_MAP[
             ORDER_SOURCE_COUPON_REDEEM
         ]
@@ -590,7 +590,7 @@ def _apply_order_source_filter(query, order_source: str):
         return query.filter(
             non_special_payment_channel,
             Order.order_bid.in_(coupon_order_bid_query),
-            Order.paid_price == Decimal("0"),
+            Order.paid_price == Decimal(0),
         )
 
     if normalized_order_source == ORDER_SOURCE_USER_PURCHASE:
@@ -600,7 +600,7 @@ def _apply_order_source_filter(query, order_source: str):
             db.not_(
                 db.and_(
                     Order.order_bid.in_(coupon_order_bid_query),
-                    Order.paid_price == Decimal("0"),
+                    Order.paid_price == Decimal(0),
                 )
             )
         )
@@ -747,8 +747,8 @@ def import_activation_order(
     if not order:
         raise_error("server.order.orderNotFound")
 
-    order.payable_price = Decimal("0")
-    order.paid_price = Decimal("0")
+    order.payable_price = Decimal(0)
+    order.paid_price = Decimal(0)
     order.payment_channel = payment_channel
     db.session.commit()
 

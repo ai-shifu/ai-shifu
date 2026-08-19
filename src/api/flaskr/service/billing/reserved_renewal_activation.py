@@ -161,7 +161,7 @@ def sync_activated_reserved_renewal_ledger_balances(
     if not targets:
         return
 
-    total_activated = sum((target.amount for target in targets), start=Decimal("0"))
+    total_activated = sum((target.amount for target in targets), start=Decimal(0))
     running_balance = _quantize_credit_amount(final_balance_after - total_activated)
     now = now_utc()
     for target in targets:
@@ -327,7 +327,7 @@ def _expected_subscription_grant_amount(order: BillingOrder) -> Decimal:
                 amount = _quantize_credit_amount(_to_decimal(metadata.get(key)))
                 if amount > 0:
                     return amount
-    return Decimal("0")
+    return Decimal(0)
 
 
 def _expected_subscription_cycle_grant_amount(order: BillingOrder) -> Decimal:
@@ -341,7 +341,7 @@ def _expected_subscription_cycle_grant_amount(order: BillingOrder) -> Decimal:
 
 def _expected_campaign_bonus_grant_amount(order: BillingOrder) -> Decimal:
     if not _normalize_bid(order.campaign_bid):
-        return Decimal("0")
+        return Decimal(0)
     return _quantize_credit_amount(_to_decimal(order.campaign_bonus_credit_amount))
 
 
@@ -504,7 +504,7 @@ def _preflight_reserved_renewal_grants_for_cycle(
         for target in _load_reserved_activation_targets_for_cycle_order(cycle_order):
             targets.append(target)
             required_reserved_by_bucket[target.wallet_bucket_bid] = (
-                required_reserved_by_bucket.get(target.wallet_bucket_bid, Decimal("0"))
+                required_reserved_by_bucket.get(target.wallet_bucket_bid, Decimal(0))
                 + target.amount
             )
     _assert_subscription_cycle_grant_amounts(cycle_orders, targets)
@@ -560,8 +560,7 @@ def _assert_subscription_cycle_grant_amounts(
         orders_with_subscription_targets.add(order_bid)
         product_bid = _normalize_bid(order.product_bid)
         subscription_amount_by_product[product_bid] = (
-            subscription_amount_by_product.get(product_bid, Decimal("0"))
-            + target.amount
+            subscription_amount_by_product.get(product_bid, Decimal(0)) + target.amount
         )
 
     for order in cycle_orders:
@@ -572,13 +571,13 @@ def _assert_subscription_cycle_grant_amounts(
             continue
         product_bid = _normalize_bid(order.product_bid)
         expected_subscription_amount_by_product[product_bid] = (
-            expected_subscription_amount_by_product.get(product_bid, Decimal("0"))
+            expected_subscription_amount_by_product.get(product_bid, Decimal(0))
             + _expected_subscription_cycle_grant_amount(order)
         )
 
     for product_bid, expected_amount in expected_subscription_amount_by_product.items():
         if _quantize_credit_amount(
-            subscription_amount_by_product.get(product_bid, Decimal("0"))
+            subscription_amount_by_product.get(product_bid, Decimal(0))
         ) < _quantize_credit_amount(expected_amount):
             raise IncompleteReservedGrantActivationError(
                 f"subscription_cycle_amount_mismatch:{product_bid}"

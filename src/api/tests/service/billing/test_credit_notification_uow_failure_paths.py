@@ -221,9 +221,9 @@ def _seed_wallet(*, creator_bid: str, available_credits: str = "2") -> None:
             wallet_bid=f"wallet-{creator_bid}",
             creator_bid=creator_bid,
             available_credits=Decimal(available_credits),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal(available_credits),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
         )
     )
     dao.db.session.commit()

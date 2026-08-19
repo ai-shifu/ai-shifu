@@ -353,7 +353,7 @@ def _add_ledger(
             source_bid=source_bid,
             idempotency_key=f"idempotency-{ledger_bid}",
             amount=amount,
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             metadata_json=(
                 {
                     "metric_breakdown": [

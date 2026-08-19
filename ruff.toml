@@ -189,6 +189,7 @@ select = [
     "UP047",   # Generic function that should use PEP 695 syntax
     "UP049",   # private type parameter that should be _T
     "UP05",    # useless class __metaclass__ = type
+    "FURB157", # verbose Decimal constructor
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention

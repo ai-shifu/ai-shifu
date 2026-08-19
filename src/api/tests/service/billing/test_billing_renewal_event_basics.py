@@ -225,8 +225,8 @@ def test_run_billing_renewal_event_applies_expire(
         assert buckets["bucket-expire-subscription-1"].expired_credits == Decimal(
             "5.0000000000"
         )
-        assert buckets["bucket-expire-topup-1"].expired_credits == Decimal("0")
-        assert buckets["bucket-expire-subscription-1"].available_credits == Decimal("0")
+        assert buckets["bucket-expire-topup-1"].expired_credits == Decimal(0)
+        assert buckets["bucket-expire-subscription-1"].available_credits == Decimal(0)
         assert buckets["bucket-expire-topup-1"].available_credits == Decimal(
             "2.5000000000"
         )
@@ -360,7 +360,7 @@ def test_manual_trial_subscription_schedules_and_applies_expire(
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_EXPIRED
         assert wallet.available_credits == Decimal("0E-10")
         assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
-        assert bucket.available_credits == Decimal("0")
+        assert bucket.available_credits == Decimal(0)
         assert bucket.expired_credits == Decimal("100.0000000000")
         assert ledger_entry.amount == Decimal("-100.0000000000")
 

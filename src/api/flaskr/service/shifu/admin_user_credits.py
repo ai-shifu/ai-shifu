@@ -798,7 +798,7 @@ def _build_operator_course_credit_metrics(
         )
     )
     completed_credit_user_count = 0
-    completed_credit_total = Decimal("0")
+    completed_credit_total = Decimal(0)
     if completed_user_subquery is not None:
         completed_row = (
             db.session.query(
@@ -1236,7 +1236,7 @@ def _load_operator_user_credit_summary_map(
         .all()
     )
 
-    zero = Decimal("0")
+    zero = Decimal(0)
     summary_map: Dict[str, Dict[str, Any]] = {}
     order_map = _load_billing_order_map(
         [str(bucket.source_bid or "").strip() for bucket in buckets]

@@ -8,7 +8,7 @@ from flaskr.service.config.funcs import get_config
 logger = logging.getLogger(__name__)
 
 LLM_CREDIT_1X_PER_1000_CONFIG = "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS"
-_LLM_CREDIT_1X_UNIT_DIVISOR = Decimal("1000")
+_LLM_CREDIT_1X_UNIT_DIVISOR = Decimal(1000)
 
 
 def load_llm_credit_1x_per_1000_output_tokens() -> Decimal | None:

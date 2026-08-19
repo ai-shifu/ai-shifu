@@ -412,9 +412,9 @@ def _seed_credit_wallet_bucket(
         priority=10,
         original_credits=Decimal(available_credits),
         available_credits=Decimal(available_credits),
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
         effective_from=effective_from,
         effective_to=effective_to,
         status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -3004,10 +3004,10 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(app, monke
     assert len(buckets) == 1
     assert buckets[0].metadata_json["grant_type"] == "referral_reward"
     assert buckets[0].metadata_json["validity_strategy"] == "stack_by_reward_scene"
-    assert Decimal(str(buckets[0].available_credits)) == Decimal("1800")
+    assert Decimal(str(buckets[0].available_credits)) == Decimal(1800)
     assert len(ledgers) == 2
     assert ledgers[0].expires_at == ledgers[1].expires_at == buckets[0].effective_to
-    assert Decimal(ledgers[1].metadata_json["reward_credits"]) == Decimal("800")
+    assert Decimal(ledgers[1].metadata_json["reward_credits"]) == Decimal(800)
     assert ledgers[1].metadata_json["previous_effective_to"]
     assert ledgers[1].metadata_json["new_effective_to"]
     assert bootstrap.referral_reward_summary.available_credits == "1800"
@@ -3058,11 +3058,11 @@ def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
                 priority=resolve_credit_bucket_priority(
                     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
                 ),
-                original_credits=Decimal("1000"),
-                available_credits=Decimal("0"),
-                reserved_credits=Decimal("0"),
-                consumed_credits=Decimal("1000"),
-                expired_credits=Decimal("0"),
+                original_credits=Decimal(1000),
+                available_credits=Decimal(0),
+                reserved_credits=Decimal(0),
+                consumed_credits=Decimal(1000),
+                expired_credits=Decimal(0),
                 effective_from=datetime(2026, 4, 1, 0, 0, 0),
                 effective_to=datetime(2026, 5, 21, 0, 0, 0),
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -3098,7 +3098,7 @@ def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
     assert result.note == "extend empty active bucket"
     assert len(buckets) == 1
     assert buckets[0].effective_to == datetime(2026, 6, 21, 0, 0, 0)
-    assert Decimal(str(buckets[0].available_credits)) == Decimal("1000")
+    assert Decimal(str(buckets[0].available_credits)) == Decimal(1000)
 
 
 def test_grant_operator_user_referral_reward_is_idempotent_for_repeated_request_id(

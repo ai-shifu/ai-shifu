@@ -37,7 +37,7 @@ def to_decimal(value: Any) -> Decimal:
     if isinstance(value, Decimal):
         return value
     if value in (None, ""):
-        return Decimal("0")
+        return Decimal(0)
     return Decimal(str(value))
 
 
@@ -83,7 +83,7 @@ def build_credit_quantizer(*, precision: int | None = None) -> Decimal:
         if precision is None
         else clamp_billing_credit_precision(precision)
     )
-    return Decimal("1").scaleb(-normalized_precision)
+    return Decimal(1).scaleb(-normalized_precision)
 
 
 def quantize_credit_amount(
