@@ -278,7 +278,9 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     birthday: date | None = None
 
     try:
-        from flaskr.service.profile.models import VariableValue  # type: ignore
+        from flaskr.service.profile.models import (
+            VariableValue,  # type: ignore[import-not-found]
+        )
     except ImportError:  # pragma: no cover - defensive fallback
         VariableValue = None  # type: ignore[assignment]
 

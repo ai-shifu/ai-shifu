@@ -15,7 +15,7 @@ class TestProfileRoutes:
     # Avoid real Redis in app init
     os.environ["REDIS_HOST"] = ""
     os.environ["REDIS_PORT"] = ""
-    dao.init_redis = lambda _app: None  # type: ignore
+    dao.init_redis = lambda _app: None  # type: ignore[assignment]
     config_funcs.redis = SimpleNamespace(
         get=lambda _key: None,
         set=lambda *args, **kwargs: None,

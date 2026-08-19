@@ -211,6 +211,7 @@ select = [
     "PTH123", # open() to Path.open
     "PTH118", # os.path.join to Path slash
     "PGH004", # blanket noqa
+    "PGH003", # blanket type ignore
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
