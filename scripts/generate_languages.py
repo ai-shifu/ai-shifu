@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate/refresh src/i18n/locales.json
+"""Generate/refresh src/i18n/locales.json.
 
 - Updates locale labels from common/language.json
 - Rebuilds the namespaces list by scanning JSON and honoring __namespace__
