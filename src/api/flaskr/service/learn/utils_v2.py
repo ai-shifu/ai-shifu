@@ -133,7 +133,7 @@ def get_fmt_prompt(
     Returns:
         str: Fmt prompt
     """
-    app.logger.info("raw prompt:" + profile_tmplate)
+    app.logger.info("raw prompt: %s", profile_tmplate)
     propmpt_keys = []
     profiles = {}
 
@@ -152,7 +152,7 @@ def get_fmt_prompt(
         if key in profiles:
             fmt_keys[key] = profiles[key]
         else:
-            app.logger.info("key not found:" + key + " ,user_id:" + user_id)
+            app.logger.info("key not found: %s ,user_id: %s", key, user_id)
     app.logger.info(fmt_keys)
     if not keys:
         prompt = profile_tmplate or input

@@ -32,5 +32,5 @@ def register_dict(name, desp, items: dict):
 
 
 def get_all_dicts(app: Flask) -> dict:
-    app.logger.info("get_all_dicts is called" + str(DICTS))
+    app.logger.info("get_all_dicts is called %s", DICTS)
     return DICTS
