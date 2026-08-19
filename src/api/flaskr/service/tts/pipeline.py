@@ -553,8 +553,8 @@ def _split_text_by_max_chars(units: Sequence[str], max_chars: int) -> list[str]:
 
     segments: list[str] = []
     current = ""
-    for unit in units:
-        unit = (unit or "").strip()
+    for raw_unit in units:
+        unit = (raw_unit or "").strip()
         if not unit:
             continue
 
@@ -600,8 +600,8 @@ def _split_text_by_max_bytes(
         raise ValueError("max_bytes must be > 0")
 
     output: list[str] = []
-    for segment in segments:
-        segment = (segment or "").strip()
+    for raw_segment in segments:
+        segment = (raw_segment or "").strip()
         if not segment:
             continue
 

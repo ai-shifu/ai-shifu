@@ -56,8 +56,8 @@ def decorators_above(path, lineno):
 
 kept, excluded = [], []
 with Path(RAW).open(encoding="utf-8") as f:
-    for raw_line in f:
-        raw_line = raw_line.rstrip("\n")
+    for line in f:
+        raw_line = line.rstrip("\n")
         m = LINE_RE.match(raw_line)
         if not m:
             continue

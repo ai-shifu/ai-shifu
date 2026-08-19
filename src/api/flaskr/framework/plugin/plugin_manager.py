@@ -73,10 +73,11 @@ class PluginManager:
             return result
         if func_name in self.extensible_generic_functions:
             for runc in self.extensible_generic_functions[func_name]:
-                while hasattr(runc, "__wrapped__"):
-                    self.app.logger.warning(f"func is wrapped {runc.__name__}")
-                    runc = runc.__wrapped__
-                result = runc(result, *args, **kwargs)
+                func = runc
+                while hasattr(func, "__wrapped__"):
+                    self.app.logger.warning(f"func is wrapped {func.__name__}")
+                    func = func.__wrapped__
+                result = func(result, *args, **kwargs)
                 if result:
                     yield from result
         return None
