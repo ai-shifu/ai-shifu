@@ -113,6 +113,7 @@ select = [
     "PT006",   # wrong type for parametrize argument names
     "PT009",   # unittest-style assertion that should be a plain assert
     "PT013",   # pytest imported with an alias or from-import
+    "PT017",   # assertion on an exception captured in an except block
     "PT018",   # composite assertion
     "PT02",    # fixture yielding without teardown, unittest-style assertRaises
     "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
