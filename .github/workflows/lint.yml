@@ -96,7 +96,7 @@ jobs:
           [ -n "$cwlint" ] && { (cd src/cook-web && npm run lint-file -- $cwlint) || true; }
           true
 
-      - name: Export auto-fixes as a patch (fail forks that need fixes)
+      - name: Export auto-fixes as a patch (fail what CI cannot push)
         id: patch
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -109,6 +109,12 @@ jobs:
           echo "Auto-fixable changes detected:"; git --no-pager diff --stat
           if [ "$SAME_REPO" != "true" ]; then
             echo "::error::Auto-fixable lint issues found on a fork PR (cannot push fixes). Run 'lefthook run pre-commit --all-files' locally and push the result."
+            exit 1
+          fi
+          # GITHUB_TOKEN may not create or update workflow files, so those fixes
+          # can never be pushed back.
+          if [ -n "$(git status --porcelain -- .github/workflows)" ]; then
+            echo "::error::Auto-fixable lint issues under .github/workflows/ cannot be pushed by CI. Run 'lefthook run pre-commit --all-files' locally and push the result."
             exit 1
           fi
           mkdir -p /tmp/autofix
