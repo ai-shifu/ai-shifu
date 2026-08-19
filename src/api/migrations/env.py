@@ -35,7 +35,7 @@ config.set_main_option("sqlalchemy.url", get_engine_url())
 target_db = current_app.extensions["migrate"].db
 
 
-def include_object(object, name, type_, reflected, compare_to):
+def include_object(db_object, name, type_, reflected, compare_to):
     """Use the simplest mode to avoid separation."""
     # the system tables
     system_tables = [
@@ -63,9 +63,9 @@ def include_object(object, name, type_, reflected, compare_to):
             # if not found the corresponding model, but not the system table, also include (for detection of deletion)
             return True
         # for the model table, check if it belongs to our service module
-        if hasattr(object, "metadata"):
+        if hasattr(db_object, "metadata"):
             for mapper in db.Model.registry.mappers:
-                if mapper.local_table is object:
+                if mapper.local_table is db_object:
                     model_class = mapper.class_
                     return model_class.__module__.startswith("flaskr.service")
         return False
@@ -78,8 +78,8 @@ def include_object(object, name, type_, reflected, compare_to):
         "check_constraint",
     ]:
         # for the column, index, constraint, check if it belongs to our service module
-        if hasattr(object, "table"):
-            table_name = object.table.name
+        if hasattr(db_object, "table"):
+            table_name = db_object.table.name
             # the system tables
             return not (
                 table_name in system_tables or table_name.startswith("information_")

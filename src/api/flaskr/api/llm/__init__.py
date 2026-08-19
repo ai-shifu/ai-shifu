@@ -958,8 +958,8 @@ class LLMStreamaUsage:
 
 
 class LLMStreamResponse:
-    def __init__(self, id, is_end, is_truncated, result, finish_reason, usage):
-        self.id = id
+    def __init__(self, response_id, is_end, is_truncated, result, finish_reason, usage):
+        self.id = response_id
 
         self.is_end = is_end
         self.is_truncated = is_truncated

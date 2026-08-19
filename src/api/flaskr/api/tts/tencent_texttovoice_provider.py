@@ -426,7 +426,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         audio_data = concat_audio_best_effort(audio_segments, output_format="mp3")
         if not audio_data:
             raise ValueError("No audio data received from Tencent TextToVoice")
-        duration_ms = try_get_audio_duration_ms(audio_data, format="mp3") or 0
+        duration_ms = try_get_audio_duration_ms(audio_data, audio_format="mp3") or 0
 
         return TTSResult(
             audio_data=audio_data,

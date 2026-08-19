@@ -303,7 +303,7 @@ class SimpleOutlineDto(BaseModel):
         position: str,
         name: str,
         children: list,
-        type: str | None = None,
+        type: str | None = None,  # noqa: A002 - serialized DTO field name
         is_hidden: bool | None = None,
     ):
         normalized_children: list[SimpleOutlineDto] = []
@@ -404,7 +404,7 @@ class OutlineDto(BaseModel):
         position: str | None = None,
         name: str | None = None,
         description: str | None = None,
-        type: str | None = None,
+        type: str | None = None,  # noqa: A002 - serialized DTO field name
         index: int | None = None,
         system_prompt: str | None = None,
         is_hidden: bool | None = None,

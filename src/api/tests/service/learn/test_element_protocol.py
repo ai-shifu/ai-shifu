@@ -2387,7 +2387,7 @@ class TestHandleAskAdapter:
                     context=_FollowUpContext(),
                     user_info=types.SimpleNamespace(user_id="u1"),
                     attend_id="pr1",
-                    input="hello",
+                    user_input="hello",
                     outline_item_info=types.SimpleNamespace(
                         shifu_bid="s1", bid="o1", title="Outline", position=1
                     ),
@@ -2508,7 +2508,7 @@ class TestHandleAskAdapter:
                     context=_FollowUpContext(),
                     user_info=types.SimpleNamespace(user_id="u1"),
                     attend_id="pr1",
-                    input="hello",
+                    user_input="hello",
                     outline_item_info=types.SimpleNamespace(
                         shifu_bid="s1", bid="o1", title="Outline", position=1
                     ),

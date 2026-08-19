@@ -299,18 +299,18 @@ def __save_shifu_history(
     return shifu_history
 
 
-def save_shifu_history(app: Flask, user_id: str, shifu_bid: str, id: int):
+def save_shifu_history(app: Flask, user_id: str, shifu_bid: str, row_id: int):
     """Save shifu history
     Args:
         app: Flask application instance
         user_id: User ID
         shifu_bid: Shifu bid
-        id: Shifu id
+        row_id: Shifu id
     Returns:
         None.
     """
     history = get_shifu_history(app, shifu_bid)
-    history.id = id
+    history.id = row_id
     __save_shifu_history(app, user_id, shifu_bid, history)
 
 
@@ -319,9 +319,9 @@ def __save_new_item_history(
     user_id: str,
     shifu_bid: str,
     item_bid: str,
-    id: int,
+    row_id: int,
     parent_bid: str,
-    type: str,
+    item_type: str,
     index: int = 0,
 ):
     """Save new item history
@@ -331,9 +331,9 @@ def __save_new_item_history(
         user_id: User ID
         shifu_bid: Shifu bid
         item_bid: Item bid
-        id: Item id
+        row_id: Item id
         parent_bid: Parent bid
-        type: Item type
+        item_type: Item type
         index: Item index
     Returns:
         None.
@@ -343,7 +343,7 @@ def __save_new_item_history(
         if not history.children:
             history.children = []
         history.children.insert(
-            index, HistoryItem(bid=item_bid, id=id, type=type, children=[])
+            index, HistoryItem(bid=item_bid, id=row_id, type=item_type, children=[])
         )
         __save_shifu_history(app, user_id, shifu_bid, history)
         return
@@ -355,7 +355,7 @@ def __save_new_item_history(
         item = q.get()
         if item.bid == parent_bid:
             item.children.append(
-                HistoryItem(bid=item_bid, id=id, type=type, children=[])
+                HistoryItem(bid=item_bid, id=row_id, type=item_type, children=[])
             )
             parent_found = True
             break
@@ -365,14 +365,14 @@ def __save_new_item_history(
     if not parent_found:
         app.logger.error(
             "Failed to append %s history node because parent is missing | shifu_bid=%s item_bid=%s item_id=%s parent_bid=%s",
-            type,
+            item_type,
             shifu_bid,
             item_bid,
-            id,
+            row_id,
             parent_bid,
         )
         raise RuntimeError(
-            f"Parent history node not found for {type} {item_bid} under {parent_bid}"
+            f"Parent history node not found for {item_type} {item_bid} under {parent_bid}"
         )
 
     __save_shifu_history(app, user_id, shifu_bid, history)
@@ -409,7 +409,7 @@ def save_new_outline_history(
     user_id: str,
     shifu_bid: str,
     outline_bid: str,
-    id: int,
+    row_id: int,
     parent_bid: str,
     index: int = 0,
 ):
@@ -419,12 +419,12 @@ def save_new_outline_history(
         user_id: User ID
         shifu_bid: Shifu bid
         outline_bid: Outline bid
-        id: Outline id
+        row_id: Outline id
         parent_bid: Parent bid
         index: Outline index.
     """
     __save_new_item_history(
-        app, user_id, shifu_bid, outline_bid, id, parent_bid, "outline", index
+        app, user_id, shifu_bid, outline_bid, row_id, parent_bid, "outline", index
     )
 
 
@@ -433,7 +433,7 @@ def save_outline_history(
     user_id: str,
     shifu_bid: str,
     outline_bid: str,
-    id: int,
+    row_id: int,
     child_count: int = 0,
 ):
     """Save outline history
@@ -442,7 +442,7 @@ def save_outline_history(
         user_id: User ID
         shifu_bid: Shifu bid
         outline_bid: Outline bid
-        id: Outline id
+        row_id: Outline id
     Returns:
         None.
     """
@@ -452,7 +452,7 @@ def save_outline_history(
     while not q.empty():
         item = q.get()
         if item.bid == outline_bid:
-            item.id = id
+            item.id = row_id
             if child_count > 0:
                 item.child_count = child_count
             break
