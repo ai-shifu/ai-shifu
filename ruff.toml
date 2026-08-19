@@ -210,6 +210,7 @@ select = [
     "PTH208", # os.listdir to Path.iterdir
     "PTH123", # open() to Path.open
     "PTH118", # os.path.join to Path slash
+    "PGH004", # blanket noqa
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
