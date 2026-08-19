@@ -69,9 +69,13 @@ select = [
     "YTT",     # sys.version checks that break on two-digit versions
     # Mechanical, behavior-preserving cleanups; each was applied repo-wide
     # with `ruff check --fix` in the commit that selected it here.
+    "B006",    # mutable default argument value
     "B007",    # loop control variable not used in the loop body
     "B009",    # getattr with a constant attribute name
     "B010",    # setattr with a constant attribute name
+    "B023",    # closure that captures a loop variable by reference
+    "B026",    # star-arg unpacking after a keyword argument
+    "B035",    # dict comprehension with a static key
     "B905",    # zip() without an explicit strict argument
     "C4",      # comprehension and collection-literal simplifications
     "D202",    # blank line after a function docstring
@@ -98,6 +102,8 @@ select = [
     "PLR1",    # useless return, repeated comparison, manual min()/max()
     "PLR5",    # else: if ... that should be elif
     "PLW0108", # lambda that only forwards its arguments
+    "PLW0127", # self-assignment of a variable
+    "PLW0602", # global declaration without assignment
     "PLW3",    # nested min/max calls
     "PT001",   # pytest.fixture with empty parentheses
     "PT006",   # wrong type for parametrize argument names
