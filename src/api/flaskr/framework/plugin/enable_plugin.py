@@ -40,11 +40,7 @@ def enable_plugins(app: Flask):
     def list():
         """List all plugins."""
         plugins_dir = os.path.join("flaskr", "plugins")
-        plugins = [
-            name
-            for name in os.listdir(plugins_dir)
-            if Path(os.path.join(plugins_dir, name)).is_dir()
-        ]
+        plugins = [path.name for path in Path(plugins_dir).iterdir() if path.is_dir()]
         for plugin in plugins:
             if plugin == "__pycache__":
                 continue

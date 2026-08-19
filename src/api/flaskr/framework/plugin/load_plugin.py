@@ -23,10 +23,12 @@ def load_plugins_from_dir(
     app.logger.info(f"load modules from: {plugins_dir}")
 
     def load_from_directory(directory, plugin_manager: PluginManager = None):
-        files = os.listdir(directory)
+        files = [path.name for path in Path(directory).iterdir()]
         plugin_obj = None
         if SRC_DIR in files:
-            for filename in os.listdir(os.path.join(directory, SRC_DIR)):
+            for filename in [
+                path.name for path in Path(os.path.join(directory, SRC_DIR)).iterdir()
+            ]:
                 if filename.endswith(".py"):
                     plugin_obj = importlib.import_module(
                         f"{directory}.{SRC_DIR}.{filename[:-3]}".replace(os.sep, ".")
@@ -64,7 +66,7 @@ def load_plugins_from_dir(
                         wrapped_func()
 
     with app.app_context():
-        files = os.listdir(plugins_dir)
+        files = [path.name for path in Path(plugins_dir).iterdir()]
         for file in files:
             if Path(os.path.join(plugins_dir, file)).is_dir():
                 app.logger.info(f"begin load plugin: {file}")

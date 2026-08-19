@@ -218,14 +218,16 @@ def _load_python_translations(app: Flask, translations_dir: Path):
     if not translations_dir.exists():
         return
 
-    for lang in os.listdir(translations_dir):
+    for lang in (path.name for path in translations_dir.iterdir()):
         lang_dir = os.path.join(translations_dir, lang)
         if Path(lang_dir).is_dir() and lang_dir != "__pycache__" and lang_dir[0] != ".":
             app.logger.info("load_python_translations lang: %s", lang)
-            for module_name in os.listdir(lang_dir):
+            for module_name in (path.name for path in Path(lang_dir).iterdir()):
                 module_path = os.path.join(lang_dir, module_name)
                 if Path(module_path).is_dir():
-                    for file_name in os.listdir(module_path):
+                    for file_name in (
+                        path.name for path in Path(module_path).iterdir()
+                    ):
                         if file_name.endswith(".py"):
                             file_path = os.path.join(module_path, file_name)
                             spec = importlib.util.spec_from_file_location(
