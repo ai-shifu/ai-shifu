@@ -197,6 +197,7 @@ select = [
     "UP006", # List[T] to list[T]
     "PTH109", # os.getcwd to Path.cwd
     "PTH107", # os.remove to Path.unlink
+    "PTH106", # os.rmdir to Path.rmdir
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
