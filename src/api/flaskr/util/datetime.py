@@ -5,7 +5,7 @@ from flask import Flask
 
 
 def now_utc() -> datetime:
-    """Current UTC time as a naive datetime.
+    """Return the current UTC time as a naive datetime.
 
     The database stores UTC. Returning a naive (tz-unaware) value keeps the
     same semantics as ``datetime.utcnow()`` used elsewhere, so it can be

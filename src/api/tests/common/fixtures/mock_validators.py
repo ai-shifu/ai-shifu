@@ -21,12 +21,12 @@ def mock_email_validator(value):
 
 
 def always_fail_validator(value):
-    """Validator that always fails (for testing)."""
+    """Fail validation always (test helper)."""
     return False
 
 
 def always_pass_validator(value):
-    """Validator that always passes (for testing)."""
+    """Pass validation always (test helper)."""
     return True
 
 

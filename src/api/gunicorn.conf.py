@@ -7,7 +7,7 @@ import sys
 
 
 def _gevent_worker_requested(argv) -> bool:
-    """True when the command line selects the gevent worker class.
+    """Report whether the command line selects the gevent worker class.
 
     Monkey-patching must match the worker class. The production deployment
     runs ``-k gthread``; patching gevent onto gthread workers turns their

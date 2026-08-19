@@ -53,5 +53,5 @@ def registered_providers() -> Iterable[str]:
 
 
 def clear_providers() -> None:
-    """Utility for tests to reset the provider registry."""
+    """Reset the provider registry (test helper)."""
     _REGISTRY.clear()

@@ -37,7 +37,7 @@ ERR_INVALID_LIMIT = "server.creatorAnalytics.invalidLimit"
 
 
 def _translation_keys_used() -> None:
-    """Static registry consumed by the translation-usage checker.
+    """Return the static registry consumed by the translation-usage checker.
 
     Never invoked at runtime — translation keys are referenced through the
     ERR_* constants above. Listing them as literal `_()` calls inside an
