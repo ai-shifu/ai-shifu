@@ -33,8 +33,7 @@
 #   callbacks, fixtures and test doubles.
 # - TD003 / FIX002: the remaining TODOs have no tracking issue to link, and
 #   inventing one (or downgrading the comment) would hide real pending work.
-# - N806 / N815: local CamelCase bindings and camelCase DTO attributes are
-#   still widespread; N815 in particular encodes serialized JSON field names.
+# - N815: camelCase DTO attributes encode serialized JSON field names.
 
 # Matches the Python pinned by src/api/Dockerfile and the CI workflows.
 target-version = "py311"
@@ -114,8 +113,9 @@ select = [
     "ARG004",  # unused staticmethod argument
     "A001",    # local variable shadowing a builtin
     "A006",    # lambda argument shadowing a builtin
-    # pep8-naming is partial: N806/N815 stay off (see the header above).
+    # pep8-naming is partial: N815 stays off (see the header above).
     "N801",    # class name that is not CapWords
+    "N806",    # local variable that is not lowercase
     "N802",    # function name that is not lowercase
     "N803",    # argument name that is not lowercase
     "N813",    # CamelCase imported under a lowercase alias
@@ -210,6 +210,12 @@ ignore = [
 # out to `git`, `node` and `python` with statically built argument lists, so the
 # subprocess audit rules only add noise there.
 "src/api/tests/**" = ["S101", "S603", "S607"]
+# These suites bind SQLAlchemy model classes and session factories to local
+# names, where the CapWords spelling is the point.
+"src/api/tests/service/shifu/test_archive.py" = ["N806"]
+"src/api/tests/service/shifu/test_mdflow_history_routes.py" = ["N806"]
+"src/api/tests/service/shifu/test_permissions.py" = ["N806"]
+"src/api/tests/service/billing/test_renewal_uow_failure_paths.py" = ["N806"]
 "src/api/conftest.py" = ["S101"]
 "scripts/test_*.py" = ["S101"]
 "scripts/check_example_identifiers.py" = ["S101"]

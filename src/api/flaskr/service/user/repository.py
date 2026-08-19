@@ -282,7 +282,7 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
             VariableValue,  # type: ignore[import-not-found]
         )
     except ImportError:  # pragma: no cover - defensive fallback
-        VariableValue = None  # type: ignore[assignment]
+        VariableValue = None  # type: ignore[assignment]  # noqa: N806 - keeps the imported class name
 
     rows = []
     if VariableValue is not None:

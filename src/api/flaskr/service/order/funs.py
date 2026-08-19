@@ -191,7 +191,7 @@ def send_order_feishu(app: Flask, record_id: str):
     if not shifu_info:
         return
 
-    _CHANNEL_LABEL = {
+    channel_labels = {
         "pingxx": "用户购买 (Pingxx)",
         "stripe": "用户购买 (Stripe)",
         "alipay": "用户购买 (支付宝)",
@@ -206,7 +206,7 @@ def send_order_feishu(app: Flask, record_id: str):
     msgs.append(f"课程名称：{shifu_info.title}")
     msgs.append(f"实付金额：{order_info.price}")
     channel = getattr(order_info, "payment_channel", "") or ""
-    source_label = _CHANNEL_LABEL.get(channel, channel or "未知")
+    source_label = channel_labels.get(channel, channel or "未知")
     msgs.append(f"订单来源：{source_label}")
     user_convertion = UserConversion.query.filter(
         UserConversion.user_id == order_info.user_id

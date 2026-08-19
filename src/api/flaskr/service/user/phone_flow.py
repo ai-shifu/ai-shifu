@@ -241,12 +241,13 @@ def init_first_course(app: Flask, user_id: str) -> bool:
         creator_granted_now = not bool(verified_users[0].is_creator)
         mark_user_roles(user_id, is_creator=True, is_operator=True)
 
-        ShifuModel: PublishedShifu | DraftShifu = PublishedShifu
+        # Holds a model class, so it keeps the CapWords spelling.
+        ShifuModel: PublishedShifu | DraftShifu = PublishedShifu  # noqa: N806
         # Assign demo shifu only when there is exactly one published course
         course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
         if course_count == 0:
             course_count = DraftShifu.query.filter(DraftShifu.deleted == 0).count()
-            ShifuModel = DraftShifu
+            ShifuModel = DraftShifu  # noqa: N806
         if course_count != 1:
             db.session.flush()
             return creator_granted_now
