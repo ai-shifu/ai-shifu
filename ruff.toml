@@ -125,7 +125,7 @@ select = [
     # D212 stays explicit: the D21 prefix also enables the mutually exclusive
     # D213, which ruff then warns about and ignores.
     "D212",    # multi-line docstring summary not on the first line
-    "D3",      # docstring with backslashes that is not raw
+    "D3",      # docstring quote style (D300) and non-raw backslashes (D301)
     "D401",    # docstring first line not in imperative mood
     "D403",    # first word of a docstring not capitalized
     "D411",    # missing blank line before section
