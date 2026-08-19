@@ -1,9 +1,13 @@
 name: Lint
 
 # Replaces the pre-commit.ci PR check, mirroring its behaviour:
-#   - auto-fixable issues are fixed and pushed back to the PR branch as a commit
+#   - auto-fixable issues are fixed and exported as a patch artifact, which the
+#     trusted lint-autofix-push.yml workflow commits back to the PR branch
 #   - issues that cannot be auto-fixed (ruff E722, invalid YAML/JSON, merge
 #     markers, hardcoded CJK in backend) fail the run.
+#
+# This job runs pull-request-controlled tooling (npm ci, linters), so it never
+# holds a write-capable token; see lint-autofix-push.yml.
 #
 # Scope: only the checks NOT already enforced by another workflow. Prettier has
 # prettier-check.yml, the repo-harness scripts have repo-harness.yml, and the
@@ -30,9 +34,10 @@ concurrency:
 jobs:
   autofix:
     runs-on: ubuntu-latest
-    # Only this job pushes the auto-fix commit back to the PR branch.
+    # This job installs and runs pull-request-controlled tooling, so it stays
+    # read-only. The patch it produces is pushed by lint-autofix-push.yml.
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: Check out PR branch
         uses: actions/checkout@v6
@@ -42,10 +47,8 @@ jobs:
           # the default PR merge ref (read-only; fork fixes are never pushed).
           ref: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || '' }}
           fetch-depth: 0
-          # Do not leave the write-capable token in .git/config while
-          # PR-controlled tooling (npm ci, linters) runs. The push step
-          # supplies it explicitly. The repo is public, so the base fetch
-          # below needs no credentials.
+          # Nothing here needs credentials: the repo is public and the auto-fix
+          # commit is pushed by a separate trusted workflow.
           persist-credentials: false
 
       - name: Set up Python
@@ -93,10 +96,10 @@ jobs:
           [ -n "$cwlint" ] && { (cd src/cook-web && npm run lint-file -- $cwlint) || true; }
           true
 
-      - name: Apply auto-fixes (push on same-repo PRs; fail forks that need fixes)
+      - name: Export auto-fixes as a patch (fail forks that need fixes)
+        id: patch
         env:
-          HEAD_REF: ${{ github.head_ref }}
-          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
           if [ -z "$(git status --porcelain)" ]; then
@@ -104,21 +107,23 @@ jobs:
             exit 0
           fi
           echo "Auto-fixable changes detected:"; git --no-pager diff --stat
-          if [ "$SAME_REPO" = "true" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -A
-            git commit -m "style: auto-fix from lint hooks"
-            # Token supplied only here (branch name via env, never expanded in shell).
-            # git-over-HTTPS on GitHub only accepts basic auth; a bearer header
-            # is answered with 401 and git then falls back to prompting.
-            auth=$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 -w0)
-            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${auth}" \
-              push origin "HEAD:${HEAD_REF}"
-          else
+          if [ "$SAME_REPO" != "true" ]; then
             echo "::error::Auto-fixable lint issues found on a fork PR (cannot push fixes). Run 'lefthook run pre-commit --all-files' locally and push the result."
             exit 1
           fi
+          mkdir -p /tmp/autofix
+          git add -A
+          git diff --cached --binary > /tmp/autofix/autofix.patch
+          printf '%s\n' "$HEAD_SHA" > /tmp/autofix/head_sha
+          echo "has-patch=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload auto-fix patch
+        if: steps.patch.outputs.has-patch == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-autofix
+          path: /tmp/autofix
+          retention-days: 1
 
       - name: Hard-fail checks (on the now-fixed tree)
         run: |
