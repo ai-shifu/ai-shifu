@@ -1556,12 +1556,12 @@ class RunScriptContextV2:
     _shifu_ids: list[str]
     _run_type: RunType
     _app: Flask
-    _shifu_model: Union[DraftShifu, PublishedShifu]
-    _outline_model: Union[DraftOutlineItem, PublishedOutlineItem]
+    _shifu_model: DraftShifu | PublishedShifu
+    _outline_model: DraftOutlineItem | PublishedOutlineItem
     _trace_args: dict
     _trace_id: str
     _shifu_info: ShifuInfoDto
-    _trace: Union[LangfuseTraceHandle, MockClient]
+    _trace: LangfuseTraceHandle | MockClient
     _trace_root_span: Any
     _input_type: str
     _input: str
@@ -1948,7 +1948,7 @@ class RunScriptContextV2:
             .first()
         )
         if not attend_info:
-            outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
+            outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
                 self._outline_model.query.filter(
                     self._outline_model.outline_item_bid == outline_bid,
                     self._outline_model.deleted == 0,
@@ -3591,15 +3591,15 @@ class RunScriptContextV2:
         path = list(reversed(path))
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]
-        outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
+        outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
             self._outline_model.query.filter(
                 self._outline_model.id.in_(outline_ids),
                 self._outline_model.deleted == 0,
             ).all()
         )
-        outline_item_info_map: dict[
-            str, Union[DraftOutlineItem, PublishedOutlineItem]
-        ] = {o.id: o for o in outline_item_info_db}
+        outline_item_info_map: dict[str, DraftOutlineItem | PublishedOutlineItem] = {
+            o.id: o for o in outline_item_info_db
+        }
         course_prompt: str | None = None
         for id in outline_ids:
             outline_item_info = outline_item_info_map.get(id)
@@ -3615,7 +3615,7 @@ class RunScriptContextV2:
                 break
 
         if not course_prompt:
-            shifu_info_db: Union[DraftShifu, PublishedShifu] = (
+            shifu_info_db: DraftShifu | PublishedShifu = (
                 self._shifu_model.query.filter(
                     self._shifu_model.id.in_(shifu_ids),
                     self._shifu_model.deleted == 0,
@@ -3638,7 +3638,7 @@ class RunScriptContextV2:
         path.reverse()
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]
-        outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
+        outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
             self._outline_model.query.filter(
                 self._outline_model.id.in_(outline_ids),
                 self._outline_model.deleted == 0,
@@ -3652,12 +3652,10 @@ class RunScriptContextV2:
                     model=outline_item_info.llm,
                     temperature=outline_item_info.llm_temperature,
                 )
-        shifu_info_db: Union[DraftShifu, PublishedShifu] = (
-            self._shifu_model.query.filter(
-                self._shifu_model.id.in_(shifu_ids),
-                self._shifu_model.deleted == 0,
-            ).first()
-        )
+        shifu_info_db: DraftShifu | PublishedShifu = self._shifu_model.query.filter(
+            self._shifu_model.id.in_(shifu_ids),
+            self._shifu_model.deleted == 0,
+        ).first()
         if shifu_info_db and shifu_info_db.llm:
             return LLMSettings(
                 model=shifu_info_db.llm, temperature=shifu_info_db.llm_temperature

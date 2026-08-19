@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 
 import requests
 
@@ -98,7 +98,7 @@ class ProviderConfig:
     model_loader: Optional[
         Callable[
             ["ProviderConfig", Dict[str, str], Optional[str]],
-            List[Union[str, Tuple[str, str]]],
+            List[str | Tuple[str, str]],
         ]
     ] = None
     reload_params: Optional[Callable[[str, float], Dict[str, Any]]] = None
@@ -327,7 +327,7 @@ def _load_and_register_model_max_output_tokens() -> Dict[str, int]:
 
 
 def _register_provider_models(
-    config: ProviderConfig, raw_models: List[Union[str, Tuple[str, str]]]
+    config: ProviderConfig, raw_models: List[str | Tuple[str, str]]
 ) -> List[str]:
     seen = set()
     display_models: List[str] = []
@@ -381,7 +381,7 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     if config.model_loader:
         raw_models = config.model_loader(config, params, base_url)
     else:
-        raw_models: List[Union[str, Tuple[str, str]]] = list(config.static_models)
+        raw_models: List[str | Tuple[str, str]] = list(config.static_models)
         if config.fetch_models:
             try:
                 fetched_models = _fetch_provider_models(api_key, base_url)
@@ -585,8 +585,8 @@ def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
 
 def _load_gemini_models(
     config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
-) -> List[Union[str, Tuple[str, str]]]:
-    models: List[Union[str, Tuple[str, str]]] = []
+) -> List[str | Tuple[str, str]]:
+    models: List[str | Tuple[str, str]] = []
     api_key = params.get("api_key")
     if not api_key:
         return models
@@ -622,7 +622,7 @@ def _load_gemini_models(
 
 def _load_deepseek_models(
     config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
-) -> List[Union[str, Tuple[str, str]]]:
+) -> List[str | Tuple[str, str]]:
     api_key = params.get("api_key", "")
     try:
         return _fetch_provider_models(api_key, base_url)
@@ -991,7 +991,7 @@ def invoke_llm(
     json: bool = False,
     generation_name: str = "invoke_llm",
     usage_context: Optional[UsageContext] = None,
-    usage_scene: Optional[Union[str, int]] = None,
+    usage_scene: Optional[str | int] = None,
     billable: Optional[int] = None,
     request_id: Optional[str] = None,
     trace_id: Optional[str] = None,
@@ -1174,7 +1174,7 @@ def chat_llm(
     json: bool = False,
     generation_name: str = "user_follow_ask",
     usage_context: Optional[UsageContext] = None,
-    usage_scene: Optional[Union[str, int]] = None,
+    usage_scene: Optional[str | int] = None,
     billable: Optional[int] = None,
     request_id: Optional[str] = None,
     trace_id: Optional[str] = None,

@@ -31,7 +31,7 @@ PR3 scope notes (mirroring the emitter's PR1 conventions):
 """
 
 import queue
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common import raise_error
@@ -352,7 +352,7 @@ class RunStateResolver:
                     q.put(child)
         return outline_struct
 
-    def get_outline_row_id(self, outline_item_bid: str) -> Union[int, None]:
+    def get_outline_row_id(self, outline_item_bid: str) -> int | None:
         ctx = self._context
         if not outline_item_bid:
             return None
