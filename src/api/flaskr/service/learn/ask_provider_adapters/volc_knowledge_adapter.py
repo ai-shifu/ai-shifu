@@ -37,10 +37,7 @@ def _normalize_query(params: dict[str, Any] | None) -> str:
     encoded_parts: list[str] = []
     for key in sorted(params.keys()):
         value = params[key]
-        if isinstance(value, list):
-            values = value
-        else:
-            values = [value]
+        values = value if isinstance(value, list) else [value]
         for item in values:
             item_text = "" if item is None else str(item)
             encoded_parts.append(

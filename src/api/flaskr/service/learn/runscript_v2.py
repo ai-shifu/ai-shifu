@@ -378,10 +378,7 @@ def run_script_inner(
                     .order_by(Order.id.desc())
                     .first()
                 )
-                if not success_buy_record:
-                    is_paid = False
-                else:
-                    is_paid = True
+                is_paid = bool(success_buy_record)
             else:
                 is_paid = True
 
