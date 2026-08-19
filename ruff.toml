@@ -118,6 +118,7 @@ select = [
     "RET",     # flake8-return (explicit, non-redundant return statements)
     "RSE",     # unnecessary parentheses on a raised exception
     "RUF005",  # list concatenation that should be unpacking
+    "RUF006",  # asyncio.create_task result that is never stored
     "RUF007",  # zip of a list and its own tail
     "RUF010",  # explicit str()/repr() call inside an f-string
     "RUF013",  # implicit Optional annotation

@@ -55,6 +55,8 @@ logger = logging.getLogger(__name__)
 # specific case where a loop is already running, we fall back to scheduling
 # the coroutine on the existing loop instead of raising.
 _original_asyncio_run = asyncio.run
+# Strong references so fire-and-forget tasks are not garbage-collected mid-run.
+_background_asyncio_tasks: set[asyncio.Task] = set()
 
 
 def _safe_asyncio_run(coro, *args, **kwargs):
@@ -67,7 +69,9 @@ def _safe_asyncio_run(coro, *args, **kwargs):
             raise
         loop = asyncio.get_running_loop()
         try:
-            loop.create_task(coro)
+            task = loop.create_task(coro)
+            _background_asyncio_tasks.add(task)
+            task.add_done_callback(_background_asyncio_tasks.discard)
         except Exception:
             # If even scheduling fails, swallow the error so logging/caching
             # failures do not break the main application.
