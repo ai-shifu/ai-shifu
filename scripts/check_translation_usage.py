@@ -9,7 +9,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, Set
+from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
@@ -53,9 +53,9 @@ USE_TRANSLATION_ALIAS_PATTERN = re.compile(
 )
 
 
-def collect_frontend_namespaced_keys(text: str) -> Set[str]:
-    used: Set[str] = set()
-    alias_declarations: Dict[str, list[tuple[int, str]]] = {}
+def collect_frontend_namespaced_keys(text: str) -> set[str]:
+    used: set[str] = set()
+    alias_declarations: dict[str, list[tuple[int, str]]] = {}
 
     for match in USE_TRANSLATION_ALIAS_PATTERN.finditer(text):
         alias = match.group(1) or "t"
@@ -84,8 +84,8 @@ def collect_frontend_namespaced_keys(text: str) -> Set[str]:
     return used
 
 
-def collect_frontend_trans_keys(text: str) -> Set[str]:
-    used: Set[str] = set()
+def collect_frontend_trans_keys(text: str) -> set[str]:
+    used: set[str] = set()
     direct_key_pattern = re.compile(
         r"i18nKey\s*=\s*['\"]([A-Za-z0-9_.-]+)['\"]",
         re.DOTALL,
@@ -120,9 +120,9 @@ def iter_locale_dirs() -> Iterable[Path]:
             yield entry
 
 
-def flatten_translation(data, namespace: str) -> Dict[str, str]:
+def flatten_translation(data, namespace: str) -> dict[str, str]:
     if isinstance(data, dict):
-        items: Dict[str, str] = {}
+        items: dict[str, str] = {}
         flat_section = data.get("__flat__")
         if isinstance(flat_section, dict):
             for key, value in flat_section.items():
@@ -141,12 +141,12 @@ def flatten_translation(data, namespace: str) -> Dict[str, str]:
     return {namespace: data}
 
 
-def collect_defined_keys() -> Set[str]:
+def collect_defined_keys() -> set[str]:
     locale_dirs = list(iter_locale_dirs())
     if not locale_dirs:
         return set()
     reference_locale = locale_dirs[0]
-    defined: Set[str] = set()
+    defined: set[str] = set()
     for file_path in reference_locale.rglob("*.json"):
         rel = file_path.relative_to(reference_locale)
         namespace = str(rel.with_suffix("")).replace("/", ".")
@@ -161,8 +161,8 @@ def collect_defined_keys() -> Set[str]:
     return defined
 
 
-def load_metadata_namespaces() -> Set[str]:
-    namespaces: Set[str] = set()
+def load_metadata_namespaces() -> set[str]:
+    namespaces: set[str] = set()
     meta = I18N_DIR / "locales.json"
     if not meta.exists():
         return namespaces
@@ -176,9 +176,9 @@ def load_metadata_namespaces() -> Set[str]:
     return namespaces
 
 
-def collect_backend_keys() -> Set[str]:
+def collect_backend_keys() -> set[str]:
     patterns = BACKEND_PATTERNS
-    used: Set[str] = set()
+    used: set[str] = set()
     for file_path in BACKEND_DIR.rglob("*.py"):
         if file_path.suffix != ".py":
             continue
@@ -227,9 +227,9 @@ def collect_backend_keys() -> Set[str]:
     return used
 
 
-def collect_frontend_keys() -> Set[str]:
+def collect_frontend_keys() -> set[str]:
     patterns = FRONTEND_PATTERNS
-    used: Set[str] = set()
+    used: set[str] = set()
     extensions = (".ts", ".tsx", ".js", ".jsx")
     for root in (COOK_WEB_DIR, WEB_DIR):
         if not root.exists():
@@ -283,7 +283,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_allowlist(path: Path | None) -> Set[str]:
+def load_allowlist(path: Path | None) -> set[str]:
     if not path:
         return set()
 
@@ -294,7 +294,7 @@ def load_allowlist(path: Path | None) -> Set[str]:
             print(f"Allowlist file not found, treating as empty: {path}")
         return set()
 
-    allowed: Set[str] = set()
+    allowed: set[str] = set()
     for line in path.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
@@ -307,7 +307,7 @@ def main() -> int:
     args = parse_args()
     defined_primary = collect_defined_keys()
     # Aliases for missing-key comparison only
-    aliases: Set[str] = set()
+    aliases: set[str] = set()
     for key in list(defined_primary):
         if key.startswith("module.backend."):
             aliases.add("server." + key[len("module.backend.") :])
@@ -363,7 +363,7 @@ def main() -> int:
     allowed_unused = [key for key in unused_keys_all if key in allowlist]
     missing_allow = load_allowlist(args.missing_allowlist)
     # Expand allowlist with alias keys to stabilize migration (server.* <-> module.backend.*)
-    missing_allow_expanded: Set[str] = set(missing_allow)
+    missing_allow_expanded: set[str] = set(missing_allow)
     for key in list(missing_allow):
         if key.startswith("module.backend."):
             missing_allow_expanded.add("server." + key[len("module.backend.") :])

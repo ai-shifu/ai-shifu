@@ -9,7 +9,6 @@ API Reference:
 """
 
 import logging
-from typing import List
 
 import requests
 
@@ -1224,7 +1223,7 @@ class AliyunTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> List[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return ALIYUN_VOICES
 

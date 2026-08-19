@@ -10,7 +10,6 @@ API Reference:
 import hashlib
 import logging
 import time
-from typing import List
 
 import requests
 
@@ -770,7 +769,7 @@ class BaiduTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> List[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return BAIDU_VOICES
 

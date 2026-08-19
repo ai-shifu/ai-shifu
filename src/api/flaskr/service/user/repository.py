@@ -7,7 +7,7 @@ import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from flask import Flask
 from flaskr.dao import (
@@ -63,7 +63,7 @@ class CredentialSummary:
     subject_id: str
     subject_format: str
     state: int
-    metadata: Dict[str, str | None] = field(default_factory=dict)
+    metadata: dict[str, str | None] = field(default_factory=dict)
 
     @property
     def is_verified(self) -> bool:
@@ -85,7 +85,7 @@ class UserAggregate:
     created_at: datetime
     creator_activated_at: datetime | None
     updated_at: datetime
-    credentials: List[CredentialSummary] = field(default_factory=list)
+    credentials: list[CredentialSummary] = field(default_factory=list)
     is_creator: bool = False
     is_operator: bool = False
 
@@ -214,9 +214,9 @@ def _normalize_identifier(provider: str, identifier: str | None) -> str:
 
 
 def _summarize_credentials(
-    credentials: List[AuthCredential],
-) -> List[CredentialSummary]:
-    summaries: List[CredentialSummary] = []
+    credentials: list[AuthCredential],
+) -> list[CredentialSummary]:
+    summaries: list[CredentialSummary] = []
     for credential in credentials:
         summaries.append(
             CredentialSummary(
@@ -235,7 +235,7 @@ def _summarize_credentials(
 def _build_user_aggregate(
     entity: UserEntity,
     *,
-    credentials: List[AuthCredential] | None = None,
+    credentials: list[AuthCredential] | None = None,
 ) -> UserAggregate:
     summaries = _summarize_credentials(credentials or [])
     return UserAggregate(
@@ -335,7 +335,7 @@ def load_user_aggregate(
     entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
     if not entity:
         return None
-    credentials: List[AuthCredential] = []
+    credentials: list[AuthCredential] = []
     if with_credentials:
         credentials = list_credentials(user_bid=user_bid)
     return _build_user_aggregate(entity, credentials=credentials)
@@ -344,7 +344,7 @@ def load_user_aggregate(
 def load_user_aggregate_by_identifier(
     identifier: str,
     *,
-    providers: List[str] | None = None,
+    providers: list[str] | None = None,
 ) -> UserAggregate | None:
     normalized = identifier.strip() if identifier else ""
     if not normalized:
@@ -395,8 +395,8 @@ def ensure_user_aggregate(
     app: Flask,
     *,
     user_bid: str,
-    defaults: Dict[str, Any] | None = None,
-) -> Tuple[UserAggregate, bool]:
+    defaults: dict[str, Any] | None = None,
+) -> tuple[UserAggregate, bool]:
     """Ensure a user aggregate exists for ``user_bid``.
 
     Returns the aggregate together with a flag indicating whether it was created.
@@ -416,8 +416,8 @@ def ensure_user_for_identifier(
     *,
     provider: str,
     identifier: str,
-    defaults: Dict[str, Any] | None = None,
-) -> Tuple[UserAggregate, bool]:
+    defaults: dict[str, Any] | None = None,
+) -> tuple[UserAggregate, bool]:
     """Find or create a user aggregate bound to a provider identifier."""
     defaults = defaults or {}
     normalized = _normalize_identifier(provider, identifier)
@@ -545,8 +545,8 @@ def update_user_entity_fields(
 def upsert_user_entity(
     *,
     user_bid: str,
-    defaults: Dict[str, Any] | None = None,
-) -> Tuple[UserEntity, bool]:
+    defaults: dict[str, Any] | None = None,
+) -> tuple[UserEntity, bool]:
     defaults = dict(defaults or {})
     entity = get_user_entity_by_bid(user_bid, include_deleted=True)
     created = False
@@ -617,10 +617,10 @@ def _normalize_user_state(raw_state) -> int:
 @dataclass
 class UserProfileSnapshot:
     user_bid: str
-    legacy: Dict[str, Any] = field(default_factory=dict)
-    credentials: List[Dict[str, str | None]] = field(default_factory=list)
+    legacy: dict[str, Any] = field(default_factory=dict)
+    credentials: list[dict[str, str | None]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "user_bid": self.user_bid,
             "legacy": self.legacy,
@@ -664,13 +664,13 @@ def build_user_profile_snapshot_from_aggregate(
     )
 
 
-def serialize_raw_profile(provider_name: str, metadata: Dict[str, str | None]) -> str:
+def serialize_raw_profile(provider_name: str, metadata: dict[str, str | None]) -> str:
     return json.dumps(
         {"provider": provider_name, "metadata": metadata}, ensure_ascii=False
     )
 
 
-def deserialize_raw_profile(record: AuthCredential) -> Dict[str, str | None]:
+def deserialize_raw_profile(record: AuthCredential) -> dict[str, str | None]:
     if not record.raw_profile:
         return {}
     try:
@@ -693,7 +693,7 @@ def get_password_hash(credential: AuthCredential) -> str:
 
 def set_password_hash(credential: AuthCredential, password_hash: str) -> None:
     """Write password_hash into raw_profile JSON, preserving other fields."""
-    payload: Dict[str, Any] = {}
+    payload: dict[str, Any] = {}
     if credential.raw_profile:
         try:
             payload = json.loads(credential.raw_profile)
@@ -713,7 +713,7 @@ def upsert_credential(
     subject_id: str,
     subject_format: str,
     identifier: str,
-    metadata: Dict[str, str | None],
+    metadata: dict[str, str | None],
     verified: bool,
 ) -> AuthCredential:
     raw_identifier = (identifier or "").strip()
@@ -780,7 +780,7 @@ def find_credential(
 
 def list_credentials(
     *, user_bid: str, provider_name: str | None = None
-) -> List[AuthCredential]:
+) -> list[AuthCredential]:
     query = AuthCredential.query.filter_by(user_bid=user_bid, deleted=0)
     if provider_name:
         query = query.filter_by(provider_name=provider_name)
@@ -811,11 +811,11 @@ def upsert_wechat_credentials(
     union_id: str | None,
     open_identifier: str | None = None,
     union_identifier: str | None = None,
-    metadata: Dict[str, str | None] | None = None,
+    metadata: dict[str, str | None] | None = None,
     verified: bool = True,
-) -> List[AuthCredential]:
+) -> list[AuthCredential]:
     metadata = metadata or {}
-    credentials: List[AuthCredential] = []
+    credentials: list[AuthCredential] = []
 
     if open_id:
         credentials.append(

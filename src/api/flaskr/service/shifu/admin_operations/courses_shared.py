@@ -9,7 +9,7 @@ import re
 import sys
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Dict, Iterable, Sequence, Set
+from typing import Any, Iterable, Sequence
 
 from flask import current_app
 from flaskr.dao import db
@@ -357,7 +357,7 @@ def _format_average_score(value: Decimal | None) -> str:
     return f"{value:.1f}"
 
 
-def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
+def _normalize_metadata_json(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     return {}
@@ -365,7 +365,7 @@ def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
 
 def _load_course_user_contact_map(
     user_bids: Sequence[str],
-) -> Dict[str, Dict[str, str]]:
+) -> dict[str, dict[str, str]]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -383,7 +383,7 @@ def _load_course_user_contact_map(
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    contact_map: Dict[str, Dict[str, str]] = {
+    contact_map: dict[str, dict[str, str]] = {
         user_bid: {"mobile": "", "email": ""} for user_bid in normalized_user_bids
     }
     for credential in credential_rows:
@@ -426,7 +426,7 @@ def _load_course_user_contact_map(
     return contact_map
 
 
-def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
+def _load_user_map(user_bids: Sequence[str]) -> dict[str, dict[str, str]]:
     if not user_bids:
         return {}
 
@@ -439,8 +439,8 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    phone_map: Dict[str, str] = {}
-    email_map: Dict[str, str] = {}
+    phone_map: dict[str, str] = {}
+    email_map: dict[str, str] = {}
     for credential in credentials:
         user_bid = credential.user_bid or ""
         if not user_bid:
@@ -461,7 +461,7 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
         .order_by(UserEntity.id.asc())
         .all()
     )
-    user_map: Dict[str, Dict[str, str]] = {}
+    user_map: dict[str, dict[str, str]] = {}
     for user in users:
         mobile = phone_map.get(user.user_bid, "")
         email = email_map.get(user.user_bid, "")
@@ -514,7 +514,7 @@ def _build_course_order_amount_expr():
     )
 
 
-def _find_matching_creator_bids(keyword: str) -> Set[str] | None:
+def _find_matching_creator_bids(keyword: str) -> set[str] | None:
     normalized = _normalize_identifier(keyword)
     if not normalized:
         return None
@@ -551,7 +551,7 @@ def _find_matching_creator_bids(keyword: str) -> Set[str] | None:
 
 def _load_operator_user_last_login_map(
     user_bids: Sequence[str],
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]
@@ -590,8 +590,8 @@ def _merge_courses(
     published: Iterable[PublishedShifu],
 ):
     course_map = {}
-    published_bids: Set[str] = set()
-    selected_sources: Dict[str, str] = {}
+    published_bids: set[str] = set()
+    selected_sources: dict[str, str] = {}
     for course in drafts:
         visible = _is_operator_visible_course(course)
         if visible:
@@ -710,8 +710,8 @@ def _load_operator_course_outline_items(
 def _resolve_visible_leaf_outline_bids(
     outline_items: Sequence[DraftOutlineItem | PublishedOutlineItem],
 ) -> list[str]:
-    visible_item_bids: Set[str] = set()
-    visible_parent_bids: Set[str] = set()
+    visible_item_bids: set[str] = set()
+    visible_parent_bids: set[str] = set()
     for item in outline_items:
         outline_item_bid = str(getattr(item, "outline_item_bid", "") or "").strip()
         parent_bid = str(getattr(item, "parent_bid", "") or "").strip()
@@ -725,13 +725,13 @@ def _resolve_visible_leaf_outline_bids(
 
 def _build_course_outline_context_map(
     outline_items: Sequence[DraftOutlineItem | PublishedOutlineItem],
-) -> Dict[str, Dict[str, str]]:
+) -> dict[str, dict[str, str]]:
     outline_item_map = {
         str(getattr(item, "outline_item_bid", "") or "").strip(): item
         for item in outline_items
         if str(getattr(item, "outline_item_bid", "") or "").strip()
     }
-    context_map: Dict[str, Dict[str, str]] = {}
+    context_map: dict[str, dict[str, str]] = {}
 
     for outline_item_bid, item in outline_item_map.items():
         lesson_title = str(getattr(item, "title", "") or "").strip()

@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 import re
 from decimal import Decimal
-from typing import Any, Dict, Sequence
+from typing import Any, Sequence
 
 from flask import Flask
 from flaskr.api.llm import PROVIDER_STATES, get_current_models
@@ -301,8 +301,8 @@ def _build_operator_course_credit_usage_item(
     *,
     usage_row: BillUsageRecord,
     ledger_amount: Any,
-    user_map: Dict[str, Dict[str, Any]],
-    outline_context_map: Dict[str, Dict[str, str]],
+    user_map: dict[str, dict[str, Any]],
+    outline_context_map: dict[str, dict[str, str]],
     group_key: str = "",
     usage_count: int = 1,
     usage_mode: str = "",
@@ -847,7 +847,7 @@ def _build_course_credit_usage_covered_completed_user_subquery(
 def _build_operator_course_credit_metrics(
     shifu_bid: str,
     leaf_outline_bids: Sequence[str],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     base_query = _build_operator_course_credit_usage_base_query(
         shifu_bid,
         outline_item_bids=leaf_outline_bids,
@@ -1379,7 +1379,7 @@ def get_operator_course_credit_usage_details(
 
 def _load_bill_usage_record_map(
     usage_bids: Sequence[str],
-) -> Dict[str, BillUsageRecord]:
+) -> dict[str, BillUsageRecord]:
     normalized_usage_bids = sorted(
         {
             str(usage_bid or "").strip()
@@ -1398,7 +1398,7 @@ def _load_bill_usage_record_map(
         .order_by(BillUsageRecord.id.desc())
         .all()
     )
-    usage_map: Dict[str, BillUsageRecord] = {}
+    usage_map: dict[str, BillUsageRecord] = {}
     for row in rows:
         usage_bid = str(row.usage_bid or "").strip()
         if usage_bid and usage_bid not in usage_map:

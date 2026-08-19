@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from typing import Generator, List
+from typing import Generator
 
 
 class FakeLLMResponse:
@@ -22,7 +22,7 @@ class FakeLLMResponse:
         self.choices = [SimpleNamespace(delta=SimpleNamespace(content=result))]
 
 
-def _stream_chunks(stream: bool) -> List[str]:
+def _stream_chunks(stream: bool) -> list[str]:
     if stream:
         return ["mock-", "llm"]
     return ["mock-llm"]

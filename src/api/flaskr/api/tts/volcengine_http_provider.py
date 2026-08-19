@@ -9,7 +9,6 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import List
 
 import requests
 from requests import Response
@@ -150,7 +149,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> List[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return VOLCENGINE_HTTP_VOICES
 

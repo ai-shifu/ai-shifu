@@ -14,7 +14,7 @@ names registered in ``src/api/error_codes.json``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List, Mapping, Sequence, Tuple
+from typing import Any, Mapping, Sequence
 
 from flaskr.i18n import _
 from flaskr.service.common.models import ERROR_CODE, AppException
@@ -126,15 +126,15 @@ class QueryDSL:
     shifu_bid: str
     table: str
     spec: TableSpec
-    select: Tuple[str, ...]
-    filters: Tuple[Filter, ...]
-    group_by: Tuple[str, ...]
-    aggregates: Tuple[Aggregate, ...]
-    order_by: Tuple[OrderBy, ...]
+    select: tuple[str, ...]
+    filters: tuple[Filter, ...]
+    group_by: tuple[str, ...]
+    aggregates: tuple[Aggregate, ...]
+    order_by: tuple[OrderBy, ...]
     limit: int
     offset: int
 
-    output_columns: Tuple[str, ...] = field(default_factory=tuple)
+    output_columns: tuple[str, ...] = field(default_factory=tuple)
     # Caller's authenticated user_id, threaded from funcs.run_dsl. Consumed
     # by sql_builder when the target TableSpec declares a
     # `creator_scoped_column` (currently the shifu metadata tables).
@@ -227,7 +227,7 @@ def parse_dsl(payload: Any, limit_max: int, user_id: str = "") -> QueryDSL:
 # ---------------------------------------------------------------------------
 
 
-def _parse_select(raw: Any, spec: TableSpec) -> List[str]:
+def _parse_select(raw: Any, spec: TableSpec) -> list[str]:
     if raw is None:
         return []
     if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
@@ -245,7 +245,7 @@ def _parse_select(raw: Any, spec: TableSpec) -> List[str]:
     return list(raw)
 
 
-def _parse_group_by(raw: Any, spec: TableSpec) -> List[str]:
+def _parse_group_by(raw: Any, spec: TableSpec) -> list[str]:
     if raw is None:
         return []
     if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
@@ -261,12 +261,12 @@ def _parse_group_by(raw: Any, spec: TableSpec) -> List[str]:
     return list(raw)
 
 
-def _parse_aggregates(raw: Any, spec: TableSpec) -> List[Aggregate]:
+def _parse_aggregates(raw: Any, spec: TableSpec) -> list[Aggregate]:
     if raw is None:
         return []
     if not isinstance(raw, list):
         _raise(ERR_INVALID_DSL, "'aggregate' must be a list of aggregate objects")
-    aggregates: List[Aggregate] = []
+    aggregates: list[Aggregate] = []
     seen_aliases: set[str] = set()
     for index, item in enumerate(raw):
         if not isinstance(item, Mapping):
@@ -327,12 +327,12 @@ def _parse_aggregates(raw: Any, spec: TableSpec) -> List[Aggregate]:
     return aggregates
 
 
-def _parse_filters(raw: Any, spec: TableSpec) -> List[Filter]:
+def _parse_filters(raw: Any, spec: TableSpec) -> list[Filter]:
     if raw is None:
         return []
     if not isinstance(raw, list):
         _raise(ERR_INVALID_DSL, "'where' must be a list of filter objects")
-    filters: List[Filter] = []
+    filters: list[Filter] = []
     for index, item in enumerate(raw):
         if not isinstance(item, Mapping):
             _raise(ERR_INVALID_DSL, f"where[{index}] must be an object")
@@ -359,13 +359,13 @@ def _parse_order_by(
     select: Sequence[str],
     aggregates: Sequence[Aggregate],
     group_by: Sequence[str],
-) -> List[OrderBy]:
+) -> list[OrderBy]:
     if raw is None:
         return []
     if not isinstance(raw, list):
         _raise(ERR_INVALID_DSL, "'order_by' must be a list")
     allowed_targets = set(select) | set(group_by) | {agg.alias for agg in aggregates}
-    out: List[OrderBy] = []
+    out: list[OrderBy] = []
     for index, item in enumerate(raw):
         if not isinstance(item, Mapping):
             _raise(ERR_INVALID_DSL, f"order_by[{index}] must be an object")
@@ -382,7 +382,7 @@ def _parse_order_by(
     return out
 
 
-def _parse_paging(raw_limit: Any, raw_offset: Any, limit_max: int) -> Tuple[int, int]:
+def _parse_paging(raw_limit: Any, raw_offset: Any, limit_max: int) -> tuple[int, int]:
     limit = raw_limit if raw_limit is not None else min(100, limit_max)
     if not isinstance(limit, int) or isinstance(limit, bool):
         _raise(ERR_INVALID_LIMIT, "'limit' must be an integer")

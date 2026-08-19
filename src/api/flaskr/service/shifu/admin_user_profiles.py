@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, Sequence, Set
+from typing import Any, Sequence
 
 from flaskr.dao import db
 from flaskr.service.common.models import (
@@ -73,7 +73,7 @@ from sqlalchemy import case, or_
 
 def _load_course_user_contact_map(
     user_bids: Sequence[str],
-) -> Dict[str, Dict[str, str]]:
+) -> dict[str, dict[str, str]]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -91,7 +91,7 @@ def _load_course_user_contact_map(
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    contact_map: Dict[str, Dict[str, str]] = {
+    contact_map: dict[str, dict[str, str]] = {
         user_bid: {"mobile": "", "email": ""} for user_bid in normalized_user_bids
     }
     for credential in credential_rows:
@@ -134,7 +134,7 @@ def _load_course_user_contact_map(
     return contact_map
 
 
-def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
+def _load_user_map(user_bids: Sequence[str]) -> dict[str, dict[str, str]]:
     if not user_bids:
         return {}
 
@@ -147,8 +147,8 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    phone_map: Dict[str, str] = {}
-    email_map: Dict[str, str] = {}
+    phone_map: dict[str, str] = {}
+    email_map: dict[str, str] = {}
     for credential in credentials:
         user_bid = credential.user_bid or ""
         if not user_bid:
@@ -169,7 +169,7 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
         .order_by(UserEntity.id.asc())
         .all()
     )
-    user_map: Dict[str, Dict[str, str]] = {}
+    user_map: dict[str, dict[str, str]] = {}
     for user in users:
         mobile = phone_map.get(user.user_bid, "")
         email = email_map.get(user.user_bid, "")
@@ -189,7 +189,7 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
 
 def _load_operator_user_last_login_map(
     user_bids: Sequence[str],
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -252,7 +252,7 @@ def _build_course_order_amount_expr():
     )
 
 
-def _find_matching_creator_bids(keyword: str) -> Set[str] | None:
+def _find_matching_creator_bids(keyword: str) -> set[str] | None:
     normalized = _normalize_identifier(keyword)
     if not normalized:
         return None
@@ -449,7 +449,7 @@ def _build_registered_user_timestamp_subquery():
     )
 
 
-def _load_learner_user_bids(user_bids: Sequence[str] | None = None) -> Set[str]:
+def _load_learner_user_bids(user_bids: Sequence[str] | None = None) -> set[str]:
     learner_subquery = _build_learner_user_bid_subquery()
     query = db.session.query(learner_subquery.c.user_bid)
     normalized_user_bids = [
@@ -501,7 +501,7 @@ def _load_operator_user_registration_source_map(
     *,
     users: Sequence[UserEntity] | None = None,
     credential_rows: Sequence[AuthCredential] | None = None,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]
@@ -517,7 +517,7 @@ def _load_operator_user_registration_source_map(
             int(getattr(credential, "id", 0) or 0),
         ),
     )
-    registration_source_map: Dict[str, str] = {}
+    registration_source_map: dict[str, str] = {}
     for credential in resolved_credential_rows:
         user_bid = str(credential.user_bid or "").strip()
         if not user_bid or user_bid in registration_source_map:
@@ -561,7 +561,7 @@ def _load_operator_user_registration_source_map(
 
 def _load_operator_user_last_login_map(
     user_bids: Sequence[str],
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]
@@ -589,7 +589,7 @@ def _load_operator_user_last_login_map(
 
 def _load_operator_user_total_paid_amount_map(
     user_bids: Sequence[str],
-) -> Dict[str, Decimal]:
+) -> dict[str, Decimal]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]
@@ -621,7 +621,7 @@ def _load_operator_user_total_paid_amount_map(
 
 def _load_operator_user_last_learning_map(
     user_bids: Sequence[str],
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]
@@ -653,7 +653,7 @@ def _load_operator_user_contact_map(
     *,
     users: Sequence[UserEntity] | None = None,
     credential_rows: Sequence[AuthCredential] | None = None,
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     if not user_bids:
         return {}
 
@@ -664,7 +664,7 @@ def _load_operator_user_contact_map(
         key=lambda credential: int(getattr(credential, "id", 0) or 0),
         reverse=True,
     )
-    contact_map: Dict[str, Dict[str, Any]] = {
+    contact_map: dict[str, dict[str, Any]] = {
         user_bid: {"mobile": "", "email": "", "login_methods": []}
         for user_bid in user_bids
     }
@@ -724,7 +724,7 @@ def _load_operator_user_contact_map(
     return contact_map
 
 
-def _find_matching_user_bids_by_identifier(keyword: str) -> Set[str] | None:
+def _find_matching_user_bids_by_identifier(keyword: str) -> set[str] | None:
     normalized = str(keyword or "").strip()
     if not normalized:
         return None
@@ -753,20 +753,20 @@ def _find_matching_user_bids_by_identifier(keyword: str) -> Set[str] | None:
 
 def _build_operator_user_summary(
     user: UserEntity,
-    contact_map: Dict[str, Dict[str, Any]],
-    learner_user_bids: Set[str],
-    registration_source_map: Dict[str, str],
-    last_login_map: Dict[str, datetime],
-    total_paid_amount_map: Dict[str, Decimal],
-    last_learning_map: Dict[str, datetime],
-    credit_summary_map: Dict[str, Dict[str, Any]],
+    contact_map: dict[str, dict[str, Any]],
+    learner_user_bids: set[str],
+    registration_source_map: dict[str, str],
+    last_login_map: dict[str, datetime],
+    total_paid_amount_map: dict[str, Decimal],
+    last_learning_map: dict[str, datetime],
+    credit_summary_map: dict[str, dict[str, Any]],
     *,
-    learning_courses_map: Dict[str, list[AdminOperationUserCourseSummaryDTO]]
+    learning_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]]
     | None = None,
-    created_courses_map: Dict[str, list[AdminOperationUserCourseSummaryDTO]]
+    created_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]]
     | None = None,
-    learning_course_count_map: Dict[str, int] | None = None,
-    created_course_count_map: Dict[str, int] | None = None,
+    learning_course_count_map: dict[str, int] | None = None,
+    created_course_count_map: dict[str, int] | None = None,
 ) -> AdminOperationUserSummaryDTO:
     user_bid = str(user.user_bid or "").strip()
     contact = contact_map.get(user.user_bid or "", {})

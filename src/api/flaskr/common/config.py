@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Type
+from typing import Any, Callable
 
 from flask import Config as FlaskConfig
 from flask import Flask
@@ -21,12 +21,12 @@ class EnvVar:
     required: bool = False  # Whether variable must be explicitly set in environment
     default: Any = None  # Default value if not set (only if required=False)
     example: Any = None  # Optional value to emit in generated example files
-    type: Type = str  # Using Type annotation to avoid conflict
+    type: type = str  # Using Type annotation to avoid conflict
     description: str = ""
     validator: Callable[[Any], bool] | None = None
     secret: bool = False
     group: str = "general"
-    depends_on: List[str] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         """Validate EnvVar configuration after initialization."""
@@ -103,7 +103,7 @@ def _is_valid_rpm_limits_json(value: Any) -> bool:
     return True
 
 
-def parse_llm_model_max_output_tokens(value: Any) -> Dict[str, int]:
+def parse_llm_model_max_output_tokens(value: Any) -> dict[str, int]:
     """Parse a routed model id -> maximum output token JSON map."""
     if value in (None, ""):
         return {}
@@ -117,7 +117,7 @@ def parse_llm_model_max_output_tokens(value: Any) -> Dict[str, int]:
     if not isinstance(candidate, dict):
         raise ValueError("must be a JSON object")
 
-    parsed: Dict[str, int] = {}
+    parsed: dict[str, int] = {}
     for model, max_output_tokens in candidate.items():
         if not isinstance(model, str) or not model.strip():
             raise ValueError("model ids must be non-empty strings")
@@ -143,7 +143,7 @@ def _is_valid_llm_model_max_output_tokens_json(value: Any) -> bool:
 
 
 # Environment variable registry
-ENV_VARS: Dict[str, EnvVar] = {
+ENV_VARS: dict[str, EnvVar] = {
     # Application Configuration
     "LOGGING_PATH": EnvVar(
         name="LOGGING_PATH",
@@ -1752,7 +1752,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
 }
 
 # Derived Redis prefixes built from REDIS_KEY_PREFIX
-REDIS_KEY_SUFFIXES: Dict[str, str] = {
+REDIS_KEY_SUFFIXES: dict[str, str] = {
     "REDIS_KEY_PREFIX_USER": "user:",
     "REDIS_KEY_PREFIX_RESET_PWD": "reset_pwd:",
     "REDIS_KEY_PREFIX_PHONE": "phone:",
@@ -1770,9 +1770,9 @@ REDIS_KEY_SUFFIXES: Dict[str, str] = {
 class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
-    def __init__(self, env_vars: Dict[str, EnvVar]):
+    def __init__(self, env_vars: dict[str, EnvVar]):
         self.env_vars = env_vars
-        self._cache: Dict[str, Any] = {}
+        self._cache: dict[str, Any] = {}
         self._validated = False
 
     def validate_environment(self, allow_conversion_errors: bool = False) -> None:
@@ -1909,7 +1909,7 @@ class EnhancedConfig:
         except (TypeError, ValueError):
             return 0.0
 
-    def get_list(self, key: str) -> List[str]:
+    def get_list(self, key: str) -> list[str]:
         """Get list configuration value (comma-separated)."""
         value = self.get(key)
         if value is None:
@@ -2197,7 +2197,7 @@ class Config(FlaskConfig):
         """Get float configuration value."""
         return self.enhanced.get_float(key)
 
-    def get_list(self, key: str) -> List[str]:
+    def get_list(self, key: str) -> list[str]:
         """Get list configuration value."""
         return self.enhanced.get_list(key)
 

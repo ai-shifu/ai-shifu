@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import secrets
 import time
-from typing import Any, Dict
+from typing import Any
 
 import jwt
 from authlib.integrations.requests_client import OAuth2Session
@@ -45,7 +45,7 @@ USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
 STATE_TTL = 900
 
 
-def _encode_state(app, payload: Dict[str, Any]) -> str:
+def _encode_state(app, payload: dict[str, Any]) -> str:
     now = int(time.time())
     return jwt.encode(
         {
@@ -59,7 +59,7 @@ def _encode_state(app, payload: Dict[str, Any]) -> str:
     )
 
 
-def _decode_state(app, state: str) -> Dict[str, Any] | None:
+def _decode_state(app, state: str) -> dict[str, Any] | None:
     try:
         decoded = jwt.decode(state, app.config["SECRET_KEY"], algorithms=["HS256"])
     except jwt.exceptions.ExpiredSignatureError:
@@ -130,7 +130,7 @@ class GoogleAuthProvider(AuthProvider):
             redirect_uri=redirect_uri,
         )
 
-    def begin_oauth(self, app, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    def begin_oauth(self, app, metadata: dict[str, Any]) -> dict[str, Any]:
         redirect_uri = _resolve_redirect_uri(app, metadata.get("redirect_uri"))
         login_context = metadata.get("login_context")
         session = self._create_session(app, redirect_uri)
@@ -144,13 +144,13 @@ class GoogleAuthProvider(AuthProvider):
         # flow we only need an authorization code to fetch basic profile info.
         # Forcing "prompt=consent" and "access_type=offline" can add extra Google
         # interstitial/confirmation steps and degrades UX.
-        create_url_kwargs: Dict[str, Any] = {}
+        create_url_kwargs: dict[str, Any] = {}
         # Google respects both "hl" and (for some flows) "ui_locales".
         if ui_language:
             create_url_kwargs["hl"] = ui_language
             create_url_kwargs["ui_locales"] = ui_language
 
-        state_payload: Dict[str, Any] = {
+        state_payload: dict[str, Any] = {
             "redirect_uri": redirect_uri,
             "login_context": login_context,
         }
@@ -254,7 +254,7 @@ class GoogleAuthProvider(AuthProvider):
                     aggregate.user_bid, include_deleted=True
                 )
                 if entity:
-                    updates: Dict[str, Any] = {"identify": email}
+                    updates: dict[str, Any] = {"identify": email}
                     if email_verified and aggregate.state in (
                         USER_STATE_UNREGISTERED,
                         0,

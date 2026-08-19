@@ -6,7 +6,7 @@ import os
 import re
 import threading
 from functools import wraps
-from typing import Any, Dict
+from typing import Any
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -100,9 +100,9 @@ class PingxxProvider(PaymentProvider):
             return text
         return cls._NON_BMP_RE.sub("", text).strip()
 
-    def _sanitize_extra(self, extra: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_extra(self, extra: dict[str, Any]) -> dict[str, Any]:
         """Recursively sanitize string values in charge extra dict."""
-        sanitized: Dict[str, Any] = {}
+        sanitized: dict[str, Any] = {}
         for k, v in extra.items():
             if isinstance(v, str):
                 sanitized[k] = self._sanitize_str(v)
@@ -117,7 +117,7 @@ class PingxxProvider(PaymentProvider):
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
         client = self._ensure_client(app)
-        provider_options: Dict[str, Any] = request.extra or {}
+        provider_options: dict[str, Any] = request.extra or {}
         app_id = provider_options.get("app_id") or get_config("PINGXX_APP_ID")
         charge_extra = provider_options.get("charge_extra", {})
 
@@ -162,7 +162,7 @@ class PingxxProvider(PaymentProvider):
         raise RuntimeError("Pingxx does not support subscriptions")
 
     def verify_webhook(
-        self, *, headers: Dict[str, str], raw_body: bytes | str, app: Flask
+        self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
         normalized_headers = {
             str(key).lower(): str(value) for key, value in (headers or {}).items()
@@ -188,7 +188,7 @@ class PingxxProvider(PaymentProvider):
                 hashes.SHA256(),
             )
         if not raw_body_str:
-            payload: Dict[str, Any] = {}
+            payload: dict[str, Any] = {}
         else:
             payload = json.loads(raw_body_str)
 
@@ -201,7 +201,7 @@ class PingxxProvider(PaymentProvider):
         )
 
     def handle_notification(
-        self, *, payload: Dict[str, Any], app: Flask
+        self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
         if "raw_body" in payload:
             return self.verify_webhook(

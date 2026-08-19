@@ -12,7 +12,7 @@ import logging
 import re
 import threading
 import uuid
-from typing import Any, List
+from typing import Any
 
 from flaskr.api.tts.base import (
     AudioSettings,
@@ -416,7 +416,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> List[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return VOLCENGINE_VOICES
 
@@ -485,7 +485,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         session_id = str(uuid.uuid4()).replace("-", "")
 
         # Collect audio data
-        audio_chunks: List[bytes] = []
+        audio_chunks: list[bytes] = []
         subtitle_cues: list[dict[str, Any]] = []
         error_message: str | None = None
         connection_established = threading.Event()

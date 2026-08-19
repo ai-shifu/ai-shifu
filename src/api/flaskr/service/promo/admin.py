@@ -6,7 +6,6 @@ import math
 import secrets
 import string
 from datetime import UTC, datetime, timedelta
-from typing import Dict
 
 from flask import Flask
 from flaskr.dao import db
@@ -524,8 +523,8 @@ def _compute_campaign_status(campaign: PromoCampaign) -> str:
 
 def _build_coupon_item(
     coupon: Coupon,
-    course_map: Dict[str, DraftShifu | PublishedShifu],
-    user_name_map: Dict[str, str] | None = None,
+    course_map: dict[str, DraftShifu | PublishedShifu],
+    user_name_map: dict[str, str] | None = None,
 ) -> AdminPromotionCouponItemDTO:
     scope_type, shifu_bid = _parse_coupon_scope(coupon.filter or "{}")
     course = course_map.get(shifu_bid)
@@ -566,11 +565,11 @@ def _build_coupon_item(
 
 def _build_campaign_item(
     campaign: PromoCampaign,
-    course_map: Dict[str, DraftShifu | PublishedShifu],
+    course_map: dict[str, DraftShifu | PublishedShifu],
     applied_order_count: int,
     total_discount_amount: decimal.Decimal,
     has_redemptions: bool,
-    user_name_map: Dict[str, str] | None = None,
+    user_name_map: dict[str, str] | None = None,
 ) -> AdminPromotionCampaignItemDTO:
     computed_status = _compute_campaign_status(campaign)
     course = course_map.get(campaign.shifu_bid or "")
@@ -602,7 +601,7 @@ def _build_campaign_item(
     )
 
 
-def _load_user_name_map(user_bids: list[str]) -> Dict[str, str]:
+def _load_user_name_map(user_bids: list[str]) -> dict[str, str]:
     if not user_bids:
         return {}
     users = UserEntity.query.filter(UserEntity.user_bid.in_(user_bids)).all()
@@ -1116,7 +1115,7 @@ def update_operator_promotion_coupon_status(
         return {"coupon_bid": coupon.coupon_bid, "enabled": enabled_value}
 
 
-def _load_order_map(order_bids: list[str]) -> Dict[str, Order]:
+def _load_order_map(order_bids: list[str]) -> dict[str, Order]:
     if not order_bids:
         return {}
     orders = Order.query.filter(Order.order_bid.in_(order_bids)).all()
@@ -1343,7 +1342,7 @@ def list_operator_promotion_coupon_codes(
     return _build_paged_response(summary, page, page_size, summary.total, items)
 
 
-def _load_redemption_stats(promo_bids: list[str]) -> Dict[str, dict]:
+def _load_redemption_stats(promo_bids: list[str]) -> dict[str, dict]:
     if not promo_bids:
         return {}
     rows = (

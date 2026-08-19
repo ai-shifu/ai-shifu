@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import Any, Callable, Dict, Generator, List, Tuple
+from typing import Any, Callable, Generator
 
 import requests
 
@@ -90,33 +90,33 @@ class ProviderConfig:
     prefix: str = ""
     fetch_models: bool = True
     filter_fn: Callable[[str], bool] | None = None
-    static_models: List[str] = field(default_factory=list)
-    extra_models: List[str] = field(default_factory=list)
-    wildcard_prefixes: Tuple[str, ...] = ()
+    static_models: list[str] = field(default_factory=list)
+    extra_models: list[str] = field(default_factory=list)
+    wildcard_prefixes: tuple[str, ...] = ()
     config_hint: str = ""
     custom_llm_provider: str | None = None
     model_loader: (
         Callable[
-            ["ProviderConfig", Dict[str, str], str | None], List[str | Tuple[str, str]]
+            ["ProviderConfig", dict[str, str], str | None], list[str | tuple[str, str]]
         ]
         | None
     ) = None
-    reload_params: Callable[[str, float], Dict[str, Any]] | None = None
+    reload_params: Callable[[str, float], dict[str, Any]] | None = None
 
 
 @dataclass
 class ProviderState:
     enabled: bool
-    params: Dict[str, str] | None
-    models: List[str]
+    params: dict[str, str] | None
+    models: list[str]
     prefix: str = ""
-    wildcard_prefixes: Tuple[str, ...] = ()
-    reload_params: Callable[[str, float], Dict[str, Any]] | None = None
+    wildcard_prefixes: tuple[str, ...] = ()
+    reload_params: Callable[[str, float], dict[str, Any]] | None = None
 
 
-MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
-PROVIDER_STATES: Dict[str, ProviderState] = {}
-MODEL_MAX_OUTPUT_TOKENS: Dict[str, int] = {}
+MODEL_ALIAS_MAP: dict[str, tuple[str, str]] = {}
+PROVIDER_STATES: dict[str, ProviderState] = {}
+MODEL_MAX_OUTPUT_TOKENS: dict[str, int] = {}
 _USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
 
 
@@ -169,9 +169,9 @@ def _extract_input_cache(usage: Any) -> int:
 
 
 def _attach_usage_output_text(
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     response_text: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Store a bounded response excerpt for operator usage detail summaries."""
     normalized_response_text = str(response_text or "").strip()
     if not normalized_response_text or "output_text" in metadata:
@@ -295,7 +295,7 @@ def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
     return allowed, display_names
 
 
-def _load_and_register_model_max_output_tokens() -> Dict[str, int]:
+def _load_and_register_model_max_output_tokens() -> dict[str, int]:
     raw_limits = get_config("LLM_MODEL_MAX_OUTPUT_TOKENS", "")
     try:
         limits = parse_llm_model_max_output_tokens(raw_limits)
@@ -327,10 +327,10 @@ def _load_and_register_model_max_output_tokens() -> Dict[str, int]:
 
 
 def _register_provider_models(
-    config: ProviderConfig, raw_models: List[str | Tuple[str, str]]
-) -> List[str]:
+    config: ProviderConfig, raw_models: list[str | tuple[str, str]]
+) -> list[str]:
     seen = set()
-    display_models: List[str] = []
+    display_models: list[str] = []
     for model_id in raw_models:
         actual_model = None
         if isinstance(model_id, tuple):
@@ -374,7 +374,7 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     ):
         base_url = None
         _log_info("Skipping GEMINI_API_URL override to use LiteLLM default endpoint")
-    params: Dict[str, str] = {"api_key": api_key}
+    params: dict[str, str] = {"api_key": api_key}
     if base_url:
         params["api_base"] = base_url
     if config.custom_llm_provider:
@@ -382,7 +382,7 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     if config.model_loader:
         raw_models = config.model_loader(config, params, base_url)
     else:
-        raw_models: List[str | Tuple[str, str]] = list(config.static_models)
+        raw_models: list[str | tuple[str, str]] = list(config.static_models)
         if config.fetch_models:
             try:
                 fetched_models = _fetch_provider_models(api_key, base_url)
@@ -570,7 +570,7 @@ def _iter_stream_with_precontent_retry(
             )
 
 
-def _resolve_provider_for_model(model: str) -> Tuple[str | None, str]:
+def _resolve_provider_for_model(model: str) -> tuple[str | None, str]:
     alias = MODEL_ALIAS_MAP.get(model)
     if alias:
         return alias
@@ -585,9 +585,9 @@ def _resolve_provider_for_model(model: str) -> Tuple[str | None, str]:
 
 
 def _load_gemini_models(
-    config: ProviderConfig, params: Dict[str, str], base_url: str | None
-) -> List[str | Tuple[str, str]]:
-    models: List[str | Tuple[str, str]] = []
+    config: ProviderConfig, params: dict[str, str], base_url: str | None
+) -> list[str | tuple[str, str]]:
+    models: list[str | tuple[str, str]] = []
     api_key = params.get("api_key")
     if not api_key:
         return models
@@ -622,8 +622,8 @@ def _load_gemini_models(
 
 
 def _load_deepseek_models(
-    config: ProviderConfig, params: Dict[str, str], base_url: str | None
-) -> List[str | Tuple[str, str]]:
+    config: ProviderConfig, params: dict[str, str], base_url: str | None
+) -> list[str | tuple[str, str]]:
     api_key = params.get("api_key", "")
     try:
         return _fetch_provider_models(api_key, base_url)
@@ -645,7 +645,7 @@ DEEPSEEK_FALLBACK_MODELS = [
 ]
 
 
-def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_openai_params(model_id: str, temperature: float) -> dict[str, Any]:
     if model_id.startswith("gpt-5"):
         try:
             model_info = litellm.get_model_info(
@@ -712,11 +712,11 @@ def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
-def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_gemini_params(model_id: str, temperature: float) -> dict[str, Any]:
     # Gemini thinking is controlled via LiteLLM's reasoning_effort mapping. Some
     # Gemini model ids are not included in LiteLLM's supported-params table yet,
     # so explicitly allow reasoning_effort for Gemini requests.
-    params: Dict[str, Any] = {
+    params: dict[str, Any] = {
         "temperature": temperature,
         "allowed_openai_params": ["reasoning_effort"],
     }
@@ -734,7 +734,7 @@ def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
     return params
 
 
-def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_ark_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "thinking": {"type": "disabled"},
@@ -744,21 +744,21 @@ def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
-def _reload_silicon_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_silicon_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "extra_body": {"enable_thinking": False},
     }
 
 
-def _reload_qwen_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_qwen_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "extra_body": {"enable_thinking": False},
     }
 
 
-def _reload_deepseek_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_deepseek_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "reasoning_effort": "none",
@@ -848,7 +848,7 @@ def _apply_provider_params(
     kwargs.update(applied_params)
 
 
-LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
+LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
     ProviderConfig(
         key="openai",
         api_key_env="OPENAI_API_KEY",
@@ -932,7 +932,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ),
 ]
 
-PROVIDER_CONFIG_HINTS: Dict[str, str] = {}
+PROVIDER_CONFIG_HINTS: dict[str, str] = {}
 for config in LITELLM_PROVIDER_CONFIGS:
     PROVIDER_STATES[config.key] = _init_litellm_provider(config)
     PROVIDER_CONFIG_HINTS[config.key] = config.config_hint or config.api_key_env
@@ -996,7 +996,7 @@ def invoke_llm(
     billable: int | None = None,
     request_id: str | None = None,
     trace_id: str | None = None,
-    usage_metadata: Dict[str, Any] | None = None,
+    usage_metadata: dict[str, Any] | None = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     stream_flag = bool(kwargs.get("stream", True))
@@ -1179,7 +1179,7 @@ def chat_llm(
     billable: int | None = None,
     request_id: str | None = None,
     trace_id: str | None = None,
-    usage_metadata: Dict[str, Any] | None = None,
+    usage_metadata: dict[str, Any] | None = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     app.logger.info(f"chat_llm [{model}] {messages} ,json:{json} ,kwargs:{kwargs}")

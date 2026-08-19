@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
-from typing import Any, Dict, Sequence, Set
+from typing import Any, Sequence
 
 from flask import Flask
 from flaskr.dao import db
@@ -122,9 +122,9 @@ def _build_follow_up_user_keyword_filter(
 
 
 def _resolve_follow_up_matching_outline_bids(
-    outline_context_map: Dict[str, Dict[str, str]],
+    outline_context_map: dict[str, dict[str, str]],
     chapter_keyword: str,
-) -> Set[str] | None:
+) -> set[str] | None:
     normalized_keyword = str(chapter_keyword or "").strip().lower()
     if not normalized_keyword:
         return None

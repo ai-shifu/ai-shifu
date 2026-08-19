@@ -12,7 +12,6 @@ Date: 2025-08-07
 
 import queue
 from decimal import Decimal
-from typing import List
 
 from flask import Flask
 from flaskr.service.common import raise_error
@@ -37,7 +36,7 @@ class ShifuOutlineItemDto(BaseModel):
     title: str
     type: int  # 401 trial 402 normal
     shifu_bid: str
-    children: List["ShifuOutlineItemDto"]
+    children: list["ShifuOutlineItemDto"]
 
     def __json__(self):
         return self.model_dump_json(exclude_none=True)
@@ -51,7 +50,7 @@ class ShifuInfoDto(BaseModel):
     description: str
     avatar: str
     price: Decimal
-    outline_items: List["ShifuOutlineItemDto"]
+    outline_items: list["ShifuOutlineItemDto"]
     default_listen_mode_enabled: bool = False
     use_learner_language: bool = False
 

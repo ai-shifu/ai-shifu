@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, Set
 
 from flask import Flask
 from flaskr.dao import db
@@ -10,7 +9,7 @@ from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 DEFAULT_SHIFU_PERMISSIONS = {"view", "edit", "publish"}
 
 
-def _normalize_auth_types(raw_value: object) -> Set[str]:
+def _normalize_auth_types(raw_value: object) -> set[str]:
     """Normalize raw auth_type value to a set of trimmed strings."""
     if raw_value is None:
         return set()
@@ -32,11 +31,11 @@ def _normalize_auth_types(raw_value: object) -> Set[str]:
     return set()
 
 
-def _auth_types_to_permissions(auth_types: Set[str]) -> Set[str]:
+def _auth_types_to_permissions(auth_types: set[str]) -> set[str]:
     """Map stored auth_type values (strings or numeric codes) to normalized permissions.
     Codes: 1=view, 2=edit, 4=publish.
     """
-    perms: Set[str] = set()
+    perms: set[str] = set()
     for item in auth_types:
         lowered = item.lower()
         if lowered in {"view", "read", "readonly"} or lowered == "1":
@@ -48,10 +47,10 @@ def _auth_types_to_permissions(auth_types: Set[str]) -> Set[str]:
     return perms
 
 
-def get_user_shifu_permissions(app: Flask, user_id: str) -> Dict[str, Set[str]]:
+def get_user_shifu_permissions(app: Flask, user_id: str) -> dict[str, set[str]]:
     """Load all shifu permission sets for a user (owner + shared)."""
     with app.app_context():
-        permission_map: Dict[str, Set[str]] = {}
+        permission_map: dict[str, set[str]] = {}
 
         created_shifus = (
             db.session.query(DraftShifu.shifu_bid)

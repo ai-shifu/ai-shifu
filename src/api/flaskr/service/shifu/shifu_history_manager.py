@@ -37,7 +37,7 @@ format:
 
 import queue
 import re
-from typing import Generic, List, TypeVar
+from typing import Generic, TypeVar
 
 from flask import Flask
 from flaskr.dao import db
@@ -60,7 +60,7 @@ class HistoryItem(BaseModel, Generic[T]):
     bid: str
     id: int
     type: str
-    children: List["HistoryItem"] = []
+    children: list["HistoryItem"] = []
     child_count: int = 0
 
     def to_json(self):
@@ -479,7 +479,7 @@ def save_outline_tree_history(
     app: Flask,
     user_id: str,
     shifu_bid: str,
-    outline_tree: List[HistoryItem],
+    outline_tree: list[HistoryItem],
     shifu_id: int | None = None,
 ):
     """Save outline tree history

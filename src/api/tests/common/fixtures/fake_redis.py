@@ -1,9 +1,9 @@
 import time
-from typing import Any, Dict
+from typing import Any
 
 
 class FakeRedisLock:
-    def __init__(self, locks: Dict[str, bool], key: str):
+    def __init__(self, locks: dict[str, bool], key: str):
         self._locks = locks
         self._key = key
         self._held = False
@@ -23,9 +23,9 @@ class FakeRedisLock:
 
 class FakeRedis:
     def __init__(self):
-        self._store: Dict[str, Any] = {}
-        self._expires: Dict[str, float] = {}
-        self._locks: Dict[str, bool] = {}
+        self._store: dict[str, Any] = {}
+        self._expires: dict[str, float] = {}
+        self._locks: dict[str, bool] = {}
 
     def _now(self) -> float:
         return time.time()
