@@ -2060,21 +2060,23 @@ def _select_subscription_cycle_repair_evidence(
         bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     )
     if bucket is not None:
-        if int(bucket.status or 0) in (
-            CREDIT_BUCKET_STATUS_ACTIVE,
-            CREDIT_BUCKET_STATUS_EXHAUSTED,
+        if (
+            int(bucket.status or 0)
+            in (
+                CREDIT_BUCKET_STATUS_ACTIVE,
+                CREDIT_BUCKET_STATUS_EXHAUSTED,
+            )
+            and (bucket.effective_from is None or bucket.effective_from <= as_of)
+            and (bucket.effective_to is None or bucket.effective_to > as_of)
         ):
-            if (bucket.effective_from is None or bucket.effective_from <= as_of) and (
-                bucket.effective_to is None or bucket.effective_to > as_of
-            ):
-                return _SubscriptionCycleEvidence(
-                    effective_from=bucket.effective_from,
-                    effective_to=bucket.effective_to,
-                    bill_order_bid=bucket.source_bid or None,
-                    wallet_bucket_bid=bucket.wallet_bucket_bid,
-                    reason="current_subscription_bucket",
-                    is_current_window=True,
-                )
+            return _SubscriptionCycleEvidence(
+                effective_from=bucket.effective_from,
+                effective_to=bucket.effective_to,
+                bill_order_bid=bucket.source_bid or None,
+                wallet_bucket_bid=bucket.wallet_bucket_bid,
+                reason="current_subscription_bucket",
+                is_current_window=True,
+            )
         return _SubscriptionCycleEvidence(
             effective_from=bucket.effective_from,
             effective_to=bucket.effective_to,

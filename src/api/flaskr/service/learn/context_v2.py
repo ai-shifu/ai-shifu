@@ -1961,13 +1961,12 @@ class RunScriptContextV2:
             if outline_item_info_db.type == UNIT_TYPE_VALUE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
                     raise PaidException
-            elif outline_item_info_db.type == UNIT_TYPE_VALUE_TRIAL:
-                if (
-                    not self._preview_mode
-                    and not self._user_info.mobile
-                    and not self._user_info.email
-                ):
-                    raise UserNotLoginException
+            elif outline_item_info_db.type == UNIT_TYPE_VALUE_TRIAL and (
+                not self._preview_mode
+                and not self._user_info.mobile
+                and not self._user_info.email
+            ):
+                raise UserNotLoginException
             parent_path = _find_outline_path_or_raise(self._struct, outline_bid)
             attend_info = None
             new_records: list[LearnProgressRecord] = []
@@ -3204,26 +3203,26 @@ class RunScriptContextV2:
             and len(parsed_interaction.get("buttons")) > 0
         ):
             for button in parsed_interaction.get("buttons"):
-                if button.get("value") == "_sys_pay":
-                    if self._is_paid:
-                        self._can_continue = True
-                        self._recorder.update_progress_pointer(
-                            self._current_attend,
-                            block_position=(self._current_attend.block_position + 1),
-                        )
-                        self._run_type = RunType.OUTPUT
-                        return
-                if button.get("value") == "_sys_login":
+                if button.get("value") == "_sys_pay" and self._is_paid:
+                    self._can_continue = True
+                    self._recorder.update_progress_pointer(
+                        self._current_attend,
+                        block_position=(self._current_attend.block_position + 1),
+                    )
+                    self._run_type = RunType.OUTPUT
+                    return
+                if button.get("value") == "_sys_login" and bool(
+                    self._user_info.mobile or self._user_info.email
+                ):
                     # Same logged-in definition as the emitter's
                     # is_access_gate_blocking_interaction.
-                    if bool(self._user_info.mobile or self._user_info.email):
-                        self._can_continue = True
-                        self._recorder.update_progress_pointer(
-                            self._current_attend,
-                            block_position=(self._current_attend.block_position + 1),
-                        )
-                        self._run_type = RunType.OUTPUT
-                        return
+                    self._can_continue = True
+                    self._recorder.update_progress_pointer(
+                        self._current_attend,
+                        block_position=(self._current_attend.block_position + 1),
+                    )
+                    self._run_type = RunType.OUTPUT
+                    return
 
         # Render interaction content with translation (markdown-flow 0.2.34+)
         # Call process() without user_input to trigger interaction rendering

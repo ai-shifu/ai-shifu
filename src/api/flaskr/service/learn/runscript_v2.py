@@ -962,41 +962,44 @@ def run_script(
                     done_received = True
                     break
 
-            if stream_error and not client_disconnected:
-                if isinstance(stream_error, Exception):
-                    _log_run_script_stream_error(app, stream_error)
-                    if isinstance(stream_error, AppException):
-                        error_content = str(stream_error)
-                    elif _is_retryable_llm_stream_connection_error(stream_error):
-                        error_content = str(_("server.learn.llmStreamInterrupted"))
-                    else:
-                        error_content = str(_("server.common.unknownError"))
-                    yield _to_sse_chunk(
-                        _make_terminal_event(
-                            outline_bid=outline_bid,
-                            event_type="error",
-                            content=error_content,
-                            element_adapter=stream_element_adapter,
-                        )
-                    )
-                    last_stream_type = "error"
-                    block_end_event = _make_terminal_event(
+            if (
+                stream_error
+                and not client_disconnected
+                and isinstance(stream_error, Exception)
+            ):
+                _log_run_script_stream_error(app, stream_error)
+                if isinstance(stream_error, AppException):
+                    error_content = str(stream_error)
+                elif _is_retryable_llm_stream_connection_error(stream_error):
+                    error_content = str(_("server.learn.llmStreamInterrupted"))
+                else:
+                    error_content = str(_("server.common.unknownError"))
+                yield _to_sse_chunk(
+                    _make_terminal_event(
                         outline_bid=outline_bid,
-                        event_type=GeneratedType.BREAK.value,
-                        content="",
+                        event_type="error",
+                        content=error_content,
                         element_adapter=stream_element_adapter,
-                        is_terminal=False if runtime_listen else None,
                     )
-                    if not _should_suppress_live_payload(block_end_event):
-                        yield _to_sse_chunk(block_end_event)
-                        last_stream_type = (
-                            GeneratedType.DONE.value
-                            if use_element_protocol
-                            else GeneratedType.BREAK.value
-                        )
-                        last_stream_done_is_terminal = (
-                            False if use_element_protocol else None
-                        )
+                )
+                last_stream_type = "error"
+                block_end_event = _make_terminal_event(
+                    outline_bid=outline_bid,
+                    event_type=GeneratedType.BREAK.value,
+                    content="",
+                    element_adapter=stream_element_adapter,
+                    is_terminal=False if runtime_listen else None,
+                )
+                if not _should_suppress_live_payload(block_end_event):
+                    yield _to_sse_chunk(block_end_event)
+                    last_stream_type = (
+                        GeneratedType.DONE.value
+                        if use_element_protocol
+                        else GeneratedType.BREAK.value
+                    )
+                    last_stream_done_is_terminal = (
+                        False if use_element_protocol else None
+                    )
 
             if not client_disconnected and not (
                 use_element_protocol

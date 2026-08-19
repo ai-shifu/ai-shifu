@@ -341,11 +341,10 @@ class ListenElementRunSidecarMixin:
             is_final=True,
             base_payload=ElementPayloadDTO(anchor_element_bid=anchor_bid),
         )
-        if synthetic_anchor:
+        if synthetic_anchor and ask_element.payload is not None:
             # Mark the synthesis so downstream consumers (logs, backfill) know
             # this anchor didn't come from a real LearnGeneratedElement row.
-            if ask_element.payload is not None:
-                ask_element.payload.anchor_element_bid = anchor_bid
+            ask_element.payload.anchor_element_bid = anchor_bid
         yield self._element_message(ask_element)
 
     def _finalize_answer_element(
