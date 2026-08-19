@@ -56,7 +56,6 @@ def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
         try:
             db.session.add(record)
             db.session.commit()
-            return True
         except Exception as exc:
             # Never mask the persistence failure with a logging failure.
             with contextlib.suppress(Exception):
@@ -74,6 +73,8 @@ def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
             # before the context teardown would roll back on it.
             invalidate_session(source="usage metering persist interrupt")
             raise
+        else:
+            return True
 
 
 def _should_enqueue_usage_settlement(

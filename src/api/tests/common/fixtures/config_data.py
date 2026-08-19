@@ -7,9 +7,10 @@ def port_validator(value):
     """Validate port number is in valid range."""
     try:
         port = int(value)
-        return 1 <= port <= 65535
     except (ValueError, TypeError):
         return False
+    else:
+        return 1 <= port <= 65535
 
 
 def email_validator(value):

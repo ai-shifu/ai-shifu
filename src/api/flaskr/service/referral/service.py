@@ -268,7 +268,6 @@ def _create_invite_code_with_retry(
         db.session.add(invite_code)
         try:
             db.session.flush()
-            return invite_code
         except IntegrityError:
             db.session.rollback()
             existing = _load_active_invite_code(
@@ -277,6 +276,8 @@ def _create_invite_code_with_retry(
             )
             if existing is not None:
                 return existing
+        else:
+            return invite_code
     raise RuntimeError("unable to generate referral invite code")
 
 

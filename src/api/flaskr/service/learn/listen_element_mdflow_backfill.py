@@ -614,10 +614,11 @@ def backfill_learn_generated_elements_for_progress(
             db.session.rollback()
         else:
             db.session.commit()
-        return stats
     except Exception:
         db.session.rollback()
         raise
+    else:
+        return stats
 
 
 def backfill_learn_generated_elements_batch(

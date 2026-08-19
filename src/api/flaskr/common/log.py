@@ -24,7 +24,9 @@ class AppLoggerProxy:
         try:
             from flask import current_app
 
-            return current_app.logger
+            # Resolved inside the try: attribute access on current_app raises
+            # outside an application context.
+            return current_app.logger  # noqa: TRY300
         except Exception:
             return self._fallback
 

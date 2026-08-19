@@ -176,7 +176,6 @@ def raise_for_provider_response(
 ) -> requests.Response:
     try:
         response.raise_for_status()
-        return response
     except requests.HTTPError as exc:
         detail = ""
         try:
@@ -187,3 +186,5 @@ def raise_for_provider_response(
         if detail:
             message += f" | {detail[:300]}"
         raise AskProviderError(message) from exc
+    else:
+        return response
