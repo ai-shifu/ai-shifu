@@ -23,7 +23,7 @@ def load_llm_credit_1x_per_1000_output_tokens() -> Decimal | None:
     try:
         value = Decimal(str(raw_value).strip())
     except (InvalidOperation, TypeError, ValueError):
-        logger.error(
+        logger.exception(
             "%s must be a positive decimal; got %r",
             LLM_CREDIT_1X_PER_1000_CONFIG,
             raw_value,

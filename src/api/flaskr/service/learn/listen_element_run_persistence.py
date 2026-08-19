@@ -219,7 +219,7 @@ class ListenElementRunPersistenceMixin:
             # later request that checks it out; the caller's rollback then
             # completes on session state alone.
             with contextlib.suppress(Exception):
-                current_app.logger.error(
+                current_app.logger.exception(
                     "Listen element SELECT hit a desynced connection; forensics: %s",
                     _describe_desynced_connection(result, connection),
                 )

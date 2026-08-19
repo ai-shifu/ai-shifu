@@ -26,7 +26,7 @@ class StripeProvider(PaymentProvider):
         try:
             import stripe  # type: ignore
         except ImportError as exc:  # pragma: no cover - surfaced during runtime
-            app.logger.error("Stripe SDK is not installed")
+            app.logger.exception("Stripe SDK is not installed")
             raise RuntimeError("Stripe SDK is required for Stripe payments") from exc
         return stripe
 
@@ -282,7 +282,9 @@ class StripeProvider(PaymentProvider):
                 raw_body_str, sig_header, webhook_secret
             )
         except Exception as exc:  # pragma: no cover - handled in caller
-            app.logger.error("Stripe webhook signature verification failed: %s", exc)
+            app.logger.exception(
+                "Stripe webhook signature verification failed: %s", exc
+            )
             raise
 
         return self._build_notification_from_event(event)

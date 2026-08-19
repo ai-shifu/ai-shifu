@@ -277,7 +277,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             result = response.json()
         except ValueError as exc:
             body_preview = (response.text or "")[:2000]
-            logger.error(
+            logger.exception(
                 "Volcengine HTTP TTS invalid JSON response: url=%s status=%s reqid=%s content_type=%s body=%s",
                 response.url,
                 response.status_code,

@@ -71,7 +71,7 @@ def load_plugins_from_dir(
                     load_from_directory(os.path.join(plugins_dir, file), plugin_manager)
                     app.logger.info(f"load plugin: {file} success")
                 except Exception as e:
-                    app.logger.error(f"load plugin: {file} error: {e}")
+                    app.logger.exception(f"load plugin: {file} error: {e}")
             else:
                 app.logger.warning(f"skip non-directory file: {file}")
     return plugins

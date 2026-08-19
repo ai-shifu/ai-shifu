@@ -161,7 +161,7 @@ def enable_commands(app: Flask):
             )
 
         except Exception as e:
-            logger.error(f"Migration failed: {e}")
+            logger.exception(f"Migration failed: {e}")
             raise click.ClickException(f"Migration failed: {e}") from e
         finally:
             if "migration_task" in locals():
@@ -216,7 +216,7 @@ def enable_commands(app: Flask):
                 click.echo("Consider re-running the migration for failed tables.")
 
         except Exception as e:
-            logger.error(f"Verification failed: {e}")
+            logger.exception(f"Verification failed: {e}")
             raise click.ClickException(f"Verification failed: {e}") from e
         finally:
             if "migration_task" in locals():
@@ -300,7 +300,7 @@ def enable_commands(app: Flask):
                 click.echo(f"\nCould not read migration log: {e}")
 
         except Exception as e:
-            logger.error(f"Status check failed: {e}")
+            logger.exception(f"Status check failed: {e}")
             raise click.ClickException(f"Status check failed: {e}") from e
         finally:
             if "migration_task" in locals():
