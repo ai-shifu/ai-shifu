@@ -217,10 +217,14 @@ def _run_guardrail(
     check_text_func = globals().get("check_text_with_llm_response")
     llm_settings_cls = globals().get("LLMSettings")
     if check_text_func is None or llm_settings_cls is None:
+        # Lowercase aliases keep the lazily imported names consistent with the
+        # module-level lookups above.
         from flaskr.service.learn.check_text import (
             check_text_with_llm_response as check_text_func,
         )
-        from flaskr.service.learn.llmsetting import LLMSettings as llm_settings_cls
+        from flaskr.service.learn.llmsetting import (  # noqa: N813
+            LLMSettings as llm_settings_cls,
+        )
 
     res = check_text_func(
         app,
@@ -561,13 +565,15 @@ def handle_input_ask(
         or ask_provider_error_cls is None
         or ask_provider_timeout_error_cls is None
     ):
-        from flaskr.service.learn.ask_provider_adapters import (
+        # Lowercase aliases keep the lazily imported names consistent with the
+        # module-level lookups above.
+        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
             AskProviderError as ask_provider_error_cls,
         )
-        from flaskr.service.learn.ask_provider_adapters import (
+        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
             AskProviderRuntime as ask_provider_runtime_cls,
         )
-        from flaskr.service.learn.ask_provider_adapters import (
+        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
             AskProviderTimeoutError as ask_provider_timeout_error_cls,
         )
         from flaskr.service.learn.ask_provider_adapters import (

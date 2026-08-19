@@ -1052,7 +1052,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("password")
         provider = get_provider("password")
         vr = VerificationRequest(identifier=identifier, code=password)
-        # TODO: Add rate-limiting and failed login attempt tracking
+        # TODO(geyunfei): Add rate-limiting and failed login attempt tracking
         # (record identifier, request.remote_addr, timestamp on failure)
         auth_result = provider.verify(app, vr)
         current_user = _best_effort_password_login_user(app)

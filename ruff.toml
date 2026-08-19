@@ -31,6 +31,10 @@
 #   service and route modules exceed by design.
 # - ARG001 / ARG002 / ARG005: unused arguments are pervasive in framework
 #   callbacks, fixtures and test doubles.
+# - TD003 / FIX002: the remaining TODOs have no tracking issue to link, and
+#   inventing one (or downgrading the comment) would hide real pending work.
+# - N806 / N815: local CamelCase bindings and camelCase DTO attributes are
+#   still widespread; N815 in particular encodes serialized JSON field names.
 
 # Matches the Python pinned by src/api/Dockerfile and the CI workflows.
 target-version = "py311"
@@ -73,15 +77,16 @@ select = [
     "DTZ",
 
     # --- Logging ----------------------------------------------------------
-    # G001/G004 (f-string and .format logging) are the established house
-    # style and stay ignored below; the rest catch real defects: G003 `+`
-    # concatenation can raise TypeError on non-string values, and G201/G202
-    # are strictly equivalent rewrites to `.exception(...)`.
+    # G004 (f-string logging) is the established house style and stays ignored
+    # below; the rest catch real defects: G001/G003 format the message eagerly
+    # (and `+` can raise TypeError on non-string values), and G201/G202 are
+    # strictly equivalent rewrites to `.exception(...)`.
     "G",
     "LOG",     # flake8-logging (exc_info must name the exception outside except blocks)
     "TRY2",    # verbose re-raise / exception handler that only re-raises
     "TRY002",  # raising a vanilla Exception instead of a named class
     "TRY400",  # logging.error inside except that should be logging.exception
+    "TRY004",  # type check raising something other than TypeError
 
     # --- Pylint subsets ---------------------------------------------------
     "PLE",     # pylint errors (yield/return in __init__, invalid dunders, ...)
@@ -102,16 +107,32 @@ select = [
     # --- Paths, suppressions, shadowing, security -------------------------
     "PTH",     # os.path calls that should use pathlib
     "PGH",     # blanket noqa / type: ignore, invalid suppressions
+    "ARG003",  # unused classmethod argument
     "ARG004",  # unused staticmethod argument
     "A001",    # local variable shadowing a builtin
     "A006",    # lambda argument shadowing a builtin
+    # pep8-naming is partial: N806/N815 stay off (see the header above).
+    "N801",    # class name that is not CapWords
+    "N802",    # function name that is not lowercase
+    "N803",    # argument name that is not lowercase
+    "N813",    # CamelCase imported under a lowercase alias
+    "TD002",   # TODO without an author
     # S101 bans `assert` in shipped code (python -O strips it, so an assert is
     # not a runtime guard). Test suites and script self-tests are exempt via
     # per-file-ignores below.
     "S101",    # assert used outside tests
+    "S104",    # binding a socket to all interfaces
     "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
     "S113",    # requests call without a timeout
+    "S310",    # urlopen without an audited URL scheme
+    "S311",    # `random` where a cryptographic generator is required
     "S324",    # hashlib md5/sha1 without usedforsecurity=False
+    # S603/S605/S607 flag every subprocess and shell invocation. Application
+    # code justifies each one inline; developer tooling is exempt through
+    # per-file-ignores below.
+    "S603",    # subprocess call with unvalidated input
+    "S605",    # process started with a shell
+    "S607",    # process started with a partial executable path
 
     # --- Docstrings -------------------------------------------------------
     # pydocstyle is enabled as a whole; the members that would need thousands
@@ -155,7 +176,6 @@ ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "DTZ007",  # naive strptime() -- naive UTC is the house convention
     "DTZ901",  # datetime.min/max -- naive UTC is the house convention
-    "G001",    # str.format logging -- house style
     "G004",    # f-string logging -- house style, and rewriting it is churn
     "PERF401", # manual list comprehension -- rewrites obscure the loop bodies
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
@@ -183,7 +203,12 @@ ignore = [
 [lint.per-file-ignores]
 # `assert` is the point of a test, and both scripts below are test code: one is
 # a pytest module, the other keeps its regex fixtures in a `run_self_test()`.
-"src/api/tests/**" = ["S101"]
+# Developer tooling (repo scripts, backend scripts, test harnesses) also shells
+# out to `git`, `node` and `python` with statically built argument lists, so the
+# subprocess audit rules only add noise there.
+"src/api/tests/**" = ["S101", "S603", "S607"]
 "src/api/conftest.py" = ["S101"]
 "scripts/test_*.py" = ["S101"]
 "scripts/check_example_identifiers.py" = ["S101"]
+"scripts/**" = ["S603", "S607"]
+"src/api/scripts/**" = ["S603", "S607"]

@@ -24,7 +24,12 @@ def enable_plugins(app: Flask):
         dest_dir = str(Path("flaskr") / "plugins" / repo_name)
         if Path(dest_dir).exists():
             return
-        subprocess.run(["git", "clone", repo_url, dest_dir], check=False)
+        git_executable = shutil.which("git")
+        if git_executable is None:
+            click.echo("git is not available on PATH")
+            return
+        # The repository URL is supplied by the operator running this CLI command.
+        subprocess.run([git_executable, "clone", repo_url, dest_dir], check=False)  # noqa: S603
 
     @plugin.command(name="delete")
     @click.argument("repo_name")

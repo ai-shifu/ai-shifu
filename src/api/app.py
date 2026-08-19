@@ -1,4 +1,5 @@
 import os
+import subprocess
 import time
 from pathlib import Path
 
@@ -12,7 +13,8 @@ from flaskr.framework.plugin.plugin_manager import enable_plugin_manager
 # set timezone to UTC
 # fix windows platform
 if os.name == "nt":
-    os.system('tzutil /s "UTC"')
+    # tzutil ships with Windows and is resolved from PATH.
+    subprocess.run(["tzutil", "/s", "UTC"], check=False)  # noqa: S603, S607
 else:
     # Load environment variables first so we can use get_config
     if not os.getenv("SKIP_LOAD_DOTENV"):
@@ -117,7 +119,8 @@ def create_app() -> Flask:
 if __name__ == "__main__":
     app = create_app()
     # Only enable debug mode if explicitly running in development environment
-    app.run(host="0.0.0.0", port=5800, debug=app.config.get("ENV") == "development")
+    # Binding to all interfaces is required for the containerized dev server.
+    app.run(host="0.0.0.0", port=5800, debug=app.config.get("ENV") == "development")  # noqa: S104
 elif not os.getenv("SKIP_APP_AUTOCREATE"):
     app = create_app()
     from flaskr.framework.plugin.enable_plugin import enable_plugins

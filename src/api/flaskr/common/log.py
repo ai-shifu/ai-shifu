@@ -33,7 +33,7 @@ class AppLoggerProxy:
 
 
 class RequestFormatter(logging.Formatter):
-    def formatTime(self, record, datefmt=None):
+    def formatTime(self, record, datefmt=None):  # noqa: N802 - logging.Formatter hook name
         # create time zone info
         bj_time = pytz.timezone("Asia/Shanghai")
         # convert record.created (a float timestamp) to beijing time

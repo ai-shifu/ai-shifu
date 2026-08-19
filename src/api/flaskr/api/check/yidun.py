@@ -3,7 +3,7 @@
 
 
 import hashlib
-import random
+import secrets
 import time
 from urllib.parse import urlencode
 
@@ -95,7 +95,7 @@ def yidun_check(
     params["businessId"] = YIDUN_BUSINESS_ID
     params["version"] = VERSION
     params["timestamp"] = int(time.time() * 1000)
-    params["nonce"] = int(random.random() * 100000000)
+    params["nonce"] = secrets.randbelow(100000000)
     if user_id:
         params["account"] = user_id
     params["signature"] = gen_signature(params)

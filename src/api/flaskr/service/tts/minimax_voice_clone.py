@@ -373,7 +373,7 @@ def submit_minimax_voice_clone(
 
         estimate = estimate_voice_clone_operation_credits(app)
         billing_enabled = is_billing_enabled()
-        should_bill = billing_enabled and estimate.consumed_credits > _ZERO()
+        should_bill = billing_enabled and estimate.consumed_credits > _zero()
         if should_bill:
             admit_creator_usage(
                 app,
@@ -635,7 +635,7 @@ def build_minimax_clone_cost(
     billing_enabled = is_billing_enabled()
     can_submit = (
         not billing_enabled
-        or estimate.consumed_credits <= _ZERO()
+        or estimate.consumed_credits <= _zero()
         or available >= estimate.consumed_credits
     )
     return {
@@ -793,7 +793,7 @@ def _execute_clone_processing(
                 )
         else:
             row.billing_status = TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
-            row.charged_credits = _ZERO()
+            row.charged_credits = _zero()
         row.status = TTS_MINIMAX_CLONE_STATUS_READY
         row.ready_at = now_utc()
         db.session.commit()
@@ -868,13 +868,13 @@ def _mark_clone_failed(
 def _prepare_retry_billing(app: Flask, row: TTSMiniMaxClonedVoice) -> None:
     estimate = estimate_voice_clone_operation_credits(app)
     billing_enabled = is_billing_enabled()
-    should_bill = billing_enabled and estimate.consumed_credits > _ZERO()
+    should_bill = billing_enabled and estimate.consumed_credits > _zero()
     if not should_bill:
         row.billing_status = TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
         row.estimated_credits = estimate.consumed_credits
         row.billing_reservation_bid = ""
         row.billing_ledger_bid = ""
-        row.charged_credits = _ZERO()
+        row.charged_credits = _zero()
         return
 
     if (
@@ -909,7 +909,7 @@ def _prepare_retry_billing(app: Flask, row: TTSMiniMaxClonedVoice) -> None:
     )
     row.billing_status = TTS_MINIMAX_CLONE_BILLING_RESERVED
     row.estimated_credits = estimate.consumed_credits
-    row.charged_credits = _ZERO()
+    row.charged_credits = _zero()
     row.billing_reservation_bid = reservation.reservation_bid
     row.billing_ledger_bid = reservation.ledger_bid
 
@@ -1080,7 +1080,7 @@ def _available_wallet_credits(app: Flask, creator_bid: str):
             .first()
         )
         if wallet is None:
-            return _ZERO()
+            return _zero()
         return quantize_credit_amount(wallet.available_credits)
 
 
@@ -1142,5 +1142,5 @@ def _normalize_required(value: str, field_name: str) -> str:
     return normalized
 
 
-def _ZERO() -> Any:
+def _zero() -> Any:
     return quantize_credit_amount(0)
