@@ -6,24 +6,18 @@
 # of the installed Ruff version. Widening the rule set is a deliberate
 # decision, not a side effect of a version bump.
 #
-# Whole groups are selected only where every rule in the group is already
-# satisfied repo-wide; the individually listed rules below are the members of
-# groups that stay off as a whole (selecting their group would surface new
-# violations). The `ignore` block carves out the few members of an otherwise
-# fully selected group that conflict with house conventions.
+# How to read this file:
+# - `select` lists whole linters or prefixes wherever the codebase already
+#   satisfies every rule underneath. A rule is spelled out individually only
+#   when its prefix would drag in rules that do have violations.
+# - `ignore` carves the exceptions back out, one comment per reason.
+# - Groups that stay off entirely are listed under "Deliberately not selected"
+#   below, so the rationale survives the next Ruff upgrade.
 #
-# DTZ selection is intentionally partial. The repo's UTC contract (AGENTS.md)
-# stores naive-UTC datetimes and provides `now_utc()` as the sanctioned naive
-# "now", so the rules that demand tz-aware values everywhere (DTZ001 naive
-# datetime(), DTZ007 naive strptime(), DTZ901 datetime.min/max) would fight
-# the house convention -- naive-UTC construction is correct here; they are
-# ignored. The remaining DTZ rules catch only calls whose result depends on
-# the process time zone (now()/today()/utcnow()/fromtimestamp() without tz),
-# which are exactly the UTC-vs-local drifts the contract forbids; use
-# `now_utc()` instead.
-#
-# Other rule groups from ruff 0.16's broadened defaults were evaluated and
-# deliberately left off:
+# Deliberately not selected:
+# - ANN / D1xx (except D104) / S101 / SLF001 / PLC0415 / PLR2004: thousands of
+#   violations each; enforcing them is a codebase-wide project, not a lint
+#   config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
 #   tuples/lists, not a missed comma. ISC001/ISC002 also conflict with the
 #   formatter.
@@ -33,211 +27,149 @@
 #   reflow with no correctness value.
 # - BLE001 / S110 / S112: blind/except-pass handlers are deliberate fail-open
 #   patterns here (moderation, logging, notification side channels).
-# - G001 / G004: f-string logging is the established house style; the
-#   lazy-%-formatting argument does not outweigh the churn. G003 IS enabled --
-#   `+` concatenation in a log call only appeared a handful of times and can
-#   raise TypeError on non-string values. G201 IS enabled --
-#   `.exception(...)` is strictly equivalent to `.error(..., exc_info=True)`.
-# - RUF012 / UP* as whole groups: style or modernization churn with no
-#   bug-catching value for this codebase today. Individual members that are
-#   mechanical and behavior-preserving (or already satisfied) are listed in
-#   the select block below; the rest stay off.
-# - UP040 / UP046 / UP047: PEP 695 type-parameter syntax (`type`, `class T`,
-#   `def T`). target-version is py311, which currently suppresses them; if
-#   the target later moves to py312+, ruff would start reporting them and
-#   `ruff check --fix` would leave their unsafe fixes unapplied, so CI would
-#   fail. The rewrite can also change TypeVar variance. Defer until the
-#   runtime is Python 3.12+.
-# - RUF100: with a narrow select list, ruff reports deliberate `# noqa:
-#   BLE001 / DTZ001 / SLF001 / S102` markers as unused simply because those
-#   rules are off here, so enforcing it would delete documentation of
-#   intentional exceptions. Stale directives are pruned by hand instead.
+# - C901 / PLR09xx: complexity and argument-count budgets that the existing
+#   service and route modules exceed by design.
+# - ARG001 / ARG002 / ARG005: unused arguments are pervasive in framework
+#   callbacks, fixtures and test doubles.
 # - D405 / D406 / D407: route docstrings carry the flasgger/Swagger spec after
 #   a `---` line, and these rules read YAML keys such as `parameters:` as
 #   numpydoc section headers. Their fixes strip the colon and insert a dashed
 #   underline, which turns the embedded spec into invalid YAML and breaks the
-#   generated API docs. D209 / D212 / D403 / D411 / D413 are safe here because
-#   they never rewrite a line inside the YAML block.
+#   generated API docs. The D2xx/D4xx rules that are selected never rewrite a
+#   line inside the YAML block.
 
 # Matches the Python pinned by src/api/Dockerfile and the CI workflows.
 target-version = "py311"
 
 [lint]
 select = [
+    # --- Core correctness -------------------------------------------------
     "E",       # pycodestyle errors (E501 ignored below)
     "F",       # pyflakes
-    "DTZ",     # process-time-zone-dependent datetime calls (see ignore below)
-    "EXE",     # shebang vs executable-bit consistency
-    "G002",    # logging percent-format with extra args
-    "G010",    # logging.warn that should be logging.warning
-    "G101",    # logging extra keys that clash with LogRecord attributes
-    "G2",      # .error(..., exc_info=True) -> .exception(...)
+    "W",       # pycodestyle warnings
     "I",       # import sorting and grouping
-    "RUF05",   # unused unpacked variable
-    # Rule groups the codebase already satisfies, selected to keep it that way.
-    "ASYNC",   # blocking I/O / sleep / subprocess inside async functions
     "B",       # flake8-bugbear
+    "SIM",     # flake8-simplify
+    "PIE",     # flake8-pie (redundant placeholders, dict kwargs, startswith)
+    "RET",     # flake8-return (explicit, non-redundant return statements)
+    "RSE",     # unnecessary parentheses on a raised exception
+    "C4",      # comprehension and collection-literal simplifications
+    "FLY",     # static str.join that should be an f-string
+    "PERF",    # performance anti-patterns (PERF401 ignored below)
+    "FURB",    # refurb modernizations
+    "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
+    "Q",       # quote style, matching the formatter
     "FA",      # missing from __future__ import annotations
     "ICN",     # import naming conventions
     "INT",     # gettext calls with f-strings
-    "PLE",     # pylint errors (yield/return in __init__, invalid dunders, ...)
-    "Q",       # quote style, matching the formatter
-    "SIM",     # flake8-simplify
     "SLOT",    # subclasses of str/tuple/namedtuple without __slots__
-    "T1",      # leftover debugger calls
-    "W",       # pycodestyle warnings
     "YTT",     # sys.version checks that break on two-digit versions
-    # Mechanical, behavior-preserving cleanups; each was applied repo-wide
-    # with `ruff check --fix` in the commit that selected it here. Prefixes
-    # below also lock in already-clean members of the same family.
-    "C4",      # comprehension and collection-literal simplifications
-    "D202",    # blank line after a function docstring
-    "D209",    # closing quotes of a multi-line docstring not on their own line
-    # D212 stays explicit: the D21 prefix also enables the mutually exclusive
-    # D213, which ruff then warns about and ignores.
-    "D212",    # multi-line docstring summary not on the first line
-    "D3",      # docstring with backslashes that is not raw
-    "D403",    # first word of a docstring not capitalized
-    "D411",    # missing blank line before section
-    "D413",    # missing blank line after the last docstring section
-    "FLY",     # static str.join that should be an f-string
-    "FURB10",  # print("") that should be print()
-    "FURB11",  # conditional expression that should be or
-    "FURB12",  # for-loop writes / for line in f.readlines()
-    "FURB13",  # if-expression that should be min()/max()
-    "FURB16",  # bit_count, log base, from_float, isinstance(..., type(None))
-    "FURB17",  # membership test against a single-item container
-    "FURB18",  # list reversal via slicing, manual prefix/suffix stripping
-    "FURB19",  # sorted() only to take the first item
+    "EXE",     # shebang vs executable-bit consistency
+    "ASYNC",   # blocking I/O / sleep / subprocess inside async functions
+    "T1",      # leftover debugger calls
+    "ERA001",  # commented-out code
+
+    # --- Datetime / UTC contract -----------------------------------------
+    # Partial on purpose. The repo's UTC contract (AGENTS.md) stores naive-UTC
+    # datetimes and provides `now_utc()` as the sanctioned naive "now", so the
+    # rules demanding tz-aware values everywhere (DTZ001/DTZ007/DTZ901) fight
+    # the convention and are ignored below. What stays enabled are the calls
+    # whose result depends on the process time zone (now()/today()/utcnow()/
+    # fromtimestamp() without tz) -- exactly the drifts the contract forbids.
+    "DTZ",
+
+    # --- Logging ----------------------------------------------------------
+    # G001/G004 (f-string and .format logging) are the established house
+    # style and stay ignored below; the rest catch real defects: G003 `+`
+    # concatenation can raise TypeError on non-string values, and G201/G202
+    # are strictly equivalent rewrites to `.exception(...)`.
+    "G",
     "LOG",     # flake8-logging (exc_info must name the exception outside except blocks)
-    "PERF1",   # dict.items() when only one half is used
-    "PERF203", # try/except inside a loop that should be lifted out
-    "PERF402", # list(seq) / list.copy() that should be a slice or list()
-    "PERF403", # for-loop dict fill that should be a dict comprehension
-    "PIE",     # flake8-pie (redundant placeholders, dict kwargs, startswith)
-    "PLC01",   # TypeVar variance / name mismatch
-    "PLC02",   # dict iteration, split(maxsplit), set-literal iteration, __slots__
-    "PLC0414", # import alias that repeats the name
-    "PLC1802", # len() used as a boolean test
-    "PLC2",    # non-ASCII identifiers / import names
-    "PLC3",    # unnecessary direct lambda call
+    "TRY2",    # verbose re-raise / exception handler that only re-raises
+    "TRY002",  # raising a vanilla Exception instead of a named class
+    "TRY400",  # logging.error inside except that should be logging.exception
+
+    # --- Pylint subsets ---------------------------------------------------
+    "PLE",     # pylint errors (yield/return in __init__, invalid dunders, ...)
+    "PLC",     # pylint conventions (PLC0415 ignored below)
+    "PLW",     # pylint warnings (PLW0603 ignored below)
+    # PLR is partial: the complexity/magic-value members have thousands of
+    # violations, so only the mechanical ones are listed.
     "PLR01",   # comparison with itself / of two constants
     "PLR0206", # property with parameters
     "PLR0402", # import module.member as member that should be from-import
     "PLR1",    # useless return, repeated comparison, manual min()/max()
     "PLR2044", # empty comment
     "PLR5",    # else: if ... that should be elif
-    "PLW01",   # useless else on loop, assert on string, nan comparison, ...
-    "PLW0211", # staticmethod whose first arg is named self
-    "PLW0245", # super without parentheses
-    "PLW0406", # module imports itself
-    "PLW0602", # global declaration without assignment
-    "PLW0604", # global at module level
-    "PLW0642", # assignment to self/cls
-    "PLW0711", # excepting a binary operation
-    "PLW15",   # bad open mode, shallow copy of os.environ, subprocess preexec_fn
-    "PLW2101", # useless with lock
-    "PLW3",    # nested min/max calls
-    "PT00",    # pytest.fixture / parametrize / patch / raises basics
-    "PT010",   # pytest.raises without an exception type
-    "PT013",   # pytest imported with an alias or from-import
-    "PT014",   # duplicate parametrize cases
-    "PT015",   # assertion that is always false
-    "PT016",   # pytest.fail without a message
-    "PT017",   # assertion on an exception captured in an except block
-    "PT018",   # composite assertion
-    "PT019",   # fixture requested as a parameter without a value
-    "PT02",    # fixture yielding without teardown, unittest-style assertRaises
-    "PT03",    # pytest.warns too broad / with multiple statements
-    "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
-    "RET",     # flake8-return (explicit, non-redundant return statements)
-    "RSE",     # unnecessary parentheses on a raised exception
-    "RUF005",  # list concatenation that should be unpacking
-    "RUF006",  # asyncio.create_task result that is never stored
-    "RUF007",  # zip of a list and its own tail
-    "RUF008",  # mutable dataclass default
-    "RUF009",  # function call in a dataclass default
-    "RUF010",  # explicit str()/repr() call inside an f-string
-    "RUF013",  # implicit Optional annotation
-    "RUF015",  # next(iter(...)) that should index the first element
-    "RUF016",  # invalid index type
-    "RUF017",  # quadratic list summation
-    "RUF018",  # assignment expression in an assert
-    "RUF019",  # unnecessary key-in-dict check before a subscript
-    "RUF02",   # unparenthesized and inside or, unsorted __all__/__slots__
-    "RUF03",   # None not at the end of a union
-    "RUF04",   # pytest.raises match, nested literals, dataclass Enum, ...
-    "RUF06",   # empty-collection membership, duplicate __all__, permissions
-    "RUF101",  # noqa that should name the redirected rule
-    "RUF102",  # noqa directive naming an unknown rule
-    "RUF103",  # invalid suppression comment
-    "RUF104",  # unmatched suppression comment
-    "RUF200",  # invalid pyproject.toml
-    "TRY2",    # verbose re-raise / exception handler that only re-raises
-    "TRY400",  # logging.error inside except that should be logging.exception
-    "UP001",   # useless __metaclass__ = type
-    "UP003",   # type(int/float/str) that should be the class object
-    "UP004",   # useless object inheritance
-    "UP005",   # deprecated unittest alias
-    "UP007",   # Union[X, Y] annotation that should be X | Y
-    "UP008",   # super(Class, self) that should be super()
-    "UP009",   # UTF-8 encoding declaration
-    "UP01",    # redundant str.encode/open() arguments
-    "UP02",    # capture_output, deprecated OSError alias, yield from
-    "UP030",   # format with unused literal arguments
-    "UP031",   # percent formatting that should be str.format
-    "UP032",   # str.format that should be an f-string
-    "UP033",   # lru_cache(maxsize=None) that should be cache
-    "UP034",   # extraneous parentheses
+
+    # --- Pytest -----------------------------------------------------------
+    "PT",      # flake8-pytest-style (PT012 ignored below)
+
+    # --- Paths, suppressions, shadowing, security -------------------------
+    "PTH",     # os.path calls that should use pathlib
+    "PGH",     # blanket noqa / type: ignore, invalid suppressions
+    "ARG004",  # unused staticmethod argument
+    "A001",    # local variable shadowing a builtin
+    "A006",    # lambda argument shadowing a builtin
+    "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
+    "S113",    # requests call without a timeout
+    "S324",    # hashlib md5/sha1 without usedforsecurity=False
+
+    # --- Docstrings -------------------------------------------------------
+    # Partial: D1xx (missing docstrings) has ~4.6k violations, and D203/D205/
+    # D213/D400/D415 are formatting rewrites of existing prose. Only the
+    # mechanical members are enforced.
+    "D104",    # missing docstring in public package
+    "D202",    # blank line after a function docstring
+    "D209",    # closing quotes of a multi-line docstring not on their own line
+    # D212 stays explicit: the D21 prefix also enables the mutually exclusive
+    # D213, which ruff then warns about and ignores.
+    "D212",    # multi-line docstring summary not on the first line
+    "D3",      # docstring quote style (D300) and non-raw backslashes (D301)
+    "D401",    # docstring first line not in imperative mood
+    "D403",    # first word of a docstring not capitalized
+    "D411",    # missing blank line before section
+    "D413",    # missing blank line after the last docstring section
+
+    # --- Modernization ----------------------------------------------------
+    # UP040/UP046/UP047 (PEP 695 type parameters) are ignored below.
     # UP035 is satisfied except in the two `admin` / `admin_operations.courses`
     # compatibility shims, which re-export `typing.Dict` / `typing.Set` as part
     # of their public surface and carry a file-level `# ruff: noqa: UP035`.
-    "UP035",   # import moved to another module (typing -> collections.abc)
-    "UP036",   # outdated sys.version_info block
-    "UP037",   # quoted annotation that can be a bare type
-    "UP039",   # unnecessary parentheses on a class
-    "UP041",   # asyncio.TimeoutError alias that should be TimeoutError
-    "UP042",   # str-and-Enum class that should be StrEnum
-    "UP043",   # unnecessary default type arguments
-    "UP044",   # Unpack[] that should be *
-    "UP049",   # private type parameter that should be _T
-    "UP05",    # useless class __metaclass__ = type
-    "FURB157", # verbose Decimal constructor
-    "UP045", # Optional[T] to T | None
-    "UP006", # List[T] to list[T]
-    "PTH109", # os.getcwd to Path.cwd
-    "PTH107", # os.remove to Path.unlink
-    "PTH106", # os.rmdir to Path.rmdir
-    "ARG004", # unused staticmethod argument
-    "PLW1641", # __eq__ without __hash__
-    "PTH119", # os.path.basename to Path.name
-    "PTH103", # os.makedirs to Path.mkdir
-    "PTH206", # os.sep split to Path.parts
-    "PTH112", # os.path.isdir to Path.is_dir
-    "PTH120", # os.path.dirname to Path.parent
-    "PTH100", # os.path.abspath to Path.resolve
-    "PTH110", # os.path.exists to Path.exists
-    "PTH208", # os.listdir to Path.iterdir
-    "PTH123", # open() to Path.open
-    "PTH118", # os.path.join to Path slash
-    "PGH004", # blanket noqa
-    "PGH003", # blanket type ignore
-    "PLW2901", # redefined loop name
-    "A006", # lambda arg shadows builtin
-    "S113", # requests call without a timeout
-    "TRY002", # raising a vanilla Exception instead of a named class
-    "S324",  # hashlib md5/sha1 without usedforsecurity=False
-    "S108",  # hardcoded /tmp path instead of tempfile.gettempdir()
-    "A001",  # local variable shadowing a builtin
-    "D401",  # docstring first line not in imperative mood
-    "PT011",  # pytest.raises without match/specific exception
-    "D104",  # missing docstring in public package
-    "G003",  # logging statement uses string concatenation
-    "ERA001",  # commented-out code
+    "UP",
+
+    # --- Ruff-native rules ------------------------------------------------
+    # RUF001-RUF003 (ambiguous unicode) fire on intentional CJK punctuation in
+    # user-facing strings, RUF012 and RUF100 are ignored below.
+    "RUF",
 ]
 ignore = [
+    "E501",    # line length is owned by the formatter
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "DTZ007",  # naive strptime() -- naive UTC is the house convention
     "DTZ901",  # datetime.min/max -- naive UTC is the house convention
-    "E501",    # line length is owned by the formatter
+    "G001",    # str.format logging -- house style
+    "G004",    # f-string logging -- house style, and rewriting it is churn
+    "PERF401", # manual list comprehension -- rewrites obscure the loop bodies
+    "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
+    "PLW0603", # global statement -- used by module-level singletons/caches
+    "PT012",   # pytest.raises block with multiple statements
+    "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
+    "RUF002",  # ambiguous unicode in a docstring -- same
+    "RUF003",  # ambiguous unicode in a comment -- same
+    "RUF012",  # mutable class attribute without ClassVar -- annotation churn
+    # RUF100: with a partial select list, ruff reports deliberate `# noqa:
+    # BLE001 / DTZ001 / SLF001 / S102` markers as unused simply because those
+    # rules are off here, so enforcing it would delete documentation of
+    # intentional exceptions. Stale directives are pruned by hand instead.
+    "RUF100",
+    # UP040 / UP046 / UP047: PEP 695 type-parameter syntax (`type`, `class T`,
+    # `def T`). target-version is py311, which currently suppresses them; if
+    # the target later moves to py312+, ruff would start reporting them and
+    # `ruff check --fix` would leave their unsafe fixes unapplied, so CI would
+    # fail. The rewrite can also change TypeVar variance. Defer until the
+    # runtime is Python 3.12+.
+    "UP040",
+    "UP046",
+    "UP047",
 ]
