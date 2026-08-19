@@ -263,7 +263,6 @@ def get_outline_tree(app, user_id: str, shifu_bid: str) -> list[SimpleOutlineDto
     app.logger.info(f"get outline tree, user_id: {user_id}, shifu_bid: {shifu_bid}")
     with app.app_context():
         outline_tree = build_outline_tree(app, shifu_bid, include_content=False)
-        # return result
         return get_outline_tree_dto(outline_tree)
 
 

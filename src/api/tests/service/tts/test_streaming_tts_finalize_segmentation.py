@@ -91,7 +91,8 @@ class TestFinalizeSegmentation:
         submitted_texts = []
 
         def mock_submit(*args, **kwargs):
-            # Args: (_synthesize_in_thread, segment, voice_settings, audio_settings, provider, model)
+            # Positional args are the thread target followed by segment,
+            # voice settings, audio settings, provider and model.
             # Capture the segment text from args[1]
             if len(args) > 1:
                 segment = args[1]
@@ -131,7 +132,8 @@ class TestFinalizeSegmentation:
         submitted_texts = []
 
         def mock_submit(*args, **kwargs):
-            # Args: (_synthesize_in_thread, segment, voice_settings, audio_settings, provider, model)
+            # Positional args are the thread target followed by segment,
+            # voice settings, audio settings, provider and model.
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -162,7 +164,8 @@ class TestFinalizeSegmentation:
         submitted_texts = []
 
         def mock_submit(*args, **kwargs):
-            # Args: (_synthesize_in_thread, segment, voice_settings, audio_settings, provider, model)
+            # Positional args are the thread target followed by segment,
+            # voice settings, audio settings, provider and model.
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):

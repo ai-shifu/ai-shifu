@@ -91,10 +91,6 @@ from tests.common.fixtures.fake_llm import (
 from tests.common.fixtures.fake_redis import FakeRedis
 
 
-# Path: test/test_flaskr.py
-# Compare this snippet from flaskr/plugin/test.py:
-# from ..service.schedule import *
-#
 @pytest.fixture(scope="session")
 def app():
     if os.getenv("SKIP_APP_FIXTURE"):

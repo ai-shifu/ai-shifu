@@ -10,10 +10,6 @@ except Exception:  # pragma: no cover - fallback for test environment
         pp.pprint(data)
 
 
-# from .test_utils import dump
-# dump(data)
-
-
 # python -m pytest tests/test_xxx.py::xxx -v -s --disable-warnings
 def dump(data: Any) -> None:
     print("\n=== Test Result ===")

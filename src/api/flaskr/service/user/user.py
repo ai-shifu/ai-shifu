@@ -1,5 +1,5 @@
 # user service
-# author: yfge
+# written by yfge
 #
 
 
@@ -41,7 +41,7 @@ from .repository import (
 from .utils import generate_token
 
 # generate temp user for anonymous user
-# author: yfge
+# written by yfge
 
 
 def _try_delete_local_file_by_url(app: Flask, url: str) -> None:

@@ -20,8 +20,6 @@ from .dto import (
     CheckResultDTO,
 )
 
-# pid = ""
-# secret_key = b""
 endpoint_host = "tsafe.ilivedata.com"
 endpoint_path = "/api/v1/text/check"
 endpoint_url = "https://tsafe.ilivedata.com/api/v1/text/check"

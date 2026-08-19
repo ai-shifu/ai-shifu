@@ -233,6 +233,7 @@ select = [
     "PT011",  # pytest.raises without match/specific exception
     "D104",  # missing docstring in public package
     "G003",  # logging statement uses string concatenation
+    "ERA001",  # commented-out code
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
