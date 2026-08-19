@@ -9,22 +9,20 @@ onto every observation.
 """
 
 import pytest
+from flaskr.api.langfuse import (
+    MockClient,
+    create_trace_with_root_span,
+    finalize_langfuse_trace,
+)
+from langfuse import Langfuse
+from langfuse._client.resource_manager import LangfuseResourceManager
+from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
     SimpleSpanProcessor,
     SpanExportResult,
 )
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-
-from langfuse import Langfuse
-from langfuse._client.resource_manager import LangfuseResourceManager
-from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
-
-from flaskr.api.langfuse import (
-    MockClient,
-    create_trace_with_root_span,
-    finalize_langfuse_trace,
-)
 
 
 @pytest.fixture
