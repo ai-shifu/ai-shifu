@@ -29,7 +29,6 @@ Date: 2025-08-07
 """
 
 import json
-import os
 import re
 import tempfile
 import uuid
@@ -2105,7 +2104,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         def cleanup(response):
             try:
                 file_path.unlink()
-                os.rmdir(temp_dir)
+                Path(temp_dir).rmdir()
             except OSError:
                 current_app.logger.warning(
                     "Failed to cleanup shifu export temp files", exc_info=True
