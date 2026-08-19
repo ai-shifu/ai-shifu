@@ -31,10 +31,15 @@ def test_outermost_commits_on_clean_exit(app):
 
 def test_outermost_rolls_back_on_exception(app):
     with app.app_context():
-        with pytest.raises(RuntimeError), uow.unit_of_work():
-            dao.db.session.add(_make_shifu("uow-rollback-1"))
-            dao.db.session.flush()
-            raise RuntimeError("boom")
+
+        def write_then_fail():
+            with uow.unit_of_work():
+                dao.db.session.add(_make_shifu("uow-rollback-1"))
+                dao.db.session.flush()
+                raise RuntimeError("boom")
+
+        with pytest.raises(RuntimeError):
+            write_then_fail()
         assert _count("uow-rollback-1") == 0
 
 
@@ -45,10 +50,14 @@ def test_nested_block_joins_outer_transaction(app):
             with uow.unit_of_work():
                 dao.db.session.add(_make_shifu("uow-nested-inner-1"))
 
-        with pytest.raises(RuntimeError), uow.unit_of_work():
-            helper()
-            dao.db.session.add(_make_shifu("uow-nested-outer-1"))
-            raise RuntimeError("outer fails after helper 'completed'")
+        def outer_fails_after_helper():
+            with uow.unit_of_work():
+                helper()
+                dao.db.session.add(_make_shifu("uow-nested-outer-1"))
+                raise RuntimeError("outer fails after helper 'completed'")
+
+        with pytest.raises(RuntimeError):
+            outer_fails_after_helper()
 
         # The helper's write must be gone too: nested blocks do not commit.
         assert _count("uow-nested-inner-1") == 0
@@ -116,9 +125,14 @@ def test_on_commit_nested_defers_to_outermost_commit(app):
 def test_on_commit_dropped_on_rollback(app):
     calls = []
     with app.app_context():
-        with pytest.raises(RuntimeError), uow.unit_of_work():
-            uow.on_commit(lambda: calls.append("never"))
-            raise RuntimeError("boom")
+
+        def schedule_then_fail():
+            with uow.unit_of_work():
+                uow.on_commit(lambda: calls.append("never"))
+                raise RuntimeError("boom")
+
+        with pytest.raises(RuntimeError):
+            schedule_then_fail()
         assert calls == []
 
 

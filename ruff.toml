@@ -15,7 +15,7 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN / D1xx (except D104) / S101 / SLF001 / PLC0415 / PLR2004: thousands of
+# - ANN / D1xx (except D104) / SLF001 / PLC0415 / PLR2004: thousands of
 #   violations each; enforcing them is a codebase-wide project, not a lint
 #   config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
@@ -103,7 +103,7 @@ select = [
     "PLR5",    # else: if ... that should be elif
 
     # --- Pytest -----------------------------------------------------------
-    "PT",      # flake8-pytest-style (PT012 ignored below)
+    "PT",      # flake8-pytest-style
 
     # --- Paths, suppressions, shadowing, security -------------------------
     "PTH",     # os.path calls that should use pathlib
@@ -111,6 +111,10 @@ select = [
     "ARG004",  # unused staticmethod argument
     "A001",    # local variable shadowing a builtin
     "A006",    # lambda argument shadowing a builtin
+    # S101 bans `assert` in shipped code (python -O strips it, so an assert is
+    # not a runtime guard). Test suites and script self-tests are exempt via
+    # per-file-ignores below.
+    "S101",    # assert used outside tests
     "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
     "S113",    # requests call without a timeout
     "S324",    # hashlib md5/sha1 without usedforsecurity=False
@@ -153,7 +157,6 @@ ignore = [
     "PERF401", # manual list comprehension -- rewrites obscure the loop bodies
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
     "PLW0603", # global statement -- used by module-level singletons/caches
-    "PT012",   # pytest.raises block with multiple statements
     "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
     "RUF002",  # ambiguous unicode in a docstring -- same
     "RUF003",  # ambiguous unicode in a comment -- same
@@ -173,3 +176,11 @@ ignore = [
     "UP046",
     "UP047",
 ]
+
+[lint.per-file-ignores]
+# `assert` is the point of a test, and both scripts below are test code: one is
+# a pytest module, the other keeps its regex fixtures in a `run_self_test()`.
+"src/api/tests/**" = ["S101"]
+"src/api/conftest.py" = ["S101"]
+"scripts/test_*.py" = ["S101"]
+"scripts/check_example_identifiers.py" = ["S101"]

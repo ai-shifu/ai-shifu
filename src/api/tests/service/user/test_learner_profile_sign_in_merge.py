@@ -574,16 +574,17 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app):
         _add_state(source.user_bid, status="completed")
         db.session.commit()
 
-        with (
-            pytest.raises(RuntimeError, match="abort sign-in"),
-            transactional_session(),
-        ):
-            merge_learner_profile_for_sign_in(
-                source_user_id=source.user_bid,
-                target_user_id=target.user_bid,
-            )
-            db.session.flush()
-            raise RuntimeError("abort sign-in")
+        def merge_then_fail():
+            with transactional_session():
+                merge_learner_profile_for_sign_in(
+                    source_user_id=source.user_bid,
+                    target_user_id=target.user_bid,
+                )
+                db.session.flush()
+                raise RuntimeError("abort sign-in")
+
+        with pytest.raises(RuntimeError, match="abort sign-in"):
+            merge_then_fail()
 
         db.session.expire_all()
         stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
