@@ -66,7 +66,7 @@ class TestStreamingTtsSubtitles:
         )
         monkeypatch.setattr(
             "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-            lambda parts: b"".join(parts),
+            b"".join,
         )
         monkeypatch.setattr(
             "flaskr.service.tts.streaming_tts.get_audio_duration_ms",

@@ -319,7 +319,7 @@ class UnifiedMigrationTask:
                 target_key,
                 offset,
             )
-            return await loop.run_in_executor(None, lambda: future.result())
+            return await loop.run_in_executor(None, future.result)
 
     def _process_batch_sync(
         self,

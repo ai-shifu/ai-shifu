@@ -383,7 +383,7 @@ def test_save_shifu_mdflow_serializes_with_outline_structure_writes(app, monkeyp
 
     monkeypatch.setattr(
         "flaskr.service.shifu.shifu_mdflow_funcs.lock_shifu_for_outline_write",
-        lambda bid: lock_calls.append(bid),
+        lock_calls.append,
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",

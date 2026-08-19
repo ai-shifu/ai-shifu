@@ -551,7 +551,7 @@ def test_load_and_register_model_max_output_tokens(monkeypatch):
     monkeypatch.setattr(
         llm.litellm,
         "register_model",
-        lambda model_map: captured.update(model_map),
+        captured.update,
         raising=False,
     )
 
