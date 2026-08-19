@@ -187,7 +187,7 @@ class AlipayProvider(PaymentProvider):
                 AlipayTradeQueryRequest,
             )
         except Exception as exc:  # pragma: no cover - depends on runtime package
-            app.logger.exception("Alipay SDK is not available: %s", exc)
+            app.logger.exception("Alipay SDK is not available")
             raise RuntimeError("alipay-sdk-python is required for Alipay") from exc
 
         return {
@@ -211,7 +211,7 @@ class AlipayProvider(PaymentProvider):
                 verify_with_rsa,
             )
         except Exception as exc:  # pragma: no cover - depends on runtime package
-            app.logger.exception("Alipay signature utility is not available: %s", exc)
+            app.logger.exception("Alipay signature utility is not available")
             raise RuntimeError("Alipay signature utility is required") from exc
 
         public_key = _read_required_key("ALIPAY_PUBLIC_KEY_PATH", "ALIPAY_PUBLIC_KEY")

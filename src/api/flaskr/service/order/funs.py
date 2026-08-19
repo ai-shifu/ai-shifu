@@ -1478,7 +1478,7 @@ def handle_stripe_webhook(
             app=app,
         )
     except Exception as exc:  # pragma: no cover - verified via tests for error path
-        app.logger.exception("Stripe webhook verification failed: %s", exc)
+        app.logger.exception("Stripe webhook verification failed")
         return {
             "status": "error",
             "message": str(exc),
@@ -1906,14 +1906,14 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                     pingxx_order.charge_object = json.dumps(body)
                     try:
                         set_user_state(buy_record.user_bid, USER_STATE_PAID)
-                    except Exception as e:
-                        app.logger.exception("update user state error:%s", e)
+                    except Exception:
+                        app.logger.exception("update user state error")
                     buy_record.status = ORDER_STATUS_SUCCESS
                 send_order_feishu(app, buy_record.order_bid)
                 return query_buy_record(app, buy_record.order_bid)
-            except Exception as e:
+            except Exception:
                 app.logger.exception(
-                    f'success buy record from pingxx charge:"{charge_id}" error:{e}'
+                    f'success buy record from pingxx charge:"{charge_id}"'
                 )
             finally:
                 lock.release()
@@ -1938,8 +1938,8 @@ def success_buy_record(app: Flask, record_id: str):
             )
             try:
                 set_user_state(buy_record.user_bid, USER_STATE_PAID)
-            except Exception as e:
-                app.logger.exception("update user state error:%s", e)
+            except Exception:
+                app.logger.exception("update user state error")
             buy_record.status = ORDER_STATUS_SUCCESS
             # Notify only once the SUCCESS flip is durable: nested inside a
             # caller's unit of work this defers to the caller's commit (and

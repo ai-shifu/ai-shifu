@@ -2956,10 +2956,9 @@ def enqueue_credit_notification(app: Flask, *, notification_bid: str) -> dict[st
         }
     except Exception as exc:
         app.logger.exception(
-            "Failed to enqueue %s for notification_bid=%s: %s",
+            "Failed to enqueue %s for notification_bid=%s",
             TASK_NAME,
             normalized_notification_bid,
-            exc,
         )
         return {
             "status": "enqueue_failed",

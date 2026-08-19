@@ -60,7 +60,7 @@ def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
         except Exception as exc:
             # Never mask the persistence failure with a logging failure.
             with contextlib.suppress(Exception):
-                app.logger.exception("Usage metering persist failed: %s", exc)
+                app.logger.exception("Usage metering persist failed")
             # Clean up INSIDE the pushed context so it targets the session
             # that actually failed - the previous cleanup ran after the
             # context pop and rolled back the CALLER's session instead.
@@ -105,12 +105,11 @@ def _enqueue_usage_settlement(app: Flask, *, usage_bid: str) -> None:
             )
             return
         task.apply_async(kwargs={"usage_bid": normalized_usage_bid})
-    except Exception as exc:
+    except Exception:
         with contextlib.suppress(Exception):
             app.logger.exception(
-                "Usage settlement enqueue failed for usage_bid=%s: %s",
+                "Usage settlement enqueue failed for usage_bid=%s",
                 normalized_usage_bid,
-                exc,
             )
 
 

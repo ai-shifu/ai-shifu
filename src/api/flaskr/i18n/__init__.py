@@ -75,9 +75,9 @@ def _load_json_translations(app: Flask, root: Path):
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
             language_codes = metadata.get("locales", {}).keys()
-        except Exception as exc:  # pragma: no cover - defensive log
+        except Exception:  # pragma: no cover - defensive log
             app.logger.exception(
-                "Failed to parse locales metadata at %s: %s", metadata_path, exc
+                "Failed to parse locales metadata at %s", metadata_path
             )
 
     if not language_codes:
@@ -108,10 +108,8 @@ def _load_json_translations(app: Flask, root: Path):
                 namespace = file_path.stem
             try:
                 content = json.loads(file_path.read_text(encoding="utf-8"))
-            except Exception as exc:  # pragma: no cover - IO errors are logged
-                app.logger.exception(
-                    "Failed to load translation file %s: %s", file_path, exc
-                )
+            except Exception:  # pragma: no cover - IO errors are logged
+                app.logger.exception("Failed to load translation file %s", file_path)
                 continue
 
             flat_entries = {}
@@ -259,8 +257,8 @@ def load_translations(app: Flask, translations_dir=None):
     shared_root = _shared_json_root()
     try:
         _validate_json_translations(app, shared_root)
-    except Exception as exc:
-        app.logger.exception("i18n validation failed: %s", exc)
+    except Exception:
+        app.logger.exception("i18n validation failed")
         raise
 
     _load_json_translations(app, shared_root)

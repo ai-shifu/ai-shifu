@@ -90,7 +90,7 @@ def ilivedata_check(
     try:
         ret = send(query_body, signature, now_date, pid, timeout=timeout_seconds)
     except URLError as err:
-        app.logger.exception("ilivedata request failed: %s", err)
+        app.logger.exception("ilivedata request failed")
         return CheckResultDTO(
             check_result=CHECK_RESULT_UNKNOWN,
             risk_labels=[],

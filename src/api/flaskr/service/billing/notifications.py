@@ -266,10 +266,9 @@ def enqueue_subscription_purchase_sms(
         )
     except Exception as exc:
         app.logger.exception(
-            "Failed to enqueue %s for bill_order_bid=%s: %s",
+            "Failed to enqueue %s for bill_order_bid=%s",
             TASK_NAME,
             normalized_bill_order_bid,
-            exc,
         )
         return _build_result(
             "enqueue_failed",
@@ -463,10 +462,9 @@ def enqueue_billing_paid_feishu(
         )
     except Exception as exc:
         app.logger.exception(
-            "Failed to enqueue %s for bill_order_bid=%s: %s",
+            "Failed to enqueue %s for bill_order_bid=%s",
             BILLING_PAID_FEISHU_TASK_NAME,
             normalized_bill_order_bid,
-            exc,
         )
         return _build_feishu_result(
             "enqueue_failed",
@@ -736,9 +734,8 @@ def deliver_billing_paid_feishu(
     except Exception as exc:
         provider_error_message = str(exc)
         app.logger.exception(
-            "Billing paid Feishu provider failed for bill_order_bid=%s: %s",
+            "Billing paid Feishu provider failed for bill_order_bid=%s",
             normalized_bill_order_bid,
-            exc,
         )
 
     with app.app_context():
@@ -881,9 +878,8 @@ def deliver_subscription_purchase_sms(
     except Exception as exc:  # pragma: no cover - guarded by send_sms_ali
         provider_error_message = str(exc)
         app.logger.exception(
-            "Subscription purchase SMS provider failed for bill_order_bid=%s: %s",
+            "Subscription purchase SMS provider failed for bill_order_bid=%s",
             normalized_bill_order_bid,
-            exc,
         )
 
     with app.app_context():

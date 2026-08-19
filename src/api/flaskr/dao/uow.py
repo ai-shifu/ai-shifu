@@ -85,8 +85,8 @@ def _run_post_commit(callbacks: list) -> None:
     for callback in callbacks:
         try:
             callback()
-        except Exception as exc:
-            logger.exception("unit_of_work post-commit callback failed: %s", exc)
+        except Exception:
+            logger.exception("unit_of_work post-commit callback failed")
 
 
 @contextmanager
