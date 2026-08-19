@@ -13,7 +13,7 @@ from flaskr.common.config import get_config
 TRANSLATIONS_DEFAULT_NAME = "i18n"
 
 _thread_local = threading.local()
-_translations: Dict[str, Dict[str, str]] = defaultdict(dict)
+_translations: dict[str, dict[str, str]] = defaultdict(dict)
 
 
 def _shared_json_root() -> Path:
@@ -151,7 +151,7 @@ def _validate_json_translations(app: Flask, root: Path):
             f"Missing shared i18n directory at '{root}'. Run the migration checklist to generate JSON translations."
         )
 
-    problems: List[str] = []
+    problems: list[str] = []
 
     metadata_path = root / "locales.json"
     metadata_declared_locales: set[str] = set()

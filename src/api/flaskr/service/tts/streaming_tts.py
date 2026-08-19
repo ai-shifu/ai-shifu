@@ -14,7 +14,7 @@ import time
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generator, List
+from typing import Any, Generator
 
 from flask import Flask
 from flaskr.api.tts import (
@@ -275,7 +275,7 @@ class StreamingTTSProcessor:
         tts_model: str = "",
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
-        av_contract: Dict[str, Any] | None = None,
+        av_contract: dict[str, Any] | None = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
     ):
         self.app = app
@@ -331,15 +331,15 @@ class StreamingTTSProcessor:
         )
 
         # Thread-safe queue for completed segments
-        self._completed_segments: Dict[int, TTSSegment] = {}
-        self._pending_futures: List[Future] = []
+        self._completed_segments: dict[int, TTSSegment] = {}
+        self._pending_futures: list[Future] = []
         self._next_yield_index = 0
         self._lock = threading.Lock()
 
         # Storage for all yielded audio data and text (for final concatenation/subtitles)
         # List of (index, audio_data, duration_ms, text)
-        self._all_audio_data: List[tuple] = []
-        self._segment_subtitle_cues: Dict[int, list[dict[str, Any]]] = {}
+        self._all_audio_data: list[tuple] = []
+        self._segment_subtitle_cues: dict[int, list[dict[str, Any]]] = {}
 
         # Check if TTS is configured for the specified provider
         self._enabled = is_tts_configured(tts_provider)
@@ -2111,7 +2111,7 @@ class AVStreamingTTSProcessor:
         self._current_processor: StreamingTTSProcessor | None = None
         self._raw_buffer = ""
         self._raw_full_content = ""
-        self._av_contract: Dict[str, Any] | None = None
+        self._av_contract: dict[str, Any] | None = None
         self._next_element_index = self.element_index_offset
         self._current_segment_has_speakable_text = False
 

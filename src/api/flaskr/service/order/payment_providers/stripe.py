@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from flask import Flask
 from flaskr.service.config import get_config
@@ -30,14 +30,14 @@ class StripeProvider(PaymentProvider):
             raise RuntimeError("Stripe SDK is required for Stripe payments") from exc
         return stripe
 
-    def _client_options(self, app: Flask) -> tuple[Any, Dict[str, Any]]:
+    def _client_options(self, app: Flask) -> tuple[Any, dict[str, Any]]:
         stripe = self._ensure_client(app)
         secret_key = get_config("STRIPE_SECRET_KEY")
         if not secret_key:
             app.logger.error("STRIPE_SECRET_KEY configuration is missing")
             raise RuntimeError("STRIPE_SECRET_KEY must be configured for Stripe")
 
-        request_options: Dict[str, Any] = {"api_key": secret_key}
+        request_options: dict[str, Any] = {"api_key": secret_key}
         api_version = get_config("STRIPE_API_VERSION")
         if api_version:
             request_options["stripe_version"] = api_version
@@ -48,7 +48,7 @@ class StripeProvider(PaymentProvider):
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
         stripe, request_options = self._client_options(app)
-        options: Dict[str, Any] = request.extra or {}
+        options: dict[str, Any] = request.extra or {}
         mode = (options.get("mode") or request.channel or "payment_intent").lower()
         metadata = options.get("metadata", {}) or {}
         if hasattr(metadata, "to_dict"):
@@ -66,7 +66,7 @@ class StripeProvider(PaymentProvider):
                 )
 
             session_params = options.get("session_params", {})
-            params: Dict[str, Any] = {
+            params: dict[str, Any] = {
                 "mode": "payment",
                 "success_url": success_url,
                 "cancel_url": cancel_url,
@@ -136,7 +136,7 @@ class StripeProvider(PaymentProvider):
             session_dict = session.to_dict()
             payment_intent_id = session_dict.get("payment_intent")
             latest_charge_id = ""
-            payment_intent_object: Dict[str, Any] = {}
+            payment_intent_object: dict[str, Any] = {}
             if payment_intent_id:
                 payment_intent = stripe.PaymentIntent.retrieve(
                     payment_intent_id, **request_options
@@ -183,7 +183,7 @@ class StripeProvider(PaymentProvider):
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
-        options: Dict[str, Any] = dict(request.extra or {})
+        options: dict[str, Any] = dict(request.extra or {})
         session_params = dict(options.get("session_params", {}) or {})
         session_params["mode"] = "subscription"
         options["mode"] = "checkout_session"
@@ -244,22 +244,22 @@ class StripeProvider(PaymentProvider):
 
     def retrieve_checkout_session(
         self, *, session_id: str, app: Flask
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         stripe, request_options = self._client_options(app)
         return stripe.checkout.Session.retrieve(session_id, **request_options)
 
-    def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> Dict[str, Any]:
+    def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> dict[str, Any]:
         stripe, request_options = self._client_options(app)
         return stripe.PaymentIntent.retrieve(intent_id, **request_options)
 
     def retrieve_subscription(
         self, *, subscription_id: str, app: Flask
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         stripe, request_options = self._client_options(app)
         return stripe.Subscription.retrieve(subscription_id, **request_options)
 
     def verify_webhook(
-        self, *, headers: Dict[str, str], raw_body: bytes | str, app: Flask
+        self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
         stripe, _request_options = self._client_options(app)
         webhook_secret = get_config("STRIPE_WEBHOOK_SECRET")
@@ -290,7 +290,7 @@ class StripeProvider(PaymentProvider):
         return self._build_notification_from_event(event)
 
     def handle_notification(
-        self, *, payload: Dict[str, Any], app: Flask
+        self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
         headers = dict(payload.get("headers", {}) or {})
         sig_header = payload.get("sig_header", "")
@@ -361,7 +361,7 @@ class StripeProvider(PaymentProvider):
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
         stripe, request_options = self._client_options(app)
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if request.amount is not None:
             params["amount"] = request.amount
         if request.reason:
@@ -394,7 +394,7 @@ class StripeProvider(PaymentProvider):
         )
 
     def _build_notification_from_event(
-        self, event: Dict[str, Any]
+        self, event: dict[str, Any]
     ) -> PaymentNotificationResult:
         data_object = event.get("data", {}).get("object", {}) or {}
         metadata = data_object.get("metadata", {}) or {}

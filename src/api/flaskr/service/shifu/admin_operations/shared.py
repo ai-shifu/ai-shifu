@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, Dict, Sequence
+from typing import Any, Sequence
 
 from flask import current_app
 from flaskr.service.user.models import AuthCredential
@@ -52,7 +52,7 @@ def format_operator_datetime(value: Any) -> str:
     return str(serialized_value or "").replace("+00:00", "Z")
 
 
-def load_operator_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
+def load_operator_user_map(user_bids: Sequence[str]) -> dict[str, dict[str, str]]:
     if not user_bids:
         return {}
 
@@ -71,8 +71,8 @@ def load_operator_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    phone_map: Dict[str, str] = {}
-    email_map: Dict[str, str] = {}
+    phone_map: dict[str, str] = {}
+    email_map: dict[str, str] = {}
     for credential in credentials:
         user_bid = credential.user_bid or ""
         if not user_bid:
@@ -93,7 +93,7 @@ def load_operator_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]
         .order_by(UserEntity.id.asc())
         .all()
     )
-    user_map: Dict[str, Dict[str, str]] = {}
+    user_map: dict[str, dict[str, str]] = {}
     for user in users:
         mobile = phone_map.get(user.user_bid, "")
         email = email_map.get(user.user_bid, "")

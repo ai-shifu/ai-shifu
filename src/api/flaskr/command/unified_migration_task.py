@@ -8,7 +8,6 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Tuple
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -48,7 +47,7 @@ class MigrationResult:
     error_records: int
     start_time: datetime
     end_time: datetime
-    errors: List[str]
+    errors: list[str]
 
     @property
     def duration(self) -> float:
@@ -71,7 +70,7 @@ class ConsistencyCheckResult:
     old_count: int
     new_count: int
     sample_integrity_passed: bool
-    data_mismatches: List[str]
+    data_mismatches: list[str]
 
     @property
     def count_match(self) -> bool:
@@ -159,7 +158,7 @@ class UnifiedMigrationTask:
 
         logger.info(f"Initialized unified migration task with database: {database_url}")
 
-    async def migrate_all_tables(self) -> Dict[str, MigrationResult]:
+    async def migrate_all_tables(self) -> dict[str, MigrationResult]:
         """Migrate all configured tables asynchronously"""
         logger.info("Starting unified migration for all tables...")
 
@@ -194,7 +193,7 @@ class UnifiedMigrationTask:
         return results
 
     async def _migrate_table_async(
-        self, source_table: str, table_config: Dict
+        self, source_table: str, table_config: dict
     ) -> MigrationResult:
         """Migrate a single table asynchronously"""
         logger.info(f"Starting migration for table: {source_table}")
@@ -305,7 +304,7 @@ class UnifiedMigrationTask:
         key_field: str,
         target_key: str,
         offset: int,
-    ) -> Dict:
+    ) -> dict:
         """Process a batch of records asynchronously"""
         loop = asyncio.get_event_loop()
 
@@ -329,7 +328,7 @@ class UnifiedMigrationTask:
         key_field: str,
         target_key: str,
         offset: int,
-    ) -> Dict:
+    ) -> dict:
         """Process a batch of records synchronously"""
         # Create a new session for this batch to avoid concurrency issues
         session = self.SessionClass()
@@ -479,7 +478,7 @@ class UnifiedMigrationTask:
         finally:
             session.close()
 
-    async def verify_data_consistency(self) -> Dict[str, ConsistencyCheckResult]:
+    async def verify_data_consistency(self) -> dict[str, ConsistencyCheckResult]:
         """Verify data consistency between old and new tables"""
         logger.info("Starting comprehensive data consistency verification...")
 
@@ -534,7 +533,7 @@ class UnifiedMigrationTask:
 
     async def _verify_sample_integrity_async(
         self, source_table: str, target_table: str, key_field: str, target_key: str
-    ) -> Tuple[bool, List[str]]:
+    ) -> tuple[bool, list[str]]:
         """Verify data integrity using random sampling"""
         session = self.SessionClass()
         try:
@@ -623,7 +622,7 @@ class UnifiedMigrationTask:
             return False
 
     # Table mapping functions
-    def _map_attendscript_to_progress_record(self, record) -> Dict:
+    def _map_attendscript_to_progress_record(self, record) -> dict:
         """Map ai_course_lesson_attend to learn_progress_records"""
         return {
             "progress_record_bid": getattr(record, "attend_id", ""),
@@ -638,7 +637,7 @@ class UnifiedMigrationTask:
             "updated_at": getattr(record, "updated", None),
         }
 
-    def _map_log_script_to_generated_block(self, record) -> Dict:
+    def _map_log_script_to_generated_block(self, record) -> dict:
         """Map ai_course_lesson_attendscript to learn_generated_blocks"""
         return {
             "generated_block_bid": getattr(record, "log_id", ""),
@@ -659,7 +658,7 @@ class UnifiedMigrationTask:
             "updated_at": getattr(record, "updated", None),
         }
 
-    def _map_discount_to_coupon(self, record) -> Dict:
+    def _map_discount_to_coupon(self, record) -> dict:
         """Map discount to promo_coupons"""
         return {
             "coupon_bid": record.discount_id,
@@ -680,7 +679,7 @@ class UnifiedMigrationTask:
             "updated_at": record.updated,
         }
 
-    def _map_discount_log_to_usage(self, record) -> Dict:
+    def _map_discount_log_to_usage(self, record) -> dict:
         """Map discount_use_log to promo_coupon_usages"""
         return {
             "coupon_usage_bid": record.record_id,
@@ -928,8 +927,8 @@ class UnifiedMigrationTask:
 
     def generate_migration_report(
         self,
-        migration_results: Dict[str, MigrationResult],
-        consistency_results: Dict[str, ConsistencyCheckResult],
+        migration_results: dict[str, MigrationResult],
+        consistency_results: dict[str, ConsistencyCheckResult],
     ) -> str:
         """Generate comprehensive migration report"""
         report = []

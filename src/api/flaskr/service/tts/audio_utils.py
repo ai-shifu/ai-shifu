@@ -5,7 +5,7 @@ This module provides audio concatenation and processing functions using pydub/ff
 
 import io
 import logging
-from typing import List, Sequence
+from typing import Sequence
 
 from flaskr.common.log import AppLoggerProxy
 
@@ -65,7 +65,7 @@ def try_get_audio_duration_ms(audio_data: bytes, format: str = "mp3") -> int | N
 
 
 def concat_audio_mp3(
-    segments: List[bytes],
+    segments: list[bytes],
     output_format: str = "mp3",
     crossfade_ms: int = DEFAULT_CROSSFADE_MS,
 ) -> bytes:

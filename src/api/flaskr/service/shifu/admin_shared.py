@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any
 
 from flask import current_app
 from flaskr.service.user.consts import (
@@ -318,7 +318,7 @@ def _coerce_operator_datetime(value: Any) -> datetime | None:
     return None
 
 
-def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
+def _normalize_metadata_json(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     return {}

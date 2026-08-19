@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from flask import current_app
 from flaskr.service.shifu.admin_dtos_courses import AdminOperationCourseSummaryDTO
@@ -10,9 +10,9 @@ from flaskr.service.shifu.admin_shared import _format_decimal
 def build_admin_operation_course_summary(
     course,
     *,
-    user_map: Dict[str, Dict[str, str]],
+    user_map: dict[str, dict[str, str]],
     course_status: str,
-    activity: Dict[str, Any] | None = None,
+    activity: dict[str, Any] | None = None,
 ) -> AdminOperationCourseSummaryDTO:
     resolved_activity = activity or {}
     creator = user_map.get(course.created_user_bid or "", {})

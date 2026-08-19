@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any
 
 from flask import Flask
 from flaskr.service.common.dtos import UserInfo, UserToken
@@ -20,7 +20,7 @@ class ChallengeRequest(_BaseDTO):
     """Request payload for providers that deliver a verification challenge."""
 
     identifier: str = Field(..., description="Unique identifier such as phone or email")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Provider-specific auxiliary data"
     )
 
@@ -30,7 +30,7 @@ class ChallengeResponse(_BaseDTO):
 
     identifier: str = Field(..., description="Identifier the challenge was sent to")
     expire_in: int = Field(..., description="Expiration time in seconds")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Provider-specific auxiliary data"
     )
 
@@ -40,7 +40,7 @@ class VerificationRequest(_BaseDTO):
 
     identifier: str = Field(..., description="Identifier being verified")
     code: str = Field(..., description="Verification code or token")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Provider-specific auxiliary data"
     )
 
@@ -50,7 +50,7 @@ class OAuthCallbackRequest(_BaseDTO):
 
     state: str | None = Field(None, description="Opaque state value returned by OAuth")
     code: str | None = Field(None, description="Authorization code or token")
-    raw_request_args: Dict[str, Any] = Field(
+    raw_request_args: dict[str, Any] = Field(
         default_factory=dict, description="Complete callback request arguments"
     )
     current_user_id: str | None = Field(
@@ -70,7 +70,7 @@ class AuthResult(_BaseDTO):
     is_new_user: bool = Field(
         False, description="Indicates whether the auth flow created a new user"
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Provider-specific auxiliary data"
     )
 
@@ -99,7 +99,7 @@ class AuthProvider(ABC):
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
         """Validate a user based on the incoming verification request."""
 
-    def begin_oauth(self, app: Flask, metadata: Dict[str, Any]) -> Any:
+    def begin_oauth(self, app: Flask, metadata: dict[str, Any]) -> Any:
         """Initiate an OAuth flow (optional)."""
         raise NotImplementedError(
             f"Provider '{self.provider_name}' does not support OAuth begin"

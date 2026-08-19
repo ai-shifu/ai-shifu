@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 from flask import Flask
 from flaskr.dao import cleanup_session_after, db, invalidate_session
@@ -128,7 +128,7 @@ def record_llm_usage(
     latency_ms: int = 0,
     status: int = 0,
     error_message: str = "",
-    extra: Dict[str, Any] | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> str:
     usage_bid = generate_id(app)
     normalized_usage_scene = normalize_usage_scene(context.usage_scene)
@@ -227,7 +227,7 @@ def record_tts_usage(
     segment_count: int = 0,
     status: int = 0,
     error_message: str = "",
-    extra: Dict[str, Any] | None = None,
+    extra: dict[str, Any] | None = None,
     enqueue_settlement: bool = True,
 ) -> str:
     resolved_usage_bid = usage_bid or generate_id(app)

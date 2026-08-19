@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, Iterable, Sequence, Set
+from typing import Any, Iterable, Sequence
 
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
@@ -168,7 +168,7 @@ def _build_latest_operator_course_rows_query(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Set[str] | None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
 ):
@@ -209,7 +209,7 @@ def _build_latest_operator_course_rows_subquery(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Set[str] | None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
     alias_name: str,
@@ -231,7 +231,7 @@ def _build_operator_course_candidate_query(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Set[str] | None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
     include_activity: bool = False,
@@ -529,7 +529,7 @@ def _build_latest_shifus_query(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Set[str] | None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
     updated_start_time: datetime | None,
@@ -570,7 +570,7 @@ def _load_latest_shifus(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Set[str] | None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
     updated_start_time: datetime | None,
@@ -617,7 +617,7 @@ def _load_latest_shifu_seeds(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Set[str] | None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
     updated_start_time: datetime | None,
@@ -685,9 +685,9 @@ def _attach_course_prompt_flags(model, rows) -> None:
 
 def _build_course_summary(
     course,
-    user_map: Dict[str, Dict[str, str]],
+    user_map: dict[str, dict[str, str]],
     course_status: str,
-    activity: Dict[str, Any] | None = None,
+    activity: dict[str, Any] | None = None,
 ) -> AdminOperationCourseSummaryDTO:
     return build_admin_operation_course_summary(
         course,
@@ -705,7 +705,7 @@ def _is_operator_visible_course(course) -> bool:
     )
 
 
-def _resolve_course_status(shifu_bid: str, published_bids: Set[str]) -> str:
+def _resolve_course_status(shifu_bid: str, published_bids: set[str]) -> str:
     if shifu_bid in published_bids:
         return COURSE_STATUS_PUBLISHED
     return COURSE_STATUS_UNPUBLISHED
@@ -734,7 +734,7 @@ def _resolve_created_last_7d_window(
 def _load_course_activity_map(
     drafts: Iterable[DraftShifu],
     published: Iterable[PublishedShifu],
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     return load_course_activity_map(drafts, published)
 
 
@@ -806,7 +806,7 @@ def _resolve_course_copy_title(source_title: str, requested_title: str) -> str:
 def _build_outline_history_tree(
     outlines: Sequence[DraftOutlineItem],
 ) -> list[HistoryItem]:
-    outline_children_map: Dict[str, list[DraftOutlineItem]] = {}
+    outline_children_map: dict[str, list[DraftOutlineItem]] = {}
     for outline in outlines:
         parent_bid = str(outline.parent_bid or "").strip()
         outline_children_map.setdefault(parent_bid, []).append(outline)
@@ -843,8 +843,8 @@ def _merge_courses(
     published: Iterable[PublishedShifu],
 ):
     course_map = {}
-    published_bids: Set[str] = set()
-    selected_sources: Dict[str, str] = {}
+    published_bids: set[str] = set()
+    selected_sources: dict[str, str] = {}
     for course in drafts:
         visible = _is_operator_visible_course(course)
         if visible:

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, Sequence, Set
+from typing import Any, Iterable, Sequence
 
 from flask import Flask, current_app
 from flaskr.dao import db
@@ -163,8 +163,8 @@ def _build_latest_operator_course_rows_query(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Set[str] | None = None,
-    creator_bids: Set[str] | None,
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
 ):
@@ -258,8 +258,8 @@ def _build_latest_operator_course_rows_subquery(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Set[str] | None = None,
-    creator_bids: Set[str] | None,
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
     alias_name: str,
@@ -284,8 +284,8 @@ def _build_operator_course_candidate_query(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Set[str] | None = None,
-    creator_bids: Set[str] | None,
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
     include_activity: bool = False,
@@ -606,8 +606,8 @@ def _build_latest_shifus_query(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Set[str] | None = None,
-    creator_bids: Set[str] | None,
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
     updated_start_time: datetime | None,
@@ -715,8 +715,8 @@ def _load_latest_shifus(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Set[str] | None = None,
-    creator_bids: Set[str] | None,
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
     updated_start_time: datetime | None,
@@ -770,8 +770,8 @@ def _load_latest_shifu_seeds(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Set[str] | None = None,
-    creator_bids: Set[str] | None,
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
     updated_start_time: datetime | None,
@@ -843,9 +843,9 @@ def _attach_course_prompt_flags(model, rows) -> None:
 
 def _build_course_summary(
     course,
-    user_map: Dict[str, Dict[str, str]],
+    user_map: dict[str, dict[str, str]],
     course_status: str,
-    activity: Dict[str, Any] | None = None,
+    activity: dict[str, Any] | None = None,
 ) -> AdminOperationCourseSummaryDTO:
     return build_admin_operation_course_summary(
         course,
@@ -855,7 +855,7 @@ def _build_course_summary(
     )
 
 
-def _resolve_course_status(shifu_bid: str, published_bids: Set[str]) -> str:
+def _resolve_course_status(shifu_bid: str, published_bids: set[str]) -> str:
     if shifu_bid in published_bids:
         return COURSE_STATUS_PUBLISHED
     return COURSE_STATUS_UNPUBLISHED
@@ -947,7 +947,7 @@ def _resolve_created_last_7d_window(
 def _load_course_activity_map(
     drafts: Iterable[DraftShifu],
     published: Iterable[PublishedShifu],
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     return load_course_activity_map(drafts, published)
 
 
@@ -955,7 +955,7 @@ def _load_recent_learning_active_course_bids(
     *,
     since: datetime,
     shifu_bids: Sequence[str] | None = None,
-) -> Set[str]:
+) -> set[str]:
     query = db.session.query(LearnProgressRecord.shifu_bid).filter(
         LearnProgressRecord.deleted == 0,
         LearnProgressRecord.status != LEARN_STATUS_RESET,
@@ -980,7 +980,7 @@ def _load_recent_paid_order_course_bids(
     *,
     since: datetime,
     shifu_bids: Sequence[str] | None = None,
-) -> Set[str]:
+) -> set[str]:
     query = db.session.query(Order.shifu_bid).filter(
         Order.deleted == 0,
         Order.status == ORDER_STATUS_SUCCESS,
@@ -1017,12 +1017,12 @@ def _build_latest_billing_order_subquery(*, creator_bid: str):
     )
 
 
-def _find_operator_course_bids_by_name(course_name: str) -> Set[str]:
+def _find_operator_course_bids_by_name(course_name: str) -> set[str]:
     normalized_course_name = str(course_name or "").strip().lower()
     if not normalized_course_name:
         return set()
 
-    def _load_matching_bids(model) -> Set[str]:
+    def _load_matching_bids(model) -> set[str]:
         latest_subquery = (
             db.session.query(db.func.max(model.id).label("max_id"))
             .filter(model.deleted == 0)
@@ -1041,7 +1041,7 @@ def _find_operator_course_bids_by_name(course_name: str) -> Set[str]:
             if str(shifu_bid or "").strip()
         }
 
-    matching_bids: Set[str] = set()
+    matching_bids: set[str] = set()
     matching_bids.update(_load_matching_bids(DraftShifu))
     matching_bids.update(_load_matching_bids(PublishedShifu))
     return matching_bids
@@ -1051,7 +1051,7 @@ def _build_operator_course_query_filter(
     shifu_bid_column: Any,
     course_query: str,
     *,
-    matching_course_bids: Set[str] | None = None,
+    matching_course_bids: set[str] | None = None,
 ) -> Any | None:
     normalized_course_query = str(course_query or "").strip()
     if not normalized_course_query:
@@ -1301,7 +1301,7 @@ def _list_operator_courses_legacy(
     )
     activity_map = _load_course_activity_map(draft_rows, published_rows)
 
-    def resolve_activity(course) -> Dict[str, Any]:
+    def resolve_activity(course) -> dict[str, Any]:
         return activity_map.get(str(course.shifu_bid or "").strip(), {})
 
     def resolve_updated_at(course) -> datetime | None:
@@ -1539,7 +1539,7 @@ def list_operator_courses(
         _attach_course_prompt_flags(DraftShifu, draft_page_items)
         _attach_course_prompt_flags(PublishedShifu, published_page_items)
 
-        def resolve_activity(course) -> Dict[str, Any]:
+        def resolve_activity(course) -> dict[str, Any]:
             return {
                 "updated_at": course.activity_updated_at or course.updated_at,
                 "updated_user_bid": course.activity_updated_user_bid

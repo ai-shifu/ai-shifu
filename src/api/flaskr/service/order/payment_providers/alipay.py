@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from urllib.parse import parse_qs
 
 from flask import Flask
@@ -93,7 +93,7 @@ class AlipayProvider(PaymentProvider):
         return self.create_payment(request=request, app=app)
 
     def verify_webhook(
-        self, *, headers: Dict[str, str], raw_body: bytes | str, app: Flask
+        self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
         del headers
         payload = _parse_form_payload(raw_body)
@@ -102,7 +102,7 @@ class AlipayProvider(PaymentProvider):
         return self._notification_from_payload(payload)
 
     def handle_notification(
-        self, *, payload: Dict[str, Any], app: Flask
+        self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
         normalized_payload = dict(payload or {})
         if "raw_body" in normalized_payload:
@@ -201,7 +201,7 @@ class AlipayProvider(PaymentProvider):
 
     def _verify_notification_signature(
         self,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         app: Flask,
     ) -> bool:
         self._load_sdk(app)
@@ -229,7 +229,7 @@ class AlipayProvider(PaymentProvider):
 
     def _notification_from_payload(
         self,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
     ) -> PaymentNotificationResult:
         return PaymentNotificationResult(
             order_bid=str(payload.get("out_trade_no") or ""),
@@ -260,7 +260,7 @@ def _format_cny_amount(amount: int) -> str:
     return format(yuan, "f")
 
 
-def _parse_alipay_response(raw_response: Any, response_key: str) -> Dict[str, Any]:
+def _parse_alipay_response(raw_response: Any, response_key: str) -> dict[str, Any]:
     if hasattr(raw_response, "to_dict"):
         raw_response = raw_response.to_dict()
     if isinstance(raw_response, str):
@@ -273,7 +273,7 @@ def _parse_alipay_response(raw_response: Any, response_key: str) -> Dict[str, An
     return raw_response
 
 
-def _parse_form_payload(raw_body: bytes | str) -> Dict[str, Any]:
+def _parse_form_payload(raw_body: bytes | str) -> dict[str, Any]:
     if isinstance(raw_body, bytes):
         raw_body = raw_body.decode("utf-8")
     raw_body = str(raw_body or "")

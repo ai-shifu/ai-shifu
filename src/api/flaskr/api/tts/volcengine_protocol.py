@@ -14,7 +14,7 @@ import logging
 import struct
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, Dict
+from typing import Any
 
 from flaskr.common.log import AppLoggerProxy
 
@@ -105,7 +105,7 @@ class ProtocolFrame:
     event: Event | None
     session_id: str | None
     connection_id: str | None
-    payload: bytes | Dict[str, Any] | None
+    payload: bytes | dict[str, Any] | None
     error_code: int | None = None
 
 
@@ -364,7 +364,7 @@ class VolcengineProtocol:
                     offset += sess_id_len
 
         # Parse payload
-        payload: bytes | Dict[str, Any] | None = None
+        payload: bytes | dict[str, Any] | None = None
 
         if len(data) > offset:
             if message_type == MessageType.AUDIO_ONLY_RESPONSE:
@@ -414,7 +414,7 @@ class VolcengineProtocol:
         serialization: SerializationMethod,
         compression: CompressionMethod,
         event: Event | None = None,
-        payload: Dict[str, Any] | None = None,
+        payload: dict[str, Any] | None = None,
     ) -> bytes:
         """Encode a frame without session/connection ID."""
         frame = bytearray()
@@ -466,7 +466,7 @@ class VolcengineProtocol:
         compression: CompressionMethod,
         event: Event,
         session_id: str,
-        payload: Dict[str, Any] | None = None,
+        payload: dict[str, Any] | None = None,
     ) -> bytes:
         """Encode a frame with session ID."""
         frame = bytearray()

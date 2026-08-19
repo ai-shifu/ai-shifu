@@ -3,7 +3,7 @@ import decimal
 import json
 import re
 from contextlib import contextmanager, nullcontext, suppress
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pytz
@@ -129,7 +129,7 @@ class AICourseBuyRecordDTO:
     discount: str
     active_discount: str
     value_to_pay: str
-    price_item: List[PayItemDto]
+    price_item: list[PayItemDto]
 
     def __init__(
         self,
@@ -304,7 +304,7 @@ def _sync_order_campaign_pricing(
     user_id: str,
     course_id: str,
     active_id: str | None,
-) -> Tuple[List, decimal.Decimal]:
+) -> tuple[list, decimal.Decimal]:
     """Refresh eligible campaigns for an unpaid order and recalculate paid price.
 
     Boundary-joining helper: it flushes but never commits; the pricing update
@@ -323,7 +323,7 @@ def _sync_order_campaign_pricing(
         for campaign_application in campaign_applications:
             discount_value += decimal.Decimal(campaign_application.discount_amount)
     coupon_discount_value = decimal.Decimal("0.00")
-    coupon_records: List[CouponUsageModel] = CouponUsageModel.query.filter(
+    coupon_records: list[CouponUsageModel] = CouponUsageModel.query.filter(
         CouponUsageModel.order_bid == buy_record.order_bid,
         CouponUsageModel.status == COUPON_STATUS_USED,
         CouponUsageModel.deleted == 0,
@@ -334,7 +334,7 @@ def _sync_order_campaign_pricing(
             for coupon_record in coupon_records
             if coupon_record.coupon_bid
         ]
-        coupon_map: Dict[str, Coupon] = {}
+        coupon_map: dict[str, Coupon] = {}
         if coupon_bids:
             coupon_map = {
                 coupon.coupon_bid: coupon
@@ -492,7 +492,7 @@ class BuyRecordDTO:
         channel,
         qr_url,
         payment_channel: str = "",
-        payment_payload: Dict[str, Any] | None = None,
+        payment_payload: dict[str, Any] | None = None,
     ):
         self.order_id = record_id
         self.user_id = user_id
@@ -677,7 +677,7 @@ def _resolve_payment_channel(
     channel_hint: str | None,
     stored_channel: str | None,
     additional_enabled_providers: set[str] | None = None,
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """Resolve the provider and provider-specific channel based on hints."""
     return resolve_payment_channel(
         payment_channel_hint=payment_channel_hint,
@@ -742,8 +742,8 @@ def _generate_pingxx_charge(
     """Boundary-joining helper: committed by generate_charge's unit of work."""
     provider = get_payment_provider("pingxx")
     pingpp_id = get_config("PINGXX_APP_ID")
-    provider_options: Dict[str, Any] = {"app_id": pingpp_id}
-    charge_extra: Dict[str, Any] = {}
+    provider_options: dict[str, Any] = {"app_id": pingpp_id}
+    charge_extra: dict[str, Any] = {}
     qr_url_key: str | None = None
     product_id = course.bid
 
@@ -860,7 +860,7 @@ def _generate_stripe_charge(
         "user_bid": buy_record.user_bid,
         "shifu_bid": buy_record.shifu_bid,
     }
-    provider_options: Dict[str, Any] = {
+    provider_options: dict[str, Any] = {
         "mode": resolved_mode,
         "metadata": metadata,
     }
@@ -1064,7 +1064,7 @@ def _generate_wechatpay_charge(
         fallback=sanitized_subject,
         max_length=127,
     )
-    extra: Dict[str, Any] = {
+    extra: dict[str, Any] = {
         "metadata": {
             "order_bid": buy_record.order_bid,
             "user_bid": buy_record.user_bid,
@@ -1121,7 +1121,7 @@ def _generate_wechatpay_charge(
     )
     db.session.add(snapshot)
 
-    payment_payload: Dict[str, Any] = {
+    payment_payload: dict[str, Any] = {
         "qr_url": qr_url,
         "credential": credential,
     }
@@ -1295,8 +1295,8 @@ def sync_native_payment_order(
 def _update_stripe_order_snapshot(
     *,
     stripe_order: StripeOrder,
-    session: Dict[str, Any],
-    intent: Dict[str, Any] | None,
+    session: dict[str, Any],
+    intent: dict[str, Any] | None,
 ):
     if session:
         stripe_order.checkout_session_id = session.get(
@@ -1328,7 +1328,7 @@ def _update_stripe_order_snapshot(
 
 
 def _is_stripe_payment_successful(
-    *, session: Dict[str, Any] | None, intent: Dict[str, Any] | None
+    *, session: dict[str, Any] | None, intent: dict[str, Any] | None
 ) -> bool:
     if session:
         if session.get("payment_status") == "paid":
@@ -1369,7 +1369,7 @@ def _apply_native_snapshot_update(
 
 def _native_raw_status(
     provider: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     fallback: str = "",
 ) -> str:
     return extract_native_trade_status(provider, payload) or str(fallback or "")
@@ -1377,7 +1377,7 @@ def _native_raw_status(
 
 def _native_snapshot_status(
     provider: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     raw_status: str,
 ) -> int:
     if raw_status and not extract_native_trade_status(provider, payload):
@@ -1391,7 +1391,7 @@ def _native_snapshot_status(
 
 def _is_native_payment_successful(
     provider: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
 ) -> bool:
     raw_status = _native_raw_status(provider, payload)
     return _native_snapshot_status(provider, payload, raw_status) == 1
@@ -1399,7 +1399,7 @@ def _is_native_payment_successful(
 
 def _extract_native_notification_amount(
     provider: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
 ) -> int | None:
     trade_payload = extract_native_trade_payload(payload)
     if provider == "alipay":
@@ -1470,7 +1470,7 @@ def handle_stripe_webhook(
     sig_header: str,
     *,
     expected_integration_bid: str = "",
-) -> Tuple[Dict[str, Any], int]:
+) -> tuple[dict[str, Any], int]:
     provider = get_payment_provider("stripe")
     try:
         notification: PaymentNotificationResult = provider.verify_webhook(
@@ -1612,7 +1612,7 @@ def refund_order_payment(
     order_bid: str,
     amount: int | None = None,
     reason: str | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     with _app_context_scope(app), unit_of_work():
         order = Order.query.filter(Order.order_bid == order_bid).first()
         if not order:
@@ -1679,7 +1679,7 @@ def refund_order_payment(
     }
 
 
-def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
+def get_payment_details(app: Flask, order_bid: str) -> dict[str, Any]:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
     with _app_context_scope(app):

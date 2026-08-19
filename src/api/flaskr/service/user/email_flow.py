@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as redis
@@ -89,7 +89,7 @@ def verify_email_code(
     code: str,
     course_id: str | None = None,
     language: str | None = None,
-) -> Tuple[UserToken, bool, Dict[str, str | None]]:
+) -> tuple[UserToken, bool, dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
     from flaskr.service.profile.funcs import (
         get_user_profile_labels,
@@ -191,7 +191,7 @@ def verify_email_code(
                 target_aggregate.user_bid, include_deleted=True
             )
             if entity:
-                updates: Dict[str, Any] = {"identify": normalized_email}
+                updates: dict[str, Any] = {"identify": normalized_email}
                 promote_state = target_aggregate.state in (
                     USER_STATE_UNREGISTERED,
                     0,

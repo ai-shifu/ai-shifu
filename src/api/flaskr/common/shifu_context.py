@@ -10,7 +10,7 @@ from __future__ import annotations
 import contextlib
 import threading
 from functools import wraps
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 _context_local = threading.local()
 
@@ -39,7 +39,7 @@ def get_shifu_creator_bid() -> str | None:
     return getattr(_context_local, "shifu_creator_bid", None)
 
 
-def get_shifu_context_snapshot() -> Dict[str, Any]:
+def get_shifu_context_snapshot() -> dict[str, Any]:
     """Capture the current shifu context as a plain dict.
 
     This snapshot can be passed into a background thread and applied there.
@@ -50,7 +50,7 @@ def get_shifu_context_snapshot() -> Dict[str, Any]:
     }
 
 
-def apply_shifu_context_snapshot(snapshot: Dict[str, Any] | None) -> None:
+def apply_shifu_context_snapshot(snapshot: dict[str, Any] | None) -> None:
     """Apply a previously captured shifu context snapshot to the current thread.
 
     Args:

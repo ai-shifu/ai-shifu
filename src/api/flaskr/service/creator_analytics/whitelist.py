@@ -19,7 +19,7 @@ builder, driven by :class:`TableSpec` flags:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import FrozenSet, Mapping, Type
+from typing import Mapping
 
 from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.learn.models import (
@@ -32,11 +32,11 @@ from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu, ShifuUserArchive
 from flaskr.service.user.models import UserInfo
 
-ALLOWED_AGGREGATE_FUNCTIONS: FrozenSet[str] = frozenset(
+ALLOWED_AGGREGATE_FUNCTIONS: frozenset[str] = frozenset(
     {"count", "count_distinct", "sum", "avg", "min", "max"}
 )
 
-ALLOWED_OPERATORS: FrozenSet[str] = frozenset(
+ALLOWED_OPERATORS: frozenset[str] = frozenset(
     {
         "=",
         "!=",
@@ -59,11 +59,11 @@ class TableSpec:
     """Declarative whitelist for one analyzable table."""
 
     table_key: str
-    model: Type
-    selectable: FrozenSet[str]
-    filterable: FrozenSet[str]
-    groupable: FrozenSet[str]
-    aggregatable: Mapping[str, FrozenSet[str]]
+    model: type
+    selectable: frozenset[str]
+    filterable: frozenset[str]
+    groupable: frozenset[str]
+    aggregatable: Mapping[str, frozenset[str]]
     has_deleted: bool
     # True for shifu-scoped tables (sql_builder injects WHERE shifu_bid=:sb).
     # False for global tables like user_users — permission is still enforced
@@ -81,9 +81,9 @@ class TableSpec:
     auto_filter_status_active: bool = False
 
 
-_DIMENSION_AGGS: FrozenSet[str] = frozenset({"count", "count_distinct"})
-_NUMERIC_AGGS: FrozenSet[str] = frozenset({"count", "sum", "avg", "min", "max"})
-_TIMESTAMP_AGGS: FrozenSet[str] = frozenset({"count", "min", "max"})
+_DIMENSION_AGGS: frozenset[str] = frozenset({"count", "count_distinct"})
+_NUMERIC_AGGS: frozenset[str] = frozenset({"count", "sum", "avg", "min", "max"})
+_TIMESTAMP_AGGS: frozenset[str] = frozenset({"count", "min", "max"})
 
 
 WHITELIST: Mapping[str, TableSpec] = {

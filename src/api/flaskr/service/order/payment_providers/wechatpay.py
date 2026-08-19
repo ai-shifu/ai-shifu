@@ -5,7 +5,7 @@ import json
 import secrets
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from urllib.parse import urlencode
 
 import requests
@@ -48,7 +48,7 @@ class WechatPayProvider(PaymentProvider):
         return self.create_payment(request=request, app=app)
 
     def verify_webhook(
-        self, *, headers: Dict[str, str], raw_body: bytes | str, app: Flask
+        self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
         raw_body_text = (
             raw_body.decode("utf-8") if isinstance(raw_body, bytes) else str(raw_body)
@@ -250,7 +250,7 @@ class WechatPayProvider(PaymentProvider):
     def _verify_notification_signature(
         self,
         *,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         raw_body: str,
     ) -> None:
         normalized_headers = {
@@ -272,7 +272,7 @@ class WechatPayProvider(PaymentProvider):
 
     def _decrypt_notification_resource(
         self,
-        resource: Dict[str, Any],
+        resource: dict[str, Any],
     ) -> dict[str, Any]:
         if not resource:
             raise RuntimeError("WeChat Pay notification resource missing")

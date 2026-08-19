@@ -20,7 +20,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any
 from urllib.parse import quote
 
 import requests
@@ -135,7 +135,7 @@ def _store_cache_value(value: AliyunNlsToken) -> None:
     cache.set(_get_cache_key(), payload, ex=ttl_seconds)
 
 
-def _get_access_keys() -> Tuple[str, str]:
+def _get_access_keys() -> tuple[str, str]:
     """Resolve AccessKeyId/AccessKeySecret for NLS CreateToken.
 
     Prefer the dedicated variables from Aliyun docs. Fall back to OSS keys when

@@ -13,7 +13,7 @@ plain ``{"columns": [...], "rows": [...]}`` dict suitable for the HTTP layer.
 from __future__ import annotations
 
 import threading
-from typing import Any, Dict, List
+from typing import Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -60,13 +60,13 @@ def get_analytics_engine(app: Flask) -> Engine:
         return _engine
 
 
-def run_query(app: Flask, stmt: Select) -> Dict[str, Any]:
+def run_query(app: Flask, stmt: Select) -> dict[str, Any]:
     """Execute ``stmt`` against the analytics engine and return columns/rows."""
     engine = get_analytics_engine(app)
     with engine.connect() as connection:
         result: Result = connection.execute(stmt)
         columns = list(result.keys())
-        rows: List[List[Any]] = [list(row) for row in result.fetchall()]
+        rows: list[list[Any]] = [list(row) for row in result.fetchall()]
     return {"columns": columns, "rows": rows}
 
 

@@ -1,7 +1,6 @@
 import json
 import os
 from decimal import Decimal
-from typing import Dict
 
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
@@ -300,15 +299,15 @@ def import_shifu(
             save_shifu_history(app, user_id, shifu_bid, new_shifu.id)
 
         # Create mapping from old outline_item_bid to new outline_item_bid
-        old_to_new_bid_map: Dict[str, str] = {}
+        old_to_new_bid_map: dict[str, str] = {}
 
         # Create a map of old_bid -> outline_item_data
-        outline_items_by_old_bid: Dict[str, dict] = {
+        outline_items_by_old_bid: dict[str, dict] = {
             item["outline_item_bid"]: item for item in outline_items_data
         }
 
         # Create all outline items first (without parent_bid, will update later)
-        created_items: Dict[str, DraftOutlineItem] = {}
+        created_items: dict[str, DraftOutlineItem] = {}
 
         for item_data in outline_items_data:
             old_bid = item_data["outline_item_bid"]
