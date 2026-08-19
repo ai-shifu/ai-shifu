@@ -37,7 +37,7 @@ def generate_env_examples():
     full_content = config.export_env_example_filtered(filter_type="all")
 
     # Write full configuration
-    with open(full_file, "w", encoding="utf-8") as f:
+    with full_file.open("w", encoding="utf-8") as f:
         f.write(full_content)
     print(f"✅ Generated full configuration: {full_file}")
 

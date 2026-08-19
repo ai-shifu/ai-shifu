@@ -58,7 +58,7 @@ for top in ("app.py", "celery_app.py"):
 edges = defaultdict(set)
 for name, rel in mods.items():
     try:
-        with open(os.path.join(ROOT, rel), encoding="utf-8") as source_file:
+        with Path(os.path.join(ROOT, rel)).open(encoding="utf-8") as source_file:
             tree = ast.parse(source_file.read())
     except SyntaxError as e:
         print(f"SYNTAX ERROR {rel}: {e}", file=sys.stderr)

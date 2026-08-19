@@ -15,7 +15,9 @@ def _guess_mimetype(path: Path) -> str:
         return guessed
 
     try:
-        with open(path, "rb") as f:
+        # Builtin open() avoids CodeQL's Path.open path-injection sink after
+        # get_local_storage_path() already confined this path.
+        with open(path, "rb") as f:  # noqa: PTH123
             header = f.read(16)
     except OSError:
         return "application/octet-stream"

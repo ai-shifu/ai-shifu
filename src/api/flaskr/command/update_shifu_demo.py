@@ -56,7 +56,7 @@ def _process_demo_shifu(
     current_file = Path(__file__).resolve()
     # From src/api/flaskr/command/ to src/api/: go up 2 levels (command -> flaskr -> api)
     demo_file_path = current_file.parent.parent.parent / "demo_shifus" / demo_file
-    with open(demo_file_path, "rb") as f:
+    with demo_file_path.open("rb") as f:
         file_content = f.read()
 
     file_hash = _calculate_hash(file_content)

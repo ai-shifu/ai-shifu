@@ -128,7 +128,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
 
         # Write to file
         Path(file_path).parent.mkdir(parents=True, exist_ok=True)
-        with open(file_path, "w", encoding="utf-8") as f:
+        with Path(file_path).open("w", encoding="utf-8") as f:
             json.dump(export_data, f, ensure_ascii=False, indent=2)
 
         return "success"

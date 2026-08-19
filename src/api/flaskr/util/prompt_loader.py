@@ -33,7 +33,7 @@ def load_prompt_template(template_name: str) -> str:
 
     # Read file content
     try:
-        with open(template_path, encoding="utf-8") as f:
+        with Path(template_path).open(encoding="utf-8") as f:
             return f.read()
     except Exception as e:
         raise OSError(

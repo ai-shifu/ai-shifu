@@ -70,8 +70,8 @@ surfaces = {}
 # --- cook-web ---------------------------------------------------------------
 fe = set()
 cat = None
-with open(
-    os.path.join(ROOT, "src/cook-web/src/api/api.ts"), encoding="utf-8"
+with Path(os.path.join(ROOT, "src/cook-web/src/api/api.ts")).open(
+    encoding="utf-8"
 ) as catalog_file:
     cat = catalog_file.read()
 for m in re.finditer(
@@ -89,7 +89,7 @@ cli = grep_paths(SKILLS)
 # relative paths in shifu-cli.py are joined onto /api/shifu
 cli_file = os.path.join(SKILLS, "skills/ai-shifu-course-creator/scripts/shifu-cli.py")
 if Path(cli_file).exists():
-    with open(cli_file, encoding="utf-8") as cli_source:
+    with Path(cli_file).open(encoding="utf-8") as cli_source:
         src = cli_source.read()
     for m in re.finditer(
         r"""["'](/(?:shifus|upfile|url-upfile|mdflow)[^"']*)["']""", src
@@ -102,7 +102,7 @@ surfaces["miniprogram"] = grep_paths(MINIAPP)
 
 # --- backend routes ----------------------------------------------------------
 be = []
-with open(BACKEND_ROUTES, encoding="utf-8") as backend_routes:
+with Path(BACKEND_ROUTES).open(encoding="utf-8") as backend_routes:
     for line in backend_routes:
         if line.startswith("#"):
             continue

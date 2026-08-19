@@ -110,7 +110,7 @@ def enable_commands(app: Flask):
 
             # Save or display report
             if output_file:
-                with open(output_file, "w", encoding="utf-8") as f:
+                with Path(output_file).open("w", encoding="utf-8") as f:
                     f.write(report)
                 click.echo(f"Migration report saved to: {output_file}")
             else:
@@ -368,7 +368,7 @@ def enable_commands(app: Flask):
 
             # Create FileStorage object from file path
             # Read file content first, then create FileStorage
-            with open(file_path, "rb") as f:
+            with Path(file_path).open("rb") as f:
                 file_content = f.read()
 
             # Create FileStorage from bytes

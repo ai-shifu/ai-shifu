@@ -12,6 +12,7 @@ import os
 import re
 import sys
 from collections import Counter
+from pathlib import Path
 
 RAW, ROOT = sys.argv[1], sys.argv[2]
 
@@ -25,7 +26,7 @@ file_cache = {}
 def get_lines(path):
     if path not in file_cache:
         try:
-            with open(os.path.join(ROOT, path), encoding="utf-8") as f:
+            with Path(os.path.join(ROOT, path)).open(encoding="utf-8") as f:
                 file_cache[path] = f.readlines()
         except OSError:
             file_cache[path] = []
@@ -55,7 +56,7 @@ def decorators_above(path, lineno):
 
 
 kept, excluded = [], []
-with open(RAW, encoding="utf-8") as f:
+with Path(RAW).open(encoding="utf-8") as f:
     for raw_line in f:
         raw_line = raw_line.rstrip("\n")
         m = LINE_RE.match(raw_line)
