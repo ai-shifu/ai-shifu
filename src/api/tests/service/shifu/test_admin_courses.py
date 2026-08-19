@@ -6,6 +6,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import AppException
@@ -870,12 +871,9 @@ def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overv
         with patch(
             "flaskr.service.shifu.admin._load_latest_shifu_seeds"
         ) as latest_mock:
-            try:
+            with pytest.raises(AppException) as excinfo:
                 list_operator_courses(app, 1, 20, {"quick_filter": "invalid"})
-            except AppException as exc:
-                assert exc.code is not None
-            else:
-                raise AssertionError("Expected AppException for invalid quick_filter")
+            assert excinfo.value.code is not None
 
     overview_mock.assert_not_called()
     latest_mock.assert_not_called()

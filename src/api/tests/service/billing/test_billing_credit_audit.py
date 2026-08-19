@@ -313,14 +313,10 @@ def test_audit_credit_state_rejects_invalid_explicit_as_of(
     billing_credit_audit_app: Flask,
 ) -> None:
     with billing_credit_audit_app.app_context():
-        try:
+        with pytest.raises(ValueError, match="Unable to parse as_of value"):
             audit_credit_state(
                 creator_bid="creator-audit-invalid-time", as_of="bad-date"
             )
-        except ValueError as exc:
-            assert "Unable to parse as_of value" in str(exc)
-        else:
-            raise AssertionError("Expected invalid as_of to raise ValueError")
 
     runner = billing_credit_audit_app.test_cli_runner()
     result = runner.invoke(
