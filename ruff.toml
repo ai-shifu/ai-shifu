@@ -201,6 +201,7 @@ select = [
     "ARG004", # unused staticmethod argument
     "PLW1641", # __eq__ without __hash__
     "PTH119", # os.path.basename to Path.name
+    "PTH103", # os.makedirs to Path.mkdir
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention

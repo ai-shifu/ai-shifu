@@ -1,6 +1,7 @@
 import json
 import os
 from decimal import Decimal
+from pathlib import Path
 
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
@@ -127,10 +128,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
         }
 
         # Write to file
-        os.makedirs(
-            os.path.dirname(file_path) or ".",
-            exist_ok=True,
-        )
+        Path(os.path.dirname(file_path) or ".").mkdir(parents=True, exist_ok=True)
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(export_data, f, ensure_ascii=False, indent=2)
 

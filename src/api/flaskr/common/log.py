@@ -6,6 +6,7 @@ import time
 import uuid
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
 
 import colorlog
 import pytz
@@ -232,7 +233,7 @@ def init_log(app: Flask) -> Flask:
     log_file = app.config.get("LOGGING_PATH", "logs/ai-shifu.log")
     log_dir = os.path.dirname(log_file)
     if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+        Path(log_dir).mkdir(parents=True)
     file_handler = TimedRotatingFileHandler(log_file, when="midnight", backupCount=7)
     file_handler.setFormatter(formatter)
     console_handler = logging.StreamHandler()
