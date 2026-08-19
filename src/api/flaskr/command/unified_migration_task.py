@@ -5,6 +5,7 @@ import asyncio
 import logging
 import os
 import sys
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
@@ -20,7 +21,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("/tmp/unified_migration.log"),
+        logging.FileHandler(Path(tempfile.gettempdir()) / "unified_migration.log"),
         logging.StreamHandler(),
     ],
 )

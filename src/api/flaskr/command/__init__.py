@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import tempfile
 from io import BytesIO
 from pathlib import Path
 
@@ -22,7 +23,7 @@ def setup_migration_logging():
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.FileHandler("/tmp/flask_migration.log"),
+            logging.FileHandler(Path(tempfile.gettempdir()) / "flask_migration.log"),
             logging.StreamHandler(),
         ],
     )

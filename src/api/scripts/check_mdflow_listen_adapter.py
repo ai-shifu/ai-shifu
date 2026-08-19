@@ -55,7 +55,7 @@ def _compile_bigint_sqlite(_type, _compiler, **_kw):
 
 
 DEFAULT_CHUNK_SIZES = (1, 2, 3, 5, 8, 13)
-DEFAULT_MDFLOW_ROOT = "/tmp/mdflow255"
+DEFAULT_MDFLOW_ROOT = str(Path(tempfile.gettempdir()) / "mdflow255")
 
 
 @dataclass
@@ -94,7 +94,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--input",
-        default="/tmp/latest_generate_blocks_b64.jsonl",
+        default=str(Path(tempfile.gettempdir()) / "latest_generate_blocks_b64.jsonl"),
         help="Path to JSONL exported from generated blocks",
     )
     parser.add_argument(
