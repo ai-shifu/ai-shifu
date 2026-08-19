@@ -45,6 +45,25 @@ def test_migrate_user_study_record_moves_records_and_blocks(app):
         _add_progress_with_block(shifu_bid, "tmp-user", "migrate-1")
         # An unrelated shifu must stay with the temporary user.
         _add_progress_with_block("shifu-other", "tmp-user", "migrate-2")
+        # progress_record_bid is not unique, so a block owned by someone else
+        # may share the identifier and must keep its owner.
+        db.session.add(
+            LearnGeneratedBlock(
+                generated_block_bid="block-other-owner",
+                progress_record_bid="progress-migrate-1",
+                user_bid="other-user",
+                block_bid="block-bid-other-owner",
+                outline_item_bid="outline-migrate-1",
+                shifu_bid=shifu_bid,
+                type=BLOCK_TYPE_CONTENT_VALUE,
+                role=0,
+                generated_content="hello",
+                position=1,
+                status=1,
+                deleted=0,
+            )
+        )
+        db.session.commit()
 
         migrate_user_study_record(app, "tmp-user", "real-user", shifu_bid)
         db.session.commit()
@@ -57,6 +76,11 @@ def test_migrate_user_study_record_moves_records_and_blocks(app):
             generated_block_bid="block-migrate-1"
         ).one()
         assert moved_block.user_bid == "real-user"
+
+        other_owner_block = LearnGeneratedBlock.query.filter_by(
+            generated_block_bid="block-other-owner"
+        ).one()
+        assert other_owner_block.user_bid == "other-user"
 
         untouched = LearnProgressRecord.query.filter_by(
             progress_record_bid="progress-migrate-2"

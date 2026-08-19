@@ -185,7 +185,8 @@ def migrate_user_study_record(
         LearnProgressRecord.id.in_(record_ids)
     ).update({LearnProgressRecord.user_bid: to_user_id}, synchronize_session=False)
     db.session.query(LearnGeneratedBlock).filter(
-        LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids)
+        LearnGeneratedBlock.user_bid == from_user_id,
+        LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
     ).update({LearnGeneratedBlock.user_bid: to_user_id}, synchronize_session=False)
     db.session.flush()
     app.logger.info(

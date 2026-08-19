@@ -225,8 +225,14 @@ ignore = [
 "src/api/conftest.py" = ["S101"]
 "scripts/test_*.py" = ["S101"]
 "scripts/check_example_identifiers.py" = ["S101"]
-# Applied Alembic revisions are immutable history: their backfill statements
-# interpolate table names and cannot be rewritten after deployment.
-"src/api/migrations/versions/**" = ["S608"]
+# These applied Alembic revisions are immutable history: their backfill
+# statements interpolate table names and cannot be rewritten after deployment.
+# Listed one by one so new revisions stay covered by S608.
+"src/api/migrations/versions/4a1f6c8e9b2d_add_learn_generated_elements.py" = ["S608"]
+"src/api/migrations/versions/56b765541144_add_shifu_user_archives.py" = ["S608"]
+"src/api/migrations/versions/6b603528dac8_add_system_profile.py" = ["S608"]
+"src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["S608"]
+"src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608"]
+"src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608"]
 "scripts/**" = ["S603", "S607"]
 "src/api/scripts/**" = ["S603", "S607"]
