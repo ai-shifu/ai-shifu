@@ -381,6 +381,14 @@ def billing_write_client(monkeypatch):
     dao.db.init_app(app)
 
     stripe_requests: list[dict] = []
+    stripe_expire_requests: list[str] = []
+    stripe_session_statuses: dict[str, dict] = {
+        "cs_billing_test": {
+            "id": "cs_billing_test",
+            "status": "open",
+            "payment_status": "unpaid",
+        }
+    }
     pingxx_requests: list[dict] = []
     refund_requests: list[dict] = []
 
@@ -407,6 +415,25 @@ def billing_write_client(monkeypatch):
 
         def create_subscription(self, *, request, app):
             return self.create_payment(request=request, app=app)
+
+        def retrieve_checkout_session(self, *, session_id: str, app):
+            return stripe_session_statuses.get(
+                session_id,
+                {
+                    "id": session_id,
+                    "status": "open",
+                    "payment_status": "unpaid",
+                },
+            )
+
+        def expire_checkout_session(self, *, session_id: str, app):
+            stripe_expire_requests.append(session_id)
+            session = {
+                **self.retrieve_checkout_session(session_id=session_id, app=app),
+                "status": "expired",
+            }
+            stripe_session_statuses[session_id] = session
+            return session
 
         def sync_reference(self, *, provider_reference: str, reference_type: str, app):
             assert reference_type == "checkout_session"
@@ -551,6 +578,8 @@ def billing_write_client(monkeypatch):
                 "client": client,
                 "app": app,
                 "stripe_requests": stripe_requests,
+                "stripe_expire_requests": stripe_expire_requests,
+                "stripe_session_statuses": stripe_session_statuses,
                 "pingxx_requests": pingxx_requests,
                 "refund_requests": refund_requests,
             }

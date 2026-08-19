@@ -8,9 +8,11 @@ describe('stripe checkout session storage', () => {
     sessionStorage.clear();
   });
 
-  it('remembers and consumes order id', () => {
-    rememberStripeCheckoutSession('sess_123', 'order_abc');
-    expect(consumeStripeCheckoutSession('sess_123')).toBe('order_abc');
+  it('remembers and consumes a checkout marker without exposing order ids', () => {
+    rememberStripeCheckoutSession('sess_123');
+    expect(sessionStorage.getItem('stripeCheckout:sess_123')).toBe('1');
+    expect(consumeStripeCheckoutSession('sess_123')).toBeNull();
+    expect(sessionStorage.getItem('stripeCheckout:sess_123')).toBeNull();
     expect(consumeStripeCheckoutSession('sess_123')).toBeNull();
   });
 

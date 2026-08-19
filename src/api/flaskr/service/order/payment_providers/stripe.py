@@ -105,14 +105,29 @@ class StripeProvider(PaymentProvider):
             if customer_email:
                 params["customer_email"] = customer_email
 
-            payment_intent_data = options.get("payment_intent_data", {})
-            existing_metadata = payment_intent_data.get("metadata")
-            if existing_metadata:
-                if hasattr(existing_metadata, "to_dict"):
-                    existing_metadata = existing_metadata.to_dict()
-                metadata.update(existing_metadata)
-            payment_intent_data["metadata"] = metadata
-            params["payment_intent_data"] = payment_intent_data
+            params["metadata"] = metadata
+            session_mode = str(params.get("mode") or "").strip().lower()
+            if session_mode == "subscription":
+                subscription_data = dict(params.get("subscription_data", {}) or {})
+                existing_subscription_metadata = subscription_data.get("metadata", {})
+                if hasattr(existing_subscription_metadata, "to_dict"):
+                    existing_subscription_metadata = (
+                        existing_subscription_metadata.to_dict()
+                    )
+                subscription_data["metadata"] = {
+                    **metadata,
+                    **(existing_subscription_metadata or {}),
+                }
+                params["subscription_data"] = subscription_data
+            else:
+                payment_intent_data = options.get("payment_intent_data", {})
+                existing_metadata = payment_intent_data.get("metadata")
+                if existing_metadata:
+                    if hasattr(existing_metadata, "to_dict"):
+                        existing_metadata = existing_metadata.to_dict()
+                    metadata.update(existing_metadata)
+                payment_intent_data["metadata"] = metadata
+                params["payment_intent_data"] = payment_intent_data
             params["payment_method_types"] = ["card"]
             if get_config("STRIPE_ALIPAY_ENABLED"):
                 params["payment_method_types"].append("alipay")
@@ -247,6 +262,11 @@ class StripeProvider(PaymentProvider):
     ) -> Dict[str, Any]:
         stripe, request_options = self._client_options(app)
         return stripe.checkout.Session.retrieve(session_id, **request_options)
+
+    def expire_checkout_session(self, *, session_id: str, app: Flask) -> Dict[str, Any]:
+        stripe, request_options = self._client_options(app)
+        session = stripe.checkout.Session.expire(session_id, **request_options)
+        return session.to_dict() if hasattr(session, "to_dict") else session
 
     def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> Dict[str, Any]:
         stripe, request_options = self._client_options(app)

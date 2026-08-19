@@ -145,3 +145,9 @@ class PaymentProvider(ABC):
         raise NotImplementedError(
             f"{self.__class__.__name__} does not support reference sync"
         )
+
+    def expire_checkout_session(self, *, session_id: str, app) -> Dict[str, Any]:
+        """Expire an open provider checkout session if supported."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support checkout session expiry"
+        )

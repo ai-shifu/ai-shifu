@@ -118,6 +118,40 @@ describe('i18n language normalization', () => {
     }
   });
 
+  test('does not persist a preferred language when the switch fails', async () => {
+    jest.resetModules();
+    window.localStorage.setItem('preferred_language', 'zh-CN');
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mockedI18n = require('i18next') as {
+      changeLanguage: jest.Mock;
+      init?: jest.Mock;
+      isInitialized?: boolean;
+      use?: jest.Mock;
+    };
+    mockedI18n.isInitialized = false;
+    mockedI18n.use = jest.fn(() => mockedI18n);
+    mockedI18n.init = jest.fn(() => Promise.resolve());
+    mockedI18n.changeLanguage.mockRejectedValueOnce(new Error('load failed'));
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const runtimeI18n = require('../i18n')
+        .default as typeof import('../i18n').default;
+
+      await expect(runtimeI18n.changeLanguage('fr-FR')).rejects.toThrow(
+        'load failed',
+      );
+
+      expect(window.localStorage.getItem('preferred_language')).toBe('zh-CN');
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   test('locale helpers expose labels from injected metadata', async () => {
     const meta = {
       default: 'en-US',

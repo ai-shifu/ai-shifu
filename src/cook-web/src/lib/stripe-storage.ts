@@ -1,14 +1,12 @@
 const checkoutKey = (sessionId: string) => `stripeCheckout:${sessionId}`;
+const CHECKOUT_STARTED_VALUE = '1';
 
-export function rememberStripeCheckoutSession(
-  sessionId: string,
-  orderId: string,
-): void {
+export function rememberStripeCheckoutSession(sessionId: string): void {
   if (typeof window === 'undefined') {
     return;
   }
   try {
-    sessionStorage.setItem(checkoutKey(sessionId), orderId);
+    sessionStorage.setItem(checkoutKey(sessionId), CHECKOUT_STARTED_VALUE);
   } catch {
     // ignore storage errors
   }
@@ -24,7 +22,7 @@ export function consumeStripeCheckoutSession(sessionId: string): string | null {
     if (value) {
       sessionStorage.removeItem(key);
     }
-    return value;
+    return null;
   } catch {
     return null;
   }

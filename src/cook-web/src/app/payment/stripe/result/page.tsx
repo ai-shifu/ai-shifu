@@ -31,9 +31,9 @@ export default function StripeResultPage() {
     const sessionId = searchParams.get('session_id') || '';
     const providedOrderId = searchParams.get('order_id') || '';
 
-    let orderId = providedOrderId;
+    const orderId = providedOrderId;
     if (!orderId && sessionId) {
-      orderId = consumeStripeCheckoutSession(sessionId) || '';
+      consumeStripeCheckoutSession(sessionId);
     }
 
     if (!orderId) {

@@ -872,9 +872,10 @@ def _reopen_existing_billing_order_checkout(
     requested_channel: str = "",
 ) -> BillingCheckoutResultDTO:
     if _normalize_bid(order.payment_provider) == "stripe":
-        stored_checkout_result = _build_stored_stripe_checkout_result(order)
+        stored_checkout_result = _build_stored_stripe_checkout_result(app, order)
         if stored_checkout_result is not None:
             return stored_checkout_result
+        _reconcile_stored_stripe_checkout_before_replacement(app, order)
 
     order.channel = requested_channel or _normalize_bid(order.channel) or "alipay_qr"
     return _create_provider_checkout(
@@ -890,6 +891,7 @@ def _reopen_existing_billing_order_checkout(
 
 
 def _build_stored_stripe_checkout_result(
+    app: Flask,
     order: BillingOrder,
 ) -> BillingCheckoutResultDTO | None:
     if _normalize_bid(order.payment_provider) != "stripe":
@@ -907,6 +909,12 @@ def _build_stored_stripe_checkout_result(
         or _normalize_bid(order.provider_reference_id)
         or None
     )
+    if not _stored_stripe_checkout_urls_match_current_origin(
+        app,
+        order=order,
+        checkout_payload=checkout_payload,
+    ):
+        return None
     if not redirect_url:
         return None
 
@@ -920,6 +928,116 @@ def _build_stored_stripe_checkout_result(
     response["redirect_url"] = redirect_url
     response["checkout_session_id"] = checkout_session_id
     return BillingCheckoutResultDTO(**response)
+
+
+def _as_plain_dict(payload: Any) -> dict[str, Any]:
+    if isinstance(payload, dict):
+        return payload
+    if hasattr(payload, "to_dict"):
+        return payload.to_dict()
+    return {}
+
+
+def _reconcile_stored_stripe_checkout_before_replacement(
+    app: Flask,
+    order: BillingOrder,
+) -> None:
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    checkout_payload = (
+        metadata.get("checkout", {})
+        if isinstance(metadata.get("checkout"), dict)
+        else {}
+    )
+    checkout_session_id = (
+        _normalize_bid(checkout_payload.get("id"))
+        or _normalize_bid(order.provider_reference_id)
+        or ""
+    )
+    if not checkout_session_id:
+        return
+
+    provider = get_payment_provider("stripe")
+    try:
+        session = _as_plain_dict(
+            provider.retrieve_checkout_session(
+                session_id=checkout_session_id,
+                app=app,
+            )
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "Failed to retrieve Stripe checkout session %s before billing order %s replacement: %s",
+            checkout_session_id,
+            order.bill_order_bid,
+            exc,
+        )
+        raise_error("server.order.orderStatusError")
+
+    session_status = str(session.get("status") or "").strip().lower()
+    payment_status = str(session.get("payment_status") or "").strip().lower()
+    if session_status in {"complete", "expired"} or payment_status == "paid":
+        return
+    if session_status != "open":
+        app.logger.warning(
+            "Refusing to replace billing order %s checkout because Stripe session %s has unsafe status %s/%s",
+            order.bill_order_bid,
+            checkout_session_id,
+            session_status,
+            payment_status,
+        )
+        raise_error("server.order.orderStatusError")
+
+    try:
+        provider.expire_checkout_session(
+            session_id=checkout_session_id,
+            app=app,
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "Failed to expire Stripe checkout session %s before billing order %s replacement: %s",
+            checkout_session_id,
+            order.bill_order_bid,
+            exc,
+        )
+        raise_error("server.order.orderStatusError")
+
+
+def _stored_stripe_checkout_urls_match_current_origin(
+    app: Flask,
+    *,
+    order: BillingOrder,
+    checkout_payload: dict[str, Any],
+) -> bool:
+    stored_success_url = str(checkout_payload.get("success_url") or "").strip()
+    stored_cancel_url = str(checkout_payload.get("cancel_url") or "").strip()
+
+    # Older stored payloads may not include callback URLs. In that case, keep
+    # the legacy reuse behavior instead of forcing a provider refresh.
+    if not stored_success_url and not stored_cancel_url:
+        return True
+
+    expected_success_url = _inject_billing_query(
+        build_stripe_billing_result_url(),
+        order.bill_order_bid,
+    )
+    expected_cancel_url = _inject_billing_query(
+        build_stripe_billing_result_url(canceled=True),
+        order.bill_order_bid,
+    )
+
+    if stored_success_url and stored_success_url != expected_success_url:
+        app.logger.info(
+            "Skipping Stripe checkout reuse for billing order %s because success_url changed",
+            order.bill_order_bid,
+        )
+        return False
+    if stored_cancel_url and stored_cancel_url != expected_cancel_url:
+        app.logger.info(
+            "Skipping Stripe checkout reuse for billing order %s because cancel_url changed",
+            order.bill_order_bid,
+        )
+        return False
+    return True
 
 
 def refund_billing_order(
