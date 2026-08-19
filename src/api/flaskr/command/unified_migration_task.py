@@ -27,6 +27,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+class MigrationBatchError(RuntimeError):
+    """Raised when a migration batch exceeds its tolerated error count."""
+
+
 @dataclass
 class MigrationConfig:
     """Migration configuration"""
@@ -450,7 +454,7 @@ class UnifiedMigrationTask:
                     if (
                         error_count > self.config.batch_size * 0.5
                     ):  # If more than 50% errors
-                        raise Exception(
+                        raise MigrationBatchError(
                             f"Too many errors in batch: {error_count}"
                         ) from e
 
