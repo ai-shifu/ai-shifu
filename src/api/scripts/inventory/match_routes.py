@@ -23,7 +23,7 @@ import re
 import subprocess
 from pathlib import Path
 
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_SCRIPT_DIR = str(Path(os.path.abspath(__file__)).parent)
 ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", "..", "..", ".."))
 SP = os.environ.get("INVENTORY_WORK_DIR", str(Path.cwd()))
 BACKEND_ROUTES = os.path.join(SP, "routes-backend.txt")

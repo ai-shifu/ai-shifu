@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 
 def load_prompt_template(template_name: str) -> str:
@@ -15,7 +16,7 @@ def load_prompt_template(template_name: str) -> str:
 
     """
     # Get the directory of current file
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    current_dir = str(Path(os.path.abspath(__file__)).parent)
     # Build prompts directory path
     prompts_dir = os.path.join(current_dir, "../../prompts")
 
