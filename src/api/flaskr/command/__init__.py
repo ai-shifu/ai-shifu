@@ -190,7 +190,7 @@ def enable_commands(app: Flask):
             click.echo("=" * 50)
 
             all_passed = True
-            for table_name, result in consistency_results.items():
+            for result in consistency_results.values():
                 if result.is_consistent:
                     status_icon = click.style("✅", fg="green")
                     status_text = click.style("PASSED", fg="green")

@@ -2160,8 +2160,7 @@ class AVStreamingTTSProcessor:
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if (chunk or "").strip():
             self._current_segment_has_speakable_text = True
-        for event in processor.process_chunk(chunk):
-            yield event
+        yield from processor.process_chunk(chunk)
 
     @property
     def next_element_index(self) -> int:
@@ -2182,8 +2181,7 @@ class AVStreamingTTSProcessor:
         if not segments:
             return
         self._next_element_index = max(
-            self._next_element_index,
-            max(seg.element_index + 1 for seg in segments),
+            self._next_element_index, *(seg.element_index + 1 for seg in segments)
         )
 
     def _finalize_current(

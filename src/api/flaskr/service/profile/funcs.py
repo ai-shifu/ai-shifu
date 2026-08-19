@@ -442,11 +442,7 @@ def get_user_profile_labels(
                 ("select" if "items" in PROFILES_LABLES[profile_key] else "text"),
             ),
             "value": "",
-            "items": (
-                PROFILES_LABLES[profile_key]["items"]
-                if "items" in PROFILES_LABLES[profile_key]
-                else None
-            ),
+            "items": PROFILES_LABLES[profile_key].get("items"),
         }
         user_value = None
         profile_item = next(

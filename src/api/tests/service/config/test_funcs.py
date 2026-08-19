@@ -52,7 +52,7 @@ def app():
     db.init_app(flask_app)
     with flask_app.app_context():
         db.create_all()
-    yield flask_app
+    return flask_app
 
 
 @pytest.fixture(autouse=True)

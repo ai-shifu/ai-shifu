@@ -56,7 +56,7 @@ JSON_GOLDEN_CASES = [
 
 
 @pytest.mark.parametrize(
-    "fixture_key,path",
+    ("fixture_key", "path"),
     JSON_GOLDEN_CASES,
     ids=[case[0] for case in JSON_GOLDEN_CASES],
 )
