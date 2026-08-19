@@ -357,7 +357,7 @@ def get_video_info(app, user_id: str, url: str) -> dict:
                     "Connection": "keep-alive",
                 }
 
-                response = requests.get(api_url, headers=headers)
+                response = requests.get(api_url, headers=headers, timeout=10)
                 if response.status_code == 200:
                     data = response.json()
                     if data["code"] == 0:

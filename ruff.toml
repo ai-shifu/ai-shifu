@@ -222,6 +222,7 @@ select = [
     "PGH003", # blanket type ignore
     "PLW2901", # redefined loop name
     "A006", # lambda arg shadows builtin
+    "S113", # requests call without a timeout
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
