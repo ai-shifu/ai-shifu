@@ -446,17 +446,16 @@ def test_granted_dispatch_fires_after_commit_and_drops_on_rollback(
 
     # Nested: the outer failure drops the deferred dispatch — the legacy code
     # committed and enqueued mid-flow and could never be taken back.
-    with pytest.raises(RuntimeError, match="outer boom"):
-        with uow.unit_of_work():
-            staged = stage_credit_granted_notification(
-                app,
-                ledger_bid="ledger-uow-dispatch",
-                commit=True,
-                enqueue=True,
-            )
-            assert staged["status"] == CREDIT_NOTIFICATION_STATUS_PENDING
-            assert enqueued == []  # not yet durable, must not dispatch
-            raise RuntimeError("outer boom")
+    with pytest.raises(RuntimeError, match="outer boom"), uow.unit_of_work():
+        staged = stage_credit_granted_notification(
+            app,
+            ledger_bid="ledger-uow-dispatch",
+            commit=True,
+            enqueue=True,
+        )
+        assert staged["status"] == CREDIT_NOTIFICATION_STATUS_PENDING
+        assert enqueued == []  # not yet durable, must not dispatch
+        raise RuntimeError("outer boom")
     dao.db.session.expire_all()
     assert enqueued == []
     assert (

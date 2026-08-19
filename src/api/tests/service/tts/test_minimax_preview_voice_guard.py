@@ -96,14 +96,13 @@ def test_ready_clone_owned_by_another_user_is_rejected(app):
         owner="other-creator",
         status=TTS_MINIMAX_CLONE_STATUS_READY,
     )
-    with app.app_context():
-        with pytest.raises(AppException) as exc_info:
-            assert_preview_cloned_voice_available(
-                app,
-                provider="minimax",
-                voice_id="AiShifu_ready_2",
-                owner_user_bid="creator-1",
-            )
+    with app.app_context(), pytest.raises(AppException) as exc_info:
+        assert_preview_cloned_voice_available(
+            app,
+            provider="minimax",
+            voice_id="AiShifu_ready_2",
+            owner_user_bid="creator-1",
+        )
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
@@ -152,14 +151,13 @@ def test_custom_voice_with_empty_owner_is_rejected(app):
         owner="creator-1",
         status=TTS_MINIMAX_CLONE_STATUS_READY,
     )
-    with app.app_context():
-        with pytest.raises(AppException) as exc_info:
-            assert_preview_cloned_voice_available(
-                app,
-                provider="minimax",
-                voice_id="AiShifu_ready_owned",
-                owner_user_bid="",
-            )
+    with app.app_context(), pytest.raises(AppException) as exc_info:
+        assert_preview_cloned_voice_available(
+            app,
+            provider="minimax",
+            voice_id="AiShifu_ready_owned",
+            owner_user_bid="",
+        )
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
@@ -171,14 +169,13 @@ def test_failed_clone_is_rejected(app):
         owner="creator-1",
         status=TTS_MINIMAX_CLONE_STATUS_FAILED,
     )
-    with app.app_context():
-        with pytest.raises(AppException) as exc_info:
-            assert_preview_cloned_voice_available(
-                app,
-                provider="minimax",
-                voice_id="AiShifu_failed_1",
-                owner_user_bid="creator-1",
-            )
+    with app.app_context(), pytest.raises(AppException) as exc_info:
+        assert_preview_cloned_voice_available(
+            app,
+            provider="minimax",
+            voice_id="AiShifu_failed_1",
+            owner_user_bid="creator-1",
+        )
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
@@ -194,37 +191,34 @@ def test_deleted_clone_is_rejected(app):
         status=TTS_MINIMAX_CLONE_STATUS_READY,
         deleted=1,
     )
-    with app.app_context():
-        with pytest.raises(AppException) as exc_info:
-            assert_preview_cloned_voice_available(
-                app,
-                provider="minimax",
-                voice_id="AiShifu_deleted_1",
-                owner_user_bid="creator-1",
-            )
+    with app.app_context(), pytest.raises(AppException) as exc_info:
+        assert_preview_cloned_voice_available(
+            app,
+            provider="minimax",
+            voice_id="AiShifu_deleted_1",
+            owner_user_bid="creator-1",
+        )
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
 def test_unknown_custom_voice_is_rejected(app):
     _prepare_tables(app)
-    with app.app_context():
-        with pytest.raises(AppException) as exc_info:
-            assert_preview_cloned_voice_available(
-                app,
-                provider="minimax",
-                voice_id="AiShifu_does_not_exist",
-                owner_user_bid="creator-1",
-            )
+    with app.app_context(), pytest.raises(AppException) as exc_info:
+        assert_preview_cloned_voice_available(
+            app,
+            provider="minimax",
+            voice_id="AiShifu_does_not_exist",
+            owner_user_bid="creator-1",
+        )
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
 def test_empty_voice_id_is_rejected(app):
     _prepare_tables(app)
-    with app.app_context():
-        with pytest.raises(AppException) as exc_info:
-            assert_preview_cloned_voice_available(
-                app, provider="minimax", voice_id="   ", owner_user_bid="creator-1"
-            )
+    with app.app_context(), pytest.raises(AppException) as exc_info:
+        assert_preview_cloned_voice_available(
+            app, provider="minimax", voice_id="   ", owner_user_bid="creator-1"
+        )
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
@@ -255,14 +249,13 @@ def test_volcengine_ready_clone_of_another_owner_is_rejected(app):
         status=TTS_MINIMAX_CLONE_STATUS_READY,
         provider="volcengine",
     )
-    with app.app_context():
-        with pytest.raises(AppException) as exc_info:
-            assert_preview_cloned_voice_available(
-                app,
-                provider="volcengine",
-                voice_id="S_xxxxxxxxx",
-                owner_user_bid="creator-1",
-            )
+    with app.app_context(), pytest.raises(AppException) as exc_info:
+        assert_preview_cloned_voice_available(
+            app,
+            provider="volcengine",
+            voice_id="S_xxxxxxxxx",
+            owner_user_bid="creator-1",
+        )
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
@@ -276,12 +269,11 @@ def test_volcengine_clone_row_does_not_leak_to_minimax_provider(app):
         status=TTS_MINIMAX_CLONE_STATUS_READY,
         provider="volcengine",
     )
-    with app.app_context():
-        with pytest.raises(AppException) as exc_info:
-            assert_preview_cloned_voice_available(
-                app,
-                provider="minimax",
-                voice_id="S_xxxxxxxx",
-                owner_user_bid="creator-1",
-            )
+    with app.app_context(), pytest.raises(AppException) as exc_info:
+        assert_preview_cloned_voice_available(
+            app,
+            provider="minimax",
+            voice_id="S_xxxxxxxx",
+            owner_user_bid="creator-1",
+        )
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]

@@ -251,19 +251,21 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> 
         raising=False,
     )
 
-    with app.test_request_context("/api/shifu/tts/preview", method="POST"):
-        with pytest.raises(AppException) as exc_info:
-            build_tts_preview_response(
-                {
-                    "provider": "minimax",
-                    "model": "speech-2.8-turbo",
-                    "voice_id": "AiShifu_missing_voice",
-                    "speed": 1.0,
-                    "text": "hello",
-                },
-                request_user_id="creator-debug-tts-1",
-                request_user_is_creator=True,
-            )
+    with (
+        app.test_request_context("/api/shifu/tts/preview", method="POST"),
+        pytest.raises(AppException) as exc_info,
+    ):
+        build_tts_preview_response(
+            {
+                "provider": "minimax",
+                "model": "speech-2.8-turbo",
+                "voice_id": "AiShifu_missing_voice",
+                "speed": 1.0,
+                "text": "hello",
+            },
+            request_user_id="creator-debug-tts-1",
+            request_user_is_creator=True,
+        )
 
     # The guard runs before any streaming/synthesis and blocks the request.
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
