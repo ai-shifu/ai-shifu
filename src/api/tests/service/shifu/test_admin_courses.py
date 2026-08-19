@@ -696,7 +696,7 @@ def test_list_operator_courses_filters_by_course_status():
 def test_list_operator_courses_applies_quick_filters(monkeypatch):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz=None):  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -828,7 +828,7 @@ def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overv
 def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz=None):  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)

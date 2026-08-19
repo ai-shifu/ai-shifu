@@ -508,7 +508,7 @@ def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
                     # Exponential backoff with jitter to avoid re-colliding with
                     # the peer transaction under sustained lock contention.
                     delay = backoff_seconds * (2 ** (attempt - 1))
-                    time.sleep(delay + random.uniform(0, backoff_seconds))
+                    time.sleep(delay + random.uniform(0, backoff_seconds))  # noqa: S311 - retry jitter
 
         return wrapper
 
@@ -649,9 +649,10 @@ def init_redis(app: Flask):
         return
 
     app.logger.info(
-        "init redis {} {} {}".format(
-            app.config["REDIS_HOST"], app.config["REDIS_PORT"], app.config["REDIS_DB"]
-        )
+        "init redis %s %s %s",
+        app.config["REDIS_HOST"],
+        app.config["REDIS_PORT"],
+        app.config["REDIS_DB"],
     )
 
     if (

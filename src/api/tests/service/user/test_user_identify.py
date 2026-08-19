@@ -204,7 +204,8 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
     fake_redis = FakeRedis()
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
     monkeypatch.setattr(user_utils.smtplib, "SMTP", _FakeSMTP, raising=False)
-    monkeypatch.setattr(user_utils.random, "choices", lambda _chars, k: list("1234"))
+    fixed_digits = iter("1234")
+    monkeypatch.setattr(user_utils.secrets, "choice", lambda _chars: next(fixed_digits))
 
     with app.app_context():
         app.config.update(

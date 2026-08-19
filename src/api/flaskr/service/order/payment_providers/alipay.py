@@ -266,7 +266,8 @@ def _parse_alipay_response(raw_response: Any, response_key: str) -> dict[str, An
     if isinstance(raw_response, str):
         raw_response = json.loads(raw_response)
     if not isinstance(raw_response, dict):
-        raise RuntimeError("Invalid Alipay response")
+        # RuntimeError is this provider's uniform failure type.
+        raise RuntimeError("Invalid Alipay response")  # noqa: TRY004
     nested = raw_response.get(response_key)
     if isinstance(nested, dict):
         return nested

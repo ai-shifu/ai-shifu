@@ -1,5 +1,5 @@
 import json
-import random
+import secrets
 import smtplib
 import string
 import time
@@ -200,7 +200,7 @@ def send_sms_code(
 
         characters = string.digits
         # Generate a random string of length 4
-        random_string = "".join(random.choices(characters, k=4))
+        random_string = "".join(secrets.choice(characters) for _ in range(4))
         # 发送短信验证码
         redis.set(
             _redis_prefix(app, "REDIS_KEY_PREFIX_PHONE_CODE") + phone,
@@ -276,7 +276,7 @@ def send_email_code(
         msg["To"] = email
         msg["Subject"] = _("server.user.emailVerificationSubject")
         characters = string.digits
-        random_string = "".join(random.choices(characters, k=4))
+        random_string = "".join(secrets.choice(characters) for _ in range(4))
         # to set redis
         redis.set(
             _redis_prefix(app, "REDIS_KEY_PREFIX_MAIL_CODE") + email,

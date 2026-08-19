@@ -190,7 +190,7 @@ def get_config(key: str, default: str | None = None) -> str:
                             is_encrypted=bool(config.is_encrypted),
                             value=raw_value,
                         ).model_dump_json(),
-                        ex=86400 + random.randint(0, 3600),
+                        ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
                     )
                     return value
                 finally:
@@ -244,7 +244,7 @@ def add_config(
             redis.set(
                 cache_key,
                 ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
+                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
             )
             return True
         # Config doesn't exist, add new one
@@ -266,7 +266,7 @@ def add_config(
             redis.set(
                 cache_key,
                 ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
+                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
             )
             return True
         return False
@@ -317,7 +317,7 @@ def update_config(
             redis.set(
                 cache_key,
                 ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
+                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
             )
             return True
         return False

@@ -116,7 +116,8 @@ def parse_llm_model_max_output_tokens(value: Any) -> dict[str, int]:
         except (TypeError, ValueError) as exc:
             raise ValueError("must be a JSON object") from exc
     if not isinstance(candidate, dict):
-        raise ValueError("must be a JSON object")
+        # ValueError is part of this parser's contract: callers only catch it.
+        raise ValueError("must be a JSON object")  # noqa: TRY004
 
     parsed: dict[str, int] = {}
     for model, max_output_tokens in candidate.items():

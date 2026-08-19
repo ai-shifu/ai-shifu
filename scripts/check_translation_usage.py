@@ -127,7 +127,7 @@ def flatten_translation(data, namespace: str) -> dict[str, str]:
         if isinstance(flat_section, dict):
             for key, value in flat_section.items():
                 if not isinstance(value, str):
-                    raise ValueError(f"Translation value for '{key}' must be a string")
+                    raise TypeError(f"Translation value for '{key}' must be a string")
                 composite_key = f"{namespace}.{key}" if namespace else key
                 items[composite_key] = value
         for key, value in data.items():
@@ -137,7 +137,7 @@ def flatten_translation(data, namespace: str) -> dict[str, str]:
             items.update(flatten_translation(value, next_namespace))
         return items
     if not isinstance(data, str):
-        raise ValueError(f"Translation value for '{namespace}' must be a string")
+        raise TypeError(f"Translation value for '{namespace}' must be a string")
     return {namespace: data}
 
 
