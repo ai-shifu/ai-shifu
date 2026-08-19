@@ -4,7 +4,7 @@ import copy
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Generator
 from urllib.parse import quote
 
@@ -62,7 +62,7 @@ def _build_volc_signature_headers(
     service: str,
     region: str,
 ) -> dict[str, str]:
-    x_date = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    x_date = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     short_x_date = x_date[:8]
     x_content_sha256 = _hash_sha256(body)
 

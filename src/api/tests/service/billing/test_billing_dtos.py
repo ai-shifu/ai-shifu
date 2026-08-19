@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from flaskr.service.billing.dtos import (
@@ -86,7 +86,7 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
     assert payload["trial_offer"]["status"] == "granted"
     assert payload["trial_offer"]["product_code"] == "creator-plan-trial"
     assert payload["trial_offer"]["welcome_dialog_acknowledged_at"] == datetime(
-        2026, 4, 10, 0, 0, tzinfo=timezone.utc
+        2026, 4, 10, 0, 0, tzinfo=UTC
     )
 
 
@@ -175,8 +175,8 @@ def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> Non
                 "source_type": "subscription",
                 "source_bid": "sub-1",
                 "available_credits": 97.5,
-                "effective_from": datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
-                "effective_to": datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc),
+                "effective_from": datetime(2026, 4, 1, 0, 0, tzinfo=UTC),
+                "effective_to": datetime(2026, 5, 1, 0, 0, tzinfo=UTC),
                 "priority": 20,
                 "status": "active",
             }

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -767,7 +767,7 @@ def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app):
             2026, 5, 22, 2, 0, 0
         )
         assert _coerce_operator_datetime(
-            datetime(2026, 5, 22, 10, 0, 0, tzinfo=timezone.utc)
+            datetime(2026, 5, 22, 10, 0, 0, tzinfo=UTC)
         ) == datetime(2026, 5, 22, 10, 0, 0)
 
 

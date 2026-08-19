@@ -6,7 +6,7 @@ import json
 import re
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -739,8 +739,8 @@ def _format_operator_datetime(app: Flask, value: datetime | None) -> str:
     if not value:
         return ""
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _load_notification_template(template_code: str) -> NotificationTemplate | None:
@@ -2543,9 +2543,7 @@ def _is_quiet_hours(policy: dict[str, Any], now: datetime | None = None) -> bool
             if now is None:
                 current = datetime.now(policy_timezone)
             elif current.tzinfo is None or current.utcoffset() is None:
-                current = current.replace(tzinfo=timezone.utc).astimezone(
-                    policy_timezone
-                )
+                current = current.replace(tzinfo=UTC).astimezone(policy_timezone)
             else:
                 current = current.astimezone(policy_timezone)
         except ZoneInfoNotFoundError:

@@ -46,6 +46,9 @@
 #   generated API docs. D209 / D212 / D403 / D411 / D413 are safe here because
 #   they never rewrite a line inside the YAML block.
 
+# Matches the Python pinned by src/api/Dockerfile and the CI workflows.
+target-version = "py311"
+
 [lint]
 select = [
     "E",       # pycodestyle errors (E501 ignored below)

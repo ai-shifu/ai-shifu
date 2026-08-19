@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -23,7 +23,7 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 
-PROFILE_UPDATED_AT = datetime(2026, 8, 12, 8, 30, tzinfo=timezone.utc)
+PROFILE_UPDATED_AT = datetime(2026, 8, 12, 8, 30, tzinfo=UTC)
 
 
 def _stub_activation_order_side_effects(monkeypatch) -> None:

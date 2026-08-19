@@ -5,7 +5,7 @@ import queue
 import time
 import uuid
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask import Flask, has_request_context, request
 from flaskr.api.tts import (
@@ -125,8 +125,8 @@ def _normalize_dt_to_utc(
     if value is None:
         return None
     if value.tzinfo is not None:
-        return value.astimezone(timezone.utc)
-    return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(UTC)
+    return value.replace(tzinfo=UTC)
 
 
 def _resolve_published_effective_updated_at(

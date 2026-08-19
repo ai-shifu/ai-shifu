@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask import Flask, request
 from flaskr.common.config import get_config
@@ -162,7 +162,7 @@ def _parse_datetime_filter(
     except ValueError:
         raise_param_error(field_name)
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
 
 
