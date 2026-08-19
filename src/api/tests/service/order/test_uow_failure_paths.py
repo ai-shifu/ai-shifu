@@ -12,9 +12,9 @@ import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.dao import uow
 from flaskr.service.order import funs as order_funs
 from flaskr.service.order.consts import (

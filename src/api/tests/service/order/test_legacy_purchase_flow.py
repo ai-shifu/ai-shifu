@@ -6,10 +6,10 @@ from types import SimpleNamespace
 from typing import Any
 
 import flaskr.common.config as common_config
-import flaskr.dao as dao
 import pytest
 from cryptography.fernet import Fernet
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.entitlements import grant_creator_manual_entitlement
 from flaskr.service.billing.models import BillingOrder
 from flaskr.service.order.consts import ORDER_STATUS_TO_BE_PAID

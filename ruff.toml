@@ -103,6 +103,7 @@ select = [
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
     "PLC0414", # import alias that repeats the name
+    "PLR0402", # import module.member as member that should be from-import
     "PLR1",    # useless return, repeated comparison, manual min()/max()
     "PLR5",    # else: if ... that should be elif
     "PLW0108", # lambda that only forwards its arguments

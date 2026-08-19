@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.tts.models import (
     TTS_MINIMAX_CLONE_STATUS_FAILED,
     TTS_MINIMAX_CLONE_STATUS_READY,

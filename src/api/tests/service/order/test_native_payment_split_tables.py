@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.checkout import (
     _persist_billing_native_raw_snapshot,
     load_billing_order_for_native_event,

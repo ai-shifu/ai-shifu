@@ -1,8 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
+from flaskr import dao
 from flaskr.service.common.models import AppException
 
 

@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.dao import db
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,

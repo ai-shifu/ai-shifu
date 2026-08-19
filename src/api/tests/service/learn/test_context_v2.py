@@ -83,7 +83,7 @@ _install_litellm_stub()
 _install_openai_responses_stub()
 
 # Ensure minimal SQLAlchemy bindings exist so model classes can be defined.
-import flaskr.dao as dao
+from flaskr import dao
 
 if dao.db is None:
     _test_app = Flask("test-context-v2")

@@ -9,8 +9,8 @@ statement via the per-connection journal.
 
 import socket
 
-import flaskr.dao as dao
 import pytest
+from flaskr import dao
 from flaskr.dao import db
 from sqlalchemy import text
 from sqlalchemy.exc import DisconnectionError

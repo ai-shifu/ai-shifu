@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 
-import flaskr.dao as dao
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
