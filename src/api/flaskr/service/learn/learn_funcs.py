@@ -956,7 +956,7 @@ def _finalize_tts_stream_audio(
     if not final_audio:
         raise ValueError("No audio data produced")
 
-    duration_ms = int(get_audio_duration_ms(final_audio, format="mp3") or 0)
+    duration_ms = int(get_audio_duration_ms(final_audio, audio_format="mp3") or 0)
     oss_url, bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
 
     if persist_audio:

@@ -119,9 +119,9 @@ def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
 
 
 def get_profile_item_definition_list(
-    app: Flask, parent_id: str, type: str = "all"
+    app: Flask, parent_id: str, definition_type: str = "all"
 ) -> list[ProfileItemDefinition]:
-    _ = type  # Kept for backward compatibility with existing callers.
+    _ = definition_type  # Kept for backward compatibility with existing callers.
     normalized_parent_id = parent_id or ""
     with app.app_context():
         definitions = (

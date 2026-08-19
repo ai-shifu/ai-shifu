@@ -283,7 +283,7 @@ def test_conversation_replay_returns_ordered_qa_pairs(
         seed_generated_block(
             shifu_bid="shifu-a",
             user_bid="learner-1",
-            type=321,
+            block_type=321,
             role=2,
             content="什么是 SOLID 原则?",
             progress_record_bid="pr-1",
@@ -291,7 +291,7 @@ def test_conversation_replay_returns_ordered_qa_pairs(
         seed_generated_block(
             shifu_bid="shifu-a",
             user_bid="learner-1",
-            type=322,
+            block_type=322,
             role=1,
             content="SOLID 是五条 OOP 设计原则的缩写...",
             progress_record_bid="pr-1",
@@ -846,7 +846,7 @@ def test_followup_count_excludes_rerolled_history(mock_request_user, test_client
         seed_generated_block(
             shifu_bid="shifu-a",
             user_bid="u1",
-            type=321,
+            block_type=321,
             role=2,
             content="question 1",
             generated_block_bid="gb-live-1",
@@ -855,7 +855,7 @@ def test_followup_count_excludes_rerolled_history(mock_request_user, test_client
         seed_generated_block(
             shifu_bid="shifu-a",
             user_bid="u2",
-            type=321,
+            block_type=321,
             role=2,
             content="question 2",
             generated_block_bid="gb-live-2",
@@ -865,7 +865,7 @@ def test_followup_count_excludes_rerolled_history(mock_request_user, test_client
         seed_generated_block(
             shifu_bid="shifu-a",
             user_bid="u1",
-            type=321,
+            block_type=321,
             role=2,
             content="rerolled",
             generated_block_bid="gb-history-1",
@@ -899,7 +899,7 @@ def test_followup_count_per_lesson_by_outline(mock_request_user, test_client, ap
         seed_generated_block(
             shifu_bid="shifu-a",
             user_bid="u1",
-            type=321,
+            block_type=321,
             role=2,
             content="q for lesson 1",
             generated_block_bid="gb-l1-u1",
@@ -908,7 +908,7 @@ def test_followup_count_per_lesson_by_outline(mock_request_user, test_client, ap
         seed_generated_block(
             shifu_bid="shifu-a",
             user_bid="u2",
-            type=321,
+            block_type=321,
             role=2,
             content="q2 for lesson 1",
             generated_block_bid="gb-l1-u2",
@@ -917,7 +917,7 @@ def test_followup_count_per_lesson_by_outline(mock_request_user, test_client, ap
         seed_generated_block(
             shifu_bid="shifu-a",
             user_bid="u1",
-            type=321,
+            block_type=321,
             role=2,
             content="q for lesson 2",
             generated_block_bid="gb-l2-u1",

@@ -2155,20 +2155,20 @@ class RunScriptContextV2:
             return False
         return bool(str(input_value).strip())
 
-    def set_input(self, input: str | dict, input_type: str):
+    def set_input(self, user_input: str | dict, input_type: str):
         """Set user input.
 
         Args:
-            input: User input, can be:
+            user_input: User input, can be:
                    - str: legacy format (e.g., "Python")
                    - dict: new format from markdown-flow 0.2.27+ (e.g., {"lang": ["Python"]})
             input_type: Input type
 
         """
-        self._trace_args["input"] = normalize_langfuse_input_value(input)
+        self._trace_args["input"] = normalize_langfuse_input_value(user_input)
         self._trace_args["input_type"] = input_type
         self._input_type = input_type
-        self._input = input
+        self._input = user_input
         self._anchor_element_bid = ""
 
     def _get_outline_struct(self, outline_item_id: str) -> HistoryItem:
@@ -2834,7 +2834,7 @@ class RunScriptContextV2:
             app,
             user_info=self._user_info,
             log_script=generated_block,
-            input=generated_block.generated_content,  # Use converted string value
+            user_input=generated_block.generated_content,  # Use converted string value
             span=self._trace_root_span,
             outline_item_bid=self._outline_item_info.bid,
             shifu_bid=self._outline_item_info.shifu_bid,

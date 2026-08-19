@@ -148,7 +148,7 @@ def test_normalize_audio_blob_validates_duration_and_exports_wav(monkeypatch) ->
         def __len__(self):
             return 12_000
 
-        def export(self, out, format="wav"):
+        def export(self, out, format="wav"):  # noqa: A002 - mirrors the pydub API
             assert format == "wav"
             out.write(b"WAV-BYTES")
 

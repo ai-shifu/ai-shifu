@@ -180,7 +180,7 @@ def test_run_script_retries_lock_then_streams(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -221,7 +221,7 @@ def test_run_script_producer_owns_app_context(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -266,7 +266,7 @@ def test_run_script_removes_producer_db_session(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -310,7 +310,7 @@ def test_run_script_producer_done_survives_db_session_remove_failure(monkeypatch
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -359,7 +359,7 @@ def test_run_script_read_mode_keeps_interaction_after_block_break(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=False,
             )
@@ -417,7 +417,7 @@ def test_run_script_ask_mode_uses_element_protocol(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input="follow-up question",
+                user_input="follow-up question",
                 input_type="ask",
                 listen=False,
             )
@@ -460,7 +460,7 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input="follow-up question",
+                user_input="follow-up question",
                 input_type="ask",
                 listen=True,
             )
@@ -572,7 +572,7 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
             user_bid="user-1",
             shifu_bid="shifu-1",
             outline_bid="outline-1",
-            input="follow-up question",
+            user_input="follow-up question",
             input_type="ask",
             listen=False,
             element_adapter=element_adapter,
@@ -743,7 +743,7 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
                 user_bid="user-1",
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -845,7 +845,7 @@ def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
             user_bid="user-1",
             shifu_bid="shifu-1",
             outline_bid="outline-1",
-            input="hello",
+            user_input="hello",
             input_type="text",
         )
     )
@@ -973,7 +973,7 @@ def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(monkeypa
         user_bid="user-1",
         shifu_bid="shifu-1",
         outline_bid="outline-1",
-        input="hello",
+        user_input="hello",
         input_type="text",
         element_adapter=ElementAdapter(),
     ):
@@ -1088,7 +1088,7 @@ def test_run_script_inner_emits_audio_backfill_ready_after_break_commit(monkeypa
         user_bid="user-1",
         shifu_bid="shifu-1",
         outline_bid="outline-1",
-        input="hello",
+        user_input="hello",
         input_type="text",
         element_adapter=ElementAdapter(),
     ):
@@ -1145,7 +1145,7 @@ def test_run_script_listen_keeps_interaction_after_block_done(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=True,
             )
@@ -1172,7 +1172,7 @@ def test_run_script_lock_busy_returns_busy_and_done(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -1202,7 +1202,7 @@ def test_run_script_listen_lock_busy_returns_element_protocol(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=True,
             )
@@ -1245,7 +1245,7 @@ def test_run_script_maps_llm_stream_connection_error_to_retryable_message(
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=True,
             )
@@ -1280,7 +1280,7 @@ def test_run_script_maps_standard_timeout_error_to_retryable_message(monkeypatch
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=True,
             )
@@ -1312,7 +1312,7 @@ def test_run_script_listen_done_uses_element_protocol(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=True,
             )
@@ -1374,7 +1374,7 @@ def test_get_run_status_reports_true_while_stream_is_open(monkeypatch):
             shifu_bid="shifu-1",
             outline_bid="outline-1",
             user_bid="user-1",
-            input={"input": ["x"]},
+            user_input={"input": ["x"]},
             input_type="normal",
         )
 
@@ -1424,7 +1424,7 @@ def test_run_script_close_during_data_yield_does_not_raise_runtime_error(monkeyp
             shifu_bid="shifu-1",
             outline_bid="outline-1",
             user_bid="user-1",
-            input={"input": ["x"]},
+            user_input={"input": ["x"]},
             input_type="normal",
         )
 
@@ -1476,7 +1476,7 @@ def test_run_script_propagates_explicit_language_to_producer(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 language="zh-CN",
             )

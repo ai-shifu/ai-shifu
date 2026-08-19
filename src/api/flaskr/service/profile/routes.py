@@ -56,7 +56,9 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         parent_id = request.args.get("parent_id")
         item_type = request.args.get("type", "all")
         return make_common_response(
-            get_profile_item_definition_list(app, parent_id=parent_id, type=item_type)
+            get_profile_item_definition_list(
+                app, parent_id=parent_id, definition_type=item_type
+            )
         )
 
     @app.route(f"{path_prefix}/hide-unused-profile-items", methods=["POST"])

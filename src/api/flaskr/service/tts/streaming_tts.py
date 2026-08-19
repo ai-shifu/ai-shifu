@@ -1487,7 +1487,7 @@ class StreamingTTSProcessor:
         )
         decoded_duration_ms = try_get_audio_duration_ms(
             audio_data,
-            format=audio_format,
+            audio_format=audio_format,
         )
         if decoded_duration_ms is None or decoded_duration_ms <= 0:
             logger.warning(
@@ -1593,7 +1593,7 @@ class StreamingTTSProcessor:
                     if request_duration_ms <= 0:
                         decoded_duration_ms = try_get_audio_duration_ms(
                             accumulated_audio,
-                            format=request_format or "mp3",
+                            audio_format=request_format or "mp3",
                         )
                         if decoded_duration_ms is not None:
                             request_duration_ms = int(decoded_duration_ms or 0)
@@ -1665,7 +1665,7 @@ class StreamingTTSProcessor:
                 ):
                     decoded_duration_ms = try_get_audio_duration_ms(
                         accumulated_audio,
-                        format=request_format or "mp3",
+                        audio_format=request_format or "mp3",
                     )
                     if decoded_duration_ms is not None and decoded_duration_ms > 0:
                         audio_piece = accumulated_audio
@@ -1895,7 +1895,7 @@ class StreamingTTSProcessor:
         if request_duration_ms <= 0:
             request_duration_ms = get_audio_duration_ms(
                 result.audio_data,
-                format=result.format or self.audio_settings.format or "mp3",
+                audio_format=result.format or self.audio_settings.format or "mp3",
             )
         request_word_count = int(result.word_count or 0)
         request_usage_characters = int(getattr(result, "usage_characters", 0) or 0)

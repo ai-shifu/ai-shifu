@@ -230,7 +230,7 @@ def _run_guardrail(
         app,
         user_info=user_info,
         log_script=ask_block,
-        input=input_text,
+        user_input=input_text,
         span=span,
         outline_item_bid=outline_item_info.bid,
         shifu_bid=outline_item_info.shifu_bid,
@@ -288,7 +288,7 @@ def handle_input_ask(
     context,
     user_info: UserAggregate,
     attend_id: str,
-    input: str,
+    user_input: str,
     outline_item_info: ShifuOutlineItemDto,
     trace_args: dict,
     trace: LangfuseTraceHandle,
@@ -326,7 +326,7 @@ def handle_input_ask(
 
     llm_messages = []  # Conversation messages for built-in LLM ask.
     provider_messages = []  # Conversation messages for external ask providers.
-    raw_input = input
+    raw_input = user_input
     normalized_trace_input = normalize_langfuse_input_value(raw_input)
     if normalized_trace_input and not trace_args.get("input"):
         trace_args["input"] = normalized_trace_input

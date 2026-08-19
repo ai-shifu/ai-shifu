@@ -112,6 +112,7 @@ select = [
     "ARG003",  # unused classmethod argument
     "ARG004",  # unused staticmethod argument
     "A001",    # local variable shadowing a builtin
+    "A002",    # function argument shadowing a builtin
     "A006",    # lambda argument shadowing a builtin
     # pep8-naming is partial: N815 stays off (see the header above).
     "N801",    # class name that is not CapWords

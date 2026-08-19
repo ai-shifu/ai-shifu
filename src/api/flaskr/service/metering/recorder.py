@@ -121,7 +121,7 @@ def record_llm_usage(
     provider: str,
     model: str,
     is_stream: bool,
-    input: int,
+    input: int,  # noqa: A002 - mirrors the BillUsageRecord column name
     input_cache: int = 0,
     output: int,
     total: int,
@@ -215,7 +215,7 @@ def record_tts_usage(
     provider: str,
     model: str,
     is_stream: bool,
-    input: int,
+    input: int,  # noqa: A002 - mirrors the BillUsageRecord column name
     output: int,
     total: int,
     word_count: int,

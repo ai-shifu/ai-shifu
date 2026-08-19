@@ -41,7 +41,7 @@ def test_save_new_outline_history_raises_when_parent_missing(app):
                 user_bid,
                 shifu_bid,
                 outline_bid="outline-1",
-                id=123,
+                row_id=123,
                 parent_bid="missing-parent",
             )
 

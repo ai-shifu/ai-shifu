@@ -1353,7 +1353,7 @@ class TencentTTSProvider(BaseTTSProvider):
                 duration_ms = (
                     try_get_audio_duration_ms(
                         chunk_mp3_audio,
-                        format=TENCENT_DEFAULT_CODEC,
+                        audio_format=TENCENT_DEFAULT_CODEC,
                     )
                     or 0
                 )
@@ -1385,7 +1385,7 @@ class TencentTTSProvider(BaseTTSProvider):
         if duration_total_ms <= 0:
             decoded_duration_ms = try_get_audio_duration_ms(
                 final_audio,
-                format=output_format,
+                audio_format=output_format,
             )
             duration_total_ms = int(decoded_duration_ms or 0)
 

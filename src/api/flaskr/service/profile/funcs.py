@@ -135,15 +135,15 @@ def _current_core_value(aggregate: UserAggregate | None, mapping: str):
 def check_text_content(
     app: Flask,
     user_id: str,
-    input: str,
+    user_input: str,
 ):
     check_id = generate_id(app)
-    res = check_text(app, check_id, input, user_id)
+    res = check_text(app, check_id, user_input, user_id)
     add_risk_control_result(
         app,
         check_id,
         user_id,
-        input,
+        user_input,
         res.provider,
         res.check_result,
         str(res.raw_data),

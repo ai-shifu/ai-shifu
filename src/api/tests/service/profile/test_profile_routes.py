@@ -30,6 +30,31 @@ class TestProfileRoutes:
             raising=False,
         )
 
+    def test_get_profile_item_definitions_passes_type_filter(
+        self, monkeypatch, test_client
+    ):
+        called = {}
+
+        def fake_get_definitions(_app_ctx, parent_id, definition_type):
+            called["parent_id"] = parent_id
+            called["definition_type"] = definition_type
+            return []
+
+        monkeypatch.setattr(
+            "flaskr.service.profile.routes.get_profile_item_definition_list",
+            fake_get_definitions,
+        )
+        self._mock_request_user(monkeypatch)
+
+        resp = test_client.get(
+            "/api/profiles/get-profile-item-definitions?parent_id=shifu_1&type=text"
+        )
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert called == {"parent_id": "shifu_1", "definition_type": "text"}
+
     def test_hide_unused_profile_items_requires_parent(self, monkeypatch, test_client):
         self._mock_request_user(monkeypatch)
         resp = test_client.post("/api/profiles/hide-unused-profile-items", json={})

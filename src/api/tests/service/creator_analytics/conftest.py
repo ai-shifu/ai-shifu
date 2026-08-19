@@ -202,7 +202,7 @@ def seed_generated_block(
     *,
     shifu_bid: str,
     user_bid: str,
-    type: int,
+    block_type: int,
     role: int,
     content: str,
     progress_record_bid: str = "pr-default",
@@ -211,7 +211,7 @@ def seed_generated_block(
     position: int = 0,
     status: int = 1,
 ) -> str:
-    bid = generated_block_bid or f"gb-{shifu_bid}-{user_bid}-{type}-{content[:8]}"
+    bid = generated_block_bid or f"gb-{shifu_bid}-{user_bid}-{block_type}-{content[:8]}"
     now = now_utc()
     db.session.add(
         LearnGeneratedBlock(
@@ -221,7 +221,7 @@ def seed_generated_block(
             progress_record_bid=progress_record_bid,
             outline_item_bid=outline_item_bid,
             position=position,
-            type=type,
+            type=block_type,
             role=role,
             status=status,
             generated_content=content,

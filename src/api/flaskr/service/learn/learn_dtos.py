@@ -268,7 +268,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
         position: str,
         title: str,
         status: LearnStatus,
-        type: OutlineType,
+        type: OutlineType,  # noqa: A002 - serialized DTO field name
         is_paid: bool,
         children: list[LearnOutlineItemInfoDTO],
         has_content_update_for_current_user: bool = False,
@@ -837,7 +837,7 @@ class RunMarkdownFlowDTO(BaseModel):
         self,
         outline_bid: str,
         generated_block_bid: str,
-        type: GeneratedType,
+        type: GeneratedType,  # noqa: A002 - serialized DTO field name
         content: str
         | VariableUpdateDTO
         | OutlineItemUpdateDTO

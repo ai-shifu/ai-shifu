@@ -318,7 +318,7 @@ def run_script_inner(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
-    input: str | dict | None = None,
+    user_input: str | dict | None = None,
     input_type: str | None = None,
     reload_generated_block_bid: str | None = None,
     reload_element_bid: str | None = None,
@@ -395,7 +395,7 @@ def run_script_inner(
                 stop_event=stop_event,
             )
 
-            run_script_context.set_input(input, input_type)
+            run_script_context.set_input(user_input, input_type)
 
             ready_element_bids_by_block_bid: dict[str, list[str]] = {}
 
@@ -678,7 +678,7 @@ def run_script(
     shifu_bid: str,
     outline_bid: str,
     user_bid: str,
-    input: str | dict | None = None,
+    user_input: str | dict | None = None,
     input_type: str | None = None,
     reload_generated_block_bid: str | None = None,
     reload_element_bid: str | None = None,
@@ -775,7 +775,7 @@ def run_script(
                     user_bid=user_bid,
                     shifu_bid=shifu_bid,
                     outline_bid=outline_bid,
-                    input=input,
+                    user_input=user_input,
                     input_type=input_type,
                     reload_generated_block_bid=reload_generated_block_bid,
                     reload_element_bid=reload_element_bid,

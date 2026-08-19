@@ -865,7 +865,7 @@ def synthesize_long_text_to_oss(
     if not final_audio:
         raise ValueError("No audio data produced")
 
-    duration_ms = get_audio_duration_ms(final_audio, format="mp3")
+    duration_ms = get_audio_duration_ms(final_audio, audio_format="mp3")
 
     audio_bid = (audio_bid or "").strip() or uuid.uuid4().hex
     with app.app_context():
