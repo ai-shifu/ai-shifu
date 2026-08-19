@@ -1,10 +1,18 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 import { AlertProvider } from '@/components/ui/UseAlert';
 import Header from './Header';
 
 const mockSaveMdflow = jest.fn();
+const mockToast = jest.fn();
+const mockCurrentShifu = {
+  bid: 'course-1',
+  name: 'Published Course',
+  canPublish: true,
+  url: 'https://example.test/c/course-1',
+  tts_enabled: true,
+};
 
 jest.mock('@/api', () => ({
   __esModule: true,
@@ -17,13 +25,7 @@ jest.mock('@/store', () => ({
   useShifu: () => ({
     isSaving: false,
     error: null,
-    currentShifu: {
-      bid: 'course-1',
-      name: 'Published Course',
-      canPublish: true,
-      url: 'https://example.test/c/course-1',
-      tts_enabled: true,
-    },
+    currentShifu: mockCurrentShifu,
     actions: {
       saveMdflow: mockSaveMdflow,
       loadShifu: jest.fn(),
@@ -33,7 +35,7 @@ jest.mock('@/store', () => ({
 
 jest.mock('@/hooks/useToast', () => ({
   useToast: () => ({
-    toast: jest.fn(),
+    toast: mockToast,
   }),
 }));
 
@@ -134,12 +136,39 @@ const renderHeader = () =>
 describe('Header publish success link', () => {
   beforeEach(() => {
     mockSaveMdflow.mockReset().mockResolvedValue(undefined);
+    mockToast.mockReset();
+    mockCurrentShifu.url = 'https://example.test/c/course-1';
     (api.publishShifu as jest.Mock).mockReset();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: jest.fn().mockResolvedValue(undefined),
+      },
+    });
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
+
+  const expectNoRejectedLearningLink = () => {
+    expect(
+      screen.queryByRole('button', {
+        name: 'component.header.copyLearningLink',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('component.header.learningLink'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'javascript:alert(1)' }),
+    ).not.toBeInTheDocument();
+    for (const link of screen.queryAllByRole('link', { hidden: true })) {
+      const href = link.getAttribute('href');
+      expect(href).toBeTruthy();
+      expect(href).not.toMatch(/^javascript:/i);
+    }
+  };
 
   test('shows a parameterless learning link after publishing', async () => {
     (api.publishShifu as jest.Mock).mockResolvedValue(
@@ -184,5 +213,67 @@ describe('Header publish success link', () => {
       'https://example.test/c/course-1',
     );
     expect(learningLink.getAttribute('href')).not.toContain('mode=');
+  });
+
+  test('omits the learning link when the published URL is rejected', async () => {
+    (api.publishShifu as jest.Mock).mockResolvedValue('javascript:alert(1)');
+
+    renderHeader();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'component.header.publish' }),
+    );
+
+    await screen.findByText('component.header.publishSuccess');
+    expectNoRejectedLearningLink();
+  });
+
+  test('closes the pending tab instead of navigating when the published URL is rejected', async () => {
+    const pendingWindow = {
+      closed: false,
+      close: jest.fn(function closePendingWindow() {
+        this.closed = true;
+      }),
+      location: { href: 'about:blank' },
+      opener: {} as Window | null,
+    };
+    const openSpy = jest
+      .spyOn(window, 'open')
+      .mockReturnValue(pendingWindow as unknown as Window);
+    (api.publishShifu as jest.Mock).mockResolvedValue('javascript:alert(1)');
+
+    renderHeader();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'component.header.publishAndOpenListenMode',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(pendingWindow.close).toHaveBeenCalled();
+    });
+    expect(pendingWindow.location.href).toBe('about:blank');
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith('about:blank', '_blank');
+    await screen.findByText('component.header.publishSuccess');
+    expectNoRejectedLearningLink();
+  });
+
+  test('does not copy a rejected published URL for a learning mode', async () => {
+    mockCurrentShifu.url = 'javascript:alert(1)';
+
+    renderHeader();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'component.header.copyListenModeLink',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'component.header.copyLinkFailed',
+        variant: 'destructive',
+      });
+    });
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
   });
 });
