@@ -88,17 +88,40 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
   DropdownMenuItem: ({
     children,
     onSelect,
-  }: React.PropsWithChildren<{ onSelect?: () => void }>) => (
-    <div
-      onClick={() => {
-        onSelect?.();
-      }}
-      onKeyDown={() => undefined}
-      role='presentation'
-    >
-      {children}
-    </div>
-  ),
+    disabled,
+  }: React.PropsWithChildren<{
+    onSelect?: () => void;
+    disabled?: boolean;
+  }>) => {
+    if (!React.isValidElement(children)) {
+      return (
+        <button
+          type='button'
+          disabled={disabled}
+          onClick={() => {
+            onSelect?.();
+          }}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    const child = children as React.ReactElement<{
+      onClick?: React.MouseEventHandler<HTMLElement>;
+      disabled?: boolean;
+    }>;
+
+    return React.cloneElement(child, {
+      disabled: Boolean(disabled || child.props.disabled),
+      onClick: (event: React.MouseEvent<HTMLElement>) => {
+        child.props.onClick?.(event);
+        if (!disabled) {
+          onSelect?.();
+        }
+      },
+    });
+  },
 }));
 
 const renderHeader = () =>

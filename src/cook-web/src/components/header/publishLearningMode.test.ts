@@ -54,6 +54,20 @@ describe('publish learning mode urls', () => {
     expect(buildParameterlessCourseUrl('   ')).toBe('');
   });
 
+  test('rejects javascript and data urls without a learning mode', () => {
+    expect(buildParameterlessCourseUrl('javascript:alert(1)')).toBe('');
+    expect(
+      buildParameterlessCourseUrl('data:text/html,<script>alert(1)</script>'),
+    ).toBe('');
+  });
+
+  test('rejects javascript and data urls when adding a learning mode', () => {
+    expect(buildLearningModeUrl('javascript:alert(1)', 'listen')).toBe('');
+    expect(
+      buildLearningModeUrl('data:text/html,<script>alert(1)</script>', 'read'),
+    ).toBe('');
+  });
+
   test('disables listen publish links only when tts is disabled', () => {
     expect(
       isPublishLearningModeAvailable({

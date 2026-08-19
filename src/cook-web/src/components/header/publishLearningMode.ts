@@ -46,22 +46,30 @@ const buildCourseUrl = (
     return '';
   }
 
-  const url = new URL(normalizedUrl, origin);
-  url.username = '';
-  url.password = '';
-  url.search = '';
-  url.hash = '';
+  try {
+    const url = new URL(normalizedUrl, origin);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return '';
+    }
 
-  if (mode) {
-    url.searchParams.set('mode', mode);
-    return url.toString();
+    url.username = '';
+    url.password = '';
+    url.search = '';
+    url.hash = '';
+
+    if (mode) {
+      url.searchParams.set('mode', mode);
+      return url.toString();
+    }
+
+    if (ABSOLUTE_URL_PATTERN.test(normalizedUrl)) {
+      return url.toString();
+    }
+
+    return url.pathname;
+  } catch {
+    return '';
   }
-
-  if (ABSOLUTE_URL_PATTERN.test(normalizedUrl)) {
-    return url.toString();
-  }
-
-  return url.pathname;
 };
 
 export const buildParameterlessCourseUrl = (
