@@ -1,0 +1,74 @@
+name: Lint Auto-fix Push
+
+# Trusted half of the lint auto-fix flow. The Lint workflow installs and runs
+# pull-request-controlled tooling, so it stays read-only and only uploads the
+# auto-fix diff as an artifact. This workflow always runs the version on the
+# default branch, never executes pull request code, and treats the downloaded
+# patch as untrusted data: it is applied with `git apply` onto the exact head
+# commit the patch was produced from, and nothing else in the PR is executed.
+
+on:
+  workflow_run:
+    workflows: ["Lint"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-autofix-push-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  push:
+    # Fork pull requests cannot be pushed to; the Lint run fails them instead.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # Needed to download the patch artifact from the triggering Lint run.
+      actions: read
+    steps:
+      - name: Download auto-fix patch
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: lint-autofix
+          path: autofix
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Check out the branch that was linted
+        if: steps.download.outcome == 'success'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          persist-credentials: false
+          path: repo
+
+      - name: Apply the patch and push
+        if: steps.download.outcome == 'success'
+        working-directory: repo
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          expected=$(cat ../autofix/head_sha)
+          current=$(git rev-parse HEAD)
+          if [ "$expected" != "$current" ]; then
+            echo "::notice::Branch moved from ${expected} to ${current} since the lint run; skipping stale auto-fix."
+            exit 0
+          fi
+          git apply --index --whitespace=nowarn ../autofix/autofix.patch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "style: auto-fix from lint hooks"
+          # Token supplied only here (branch name via env, never expanded in shell).
+          # git-over-HTTPS on GitHub only accepts basic auth; a bearer header is
+          # answered with 401 and git then falls back to prompting.
+          auth=$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 -w0)
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${auth}" \
+            push origin "HEAD:${HEAD_REF}"
