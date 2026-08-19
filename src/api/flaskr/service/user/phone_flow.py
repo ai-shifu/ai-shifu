@@ -132,7 +132,7 @@ def _consume_latest_sms_code_from_db(app: Flask, phone: str, code: str) -> str:
 def migrate_user_study_record(
     app: Flask, from_user_id: str, to_user_id: str, course_id: str | None = None
 ) -> None:
-    from flaskr.service.learn.models import LearnProgressRecord
+    from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 
     normalized_course_id = str(course_id or "").strip()
     if not normalized_course_id:
@@ -179,24 +179,14 @@ def migrate_user_study_record(
         )
         return
 
-    db.session.execute(
-        text(
-            "update learn_progress_records set user_bid = '{}' where id in ({})".format(
-                to_user_id, ",".join(str(attend.id) for attend in migrate_attends)
-            )
-        )
-    )
-    db.session.execute(
-        text(
-            "update learn_generated_blocks set user_bid = '{}' where progress_record_bid in ({})".format(
-                to_user_id,
-                ",".join(
-                    "'" + str(attend.progress_record_bid) + "'"
-                    for attend in migrate_attends
-                ),
-            )
-        )
-    )
+    record_ids = [attend.id for attend in migrate_attends]
+    progress_record_bids = [attend.progress_record_bid for attend in migrate_attends]
+    db.session.query(LearnProgressRecord).filter(
+        LearnProgressRecord.id.in_(record_ids)
+    ).update({LearnProgressRecord.user_bid: to_user_id}, synchronize_session=False)
+    db.session.query(LearnGeneratedBlock).filter(
+        LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids)
+    ).update({LearnGeneratedBlock.user_bid: to_user_id}, synchronize_session=False)
     db.session.flush()
     app.logger.info(
         "migrate_user_study_record done: migrated_records=%s course_id=%s",

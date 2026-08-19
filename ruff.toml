@@ -137,6 +137,11 @@ select = [
     "S603",    # subprocess call with unvalidated input
     "S605",    # process started with a shell
     "S607",    # process started with a partial executable path
+    # S608 flags every SQL string built by interpolation. Values always use
+    # bound parameters; the remaining sites interpolate table or column names,
+    # which bound parameters cannot carry, and justify it inline. Applied
+    # Alembic revisions must not be edited, so they are exempt below.
+    "S608",    # SQL query built by string interpolation
 
     # --- Docstrings -------------------------------------------------------
     # pydocstyle is enabled as a whole; the members that would need thousands
@@ -220,5 +225,8 @@ ignore = [
 "src/api/conftest.py" = ["S101"]
 "scripts/test_*.py" = ["S101"]
 "scripts/check_example_identifiers.py" = ["S101"]
+# Applied Alembic revisions are immutable history: their backfill statements
+# interpolate table names and cannot be rewritten after deployment.
+"src/api/migrations/versions/**" = ["S608"]
 "scripts/**" = ["S603", "S607"]
 "src/api/scripts/**" = ["S603", "S607"]
