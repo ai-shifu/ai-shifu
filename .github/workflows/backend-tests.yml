@@ -56,6 +56,10 @@ jobs:
           pip install -r requirements.txt
           pip install coverage pytest-testmon
 
+      - name: Run contract tests
+        working-directory: src/api
+        run: python -m pytest tests/contract -v --tb=short
+
       - name: Select test targets (PR only)
         if: github.event_name == 'pull_request'
         env:
