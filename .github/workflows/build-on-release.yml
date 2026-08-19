@@ -9,6 +9,9 @@ permissions:
 
 env:
   DEFAULT_DOCKERHUB_USER: aishifu
+  # Aliyun ACR rejects Buildx provenance/SBOM attestations
+  # (application/vnd.oci.empty.v1+json) on multi-arch pushes.
+  BUILDX_NO_DEFAULT_ATTESTATIONS: "1"
 
 jobs:
   validate-release:
@@ -163,6 +166,8 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
           build-args: |
             TAG_VERSION=${{ env.TAG_VERSION }}
 

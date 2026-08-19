@@ -9,9 +9,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: build-latest-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   DEFAULT_DOCKERHUB_USER: aishifu
   PUSH_LATEST_IMAGES: ${{ vars.PUSH_LATEST_IMAGES || 'true' }}
+  # Aliyun ACR rejects Buildx provenance/SBOM attestations
+  # (application/vnd.oci.empty.v1+json) on multi-arch pushes.
+  BUILDX_NO_DEFAULT_ATTESTATIONS: "1"
 
 jobs:
   build-latest:
@@ -142,6 +149,8 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
 
       - name: Build summary
         run: |
