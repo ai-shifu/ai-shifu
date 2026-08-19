@@ -450,7 +450,9 @@ class UnifiedMigrationTask:
                     if (
                         error_count > self.config.batch_size * 0.5
                     ):  # If more than 50% errors
-                        raise Exception(f"Too many errors in batch: {error_count}")
+                        raise Exception(
+                            f"Too many errors in batch: {error_count}"
+                        ) from e
 
             # Commit the batch
             session.commit()

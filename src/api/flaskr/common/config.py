@@ -59,17 +59,17 @@ class EnvVar:
         if self.type is int:
             try:
                 return int(value)
-            except ValueError:
+            except ValueError as exc:
                 raise EnvironmentConfigError(
                     f"Invalid integer value for {self.name}: {value}"
-                )
+                ) from exc
         elif self.type is float:
             try:
                 return float(value)
-            except ValueError:
+            except ValueError as exc:
                 raise EnvironmentConfigError(
                     f"Invalid float value for {self.name}: {value}"
-                )
+                ) from exc
         elif self.type is list:
             if isinstance(value, str):
                 return [item.strip() for item in value.split(",") if item.strip()]

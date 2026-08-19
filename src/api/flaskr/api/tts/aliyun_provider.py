@@ -1381,11 +1381,11 @@ class AliyunTTSProvider(BaseTTSProvider):
             except ValueError as e:
                 if "Aliyun TTS API error" in str(e):
                     raise
-                raise ValueError(f"Aliyun TTS API error: {response.text[:200]}")
+                raise ValueError(f"Aliyun TTS API error: {response.text[:200]}") from e
 
         except requests.RequestException as e:
             logger.error(f"Aliyun TTS request failed: {e}")
-            raise ValueError(f"Aliyun TTS request failed: {e}")
+            raise ValueError(f"Aliyun TTS request failed: {e}") from e
 
     def get_provider_config(self) -> ProviderConfig:
         """Get Aliyun provider configuration for frontend."""
