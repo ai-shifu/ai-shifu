@@ -68,7 +68,11 @@ surfaces = {}
 
 # --- cook-web ---------------------------------------------------------------
 fe = set()
-cat = open(os.path.join(ROOT, "src/cook-web/src/api/api.ts"), encoding="utf-8").read()
+cat = None
+with open(
+    os.path.join(ROOT, "src/cook-web/src/api/api.ts"), encoding="utf-8"
+) as catalog_file:
+    cat = catalog_file.read()
 for m in re.finditer(
     r"'(GET|POST|PUT|DELETE|PATCH|STREAM|STREAMLINE|PROXY)\s+([^']+)'", cat
 ):
@@ -84,7 +88,8 @@ cli = grep_paths(SKILLS)
 # relative paths in shifu-cli.py are joined onto /api/shifu
 cli_file = os.path.join(SKILLS, "skills/ai-shifu-course-creator/scripts/shifu-cli.py")
 if os.path.exists(cli_file):
-    src = open(cli_file, encoding="utf-8").read()
+    with open(cli_file, encoding="utf-8") as cli_source:
+        src = cli_source.read()
     for m in re.finditer(
         r"""["'](/(?:shifus|upfile|url-upfile|mdflow)[^"']*)["']""", src
     ):
@@ -96,14 +101,15 @@ surfaces["miniprogram"] = grep_paths(MINIAPP)
 
 # --- backend routes ----------------------------------------------------------
 be = []
-for line in open(BACKEND_ROUTES, encoding="utf-8"):
-    if line.startswith("#"):
-        continue
-    mm = re.match(r"(\S+)\s+(\S+)\s+\[(.*)\]", line.strip())
-    if not mm:
-        continue
-    method, path, src = mm.groups()
-    be.append((method, path, norm(path), src))
+with open(BACKEND_ROUTES, encoding="utf-8") as backend_routes:
+    for line in backend_routes:
+        if line.startswith("#"):
+            continue
+        mm = re.match(r"(\S+)\s+(\S+)\s+\[(.*)\]", line.strip())
+        if not mm:
+            continue
+        method, path, src = mm.groups()
+        be.append((method, path, norm(path), src))
 
 
 def match(be_segs, fe_segs):

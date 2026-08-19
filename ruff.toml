@@ -133,6 +133,7 @@ select = [
     "SIM105",  # try-except-pass that should be contextlib.suppress
     "SIM108",  # if-else assignment that should be a ternary
     "SIM114",  # if branches with identical bodies
+    "SIM115",  # open() without a context manager
     "SIM118",  # key in dict.keys()
     "SIM2",    # redundant True/False and twisted conditional expressions
     "SIM3",    # yoda condition
