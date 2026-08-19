@@ -17,8 +17,8 @@ from flaskr.service.tts import resolve_tts_billable_chars
 
 
 def build_tts_metadata(
-    voice_settings: "VoiceSettings",
-    audio_settings: "AudioSettings",
+    voice_settings: VoiceSettings,
+    audio_settings: AudioSettings,
 ) -> dict:
     """Build metadata dict from voice and audio settings.
 
@@ -42,16 +42,16 @@ def build_tts_metadata(
 
 
 def record_tts_segment_usage(
-    app: "Flask",
-    usage_context: "UsageContext",
+    app: Flask,
+    usage_context: UsageContext,
     provider: str,
     model: str,
     segment_text: str,
     word_count: int,
     duration_ms: int,
     latency_ms: int,
-    voice_settings: "VoiceSettings",
-    audio_settings: "AudioSettings",
+    voice_settings: VoiceSettings,
+    audio_settings: AudioSettings,
     is_stream: bool,
     parent_usage_bid: str,
     segment_index: int,
@@ -103,8 +103,8 @@ def record_tts_segment_usage(
 
 
 def record_tts_aggregated_usage(
-    app: "Flask",
-    usage_context: "UsageContext",
+    app: Flask,
+    usage_context: UsageContext,
     usage_bid: str,
     provider: str,
     model: str,
@@ -113,8 +113,8 @@ def record_tts_aggregated_usage(
     total_word_count: int,
     duration_ms: int,
     segment_count: int,
-    voice_settings: "VoiceSettings",
-    audio_settings: "AudioSettings",
+    voice_settings: VoiceSettings,
+    audio_settings: AudioSettings,
     is_stream: bool = True,
     total_usage_characters: int = 0,
 ) -> None:
