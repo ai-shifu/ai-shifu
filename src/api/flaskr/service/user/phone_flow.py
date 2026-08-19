@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as redis
@@ -48,12 +48,12 @@ FIX_CHECK_CODE = None
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
 
 
-def configure_fix_check_code(value: Optional[str]) -> None:
+def configure_fix_check_code(value: str | None) -> None:
     global FIX_CHECK_CODE
     FIX_CHECK_CODE = value
 
 
-def _acquire_bootstrap_lock(app: Flask, timeout_seconds: int = 5) -> Optional[bool]:
+def _acquire_bootstrap_lock(app: Flask, timeout_seconds: int = 5) -> bool | None:
     bind = db.session.get_bind()
     dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
     if dialect_name != "mysql":
@@ -130,7 +130,7 @@ def _consume_latest_sms_code_from_db(app: Flask, phone: str, code: str) -> str:
 
 
 def migrate_user_study_record(
-    app: Flask, from_user_id: str, to_user_id: str, course_id: Optional[str] = None
+    app: Flask, from_user_id: str, to_user_id: str, course_id: str | None = None
 ) -> None:
     from flaskr.service.learn.models import LearnProgressRecord
 
@@ -275,13 +275,13 @@ def init_first_course(app: Flask, user_id: str) -> bool:
 
 def verify_phone_code(
     app: Flask,
-    user_id: Optional[str],
+    user_id: str | None,
     phone: str,
     code: str,
-    course_id: Optional[str] = None,
-    language: Optional[str] = None,
-    login_context: Optional[str] = None,
-) -> Tuple[UserToken, bool, Dict[str, Optional[str]]]:
+    course_id: str | None = None,
+    language: str | None = None,
+    login_context: str | None = None,
+) -> Tuple[UserToken, bool, Dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
     from flaskr.service.profile.funcs import (
         get_user_profile_labels,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
 @dataclass(slots=True)
@@ -27,8 +27,8 @@ class PaymentCreationResult:
 
     provider_reference: str
     raw_response: Dict[str, Any]
-    client_secret: Optional[str] = None
-    checkout_session_id: Optional[str] = None
+    client_secret: str | None = None
+    checkout_session_id: str | None = None
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -39,7 +39,7 @@ class PaymentNotificationResult:
     order_bid: str
     status: str
     provider_payload: Dict[str, Any]
-    charge_id: Optional[str] = None
+    charge_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -57,8 +57,8 @@ class PaymentRefundRequest:
     """Request payload for initiating a refund."""
 
     order_bid: str
-    amount: Optional[int] = None
-    reason: Optional[str] = None
+    amount: int | None = None
+    reason: str | None = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 

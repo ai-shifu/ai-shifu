@@ -8,7 +8,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -104,8 +104,8 @@ class UnifiedMigrationTask:
 
     def __init__(
         self,
-        database_url: Optional[str] = None,
-        config: Optional[MigrationConfig] = None,
+        database_url: str | None = None,
+        config: MigrationConfig | None = None,
     ):
         if database_url is None:
             database_url = _resolve_default_database_url()

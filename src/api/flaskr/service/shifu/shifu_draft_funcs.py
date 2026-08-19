@@ -10,7 +10,7 @@ import json
 import math
 from datetime import datetime
 from time import perf_counter
-from typing import Any, Optional
+from typing import Any
 
 from flask import Flask
 from flaskr.i18n import _
@@ -131,7 +131,7 @@ def return_shifu_draft_dto(
     shifu_draft: DraftShifu,
     base_url: str,
     readonly: bool,
-    archived_override: Optional[bool] = None,
+    archived_override: bool | None = None,
     can_manage_archive: bool = False,
     can_publish: bool = False,
 ) -> ShifuDetailDto:

@@ -8,7 +8,7 @@ resetting passwords where we only want to validate ownership of an identifier.
 from __future__ import annotations
 
 import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as redis
@@ -102,7 +102,7 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
     if not code:
         raise_param_error("code")
 
-    fix_code: Optional[str] = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+    fix_code: str | None = app.config.get("UNIVERSAL_VERIFICATION_CODE")
     if fix_code and code == fix_code:
         # Universal code is accepted in dev/test environments and should not
         # affect cache/db state.

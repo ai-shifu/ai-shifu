@@ -1,5 +1,3 @@
-from typing import Optional
-
 import jwt
 from flask import Flask, has_app_context
 from flaskr.i18n import get_i18n_list
@@ -154,7 +152,7 @@ def verify_sms_code(
     chekcode: str,
     course_id: str | None = None,
     language: str | None = None,
-    login_context: Optional[str] = None,
+    login_context: str | None = None,
 ) -> UserToken:
     provider = get_provider("phone")
     request = VerificationRequest(

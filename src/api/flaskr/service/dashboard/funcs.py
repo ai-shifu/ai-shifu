@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Sequence, Set, Tuple
 
 from flask import Flask
 from flaskr.dao import db
@@ -101,7 +101,7 @@ def _format_percentage(numerator: int, denominator: int) -> str:
     return _format_money((Decimal(numerator) * Decimal(100)) / Decimal(denominator))
 
 
-def _format_average_score(value: Optional[Decimal]) -> str:
+def _format_average_score(value: Decimal | None) -> str:
     if value is None:
         return ""
     return f"{value:.1f}"
@@ -344,7 +344,7 @@ def _build_follow_up_user_keyword_filter(
 def _resolve_follow_up_matching_outline_bids(
     outline_context_map: Dict[str, Dict[str, str]],
     chapter_keyword: str,
-) -> Optional[Set[str]]:
+) -> Set[str] | None:
     normalized_keyword = str(chapter_keyword or "").strip().lower()
     if not normalized_keyword:
         return None
@@ -910,13 +910,13 @@ def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseM
 def _load_dashboard_course_meta(
     user_id: str,
     shifu_bid: str,
-) -> Optional[_DashboardCourseMeta]:
+) -> _DashboardCourseMeta | None:
     normalized_user_id = str(user_id or "").strip()
     normalized_shifu_bid = str(shifu_bid or "").strip()
     if not normalized_user_id or not normalized_shifu_bid:
         return None
 
-    latest_row: Optional[PublishedShifu] = (
+    latest_row: PublishedShifu | None = (
         PublishedShifu.query.filter(
             PublishedShifu.shifu_bid == normalized_shifu_bid,
             PublishedShifu.created_user_bid == normalized_user_id,
@@ -946,7 +946,7 @@ def _load_dashboard_course_meta(
 def _load_dashboard_entry_courses(
     user_id: str,
     *,
-    keyword: Optional[str] = None,
+    keyword: str | None = None,
 ) -> List[_DashboardCourseMeta]:
     courses = list(_load_dashboard_course_meta_map(user_id).values())
     normalized_keyword = str(keyword or "").strip().lower()
@@ -961,8 +961,8 @@ def _load_dashboard_entry_courses(
     return courses
 
 
-def _load_dashboard_course_created_at(shifu_bid: str) -> Optional[datetime]:
-    latest_draft: Optional[DraftShifu] = (
+def _load_dashboard_course_created_at(shifu_bid: str) -> datetime | None:
+    latest_draft: DraftShifu | None = (
         DraftShifu.query.filter(
             DraftShifu.shifu_bid == shifu_bid,
             DraftShifu.deleted == 0,
@@ -1152,7 +1152,7 @@ def _load_dashboard_course_joined_at_map(
 
     joined_at_map: Dict[str, datetime] = {}
 
-    def _merge_rows(rows: Sequence[tuple[str, Optional[datetime]]]) -> None:
+    def _merge_rows(rows: Sequence[tuple[str, datetime | None]]) -> None:
         for user_bid, joined_at in rows:
             normalized_user_bid = str(user_bid or "").strip()
             if not normalized_user_bid or not joined_at:
@@ -1366,8 +1366,8 @@ def _count_completed_learners(shifu_bid: str, leaf_outline_bids: List[str]) -> i
 def _collect_dashboard_entry_metrics(
     shifu_bids: List[str],
     *,
-    start_dt: Optional[datetime],
-    end_dt_exclusive: Optional[datetime],
+    start_dt: datetime | None,
+    end_dt_exclusive: datetime | None,
 ) -> _DashboardEntryMetrics:
     if not shifu_bids:
         return _DashboardEntryMetrics()
@@ -1495,14 +1495,14 @@ def build_dashboard_entry(
     app: Flask,
     user_id: str,
     *,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    keyword: Optional[str] = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    keyword: str | None = None,
     page_index: int = 1,
     page_size: int = 20,
-    timezone_name: Optional[str] = None,
+    timezone_name: str | None = None,
 ) -> DashboardEntryDTO:
-    def _parse_optional_date(raw: Optional[str]) -> Optional[date]:
+    def _parse_optional_date(raw: str | None) -> date | None:
         if raw is None:
             return None
         text = str(raw).strip()
@@ -1628,11 +1628,11 @@ def _build_dashboard_course_learners(
     leaf_outline_bids: Sequence[str],
     page_index: int,
     page_size: int,
-    keyword: Optional[str],
-    learning_status: Optional[str],
-    last_learning_start_time: Optional[str],
-    last_learning_end_time: Optional[str],
-    timezone_name: Optional[str],
+    keyword: str | None,
+    learning_status: str | None,
+    last_learning_start_time: str | None,
+    last_learning_end_time: str | None,
+    timezone_name: str | None,
 ) -> DashboardCourseDetailLearnersDTO:
     safe_page_size = min(
         max(int(page_size or 20), 1),
@@ -1999,11 +1999,11 @@ def _build_dashboard_course_learners(
 
 
 def _parse_dashboard_date_boundary(
-    value: Optional[str],
+    value: str | None,
     *,
     param_name: str,
     end_of_day: bool = False,
-) -> Optional[datetime]:
+) -> datetime | None:
     normalized = str(value or "").strip()
     if not normalized:
         return None
@@ -2019,8 +2019,8 @@ def _parse_dashboard_date_boundary(
 
 def _validate_dashboard_date_range(
     *,
-    start_dt: Optional[datetime],
-    end_dt_exclusive: Optional[datetime],
+    start_dt: datetime | None,
+    end_dt_exclusive: datetime | None,
     start_param_name: str,
     end_param_name: str,
 ) -> None:
@@ -2037,13 +2037,13 @@ def build_dashboard_course_follow_ups(
     *,
     page_index: int = 1,
     page_size: int = 20,
-    keyword: Optional[str] = None,
-    user_bid: Optional[str] = None,
-    chapter_keyword: Optional[str] = None,
-    source_status: Optional[str] = None,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    timezone_name: Optional[str] = None,
+    keyword: str | None = None,
+    user_bid: str | None = None,
+    chapter_keyword: str | None = None,
+    source_status: str | None = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
+    timezone_name: str | None = None,
 ) -> DashboardCourseFollowUpListDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -2267,7 +2267,7 @@ def build_dashboard_course_follow_up_detail(
     shifu_bid: str,
     generated_block_bid: str,
     *,
-    timezone_name: Optional[str] = None,
+    timezone_name: str | None = None,
 ) -> DashboardCourseFollowUpDetailDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -2382,13 +2382,13 @@ def build_dashboard_course_ratings(
     *,
     page_index: int = 1,
     page_size: int = 20,
-    keyword: Optional[str] = None,
-    chapter_keyword: Optional[str] = None,
-    score: Optional[str] = None,
-    has_comment: Optional[str] = None,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    timezone_name: Optional[str] = None,
+    keyword: str | None = None,
+    chapter_keyword: str | None = None,
+    score: str | None = None,
+    has_comment: str | None = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
+    timezone_name: str | None = None,
 ) -> DashboardCourseRatingListDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -2595,11 +2595,11 @@ def build_dashboard_course_learners(
     *,
     page_index: int = 1,
     page_size: int = 20,
-    keyword: Optional[str] = None,
-    learning_status: Optional[str] = None,
-    last_learning_start_time: Optional[str] = None,
-    last_learning_end_time: Optional[str] = None,
-    timezone_name: Optional[str] = None,
+    keyword: str | None = None,
+    learning_status: str | None = None,
+    last_learning_start_time: str | None = None,
+    last_learning_end_time: str | None = None,
+    timezone_name: str | None = None,
 ) -> DashboardCourseDetailLearnersDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -2632,7 +2632,7 @@ def build_dashboard_course_detail(
     user_id: str,
     shifu_bid: str,
     *,
-    timezone_name: Optional[str] = None,
+    timezone_name: str | None = None,
 ) -> DashboardCourseDetailDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()

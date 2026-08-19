@@ -1,7 +1,7 @@
 import json
 import os
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Dict
 
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
@@ -140,7 +140,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
 
 def import_shifu(
     app: Flask,
-    shifu_id: Optional[str],
+    shifu_id: str | None,
     file: FileStorage,
     user_id: str,
     commit: bool = True,

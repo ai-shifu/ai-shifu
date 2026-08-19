@@ -18,7 +18,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Ensure `/app` (repo root for src/api) is on sys.path when executed as a file path.
 _API_ROOT = Path(__file__).resolve().parents[1]
@@ -418,7 +418,7 @@ def main():
             voice_label = case.get("voice_label", "")
 
             try:
-                result: Optional[SynthesizeToOssResult] = None
+                result: SynthesizeToOssResult | None = None
                 elapsed = 0.0
                 t0 = time.monotonic()
                 result = synthesize_long_text_to_oss(

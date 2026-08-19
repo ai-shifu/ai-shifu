@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
-from typing import Any, Dict, Optional, Sequence, Set
+from typing import Any, Dict, Sequence, Set
 
 from flask import Flask
 from flaskr.dao import db
@@ -124,7 +124,7 @@ def _build_follow_up_user_keyword_filter(
 def _resolve_follow_up_matching_outline_bids(
     outline_context_map: Dict[str, Dict[str, str]],
     chapter_keyword: str,
-) -> Optional[Set[str]]:
+) -> Set[str] | None:
     normalized_keyword = str(chapter_keyword or "").strip().lower()
     if not normalized_keyword:
         return None
@@ -561,7 +561,7 @@ def get_operator_course_follow_ups(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
     include_summary: bool = True,
 ) -> AdminOperationCourseFollowUpListDTO:
     with app.app_context():

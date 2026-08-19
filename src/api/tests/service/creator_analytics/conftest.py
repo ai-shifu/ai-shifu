@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from types import SimpleNamespace
-from typing import Optional
 
 import pytest
 from flaskr.dao import db
@@ -159,7 +158,7 @@ def seed_progress(
     user_bid: str,
     status: int,
     outline_item_bid: str = "outline-1",
-    progress_record_bid: Optional[str] = None,
+    progress_record_bid: str | None = None,
 ) -> str:
     now = now_utc()
     record_bid = progress_record_bid or f"pr-{shifu_bid}-{user_bid}-{status}"
@@ -207,7 +206,7 @@ def seed_generated_block(
     role: int,
     content: str,
     progress_record_bid: str = "pr-default",
-    generated_block_bid: Optional[str] = None,
+    generated_block_bid: str | None = None,
     outline_item_bid: str = "",
     position: int = 0,
     status: int = 1,
@@ -264,7 +263,7 @@ def seed_bill_usage_record(
     usage_scene: int = 1203,
     provider: str = "deepseek",
     model: str = "deepseek-v4-flash",
-    created_at: Optional[datetime] = None,
+    created_at: datetime | None = None,
     deleted: int = 0,
 ) -> str:
     """Seed one BillUsageRecord row for credit-detail E2E tests.
@@ -302,8 +301,8 @@ def seed_credit_ledger_entry(
     entry_type: int = CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     wallet_bid: str = "",
     wallet_bucket_bid: str = "",
-    idempotency_key: Optional[str] = None,
-    created_at: Optional[datetime] = None,
+    idempotency_key: str | None = None,
+    created_at: datetime | None = None,
     deleted: int = 0,
 ) -> str:
     """Seed one CreditLedgerEntry row.
@@ -345,7 +344,7 @@ def seed_bill_daily_metric(
     billing_metric: int = 1,
     consumed_credits: float = 10.0,
     record_count: int = 5,
-    daily_usage_metric_bid: Optional[str] = None,
+    daily_usage_metric_bid: str | None = None,
 ) -> None:
     """Seed one BillingDailyUsageMetric row for E2E credit-query tests."""
     bid = (

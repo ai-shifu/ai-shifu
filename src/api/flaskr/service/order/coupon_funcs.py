@@ -1,6 +1,6 @@
 import decimal
 import json
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from flask import Flask
 from flaskr.api.doc.feishu import send_notify
@@ -27,7 +27,7 @@ from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 
 
-def _get_course_id_from_filter(coupon: Coupon) -> Optional[str]:
+def _get_course_id_from_filter(coupon: Coupon) -> str | None:
     """Extract course_id from coupon.filter; return None if missing/invalid/empty."""
     if not coupon or not coupon.filter:
         return None
@@ -63,7 +63,7 @@ def _pick_coupon_candidate(
     coupons_by_code: List[Coupon],
     shifu_bid: str,
     user_id: str,
-) -> Tuple[Optional[CouponUsageModel], Optional[Coupon], bool]:
+) -> Tuple[CouponUsageModel | None, Coupon | None, bool]:
     """Pick a coupon_usage/coupon pair that matches the current course.
     Returns (usage, coupon, has_candidate_with_same_code).
     """
@@ -71,7 +71,7 @@ def _pick_coupon_candidate(
 
     def select(
         usages: List[CouponUsageModel],
-    ) -> Tuple[Optional[CouponUsageModel], Optional[Coupon]]:
+    ) -> Tuple[CouponUsageModel | None, Coupon | None]:
         for usage in usages:
             coupon = coupons_by_bid.get(getattr(usage, "coupon_bid", None))
             if coupon and _coupon_matches_course(coupon, shifu_bid):

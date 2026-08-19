@@ -37,7 +37,7 @@ format:
 
 import queue
 import re
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, List, TypeVar
 
 from flask import Flask
 from flaskr.dao import db
@@ -159,7 +159,7 @@ def _get_latest_outline_content_log(shifu_bid: str, outline_bid: str):
     return latest_content_revision
 
 
-def _mask_phone_identifier(identifier: Optional[str]) -> str:
+def _mask_phone_identifier(identifier: str | None) -> str:
     if not identifier:
         return ""
     digits = re.sub(r"\D", "", identifier)
@@ -170,7 +170,7 @@ def _mask_phone_identifier(identifier: Optional[str]) -> str:
     return digits or ""
 
 
-def _mask_email_identifier(identifier: Optional[str]) -> str:
+def _mask_email_identifier(identifier: str | None) -> str:
     if not identifier:
         return ""
     local, _, domain = identifier.partition("@")
@@ -182,7 +182,7 @@ def _mask_email_identifier(identifier: Optional[str]) -> str:
     return f"{masked_local}@{domain}"
 
 
-def _mask_contact_identifier(identifier: Optional[str]) -> str:
+def _mask_contact_identifier(identifier: str | None) -> str:
     if not identifier:
         return ""
     if "@" in identifier:
@@ -233,7 +233,7 @@ def get_shifu_draft_revision(
         return int(latest.id) if latest else 0
 
 
-def mask_contact_identifier(identifier: Optional[str]) -> str:
+def mask_contact_identifier(identifier: str | None) -> str:
     """Public wrapper for contact identifier masking."""
     return _mask_contact_identifier(identifier)
 

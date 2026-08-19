@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 import re
 from decimal import Decimal
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Sequence
 
 from flask import Flask
 from flaskr.api.llm import PROVIDER_STATES, get_current_models
@@ -441,7 +441,7 @@ def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str):
 def _build_operator_course_credit_usage_base_query(
     shifu_bid: str,
     *,
-    outline_item_bids: Optional[Sequence[str]] = None,
+    outline_item_bids: Sequence[str] | None = None,
 ):
     ledger_totals = _build_operator_course_credit_usage_ledger_totals_subquery(
         shifu_bid
@@ -711,7 +711,7 @@ def _build_operator_course_credit_usage_detail_item(
     usage_row: BillUsageRecord,
     ledger_amount: Any,
     model_label_resolver: _CourseCreditUsageModelLabelResolver,
-    output_summary: Optional[str] = None,
+    output_summary: str | None = None,
 ) -> AdminOperationCourseCreditUsageDetailItemDTO:
     return AdminOperationCourseCreditUsageDetailItemDTO(
         usage_bid=str(getattr(usage_row, "usage_bid", "") or ""),
@@ -978,7 +978,7 @@ def get_operator_course_credit_usages(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationCourseCreditUsageListDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -1303,7 +1303,7 @@ def get_operator_course_credit_usage_details(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationCourseCreditUsageDetailListDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()

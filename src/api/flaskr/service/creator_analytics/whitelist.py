@@ -19,7 +19,7 @@ builder, driven by :class:`TableSpec` flags:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import FrozenSet, Mapping, Optional, Type
+from typing import FrozenSet, Mapping, Type
 
 from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.learn.models import (
@@ -74,7 +74,7 @@ class TableSpec:
     # Used for creator-owned metadata tables (shifu_published_shifus /
     # shifu_draft_shifus) so the row's creator must match the caller. Pairs
     # with has_shifu_bid for a double-gate: shifu permission AND row ownership.
-    creator_scoped_column: Optional[str] = None
+    creator_scoped_column: str | None = None
     # When True, sql_builder injects AND status = 1 to exclude rerolled /
     # superseded history rows. Only enabled where status semantics are
     # "1 = current, 0 = history" (e.g. learn_generated_blocks).

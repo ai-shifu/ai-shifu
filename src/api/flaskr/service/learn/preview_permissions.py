@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 from flask import Flask, request
 from flaskr.service.common import raise_error
@@ -15,7 +14,7 @@ BUILTIN_DEMO_TITLES = {
 }
 
 
-def _extract_preview_token() -> Optional[str]:
+def _extract_preview_token() -> str | None:
     token = request.cookies.get("token", None)
     if not token:
         token = request.args.get("token", None)
@@ -121,7 +120,7 @@ def is_builtin_demo_shifu(app: Flask, shifu_bid: str) -> bool:
     return False
 
 
-def _get_shifu_creator_bid(app: Flask, shifu_bid: str) -> Optional[str]:
+def _get_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
     with app.app_context():
         for row in _load_course_rows(shifu_bid):
             creator_bid = str(getattr(row, "created_user_bid", "") or "").strip()

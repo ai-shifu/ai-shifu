@@ -9,7 +9,7 @@ import re
 import sys
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Dict, Iterable, Optional, Sequence, Set
+from typing import Any, Dict, Iterable, Sequence, Set
 
 from flask import current_app
 from flaskr.dao import db
@@ -311,7 +311,7 @@ def _get_legacy_admin_symbol(name: str, fallback: Any) -> Any:
     return getattr(admin_module, name, fallback)
 
 
-def _format_decimal(value: Optional[Decimal]) -> str:
+def _format_decimal(value: Decimal | None) -> str:
     if value is None:
         return "0"
     normalized = value if isinstance(value, str) else f"{value:.2f}"
@@ -320,7 +320,7 @@ def _format_decimal(value: Optional[Decimal]) -> str:
     return normalized
 
 
-def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
+def _coerce_operator_datetime(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -351,7 +351,7 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
     return None
 
 
-def _format_average_score(value: Optional[Decimal]) -> str:
+def _format_average_score(value: Decimal | None) -> str:
     if value is None:
         return ""
     return f"{value:.1f}"
@@ -514,7 +514,7 @@ def _build_course_order_amount_expr():
     )
 
 
-def _find_matching_creator_bids(keyword: str) -> Optional[Set[str]]:
+def _find_matching_creator_bids(keyword: str) -> Set[str] | None:
     normalized = _normalize_identifier(keyword)
     if not normalized:
         return None
@@ -621,7 +621,7 @@ def _merge_courses(
 
 def _load_latest_course_versions(
     shifu_bid: str,
-) -> tuple[Optional[DraftShifu], Optional[PublishedShifu]]:
+) -> tuple[DraftShifu | None, PublishedShifu | None]:
     draft = (
         DraftShifu.query.filter(
             DraftShifu.shifu_bid == shifu_bid,

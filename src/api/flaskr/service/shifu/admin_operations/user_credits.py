@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from flask import Flask
 from flaskr.dao import db
@@ -293,7 +293,7 @@ def get_operator_user_credits(
     user_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[Dict[str, Any]] = None,
+    filters: Dict[str, Any] | None = None,
 ) -> AdminOperationUserCreditLedgerPageDTO:
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()

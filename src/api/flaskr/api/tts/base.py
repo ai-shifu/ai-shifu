@@ -8,7 +8,7 @@ used interchangeably.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 class TTSProvider(StrEnum):
@@ -50,7 +50,7 @@ class ProviderConfig:
     speed: ParamRange
     pitch: ParamRange
     supports_emotion: bool
-    models: Optional[List[Dict[str, str]]] = None
+    models: List[Dict[str, str]] | None = None
     voices: List[Dict[str, str]] = field(default_factory=list)
     emotions: List[Dict[str, str]] = field(default_factory=list)
     supports_custom_voice_id: bool = False
@@ -142,9 +142,9 @@ class BaseTTSProvider(ABC):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         """Synthesize text to speech.
 

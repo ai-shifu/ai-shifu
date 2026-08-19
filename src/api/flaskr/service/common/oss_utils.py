@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping
 
 import requests
 
@@ -209,8 +209,8 @@ def upload_to_oss(
     file_id: str,
     content_type: str,
     profile: str = OSS_PROFILE_DEFAULT,
-    config: Optional[OSSConfig] = None,
-    bucket: Optional[oss2.Bucket] = None,
+    config: OSSConfig | None = None,
+    bucket: oss2.Bucket | None = None,
     warm_up: bool = True,
 ) -> tuple[str, str]:
     resolved_config = config or get_oss_config(profile)

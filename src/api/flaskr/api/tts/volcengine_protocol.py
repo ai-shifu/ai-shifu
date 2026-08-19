@@ -14,7 +14,7 @@ import logging
 import struct
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from flaskr.common.log import AppLoggerProxy
 
@@ -102,11 +102,11 @@ class ProtocolFrame:
     message_flags: int
     serialization: SerializationMethod
     compression: CompressionMethod
-    event: Optional[Event]
-    session_id: Optional[str]
-    connection_id: Optional[str]
+    event: Event | None
+    session_id: str | None
+    connection_id: str | None
     payload: bytes | Dict[str, Any] | None
-    error_code: Optional[int] = None
+    error_code: int | None = None
 
 
 class VolcengineProtocol:
@@ -116,8 +116,8 @@ class VolcengineProtocol:
     HEADER_SIZE = 0b0001  # 4 bytes (multiplied by 4)
 
     def __init__(self):
-        self.connection_id: Optional[str] = None
-        self.session_id: Optional[str] = None
+        self.connection_id: str | None = None
+        self.session_id: str | None = None
 
     def encode_start_connection(self) -> bytes:
         """Encode StartConnection frame."""
@@ -301,10 +301,10 @@ class VolcengineProtocol:
         compression = CompressionMethod(byte2 & 0x0F)
 
         offset = header_size
-        event: Optional[Event] = None
-        session_id: Optional[str] = None
-        connection_id: Optional[str] = None
-        error_code: Optional[int] = None
+        event: Event | None = None
+        session_id: str | None = None
+        connection_id: str | None = None
+        error_code: int | None = None
 
         # Check if frame has event number
         has_event = (message_flags & MessageFlag.WITH_EVENT) != 0
@@ -413,8 +413,8 @@ class VolcengineProtocol:
         message_flags: int,
         serialization: SerializationMethod,
         compression: CompressionMethod,
-        event: Optional[Event] = None,
-        payload: Optional[Dict[str, Any]] = None,
+        event: Event | None = None,
+        payload: Dict[str, Any] | None = None,
     ) -> bytes:
         """Encode a frame without session/connection ID."""
         frame = bytearray()
@@ -466,7 +466,7 @@ class VolcengineProtocol:
         compression: CompressionMethod,
         event: Event,
         session_id: str,
-        payload: Optional[Dict[str, Any]] = None,
+        payload: Dict[str, Any] | None = None,
     ) -> bytes:
         """Encode a frame with session ID."""
         frame = bytearray()

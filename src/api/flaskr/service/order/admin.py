@@ -5,7 +5,7 @@ import re
 from collections import defaultdict
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from flask import Flask
 from flaskr.dao import db
@@ -179,7 +179,7 @@ def normalize_contact_identifier(identifier: str, contact_type: str) -> str:
     return None
 
 
-def _format_decimal(value: Optional[Decimal]) -> str:
+def _format_decimal(value: Decimal | None) -> str:
     """Format a Decimal or numeric string to trimmed two-decimal string."""
     if value is None:
         return "0"
@@ -189,7 +189,7 @@ def _format_decimal(value: Optional[Decimal]) -> str:
     return normalized
 
 
-def _format_cents(value: Optional[int]) -> str:
+def _format_cents(value: int | None) -> str:
     """Convert cents integer to string representation in units."""
     if value is None:
         return "0"
@@ -199,7 +199,7 @@ def _format_cents(value: Optional[int]) -> str:
         return "0"
 
 
-def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
+def _parse_datetime(value: str, is_end: bool = False) -> datetime | None:
     """Parse date/time string with multiple formats; auto fill day bounds."""
     if not value:
         return None
@@ -227,7 +227,7 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
     return None
 
 
-def _normalize_order_status_filter(value: Any) -> Optional[int]:
+def _normalize_order_status_filter(value: Any) -> int | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
@@ -240,7 +240,7 @@ def _normalize_order_status_filter(value: Any) -> Optional[int]:
 
 def _normalize_order_datetime_filter(
     value: Any, *, is_end: bool = False
-) -> Optional[datetime]:
+) -> datetime | None:
     if isinstance(value, datetime):
         return value
     return _parse_datetime(str(value or "").strip(), is_end=is_end)
@@ -612,7 +612,7 @@ def _build_order_item(
     order: Order,
     shifu_map: Dict[str, DraftShifu | PublishedShifu],
     user_map: Dict[str, Dict[str, str]],
-    coupon_map: Optional[Dict[str, List[str]]] = None,
+    coupon_map: Dict[str, List[str]] | None = None,
 ) -> OrderAdminSummaryDTO:
     """Build admin order summary DTO from order plus shifu/user lookups."""
     shifu = shifu_map.get(order.shifu_bid)
@@ -658,7 +658,7 @@ def import_activation_order(
     app: Flask,
     mobile: str,
     course_id: str,
-    user_nick_name: Optional[str] = None,
+    user_nick_name: str | None = None,
     contact_type: str = "phone",
     allow_empty_nickname: bool = False,
     payment_channel: str = "manual",
@@ -761,7 +761,7 @@ def import_activation_orders(
     app: Flask,
     mobiles: List[str],
     course_id: str,
-    user_nick_name: Optional[str] = None,
+    user_nick_name: str | None = None,
     contact_type: str = "phone",
 ) -> Dict[str, Any]:
     """Bulk import activation orders from a list of phone/email identifiers."""
@@ -859,7 +859,7 @@ def list_orders(
     user_id: str,
     page_index: int,
     page_size: int,
-    filters: Optional[Dict[str, Any]] = None,
+    filters: Dict[str, Any] | None = None,
 ) -> PageNationDTO:
     """List orders visible to the current operator with optional filters."""
     with app.app_context():
@@ -953,7 +953,7 @@ def list_operator_orders(
     app: Flask,
     page_index: int,
     page_size: int,
-    filters: Optional[Dict[str, Any]] = None,
+    filters: Dict[str, Any] | None = None,
 ) -> PageNationDTO:
     """List global orders for operator views with cross-course filters."""
     with app.app_context():
@@ -1138,7 +1138,7 @@ def _load_order_coupons(order_bid: str) -> List[OrderAdminCouponDTO]:
     return coupons
 
 
-def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
+def _load_payment_detail(order: Order) -> OrderAdminPaymentDTO | None:
     """Build payment detail DTO from channel-specific order records."""
     payment_channel = order.payment_channel or ""
     if payment_channel == "stripe":

@@ -7,7 +7,7 @@ import time
 import traceback
 import uuid
 from datetime import datetime
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as cache_provider
@@ -284,7 +284,7 @@ def _clear_run_script_status(app: Flask, user_bid: str, outline_bid: str) -> Non
 
 def _get_run_script_started_at(
     app: Flask, user_bid: str, outline_bid: str
-) -> Optional[int]:
+) -> int | None:
     try:
         raw = cache_provider.get(_get_run_script_status_key(app, user_bid, outline_bid))
     except Exception as exc:
@@ -683,8 +683,8 @@ def run_script(
     reload_element_bid: str | None = None,
     listen: bool = False,
     preview_mode: bool = False,
-    shifu_context_snapshot: Optional[dict[str, Any]] = None,
-    language: Optional[str] = None,
+    shifu_context_snapshot: dict[str, Any] | None = None,
+    language: str | None = None,
 ) -> Generator[str, None, None]:
     timeout = RUN_SCRIPT_TIMEOUT_SECONDS
     blocking_timeout = 1

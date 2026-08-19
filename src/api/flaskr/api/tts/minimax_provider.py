@@ -6,7 +6,7 @@ This module provides TTS synthesis using Minimax's Text-to-Speech API (t2a_v2).
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List
 from urllib.parse import urlencode
 
 import requests
@@ -85,7 +85,7 @@ MINIMAX_EMOTIONS = [
 ]
 
 
-def _resolve_minimax_model(model: Optional[str]) -> str:
+def _resolve_minimax_model(model: str | None) -> str:
     valid_models = {m["value"] for m in MINIMAX_MODELS}
     requested_model = (model or "").strip()
     if requested_model and requested_model not in valid_models:
@@ -355,9 +355,9 @@ class MinimaxTTSProvider(BaseTTSProvider):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         """Synthesize text to speech using Minimax TTS.
 
@@ -421,9 +421,9 @@ class MinimaxTTSProvider(BaseTTSProvider):
     def stream_synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> Iterator[MinimaxHTTPStreamChunk]:
         """Synthesize text with MiniMax HTTP streaming.
 
@@ -537,10 +537,10 @@ class MinimaxTTSProvider(BaseTTSProvider):
     def _call_api(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
         output_format: str = "hex",
-        model: Optional[str] = None,
+        model: str | None = None,
     ) -> Dict[str, Any]:
         """Call Minimax TTS API.
 

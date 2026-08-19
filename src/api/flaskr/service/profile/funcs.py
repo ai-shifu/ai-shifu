@@ -1,6 +1,5 @@
 import datetime
 import logging
-from typing import Optional
 
 from flask import Flask
 from flaskr.api.check import (
@@ -35,7 +34,7 @@ def _get_latest_variable_value(
     values: list[VariableValue],
     variable_key: str,
     shifu_bid: str,
-) -> Optional[VariableValue]:
+) -> VariableValue | None:
     """Return the newest variable value row from a pre-fetched, id-desc sorted
     collection.
 
@@ -49,7 +48,7 @@ def _get_latest_variable_value(
     """
     target_shifu = shifu_bid or ""
 
-    def _pick(scope_shifu_bid: str) -> Optional[VariableValue]:
+    def _pick(scope_shifu_bid: str) -> VariableValue | None:
         return next(
             (
                 item
@@ -69,7 +68,7 @@ def _get_latest_variable_value(
     return None
 
 
-def _ensure_user_aggregate(user_id: str) -> Optional[UserAggregate]:
+def _ensure_user_aggregate(user_id: str) -> UserAggregate | None:
     aggregate = load_user_aggregate(user_id)
     if aggregate:
         return aggregate
@@ -78,7 +77,7 @@ def _ensure_user_aggregate(user_id: str) -> Optional[UserAggregate]:
 
 
 def _update_aggregate_field(
-    aggregate: Optional[UserAggregate], mapping: str, value
+    aggregate: UserAggregate | None, mapping: str, value
 ) -> None:
     if not aggregate:
         return
@@ -119,7 +118,7 @@ def _apply_core_mapping(user_id: str, mapping: str, value):
     return normalized
 
 
-def _current_core_value(aggregate: Optional[UserAggregate], mapping: str):
+def _current_core_value(aggregate: UserAggregate | None, mapping: str):
     if not aggregate:
         return None
     if mapping == "name":

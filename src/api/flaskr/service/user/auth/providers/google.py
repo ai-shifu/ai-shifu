@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import secrets
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import jwt
 from authlib.integrations.requests_client import OAuth2Session
@@ -59,7 +59,7 @@ def _encode_state(app, payload: Dict[str, Any]) -> str:
     )
 
 
-def _decode_state(app, state: str) -> Optional[Dict[str, Any]]:
+def _decode_state(app, state: str) -> Dict[str, Any] | None:
     try:
         decoded = jwt.decode(state, app.config["SECRET_KEY"], algorithms=["HS256"])
     except jwt.exceptions.ExpiredSignatureError:
@@ -70,7 +70,7 @@ def _decode_state(app, state: str) -> Optional[Dict[str, Any]]:
     return payload if isinstance(payload, dict) else None
 
 
-def _extract_browser_language() -> Optional[str]:
+def _extract_browser_language() -> str | None:
     """Extract a reasonable UI language from the incoming request.
 
     Priority:
@@ -101,7 +101,7 @@ def _extract_browser_language() -> Optional[str]:
     return f"{primary}-{region}"
 
 
-def _resolve_redirect_uri(app, explicit_uri: Optional[str] = None) -> str:
+def _resolve_redirect_uri(app, explicit_uri: str | None = None) -> str:
     del app, explicit_uri
     return build_google_oauth_callback_url()
 
@@ -186,7 +186,7 @@ class GoogleAuthProvider(AuthProvider):
 
         redirect_uri = None
         login_context = None
-        language: Optional[str] = None
+        language: str | None = None
         try:
             redirect_uri = state_payload.get("redirect_uri")
             login_context = state_payload.get("login_context")

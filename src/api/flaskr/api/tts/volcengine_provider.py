@@ -12,7 +12,7 @@ import logging
 import re
 import threading
 import uuid
-from typing import Any, List, Optional
+from typing import Any, List
 
 from flaskr.api.tts.base import (
     AudioSettings,
@@ -423,9 +423,9 @@ class VolcengineTTSProvider(BaseTTSProvider):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         """Synthesize text to speech using Volcengine TTS.
 
@@ -487,7 +487,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         # Collect audio data
         audio_chunks: List[bytes] = []
         subtitle_cues: list[dict[str, Any]] = []
-        error_message: Optional[str] = None
+        error_message: str | None = None
         connection_established = threading.Event()
         session_started = threading.Event()
         session_finished = threading.Event()

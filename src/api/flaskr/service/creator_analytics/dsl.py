@@ -14,7 +14,7 @@ names registered in ``src/api/error_codes.json``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, List, Mapping, Sequence, Tuple
 
 from flaskr.i18n import _
 from flaskr.service.common.models import ERROR_CODE, AppException
@@ -87,7 +87,7 @@ _SHIFU_META_TABLES = frozenset({"shifu_published_shifus", "shifu_draft_shifus"})
 _LIKE_MIN_NON_WILDCARD_CHARS = 2
 
 
-def _raise(error_name: str, detail: Optional[str] = None) -> None:
+def _raise(error_name: str, detail: str | None = None) -> None:
     """Raise an :class:`AppException` with a stable error name.
 
     ``detail`` is appended in parentheses so the client gets actionable
@@ -110,7 +110,7 @@ class Filter:
 @dataclass(frozen=True)
 class Aggregate:
     fn: str
-    field: Optional[str]
+    field: str | None
     alias: str
     distinct: bool = False
 
@@ -279,7 +279,7 @@ def _parse_aggregates(raw: Any, spec: TableSpec) -> List[Aggregate]:
 
         field_name = item.get("field")
         if fn == "count" and field_name is None:
-            target_field: Optional[str] = None
+            target_field: str | None = None
         else:
             if not isinstance(field_name, str):
                 _raise(
@@ -659,7 +659,7 @@ def _enforce_shifu_meta_table_constraints(
                 )
 
 
-def _default_alias(fn: str, field_name: Optional[str]) -> str:
+def _default_alias(fn: str, field_name: str | None) -> str:
     base = field_name or "rows"
     return f"{fn}_{base}"
 

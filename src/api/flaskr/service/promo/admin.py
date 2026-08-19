@@ -6,7 +6,7 @@ import math
 import secrets
 import string
 from datetime import UTC, datetime, timedelta
-from typing import Dict, Optional
+from typing import Dict
 
 from flask import Flask
 from flaskr.dao import db
@@ -1124,7 +1124,7 @@ def _load_order_map(order_bids: list[str]) -> Dict[str, Order]:
 
 
 def _calculate_coupon_usage_discount_amount(
-    order: Optional[Order], usage: CouponUsage
+    order: Order | None, usage: CouponUsage
 ) -> str:
     if order is None:
         return _format_decimal(usage.value)

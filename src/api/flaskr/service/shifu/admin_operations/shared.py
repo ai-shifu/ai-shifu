@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Sequence
 
 from flask import current_app
 from flaskr.service.user.models import AuthCredential
@@ -9,7 +9,7 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.timezone import serialize_with_app_timezone
 
 
-def coerce_operator_datetime(value: Any) -> Optional[datetime]:
+def coerce_operator_datetime(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):

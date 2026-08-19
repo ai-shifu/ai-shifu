@@ -22,7 +22,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Sequence
 
 from flask import Flask
 from flaskr.api.tts import (
@@ -635,7 +635,7 @@ def split_text_for_tts(
     text: str,
     *,
     provider_name: str,
-    max_segment_chars: Optional[int] = None,
+    max_segment_chars: int | None = None,
 ) -> list[str]:
     """Split text into segments suitable for unified TTS synthesis.
 
@@ -689,14 +689,14 @@ def synthesize_long_text_to_oss(
     model: str = "",
     voice_id: str = "",
     language: str = "",
-    max_segment_chars: Optional[int] = None,
+    max_segment_chars: int | None = None,
     max_workers: int = 4,
     sleep_between_segments: float = 0.0,
-    audio_bid: Optional[str] = None,
-    voice_settings: Optional[VoiceSettings] = None,
-    audio_settings: Optional[AudioSettings] = None,
-    usage_context: Optional[UsageContext] = None,
-    parent_usage_bid: Optional[str] = None,
+    audio_bid: str | None = None,
+    voice_settings: VoiceSettings | None = None,
+    audio_settings: AudioSettings | None = None,
+    usage_context: UsageContext | None = None,
+    parent_usage_bid: str | None = None,
 ) -> SynthesizeToOssResult:
     """Synthesize a long text, upload the final audio to OSS, and return URL + metrics.
 
@@ -725,7 +725,7 @@ def synthesize_long_text_to_oss(
     raw_length = len(text or "")
     cleaned_length = len(cleaned_text or "")
     usage_parent_bid = ""
-    usage_metadata: Optional[dict] = None
+    usage_metadata: dict | None = None
     total_word_count = 0
     total_output_chars = 0
     if usage_context is not None:

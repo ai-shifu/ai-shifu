@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
@@ -197,7 +195,7 @@ def list_operator_users(
     app: Flask,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationUserListDTO:
     with app.app_context():
         safe_page_index = max(int(page_index or 1), 1)

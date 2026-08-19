@@ -193,6 +193,7 @@ select = [
     "UP049",   # private type parameter that should be _T
     "UP05",    # useless class __metaclass__ = type
     "FURB157", # verbose Decimal constructor
+    "UP045", # Optional[T] to T | None
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention

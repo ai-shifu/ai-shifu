@@ -6,7 +6,7 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Dict, Optional, Sequence
+from typing import Dict, Sequence
 
 from flask import Flask
 from flaskr.common.umami_client import get_course_visit_count_30d
@@ -65,7 +65,7 @@ from flaskr.service.shifu.models import (
 )
 
 
-def _resolve_learning_permission(item_type: Optional[int]) -> str:
+def _resolve_learning_permission(item_type: int | None) -> str:
     if item_type == UNIT_TYPE_VALUE_GUEST:
         return "guest"
     if item_type == UNIT_TYPE_VALUE_TRIAL:
