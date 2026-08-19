@@ -9,10 +9,9 @@ on:
       - "src/api/**"
       - "src/cook-web/**"
       - "!src/api/tests/**"
-      - "!src/cook-web/e2e/**"
       - "!src/cook-web/**/__tests__/**"
       - "!src/cook-web/**/*.test.*"
-      - "!src/cook-web/**/*.spec.*"
+      - "src/cook-web/e2e/**"
       - "!**/*.md"
       - "!**/*.mdx"
   push:
@@ -25,10 +24,9 @@ on:
       - "src/api/**"
       - "src/cook-web/**"
       - "!src/api/tests/**"
-      - "!src/cook-web/e2e/**"
       - "!src/cook-web/**/__tests__/**"
       - "!src/cook-web/**/*.test.*"
-      - "!src/cook-web/**/*.spec.*"
+      - "src/cook-web/e2e/**"
       - "!**/*.md"
       - "!**/*.mdx"
   workflow_dispatch:
@@ -94,15 +92,15 @@ jobs:
           EOF
 
       - name: Build runtime images with cache
-        working-directory: docker
-        run: |
-          docker buildx bake \
-            -f docker-compose.dev.yml \
-            ai-shifu-api-dev \
-            ai-shifu-cook-web-dev \
-            --set '*.cache-from=type=gha' \
-            --set '*.cache-to=type=gha,mode=min' \
-            --load
+        uses: docker/bake-action@v7
+        with:
+          source: docker
+          files: docker-compose.dev.yml
+          targets: ai-shifu-api-dev,ai-shifu-cook-web-dev
+          load: true
+          set: |
+            *.cache-from=type=gha
+            *.cache-to=type=gha,mode=min
 
       - name: Start dev stack
         working-directory: docker
