@@ -39,6 +39,7 @@ def test_send_order_feishu_formats_notification(app, monkeypatch):
             return self._count_value
 
     class FakeColumn:
+    __hash__ = None
         def __eq__(self, other):
             return True
 

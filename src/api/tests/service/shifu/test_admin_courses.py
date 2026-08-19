@@ -1542,6 +1542,8 @@ def test_merge_courses_checks_published_visibility_once():
 
 
 class FakeColumn:
+    __hash__ = None
+
     def __init__(self, name: str):
         self.name = name
 
