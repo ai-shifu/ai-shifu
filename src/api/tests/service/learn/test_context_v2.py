@@ -455,7 +455,8 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
         ctx._preview_mode = False
 
         class _Column:
-    __hash__ = None
+            __hash__ = None
+
             def in_(self, _values):
                 return self
 

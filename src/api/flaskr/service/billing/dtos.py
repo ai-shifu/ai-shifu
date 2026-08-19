@@ -10,8 +10,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class BillingBaseDTO(BaseModel):
-    __hash__ = None
     """Base DTO with stable JSON serialization for common route responses."""
+
+    __hash__ = None
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
