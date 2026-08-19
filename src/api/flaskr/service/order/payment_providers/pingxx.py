@@ -43,7 +43,7 @@ def _get_pingpp_client() -> Any:
     if _PINGPP_IMPORT_ERROR is not None:
         raise _PINGPP_IMPORT_ERROR
     try:
-        import pingpp  # type: ignore
+        import pingpp  # type: ignore[import-untyped]
 
         _PINGPP_CLIENT = pingpp
         return pingpp

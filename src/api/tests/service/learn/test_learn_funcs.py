@@ -8,7 +8,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 # Provide a lightweight Redis stub if the dependency is missing in the test env.
 try:
-    import redis as _redis  # type: ignore  # noqa: F401
+    import redis as _redis  # type: ignore[import-untyped]  # noqa: F401
 except ImportError:  # pragma: no cover - optional dependency
     redis_stub = types.ModuleType("redis")
 

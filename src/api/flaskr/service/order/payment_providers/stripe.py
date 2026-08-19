@@ -24,7 +24,7 @@ class StripeProvider(PaymentProvider):
 
     def _ensure_client(self, app: Flask):
         try:
-            import stripe  # type: ignore
+            import stripe  # type: ignore[import-untyped]
         except ImportError as exc:  # pragma: no cover - surfaced during runtime
             app.logger.exception("Stripe SDK is not installed")
             raise RuntimeError("Stripe SDK is required for Stripe payments") from exc

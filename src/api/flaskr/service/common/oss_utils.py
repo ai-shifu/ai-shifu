@@ -8,7 +8,7 @@ from typing import Any, Mapping
 import requests
 
 try:
-    import oss2  # type: ignore
+    import oss2  # type: ignore[import-untyped]
 except ModuleNotFoundError:  # pragma: no cover
     oss2 = None  # type: ignore[assignment]
 

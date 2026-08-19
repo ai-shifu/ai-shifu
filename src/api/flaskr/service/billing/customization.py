@@ -902,7 +902,7 @@ def _probe_stripe_credentials(
     if app.config.get("TESTING"):
         return
     try:
-        import stripe  # type: ignore
+        import stripe  # type: ignore[import-untyped]
 
         request_options: dict[str, Any] = {"api_key": secret_key}
         api_version = str(public_config.get("api_version") or "").strip()

@@ -75,11 +75,15 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> str | None:
         return None
 
     try:
-        from flaskr.common.cache_provider import cache as cache_provider  # type: ignore
+        from flaskr.common.cache_provider import (
+            cache as cache_provider,  # type: ignore[import-untyped]
+        )
         from flaskr.service.shifu.utils import get_shifu_creator_bid
     except Exception:
         try:
-            from flaskr.service.shifu.utils import get_shifu_creator_bid  # type: ignore
+            from flaskr.service.shifu.utils import (
+                get_shifu_creator_bid,  # type: ignore[import-not-found]
+            )
         except Exception:
             return None
         return get_shifu_creator_bid(app, shifu_bid)
@@ -117,7 +121,9 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> str | None:
                     lock.release()
     except Exception:
         try:
-            from flaskr.service.shifu.utils import get_shifu_creator_bid  # type: ignore
+            from flaskr.service.shifu.utils import (
+                get_shifu_creator_bid,  # type: ignore[import-not-found]
+            )
         except Exception:
             return None
         return get_shifu_creator_bid(app, shifu_bid)
