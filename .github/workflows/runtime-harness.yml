@@ -98,6 +98,8 @@ jobs:
         run: |
           docker buildx bake \
             -f docker-compose.dev.yml \
+            ai-shifu-api-dev \
+            ai-shifu-cook-web-dev \
             --set '*.cache-from=type=gha' \
             --set '*.cache-to=type=gha,mode=min' \
             --load
@@ -137,15 +139,9 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: src/cook-web
-        env:
-          PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
         run: |
           npm ci
-          if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ]; then
-            npx playwright install chromium
-          else
-            npx playwright install --with-deps chromium
-          fi
+          npx playwright install --with-deps chromium
 
       - name: Run smoke harness
         working-directory: src/cook-web

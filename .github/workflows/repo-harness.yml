@@ -31,43 +31,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Validate architecture fixtures
-        run: python scripts/check_architecture_boundaries.py --run-fixture-tests
-
-      - name: Regenerate AI docs and knowledge docs
-        run: |
-          python scripts/generate_ai_collab_docs.py
-          python scripts/build_repo_knowledge_index.py
-
-      - name: Ensure generated artifacts are up to date
-        run: |
-          git diff --exit-code -- \
-            .claude \
-            .cursor \
-            .github \
-            docs \
-            scripts/generate_ai_collab_docs.py \
-            scripts/build_repo_knowledge_index.py
-
-      - name: Run repo harness validation
-        run: |
-          python scripts/check_repo_harness.py
-          python scripts/check_architecture_boundaries.py
-
-      - name: Install translation tooling
-        run: python -m pip install --upgrade pip
-
-      - name: Verify translation parity
-        run: python scripts/check_translations.py
-
-      - name: Verify translation key usage
-        run: python scripts/check_translation_usage.py --fail-on-unused
-
-      - name: Ensure locales metadata is up to date
-        run: |
-          python scripts/generate_languages.py
-          git diff --exit-code -- src/i18n/locales.json
-
       - name: Install markdown-flow pin check tooling
         if: github.event_name == 'pull_request' && github.base_ref == 'main'
         run: pip install --upgrade packaging
@@ -139,3 +102,37 @@ jobs:
 
           console.log(`OK: markdown-flow-ui ${raw} is a release version.`);
           NODE
+
+      - name: Validate architecture fixtures
+        run: python scripts/check_architecture_boundaries.py --run-fixture-tests
+
+      - name: Regenerate AI docs and knowledge docs
+        run: |
+          python scripts/generate_ai_collab_docs.py
+          python scripts/build_repo_knowledge_index.py
+
+      - name: Ensure generated artifacts are up to date
+        run: |
+          git diff --exit-code -- \
+            .claude \
+            .cursor \
+            .github \
+            docs \
+            scripts/generate_ai_collab_docs.py \
+            scripts/build_repo_knowledge_index.py
+
+      - name: Run repo harness validation
+        run: |
+          python scripts/check_repo_harness.py
+          python scripts/check_architecture_boundaries.py
+
+      - name: Verify translation parity
+        run: python scripts/check_translations.py
+
+      - name: Verify translation key usage
+        run: python scripts/check_translation_usage.py --fail-on-unused
+
+      - name: Ensure locales metadata is up to date
+        run: |
+          python scripts/generate_languages.py
+          git diff --exit-code -- src/i18n/locales.json
