@@ -36,7 +36,7 @@ def enable_plugins(app: Flask):
         shutil.rmtree(dest_dir)
 
     @plugin.command(name="list")
-    def list():
+    def list_plugins():
         """List all plugins."""
         plugins_dir = str(Path("flaskr") / "plugins")
         plugins = [path.name for path in Path(plugins_dir).iterdir() if path.is_dir()]

@@ -1610,19 +1610,21 @@ def build_admin_billing_focus_teachers_page(
                 },
             )
 
-            credits = Decimal(str(credit_decimal_to_number(row.consumed_credits) or 0))
+            credit_amount = Decimal(
+                str(credit_decimal_to_number(row.consumed_credits) or 0)
+            )
             record_count = int(row.record_count or 0)
             # Use the start of the UTC stat window as the visible "latest
             # active" day. `window_ended_at` points at the next UTC day
             # boundary and can render as a future local date in the admin UI.
             latest_usage_at = row.window_started_at or row.window_ended_at
 
-            item["credits_30d"] += credits
-            item["total_credits_30d"] += credits
+            item["credits_30d"] += credit_amount
+            item["total_credits_30d"] += credit_amount
             if row.usage_scene == BILL_USAGE_SCENE_PROD:
-                item["production_credits_30d"] += credits
+                item["production_credits_30d"] += credit_amount
             elif row.usage_scene in (BILL_USAGE_SCENE_DEBUG, BILL_USAGE_SCENE_PREVIEW):
-                item["debug_preview_credits_30d"] += credits
+                item["debug_preview_credits_30d"] += credit_amount
 
             if latest_usage_at is not None and (
                 item["latest_usage_at"] is None
@@ -1631,12 +1633,12 @@ def build_admin_billing_focus_teachers_page(
                 item["latest_usage_at"] = latest_usage_at
 
             if current_7d_start <= stat_date <= today:
-                item["credits_7d"] += credits
+                item["credits_7d"] += credit_amount
                 item["record_count_7d"] += record_count
-                if credits > 0:
+                if credit_amount > 0:
                     item["active_days_7d"].add(stat_date.isoformat())
             elif previous_7d_start <= stat_date <= previous_7d_end:
-                item["credits_prev_7d"] += credits
+                item["credits_prev_7d"] += credit_amount
 
         focus_items: list[AdminBillingFocusTeacherDTO] = []
         for creator_bid, stats in aggregated.items():

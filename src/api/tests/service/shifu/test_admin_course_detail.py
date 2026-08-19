@@ -2546,7 +2546,7 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
             ("usage-tts-1", BILL_USAGE_TYPE_TTS, "volcengine", "seed-tts-2.0", "2"),
             ("usage-legacy-1", BILL_USAGE_TYPE_LLM, "legacy", "old-model-260101", "1"),
         ]
-        for index, (usage_bid, usage_type, provider, model, credits) in enumerate(
+        for index, (usage_bid, usage_type, provider, model, credit_amount) in enumerate(
             usage_specs
         ):
             _seed_credit_usage(
@@ -2558,7 +2558,7 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
                 usage_type=usage_type,
                 provider=provider,
                 model=model,
-                consumed_credits=Decimal(credits),
+                consumed_credits=Decimal(credit_amount),
                 created_at=datetime(2026, 4, 4, 10, index, 0),
                 extra={"generation_name": f"lesson_runtime/run_llm/{index}"},
             )
