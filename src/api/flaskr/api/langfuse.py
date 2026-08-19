@@ -372,9 +372,11 @@ class TraceAttributePropagation:
         if not values or not isinstance(otel_span, otel_trace_api.Span):
             yield
             return
-        with otel_trace_api.use_span(otel_span, end_on_exit=False):
-            with propagate_attributes(**values):
-                yield
+        with (
+            otel_trace_api.use_span(otel_span, end_on_exit=False),
+            propagate_attributes(**values),
+        ):
+            yield
 
     def apply_to(self, delegate: Any) -> None:
         """Set the current attributes on an already started observation."""
