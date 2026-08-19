@@ -1,3 +1,5 @@
+"""LLM invocation wrappers built on LiteLLM."""
+
 import asyncio
 import logging
 import os

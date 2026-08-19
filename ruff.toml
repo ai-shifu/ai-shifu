@@ -229,6 +229,7 @@ select = [
     "A001",  # local variable shadowing a builtin
     "D401",  # docstring first line not in imperative mood
     "PT011",  # pytest.raises without match/specific exception
+    "D104",  # missing docstring in public package
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention

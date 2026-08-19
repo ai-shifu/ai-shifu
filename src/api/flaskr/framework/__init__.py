@@ -1,3 +1,5 @@
+"""Extension and plugin framework primitives."""
+
 from .plugin.plugin_manager import (
     extensible,
     extensible_generic,
