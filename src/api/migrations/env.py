@@ -568,7 +568,7 @@ def run_migrations_online() -> None:
         metadata_default,
         rendered_metadata_default,
     ):
-        """自定义 server_default 比较，减少误报."""
+        """Compare server defaults leniently to reduce false positives."""
 
         # 标准化默认值的表示
         def normalize_default(default):
@@ -596,7 +596,7 @@ def run_migrations_online() -> None:
     def compare_comment(
         context, inspected_column, metadata_column, inspected_comment, metadata_comment
     ):
-        """自定义 comment 比较，减少误报但允许真正的注释变更."""
+        """Compare comments leniently, still reporting real comment changes."""
 
         # 标准化注释
         def normalize_comment(comment):
@@ -640,7 +640,7 @@ def run_migrations_online() -> None:
     def compare_type(
         context, inspected_column, metadata_column, inspected_type, metadata_type
     ):
-        """自定义类型比较，减少误报."""
+        """Compare column types leniently to reduce false positives."""
         # 对于某些类型的小差异，认为相同
         inspected_str = str(inspected_type).upper()
         metadata_str = str(metadata_type).upper()

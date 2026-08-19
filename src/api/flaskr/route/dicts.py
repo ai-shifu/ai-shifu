@@ -10,20 +10,20 @@ def register_dict_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/dicts", methods=["GET"])
     @bypass_token_validation
     def get_dicts():
-        """获取所有字典.
+        """Get all dictionaries.
         ---
         tags:
-          - 字典
+          - dict
         """
         return make_common_response(get_all_dicts(app))
 
     @app.route(path_prefix + "/models", methods=["GET"])
     @bypass_token_validation
     def get_models():
-        """获取所有模型.
+        """Get all models.
         ---
         tags:
-          - 字典
+          - dict
         """
         return make_common_response(get_current_models(app))
 

@@ -21,12 +21,12 @@ class PluginHotReloader:
         self.app.logger.info("Plugin hot reload started")
 
     def stop(self):
-        """停止热加载监听."""
+        """Stop watching for hot reloads."""
         self.observer.stop()
         self.observer.join()
 
     def reload_plugin(self, plugin_path: str):
-        """重新加载单个插件."""
+        """Reload a single plugin."""
         try:
             # 1. unload plugin
             self._unload_plugin(plugin_path)
