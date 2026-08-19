@@ -21,7 +21,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: lint-${{ github.ref }}
@@ -30,6 +30,9 @@ concurrency:
 jobs:
   autofix:
     runs-on: ubuntu-latest
+    # Only this job pushes the auto-fix commit back to the PR branch.
+    permissions:
+      contents: write
     steps:
       - name: Check out PR branch
         uses: actions/checkout@v6
