@@ -27,7 +27,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 @pytest.fixture
 def captured_spans(monkeypatch):
-    """A Langfuse client whose observations are captured instead of shipped."""
+    """Build a Langfuse client whose observations are captured instead of shipped."""
     monkeypatch.setattr(
         LangfuseTransformingSpanExporter,
         "export",
