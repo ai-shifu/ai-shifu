@@ -5,7 +5,7 @@
 - __json__ methods
 - celery @shared_task functions
 - anything under migrations/
-Usage: filter_vulture.py <vulture-raw.txt> <src_api_root>
+Usage: filter_vulture.py <vulture-raw.txt> <src_api_root>.
 """
 
 import re

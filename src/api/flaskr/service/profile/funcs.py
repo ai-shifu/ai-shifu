@@ -369,7 +369,7 @@ def get_user_profile_labels(
         user_id: User id
         course_id: Course id
     Returns:
-        list: User profile labels
+        list: User profile labels.
     """
     app.logger.info(f"get user profile labels:{course_id}")
     candidate_shifus = [course_id or ""]

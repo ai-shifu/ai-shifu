@@ -36,7 +36,7 @@ target_db = current_app.extensions["migrate"].db
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    """Use the simplest mode to avoid separation"""
+    """Use the simplest mode to avoid separation."""
     # the system tables
     system_tables = [
         "alembic_version",
@@ -175,7 +175,7 @@ def run_migrations_online() -> None:
                         merge_related_changes(script)
 
     def is_meaningful_operation(op):
-        """Judge if an operation is meaningful (not meaningless type conversion)"""
+        """Judge if an operation is meaningful (not meaningless type conversion)."""
         op_type = type(op).__name__
 
         # for the ALTER COLUMN operation, check if it is meaningless type conversion
@@ -227,7 +227,7 @@ def run_migrations_online() -> None:
         return True
 
     def filter_unnecessary_operations(script):
-        """Filter out the unnecessary or duplicate operations"""
+        """Filter out the unnecessary or duplicate operations."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
 
@@ -261,7 +261,7 @@ def run_migrations_online() -> None:
             )
 
     def get_operation_signature(op):
-        """Generate the unique signature of the operation to detect duplication"""
+        """Generate the unique signature of the operation to detect duplication."""
         op_type = type(op).__name__
 
         if hasattr(op, "table_name"):
@@ -289,12 +289,12 @@ def run_migrations_online() -> None:
         return f"{op_type}:unknown"
 
     def should_skip_operation(op):
-        """Judge if it should skip the operation"""
+        """Judge if it should skip the operation."""
         op_type = type(op).__name__
 
         # dynamically get the application table prefixes, based on the actual defined models
         def get_app_table_prefixes():
-            """Dynamically get the table prefixes from the actual models"""
+            """Dynamically get the table prefixes from the actual models."""
             prefixes = set()
 
             # traverse all the registered models
@@ -325,7 +325,7 @@ def run_migrations_online() -> None:
 
         # get all registered application table names
         def get_app_table_names():
-            """Get all registered application table names"""
+            """Get all registered application table names."""
             table_names = set()
             for mapper in db.Model.registry.mappers:
                 model_class = mapper.class_
@@ -477,7 +477,7 @@ def run_migrations_online() -> None:
         return False
 
     def merge_related_changes(script):
-        """Merge the related changes into the same migration"""
+        """Merge the related changes into the same migration."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
 
@@ -568,7 +568,7 @@ def run_migrations_online() -> None:
         metadata_default,
         rendered_metadata_default,
     ):
-        """自定义 server_default 比较，减少误报"""
+        """自定义 server_default 比较，减少误报."""
 
         # 标准化默认值的表示
         def normalize_default(default):
@@ -596,7 +596,7 @@ def run_migrations_online() -> None:
     def compare_comment(
         context, inspected_column, metadata_column, inspected_comment, metadata_comment
     ):
-        """自定义 comment 比较，减少误报但允许真正的注释变更"""
+        """自定义 comment 比较，减少误报但允许真正的注释变更."""
 
         # 标准化注释
         def normalize_comment(comment):
@@ -640,7 +640,7 @@ def run_migrations_online() -> None:
     def compare_type(
         context, inspected_column, metadata_column, inspected_type, metadata_type
     ):
-        """自定义类型比较，减少误报"""
+        """自定义类型比较，减少误报."""
         # 对于某些类型的小差异，认为相同
         inspected_str = str(inspected_type).upper()
         metadata_str = str(metadata_type).upper()

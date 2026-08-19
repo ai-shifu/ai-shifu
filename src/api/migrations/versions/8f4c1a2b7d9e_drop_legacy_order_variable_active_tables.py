@@ -1,4 +1,4 @@
-"""drop legacy order, variable, and active tables
+"""drop legacy order, variable, and active tables.
 
 Revision ID: 8f4c1a2b7d9e
 Revises: 6b956399315e

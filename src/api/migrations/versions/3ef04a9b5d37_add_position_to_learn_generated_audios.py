@@ -1,4 +1,4 @@
-"""add position to learn_generated_audios
+"""add position to learn_generated_audios.
 
 Revision ID: 3ef04a9b5d37
 Revises: 8f4c1a2b7d9e

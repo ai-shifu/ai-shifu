@@ -167,6 +167,8 @@ class VolcengineProtocol:
             volume: Volume rate (-50 to 100, 0 is normal)
             emotion: Emotion setting
             model: Model version (e.g., seed-tts-1.1)
+            enable_timestamp: Ask the provider for word-level timestamps
+            enable_subtitle: Ask the provider for subtitle events
 
         Returns:
             Encoded binary frame

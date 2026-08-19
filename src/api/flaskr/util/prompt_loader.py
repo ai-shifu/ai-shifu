@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 def load_prompt_template(template_name: str) -> str:
-    """Load the specified prompt template file
+    """Load the specified prompt template file.
 
     Args:
         template_name: Template file name (without .md extension)

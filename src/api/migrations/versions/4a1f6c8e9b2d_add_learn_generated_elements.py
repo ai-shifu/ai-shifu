@@ -1,4 +1,4 @@
-"""add learn_generated_elements with element protocol fields
+"""add learn_generated_elements with element protocol fields.
 
 Revision ID: 4a1f6c8e9b2d
 Revises: b596b767bde5

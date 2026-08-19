@@ -1,4 +1,4 @@
-"""backfill operator for first verified user
+"""backfill operator for first verified user.
 
 Revision ID: 2b7c9d1e4f6a
 Revises: 1f2e3d4c5b6a

@@ -1,4 +1,4 @@
-"""merge billing campaign and notification migration heads
+"""merge billing campaign and notification migration heads.
 
 Revision ID: 9a7c6d5e4f3b
 Revises: 4f2b7d8e9c1a, f4a6b8c2d9e1

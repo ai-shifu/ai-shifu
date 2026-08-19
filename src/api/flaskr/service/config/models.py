@@ -12,7 +12,7 @@ from ...dao import db
 
 
 class Config(db.Model):
-    """Config"""
+    """Config."""
 
     __tablename__ = "sys_configs"
     __table_args__ = {"comment": "System configs"}

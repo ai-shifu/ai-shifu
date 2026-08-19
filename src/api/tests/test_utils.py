@@ -42,7 +42,7 @@ def dump(data: Any) -> None:
 
 
 def _dump_object_details(obj: Any, max_depth: int = 3, current_depth: int = 0) -> None:
-    """Recursively display detailed information of objects"""
+    """Recursively display detailed information of objects."""
     if current_depth >= max_depth:
         print("  " * current_depth + "... (reached max depth)")
         return
@@ -71,7 +71,7 @@ def _dump_object_details(obj: Any, max_depth: int = 3, current_depth: int = 0) -
 
 
 def dump_detailed(data: Any, include_methods: bool = False) -> None:
-    """More detailed dump function, can choose whether to display methods"""
+    """More detailed dump function, can choose whether to display methods."""
     print("\n=== Detailed Test Result ===")
 
     if isinstance(data, dict):
@@ -96,7 +96,7 @@ def dump_detailed(data: Any, include_methods: bool = False) -> None:
 
 
 def _dump_object_attributes(obj: Any, include_methods: bool = False) -> None:
-    """Display all attributes and optional methods of an object"""
+    """Display all attributes and optional methods of an object."""
     print("Attributes:")
     for attr_name in dir(obj):
         if not attr_name.startswith("_"):

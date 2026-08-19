@@ -1,4 +1,4 @@
-"""Shifu struct utils
+"""Shifu struct utils.
 
 This module contains utils for shifu struct.
 
@@ -18,7 +18,7 @@ def find_node_with_parents(
         target_bid: Target bid
         current_path: Current path
     Returns:
-        Optional[list[HistoryItem]]: Path to target node
+        Optional[list[HistoryItem]]: Path to target node.
     """
     if current_path is None:
         current_path = []

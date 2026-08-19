@@ -145,7 +145,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
     Returns:
         Order object
     Raises:
-        raise_error: If the coupon code is not found or the coupon is already used
+        raise_error: If the coupon code is not found or the coupon is already used.
     """
     with app.app_context():
         now = now_utc()

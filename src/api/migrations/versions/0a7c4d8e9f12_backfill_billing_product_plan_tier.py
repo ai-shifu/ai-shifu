@@ -1,4 +1,4 @@
-"""backfill billing product plan tier metadata
+"""backfill billing product plan tier metadata.
 
 Revision ID: 0a7c4d8e9f12
 Revises: f4a6b8c2d9e1

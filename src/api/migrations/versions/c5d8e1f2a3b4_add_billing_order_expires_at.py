@@ -1,4 +1,4 @@
-"""add billing order expires_at
+"""add billing order expires_at.
 
 Revision ID: c5d8e1f2a3b4
 Revises: b8c1d2e3f4a5

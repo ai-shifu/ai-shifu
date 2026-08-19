@@ -1,4 +1,4 @@
-"""add composite index for draft outline lookup
+"""add composite index for draft outline lookup.
 
 Revision ID: f0c1e2d3a4b5
 Revises: 3ef04a9b5d37

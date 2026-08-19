@@ -1,4 +1,4 @@
-"""add user onboarding states
+"""add user onboarding states.
 
 Revision ID: c6a4f8d9b2e1
 Revises: 8c2d4e6f1a9b

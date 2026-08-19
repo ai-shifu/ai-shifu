@@ -1,4 +1,4 @@
-"""add shifu_user_archives and drop legacy archive columns
+"""add shifu_user_archives and drop legacy archive columns.
 
 Revision ID: 56b765541144
 Revises: b5f2d3a9c1e4

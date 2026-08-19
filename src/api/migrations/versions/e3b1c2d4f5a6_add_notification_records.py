@@ -1,4 +1,4 @@
-"""add notification records
+"""add notification records.
 
 Revision ID: e3b1c2d4f5a6
 Revises: d2f4a7c9b8e1

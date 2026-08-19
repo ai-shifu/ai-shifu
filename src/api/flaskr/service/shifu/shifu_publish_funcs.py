@@ -1,4 +1,4 @@
-"""Shifu publish funcs
+"""Shifu publish funcs.
 
 This module contains functions for publishing shifu.
 
@@ -70,7 +70,7 @@ def preview_shifu_draft(
         user_id: User ID
         shifu_id: Shifu ID
         variables: Variables
-        base_url: Base URL to build preview link
+        base_url: Base URL to build preview link.
     """
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
@@ -230,7 +230,7 @@ def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None)
     """Run shifu summary generation with error handling
     Args:
         app: Flask application instance
-        shifu_id: Shifu ID
+        shifu_id: Shifu ID.
     """
     try:
         apply_shifu_context_snapshot(shifu_context_snapshot)
@@ -258,7 +258,7 @@ def get_shifu_summary(app, shifu_id: str):
     """Obtain the shifu summary information
     Args:
         app: Flask application instance
-        shifu_id: Shifu ID
+        shifu_id: Shifu ID.
     """
     with app.app_context():
         shifu: PublishedShifu = (
@@ -313,7 +313,7 @@ def _generate_ask_prompts(
         outline_item_map: Outline item mapping
         ask_prompt_template: Ask template
     Returns:
-        None
+        None.
     """
     for chapter in shifu_info.outline_items:
         for section in chapter.children:
@@ -362,7 +362,7 @@ def _generate_summaries(
         summary_prompt_template: Summary template
         shifu: Course information
     Returns:
-        Summary mapping
+        Summary mapping.
     """
     outline_summary_map = {}
 
@@ -431,7 +431,7 @@ def _get_shifu_data(
         app: Flask application instance
         shifu_id: shifu ID
     Returns:
-        (outline_tree, outline_ids, outline_item_map)
+        (outline_tree, outline_ids, outline_item_map).
     """
     outline_ids = []
 
@@ -473,7 +473,7 @@ def _make_ask_prompt(
         learned_text: Learned text
         unlearned_text: Unlearned text
     Returns:
-        Ask prompt
+        Ask prompt.
     """
     return ask_prompt.format(
         learned=("\n" + learned_text) if learned_text else "",
@@ -497,7 +497,7 @@ def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
         user_id: Optional, user ID
         temperature: Optional, sampling temperature
     Returns:
-        Summary text
+        Summary text.
     """
     # Create langfuse trace/span
     trace, span = create_trace_with_root_span(
@@ -548,7 +548,7 @@ def _build_summary_text(summaries: list[dict]) -> str:
     Args:
         summaries: List of summary dictionaries
     Returns:
-        Built summary text
+        Built summary text.
     """
     if not summaries:
         return ""

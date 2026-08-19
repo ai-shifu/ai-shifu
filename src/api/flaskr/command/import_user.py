@@ -16,7 +16,7 @@ from flaskr.service.user.repository import (
 def import_user(
     app: Flask, mobile, course_id, discount_code="web", user_nick_name=None
 ):
-    """Import user and enable course"""
+    """Import user and enable course."""
     app.logger.info(f"import_user: {mobile}, {course_id}")
     with app.app_context():
         normalized_mobile = normalize_phone_identifier(mobile)

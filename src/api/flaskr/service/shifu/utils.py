@@ -1,4 +1,4 @@
-"""Shifu utils
+"""Shifu utils.
 
 This module contains utility functions for shifu.
 

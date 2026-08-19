@@ -1,4 +1,4 @@
-"""add use_learner_language to shifu tables
+"""add use_learner_language to shifu tables.
 
 Revision ID: d7a8e2f1b3c9
 Revises: 56b765541144

@@ -1,4 +1,4 @@
-"""add native payment snapshots
+"""add native payment snapshots.
 
 Revision ID: d2f4a7c9b8e1
 Revises: 4d9f6c7b8a1e

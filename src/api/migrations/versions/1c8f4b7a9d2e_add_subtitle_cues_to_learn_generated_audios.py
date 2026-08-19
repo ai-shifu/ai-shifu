@@ -1,4 +1,4 @@
-"""add subtitle cues to learn_generated_audios
+"""add subtitle cues to learn_generated_audios.
 
 Revision ID: 1c8f4b7a9d2e
 Revises: 2b7c9d1e4f6a

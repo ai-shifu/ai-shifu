@@ -149,6 +149,7 @@ def import_shifu(
                   If not provided or doesn't exist, will create a new shifu.
         file: FileStorage object containing the JSON file
         user_id: User ID for creating/updating the shifu
+        commit: Commit the transaction before returning
 
     Returns:
         str: The shifu_bid of the imported shifu

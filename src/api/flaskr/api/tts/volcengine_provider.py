@@ -433,6 +433,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
             text: Text to synthesize
             voice_settings: Voice settings (optional)
             audio_settings: Audio settings (optional)
+            model: Model version override (optional)
 
         Returns:
             TTSResult with audio data and metadata

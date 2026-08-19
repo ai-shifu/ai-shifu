@@ -1,4 +1,4 @@
-"""remove legacy timestamp server defaults
+"""remove legacy timestamp server defaults.
 
 Revision ID: f6b2a4d8c9e0
 Revises: e7f1a2b3c4d5

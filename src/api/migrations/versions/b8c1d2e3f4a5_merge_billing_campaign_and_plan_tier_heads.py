@@ -1,4 +1,4 @@
-"""merge billing campaign and plan tier heads
+"""merge billing campaign and plan tier heads.
 
 Revision ID: b8c1d2e3f4a5
 Revises: 9a7c6d5e4f3b, 0a7c4d8e9f12

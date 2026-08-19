@@ -1,4 +1,4 @@
-"""merge learner profile and tts provider heads
+"""merge learner profile and tts provider heads.
 
 Revision ID: f9a2b3c4d5e6
 Revises: c8f1a2d3e4b5, e7b3c9d1f5a2

@@ -1,4 +1,4 @@
-"""snapshot creator payment config on learner orders
+"""snapshot creator payment config on learner orders.
 
 Revision ID: a7c4e9f1b2d3
 Revises: f6b2a4d8c9e0

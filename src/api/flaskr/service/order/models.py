@@ -18,7 +18,7 @@ from .consts import (
 
 
 class Order(db.Model):
-    """Order"""
+    """Order."""
 
     __tablename__ = "order_orders"
     __table_args__ = {"comment": "Order orders"}
@@ -99,7 +99,7 @@ class Order(db.Model):
 
 
 class PingxxOrder(db.Model):
-    """Pingxx Order"""
+    """Pingxx Order."""
 
     __tablename__ = "order_pingxx_orders"
     __table_args__ = (
@@ -234,7 +234,7 @@ class PingxxOrder(db.Model):
 
 
 class StripeOrder(db.Model):
-    """Stripe Order"""
+    """Stripe Order."""
 
     __tablename__ = "order_stripe_orders"
     __table_args__ = (

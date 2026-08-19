@@ -1,4 +1,4 @@
-"""common shifu funcs
+"""common shifu funcs.
 
 This module contains functions for shifu.
 
