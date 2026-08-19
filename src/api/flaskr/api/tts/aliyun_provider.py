@@ -992,7 +992,7 @@ ALIYUN_VOICES = [
         "lang": "zh",
         "desc": "直播女声",
     },
-    # 臻品音色 (Ultra-HD)
+    # 臻品音色 group (Ultra-HD)
     {
         "id": "zhiqi",
         "name": "知琪",

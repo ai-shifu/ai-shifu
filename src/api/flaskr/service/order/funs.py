@@ -422,7 +422,6 @@ def init_buy_record(
                 active_id=None,
             )
             return query_buy_record(app, origin_record.order_bid)
-        # raise_error("server.order.orderNotFound")
         order_id = str(get_uuid(app))
         if order_timeout_make_new_order:
             buy_record = Order()
@@ -549,7 +548,6 @@ def generate_charge(
                 "",
                 payment_channel=buy_record.payment_channel,
             )
-            # raise_error("server.order.orderHasPaid")
         amount = int(buy_record.paid_price * 100)
         subject = shifu_info.title
         body = shifu_info.description

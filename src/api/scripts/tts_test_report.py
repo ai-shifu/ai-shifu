@@ -143,7 +143,7 @@ def _build_cases(*, provider_name: str, matrix: str) -> list[dict[str, str]]:
                     add_case(model_value, _safe_str(voice.get("value")))
         return cases
 
-    # matrix == "coverage"
+    # Coverage matrix:
     # 1) Test each model with a representative voice.
     for model in models:
         model_value = _safe_str(model.get("value"))

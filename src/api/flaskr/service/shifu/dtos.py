@@ -343,7 +343,7 @@ class SimpleOutlineDto(BaseModel):
 
 
 # new outline tree node class, for handling DraftOutlineItem
-# author: yfge
+# written by yfge
 # date: 2025-07-13
 # version: 1.0.0
 # description: this class is used to handle DraftOutlineItem

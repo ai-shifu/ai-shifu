@@ -154,7 +154,6 @@ def check_text_content(
 
 
 def get_profile_labels():
-    # language = get_current_language()
     return {
         "sys_user_nickname": {
             "label": _("server.profile.nickname"),

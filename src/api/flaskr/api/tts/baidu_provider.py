@@ -41,7 +41,7 @@ BAIDU_AUDIO_FORMATS = {
 # Baidu voice IDs - Complete list
 # Reference: https://ai.baidu.com/ai-doc/SPEECH/Rluv3uq3d
 BAIDU_VOICES = [
-    # 基础音库 (Basic - Free)
+    # 基础音库 group (Basic - Free)
     {
         "id": "0",
         "name": "度小美",
@@ -74,7 +74,7 @@ BAIDU_VOICES = [
         "gender": "child",
         "desc": "童声",
     },
-    # 精品音库 (Premium)
+    # 精品音库 group (Premium)
     {
         "id": "5",
         "name": "度逍遥",

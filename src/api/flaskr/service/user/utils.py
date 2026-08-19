@@ -168,8 +168,6 @@ def send_sms_code(
         if ip:
             ip_ban_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_BAN") + ip
             if redis.get(ip_ban_key):
-                # Development, debugging and use
-                # redis.delete(ip_ban_key)
                 raise_error("server.user.ipBanned")
 
             # Check IP sending frequency
@@ -242,8 +240,6 @@ def send_email_code(
         if ip:
             ip_ban_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_BAN") + ip
             if redis.get(ip_ban_key):
-                # Development, debugging and use
-                # redis.delete(ip_ban_key)
                 raise_error("server.user.ipBanned")
 
             # Check IP sending frequency

@@ -361,11 +361,6 @@ class RUNLLMProvider(LLMProvider):
         if not messages:
             raise ValueError("No messages provided")
 
-        # system_prompt = messages[0].get("content", "")
-        # Get the last message content
-        # last_message = messages[-1]
-        # prompt = last_message.get("content", "")
-
         # Use provided model/temperature or fall back to settings
         actual_model = model or self.llm_settings.model
         actual_temperature = (
@@ -2649,8 +2644,7 @@ class RunScriptContextV2:
                         return True
                 if button.get("value") == "_sys_login":
                     # Same logged-in definition as the emitter's
-                    # is_access_gate_blocking_interaction: email-only
-                    # accounts are logged in too.
+                    # access-gate check: email-only accounts are logged in too.
                     if bool(self._user_info.mobile or self._user_info.email):
                         self._can_continue = True
                         self._recorder.update_progress_pointer(
