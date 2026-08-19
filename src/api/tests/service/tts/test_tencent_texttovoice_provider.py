@@ -193,7 +193,7 @@ def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch):
     monkeypatch.setattr(
         module,
         "try_get_audio_duration_ms",
-        lambda audio, format="mp3": 1234,
+        lambda audio, **_kwargs: 1234,
     )
 
     provider = module.TencentTextToVoiceProvider()

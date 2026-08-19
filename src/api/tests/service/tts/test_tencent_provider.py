@@ -331,7 +331,7 @@ def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
     monkeypatch.setattr(
         tencent_provider,
         "try_get_audio_duration_ms",
-        lambda audio_data, format="mp3": 600 if audio_data else 0,
+        lambda audio_data, **_kwargs: 600 if audio_data else 0,
     )
 
     result = tencent_provider.TencentTTSProvider().synthesize(

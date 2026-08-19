@@ -155,7 +155,7 @@ def test_normalize_audio_blob_validates_duration_and_exports_wav(monkeypatch) ->
     monkeypatch.setattr(
         minimax_voice_clone.AudioSegment,
         "from_file",
-        lambda _stream, format=None: FakeSegment(),
+        lambda _stream, **_kwargs: FakeSegment(),
         raising=False,
     )
 
