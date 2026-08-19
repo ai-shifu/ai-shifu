@@ -47,7 +47,7 @@ def norm(path):
 
 
 def grep_paths(root, extra_args=None):
-    if not os.path.isdir(root):
+    if not Path(root).is_dir():
         return set()
     # no quote anchoring: f-strings like f"{base}/api/x/{bid}/export" must hit
     cmd = ["grep", "-rhoE", r"/api/[^'\"`[:space:]]*", root]

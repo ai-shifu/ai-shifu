@@ -220,11 +220,11 @@ def _load_python_translations(app: Flask, translations_dir: Path):
 
     for lang in os.listdir(translations_dir):
         lang_dir = os.path.join(translations_dir, lang)
-        if os.path.isdir(lang_dir) and lang_dir != "__pycache__" and lang_dir[0] != ".":
+        if Path(lang_dir).is_dir() and lang_dir != "__pycache__" and lang_dir[0] != ".":
             app.logger.info("load_python_translations lang: %s", lang)
             for module_name in os.listdir(lang_dir):
                 module_path = os.path.join(lang_dir, module_name)
-                if os.path.isdir(module_path):
+                if Path(module_path).is_dir():
                     for file_name in os.listdir(module_path):
                         if file_name.endswith(".py"):
                             file_path = os.path.join(module_path, file_name)

@@ -121,7 +121,7 @@ for name, rel in mods.items():
 svc_dir = os.path.join(ROOT, "flaskr", "service")
 for top in sorted(os.listdir(svc_dir)):
     top_path = os.path.join(svc_dir, top)
-    if not os.path.isdir(top_path):
+    if not Path(top_path).is_dir():
         continue
     for dirpath, dirnames, filenames in os.walk(top_path):
         dirnames[:] = [
