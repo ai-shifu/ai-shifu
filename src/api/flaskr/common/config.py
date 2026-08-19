@@ -1999,16 +1999,16 @@ class EnhancedConfig:
             groups[env_var.group].append(env_var)
 
         # Generate output for each group
-        for group, vars in sorted(groups.items()):
+        for group, group_vars in sorted(groups.items()):
             # Skip empty groups
-            if not vars:
+            if not group_vars:
                 continue
 
             lines.append(f"\n#{'=' * 60}")
             lines.append(f"# {group.replace('_', ' ').title()}")
             lines.append(f"#{'=' * 60}\n")
 
-            for env_var in sorted(vars, key=lambda x: x.name):
+            for env_var in sorted(group_vars, key=lambda x: x.name):
                 example_value = (
                     env_var.example if env_var.example is not None else env_var.default
                 )

@@ -326,7 +326,7 @@ def handle_input_ask(
     normalized_trace_input = normalize_langfuse_input_value(raw_input)
     if normalized_trace_input and not trace_args.get("input"):
         trace_args["input"] = normalized_trace_input
-    input = raw_input.replace("{", "{{").replace(
+    escaped_input = raw_input.replace("{", "{{").replace(
         "}", "}}"
     )  # Escape braces to avoid formatting conflicts
     use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
@@ -428,7 +428,7 @@ def handle_input_ask(
         "User question:\n"
     )
     # Append language instruction to user input if use_learner_language is enabled
-    user_content = format_constraint + input
+    user_content = format_constraint + escaped_input
     if use_learner_language:
         output_language = get_markdownflow_output_language()
         user_content += f"\n\n(IMPORTANT: You MUST respond in {output_language}.)"
@@ -448,7 +448,12 @@ def handle_input_ask(
 
     # Create ask block
     ask_block = _create_ask_block(
-        app, outline_item_info, attend_id, user_info.user_id, input, last_position
+        app,
+        outline_item_info,
+        attend_id,
+        user_info.user_id,
+        escaped_input,
+        last_position,
     )
 
     # Create answer block early (empty placeholder) so all teacher-side
@@ -463,7 +468,7 @@ def handle_input_ask(
         outline_bid=outline_item_info.bid,
         generated_block_bid=answer_block.generated_block_bid,
         type=GeneratedType.ASK,
-        content=input,
+        content=escaped_input,
         anchor_element_bid=anchor_element_bid,
     )
 
@@ -471,7 +476,7 @@ def handle_input_ask(
     span_parent = parent_observation or trace
     span = span_parent.span(
         name=build_langfuse_span_name(chapter_title, ask_scene, "user_follow_up"),
-        input=input,
+        input=escaped_input,
     )
 
     # Run guardrail check
@@ -479,7 +484,7 @@ def handle_input_ask(
         app,
         user_info,
         ask_block,
-        input,
+        escaped_input,
         span,
         outline_item_info,
         last_position,
@@ -510,7 +515,7 @@ def handle_input_ask(
             outline_bid=outline_item_info.bid,
             generated_block_bid=answer_block.generated_block_bid,
             type=GeneratedType.INTERACTION,
-            content=input,
+            content=escaped_input,
         )
         answer_block.generated_content = guardrail_text
         _finalize_ask_trace(

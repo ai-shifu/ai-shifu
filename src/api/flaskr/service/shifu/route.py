@@ -1261,7 +1261,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         name = json_data.get("name")
         # No defaults: None is passed through to create_outline, which applies its
         # own fallback (a new outline still needs a concrete type/visibility).
-        type = json_data.get("type")
+        outline_type = json_data.get("type")
         system_prompt = json_data.get("system_prompt", None)
         is_hidden = json_data.get("is_hidden")
         if isinstance(is_hidden, str):
@@ -1273,7 +1273,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 shifu_bid,
                 parent_bid,
                 name,
-                type,
+                outline_type,
                 system_prompt,
                 is_hidden,
             )
@@ -1404,7 +1404,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         is_hidden = request.get_json().get("is_hidden")
         if isinstance(is_hidden, str):
             is_hidden = is_hidden.lower() == "true"
-        type = request.get_json().get("type")
+        outline_type = request.get_json().get("type")
         return make_common_response(
             modify_unit(
                 app,
@@ -1414,7 +1414,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 description,
                 system_prompt,
                 is_hidden,
-                type,
+                outline_type,
             )
         )
 

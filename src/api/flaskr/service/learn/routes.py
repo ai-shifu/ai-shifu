@@ -369,7 +369,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         """
         user_bid = request.user.user_id
         payload = request.get_json() or {}
-        input = payload.get("input", None)
+        user_input = payload.get("input", None)
         input_type = payload.get("input_type", None)
         reload_generated_block_bid = payload.get("reload_generated_block_bid", None)
         reload_element_bid = payload.get("reload_element_bid", None)
@@ -404,7 +404,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 shifu_bid=shifu_bid,
                 outline_bid=outline_bid,
                 user_bid=user_bid,
-                input=input,
+                input=user_input,
                 input_type=input_type,
                 reload_generated_block_bid=reload_generated_block_bid,
                 reload_element_bid=reload_element_bid,
