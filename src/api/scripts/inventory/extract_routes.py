@@ -14,8 +14,8 @@ import ast
 import os
 from pathlib import Path
 
-ROOT = os.path.abspath(
-    os.path.join(str(Path(os.path.abspath(__file__)).parent), "..", "..")
+ROOT = str(
+    Path(os.path.join(str(Path(__file__).resolve().parent), "..", "..")).resolve()
 )
 
 CALLED_PREFIX = {

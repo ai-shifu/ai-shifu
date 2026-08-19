@@ -23,12 +23,12 @@ import re
 import subprocess
 from pathlib import Path
 
-_SCRIPT_DIR = str(Path(os.path.abspath(__file__)).parent)
-ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", "..", "..", ".."))
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+ROOT = str(Path(os.path.join(_SCRIPT_DIR, "..", "..", "..", "..")).resolve())
 SP = os.environ.get("INVENTORY_WORK_DIR", str(Path.cwd()))
 BACKEND_ROUTES = os.path.join(SP, "routes-backend.txt")
 SKILLS = os.environ.get(
-    "SKILLS_REPO", os.path.abspath(os.path.join(ROOT, "..", "skills"))
+    "SKILLS_REPO", str(Path(os.path.join(ROOT, "..", "skills")).resolve())
 )
 MINIAPP = os.environ.get("MINIAPP_REPO", "")
 

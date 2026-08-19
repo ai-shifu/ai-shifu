@@ -16,7 +16,7 @@ def load_prompt_template(template_name: str) -> str:
 
     """
     # Get the directory of current file
-    current_dir = str(Path(os.path.abspath(__file__)).parent)
+    current_dir = str(Path(__file__).resolve().parent)
     # Build prompts directory path
     prompts_dir = os.path.join(current_dir, "../../prompts")
 
