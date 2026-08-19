@@ -1,4 +1,4 @@
-"""Shifu struct manager
+"""Shifu struct manager.
 
 This module contains functions for managing shifu struct.
 
@@ -29,7 +29,7 @@ from pydantic import BaseModel
 
 
 class ShifuOutlineItemDto(BaseModel):
-    """Shifu outline item dto"""
+    """Shifu outline item dto."""
 
     bid: str
     position: str
@@ -43,7 +43,7 @@ class ShifuOutlineItemDto(BaseModel):
 
 
 class ShifuInfoDto(BaseModel):
-    """Shifu info dto"""
+    """Shifu info dto."""
 
     bid: str
     title: str
@@ -67,7 +67,7 @@ def get_shifu_struct(
         shifu_bid: Shifu bid
         is_preview: Is preview
     Returns:
-        HistoryItem: Shifu struct
+        HistoryItem: Shifu struct.
     """
     with app.app_context():
         app.logger.info(f"get_shifu_struct:{shifu_bid},{is_preview}")
@@ -177,7 +177,7 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
         shifu_bid: Shifu bid
         is_preview: Is preview
     Returns:
-        ShifuInfoDto: Shifu dto
+        ShifuInfoDto: Shifu dto.
     """
     shifu_model = DraftShifu if is_preview else PublishedShifu
     shifu: DraftShifu | PublishedShifu = (
@@ -215,7 +215,7 @@ def get_outline_item_dto(
         outline_item_bid: Outline item bid
         is_preview: Is preview
     Returns:
-        ShifuOutlineItemDto: Outline item dto
+        ShifuOutlineItemDto: Outline item dto.
     """
     app.logger.info(f"get_outline_item_dto: {outline_item_bid},{is_preview}")
 
@@ -243,7 +243,7 @@ def get_outline_item_dto(
 
 
 class OutlineItemDtoWithMdflow(BaseModel):
-    """Outline item dto with mdflow"""
+    """Outline item dto with mdflow."""
 
     mdflow: str
     outline_bid: str
@@ -256,7 +256,7 @@ def get_outline_item_dto_with_mdflow(
     is_preview: bool = False,
     outline_item_id: int | None = None,
 ) -> OutlineItemDtoWithMdflow:
-    """Get outline item dto with mdflow"""
+    """Get outline item dto with mdflow."""
     outline_item_model = DraftOutlineItem if is_preview else PublishedOutlineItem
     outline_item: DraftOutlineItem | PublishedOutlineItem | None = None
     if outline_item_id:

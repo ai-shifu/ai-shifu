@@ -20,7 +20,7 @@ from .update_shifu_demo import update_demo_shifu
 
 
 def setup_migration_logging():
-    """Set up logging for migration commands"""
+    """Set up logging for migration commands."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
@@ -45,7 +45,7 @@ def enable_commands(app: Flask):
     @click.argument("discount_code")
     @click.argument("user_nick_name")
     def import_user_command(mobile, course_id, discount_code, user_nick_name):
-        """Import user and enable course"""
+        """Import user and enable course."""
         import_user(app, mobile, course_id, discount_code, user_nick_name)
 
     @console.command(name="migrate")
@@ -61,7 +61,7 @@ def enable_commands(app: Flask):
         help="Show what would be migrated without actually doing it",
     )
     def migrate_command(batch_size, max_workers, force_full, output_file, dry_run):
-        """Run unified legacy data migration"""
+        """Run unified legacy data migration."""
         setup_migration_logging()
         logger = logging.getLogger(__name__)
 
@@ -172,7 +172,7 @@ def enable_commands(app: Flask):
 
     @console.command(name="verify")
     def verify_command():
-        """Verify data consistency between old and new tables"""
+        """Verify data consistency between old and new tables."""
         setup_migration_logging()
         logger = logging.getLogger(__name__)
 
@@ -227,7 +227,7 @@ def enable_commands(app: Flask):
 
     @console.command(name="status")
     def status_command():
-        """Show migration status and table counts"""
+        """Show migration status and table counts."""
         setup_migration_logging()
         logger = logging.getLogger(__name__)
 
@@ -313,7 +313,7 @@ def enable_commands(app: Flask):
     @click.argument("shifu_id")
     @click.argument("file_path")
     def export_shifu_command(shifu_id, file_path):
-        """Export a shifu to a JSON file
+        """Export a shifu to a JSON file.
 
         Args:
             shifu_id: Shifu business identifier
@@ -350,7 +350,7 @@ def enable_commands(app: Flask):
         "--user-id", required=True, help="User ID for creating/updating the shifu"
     )
     def import_shifu_command(file_path, shifu_id, user_id):
-        """Import a shifu from a JSON file
+        """Import a shifu from a JSON file.
 
         Args:
             file_path: Path to the JSON file to import
@@ -403,6 +403,6 @@ def enable_commands(app: Flask):
 
     @console.command(name="update_demo_shifu")
     def update_demo_shifu_command():
-        """Update demo shifu"""
+        """Update demo shifu."""
         app.logger.info("Updating demo shifu...")
         update_demo_shifu(app)

@@ -1,4 +1,4 @@
-"""add stripe payment channel
+"""add stripe payment channel.
 
 Revision ID: c9c92880fc67
 Revises: c3f101bbb462

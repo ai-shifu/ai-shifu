@@ -1,4 +1,4 @@
-"""add active table
+"""add active table.
 
 Revision ID: c3f101bbb462
 Revises: a4d68cce5ce6

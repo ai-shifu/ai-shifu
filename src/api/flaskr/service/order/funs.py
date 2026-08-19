@@ -94,7 +94,7 @@ from flaskr.util.uuid import generate_id as get_uuid
 
 @register_schema_to_swagger
 class PayItemDto:
-    """PayItemDto"""
+    """PayItemDto."""
 
     name: str
     price_name: str
@@ -120,7 +120,7 @@ class PayItemDto:
 
 @register_schema_to_swagger
 class AICourseBuyRecordDTO:
-    """AICourseBuyRecordDTO"""
+    """AICourseBuyRecordDTO."""
 
     order_id: str
     user_id: str
@@ -476,7 +476,7 @@ def init_buy_record(
 
 @register_schema_to_swagger
 class BuyRecordDTO:
-    """BuyRecordDTO"""
+    """BuyRecordDTO."""
 
     order_id: str
     user_id: str  # 用户id
@@ -521,7 +521,7 @@ def generate_charge(
     client_ip: str,
     payment_channel: str | None = None,
 ) -> BuyRecordDTO:
-    """Generate charge"""
+    """Generate charge."""
     with _app_context_scope(app), unit_of_work():
         app.logger.info(f"generate charge for record:{record_id} channel:{channel}")
 
@@ -1857,7 +1857,7 @@ def success_buy_record_from_native(
 
 
 def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
-    """Success buy record from pingxx"""
+    """Success buy record from pingxx."""
     with _app_context_scope(app):
         pingxx_order = (
             legacy_pingxx_snapshot_query()
@@ -1921,7 +1921,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
 
 
 def success_buy_record(app: Flask, record_id: str):
-    """Success buy record
+    """Success buy record.
 
     Owns a unit of work so legacy callers (coupon_funcs, order admin) keep
     their self-committing behavior; when invoked inside another unit of work
@@ -2050,7 +2050,7 @@ def calculate_discount_value(
     campaign_applications: list,
     discount_records: list[CouponUsageModel],
 ) -> DiscountInfo:
-    """Calculate discount value"""
+    """Calculate discount value."""
     discount_value = 0
     items = []
     if campaign_applications is not None and len(campaign_applications) > 0:

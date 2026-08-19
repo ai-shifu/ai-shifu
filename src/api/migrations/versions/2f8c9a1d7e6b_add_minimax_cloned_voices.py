@@ -1,4 +1,4 @@
-"""add minimax cloned voices
+"""add minimax cloned voices.
 
 Revision ID: 2f8c9a1d7e6b
 Revises: 5a6b7c8d9e10

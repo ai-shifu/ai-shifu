@@ -14,19 +14,19 @@ class PluginHotReloader:
         self.observer = Observer()
 
     def start(self):
-        """1111111"""
+        """1111111."""
         event_handler = PluginFileHandler(self)
         self.observer.schedule(event_handler, self.plugin_dir, recursive=True)
         self.observer.start()
         self.app.logger.info("Plugin hot reload started")
 
     def stop(self):
-        """停止热加载监听"""
+        """Stop watching for hot reloads."""
         self.observer.stop()
         self.observer.join()
 
     def reload_plugin(self, plugin_path: str):
-        """重新加载单个插件"""
+        """Reload a single plugin."""
         try:
             # 1. unload plugin
             self._unload_plugin(plugin_path)
@@ -46,7 +46,7 @@ class PluginHotReloader:
             )
 
     def _unload_plugin(self, plugin_path: str):
-        """Unload a plugin and clean up its resources
+        """Unload a plugin and clean up its resources.
 
         Args:
             plugin_path: Path to the plugin file
@@ -88,7 +88,7 @@ class PluginHotReloader:
             self.app.logger.exception(f"Failed to unload plugin {plugin_path}: {e!s}")
 
     def _register_plugin(self, module):
-        """Register a newly loaded plugin
+        """Register a newly loaded plugin.
 
         Args:
             module: The reloaded module object

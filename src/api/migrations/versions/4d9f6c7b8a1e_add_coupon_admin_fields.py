@@ -1,4 +1,4 @@
-"""add coupon admin fields
+"""add coupon admin fields.
 
 Revision ID: 4d9f6c7b8a1e
 Revises: b114d7f5e2c1

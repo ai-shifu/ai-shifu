@@ -1,4 +1,4 @@
-"""add generation_prompt to learn_generated_blocks
+"""add generation_prompt to learn_generated_blocks.
 
 Revision ID: b8d5f0a2c3e4
 Revises: a7c4e9f1b2d3

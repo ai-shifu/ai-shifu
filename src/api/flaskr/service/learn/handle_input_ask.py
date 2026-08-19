@@ -294,7 +294,7 @@ def handle_input_ask(
     parent_observation: Any | None = None,
 ) -> Generator[str, None, None]:
     """Handle user Q&A input
-    Responsible for processing user questions in the shifu and returning AI tutor responses
+    Responsible for processing user questions in the shifu and returning AI tutor responses.
     """
     # Get follow-up information (including Q&A prompts and model configuration)
     follow_up_info = get_follow_up_info_v2(

@@ -15,9 +15,9 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN / D1xx (except D104) / SLF001 / PLC0415 / PLR2004: thousands of
-#   violations each; enforcing them is a codebase-wide project, not a lint
-#   config change.
+# - ANN / SLF001 / PLC0415 / PLR2004 (and D1xx, see the ignore block):
+#   thousands of violations each; enforcing them is a codebase-wide project,
+#   not a lint config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
 #   tuples/lists, not a missed comma. ISC001/ISC002 also conflict with the
 #   formatter.
@@ -31,12 +31,6 @@
 #   service and route modules exceed by design.
 # - ARG001 / ARG002 / ARG005: unused arguments are pervasive in framework
 #   callbacks, fixtures and test doubles.
-# - D405 / D406 / D407: route docstrings carry the flasgger/Swagger spec after
-#   a `---` line, and these rules read YAML keys such as `parameters:` as
-#   numpydoc section headers. Their fixes strip the colon and insert a dashed
-#   underline, which turns the embedded spec into invalid YAML and breaks the
-#   generated API docs. The D2xx/D4xx rules that are selected never rewrite a
-#   line inside the YAML block.
 
 # Matches the Python pinned by src/api/Dockerfile and the CI workflows.
 target-version = "py311"
@@ -120,20 +114,10 @@ select = [
     "S324",    # hashlib md5/sha1 without usedforsecurity=False
 
     # --- Docstrings -------------------------------------------------------
-    # Partial: D1xx (missing docstrings) has ~4.6k violations, and D203/D205/
-    # D213/D400/D415 are formatting rewrites of existing prose. Only the
-    # mechanical members are enforced.
-    "D104",    # missing docstring in public package
-    "D202",    # blank line after a function docstring
-    "D209",    # closing quotes of a multi-line docstring not on their own line
-    # D212 stays explicit: the D21 prefix also enables the mutually exclusive
-    # D213, which ruff then warns about and ignores.
-    "D212",    # multi-line docstring summary not on the first line
-    "D3",      # docstring quote style (D300) and non-raw backslashes (D301)
-    "D401",    # docstring first line not in imperative mood
-    "D403",    # first word of a docstring not capitalized
-    "D411",    # missing blank line before section
-    "D413",    # missing blank line after the last docstring section
+    # pydocstyle is enabled as a whole; the members that would need thousands
+    # of new docstrings, conflict with a selected sibling rule, or rewrite
+    # embedded Swagger YAML are ignored below.
+    "D",
 
     # --- Modernization ----------------------------------------------------
     # UP040/UP046/UP047 (PEP 695 type parameters) are ignored below.
@@ -149,6 +133,25 @@ select = [
 ]
 ignore = [
     "E501",    # line length is owned by the formatter
+    # D1xx (except D104, which is enforced): ~4.6k undocumented modules,
+    # classes, methods, functions and __init__s. Writing them is a codebase
+    # project, not a lint config change.
+    "D100",    # undocumented public module
+    "D101",    # undocumented public class
+    "D102",    # undocumented public method
+    "D103",    # undocumented public function
+    "D105",    # undocumented magic method
+    "D107",    # undocumented __init__
+    "D203",    # blank line before a class docstring -- conflicts with D211
+    "D205",    # summary wrapped over two lines -- 260 prose rewrites, deferred
+    "D213",    # summary on the second line -- conflicts with D212
+    # D405 / D406 / D407: route docstrings carry the flasgger/Swagger spec
+    # after a `---` line, and these rules read YAML keys such as `parameters:`
+    # as numpydoc section headers. Their fixes strip the colon and insert a
+    # dashed underline, turning the embedded spec into invalid YAML.
+    "D405",
+    "D406",
+    "D407",
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "DTZ007",  # naive strptime() -- naive UTC is the house convention
     "DTZ901",  # datetime.min/max -- naive UTC is the house convention

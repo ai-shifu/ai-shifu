@@ -1,4 +1,4 @@
-"""drop minimax cloned voice_id unique constraint
+"""drop minimax cloned voice_id unique constraint.
 
 Revision ID: 8c2d4e6f1a9b
 Revises: 2f8c9a1d7e6b

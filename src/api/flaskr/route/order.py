@@ -123,10 +123,10 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])
     def reqiure_to_pay():
-        """请求支付
+        """Request payment.
         ---
         tags:
-            - 订单
+            - order
         parameters:
             - in: body
               name: body
@@ -136,26 +136,26 @@ def register_order_handler(app: Flask, path_prefix: str):
                 properties:
                     order_id:
                         type: string
-                        description: 订单id
+                        description: Order id
                     channel:
                         type: string
-                        description: 支付渠道。国内通道请输入wx_pub_qr、wx_pub、alipay_qr等；Stripe通道请输入stripe或stripe:checkout_session等格式
+                        description: Payment channel. Domestic channels accept wx_pub_qr, wx_pub, alipay_qr and so on; the Stripe channel accepts stripe or stripe:checkout_session
                     payment_channel:
                         type: string
-                        description: 目标支付提供方，可选值为pingxx、stripe、alipay、wechatpay（不填则按配置解析）
+                        description: Target payment provider, one of pingxx, stripe, alipay or wechatpay (resolved from configuration when omitted)
         responses:
             200:
-                description: 请求支付成功
+                description: Payment requested
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: Response code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: Response message
                                 data:
                                     $ref: "#/components/schemas/BuyRecordDTO"
 
@@ -178,11 +178,11 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/init-order", methods=["POST"])
     @with_shifu_context()
     def init_order():
-        """初始化订单
+        """Initialize an order.
         ---
         tags:
 
-            - 订单
+            - order
         parameters:
             - in: body
               name: body
@@ -192,20 +192,20 @@ def register_order_handler(app: Flask, path_prefix: str):
                 properties:
                     course_id:
                         type: string
-                        description: 课程id
+                        description: Course id
         responses:
             200:
-                description: 初始化订单成功
+                description: Order initialized
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: Response code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: Response message
                                 data:
                                     $ref: "#/components/schemas/AICourseBuyRecordDTO"
 
@@ -216,10 +216,10 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/query-order", methods=["POST"])
     def query_order():
-        """查询订单
+        """Query an order.
         ---
         tags:
-            - 订单
+            - order
         parameters:
             - in: body
               name: body
@@ -229,21 +229,21 @@ def register_order_handler(app: Flask, path_prefix: str):
                 properties:
                     order_id:
                         type: string
-                        description: 订单id
+                        description: Order id
         responses:
 
             200:
-                description: 查询订单成功
+                description: Order queried
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: Response code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: Response message
                                 data:
                                     $ref: "#/components/schemas/AICourseBuyRecordDTO"
 
@@ -253,10 +253,10 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/apply-discount", methods=["POST"])
     def apply_discount():
-        """使用折扣码
+        """Apply a discount code.
         ---
         tags:
-            - 订单
+            - order
         parameters:
             - in: body
               name: body
@@ -266,23 +266,23 @@ def register_order_handler(app: Flask, path_prefix: str):
                 properties:
                     discount_code:
                         type: string
-                        description: 折扣码
+                        description: Discount code
                     order_id:
                         type: string
-                        description: 订单id
+                        description: Order id
         responses:
             200:
-                description: 使用折扣码成功
+                description: Discount code applied
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: Response code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: Response message
                                 data:
                                     $ref: "#/components/schemas/AICourseBuyRecordDTO"
 
@@ -300,10 +300,10 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/payment-detail", methods=["POST"])
     def payment_detail():
-        """查询支付详情
+        """Query payment details.
         ---
         tags:
-            - 订单
+            - order
         parameters:
             - in: body
               name: body
@@ -313,10 +313,10 @@ def register_order_handler(app: Flask, path_prefix: str):
                 properties:
                     order_id:
                         type: string
-                        description: 订单id
+                        description: Order id
         responses:
             200:
-                description: 查询支付详情成功
+                description: Payment details queried
                 content:
                     application/json:
                         schema:
@@ -335,10 +335,10 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/stripe/sync", methods=["POST"])
     def stripe_sync():
-        """同步 Stripe 支付状态
+        """Sync the Stripe payment status.
         ---
         tags:
-            - 订单
+            - order
         parameters:
             - in: body
               name: body
@@ -348,13 +348,13 @@ def register_order_handler(app: Flask, path_prefix: str):
                 properties:
                     order_id:
                         type: string
-                        description: 订单id
+                        description: Order id
                     session_id:
                         type: string
                         description: Stripe checkout session id
         responses:
             200:
-                description: 同步成功
+                description: Synced
         """
         payload = request.get_json() or {}
         order_id = payload.get("order_id", "")
@@ -373,10 +373,10 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/payment/sync", methods=["POST"])
     def payment_sync():
-        """同步支付状态
+        """Sync the payment status.
         ---
         tags:
-            - 订单
+            - order
         parameters:
             - in: body
               name: body
@@ -386,13 +386,13 @@ def register_order_handler(app: Flask, path_prefix: str):
                 properties:
                     order_id:
                         type: string
-                        description: 订单id
+                        description: Order id
                     payment_channel:
                         type: string
-                        description: 支付提供方，可选值为alipay、wechatpay、stripe
+                        description: Payment provider, one of alipay, wechatpay or stripe
         responses:
             200:
-                description: 同步成功
+                description: Synced
         """
         payload = request.get_json() or {}
         order_id = payload.get("order_id", "")
@@ -410,13 +410,13 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/stripe/webhook", methods=["POST"])
     def stripe_webhook():
-        """Stripe webhook接入占位
+        """Stripe webhook placeholder.
         ---
         tags:
-            - 订单
+            - order
         responses:
             202:
-                description: Webhook已接收，具体逻辑待实现
+                description: Webhook received; handling is not implemented yet
         """
         sig_header = request.headers.get("Stripe-Signature", "")
         raw_body = request.get_data() or b""
@@ -426,10 +426,10 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/admin/orders", methods=["GET"])
     def admin_order_list():
-        """Admin order list
+        """Admin order list.
         ---
         tags:
-            - 订单
+            - order
         parameters:
             - name: page_index
               type: integer
@@ -503,10 +503,10 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/admin/orders/shifus", methods=["GET"])
     def admin_order_shifu_list():
-        """List created shifus for order admin filters
+        """List created shifus for order admin filters.
         ---
         tags:
-            - 订单
+            - order
         parameters:
             - name: page_index
               type: integer
@@ -582,10 +582,10 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/admin/orders/import-activation", methods=["POST"])
     def admin_import_activation():
-        """Admin import activation order
+        """Admin import activation order.
         ---
         tags:
-            - 订单
+            - order
         parameters:
             - in: body
               name: body
@@ -820,10 +820,10 @@ def register_order_handler(app: Flask, path_prefix: str):
 
     @app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])
     def admin_order_detail(order_bid: str):
-        """Admin order detail
+        """Admin order detail.
         ---
         tags:
-            - 订单
+            - order
         parameters:
             - name: order_bid
               type: string

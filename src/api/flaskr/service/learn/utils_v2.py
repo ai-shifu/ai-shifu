@@ -18,7 +18,7 @@ from ...service.profile.funcs import get_user_profiles
 
 
 class FollowUpInfo:
-    """Follow up info"""
+    """Follow up info."""
 
     ask_model: str
     ask_prompt: str
@@ -72,7 +72,7 @@ def extract_variables(template: str) -> list:
 
 
 def safe_format_template(template: str, variables: dict) -> str:
-    """Safe format template"""
+    """Safe format template."""
     # Replace {xxx} or {{xxx}} with values from variables dict, keep original if not found
     pattern = re.compile(r"(\{{1,2})([^{}]+)(\}{1,2})")
 
@@ -131,7 +131,7 @@ def get_fmt_prompt(
         input: Input
         profile_overrides: Request-local profile values that take precedence
     Returns:
-        str: Fmt prompt
+        str: Fmt prompt.
     """
     app.logger.info("raw prompt: %s", profile_tmplate)
     propmpt_keys = []

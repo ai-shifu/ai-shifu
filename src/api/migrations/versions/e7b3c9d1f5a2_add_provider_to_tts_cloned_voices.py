@@ -1,4 +1,4 @@
-"""add provider to tts cloned voices
+"""add provider to tts cloned voices.
 
 Revision ID: e7b3c9d1f5a2
 Revises: b8d5f0a2c3e4

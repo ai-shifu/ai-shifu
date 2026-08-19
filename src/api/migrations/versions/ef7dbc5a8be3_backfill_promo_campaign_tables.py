@@ -1,4 +1,4 @@
-"""backfill promo tables from active tables
+"""backfill promo tables from active tables.
 
 Revision ID: ef7dbc5a8be3
 Revises: c221d355ffb7

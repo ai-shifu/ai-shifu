@@ -1,4 +1,4 @@
-"""create variable tables
+"""create variable tables.
 
 Revision ID: 716efaaeb662
 Revises: ef7dbc5a8be3

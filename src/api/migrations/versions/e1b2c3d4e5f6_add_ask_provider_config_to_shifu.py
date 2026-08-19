@@ -1,4 +1,4 @@
-"""add ask_provider_config to shifu draft/published tables
+"""add ask_provider_config to shifu draft/published tables.
 
 Revision ID: e1b2c3d4e5f6
 Revises: 0e9b8c7d6a5f

@@ -1,4 +1,4 @@
-"""add canonical learning profile to users
+"""add canonical learning profile to users.
 
 Revision ID: c8f1a2d3e4b5
 Revises: b8d5f0a2c3e4

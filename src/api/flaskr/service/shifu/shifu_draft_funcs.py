@@ -1,4 +1,4 @@
-"""Shifu draft functions
+"""Shifu draft functions.
 
 This module contains functions for managing shifu draft.
 
@@ -114,7 +114,7 @@ def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
     Args:
         shifu_id: Shifu ID
     Returns:
-        DraftShifu: Shifu draft
+        DraftShifu: Shifu draft.
     """
     shifu_draft: DraftShifu = (
         DraftShifu.query.filter(
@@ -140,7 +140,7 @@ def return_shifu_draft_dto(
         shifu_draft: Shifu draft
         base_url: Base URL to build shifu links
         readonly: Whether the current user has read-only permission
-        archived_override: Optional override for archived state (per-user)
+        archived_override: Optional override for archived state (per-user).
 
     Returns:
         ShifuDetailDto: Shifu detail dto
@@ -235,7 +235,7 @@ def create_shifu_draft(
         shifu_temperature: Shifu temperature
         shifu_price: Shifu price
     Returns:
-        ShifuDto: Shifu dto
+        ShifuDto: Shifu dto.
     """
     with app.app_context():
         total_started_at = perf_counter()
@@ -344,7 +344,7 @@ def get_shifu_draft_info(
         shifu_id: Shifu ID
         base_url: Base URL to build shifu links
     Returns:
-        ShifuDetailDto: Shifu detail dto
+        ShifuDetailDto: Shifu detail dto.
     """
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
@@ -431,7 +431,7 @@ def save_shifu_draft_info(
         ask_system_prompt: Ask model system prompt
         ask_provider_config: Ask provider config object or JSON string
     Returns:
-        ShifuDetailDto: Shifu detail dto
+        ShifuDetailDto: Shifu detail dto.
     """
     with app.app_context():
         total_started_at = perf_counter()
@@ -719,7 +719,7 @@ def get_shifu_draft_list(
         archived: Filter archived (True) or active (False) shifus
         creator_only: Only include shifus created by the user
     Returns:
-        PageNationDTO: Page nation dto
+        PageNationDTO: Page nation dto.
     """
     with app.app_context():
         page_index = max(page_index, 1)

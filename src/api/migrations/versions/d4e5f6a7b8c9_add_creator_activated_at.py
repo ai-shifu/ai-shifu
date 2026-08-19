@@ -1,4 +1,4 @@
-"""add creator activated at
+"""add creator activated at.
 
 Revision ID: d4e5f6a7b8c9
 Revises: c6a4f8d9b2e1

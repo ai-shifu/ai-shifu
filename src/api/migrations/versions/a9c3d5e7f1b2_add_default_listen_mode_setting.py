@@ -1,4 +1,4 @@
-"""add default listen mode setting
+"""add default listen mode setting.
 
 Revision ID: a9c3d5e7f1b2
 Revises: f9a2b3c4d5e6

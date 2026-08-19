@@ -127,7 +127,7 @@ def _ensure_creator_permissions(app: Flask, shifu_bid: str):
 
 
 def update_demo_shifu(app: Flask):
-    """Update demo shifu for both Chinese and English versions"""
+    """Update demo shifu for both Chinese and English versions."""
     if get_env_config("SKIP_DEMO_SHIFU_IMPORT"):
         app.logger.info("Skip demo shifu import due to SKIP_DEMO_SHIFU_IMPORT")
         return
