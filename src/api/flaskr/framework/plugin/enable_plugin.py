@@ -26,8 +26,7 @@ def enable_plugins(app: Flask):
             return
         git_executable = shutil.which("git")
         if git_executable is None:
-            click.echo("git is not available on PATH")
-            return
+            raise click.ClickException("git is not available on PATH")
         # The repository URL is supplied by the operator running this CLI command.
         subprocess.run([git_executable, "clone", repo_url, dest_dir], check=False)  # noqa: S603
 

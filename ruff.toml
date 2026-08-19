@@ -79,8 +79,9 @@ select = [
     # --- Logging ----------------------------------------------------------
     # G004 (f-string logging) is the established house style and stays ignored
     # below; the rest catch real defects: G001/G003 format the message eagerly
-    # (and `+` can raise TypeError on non-string values), and G201/G202 are
-    # strictly equivalent rewrites to `.exception(...)`.
+    # (and `+` can raise TypeError on non-string values), G201 replaces
+    # `.error(..., exc_info=True)` with the equivalent `.exception(...)`, and
+    # G202 drops `exc_info` arguments that already match the call's default.
     "G",
     "LOG",     # flake8-logging (exc_info must name the exception outside except blocks)
     "TRY2",    # verbose re-raise / exception handler that only re-raises

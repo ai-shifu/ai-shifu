@@ -140,8 +140,8 @@ def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECOND
     )
     try:
         # The endpoint is a fixed https URL built from configuration.
-        response = urlopen(req, timeout=timeout)  # noqa: S310
-        return json.loads(response.read().decode(), strict=False)
+        with urlopen(req, timeout=timeout) as response:  # noqa: S310
+            return json.loads(response.read().decode(), strict=False)
     except URLError:
         raise
     except OSError as err:
