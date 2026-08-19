@@ -213,6 +213,7 @@ select = [
     "PGH004", # blanket noqa
     "PGH003", # blanket type ignore
     "PLW2901", # redefined loop name
+    "A006", # lambda arg shadows builtin
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
