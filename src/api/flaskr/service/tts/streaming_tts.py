@@ -11,7 +11,6 @@ import logging
 import os
 import threading
 import time
-import traceback
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -1450,7 +1449,7 @@ class StreamingTTSProcessor:
                 final_duration_ms,
             )
         except Exception as e:
-            logger.exception(f"Failed to finalize TTS: {e}\n{traceback.format_exc()}")
+            logger.exception(f"Failed to finalize TTS: {e}")
             # The swallowed error may be a desync surfaced by the audio
             # record write; classify so an interrupted exchange discards the
             # connection instead of leaving it for the next statement.
