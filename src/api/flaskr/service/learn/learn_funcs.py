@@ -795,7 +795,7 @@ def _resolve_runtime_tts_voice_id(
     default_voice_settings = get_default_voice_settings(normalized_provider)
     fallback_voice_id = (getattr(default_voice_settings, "voice_id", "") or "").strip()
     if not fallback_voice_id and built_in_voice_ids:
-        fallback_voice_id = sorted(built_in_voice_ids)[0]
+        fallback_voice_id = min(built_in_voice_ids)
     app.logger.warning(
         "%s TTS voice_id %s is not a current built-in voice or ready cloned voice; falling back to %s",
         normalized_provider,

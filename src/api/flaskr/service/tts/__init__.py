@@ -73,7 +73,7 @@ def _strip_incomplete_fenced_code(text: str) -> tuple[str, bool]:
 
 
 def _strip_incomplete_xml_block(text: str, tag_name: str) -> tuple[str, bool]:
-    """Strip an incomplete XML/HTML block from the end of the buffer.
+    r"""Strip an incomplete XML/HTML block from the end of the buffer.
 
     This is primarily used for <svg> blocks which are not meant to be spoken.
     The implementation is intentionally tolerant of partial opening tags (e.g.
@@ -99,7 +99,7 @@ def _strip_incomplete_xml_block(text: str, tag_name: str) -> tuple[str, bool]:
 
 
 def _strip_incomplete_angle_bracket_tag(text: str) -> tuple[str, bool]:
-    """Strip an incomplete angle-bracket tag from the end of the buffer.
+    r"""Strip an incomplete angle-bracket tag from the end of the buffer.
 
     This is a best-effort safeguard for streaming content where we might receive
     a partial HTML/XML tag split across chunks (e.g. '<p' or '<span class=\"').

@@ -441,14 +441,14 @@ class TestSSEElementSplitFromDB:
             # Extract meaningful text tokens from original (skip markdown syntax)
             import re
 
-            original_words = set(
+            original_words = {
                 w
                 for w in re.findall(r"[\w\u4e00-\u9fff]+", original_content)
                 if len(w) > 1
-            )
-            combined_words = set(
+            }
+            combined_words = {
                 w for w in re.findall(r"[\w\u4e00-\u9fff]+", combined) if len(w) > 1
-            )
+            }
 
             if original_words:
                 coverage = len(original_words & combined_words) / len(original_words)

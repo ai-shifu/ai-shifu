@@ -94,9 +94,9 @@ def _build_volc_signature_headers(
         ]
     )
     hashed_canonical_request = _hash_sha256(canonical_request_str)
-    credential_scope = "/".join([short_x_date, region, service, "request"])
-    string_to_sign = "\n".join(
-        ["HMAC-SHA256", x_date, credential_scope, hashed_canonical_request]
+    credential_scope = f"{short_x_date}/{region}/{service}/request"
+    string_to_sign = (
+        f"HMAC-SHA256\n{x_date}\n{credential_scope}\n{hashed_canonical_request}"
     )
 
     k_date = _hmac_sha256(sk.encode("utf-8"), short_x_date)

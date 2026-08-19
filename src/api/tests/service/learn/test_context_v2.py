@@ -98,6 +98,9 @@ if dao.db is None:
 if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
+import itertools
+
+import pytest
 from flaskr.service.learn import context_v2 as context_v2_module
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.context_v2 import (
@@ -222,7 +225,7 @@ class OutlinePathGuardTests(unittest.TestCase):
             "flaskr.service.learn.context_v2.raise_error",
             side_effect=RuntimeError("lesson missing"),
         ) as raise_error_mock:
-            with self.assertRaises(RuntimeError):
+            with pytest.raises(RuntimeError):
                 _find_outline_path_or_raise(root, "missing-outline")
 
         raise_error_mock.assert_called_once_with("server.shifu.lessonNotFoundInCourse")
@@ -801,7 +804,7 @@ class StreamTtsGateTests(unittest.TestCase):
 
             stop_event.set()
             stream.release_second.set()
-            with self.assertRaises(GeneratorExit):
+            with pytest.raises(GeneratorExit):
                 next(iterator)
 
         assert stream.close_calls == 1
@@ -2506,7 +2509,7 @@ class BuildContextFromBlocksTests(unittest.TestCase):
         self.assertTrue(all("?[" not in m["content"] for m in transformed))
         # Roles strictly alternate: no two adjacent user messages.
         roles = [m["role"] for m in transformed]
-        for prev, cur in zip(roles, roles[1:], strict=False):
+        for prev, cur in itertools.pairwise(roles):
             self.assertFalse(
                 prev == "user" and cur == "user",
                 f"adjacent user messages in {roles}",

@@ -54,55 +54,69 @@ select = [
     "EXE",     # shebang vs executable-bit consistency
     "G2",      # .error(..., exc_info=True) -> .exception(...)
     "I",       # import sorting and grouping
-    "RUF059",  # unused unpacked variable
+    "RUF05",   # unused unpacked variable
+    # Rule groups the codebase already satisfies, selected to keep it that way.
+    "FA",      # missing from __future__ import annotations
+    "ICN",     # import naming conventions
+    "INT",     # gettext calls with f-strings
+    "Q",       # quote style, matching the formatter
+    "SLOT",    # subclasses of str/tuple/namedtuple without __slots__
+    "T1",      # leftover debugger calls
+    "W",       # pycodestyle warnings
+    "YTT",     # sys.version checks that break on two-digit versions
     # Mechanical, behavior-preserving cleanups; each was applied repo-wide
     # with `ruff check --fix` in the commit that selected it here.
     "B009",    # getattr with a constant attribute name
     "B010",    # setattr with a constant attribute name
     "B905",    # zip() without an explicit strict argument
-    "C420",    # dict.fromkeys instead of a constant-value comprehension
+    "C4",      # comprehension and collection-literal simplifications
     "D202",    # blank line after a function docstring
     "D209",    # closing quotes of a multi-line docstring not on their own line
+    # D212 stays explicit: the D21 prefix also enables the mutually exclusive
+    # D213, which ruff then warns about and ignores.
     "D212",    # multi-line docstring summary not on the first line
+    "D3",      # docstring with backslashes that is not raw
     "D403",    # first word of a docstring not capitalized
     "D411",    # missing blank line before section
     "D413",    # missing blank line after the last docstring section
-    "FURB110", # conditional expression that should be or
-    "FURB136", # if-expression that should be min()/max()
-    "FURB171", # membership test against a single-item container
-    "FURB188", # manual prefix/suffix stripping
-    "PIE790",  # unnecessary pass / ... placeholder
-    "PIE80",   # unnecessary dict kwargs, builtin-reimplementing lambdas
-    "PIE810",  # multiple startswith/endswith calls on one value
+    "FLY",     # static str.join that should be an f-string
+    "FURB11",  # conditional expression that should be or
+    "FURB13",  # if-expression that should be min()/max()
+    "FURB17",  # membership test against a single-item container
+    "FURB18",  # list reversal via slicing, manual prefix/suffix stripping
+    "FURB19",  # sorted() only to take the first item
+    "PERF1",   # dict.items() when only one half is used
+    "PIE",     # flake8-pie (redundant placeholders, dict kwargs, startswith)
     "PLC0207", # str.split without maxsplit when one segment is used
     "PLC0208", # iteration over a set literal
-    "PLR1711", # useless return at the end of a function
-    "PLR1714", # repeated equality comparison
-    "PLR1730", # if-statement that should be min()/max()
-    "PLR5501", # else: if ... that should be elif
+    "PLC0414", # import alias that repeats the name
+    "PLR1",    # useless return, repeated comparison, manual min()/max()
+    "PLR5",    # else: if ... that should be elif
+    "PLW3",    # nested min/max calls
     "PT001",   # pytest.fixture with empty parentheses
+    "PT006",   # wrong type for parametrize argument names
+    "PT018",   # composite assertion
+    "PT02",    # fixture yielding without teardown, unittest-style assertRaises
     "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
-    "RET501",  # unnecessary explicit return None
-    "RET502",  # implicit return value
-    "RET503",  # missing explicit return on a fall-through path
-    "RET504",  # unnecessary assignment before return
-    "RET505",  # superfluous else after return
-    "RSE102",  # unnecessary parentheses on a raised exception
+    "RET",     # flake8-return (explicit, non-redundant return statements)
+    "RSE",     # unnecessary parentheses on a raised exception
     "RUF005",  # list concatenation that should be unpacking
+    "RUF007",  # zip of a list and its own tail
     "RUF010",  # explicit str()/repr() call inside an f-string
     "RUF013",  # implicit Optional annotation
     "RUF02",   # unparenthesized and inside or, unsorted __all__/__slots__
-    "RUF036",  # None not at the end of a union
+    "RUF03",   # None not at the end of a union
     "RUF046",  # unnecessary int() cast around an int-returning call
     "RUF102",  # noqa directive naming an unknown rule
     "SIM103",  # condition returned as True/False branches
     "SIM114",  # if branches with identical bodies
     "SIM118",  # key in dict.keys()
-    "SIM210",  # True if ... else False
-    "SIM300",  # yoda condition
-    "SIM910",  # dict.get(key, None)
+    "SIM2",    # redundant True/False and twisted conditional expressions
+    "SIM3",    # yoda condition
+    "SIM4",    # if-else block instead of dict.get
+    "SIM9",    # dict.get(key, None)
     "UP01",    # redundant str.encode/open() arguments
-    "UP024",   # deprecated OSError alias
+    "UP02",    # capture_output, deprecated OSError alias, yield from
     "UP032",   # str.format that should be an f-string
     "UP034",   # extraneous parentheses
 ]
