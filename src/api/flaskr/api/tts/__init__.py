@@ -143,8 +143,6 @@ def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
         ValueError: If no configured provider is available
 
     """
-    global _provider_instances
-
     provider_name = _resolve_provider_name(provider_name)
 
     # Get or create provider instance

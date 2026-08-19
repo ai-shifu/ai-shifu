@@ -866,9 +866,11 @@ def test_get_biji_knowledge_adapter_maps_business_errors_to_user_messages(
         monkeypatch.setattr(
             get_biji_knowledge_adapter.requests,
             "post",
-            lambda *_args, **_kwargs: _FakeResponse(
-                status_code=status_code,
-                json_data={"success": False, "data": None, "error": error_body},
+            lambda *_args, status_code=status_code, error_body=error_body, **_kwargs: (
+                _FakeResponse(
+                    status_code=status_code,
+                    json_data={"success": False, "data": None, "error": error_body},
+                )
             ),
         )
 

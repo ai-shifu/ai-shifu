@@ -2082,7 +2082,7 @@ __ENHANCED_CONFIG__ = EnhancedConfig(ENV_VARS)
 class Config(FlaskConfig):
     """Flask configuration wrapper with enhanced environment variable support."""
 
-    def __init__(self, parent: FlaskConfig, app: Flask, defaults: dict = {}):
+    def __init__(self, parent: FlaskConfig, app: Flask, defaults: dict | None = None):
         global __INSTANCE__
         self.parent = parent
         self.app = app
