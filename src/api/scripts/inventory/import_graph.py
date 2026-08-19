@@ -119,7 +119,7 @@ for name, rel in mods.items():
 
 # plugin scan: emulate load_plugins_from_dir over flaskr/service
 svc_dir = os.path.join(ROOT, "flaskr", "service")
-for top in sorted(os.listdir(svc_dir)):
+for top in sorted(path.name for path in Path(svc_dir).iterdir()):
     top_path = os.path.join(svc_dir, top)
     if not Path(top_path).is_dir():
         continue
