@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import re
 import sys
@@ -289,10 +290,8 @@ def load_allowlist(path: Path | None) -> Set[str]:
     # Be resilient if legacy CI passes an allowlist path that no longer exists.
     # Treat missing file as empty allowlist instead of failing hard.
     if not path.exists():
-        try:
+        with contextlib.suppress(Exception):
             print(f"Allowlist file not found, treating as empty: {path}")
-        except Exception:
-            pass
         return set()
 
     allowed: Set[str] = set()

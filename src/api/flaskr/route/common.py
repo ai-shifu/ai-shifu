@@ -109,8 +109,8 @@ def fmt(o):
         # convert aware values to UTC, always emitting ISO 8601 with a 'Z'
         # suffix. Display-time timezone conversion is a pure frontend concern.
         if o.tzinfo is None:
-            o = o.replace(tzinfo=datetime.timezone.utc)
-        return o.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+            o = o.replace(tzinfo=datetime.UTC)
+        return o.astimezone(datetime.UTC).isoformat().replace("+00:00", "Z")
     if isinstance(o, datetime.date):
         return o.isoformat()
     if isinstance(o, decimal.Decimal):

@@ -154,7 +154,7 @@ def test_shifu_preview_endpoint_url_uses_public_base(monkeypatch):
     monkeypatch.setattr(
         shifu_publish_funcs,
         "get_latest_shifu_draft",
-        lambda _shifu_id: _make_draft(_shifu_id),
+        _make_draft,
         raising=False,
     )
 

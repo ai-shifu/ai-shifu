@@ -2,7 +2,7 @@ import datetime
 import decimal
 import json
 import re
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager, nullcontext, suppress
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -154,10 +154,8 @@ class AICourseBuyRecordDTO:
 
     def __json__(self):
         def format_decimal(value):
-            if isinstance(value, str):
-                formatted_value = value  # Convert to string with two decimal places
-            else:
-                formatted_value = f"{value:.2f}"
+            # Convert to a string with two decimal places
+            formatted_value = value if isinstance(value, str) else f"{value:.2f}"
             # If the decimal part is .00, remove it
             if formatted_value.endswith(".00"):
                 return formatted_value[:-3]
@@ -295,10 +293,8 @@ def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]
         yield
     finally:
         if acquired and lock is not None:
-            try:
+            with suppress(Exception):
                 lock.release()
-            except Exception:
-                pass
 
 
 def _sync_order_campaign_pricing(

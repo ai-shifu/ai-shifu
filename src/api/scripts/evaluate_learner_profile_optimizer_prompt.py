@@ -19,7 +19,7 @@ import sys
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -416,7 +416,7 @@ def main() -> int:
     output_path = args.output or _default_output_path()
     cases_bytes = args.cases.read_bytes()
     report = {
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "runner": {
             "name": "codex-cli",
             "version": _codex_version(),

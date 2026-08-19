@@ -6,7 +6,7 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
@@ -281,10 +281,7 @@ USER_STATE_TO_OPERATOR_STATUS = {
 def _format_decimal(value: Optional[Decimal]) -> str:
     if value is None:
         return "0"
-    if isinstance(value, str):
-        normalized = value
-    else:
-        normalized = f"{value:.2f}"
+    normalized = value if isinstance(value, str) else f"{value:.2f}"
     if normalized.endswith(".00"):
         return normalized[:-3]
     return normalized
@@ -295,7 +292,7 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
         return None
     if isinstance(value, datetime):
         if value.tzinfo is not None:
-            return value.astimezone(timezone.utc).replace(tzinfo=None)
+            return value.astimezone(UTC).replace(tzinfo=None)
         return value
     if isinstance(value, str):
         normalized = value.strip()
@@ -312,7 +309,7 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
             )
             return None
         if parsed.tzinfo is not None:
-            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            return parsed.astimezone(UTC).replace(tzinfo=None)
         return parsed
     current_app.logger.warning(
         "Unexpected operator datetime value type '%s'",

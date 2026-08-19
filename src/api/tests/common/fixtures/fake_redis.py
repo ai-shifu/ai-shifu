@@ -104,10 +104,7 @@ class FakeRedis:
 
     def incr(self, key: str, amount: int = 1):
         current = self.get(key)
-        if current is None:
-            current_value = 0
-        else:
-            current_value = int(current)
+        current_value = 0 if current is None else int(current)
         new_value = current_value + amount
         self._store[key] = self._encode(new_value)
         ttl = self._expires.get(key)

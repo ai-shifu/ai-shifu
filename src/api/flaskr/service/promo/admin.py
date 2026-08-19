@@ -5,7 +5,7 @@ import json
 import math
 import secrets
 import string
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Dict, Optional
 
 from flask import Flask
@@ -136,7 +136,7 @@ def _parse_datetime(value: str, field_name: str, *, is_end: bool = False) -> dat
     if parsed is None:
         raise_param_error(field_name)
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
 
 

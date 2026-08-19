@@ -166,7 +166,7 @@ def test_init_buy_record_timeout_flip_persists_with_replacement_order(
 ):
     """(b) Clean run: the timeout flip and the new order commit together."""
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
-    stale_created_at = datetime.datetime.now(datetime.timezone.utc).replace(
+    stale_created_at = datetime.datetime.now(datetime.UTC).replace(
         tzinfo=None
     ) - datetime.timedelta(hours=2)
     origin_bid = _seed_order(created_at=stale_created_at)
@@ -195,7 +195,7 @@ def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
     replacement order.
     """
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
-    stale_created_at = datetime.datetime.now(datetime.timezone.utc).replace(
+    stale_created_at = datetime.datetime.now(datetime.UTC).replace(
         tzinfo=None
     ) - datetime.timedelta(hours=2)
     origin_bid = _seed_order(created_at=stale_created_at)

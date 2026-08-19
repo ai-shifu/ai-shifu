@@ -218,10 +218,7 @@ def main() -> int:
         ns = key.split(".")[0] + "." + key.split(".")[1] if "." in key else key
         # Re-evaluate: namespace is up to the second segment for shapes like server.user.* or module.social.* or common.core.*
         parts = key.split(".")
-        if len(parts) >= 2:
-            ns = parts[0] + "." + parts[1]
-        else:
-            ns = parts[0]
+        ns = parts[0] + "." + parts[1] if len(parts) >= 2 else parts[0]
         ns_to_keys.setdefault(ns, []).append(key)
 
     # Write patches into each locale

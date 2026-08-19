@@ -319,7 +319,7 @@ class UnifiedMigrationTask:
                 target_key,
                 offset,
             )
-            return await loop.run_in_executor(None, lambda: future.result())
+            return await loop.run_in_executor(None, future.result)
 
     def _process_batch_sync(
         self,
@@ -968,7 +968,7 @@ class UnifiedMigrationTask:
         # Consistency Check Results
         report.append("DATA CONSISTENCY VERIFICATION")
         report.append("-" * 40)
-        for table_name, result in consistency_results.items():
+        for result in consistency_results.values():
             status = "✓ PASSED" if result.is_consistent else "✗ FAILED"
             report.append(f"{status} {result.table_pair}")
             report.append(

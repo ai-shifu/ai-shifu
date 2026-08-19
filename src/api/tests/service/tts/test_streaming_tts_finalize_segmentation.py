@@ -109,7 +109,7 @@ class TestFinalizeSegmentation:
         # Verify multiple segments were submitted
         assert len(submitted_texts) > 0
         # Each segment should end at a sentence boundary (except possibly the last)
-        for i, text in enumerate(submitted_texts[:-1]):
+        for _i, text in enumerate(submitted_texts[:-1]):
             assert text.rstrip().endswith((".", "!", "?", "。", "！", "？"))
 
     @patch("flaskr.service.tts.streaming_tts._tts_executor")
@@ -524,7 +524,7 @@ class TestStreamingSynthesisRetries:
                 }
             ],
         )
-        mock_concat_audio.side_effect = lambda parts: b"".join(parts)
+        mock_concat_audio.side_effect = b"".join
         mock_get_duration.return_value = 500
         mock_upload.return_value = ("https://example.com/audio.mp3", "bucket")
 
@@ -604,7 +604,7 @@ class TestStreamingSynthesisRetries:
                 ],
             ),
         ]
-        mock_concat_audio.side_effect = lambda parts: b"".join(parts)
+        mock_concat_audio.side_effect = b"".join
         mock_get_duration.return_value = 400
         mock_upload.return_value = ("https://example.com/retry.mp3", "bucket")
 

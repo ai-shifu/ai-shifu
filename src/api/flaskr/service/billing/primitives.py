@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -152,7 +152,7 @@ def coerce_datetime(value: Any) -> datetime | None:
     if isinstance(value, (int, float)):
         if value <= 0:
             return None
-        return datetime.fromtimestamp(value, timezone.utc).replace(tzinfo=None)
+        return datetime.fromtimestamp(value, UTC).replace(tzinfo=None)
     text = str(value).strip()
     if not text:
         return None
@@ -160,13 +160,13 @@ def coerce_datetime(value: Any) -> datetime | None:
         epoch_seconds = int(text)
         if epoch_seconds <= 0:
             return None
-        return datetime.fromtimestamp(epoch_seconds, timezone.utc).replace(tzinfo=None)
+        return datetime.fromtimestamp(epoch_seconds, UTC).replace(tzinfo=None)
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
     if parsed.tzinfo is not None:
-        return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
 
 

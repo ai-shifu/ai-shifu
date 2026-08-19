@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -183,10 +183,7 @@ def _format_decimal(value: Optional[Decimal]) -> str:
     """Format a Decimal or numeric string to trimmed two-decimal string."""
     if value is None:
         return "0"
-    if isinstance(value, str):
-        normalized = value
-    else:
-        normalized = f"{value:.2f}"
+    normalized = value if isinstance(value, str) else f"{value:.2f}"
     if normalized.endswith(".00"):
         return normalized[:-3]
     return normalized
@@ -225,7 +222,7 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
     except ValueError:
         return None
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
     return None
 

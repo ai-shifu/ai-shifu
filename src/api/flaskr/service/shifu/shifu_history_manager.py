@@ -178,10 +178,7 @@ def _mask_email_identifier(identifier: Optional[str]) -> str:
         return _mask_phone_identifier(identifier)
     if not local:
         return f"***@{domain}"
-    if len(local) <= 1:
-        masked_local = f"{local[:1]}***"
-    else:
-        masked_local = f"{local[:2]}***"
+    masked_local = f"{local[:1]}***" if len(local) <= 1 else f"{local[:2]}***"
     return f"{masked_local}@{domain}"
 
 

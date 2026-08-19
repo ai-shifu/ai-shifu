@@ -329,7 +329,7 @@ def test_run_minimax_voice_clone_success_captures_credit_once(
 
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone.MiniMaxVoiceCloneClient",
-        lambda: FakeClient(),
+        FakeClient,
     )
 
     submitted = submit_minimax_voice_clone(
@@ -447,7 +447,7 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
     monkeypatch.setattr(
         minimax_voice_clone,
         "MiniMaxVoiceCloneClient",
-        lambda: FakeClient(),
+        FakeClient,
     )
 
     submitted = submit_minimax_voice_clone(
@@ -611,7 +611,7 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
     monkeypatch.setattr(
         minimax_voice_clone,
         "MiniMaxVoiceCloneClient",
-        lambda: FakeClient(),
+        FakeClient,
     )
 
     result = minimax_voice_clone._execute_clone_processing(

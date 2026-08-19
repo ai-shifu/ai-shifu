@@ -440,7 +440,7 @@ def build_tencent_tc3_headers(
     request_timestamp = int(timestamp if timestamp is not None else time.time())
     request_date = dt.datetime.fromtimestamp(
         request_timestamp,
-        tz=dt.timezone.utc,
+        tz=dt.UTC,
     ).strftime("%Y-%m-%d")
     canonical_headers = (
         "content-type:application/json\n"

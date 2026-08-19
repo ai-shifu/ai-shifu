@@ -58,7 +58,7 @@ def literal(node, env):
             elif isinstance(v, ast.FormattedValue):
                 out += literal(v.value, env)
         return out
-    return "<expr:%s>" % ast.unparse(node)
+    return f"<expr:{ast.unparse(node)}>"
 
 
 def config_get_default(node):

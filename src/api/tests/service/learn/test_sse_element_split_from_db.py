@@ -211,7 +211,7 @@ class TestSSEElementSplitFromDB:
             "errors": [],
         }
 
-        for i, block in enumerate(blocks):
+        for _i, block in enumerate(blocks):
             content = block["generated_content"]
             if not content or not content.strip():
                 stats["empty_content_skipped"] += 1

@@ -50,10 +50,7 @@ class FakeCacheProvider:
         return self._lock
 
     def setex(self, key: str, _time_in_seconds: int, value):
-        if isinstance(value, bytes):
-            encoded = value
-        else:
-            encoded = str(value).encode("utf-8")
+        encoded = value if isinstance(value, bytes) else str(value).encode("utf-8")
         self.values[key] = encoded
         return True
 

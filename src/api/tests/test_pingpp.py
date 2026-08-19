@@ -33,7 +33,7 @@ def test_create_pingxx_order_builds_request(app, monkeypatch):
                 provider_reference="ref", raw_response={"id": "ch"}
             )
 
-    monkeypatch.setattr(pingxx_order, "_get_provider", lambda: FakeProvider())
+    monkeypatch.setattr(pingxx_order, "_get_provider", FakeProvider)
 
     order = pingxx_order.create_pingxx_order(
         app,

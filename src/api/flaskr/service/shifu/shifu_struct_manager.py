@@ -72,10 +72,7 @@ def get_shifu_struct(
     """
     with app.app_context():
         app.logger.info(f"get_shifu_struct:{shifu_bid},{is_preview}")
-        if is_preview:
-            model = LogDraftStruct
-        else:
-            model = LogPublishedStruct
+        model = LogDraftStruct if is_preview else LogPublishedStruct
         shifu_struct = (
             model.query.filter(
                 model.shifu_bid == shifu_bid,
@@ -183,10 +180,7 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
     Returns:
         ShifuInfoDto: Shifu dto
     """
-    if is_preview:
-        shifu_model = DraftShifu
-    else:
-        shifu_model = PublishedShifu
+    shifu_model = DraftShifu if is_preview else PublishedShifu
     shifu: Union[DraftShifu, PublishedShifu] = (
         shifu_model.query.filter(
             shifu_model.shifu_bid == shifu_bid,
@@ -226,10 +220,7 @@ def get_outline_item_dto(
     """
     app.logger.info(f"get_outline_item_dto: {outline_item_bid},{is_preview}")
 
-    if is_preview:
-        outline_item_model = DraftOutlineItem
-    else:
-        outline_item_model = PublishedOutlineItem
+    outline_item_model = DraftOutlineItem if is_preview else PublishedOutlineItem
     outline_item: Union[DraftOutlineItem, PublishedOutlineItem] = (
         outline_item_model.query.filter(
             outline_item_model.outline_item_bid == outline_item_bid,
@@ -267,10 +258,7 @@ def get_outline_item_dto_with_mdflow(
     outline_item_id: int | None = None,
 ) -> OutlineItemDtoWithMdflow:
     """Get outline item dto with mdflow"""
-    if is_preview:
-        outline_item_model = DraftOutlineItem
-    else:
-        outline_item_model = PublishedOutlineItem
+    outline_item_model = DraftOutlineItem if is_preview else PublishedOutlineItem
     outline_item: Union[DraftOutlineItem, PublishedOutlineItem, None] = None
     if outline_item_id:
         outline_item = (

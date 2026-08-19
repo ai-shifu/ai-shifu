@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import calendar
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -270,10 +270,7 @@ def calculate_self_managed_billing_cycle_end_after_boundary(
 
 
 def to_self_managed_cycle_local_time(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    else:
-        value = value.astimezone(timezone.utc)
+    value = value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
     return value.astimezone(_SELF_MANAGED_CYCLE_TIMEZONE)
 
 
@@ -281,7 +278,7 @@ def self_managed_local_day_end_to_utc_naive(value: datetime) -> datetime:
     if value.tzinfo is None:
         value = value.replace(tzinfo=_SELF_MANAGED_CYCLE_TIMEZONE)
     local_day_end = end_of_day(value).astimezone(_SELF_MANAGED_CYCLE_TIMEZONE)
-    return local_day_end.astimezone(timezone.utc).replace(tzinfo=None)
+    return local_day_end.astimezone(UTC).replace(tzinfo=None)
 
 
 def end_of_day(value: datetime) -> datetime:
