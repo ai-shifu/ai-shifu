@@ -12,7 +12,7 @@ Date: 2025-08-07
 
 import queue
 from decimal import Decimal
-from typing import List, Union
+from typing import List
 
 from flask import Flask
 from flaskr.service.common import raise_error
@@ -115,7 +115,7 @@ def get_shifu_outline_tree(
                     q.put(child)
         if len(shifu_ids) != 1:
             raise_error("server.shifu.shifuNotFound")
-        shifu: Union[DraftShifu, PublishedShifu] = shifu_model.query.filter(
+        shifu: DraftShifu | PublishedShifu = shifu_model.query.filter(
             shifu_model.id.in_(shifu_ids),
         ).first()
         if not shifu:
@@ -141,7 +141,7 @@ def get_shifu_outline_tree(
 
         def recurse_outline_item(item: HistoryItem) -> ShifuOutlineItemDto:
             if item.type == "outline":
-                outline_item: Union[DraftOutlineItem, PublishedOutlineItem] = (
+                outline_item: DraftOutlineItem | PublishedOutlineItem = (
                     outline_items_map.get(item.id)
                 )
                 if not outline_item:
@@ -181,7 +181,7 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
         ShifuInfoDto: Shifu dto
     """
     shifu_model = DraftShifu if is_preview else PublishedShifu
-    shifu: Union[DraftShifu, PublishedShifu] = (
+    shifu: DraftShifu | PublishedShifu = (
         shifu_model.query.filter(
             shifu_model.shifu_bid == shifu_bid,
             shifu_model.deleted == 0,
@@ -221,7 +221,7 @@ def get_outline_item_dto(
     app.logger.info(f"get_outline_item_dto: {outline_item_bid},{is_preview}")
 
     outline_item_model = DraftOutlineItem if is_preview else PublishedOutlineItem
-    outline_item: Union[DraftOutlineItem, PublishedOutlineItem] = (
+    outline_item: DraftOutlineItem | PublishedOutlineItem = (
         outline_item_model.query.filter(
             outline_item_model.outline_item_bid == outline_item_bid,
             outline_item_model.deleted == 0,
@@ -259,7 +259,7 @@ def get_outline_item_dto_with_mdflow(
 ) -> OutlineItemDtoWithMdflow:
     """Get outline item dto with mdflow"""
     outline_item_model = DraftOutlineItem if is_preview else PublishedOutlineItem
-    outline_item: Union[DraftOutlineItem, PublishedOutlineItem, None] = None
+    outline_item: DraftOutlineItem | PublishedOutlineItem | None = None
     if outline_item_id:
         outline_item = (
             outline_item_model.query.filter(

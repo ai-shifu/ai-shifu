@@ -14,7 +14,7 @@ import logging
 import struct
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from flaskr.common.log import AppLoggerProxy
 
@@ -105,7 +105,7 @@ class ProtocolFrame:
     event: Optional[Event]
     session_id: Optional[str]
     connection_id: Optional[str]
-    payload: Union[bytes, Dict[str, Any], None]
+    payload: bytes | Dict[str, Any] | None
     error_code: Optional[int] = None
 
 
@@ -360,7 +360,7 @@ class VolcengineProtocol:
                         offset += sess_id_len
 
         # Parse payload
-        payload: Union[bytes, Dict[str, Any], None] = None
+        payload: bytes | Dict[str, Any] | None = None
 
         if len(data) > offset:
             if message_type == MessageType.AUDIO_ONLY_RESPONSE:

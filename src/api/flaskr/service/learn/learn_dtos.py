@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, PrivateAttr
@@ -783,15 +783,15 @@ class RunElementSSEMessageDTO(BaseModel):
         default=None,
         description="Whether this event marks the terminal end of the run stream",
     )
-    content: Union[
-        str,
-        ElementDTO,
-        VariableUpdateDTO,
-        OutlineItemUpdateDTO,
-        AudioSegmentDTO,
-        AudioCompleteDTO,
-        AudioBackfillReadyDTO,
-    ] = Field(..., description="Run event content")
+    content: (
+        str
+        | ElementDTO
+        | VariableUpdateDTO
+        | OutlineItemUpdateDTO
+        | AudioSegmentDTO
+        | AudioCompleteDTO
+        | AudioBackfillReadyDTO
+    ) = Field(..., description="Run event content")
 
     def __json__(self):
         ret = {
@@ -821,13 +821,13 @@ class RunMarkdownFlowDTO(BaseModel):
         ..., description="generated block id", required=False
     )
     type: GeneratedType = Field(..., description="generated type", required=False)
-    content: Union[
-        str,
-        VariableUpdateDTO,
-        OutlineItemUpdateDTO,
-        AudioSegmentDTO,
-        AudioCompleteDTO,
-    ] = Field(..., description="generated content", required=True)
+    content: (
+        str
+        | VariableUpdateDTO
+        | OutlineItemUpdateDTO
+        | AudioSegmentDTO
+        | AudioCompleteDTO
+    ) = Field(..., description="generated content", required=True)
     anchor_element_bid: str = Field(
         default="",
         description="Anchor element bid for ASK events",
@@ -838,13 +838,11 @@ class RunMarkdownFlowDTO(BaseModel):
         outline_bid: str,
         generated_block_bid: str,
         type: GeneratedType,
-        content: Union[
-            str,
-            VariableUpdateDTO,
-            OutlineItemUpdateDTO,
-            AudioSegmentDTO,
-            AudioCompleteDTO,
-        ],
+        content: str
+        | VariableUpdateDTO
+        | OutlineItemUpdateDTO
+        | AudioSegmentDTO
+        | AudioCompleteDTO,
         anchor_element_bid: str = "",
     ):
         super().__init__(
