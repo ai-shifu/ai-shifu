@@ -23,6 +23,7 @@ import ast
 import os
 import sys
 from collections import defaultdict
+from pathlib import Path
 
 ROOT = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
@@ -36,7 +37,7 @@ def add_tree(base_pkg, base_dir):
     for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, base_dir)):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
         rel = os.path.relpath(dirpath, ROOT)
-        parts = rel.split(os.sep)
+        parts = Path(rel).parts
         for fn in filenames:
             if not fn.endswith(".py"):
                 continue
