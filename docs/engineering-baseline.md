@@ -371,15 +371,31 @@ src/api/tests/
 - `backend-tests.yml`: runs backend tests for `src/api/**` changes and on
   direct pushes to `main`.
 - `contract-tests.yml`: runs contract tests for backend-facing changes.
+- `lint.yml`: auto-fixes changed PR files and hard-fails remaining lint
+  issues; Prettier, repo-harness, and translation checks stay in their own
+  workflows.
 - `prettier-check.yml`: checks Cook Web formatting for frontend changes.
+- `repo-harness.yml`: regenerates AI/knowledge docs and validates harness
+  plus architecture-boundary scripts.
+- `runtime-harness.yml`: boots the Docker dev stack and runs Playwright
+  smoke tests for backend, frontend, Docker, or scripts changes.
+- `harness-gardening.yml`: weekly drift check that opens a GitHub issue
+  when generated knowledge docs fall behind.
 - `translations-check.yml`: validates translation parity, key usage, and
-  locale metadata on PRs, selected branches, and a schedule.
+  locale metadata on PRs, `main`, and a twice-weekly schedule.
+- `check-markdown-flow-release.yml` and
+  `check-markdown-flow-ui-release.yml`: block PRs into `main` from pinning
+  pre-release MarkdownFlow packages.
+- `bump-markdown-flow.yml` and `bump-markdown-flow-ui.yml`: manual pin
+  updates on feature branches after a library publish.
 - `prepare-release.yml`: manually prepares a release draft from a requested
   `vX.Y.Z` version and updates versioned project files.
 - `build-latest.yml`: builds the freshest published Docker images from `main`
-  and can also be triggered manually.
+  and can also be triggered manually. Multi-arch pushes disable Buildx
+  provenance/SBOM attestations because Aliyun Container Registry rejects
+  `application/vnd.oci.empty.v1+json`.
 - `build-on-release.yml`: builds and pushes release-tagged Docker images when
-  a GitHub release is published.
+  a GitHub release is published, with the same attestation setting.
 
 ### Release Path
 
