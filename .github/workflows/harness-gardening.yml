@@ -40,14 +40,25 @@ jobs:
 
       - name: Open or update harness gardening issue
         if: steps.gardening.outcome == 'failure'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TITLE="Harness gardening drift detected"
+          LABEL="harness-gardening"
+          if ! gh label list --json name --jq '.[].name' | grep -qx "$LABEL"; then
+            gh label create "$LABEL" \
+              --description "Scheduled harness gardening drift" \
+              --color "FBCA04" || true
+          fi
+          LABEL_ARGS=()
+          if gh label list --json name --jq '.[].name' | grep -qx "$LABEL"; then
+            LABEL_ARGS=(--label "$LABEL")
+          fi
           if gh issue list --search "$TITLE in:title state:open" --json number --jq 'length' | grep -q '^0$'; then
             gh issue create \
               --title "$TITLE" \
-              --label "harness-gardening" \
+              "${LABEL_ARGS[@]}" \
               --body-file docs/generated/harness-gardening-summary.md
           else
             echo "Harness gardening issue already open."
