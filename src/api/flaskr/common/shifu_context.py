@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import contextlib
 import threading
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 _context_local = threading.local()
 

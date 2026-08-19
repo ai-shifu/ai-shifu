@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 try:  # pragma: no cover - exercised indirectly when Celery is installed.
     from celery import shared_task

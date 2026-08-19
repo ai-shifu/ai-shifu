@@ -1,7 +1,8 @@
 """Base contracts and errors for ask provider adapters."""
 
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
-from typing import Any, Callable, Generator, Protocol
+from typing import Any, Protocol
 
 from flask import Flask
 

@@ -1,5 +1,5 @@
+from collections.abc import Generator
 from types import SimpleNamespace
-from typing import Generator
 
 
 class FakeLLMResponse:

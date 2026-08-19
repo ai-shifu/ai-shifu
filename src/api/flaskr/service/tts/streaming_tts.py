@@ -12,9 +12,10 @@ import os
 import threading
 import time
 import uuid
+from collections.abc import Generator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any, Generator
+from typing import Any
 
 from flask import Flask
 from flaskr.api.tts import (

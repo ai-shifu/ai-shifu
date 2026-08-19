@@ -27,6 +27,10 @@
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
 #   tuples/lists, not a missed comma. ISC001/ISC002 also conflict with the
 #   formatter.
+# - COM812: ruff lists it as conflicting with the formatter. Applying its
+#   6k fixes adds magic trailing commas that make `ruff format` re-explode
+#   every affected call and signature one argument per line -- a repo-wide
+#   reflow with no correctness value.
 # - BLE001 / S110 / S112: blind/except-pass handlers are deliberate fail-open
 #   patterns here (moderation, logging, notification side channels).
 # - G001 / G003 / G004: f-string logging is the established house style; the
@@ -183,6 +187,10 @@ select = [
     "UP032",   # str.format that should be an f-string
     "UP033",   # lru_cache(maxsize=None) that should be cache
     "UP034",   # extraneous parentheses
+    # UP035 is satisfied except in the two `admin` / `admin_operations.courses`
+    # compatibility shims, which re-export `typing.Dict` / `typing.Set` as part
+    # of their public surface and carry a file-level `# ruff: noqa: UP035`.
+    "UP035",   # import moved to another module (typing -> collections.abc)
     "UP036",   # outdated sys.version_info block
     "UP037",   # quoted annotation that can be a bare type
     "UP039",   # unnecessary parentheses on a class

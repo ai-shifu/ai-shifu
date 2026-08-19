@@ -4,10 +4,11 @@ import inspect
 import json
 import queue
 import threading
+from collections.abc import Callable, Generator, Iterable
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Generator, Iterable, Union
+from typing import Any, Union
 
 from flask import Flask
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models

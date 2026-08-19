@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import queue
 import threading
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
 from flaskr.common.shifu_context import (
     apply_shifu_context_snapshot,

@@ -1,6 +1,7 @@
 """Langfuse helpers for external ask providers."""
 
-from typing import Any, Generator, Iterable
+from collections.abc import Generator, Iterable
+from typing import Any
 
 from flask import Flask
 from flaskr.api.langfuse import (

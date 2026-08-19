@@ -1,6 +1,7 @@
 """Ask provider adapter registry and routing entrypoints."""
 
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
 from flask import Flask
 

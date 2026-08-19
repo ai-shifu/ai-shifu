@@ -19,9 +19,9 @@ import base64
 import json
 import os
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 from unittest.mock import MagicMock
 
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")

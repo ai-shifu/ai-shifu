@@ -5,7 +5,7 @@ This module provides audio concatenation and processing functions using pydub/ff
 
 import io
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 
 from flaskr.common.log import AppLoggerProxy
 

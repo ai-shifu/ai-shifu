@@ -2,8 +2,9 @@
 
 import contextlib
 import json
+from collections.abc import Iterable
 from functools import lru_cache
-from typing import Any, Iterable
+from typing import Any
 
 import requests
 from flaskr.service.config import get_config

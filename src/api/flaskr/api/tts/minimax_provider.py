@@ -5,8 +5,9 @@ This module provides TTS synthesis using Minimax's Text-to-Speech API (t2a_v2).
 
 import json
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any
 from urllib.parse import urlencode
 
 import requests

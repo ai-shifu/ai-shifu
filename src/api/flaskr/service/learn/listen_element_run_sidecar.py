@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generator
+from collections.abc import Generator
 
 from flaskr.service.learn.learn_dtos import (
     ElementChangeType,

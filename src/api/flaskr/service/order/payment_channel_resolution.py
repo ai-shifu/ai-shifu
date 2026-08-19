@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from flaskr.service.common.models import raise_error
 from flaskr.service.config import get_config

@@ -6,8 +6,9 @@ import threading
 import time
 import traceback
 import uuid
+from collections.abc import Generator
 from datetime import datetime
-from typing import Any, Generator
+from typing import Any
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as cache_provider

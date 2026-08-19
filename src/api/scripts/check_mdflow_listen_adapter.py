@@ -26,9 +26,9 @@ import shutil
 import sys
 import tempfile
 from collections import Counter, OrderedDict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")

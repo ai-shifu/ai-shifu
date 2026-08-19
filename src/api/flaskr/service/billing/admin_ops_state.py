@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager, suppress
-from typing import Any, Iterator
+from typing import Any
 
 from flask import Flask
 from flaskr.service.common.models import raise_param_error
