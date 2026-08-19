@@ -107,7 +107,10 @@ jobs:
             git add -A
             git commit -m "style: auto-fix from lint hooks"
             # Token supplied only here (branch name via env, never expanded in shell).
-            git -c http.https://github.com/.extraheader="AUTHORIZATION: bearer ${GH_TOKEN}" \
+            # git-over-HTTPS on GitHub only accepts basic auth; a bearer header
+            # is answered with 401 and git then falls back to prompting.
+            auth=$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 -w0)
+            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${auth}" \
               push origin "HEAD:${HEAD_REF}"
           else
             echo "::error::Auto-fixable lint issues found on a fork PR (cannot push fixes). Run 'lefthook run pre-commit --all-files' locally and push the result."
