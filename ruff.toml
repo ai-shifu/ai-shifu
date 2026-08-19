@@ -33,8 +33,10 @@
 #   reflow with no correctness value.
 # - BLE001 / S110 / S112: blind/except-pass handlers are deliberate fail-open
 #   patterns here (moderation, logging, notification side channels).
-# - G001 / G003 / G004: f-string logging is the established house style; the
-#   lazy-%-formatting argument does not outweigh the churn. G201 IS enabled --
+# - G001 / G004: f-string logging is the established house style; the
+#   lazy-%-formatting argument does not outweigh the churn. G003 IS enabled --
+#   `+` concatenation in a log call only appeared a handful of times and can
+#   raise TypeError on non-string values. G201 IS enabled --
 #   `.exception(...)` is strictly equivalent to `.error(..., exc_info=True)`.
 # - RUF012 / UP* as whole groups: style or modernization churn with no
 #   bug-catching value for this codebase today. Individual members that are
@@ -230,6 +232,7 @@ select = [
     "D401",  # docstring first line not in imperative mood
     "PT011",  # pytest.raises without match/specific exception
     "D104",  # missing docstring in public package
+    "G003",  # logging statement uses string concatenation
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention

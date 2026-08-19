@@ -37,9 +37,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
             user_id = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])[
                 "user_id"
             ]
-            app.logger.info("user_id:" + user_id)
-
-            app.logger.info("user_id:" + user_id)
+            app.logger.info("user_id: %s", user_id)
             ttl_seconds = app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7)
             lookup = token_store.get_and_refresh(
                 app,

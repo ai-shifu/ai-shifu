@@ -14,6 +14,6 @@ def get_wechat_access_token(app: Flask, code: str):
     response = requests.get(url, timeout=10)
     app.logger.info(f"get_wechat_access_token response: {response}")
     if response.status_code == 200:
-        app.logger.info("get_wechat_access_token:" + str(response.json()))
+        app.logger.info("get_wechat_access_token: %s", response.json())
         return response.json()
     return None
