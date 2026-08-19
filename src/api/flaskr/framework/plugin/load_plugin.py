@@ -27,7 +27,7 @@ def load_plugins_from_dir(
         plugin_obj = None
         if SRC_DIR in files:
             for filename in [
-                path.name for path in Path(os.path.join(directory, SRC_DIR)).iterdir()
+                path.name for path in (Path(directory) / SRC_DIR).iterdir()
             ]:
                 if filename.endswith(".py"):
                     plugin_obj = importlib.import_module(
@@ -41,15 +41,15 @@ def load_plugins_from_dir(
                         ):
                             plugin_define = obj()
                             if MIGRATION_DIR in files:
-                                plugin_define.migration_dir = os.path.join(
-                                    directory, MIGRATION_DIR
+                                plugin_define.migration_dir = str(
+                                    Path(directory) / MIGRATION_DIR
                                 )
                             plugin_manager.plugins[plugin_define.name] = plugin_define
                             app.logger.info(f"load plugin: {plugin_define.name}")
         for filename in files:
             if filename in ("__pycache__", MIGRATION_DIR) or filename.startswith("."):
                 continue
-            file_path = os.path.join(directory, filename)
+            file_path = str(Path(directory) / filename)
             if filename == TRANSLATIONS_DEFAULT_NAME:
                 load_translations(app, file_path)
             elif Path(file_path).is_dir():
@@ -68,10 +68,10 @@ def load_plugins_from_dir(
     with app.app_context():
         files = [path.name for path in Path(plugins_dir).iterdir()]
         for file in files:
-            if Path(os.path.join(plugins_dir, file)).is_dir():
+            if (Path(plugins_dir) / file).is_dir():
                 app.logger.info(f"begin load plugin: {file}")
                 try:
-                    load_from_directory(os.path.join(plugins_dir, file), plugin_manager)
+                    load_from_directory(str(Path(plugins_dir) / file), plugin_manager)
                     app.logger.info(f"load plugin: {file} success")
                 except Exception as e:
                     app.logger.exception(f"load plugin: {file} error: {e}")

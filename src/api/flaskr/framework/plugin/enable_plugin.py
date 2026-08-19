@@ -1,4 +1,3 @@
-import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -22,7 +21,7 @@ def enable_plugins(app: Flask):
     def add(repo_url):
         """Add a plugin by cloning the repository."""
         repo_name = repo_url.split("/")[-1].replace(".git", "")
-        dest_dir = os.path.join("flaskr", "plugins", repo_name)
+        dest_dir = str(Path("flaskr") / "plugins" / repo_name)
         if Path(dest_dir).exists():
             return
         subprocess.run(["git", "clone", repo_url, dest_dir], check=False)
@@ -31,7 +30,7 @@ def enable_plugins(app: Flask):
     @click.argument("repo_name")
     def delete(repo_name):
         """Delete a plugin by its repository name."""
-        dest_dir = os.path.join("flaskr", "plugins", repo_name)
+        dest_dir = str(Path("flaskr") / "plugins" / repo_name)
         if not Path(dest_dir).exists():
             return
         shutil.rmtree(dest_dir)
@@ -39,7 +38,7 @@ def enable_plugins(app: Flask):
     @plugin.command(name="list")
     def list():
         """List all plugins."""
-        plugins_dir = os.path.join("flaskr", "plugins")
+        plugins_dir = str(Path("flaskr") / "plugins")
         plugins = [path.name for path in Path(plugins_dir).iterdir() if path.is_dir()]
         for plugin in plugins:
             if plugin == "__pycache__":

@@ -14,9 +14,7 @@ import ast
 import os
 from pathlib import Path
 
-ROOT = str(
-    Path(os.path.join(str(Path(__file__).resolve().parent), "..", "..")).resolve()
-)
+ROOT = str((Path(__file__).resolve().parent / ".." / "..").resolve())
 
 CALLED_PREFIX = {
     "flaskr/route/common.py": "",
@@ -33,11 +31,11 @@ CALLED_PREFIX = {
 
 route_files = []
 for base in ("flaskr/route", "flaskr/service", "flaskr/common"):
-    for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, base)):
+    for dirpath, dirnames, filenames in os.walk(str(Path(ROOT) / base)):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
         for fn in filenames:
             if fn.endswith(".py"):
-                p = os.path.join(dirpath, fn)
+                p = str(Path(dirpath) / fn)
                 with Path(p).open(encoding="utf-8") as route_file:
                     if ".route(" in route_file.read():
                         route_files.append(os.path.relpath(p, ROOT))
@@ -125,7 +123,7 @@ def collect_routes(scope_body, env, rel):
 
 
 for rel in sorted(route_files):
-    with Path(os.path.join(ROOT, rel)).open(encoding="utf-8") as route_file:
+    with (Path(ROOT) / rel).open(encoding="utf-8") as route_file:
         src = route_file.read()
     tree = ast.parse(src)
     for fn in tree.body:
