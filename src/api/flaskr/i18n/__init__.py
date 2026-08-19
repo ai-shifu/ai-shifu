@@ -1,3 +1,5 @@
+"""Backend translation loading and lookup."""
+
 import importlib.util
 import json
 import os

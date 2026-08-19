@@ -1,3 +1,5 @@
+"""Database, cache and session infrastructure."""
+
 import collections
 import contextlib
 import functools

@@ -1,3 +1,5 @@
+"""Flask CLI commands for migrations and maintenance tasks."""
+
 import asyncio
 import logging
 import tempfile
