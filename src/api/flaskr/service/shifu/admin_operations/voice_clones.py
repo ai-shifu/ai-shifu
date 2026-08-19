@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from decimal import Decimal
-from typing import Any, Sequence
+from typing import Any
 
 from flask import Flask
 from flaskr.api.tts import get_default_voice_settings, synthesize_text

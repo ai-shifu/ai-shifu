@@ -13,8 +13,9 @@ names registered in ``src/api/error_codes.json``.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from flaskr.i18n import _
 from flaskr.service.common.models import ERROR_CODE, AppException

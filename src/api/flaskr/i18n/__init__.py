@@ -3,8 +3,8 @@ import json
 import os
 import threading
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from flask import Flask
 

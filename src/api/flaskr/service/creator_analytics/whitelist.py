@@ -18,8 +18,8 @@ builder, driven by :class:`TableSpec` flags:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.learn.models import (

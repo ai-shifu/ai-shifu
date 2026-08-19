@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Generator
+from collections.abc import Generator
 
 from flask import Flask
 from flaskr.service.learn.learn_dtos import (

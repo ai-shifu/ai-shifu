@@ -2,10 +2,11 @@ import asyncio
 import logging
 import os
 import time
+from collections.abc import Callable, Generator
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import Any, Callable, Generator
+from typing import Any
 
 import requests
 

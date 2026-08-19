@@ -5,9 +5,10 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from flask import Flask, current_app
 from flaskr.dao import db

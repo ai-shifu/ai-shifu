@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Sequence
 from decimal import Decimal
-from typing import Any, Sequence
+from typing import Any
 
 from flask import Flask
 from flaskr.api.llm import PROVIDER_STATES, get_current_models

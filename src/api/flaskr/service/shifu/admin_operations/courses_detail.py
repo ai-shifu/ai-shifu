@@ -5,8 +5,8 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from decimal import Decimal
-from typing import Sequence
 
 from flask import Flask
 from flaskr.common.umami_client import get_course_visit_count_30d

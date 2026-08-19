@@ -6,18 +6,19 @@ monkeypatch targets keep working.
 Shim retained for one release cycle per backend-overhaul-master.md B5.
 """
 
-# ruff: noqa: F401, E402
+# ruff: noqa: F401, E402, UP035
 
 from __future__ import annotations
 
 import json
 import re
 import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from json import JSONDecodeError
-from typing import Any, Dict, Iterable, Optional, Sequence, Set
+from typing import Any, Dict, Optional, Set
 
 from flask import current_app
 from flaskr.common.i18n_utils import get_markdownflow_output_language

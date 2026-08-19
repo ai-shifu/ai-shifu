@@ -23,7 +23,8 @@ Event names, payload shapes, and sequencing are FROZEN per
 ``flaskr/service/learn/AGENTS.md``; the golden suite is the contract gate.
 """
 
-from typing import TYPE_CHECKING, Generator
+from collections.abc import Generator
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.i18n import _

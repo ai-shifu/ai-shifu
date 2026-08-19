@@ -8,10 +8,11 @@ import json
 import os
 import sys
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from flaskr.util.datetime import now_utc, to_utc_iso
 from sqlalchemy import Numeric, bindparam, inspect, text

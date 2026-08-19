@@ -2,8 +2,9 @@ import datetime
 import decimal
 import json
 import re
+from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext, suppress
-from typing import Any, Iterator
+from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pytz

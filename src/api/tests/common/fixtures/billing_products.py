@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from decimal import Decimal
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_MANUAL,

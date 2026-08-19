@@ -20,9 +20,9 @@ import logging
 import re
 import time
 import uuid
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Sequence
 
 from flask import Flask
 from flaskr.api.tts import (

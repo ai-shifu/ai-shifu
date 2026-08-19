@@ -45,8 +45,9 @@ result so the summary is stable.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from flask import Flask
 from flaskr.i18n import _
