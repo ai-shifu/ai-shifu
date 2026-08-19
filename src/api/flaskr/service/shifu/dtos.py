@@ -143,6 +143,11 @@ class ShifuDetailDto(BaseModel):
         required=False,
     )
     tts_emotion: str = Field("", description="TTS emotion setting", required=False)
+    default_listen_mode_enabled: bool = Field(
+        False,
+        description="Default learner mode to listen when TTS is enabled",
+        required=False,
+    )
     use_learner_language: bool = Field(
         False,
         description="Use learner language for AI output",
@@ -199,6 +204,7 @@ class ShifuDetailDto(BaseModel):
         tts_speed: float = 1.0,
         tts_pitch: int = 0,
         tts_emotion: str = "",
+        default_listen_mode_enabled: bool = False,
         use_learner_language: bool = False,
         ask_enabled_status: int = 5101,
         ask_model: str = "",
@@ -230,6 +236,7 @@ class ShifuDetailDto(BaseModel):
             tts_speed=tts_speed,
             tts_pitch=tts_pitch,
             tts_emotion=tts_emotion,
+            default_listen_mode_enabled=default_listen_mode_enabled,
             use_learner_language=use_learner_language,
             ask_enabled_status=ask_enabled_status,
             ask_model=ask_model,
@@ -263,6 +270,7 @@ class ShifuDetailDto(BaseModel):
             "tts_speed": self.tts_speed,
             "tts_pitch": self.tts_pitch,
             "tts_emotion": self.tts_emotion,
+            "default_listen_mode_enabled": self.default_listen_mode_enabled,
             "use_learner_language": self.use_learner_language,
             "ask_enabled_status": self.ask_enabled_status,
             "ask_model": self.ask_model,

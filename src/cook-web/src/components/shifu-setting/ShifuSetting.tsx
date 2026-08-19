@@ -149,6 +149,7 @@ interface Shifu {
   tts_speed?: number;
   tts_pitch?: number;
   tts_emotion?: string;
+  default_listen_mode_enabled?: boolean;
   // Language Output Configuration
   use_learner_language?: boolean;
 }
@@ -237,12 +238,15 @@ export default function ShifuSettingDialog({
   } | null>(null);
 
   // TTS Configuration state
+  const [settingsLoading, setSettingsLoading] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [ttsProvider, setTtsProvider] = useState('');
   const [ttsModel, setTtsModel] = useState('');
   const [ttsVoiceId, setTtsVoiceId] = useState('');
   const [ttsSpeed, setTtsSpeed] = useState<number | null>(1.0);
   const [ttsSpeedInput, setTtsSpeedInput] = useState<string>('1.0');
+  const [defaultListenModeEnabled, setDefaultListenModeEnabled] =
+    useState(false);
   const [minimaxClonedVoices, setMinimaxClonedVoices] = useState<
     MiniMaxClonedVoice[]
   >([]);
@@ -251,6 +255,7 @@ export default function ShifuSettingDialog({
   const [minimaxCloneDialogOpen, setMinimaxCloneDialogOpen] = useState(false);
   const [minimaxManualVoiceId, setMinimaxManualVoiceId] = useState('');
   const ttsProviderToastShownRef = useRef(false);
+  const settingsRequestSeqRef = useRef(0);
 
   // Language Output Configuration state
   const [useLearnerLanguage, setUseLearnerLanguage] = useState(false);
@@ -1109,6 +1114,9 @@ export default function ShifuSettingDialog({
           tts_speed: speedValue,
           tts_pitch: 0,
           tts_emotion: '',
+          default_listen_mode_enabled: ttsEnabled
+            ? defaultListenModeEnabled
+            : false,
           // Language Output Configuration
           use_learner_language: useLearnerLanguage,
         };
@@ -1150,6 +1158,7 @@ export default function ShifuSettingDialog({
       ttsModel,
       ttsVoiceId,
       speedValue,
+      defaultListenModeEnabled,
       useLearnerLanguage,
       askConfigMeta,
       askModel,
@@ -1165,63 +1174,93 @@ export default function ShifuSettingDialog({
   );
 
   const init = async () => {
-    ttsProviderToastShownRef.current = false;
-    const result = normalizeShifuDetail(
-      (await api.getShifuDetail({
-        shifu_bid: shifuId,
-      })) as Shifu,
-    );
+    const requestSeq = settingsRequestSeqRef.current + 1;
+    settingsRequestSeqRef.current = requestSeq;
+    const isActiveRequest = () => settingsRequestSeqRef.current === requestSeq;
 
-    if (result) {
-      form.reset({
-        name: result.name,
-        description: result.description,
-        price: (result.price ?? 0).toFixed(2),
-        model: result.model || '',
-        temperature: result.temperature + '',
-        systemPrompt: result.system_prompt || '',
+    ttsProviderToastShownRef.current = false;
+    setSettingsLoading(true);
+    try {
+      const result = normalizeShifuDetail(
+        (await api.getShifuDetail({
+          shifu_bid: shifuId,
+        })) as Shifu,
+      );
+
+      if (!isActiveRequest()) {
+        return;
+      }
+
+      if (result) {
+        form.reset({
+          name: result.name,
+          description: result.description,
+          price: (result.price ?? 0).toFixed(2),
+          model: result.model || '',
+          temperature: result.temperature + '',
+          systemPrompt: result.system_prompt || '',
+        });
+        const rawAskProviderConfig =
+          result.ask_provider_config &&
+          typeof result.ask_provider_config === 'object' &&
+          !Array.isArray(result.ask_provider_config)
+            ? result.ask_provider_config
+            : {};
+        const rawAskProviderInnerConfig =
+          rawAskProviderConfig.config &&
+          typeof rawAskProviderConfig.config === 'object' &&
+          !Array.isArray(rawAskProviderConfig.config)
+            ? rawAskProviderConfig.config
+            : {};
+        setAskModel(result.ask_model || '');
+        setAskTemperature(result.ask_temperature ?? ASK_TEMPERATURE_MIN);
+        setAskTemperatureInput(
+          String(result.ask_temperature ?? ASK_TEMPERATURE_MIN),
+        );
+        setAskProvider(
+          (rawAskProviderConfig.provider || ASK_PROVIDER_LLM).toLowerCase(),
+        );
+        setAskProviderConfig(rawAskProviderInnerConfig);
+        setAskProviderObjectInputs({});
+        setAskPreviewLoading(false);
+        setAskPreviewQuery('');
+        setAskPreviewResult('');
+        setAskPreviewMeta(null);
+        setKeywords(result.keywords || []);
+        setUploadedImageUrl(result.avatar || '');
+        // Set TTS Configuration
+        setTtsEnabled(result.tts_enabled || false);
+        setTtsProvider((result.tts_provider || '').toLowerCase());
+        setTtsModel(result.tts_model || '');
+        setTtsVoiceId(result.tts_voice_id || '');
+        setTtsSpeed(result.tts_speed ?? 1.0);
+        setDefaultListenModeEnabled(
+          Boolean(result.tts_enabled && result.default_listen_mode_enabled),
+        );
+        setTtsSpeedInput(
+          result.tts_speed === null || result.tts_speed === undefined
+            ? ''
+            : String(result.tts_speed),
+        );
+        // Set Language Output Configuration
+        setUseLearnerLanguage(result.use_learner_language ?? false);
+      }
+    } catch (error) {
+      if (!isActiveRequest()) {
+        return;
+      }
+      console.error('Failed to load shifu settings:', error);
+      toast({
+        title:
+          error instanceof Error
+            ? error.message
+            : t('common.core.unknownError'),
+        variant: 'destructive',
       });
-      const rawAskProviderConfig =
-        result.ask_provider_config &&
-        typeof result.ask_provider_config === 'object' &&
-        !Array.isArray(result.ask_provider_config)
-          ? result.ask_provider_config
-          : {};
-      const rawAskProviderInnerConfig =
-        rawAskProviderConfig.config &&
-        typeof rawAskProviderConfig.config === 'object' &&
-        !Array.isArray(rawAskProviderConfig.config)
-          ? rawAskProviderConfig.config
-          : {};
-      setAskModel(result.ask_model || '');
-      setAskTemperature(result.ask_temperature ?? ASK_TEMPERATURE_MIN);
-      setAskTemperatureInput(
-        String(result.ask_temperature ?? ASK_TEMPERATURE_MIN),
-      );
-      setAskProvider(
-        (rawAskProviderConfig.provider || ASK_PROVIDER_LLM).toLowerCase(),
-      );
-      setAskProviderConfig(rawAskProviderInnerConfig);
-      setAskProviderObjectInputs({});
-      setAskPreviewLoading(false);
-      setAskPreviewQuery('');
-      setAskPreviewResult('');
-      setAskPreviewMeta(null);
-      setKeywords(result.keywords || []);
-      setUploadedImageUrl(result.avatar || '');
-      // Set TTS Configuration
-      setTtsEnabled(result.tts_enabled || false);
-      setTtsProvider((result.tts_provider || '').toLowerCase());
-      setTtsModel(result.tts_model || '');
-      setTtsVoiceId(result.tts_voice_id || '');
-      setTtsSpeed(result.tts_speed ?? 1.0);
-      setTtsSpeedInput(
-        result.tts_speed === null || result.tts_speed === undefined
-          ? ''
-          : String(result.tts_speed),
-      );
-      // Set Language Output Configuration
-      setUseLearnerLanguage(result.use_learner_language ?? false);
+    } finally {
+      if (isActiveRequest()) {
+        setSettingsLoading(false);
+      }
     }
   };
 
@@ -1429,6 +1468,12 @@ export default function ShifuSettingDialog({
         updateOpen(false);
         return true;
       }
+      if (settingsLoading) {
+        if (needClose) {
+          updateOpen(true);
+        }
+        return false;
+      }
       const isNameValid = await form.trigger('name');
       const isPriceValid = await form.trigger('price');
       if (!isPriceValid) {
@@ -1459,7 +1504,7 @@ export default function ShifuSettingDialog({
       await onSubmit(form.getValues(), needClose, saveType);
       return true;
     },
-    [form, onSubmit, updateOpen, t, currentShifu?.readonly],
+    [form, onSubmit, updateOpen, t, currentShifu?.readonly, settingsLoading],
   );
 
   useEffect(() => {
@@ -1957,12 +2002,30 @@ export default function ShifuSettingDialog({
                     <Switch
                       checked={ttsEnabled}
                       onCheckedChange={setTtsEnabled}
-                      disabled={currentShifu?.readonly}
+                      disabled={currentShifu?.readonly || settingsLoading}
                     />
                   </div>
 
                   {ttsEnabled && (
                     <>
+                      <div className='flex items-start justify-between mb-4'>
+                        <div className='space-y-1 pr-4'>
+                          <FormLabel className='text-sm font-medium text-foreground'>
+                            {t('module.shifuSetting.defaultListenModeTitle')}
+                          </FormLabel>
+                          <p className='text-xs text-muted-foreground'>
+                            {t(
+                              'module.shifuSetting.defaultListenModeDescription',
+                            )}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={defaultListenModeEnabled}
+                          onCheckedChange={setDefaultListenModeEnabled}
+                          disabled={currentShifu?.readonly || settingsLoading}
+                        />
+                      </div>
+
                       {/* Model Selection */}
                       <div className='space-y-2 mb-4'>
                         <FormLabel className='text-sm font-medium text-foreground'>

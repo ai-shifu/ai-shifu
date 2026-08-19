@@ -265,6 +265,9 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
             price=str(shifu.price),
             keywords=shifu.keywords.split(",") if shifu.keywords else [],
             tts_enabled=tts_enabled,
+            default_listen_mode_enabled=bool(
+                getattr(shifu, "default_listen_mode_enabled", 0)
+            ),
         )
 
 
