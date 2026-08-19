@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-import flaskr.common.public_urls as public_urls
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
+from flaskr.common import public_urls
 from flaskr.common.config import ENV_VARS
 from flaskr.route import config as config_route
 from flaskr.service.billing.consts import (

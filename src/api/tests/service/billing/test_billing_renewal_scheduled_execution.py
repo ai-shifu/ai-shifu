@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing import renewal as billing_renewal
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,

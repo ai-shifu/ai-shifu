@@ -2,8 +2,8 @@ import json
 import unittest
 from datetime import datetime
 
-import flaskr.dao as dao
 from flask import Flask
+from flaskr import dao
 from flaskr.service.learn.lesson_feedback import (
     _sync_feedback_to_generated_block,
     build_lesson_feedback_interaction_md,

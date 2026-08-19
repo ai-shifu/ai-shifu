@@ -5,7 +5,6 @@ from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import flaskr.service.billing.campaigns as billing_campaigns_module
 import flaskr.service.billing.entitlements as billing_entitlements_module
 import flaskr.service.billing.queries as billing_queries_module
@@ -13,6 +12,7 @@ import flaskr.service.billing.read_models as billing_read_models_module
 import flaskr.service.billing.serializers as billing_serializers_module
 import pytest
 from flask import Flask, jsonify, request
+from flaskr import dao
 from flaskr.service.billing.capabilities import build_billing_route_bootstrap
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,

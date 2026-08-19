@@ -1,7 +1,7 @@
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.common.models import ERROR_CODE
 
 

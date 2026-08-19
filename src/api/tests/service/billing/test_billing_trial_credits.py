@@ -4,9 +4,9 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask, jsonify, request
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
     BILLING_ORDER_STATUS_PAID,

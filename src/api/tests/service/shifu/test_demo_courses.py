@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.service.shifu.models import PublishedShifu
 

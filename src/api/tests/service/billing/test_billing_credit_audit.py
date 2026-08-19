@@ -4,9 +4,9 @@ import json
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.cli import register_billing_commands
 from flaskr.service.billing.consts import (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,

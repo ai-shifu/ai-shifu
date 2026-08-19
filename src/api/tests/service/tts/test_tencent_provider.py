@@ -124,7 +124,7 @@ def test_tencent_sse_tc3_headers_sign_exact_request_payload():
 
 def test_tencent_provider_config_validation_and_explicit_only(monkeypatch):
     import flaskr.api.tts as tts_api
-    import flaskr.api.tts.tencent_provider as tencent_provider
+    from flaskr.api.tts import tencent_provider
     from flaskr.common.config import ENV_VARS
     from flaskr.service.tts.validation import validate_tts_settings_strict
 
@@ -185,7 +185,7 @@ def test_tencent_provider_config_validation_and_explicit_only(monkeypatch):
 def test_tencent_provider_stream_synthesize_parses_sse_audio_and_alignments(
     monkeypatch,
 ):
-    import flaskr.api.tts.tencent_provider as tencent_provider
+    from flaskr.api.tts import tencent_provider
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
 
     _patch_tencent_config(monkeypatch, tencent_provider)
@@ -269,7 +269,7 @@ def test_tencent_provider_stream_synthesize_parses_sse_audio_and_alignments(
 def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
     monkeypatch,
 ):
-    import flaskr.api.tts.tencent_provider as tencent_provider
+    from flaskr.api.tts import tencent_provider
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
 
     _patch_tencent_config(monkeypatch, tencent_provider)
@@ -354,7 +354,7 @@ def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
 
 
 def test_tencent_provider_raises_sanitized_error_on_sse_error(monkeypatch):
-    import flaskr.api.tts.tencent_provider as tencent_provider
+    from flaskr.api.tts import tencent_provider
 
     _patch_tencent_config(monkeypatch, tencent_provider)
 

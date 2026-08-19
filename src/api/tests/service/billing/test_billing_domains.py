@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import flaskr.service.billing.domains as billing_domains
 import pytest
 from flask import Flask, jsonify, request
+from flaskr import dao
 from flaskr.common.shifu_context import get_shifu_creator_bid, with_shifu_context
 from flaskr.service.billing.consts import (
     BILLING_DOMAIN_BINDING_STATUS_DISABLED,

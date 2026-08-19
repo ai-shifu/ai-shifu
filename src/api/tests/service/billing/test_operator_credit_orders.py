@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-import flaskr.dao as dao
 from flask import Flask
+from flaskr import dao
 from flaskr.i18n import load_translations
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_CANCELED,

@@ -3,8 +3,8 @@ import json
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
+from flaskr import dao
 from flaskr.common import config as config_module
 from flaskr.service.billing.consts import BILLING_TRIAL_PRODUCT_BID
 from flaskr.service.billing.models import BillingOrder, BillingProduct

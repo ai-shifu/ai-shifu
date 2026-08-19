@@ -146,7 +146,7 @@ def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch):
     """The global teardown guard must fire on abnormal context exits and run
     BEFORE Flask-SQLAlchemy's remove (reverse registration order).
     """
-    import flaskr.dao as dao
+    from flaskr import dao
 
     order = []
     monkeypatch.setattr(
@@ -174,7 +174,7 @@ def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch):
 
 
 def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
-    import flaskr.dao as dao
+    from flaskr import dao
 
     invalidations = []
     monkeypatch.setattr(
@@ -193,7 +193,7 @@ def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
 def test_release_session_classified_invalidates_during_propagating_interrupt(
     app, monkeypatch
 ):
-    import flaskr.dao as dao
+    from flaskr import dao
 
     order = []
     monkeypatch.setattr(
@@ -238,7 +238,7 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
 
 
 def test_release_session_classified_ignores_ordinary_exceptions(app, monkeypatch):
-    import flaskr.dao as dao
+    from flaskr import dao
 
     invalidations = []
     monkeypatch.setattr(
