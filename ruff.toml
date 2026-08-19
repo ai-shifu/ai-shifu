@@ -204,6 +204,7 @@ select = [
     "PTH103", # os.makedirs to Path.mkdir
     "PTH206", # os.sep split to Path.parts
     "PTH112", # os.path.isdir to Path.is_dir
+    "PTH120", # os.path.dirname to Path.parent
 ]
 ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention

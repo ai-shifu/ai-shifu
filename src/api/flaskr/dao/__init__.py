@@ -9,6 +9,7 @@ import select as select_module
 import sys
 import time
 import traceback
+from pathlib import Path
 
 import sqlparse
 from flask import Flask
@@ -599,7 +600,7 @@ def init_db(app: Flask):
             ):
                 stack = traceback.extract_stack()
                 project_root = os.path.abspath(
-                    os.path.join(os.path.dirname(__file__), "../../../")
+                    os.path.join(str(Path(__file__).parent), "../../../")
                 )
                 caller_info = "Unknown location"
 
