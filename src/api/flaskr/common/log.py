@@ -175,7 +175,7 @@ def init_log(app: Flask) -> Flask:
                     request_body["Raw"] = request.get_data(as_text=True)
                 app.logger.info(f"Request body: {request_body}")
             except Exception as e:
-                app.logger.error(f"Failed to get request body: {e}")
+                app.logger.exception(f"Failed to get request body: {e}")
         else:
             app.logger.info(f"Request method: {request.method}")
 
@@ -199,7 +199,7 @@ def init_log(app: Flask) -> Flask:
             response_data = response.get_data(as_text=True)
             app.logger.info(f"Response: {response_data}")
         except Exception as e:
-            app.logger.error(f"Error logging response: {e!s}")
+            app.logger.exception(f"Error logging response: {e!s}")
         return response
 
     host_name = socket.gethostname()

@@ -166,7 +166,7 @@ def import_shifu(
                 file_content = file_content.decode("utf-8")
             import_data = json.loads(file_content)
         except Exception as e:
-            app.logger.error(f"Failed to parse JSON file: {e}")
+            app.logger.exception(f"Failed to parse JSON file: {e}")
             raise_error("server.shifu.importFileInvalid")
 
         # Validate import data

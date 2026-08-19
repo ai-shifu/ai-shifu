@@ -357,7 +357,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
             )
             body = response.json()
         except requests.RequestException as exc:
-            logger.error("Tencent TextToVoice request failed: %s", exc)
+            logger.exception("Tencent TextToVoice request failed: %s", exc)
             raise ValueError(f"Tencent TextToVoice request failed: {exc}") from exc
         except ValueError as exc:
             raise ValueError(

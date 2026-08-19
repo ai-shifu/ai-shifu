@@ -390,7 +390,7 @@ class VolcengineProtocol:
                         try:
                             payload = json.loads(payload_data.decode("utf-8"))
                         except json.JSONDecodeError as e:
-                            logger.error(f"Failed to parse JSON payload: {e}")
+                            logger.exception(f"Failed to parse JSON payload: {e}")
                             payload = payload_data
                     else:
                         payload = payload_data

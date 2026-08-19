@@ -271,7 +271,7 @@ class UnifiedMigrationTask:
                 sys.stdout.flush()
 
             except Exception as e:
-                logger.error(
+                logger.exception(
                     f"Batch processing failed for {source_table} at offset {offset}: {e}"
                 )
                 errors.append(f"Batch error at offset {offset}: {e!s}")
@@ -445,7 +445,7 @@ class UnifiedMigrationTask:
                     error_count += 1
                     error_msg = f"Record migration failed for {getattr(record, key_field)}: {e!s}"
                     error_messages.append(error_msg)
-                    logger.error(error_msg)
+                    logger.exception(error_msg)
 
                     if (
                         error_count > self.config.batch_size * 0.5
@@ -474,7 +474,7 @@ class UnifiedMigrationTask:
 
         except Exception as e:
             session.rollback()
-            logger.error(f"Batch processing failed: {e}")
+            logger.exception(f"Batch processing failed: {e}")
             raise
         finally:
             session.close()
@@ -521,7 +521,7 @@ class UnifiedMigrationTask:
                 )
 
             except Exception as e:
-                logger.error(f"Consistency check failed for {source_table}: {e}")
+                logger.exception(f"Consistency check failed for {source_table}: {e}")
                 results[source_table] = ConsistencyCheckResult(
                     table_pair=f"{source_table} -> {target_table}",
                     old_count=0,
@@ -589,7 +589,7 @@ class UnifiedMigrationTask:
             return passed, mismatches
 
         except Exception as e:
-            logger.error(f"Sample integrity check failed: {e}")
+            logger.exception(f"Sample integrity check failed: {e}")
             return False, [f"Integrity check error: {e!s}"]
         finally:
             session.close()
@@ -619,7 +619,7 @@ class UnifiedMigrationTask:
             return True  # Basic existence check for other tables
 
         except Exception as e:
-            logger.error(f"Record mapping verification failed: {e}")
+            logger.exception(f"Record mapping verification failed: {e}")
             return False
 
     # Table mapping functions
@@ -713,7 +713,7 @@ class UnifiedMigrationTask:
             ).fetchone()
             return result is not None
         except Exception as e:
-            logger.error(f"Error checking table existence {table_name}: {e}")
+            logger.exception(f"Error checking table existence {table_name}: {e}")
             return False
         finally:
             session.close()
@@ -730,7 +730,7 @@ class UnifiedMigrationTask:
             count = session.execute(text(query)).scalar()
             return count or 0
         except Exception as e:
-            logger.error(f"Error getting table count for {table_name}: {e}")
+            logger.exception(f"Error getting table count for {table_name}: {e}")
             return 0
 
     def _check_column_exists_with_session(
@@ -750,7 +750,7 @@ class UnifiedMigrationTask:
             ).scalar()
             return result > 0
         except Exception as e:
-            logger.error(
+            logger.exception(
                 f"Error checking column existence {table_name}.{column_name}: {e}"
             )
             return False
@@ -775,7 +775,7 @@ class UnifiedMigrationTask:
             count = session.execute(text(query)).scalar()
             return count or 0
         except Exception as e:
-            logger.error(f"Error getting table count for {table_name}: {e}")
+            logger.exception(f"Error getting table count for {table_name}: {e}")
             return 0
         finally:
             session.close()
@@ -924,7 +924,7 @@ class UnifiedMigrationTask:
 
             session.commit()
         except Exception as e:
-            logger.error(f"Error creating sync log table: {e}")
+            logger.exception(f"Error creating sync log table: {e}")
 
     def generate_migration_report(
         self,

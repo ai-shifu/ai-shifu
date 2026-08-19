@@ -144,6 +144,7 @@ select = [
     "SIM4",    # if-else block instead of dict.get
     "SIM9",    # dict.get(key, None)
     "TRY203",  # exception handler that only re-raises
+    "TRY400",  # logging.error inside except that should be logging.exception
     "UP01",    # redundant str.encode/open() arguments
     "UP02",    # capture_output, deprecated OSError alias, yield from
     "UP031",   # percent formatting that should be str.format

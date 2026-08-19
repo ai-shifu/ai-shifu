@@ -62,7 +62,7 @@ class PingxxProvider(PaymentProvider):
         try:
             client = _get_pingpp_client()
         except Exception as exc:  # pragma: no cover
-            app.logger.error("Pingxx dependency is not available: %s", exc)
+            app.logger.exception("Pingxx dependency is not available: %s", exc)
             raise RuntimeError("Pingxx dependency is not available") from exc
 
         api_key = get_config("PINGXX_SECRET_KEY")
