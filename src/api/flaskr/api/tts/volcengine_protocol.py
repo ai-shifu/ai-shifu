@@ -391,8 +391,8 @@ class VolcengineProtocol:
                     if serialization == SerializationMethod.JSON:
                         try:
                             payload = json.loads(payload_data.decode("utf-8"))
-                        except json.JSONDecodeError as e:
-                            logger.exception(f"Failed to parse JSON payload: {e}")
+                        except json.JSONDecodeError:
+                            logger.exception("Failed to parse JSON payload")
                             payload = payload_data
                     else:
                         payload = payload_data

@@ -40,10 +40,8 @@ class PluginHotReloader:
             self._register_plugin(module)
 
             self.app.logger.info(f"Hot reload plugin success: {plugin_path}")
-        except Exception as e:
-            self.app.logger.exception(
-                f"Hot reload plugin failed: {plugin_path}, error: {e!s}"
-            )
+        except Exception:
+            self.app.logger.exception(f"Hot reload plugin failed: {plugin_path}")
 
     def _unload_plugin(self, plugin_path: str):
         """Unload a plugin and clean up its resources.
@@ -84,8 +82,8 @@ class PluginHotReloader:
 
             self.app.logger.info(f"Plugin unloaded: {module_name}")
 
-        except Exception as e:
-            self.app.logger.exception(f"Failed to unload plugin {plugin_path}: {e!s}")
+        except Exception:
+            self.app.logger.exception(f"Failed to unload plugin {plugin_path}")
 
     def _register_plugin(self, module):
         """Register a newly loaded plugin.
@@ -112,10 +110,8 @@ class PluginHotReloader:
 
             self.app.logger.info(f"Plugin registered: {module.__name__}")
 
-        except Exception as e:
-            self.app.logger.exception(
-                f"Failed to register plugin {module.__name__}: {e!s}"
-            )
+        except Exception:
+            self.app.logger.exception(f"Failed to register plugin {module.__name__}")
 
 
 class PluginFileHandler(FileSystemEventHandler):

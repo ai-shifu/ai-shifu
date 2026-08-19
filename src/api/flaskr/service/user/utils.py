@@ -313,8 +313,8 @@ def send_email_code(
             app.logger.info(f"Verification code sent to {email}")
             user_verify_code.verify_code_send = 1
             db.session.commit()
-        except Exception as e:
-            app.logger.exception(f"Failed to send verification code to {email}: {e!s}")
+        except Exception:
+            app.logger.exception(f"Failed to send verification code to {email}")
             raise_error("server.user.emailSendFailed")
         return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
 

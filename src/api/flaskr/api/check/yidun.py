@@ -151,8 +151,8 @@ def yidun_check(
             provider=PROVIDER,
             raw_data=response_json,
         )
-    except Exception as ex:
-        app.logger.exception("yidun check error: %r", ex)
+    except Exception:
+        app.logger.exception("yidun check error")
         return CheckResultDTO(
             check_result=CHECK_RESULT_UNKNOWN,
             risk_labels=[],

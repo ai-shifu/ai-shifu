@@ -281,10 +281,8 @@ class StripeProvider(PaymentProvider):
             event = stripe.Webhook.construct_event(
                 raw_body_str, sig_header, webhook_secret
             )
-        except Exception as exc:  # pragma: no cover - handled in caller
-            app.logger.exception(
-                "Stripe webhook signature verification failed: %s", exc
-            )
+        except Exception:  # pragma: no cover - handled in caller
+            app.logger.exception("Stripe webhook signature verification failed")
             raise
 
         return self._build_notification_from_event(event)

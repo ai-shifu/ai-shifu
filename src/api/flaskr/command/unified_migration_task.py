@@ -277,7 +277,7 @@ class UnifiedMigrationTask:
 
             except Exception as e:
                 logger.exception(
-                    f"Batch processing failed for {source_table} at offset {offset}: {e}"
+                    f"Batch processing failed for {source_table} at offset {offset}"
                 )
                 errors.append(f"Batch error at offset {offset}: {e!s}")
                 error_count += self.config.batch_size
@@ -477,9 +477,9 @@ class UnifiedMigrationTask:
                 "error_messages": error_messages,
             }
 
-        except Exception as e:
+        except Exception:
             session.rollback()
-            logger.exception(f"Batch processing failed: {e}")
+            logger.exception("Batch processing failed")
             raise
         finally:
             session.close()
@@ -526,7 +526,7 @@ class UnifiedMigrationTask:
                 )
 
             except Exception as e:
-                logger.exception(f"Consistency check failed for {source_table}: {e}")
+                logger.exception(f"Consistency check failed for {source_table}")
                 results[source_table] = ConsistencyCheckResult(
                     table_pair=f"{source_table} -> {target_table}",
                     old_count=0,
@@ -594,7 +594,7 @@ class UnifiedMigrationTask:
             return passed, mismatches
 
         except Exception as e:
-            logger.exception(f"Sample integrity check failed: {e}")
+            logger.exception("Sample integrity check failed")
             return False, [f"Integrity check error: {e!s}"]
         finally:
             session.close()
@@ -623,8 +623,8 @@ class UnifiedMigrationTask:
                 )
             return True  # Basic existence check for other tables
 
-        except Exception as e:
-            logger.exception(f"Record mapping verification failed: {e}")
+        except Exception:
+            logger.exception("Record mapping verification failed")
             return False
 
     # Table mapping functions
@@ -717,8 +717,8 @@ class UnifiedMigrationTask:
                 text(f"SHOW TABLES LIKE '{table_name}'")
             ).fetchone()
             return result is not None
-        except Exception as e:
-            logger.exception(f"Error checking table existence {table_name}: {e}")
+        except Exception:
+            logger.exception(f"Error checking table existence {table_name}")
             return False
         finally:
             session.close()
@@ -734,8 +734,8 @@ class UnifiedMigrationTask:
 
             count = session.execute(text(query)).scalar()
             return count or 0
-        except Exception as e:
-            logger.exception(f"Error getting table count for {table_name}: {e}")
+        except Exception:
+            logger.exception(f"Error getting table count for {table_name}")
             return 0
 
     def _check_column_exists_with_session(
@@ -754,9 +754,9 @@ class UnifiedMigrationTask:
                 )
             ).scalar()
             return result > 0
-        except Exception as e:
+        except Exception:
             logger.exception(
-                f"Error checking column existence {table_name}.{column_name}: {e}"
+                f"Error checking column existence {table_name}.{column_name}"
             )
             return False
 
@@ -779,8 +779,8 @@ class UnifiedMigrationTask:
 
             count = session.execute(text(query)).scalar()
             return count or 0
-        except Exception as e:
-            logger.exception(f"Error getting table count for {table_name}: {e}")
+        except Exception:
+            logger.exception(f"Error getting table count for {table_name}")
             return 0
         finally:
             session.close()
@@ -928,8 +928,8 @@ class UnifiedMigrationTask:
                 logger.warning(f"Error checking/adding last_synced_id column: {e}")
 
             session.commit()
-        except Exception as e:
-            logger.exception(f"Error creating sync log table: {e}")
+        except Exception:
+            logger.exception("Error creating sync log table")
 
     def generate_migration_report(
         self,

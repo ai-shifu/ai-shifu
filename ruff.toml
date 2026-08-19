@@ -87,6 +87,7 @@ select = [
     "TRY2",    # verbose re-raise / exception handler that only re-raises
     "TRY002",  # raising a vanilla Exception instead of a named class
     "TRY400",  # logging.error inside except that should be logging.exception
+    "TRY401",  # exception object interpolated into a logging.exception message
     "TRY004",  # type check raising something other than TypeError
 
     # --- Pylint subsets ---------------------------------------------------

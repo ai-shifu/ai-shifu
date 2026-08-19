@@ -700,7 +700,7 @@ def _get_access_token(api_key: str, secret_key: str) -> str:
         return access_token
 
     except requests.RequestException as e:
-        logger.exception(f"Failed to get Baidu access token: {e}")
+        logger.exception("Failed to get Baidu access token")
         raise ValueError(f"Failed to get Baidu access token: {e}") from e
 
 
@@ -915,7 +915,7 @@ class BaiduTTSProvider(BaseTTSProvider):
                 raise ValueError(f"Baidu TTS API error: {response.text[:200]}") from e
 
         except requests.RequestException as e:
-            logger.exception(f"Baidu TTS request failed: {e}")
+            logger.exception("Baidu TTS request failed")
             raise ValueError(f"Baidu TTS request failed: {e}") from e
 
     def get_provider_config(self) -> ProviderConfig:

@@ -2097,8 +2097,8 @@ class Config(FlaskConfig):
         try:
             self.enhanced.validate_environment(allow_conversion_errors=True)
             app.logger.info("Environment configuration validated successfully")
-        except EnvironmentConfigError as e:
-            app.logger.exception(f"Environment configuration error: {e}")
+        except EnvironmentConfigError:
+            app.logger.exception("Environment configuration error")
             raise
         self._populate_redis_prefixes()
 

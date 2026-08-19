@@ -582,7 +582,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
                         session_finished.set()
 
             except Exception as e:
-                logger.exception(f"Error processing message: {e}")
+                logger.exception("Error processing message")
                 error_message = str(e)
                 session_started.set()
                 session_finished.set()

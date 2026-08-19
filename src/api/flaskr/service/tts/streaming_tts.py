@@ -675,10 +675,9 @@ class StreamingTTSProcessor:
                 segment.is_ready = True
             except Exception as e:
                 logger.exception(
-                    "TTS segment %s failed: %s provider=%s model=%s "
+                    "TTS segment %s failed: provider=%s model=%s "
                     "text_len=%s text_preview=%r",
                     segment.index,
-                    e,
                     tts_provider or "(auto)",
                     tts_model or "(unset)",
                     len(segment.text or ""),
@@ -1450,7 +1449,7 @@ class StreamingTTSProcessor:
                 final_duration_ms,
             )
         except Exception as e:
-            logger.exception(f"Failed to finalize TTS: {e}")
+            logger.exception("Failed to finalize TTS")
             # The swallowed error may be a desync surfaced by the audio
             # record write; classify so an interrupted exchange discards the
             # connection instead of leaving it for the next statement.
@@ -2031,8 +2030,8 @@ class StreamingTTSProcessor:
         for future in self._pending_futures:
             try:
                 future.result(timeout=60)  # Max 60s per segment
-            except Exception as e:
-                logger.exception(f"TTS future failed: {e}")
+            except Exception:
+                logger.exception("TTS future failed")
 
         # Yield any remaining segments
         yield from self._yield_ready_segments()

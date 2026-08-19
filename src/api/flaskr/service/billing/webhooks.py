@@ -146,7 +146,7 @@ def handle_billing_stripe_webhook(
             app=app,
         )
     except Exception as exc:  # pragma: no cover - verified via route tests
-        app.logger.exception("Stripe billing webhook verification failed: %s", exc)
+        app.logger.exception("Stripe billing webhook verification failed")
         return BillingWebhookResult(
             status="error",
             message=str(exc),
@@ -406,7 +406,7 @@ def handle_billing_alipay_webhook(
     try:
         notification = provider.handle_notification(payload=payload, app=app)
     except Exception as exc:  # pragma: no cover - route-level verification path
-        app.logger.exception("Alipay billing webhook verification failed: %s", exc)
+        app.logger.exception("Alipay billing webhook verification failed")
         return BillingWebhookResult(status="error", message=str(exc), status_code=400)
     return apply_billing_native_notification(app, "alipay", notification)
 
@@ -425,7 +425,7 @@ def handle_billing_wechatpay_webhook(
             app=app,
         )
     except Exception as exc:  # pragma: no cover - route-level verification path
-        app.logger.exception("WeChat Pay billing webhook verification failed: %s", exc)
+        app.logger.exception("WeChat Pay billing webhook verification failed")
         return BillingWebhookResult(status="error", message=str(exc), status_code=400)
     return apply_billing_native_notification(app, "wechatpay", notification)
 

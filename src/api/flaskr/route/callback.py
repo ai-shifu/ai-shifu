@@ -74,8 +74,8 @@ def register_callback_handler(app: Flask, path_prefix: str):
                 if provider_name == "alipay":
                     return _plain_text_response("success")
                 return jsonify({"code": "SUCCESS", "message": "成功"})
-            except Exception as exc:
-                app.logger.exception("Scoped %s webhook failed: %s", provider_name, exc)
+            except Exception:
+                app.logger.exception("Scoped %s webhook failed", provider_name)
                 if provider_name == "alipay":
                     return _plain_text_response("failure")
                 return jsonify({"code": "FAIL", "message": "processing error"}), 400
@@ -133,8 +133,8 @@ def register_callback_handler(app: Flask, path_prefix: str):
                         "billing_and_order_not_matched",
                     )
                     return _plain_text_response("success")
-        except Exception as exc:
-            app.logger.exception("alipay-notify failed: %s", exc)
+        except Exception:
+            app.logger.exception("alipay-notify failed")
             return _plain_text_response("failure")
         return _plain_text_response("success")
 
@@ -171,8 +171,8 @@ def register_callback_handler(app: Flask, path_prefix: str):
                         "billing_and_order_not_matched",
                     )
                     return jsonify({"code": "SUCCESS", "message": "成功"})
-        except Exception as exc:
-            app.logger.exception("wechatpay-notify failed: %s", exc)
+        except Exception:
+            app.logger.exception("wechatpay-notify failed")
             return jsonify({"code": "FAIL", "message": "processing error"}), 400
         return jsonify({"code": "SUCCESS", "message": "成功"})
 
