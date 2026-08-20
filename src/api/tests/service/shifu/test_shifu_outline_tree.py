@@ -31,9 +31,7 @@ def _mk_item(shifu_bid, bid, position, parent_bid=""):
 
 
 def test_build_outline_tree_lifts_orphan_to_root(app):
-    """An orphan whose parent position is missing is attached at root, and its
-    own subtree stays attached to it — nothing is dropped.
-    """
+    """An orphan whose parent position is missing is attached at root, and its own subtree stays attached to it — nothing is dropped."""
     shifu_bid = "shifu_orphan_1"
     with app.app_context():
         _mk_item(shifu_bid, "root1", "01")
@@ -55,9 +53,9 @@ def test_build_outline_tree_lifts_orphan_to_root(app):
 
 
 def test_build_outline_tree_handles_empty_position_without_cycle(app):
-    """A degenerate empty position must not become its own child (which would
-    later blow up get_outline_tree_dto with RecursionError). It is lifted to
-    the root level like any other orphan.
+    """A degenerate empty position must not become its own child (which would later blow up get_outline_tree_dto with RecursionError).
+
+    It is lifted to the root level like any other orphan.
     """
     shifu_bid = "shifu_empty_pos_1"
     with app.app_context():

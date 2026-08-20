@@ -64,6 +64,7 @@ def _pick_coupon_candidate(
     user_id: str,
 ) -> tuple[CouponUsageModel | None, Coupon | None, bool]:
     """Pick a coupon_usage/coupon pair that matches the current course.
+
     Returns (usage, coupon, has_candidate_with_same_code).
     """
     has_candidate_with_same_code = bool(active_usages or coupons_by_code)
@@ -136,7 +137,8 @@ def send_feishu_coupon_code(
 
 
 def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
-    """Use coupon code
+    """Use coupon code.
+
     Args:
         app: Flask app
         user_id: User id
@@ -146,6 +148,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         Order object
     Raises:
         raise_error: If the coupon code is not found or the coupon is already used.
+
     """
     with app.app_context():
         now = now_utc()

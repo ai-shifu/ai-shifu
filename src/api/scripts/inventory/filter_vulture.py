@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Post-process vulture output, excluding known false-positive classes:
+"""Post-process vulture output, excluding known false-positive classes:.
+
 - functions decorated with @inject or Flask route decorators (@*.route(...))
 - functions named register_* (route registration entry points)
 - __json__ methods

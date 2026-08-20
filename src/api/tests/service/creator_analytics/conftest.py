@@ -121,9 +121,11 @@ def seed_published_shifu(
     title: str = "Untitled",
     deleted: int = 0,
 ) -> None:
-    """Seed one PublishedShifu row. Pair with seed_owned_course when the test
-    needs both the draft and the published version of a course (e.g. to cover
-    the "draft title diverges from published title after rename" scenario).
+    """Seed one PublishedShifu row.
+
+    Pair with seed_owned_course when the test needs both the draft and the published version
+    of a course (e.g. to cover the "draft title diverges from published title after rename"
+    scenario).
     """
     now = now_utc()
     db.session.add(

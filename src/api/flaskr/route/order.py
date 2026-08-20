@@ -126,6 +126,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])
     def reqiure_to_pay():
         """Request payment.
+
         ---
         tags:
             - order
@@ -160,7 +161,6 @@ def register_order_handler(app: Flask, path_prefix: str):
                                     description: Response message
                                 data:
                                     $ref: "#/components/schemas/BuyRecordDTO"
-
         """
         payload = request.get_json(silent=True) or {}
         order_id = payload.get("order_id", "")
@@ -181,6 +181,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @with_shifu_context()
     def init_order():
         """Initialize an order.
+
         ---
         tags:
 
@@ -210,7 +211,6 @@ def register_order_handler(app: Flask, path_prefix: str):
                                     description: Response message
                                 data:
                                     $ref: "#/components/schemas/AICourseBuyRecordDTO"
-
         """
         user_id = request.user.user_id
         course_id = request.get_json().get("course_id", "")
@@ -219,6 +219,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/query-order", methods=["POST"])
     def query_order():
         """Query an order.
+
         ---
         tags:
             - order
@@ -248,7 +249,6 @@ def register_order_handler(app: Flask, path_prefix: str):
                                     description: Response message
                                 data:
                                     $ref: "#/components/schemas/AICourseBuyRecordDTO"
-
         """
         order_id = request.get_json().get("order_id", "")
         return make_common_response(query_buy_record(app, order_id))
@@ -256,6 +256,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/apply-discount", methods=["POST"])
     def apply_discount():
         """Apply a discount code.
+
         ---
         tags:
             - order
@@ -287,7 +288,6 @@ def register_order_handler(app: Flask, path_prefix: str):
                                     description: Response message
                                 data:
                                     $ref: "#/components/schemas/AICourseBuyRecordDTO"
-
         """
         discount_code = request.get_json().get("discount_code", "")
         if not discount_code:
@@ -303,6 +303,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/payment-detail", methods=["POST"])
     def payment_detail():
         """Query payment details.
+
         ---
         tags:
             - order
@@ -338,6 +339,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/stripe/sync", methods=["POST"])
     def stripe_sync():
         """Sync the Stripe payment status.
+
         ---
         tags:
             - order
@@ -376,6 +378,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/payment/sync", methods=["POST"])
     def payment_sync():
         """Sync the payment status.
+
         ---
         tags:
             - order
@@ -413,6 +416,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/stripe/webhook", methods=["POST"])
     def stripe_webhook():
         """Stripe webhook placeholder.
+
         ---
         tags:
             - order
@@ -429,6 +433,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/admin/orders", methods=["GET"])
     def admin_order_list():
         """Admin order list.
+
         ---
         tags:
             - order
@@ -506,6 +511,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/admin/orders/shifus", methods=["GET"])
     def admin_order_shifu_list():
         """List created shifus for order admin filters.
+
         ---
         tags:
             - order
@@ -585,6 +591,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/admin/orders/import-activation", methods=["POST"])
     def admin_import_activation():
         """Admin import activation order.
+
         ---
         tags:
             - order
@@ -823,6 +830,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     @app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])
     def admin_order_detail(order_bid: str):
         """Admin order detail.
+
         ---
         tags:
             - order

@@ -344,9 +344,9 @@ def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
 
 
 def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
-    """The local three-tier lineup: tencent premium first, then tencent
-    large-model (configured default), then volcengine seed-tts-2.0, with zh
-    display names. The default marker must not reorder the allowlist.
+    """The local three-tier lineup: tencent premium first, then tencent large-model (configured default), then volcengine seed-tts-2.0, with zh display names.
+
+    The default marker must not reorder the allowlist.
     """
     import json as json_module
 

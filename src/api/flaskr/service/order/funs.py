@@ -279,9 +279,7 @@ def is_order_has_timeout(app: Flask, origin_record: Order) -> bool:
 
 @contextmanager
 def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]:
-    """Serialize order initialization for a user-course pair to avoid duplicate
-    unpaid orders created by concurrent requests.
-    """
+    """Serialize order initialization for a user-course pair to avoid duplicate unpaid orders created by concurrent requests."""
     lock = None
     acquired = False
 
