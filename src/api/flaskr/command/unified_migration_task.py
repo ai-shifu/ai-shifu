@@ -753,12 +753,13 @@ class UnifiedMigrationTask:
         self, session, table_name: str, where_clause: str = ""
     ) -> int:
         """Get table record count using provided session."""
-        try:
-            # Identifier validated by _quote_identifier
-            query = f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"  # noqa: S608
-            if where_clause:
-                query += f" WHERE {where_clause}"
+        # Validated outside the try so an unsafe identifier is not reported as
+        # an empty table.
+        query = f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"  # noqa: S608
+        if where_clause:
+            query += f" WHERE {where_clause}"
 
+        try:
             count = session.execute(text(query)).scalar()
         except Exception:
             logger.exception(f"Error getting table count for {table_name}")
@@ -802,13 +803,14 @@ class UnifiedMigrationTask:
 
     def _get_table_count(self, table_name: str, where_clause: str = "") -> int:
         """Get table record count."""
+        # Validated before the session is opened so an unsafe identifier is not
+        # reported as an empty table.
+        query = f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"  # noqa: S608
+        if where_clause:
+            query += f" WHERE {where_clause}"
+
         session = self.SessionClass()
         try:
-            # Identifier validated by _quote_identifier
-            query = f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"  # noqa: S608
-            if where_clause:
-                query += f" WHERE {where_clause}"
-
             count = session.execute(text(query)).scalar()
         except Exception:
             logger.exception(f"Error getting table count for {table_name}")
