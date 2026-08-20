@@ -20,7 +20,9 @@ plan's progress update for that rule.
 - [x] 2026-08-20 21:13 CST: Fast-forwarded a clean detached worktree to
   `origin/main` at `8bced2e70` and confirmed Ruff 0.16.3 is installed.
 - [x] 2026-08-20 21:13 CST: Confirmed the configured baseline passes
-  `ruff check .` and all 1,013 Python files pass `ruff format --check .`.
+  `ruff check .` and all 799 Python files pass `ruff format --check .`; the
+  formatter reported this total directly for `.py`, `.pyi`, and `.ipynb`
+  inputs at `8bced2e70`.
 - [x] 2026-08-20 21:13 CST: Measured the stable `ALL`-rule gap and recorded the
   pull-request, testing, and exception policy in repository guidance.
 - [x] 2026-08-20 21:25 CST: Generated the Cursor/Copilot mirrors and knowledge
