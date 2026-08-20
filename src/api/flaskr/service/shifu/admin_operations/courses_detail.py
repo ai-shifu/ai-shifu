@@ -74,6 +74,9 @@ if TYPE_CHECKING:
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 
 def _resolve_learning_permission(item_type: int | None) -> str:
     if item_type == UNIT_TYPE_VALUE_GUEST:
