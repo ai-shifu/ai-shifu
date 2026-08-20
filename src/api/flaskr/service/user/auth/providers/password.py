@@ -182,7 +182,7 @@ def _reject_failed_password_login(
     raise_error("server.user.invalidCredentials")
 
 
-def _clear_password_login_identifier_failures(
+def clear_password_login_identifier_failures(
     app: Flask,
     *,
     identifier: str,
@@ -258,7 +258,7 @@ class PasswordAuthProvider(AuthProvider):
                 remote_addr=remote_addr,
             )
 
-        _clear_password_login_identifier_failures(app, identifier=identifier)
+        clear_password_login_identifier_failures(app, identifier=identifier)
 
         # Build login token
         user_info = build_user_info_from_aggregate(aggregate)
