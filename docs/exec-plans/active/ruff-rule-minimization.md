@@ -36,8 +36,13 @@ plan's progress update for that rule.
   repository pre-commit hooks passed.
 - [ ] Merge foundation PR #2571, then merge or retarget D406 PR #2572 without
   combining its rule unit with its successor.
-- [ ] Remove the global D407 exception on top of D406 using the same Swagger
-  contract test.
+- [x] 2026-08-20 22:10 CST: Opened ready D407 PR
+  [#2573](https://github.com/ai-shifu/ai-shifu/pull/2573) from
+  `sunner/ruff-d407` to the D406 branch. Its one finding became the second code
+  on the same explained inline suppression; the inherited Flasgger schema test
+  and all repository pre-commit hooks passed.
+- [ ] Merge or retarget D407 PR #2573 after its predecessors without combining
+  it with the D405 rule unit.
 - [ ] Remove the global D405 exception by fixing ordinary docstrings and
   retaining only the narrow exceptions required by Swagger or immutable
   migration history.
@@ -113,6 +118,12 @@ unsuppressed findings. The focused captcha-route suite passes 10 tests after
 parsing the registered view's docstring and asserting its required request-body
 schema; the repository Ruff, format, harness, developer-tool, and full
 pre-commit gates also pass.
+
+The D407 stage removes one more global ignore and adds D407 to that same inline
+exception because its automatic dashed underline would also invalidate the
+Swagger YAML. `ruff check . --select D407` reports no unsuppressed findings,
+the inherited 10-test schema suite passes on the D407 tip, and the same full
+repository gates pass.
 
 ## Context and Orientation
 
