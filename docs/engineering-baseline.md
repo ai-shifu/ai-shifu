@@ -388,6 +388,15 @@ visible result. Keep a one-line contract when sufficient, and make test-double
 operators name the fake expression they build. Do not write filler such as
 "Implement `__json__`".
 
+For `N806`, distinguish a class declaration or module-level class import from
+a value bound inside a function. Keep real class names in CapWords, but bind a
+locally loaded model or constructor to a descriptive snake_case name such as
+`draft_shifu_model` or `session_factory`, then use that name consistently in
+the function. Preserve a deliberate lazy import instead of moving it to module
+scope merely for lint, and do not add a per-file exception for ordinary local
+bindings. Run the tests that exercise the local loader or factory so the rename
+cannot silently point queries or object creation at a different class.
+
 For `D100`, describe why the module exists at its ownership boundary. A
 production module names the service responsibility, protocol, or data contract
 it owns; a test module names the behavior group it protects; an executable

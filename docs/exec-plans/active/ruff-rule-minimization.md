@@ -210,6 +210,19 @@ plan's progress update for that rule.
   `sunner/ruff-td003` to the FIX002 branch after all repository checks passed.
 - [ ] Merge or retarget TD003 PR #2588 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 03:55 CST: Prepared the N806 stage on `sunner/ruff-n806`,
+  stacked on TD003. Replaced 21 function-local CapWords model and session-
+  factory bindings with descriptive snake_case names while preserving their
+  lazy loaders, then removed all four N806 per-file exceptions.
+- [x] 2026-08-21 03:55 CST: The isolated repository-wide N806 scan is clean,
+  all 37 owning tests pass, and the stable `ALL` census remains exactly 29,964
+  findings across 33 rules with every other finding count unchanged.
+- [x] 2026-08-21 03:58 CST: The full backend suite passes 3,019 tests with 17
+  skips; generated collaboration and knowledge documents, the repository
+  harness, architecture boundaries, development-tool checks, and every
+  repository pre-commit hook also pass.
+- [ ] Open the ready N806 PR against TD003 after the full repository gates
+  pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -301,6 +314,12 @@ plan's progress update for that rule.
   passed one release cycle. Resolving the work removes both rule findings, but
   only FIX002 is selected in this stage so the one-rule PR contract remains
   intact.
+- The smallest useful next stage was not the lowest visible global finding
+  count. N806 was already selected, but four per-file exceptions hid 21
+  ordinary local bindings from the normal and stable `ALL` censuses. An
+  isolated scan showed that every case could preserve its lazy loader or
+  cross-session factory while using a descriptive snake_case value, so the
+  exceptions were removable rather than intrinsic test contracts.
 
 ## Decision Log
 
@@ -480,6 +499,15 @@ but preserves one-rule reviewability on the path toward `select = ["ALL"]`.
 Future agents now know that TD003 is defense in depth, not permission to leave
 an issue-linked TODO: unfinished work belongs in the owning plan or issue, and
 an intrinsic future exception would still need the real durable issue link.
+
+The N806 stage removes four per-file exceptions that had treated local model
+and session-factory values as if they were class declarations. Twenty-one
+bindings now use descriptive snake_case names while the imported classes keep
+their CapWords identities and the deliberate lazy-loading boundaries remain
+unchanged. All 37 owning tests pass, an isolated repository-wide N806 scan is
+clean, and the stable census is unchanged because it already honored those
+exceptions. Future agents now preserve lazy imports and name their local class
+values explicitly instead of moving imports or adding file-wide suppressions.
 
 ## Context and Orientation
 

@@ -263,12 +263,6 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # These trees are input fixtures for check_architecture_boundaries.py, not
 # importable code.
 "scripts/testdata/**" = ["INP001"]
-# These suites bind SQLAlchemy model classes and session factories to local
-# names, where the CapWords spelling is the point.
-"src/api/tests/service/shifu/test_archive.py" = ["N806"]
-"src/api/tests/service/shifu/test_mdflow_history_routes.py" = ["N806"]
-"src/api/tests/service/shifu/test_permissions.py" = ["N806"]
-"src/api/tests/service/billing/test_renewal_uow_failure_paths.py" = ["N806"]
 "src/api/conftest.py" = ["S101"]
 "scripts/test_*.py" = ["S101"]
 "scripts/check_example_identifiers.py" = ["S101"]

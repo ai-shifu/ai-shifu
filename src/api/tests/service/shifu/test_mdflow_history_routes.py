@@ -35,13 +35,13 @@ def _seed_shifu_with_outline(
     content: str,
 ) -> int:
     with app.app_context():
-        DraftShifu, DraftOutlineItem = _get_models()
-        DraftOutlineItem.query.filter_by(
+        draft_shifu_model, draft_outline_model = _get_models()
+        draft_outline_model.query.filter_by(
             shifu_bid=shifu_bid, outline_item_bid=outline_bid
         ).delete()
-        DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()
+        draft_shifu_model.query.filter_by(shifu_bid=shifu_bid).delete()
 
-        draft = DraftShifu(
+        draft = draft_shifu_model(
             shifu_bid=shifu_bid,
             title="History Route Test",
             description="desc",
@@ -57,7 +57,7 @@ def _seed_shifu_with_outline(
         dao.db.session.add(draft)
         dao.db.session.flush()
 
-        outline = DraftOutlineItem(
+        outline = draft_outline_model(
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             title="Unit A",
@@ -180,13 +180,13 @@ def test_restore_mdflow_history_route_returns_deleted_flag(
     _mock_user(monkeypatch, owner_bid)
 
     with app.app_context():
-        _, DraftOutlineItem = _get_models()
+        _, draft_outline_model = _get_models()
         latest = (
-            DraftOutlineItem.query.filter_by(
+            draft_outline_model.query.filter_by(
                 shifu_bid=shifu_bid,
                 outline_item_bid=outline_bid,
             )
-            .order_by(DraftOutlineItem.id.desc())
+            .order_by(draft_outline_model.id.desc())
             .first()
         )
         assert latest is not None

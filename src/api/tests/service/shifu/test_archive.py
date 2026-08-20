@@ -34,13 +34,13 @@ def _get_draft_module():
 def _seed_shifu(app, shifu_bid: str, owner_bid: str):
     """Create draft shifu row and clear archive state for testing."""
     with app.app_context():
-        _, DraftShifu, _, ShifuUserArchive = _get_models()
-        DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()
-        ShifuUserArchive.query.filter_by(
+        _, draft_shifu_model, _, shifu_user_archive_model = _get_models()
+        draft_shifu_model.query.filter_by(shifu_bid=shifu_bid).delete()
+        shifu_user_archive_model.query.filter_by(
             shifu_bid=shifu_bid, user_bid=owner_bid
         ).delete()
 
-        draft = DraftShifu(
+        draft = draft_shifu_model(
             shifu_bid=shifu_bid,
             title="Test Shifu",
             description="desc",
@@ -71,13 +71,13 @@ def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
     archive_shifu(app, owner_bid, shifu_bid)
 
     with app.app_context():
-        _, DraftShifu, _, ShifuUserArchive = _get_models()
+        _, draft_shifu_model, _, shifu_user_archive_model = _get_models()
         draft = (
-            DraftShifu.query.filter_by(shifu_bid=shifu_bid)
-            .order_by(DraftShifu.id.desc())
+            draft_shifu_model.query.filter_by(shifu_bid=shifu_bid)
+            .order_by(draft_shifu_model.id.desc())
             .first()
         )
-        archive = ShifuUserArchive.query.filter_by(
+        archive = shifu_user_archive_model.query.filter_by(
             shifu_bid=shifu_bid, user_bid=owner_bid
         ).first()
 
@@ -92,13 +92,13 @@ def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
     unarchive_shifu(app, owner_bid, shifu_bid)
 
     with app.app_context():
-        _, DraftShifu, _, ShifuUserArchive = _get_models()
+        _, draft_shifu_model, _, shifu_user_archive_model = _get_models()
         draft = (
-            DraftShifu.query.filter_by(shifu_bid=shifu_bid)
-            .order_by(DraftShifu.id.desc())
+            draft_shifu_model.query.filter_by(shifu_bid=shifu_bid)
+            .order_by(draft_shifu_model.id.desc())
             .first()
         )
-        archive = ShifuUserArchive.query.filter_by(
+        archive = shifu_user_archive_model.query.filter_by(
             shifu_bid=shifu_bid, user_bid=owner_bid
         ).first()
 
@@ -114,7 +114,7 @@ def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(app, monkeypat
     created_at = datetime(2026, 4, 21, 0, 0, 0)
     owner_bid = "owner-create-utc"
     draft_module = _get_draft_module()
-    _, DraftShifu, _, _ = _get_models()
+    _, draft_shifu_model, _, _ = _get_models()
 
     monkeypatch.setattr(draft_module, "now_utc", lambda: created_at)
     monkeypatch.setattr(draft_module, "generate_id", lambda _app: "shifu-create-utc")
@@ -144,7 +144,7 @@ def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(app, monkeypat
     )
 
     with app.app_context():
-        draft = DraftShifu.query.filter_by(shifu_bid=result.bid).first()
+        draft = draft_shifu_model.query.filter_by(shifu_bid=result.bid).first()
 
         assert draft is not None
         assert draft.created_at == created_at
@@ -154,7 +154,7 @@ def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(app, monkeypat
 def test_create_shifu_draft_initializes_default_chapter_and_lesson(app, monkeypatch):
     owner_bid = "owner-default-outline"
     draft_module = _get_draft_module()
-    DraftOutlineItem, _, LogDraftStruct, _ = _get_models()
+    draft_outline_model, _, draft_struct_model, _ = _get_models()
     from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
     generated_ids = iter(
@@ -188,13 +188,13 @@ def test_create_shifu_draft_initializes_default_chapter_and_lesson(app, monkeypa
 
     with app.app_context():
         outline_items = (
-            DraftOutlineItem.query.filter_by(shifu_bid=result.bid, deleted=0)
-            .order_by(DraftOutlineItem.position.asc())
+            draft_outline_model.query.filter_by(shifu_bid=result.bid, deleted=0)
+            .order_by(draft_outline_model.position.asc())
             .all()
         )
         latest_struct = (
-            LogDraftStruct.query.filter_by(shifu_bid=result.bid, deleted=0)
-            .order_by(LogDraftStruct.id.desc())
+            draft_struct_model.query.filter_by(shifu_bid=result.bid, deleted=0)
+            .order_by(draft_struct_model.id.desc())
             .first()
         )
 
@@ -217,7 +217,7 @@ def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
     owner_bid = "owner-empty-struct-rebuild"
     now_time = datetime(2026, 7, 13, 12, 0, 0)
     draft_module = _get_draft_module()
-    DraftOutlineItem, DraftShifu, LogDraftStruct, _ = _get_models()
+    draft_outline_model, draft_shifu_model, draft_struct_model, _ = _get_models()
     from flaskr.service.shifu.shifu_history_manager import HistoryItem
     from flaskr.service.shifu.shifu_outline_funcs import (
         create_default_outlines_for_new_shifu,
@@ -233,7 +233,7 @@ def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
     )
 
     with app.app_context():
-        shifu = DraftShifu(
+        shifu = draft_shifu_model(
             shifu_bid="shifu-empty-struct",
             title="Draft",
             description="desc",
@@ -251,7 +251,7 @@ def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
         dao.db.session.add(shifu)
         dao.db.session.flush()
 
-        empty_history = LogDraftStruct(
+        empty_history = draft_struct_model(
             struct_bid="empty-struct-bid",
             shifu_bid=shifu.shifu_bid,
             struct=HistoryItem(
@@ -280,13 +280,16 @@ def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
         dao.db.session.commit()
 
         outline_items = (
-            DraftOutlineItem.query.filter_by(shifu_bid=shifu.shifu_bid, deleted=0)
-            .order_by(DraftOutlineItem.position.asc())
+            draft_outline_model.query.filter_by(
+                shifu_bid=shifu.shifu_bid,
+                deleted=0,
+            )
+            .order_by(draft_outline_model.position.asc())
             .all()
         )
         latest_struct = (
-            LogDraftStruct.query.filter_by(shifu_bid=shifu.shifu_bid, deleted=0)
-            .order_by(LogDraftStruct.id.desc())
+            draft_struct_model.query.filter_by(shifu_bid=shifu.shifu_bid, deleted=0)
+            .order_by(draft_struct_model.id.desc())
             .first()
         )
 
