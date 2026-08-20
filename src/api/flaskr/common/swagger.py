@@ -47,7 +47,8 @@ def parse_comments(cls):
                     else:  # ast.Assign
                         field_name = item.targets[0].id
 
-                    line_num = item.lineno - 1  # ast 行号从1开始，列表索引从0开始
+                    # ast line numbers are 1-based, list indexes are 0-based
+                    line_num = item.lineno - 1
                     line = source_lines[line_num].strip()
 
                     if "#" in line:

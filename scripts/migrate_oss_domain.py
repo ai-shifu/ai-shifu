@@ -47,7 +47,7 @@ log = logging.getLogger(__name__)
 #   is_content=False -> column stores a bare URL
 # ---------------------------------------------------------------------------
 TARGETS: list[tuple[str, str, bool]] = [
-    # course outline content (MarkdownFlow – may embed multiple image URLs)
+    # course outline content (MarkdownFlow, may embed multiple image URLs)
     ("shifu_draft_outline_items", "content", True),
     ("shifu_published_outline_items", "content", True),
     # course resource references
