@@ -6,8 +6,7 @@ import uuid
 from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask, has_app_context
 from flaskr.dao import db
@@ -49,6 +48,9 @@ from .primitives import normalize_mysql_datetime as _normalize_mysql_datetime
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import safe_to_positive_int as _safe_to_positive_int
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
+
+if TYPE_CHECKING:
+    from decimal import Decimal
 
 _ACTIVE_SUBSCRIPTION_STATUSES = (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import mimetypes
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from flask import Flask, Response, send_file
 
 from flaskr.route.common import bypass_token_validation
 from flaskr.service.common.storage import get_local_storage_path
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _guess_mimetype(path: Path) -> str:

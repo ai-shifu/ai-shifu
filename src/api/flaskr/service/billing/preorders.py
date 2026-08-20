@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.util.datetime import now_utc, to_utc_iso
 
@@ -14,6 +13,9 @@ from .consts import (
 from .models import BillingOrder, BillingProduct, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 CHECKOUT_ACTION_PREORDER = "preorder"
 CHECKOUT_ACTION_UPGRADE_IMMEDIATE = "upgrade_immediate"

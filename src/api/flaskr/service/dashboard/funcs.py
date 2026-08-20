@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -64,6 +63,9 @@ from flaskr.util.datetime import now_utc
 from flaskr.util.timezone import _coerce_datetime
 from sqlalchemy import and_, case, false, or_
 from sqlalchemy.orm import aliased
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 @dataclass(frozen=True)

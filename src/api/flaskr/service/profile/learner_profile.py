@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from flask import Flask
 from flaskr.api.check import (
@@ -36,6 +35,9 @@ from flaskr.service.user.models import (
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 from sqlalchemy.exc import IntegrityError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 LEARNER_PROFILE_MAX_LENGTH = 1000
 LEARNER_PROFILE_NICKNAME_MAX_LENGTH = 64

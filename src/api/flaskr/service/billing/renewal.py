@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db, retry_on_deadlock, uow
@@ -98,6 +97,9 @@ from .subscriptions import (
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
 from .wallets import _expire_credit_wallet_buckets_in_session
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 _CLAIMABLE_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,

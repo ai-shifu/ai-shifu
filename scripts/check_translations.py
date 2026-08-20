@@ -6,8 +6,11 @@ from __future__ import annotations
 import json
 import re
 import sys
-from collections.abc import Iterable
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"

@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc, to_utc_iso
@@ -36,6 +35,9 @@ from .primitives import (
 )
 from .queries import load_primary_active_subscription
 from .wallets import calculate_credit_wallet_snapshot_values
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 _ZERO = Decimal(0)
 

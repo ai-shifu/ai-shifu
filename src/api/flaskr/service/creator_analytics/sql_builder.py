@@ -24,7 +24,6 @@ target dialect is MySQL — under SQLite (tests) the hint would not parse.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
@@ -38,6 +37,8 @@ from sqlalchemy.sql import Select
 from sqlalchemy.sql.elements import ColumnElement
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from .dsl import Aggregate, Filter, OrderBy, QueryDSL
 
 

@@ -4,12 +4,14 @@ import json
 import logging
 import os
 import re
-from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Config as FlaskConfig
 from flask import Flask
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class EnvironmentConfigError(Exception):

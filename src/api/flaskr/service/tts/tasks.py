@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 try:  # pragma: no cover - exercised indirectly when Celery is installed.
     from celery import shared_task
