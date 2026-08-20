@@ -20,9 +20,9 @@ import logging
 import re
 import time
 import uuid
-from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from flask import Flask
 from flaskr.api.tts import (
@@ -63,6 +63,9 @@ from flaskr.service.tts.patterns import (
 )
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 _AV_LATEX_BLOCK = AV_LATEX_BLOCK
 

@@ -5,10 +5,9 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
 from flaskr.service.common.models import (
@@ -70,6 +69,9 @@ from flaskr.service.user.models import (
 )
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from sqlalchemy import case, or_
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 def _load_course_user_contact_map(
