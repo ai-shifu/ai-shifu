@@ -199,7 +199,8 @@ select = [
     "D",
 
     # --- Modernization ----------------------------------------------------
-    # UP040/UP046/UP047 (PEP 695 type parameters) are ignored below.
+    # UP046/UP047 (PEP 695 generic classes/functions) are ignored below.
+    # UP040 remains enforced because the repository has no affected aliases.
     # UP035 is satisfied except in the two `admin` / `admin_operations.courses`
     # compatibility shims, which re-export `typing.Dict` / `typing.Set` as part
     # of their public surface and carry a file-level `# ruff: noqa: UP035`.
@@ -239,13 +240,10 @@ ignore = [
     # revisions and boundary-check fixtures that are loaded by path rather
     # than imported.
     "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
-    # UP040 / UP046 / UP047: PEP 695 type-parameter syntax (`type`, `class T`,
-    # `def T`). target-version is py311, which currently suppresses them; if
-    # the target later moves to py312+, ruff would start reporting them and
-    # `ruff check --fix` would leave their unsafe fixes unapplied, so CI would
-    # fail. The rewrite can also change TypeVar variance. Defer until the
+    # UP046 / UP047: PEP 695 type-parameter syntax (`class T`, `def T`). The
+    # py311 target currently suppresses them; moving to py312+ would expose
+    # unsafe generic rewrites that can change TypeVar variance. Defer until the
     # runtime is Python 3.12+.
-    "UP040",
     "UP046",
     "UP047",
 ]
