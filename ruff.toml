@@ -62,6 +62,11 @@ select = [
     "YTT",     # sys.version checks that break on two-digit versions
     "EXE",     # shebang vs executable-bit consistency
     "ASYNC",   # blocking I/O / sleep / subprocess inside async functions
+    # T20 bans `print`/`pprint` in shipped code, where logging is the contract.
+    # Developer scripts, the inventory tooling and the test suites are console
+    # programs by design and are exempt below; the few remaining backend calls
+    # are CLI or debug output and say so inline.
+    "T20",     # print / pprint in shipped code
     "T1",      # leftover debugger calls
     "ERA001",  # commented-out code
 
@@ -241,7 +246,7 @@ ignore = [
 # subprocess audit rules only add noise there.
 # Test suites are also full of literal fake passwords, tokens and secret keys
 # for fixtures and negative cases, which is what S105/S106 flag.
-"src/api/tests/**" = ["S101", "S105", "S106", "S603", "S607"]
+"src/api/tests/**" = ["S101", "S105", "S106", "S603", "S607", "T20"]
 # These suites bind SQLAlchemy model classes and session factories to local
 # names, where the CapWords spelling is the point.
 "src/api/tests/service/shifu/test_archive.py" = ["N806"]
@@ -265,5 +270,7 @@ ignore = [
 # wire contract, not a naming slip.
 "src/api/flaskr/service/billing/dtos.py" = ["N815"]
 "src/api/flaskr/service/common/dtos.py" = ["N815"]
-"scripts/**" = ["S603", "S607"]
-"src/api/scripts/**" = ["S603", "S607"]
+# Developer scripts and the backend inventory/harness tooling are console
+# programs: printing to stdout is their interface.
+"scripts/**" = ["S603", "S607", "T20"]
+"src/api/scripts/**" = ["S603", "S607", "T20"]
