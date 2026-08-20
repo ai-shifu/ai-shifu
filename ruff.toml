@@ -217,7 +217,7 @@ ignore = [
     "PLW0603", # global statement -- used by module-level singletons/caches
     "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
     # RUF100: with a partial select list, ruff reports deliberate `# noqa:
-    # BLE001 / DTZ001 / SLF001 / S102` markers as unused simply because those
+    # BLE001 / DTZ001 / SLF001` markers as unused simply because those
     # rules are off here, so enforcing it would delete documentation of
     # intentional exceptions. Stale directives are pruned by hand instead.
     "RUF100",
