@@ -1,4 +1,5 @@
 from flaskr.service.common import ERROR_CODE, AppError
+from flaskr.util.deprecation import deprecated_alias_getattr
 
 
 class PaidError(AppError):
@@ -21,3 +22,8 @@ class BreakError(AppError):
                 ERROR_CODE["server.common.unknownError"],
             ),
         )
+
+
+__getattr__ = deprecated_alias_getattr(
+    __name__, {"PaidException": "PaidError", "BreakException": "BreakError"}, globals()
+)

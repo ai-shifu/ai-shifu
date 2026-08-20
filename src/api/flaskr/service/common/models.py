@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from flaskr.i18n import _
+from flaskr.util.deprecation import deprecated_alias_getattr
 
 
 class AppError(Exception):
@@ -71,3 +72,8 @@ def raise_error_with_args(error_name, **kwargs):
         _(error_name).format(**kwargs),
         ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),
     )
+
+
+__getattr__ = deprecated_alias_getattr(
+    __name__, {"AppException": "AppError"}, globals()
+)
