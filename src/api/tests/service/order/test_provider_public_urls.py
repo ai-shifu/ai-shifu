@@ -40,7 +40,7 @@ def test_alipay_precreate_uses_host_url_notify_url(monkeypatch):
         pass
 
     class FakePrecreateRequest:
-        def __init__(self, *, biz_model):
+        def __init__(self, *, biz_model) -> None:
             self.biz_model = biz_model
 
     class FakeClient:

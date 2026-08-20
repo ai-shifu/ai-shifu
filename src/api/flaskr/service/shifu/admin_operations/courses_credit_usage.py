@@ -189,7 +189,7 @@ def _format_course_credit_usage_model_label_fallback(value: str) -> str:
 
 
 class _CourseCreditUsageModelLabelResolver:
-    def __init__(self, app: Flask):
+    def __init__(self, app: Flask) -> None:
         self._app = app
         self._llm_label_map: dict[tuple[str, str], str] | None = None
         self._tts_label_map: dict[tuple[str, str], str] | None = None

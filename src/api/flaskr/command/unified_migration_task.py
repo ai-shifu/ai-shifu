@@ -127,7 +127,7 @@ class UnifiedMigrationTask:
         self,
         database_url: str | None = None,
         config: MigrationConfig | None = None,
-    ):
+    ) -> None:
         if database_url is None:
             database_url = _resolve_default_database_url()
 

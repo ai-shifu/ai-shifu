@@ -22,7 +22,7 @@ class _FakeResponse:
         http_error=None,
         json_data=None,
         json_error=None,
-    ):
+    ) -> None:
         self._lines = lines or []
         self.status_code = status_code
         self.text = text

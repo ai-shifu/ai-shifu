@@ -46,7 +46,7 @@ from sqlalchemy.ext.compiler import compiles
 
 
 class _TestPluginManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self.extension_functions = {}
         self.extensible_generic_functions = {}
         self.is_enabled = False

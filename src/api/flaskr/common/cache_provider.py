@@ -124,7 +124,7 @@ class _InMemoryEntry:
 
 
 class _InMemoryLock:
-    def __init__(self, lock: threading.Lock):
+    def __init__(self, lock: threading.Lock) -> None:
         self._lock = lock
         self._held = False
 
@@ -145,7 +145,7 @@ class _InMemoryLock:
 
 
 class InMemoryCacheProvider:
-    def __init__(self):
+    def __init__(self) -> None:
         self._store: dict[str, _InMemoryEntry] = {}
         self._locks: dict[str, threading.Lock] = {}
         self._mu = threading.RLock()
@@ -275,7 +275,7 @@ class FallbackCacheProvider:
     process-local in-memory cache when Redis is unavailable.
     """
 
-    def __init__(self, primary: CacheProvider, fallback: CacheProvider):
+    def __init__(self, primary: CacheProvider, fallback: CacheProvider) -> None:
         self._primary = primary
         self._fallback = fallback
 

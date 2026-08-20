@@ -16,7 +16,7 @@ from sqlalchemy.pool import QueuePool
 class _FakePyMySQLConnection:
     """Minimal stand-in exposing the pymysql `_sock` attribute."""
 
-    def __init__(self, sock):
+    def __init__(self, sock) -> None:
         self._sock = sock
         self.closed = False
 
@@ -172,7 +172,7 @@ def test_checkin_grace_window_is_a_short_positive_interval():
 class _FakePingablePyMySQLConnection(_FakePyMySQLConnection):
     """Fake with a healthy ping - the pymysql-shaped checkout path."""
 
-    def __init__(self, sock):
+    def __init__(self, sock) -> None:
         super().__init__(sock)
         self.pings = 0
 

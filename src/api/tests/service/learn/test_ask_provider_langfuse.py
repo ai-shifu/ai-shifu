@@ -6,7 +6,7 @@ from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_lang
 
 
 class _DummyGeneration:
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
@@ -15,7 +15,7 @@ class _DummyGeneration:
 
 
 class _DummySpan:
-    def __init__(self, trace_id="trace-1", span_id="span-1"):
+    def __init__(self, trace_id="trace-1", span_id="span-1") -> None:
         self.trace_id = trace_id
         self.id = span_id
         self.generations = []

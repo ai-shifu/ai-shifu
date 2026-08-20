@@ -323,7 +323,7 @@ VOLCENGINE_EMOTIONS = [
 class VolcengineTTSProvider(BaseTTSProvider):
     """TTS provider using Volcengine bidirectional WebSocket API."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._protocol = VolcengineProtocol()
         self._lock = threading.Lock()
 

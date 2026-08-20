@@ -29,7 +29,7 @@ class EnvVar:
     group: str = "general"
     depends_on: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate EnvVar configuration after initialization."""
         if self.required and self.default is not None:
             raise ValueError(
@@ -1785,7 +1785,7 @@ REDIS_KEY_SUFFIXES: dict[str, str] = {
 class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
-    def __init__(self, env_vars: dict[str, EnvVar]):
+    def __init__(self, env_vars: dict[str, EnvVar]) -> None:
         self.env_vars = env_vars
         self._cache: dict[str, Any] = {}
         self._validated = False
@@ -2097,7 +2097,9 @@ __ENHANCED_CONFIG__ = EnhancedConfig(ENV_VARS)
 class Config(FlaskConfig):
     """Flask configuration wrapper with enhanced environment variable support."""
 
-    def __init__(self, parent: FlaskConfig, app: Flask, defaults: dict | None = None):
+    def __init__(
+        self, parent: FlaskConfig, app: Flask, defaults: dict | None = None
+    ) -> None:
         global __INSTANCE__
         self.parent = parent
         self.app = app

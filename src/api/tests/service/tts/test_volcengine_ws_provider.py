@@ -131,7 +131,9 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch
             raise AssertionError(f"unexpected frame: {message!r}")
 
     class FakeWebSocketApp:
-        def __init__(self, url, header, on_message, on_error, on_close, on_open):
+        def __init__(
+            self, url, header, on_message, on_error, on_close, on_open
+        ) -> None:
             self.on_message = on_message
             self.on_close = on_close
             self.on_open = on_open

@@ -41,7 +41,7 @@ def test_context_v2_tts_processor_uses_runtime_minimax_voice_fallback(monkeypatc
     captured_kwargs = {}
 
     class FakeStreamingTTSProcessor:
-        def __init__(self, **kwargs):
+        def __init__(self, **kwargs) -> None:
             captured_kwargs.update(kwargs)
 
     monkeypatch.setattr(

@@ -248,19 +248,19 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index):
+            def __init__(self, block_type, content, index) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
 
         class DummyLLMResult:
-            def __init__(self, content: str):
+            def __init__(self, content: str) -> None:
                 self.content = content
 
         class FakeMarkdownFlow:
             last_context = None
 
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs) -> None:
                 self.blocks = [DummyBlock(BlockType.CONTENT, "md content", 0)]
 
             def set_visual_mode(self, *_args, **_kwargs):
@@ -367,17 +367,17 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index):
+            def __init__(self, block_type, content, index) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
 
         class DummyLLMResult:
-            def __init__(self, content: str):
+            def __init__(self, content: str) -> None:
                 self.content = content
 
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs) -> None:
                 self.blocks = [
                     DummyBlock(MarkdownFlowBlockType.CONTENT, "first content", 0),
                     DummyBlock(MarkdownFlowBlockType.CONTENT, "second content", 1),
@@ -514,7 +514,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index):
+            def __init__(self, block_type, content, index) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -522,7 +522,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs) -> None:
                 self.blocks = [DummyBlock(BlockType.CONTENT, "===fixed output===", 0)]
 
             def set_visual_mode(self, *_args, **_kwargs):
@@ -638,7 +638,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index):
+            def __init__(self, block_type, content, index) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -646,7 +646,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs) -> None:
                 self.blocks = [
                     DummyBlock(BlockType.CONTENT, "===fixed output===", 0),
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
@@ -758,7 +758,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index):
+            def __init__(self, block_type, content, index) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -766,7 +766,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs) -> None:
                 self.blocks = [
                     DummyBlock(BlockType.CONTENT, "===fixed output===", 0),
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),

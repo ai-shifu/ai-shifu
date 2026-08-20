@@ -38,7 +38,7 @@ class ShifuOutlineItemDto(BaseModel):
     shifu_bid: str
     children: list["ShifuOutlineItemDto"]
 
-    def __json__(self):
+    def __json__(self) -> str:
         return self.model_dump_json(exclude_none=True)
 
 
@@ -54,7 +54,7 @@ class ShifuInfoDto(BaseModel):
     default_listen_mode_enabled: bool = False
     use_learner_language: bool = False
 
-    def __json__(self):
+    def __json__(self) -> str:
         return self.model_dump_json(exclude_none=True)
 
 

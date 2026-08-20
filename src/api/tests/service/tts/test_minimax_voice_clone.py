@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import Any, Self
 
 import pytest
 from flask import Flask
@@ -145,7 +146,7 @@ def test_normalize_audio_blob_validates_duration_and_exports_wav(monkeypatch) ->
     from flaskr.service.tts import minimax_voice_clone
 
     class FakeSegment:
-        def __len__(self):
+        def __len__(self) -> int:
             return 12_000
 
         def export(self, out, format="wav"):  # noqa: A002 - mirrors the pydub API
@@ -494,12 +495,12 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
     class FakeApp:
         def app_context(self):
             class Context:
-                def __enter__(self):
+                def __enter__(self) -> Self:
                     nonlocal in_context
                     in_context = True
                     return self
 
-                def __exit__(self, *_args):
+                def __exit__(self, *_args) -> bool | None:
                     nonlocal in_context
                     in_context = False
                     return False
@@ -507,7 +508,7 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
             return Context()
 
     class DetachedSensitiveRow:
-        def __init__(self):
+        def __init__(self) -> None:
             self.voice_bid = "voice-detached"
             self.voice_id = "AiShifu_detached_1"
             self.owner_user_bid = "creator-1"
@@ -519,7 +520,7 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
             self.billing_reservation_bid = ""
             self.estimated_credits = Decimal(0)
 
-        def __getattribute__(self, name):
+        def __getattribute__(self, name) -> Any:
             protected = {
                 "voice_bid",
                 "voice_id",

@@ -102,14 +102,14 @@ class PayItemDto:
     is_discount: bool
     discount_code: str
 
-    def __init__(self, name, price_name, price, is_discount, discount_code):
+    def __init__(self, name, price_name, price, is_discount, discount_code) -> None:
         self.name = name
         self.price_name = price_name
         self.price = price
         self.is_discount = is_discount
         self.discount_code = discount_code
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "name": self.name,
             "price_name": self.price_name,
@@ -142,7 +142,7 @@ class AICourseBuyRecordDTO:
         discount,
         price_item,
         payment_channel="",
-    ):
+    ) -> None:
         self.order_id = record_id
         self.user_id = user_id
         self.course_id = course_id
@@ -153,7 +153,7 @@ class AICourseBuyRecordDTO:
         self.price_item = price_item
         self.payment_channel = payment_channel
 
-    def __json__(self):
+    def __json__(self) -> dict:
         def format_decimal(value):
             # Convert to a string with two decimal places
             formatted_value = value if isinstance(value, str) else f"{value:.2f}"
@@ -493,7 +493,7 @@ class BuyRecordDTO:
         qr_url,
         payment_channel: str = "",
         payment_payload: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         self.order_id = record_id
         self.user_id = user_id
         self.price = price
@@ -502,7 +502,7 @@ class BuyRecordDTO:
         self.payment_channel = payment_channel
         self.payment_payload = payment_payload or {}
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "order_id": self.order_id,
             "user_id": self.user_id,
@@ -1956,7 +1956,7 @@ class DiscountInfo:
     discount_value: str
     items: list[PayItemDto]
 
-    def __init__(self, discount_value, items):
+    def __init__(self, discount_value, items) -> None:
         self.discount_value = discount_value
         self.items = items
 
