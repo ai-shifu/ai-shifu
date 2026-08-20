@@ -782,6 +782,32 @@ class ProfileResearchRuntime:
                 self.store.delete(session.session_id)
                 self.store.clear_active(session)
 
+    def delete_active_session(self, *, user_bid: str, purpose: str) -> None:
+        normalized_user_bid = str(user_bid or "").strip()
+        normalized_purpose = str(purpose or "").strip()
+        if not normalized_user_bid or normalized_purpose not in _ALLOWED_PURPOSES:
+            raise ProfileResearchSessionNotFound("session not found")
+        owner_lock = self.store.owner_lock(
+            user_bid=normalized_user_bid,
+            purpose=normalized_purpose,
+        )
+        with _hold_profile_research_lock(owner_lock):
+            session_id = self.store.active_session_id(
+                user_bid=normalized_user_bid,
+                purpose=normalized_purpose,
+            )
+            if session_id is None:
+                return
+            session_lock = self.store.lock(session_id)
+            with _hold_profile_research_lock(session_lock):
+                session = self._load_authorized_session(
+                    user_bid=normalized_user_bid,
+                    session_id=session_id,
+                    expected_purpose=normalized_purpose,
+                )
+                self.store.delete(session.session_id)
+                self.store.clear_active(session)
+
     def _build_flow(
         self,
         session: _ProfileResearchSession,
@@ -1211,6 +1237,18 @@ def delete_profile_research_session(
         user_bid=user_bid,
         session_id=session_id,
         expected_purpose=expected_purpose,
+    )
+
+
+def delete_active_profile_research_session(
+    app: Flask,
+    *,
+    user_bid: str,
+    purpose: str,
+) -> None:
+    ProfileResearchRuntime(app).delete_active_session(
+        user_bid=user_bid,
+        purpose=purpose,
     )
 
 

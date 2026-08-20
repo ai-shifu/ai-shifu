@@ -182,6 +182,39 @@ def test_profile_onboarding_complete_and_skip_delegate_strict_payloads(
     ]
 
 
+def test_profile_onboarding_skip_without_session_cleans_the_active_owner_session(
+    monkeypatch, test_client
+):
+    user = _authenticate(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.route.user.skip_profile_onboarding_v2",
+        lambda **kwargs: calls.append(("skip", kwargs)) or {"skipped": True},
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.api.delete_active_profile_research_session",
+        lambda app, **kwargs: calls.append(("delete-active", kwargs)),
+    )
+
+    response = test_client.post(
+        "/api/user/profile-onboarding/skip",
+        headers={"Token": "token"},
+        json={},
+    )
+
+    assert _data(response) == {"skipped": True}
+    assert calls == [
+        ("skip", {"user_id": user.user_id}),
+        (
+            "delete-active",
+            {
+                "user_bid": user.user_id,
+                "purpose": "profile-onboarding",
+            },
+        ),
+    ]
+
+
 @pytest.mark.parametrize("nickname", ["小明", ""])
 def test_profile_onboarding_complete_forwards_explicit_nickname(
     monkeypatch, test_client, nickname
@@ -661,6 +694,65 @@ def test_profile_onboarding_session_start_maps_busy_error(monkeypatch, test_clie
     )
 
     assert response.get_json(force=True)["code"] == 4013
+
+
+def test_profile_onboarding_session_start_removes_a_late_ineligible_session(
+    monkeypatch, test_client
+):
+    user = _authenticate(monkeypatch)
+    statuses = [
+        {
+            "profile_v2": {
+                "guided_available": True,
+                "handled": False,
+                "should_show": True,
+                "has_learner_profile": False,
+            },
+        },
+        {
+            "profile_v2": {
+                "guided_available": True,
+                "handled": True,
+                "should_show": False,
+                "has_learner_profile": False,
+            },
+        },
+    ]
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.route.user.get_profile_onboarding_config",
+        lambda: {
+            "enabled": True,
+            "markdownflow": "?[Continue]",
+            "revision": 1,
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.get_profile_onboarding_status",
+        lambda app, user_id: statuses.pop(0),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.api.start_profile_research_session",
+        lambda app, **kwargs: {"session_id": _SESSION_ID_1},
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user._delete_profile_onboarding_session",
+        lambda app, **kwargs: calls.append(kwargs),
+    )
+
+    response = test_client.post(
+        "/api/user/profile-onboarding/session",
+        headers={"Token": "token"},
+        json={"intent": "onboarding"},
+    )
+
+    assert response.get_json(force=True)["code"] != 0
+    assert calls == [
+        {
+            "user_bid": user.user_id,
+            "session_id": _SESSION_ID_1,
+        }
+    ]
 
 
 def test_profile_onboarding_session_run_streams_with_owner_and_purpose_scope(

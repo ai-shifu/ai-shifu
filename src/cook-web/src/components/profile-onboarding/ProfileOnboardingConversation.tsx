@@ -302,6 +302,7 @@ export default function ProfileOnboardingConversation({
   const streamRef = React.useRef<StreamHandle | null>(null);
   const runAttemptRef = React.useRef(0);
   const createAttemptRef = React.useRef(0);
+  const initialRunPendingRef = React.useRef(false);
   const runInFlightRef = React.useRef(false);
   const lastRunRequestRef = React.useRef<ProfileOnboardingRunRequest | null>(
     null,
@@ -508,6 +509,7 @@ export default function ProfileOnboardingConversation({
     blockIndexRef.current = 0;
     lastRunRequestRef.current = null;
     awaitingInteractionRef.current = false;
+    initialRunPendingRef.current = false;
     streamCompletedRef.current = false;
     runtimeFailedRef.current = false;
 
@@ -525,6 +527,10 @@ export default function ProfileOnboardingConversation({
             ? session.block_index
             : 0;
         onSessionStartedRef.current?.(session.session_id);
+        if (disabledRef.current) {
+          initialRunPendingRef.current = true;
+          return;
+        }
         runNextRef.current();
       })
       .catch(() => {
@@ -542,6 +548,14 @@ export default function ProfileOnboardingConversation({
       });
   }, [stopStream]);
 
+  React.useEffect(() => {
+    if (disabled || !initialRunPendingRef.current || !sessionIdRef.current) {
+      return;
+    }
+    initialRunPendingRef.current = false;
+    runNextRef.current();
+  }, [disabled]);
+
   const invalidatePendingAttempts = React.useCallback(() => {
     ++createAttemptRef.current;
     ++runAttemptRef.current;
@@ -552,6 +566,7 @@ export default function ProfileOnboardingConversation({
     startSession();
     return () => {
       mountedRef.current = false;
+      initialRunPendingRef.current = false;
       invalidatePendingAttempts();
       stopStream();
     };

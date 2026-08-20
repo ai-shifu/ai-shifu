@@ -369,16 +369,17 @@ describe('ProfileOnboardingConversation', () => {
       onDraftReady: jest.fn(),
       onError: jest.fn(),
     };
-    const view = render(
+    const view = render(<ProfileOnboardingConversation {...props} />);
+
+    const answerButton = await screen.findByRole('button', {
+      name: ANSWER_GUIDED_QUESTION_LABEL,
+    });
+    view.rerender(
       <ProfileOnboardingConversation
         {...props}
         disabled
       />,
     );
-
-    const answerButton = await screen.findByRole('button', {
-      name: ANSWER_GUIDED_QUESTION_LABEL,
-    });
     expect(answerButton).toBeDisabled();
     fireEvent.click(answerButton);
     expect(runSession).toHaveBeenCalledTimes(1);
@@ -387,6 +388,43 @@ describe('ProfileOnboardingConversation', () => {
     expect(answerButton).toBeEnabled();
     fireEvent.click(answerButton);
     await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
+  });
+
+  test('does not start provider work when session creation finishes during a parent action', async () => {
+    let resolveSession!: (session: { session_id: string }) => void;
+    const createSession = jest.fn(
+      () =>
+        new Promise<{ session_id: string }>(resolve => {
+          resolveSession = resolve;
+        }),
+    );
+    const runSession = jest.fn(() => ({ close: jest.fn() }));
+    const onSessionStarted = jest.fn();
+    const props = {
+      createSession,
+      runSession,
+      onSessionStarted,
+      onDraftReady: jest.fn(),
+      onError: jest.fn(),
+    };
+    const view = render(
+      <ProfileOnboardingConversation
+        {...props}
+        disabled
+      />,
+    );
+
+    await act(async () => {
+      resolveSession({ session_id: 'session-created-during-defer' });
+    });
+
+    expect(onSessionStarted).toHaveBeenCalledWith(
+      'session-created-during-defer',
+    );
+    expect(runSession).not.toHaveBeenCalled();
+
+    view.rerender(<ProfileOnboardingConversation {...props} />);
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(1));
   });
 
   test('keeps the newest guided question visible as the conversation grows', async () => {

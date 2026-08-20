@@ -129,20 +129,26 @@ def _delete_profile_onboarding_session(
     app: Flask, *, user_bid: str, session_id: str | None
 ) -> None:
     """Best-effort cleanup must not roll back a durable completion state."""
-    if not session_id:
-        return
     from flaskr.service.profile_research.api import (
         PROFILE_ONBOARDING_PURPOSE,
+        delete_active_profile_research_session,
         delete_profile_research_session,
     )
 
     with contextlib.suppress(Exception):
-        delete_profile_research_session(
-            app,
-            user_bid=user_bid,
-            session_id=session_id,
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
+        if session_id:
+            delete_profile_research_session(
+                app,
+                user_bid=user_bid,
+                session_id=session_id,
+                expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+            )
+        else:
+            delete_active_profile_research_session(
+                app,
+                user_bid=user_bid,
+                purpose=PROFILE_ONBOARDING_PURPOSE,
+            )
 
 
 def _normalize_runtime_language_code(language_code: str) -> str:
@@ -526,6 +532,18 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             )
         except ProfileResearchSessionBusy:
             raise_error("server.profile.profileOnboardingBusy")
+        if intent == "onboarding":
+            latest_status = get_profile_onboarding_status(
+                app,
+                user_id=request.user.user_id,
+            )
+            if not latest_status["profile_v2"]["should_show"]:
+                _delete_profile_onboarding_session(
+                    app,
+                    user_bid=request.user.user_id,
+                    session_id=str(session.get("session_id") or "") or None,
+                )
+                raise_param_error("intent")
         return make_common_response(session)
 
     @app.route(
