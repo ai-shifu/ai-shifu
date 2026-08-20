@@ -153,9 +153,12 @@ plan's progress update for that rule.
 - [x] 2026-08-21 02:00 CST: Re-ran the stable `ALL` census on the TC002 tip. It
   reports 30,384 findings across 36 rules and no TC002 or TC003 findings. The
   134-finding reduction is exact; ANN001, E501, and PLR0911 remain unchanged.
-- [ ] Open the ready TC002 PR against the TC003 branch after the repository
-  gates pass, then merge or retarget it after its predecessors without
-  combining it with the next rule unit.
+- [x] 2026-08-21 02:06 CST: Opened ready TC002 PR
+  [#2585](https://github.com/ai-shifu/ai-shifu/pull/2585) from
+  `sunner/ruff-tc002` to the TC003 branch after all repository pre-commit hooks
+  passed.
+- [ ] Merge or retarget TC002 PR #2585 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
