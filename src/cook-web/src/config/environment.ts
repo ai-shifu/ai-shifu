@@ -57,6 +57,7 @@ interface EnvironmentConfig {
 }
 
 export const DEFAULT_OFFICIAL_SITE_URL = 'https://ai-shifu.cn';
+const SUPPORTED_LOGIN_METHODS = ['phone', 'email', 'google', 'password'];
 
 export function resolveOfficialSiteUrl(value?: string): string {
   return (value || '').trim() || DEFAULT_OFFICIAL_SITE_URL;
@@ -282,8 +283,8 @@ function getLoginMethodsEnabled(): string[] {
   if (envValue) {
     const methods = envValue
       .split(',')
-      .map(m => m.trim())
-      .filter(Boolean);
+      .map(m => m.trim().toLowerCase())
+      .filter(method => SUPPORTED_LOGIN_METHODS.includes(method));
     if (methods.length > 0) return methods;
   }
   return ['phone'];
@@ -293,11 +294,15 @@ function getLoginMethodsEnabled(): string[] {
  * Gets default login method
  */
 function getDefaultLoginMethod(): string {
-  return (
+  const configured = (
     getRuntimeEnv('DEFAULT_LOGIN_METHOD') ||
     process.env.NEXT_PUBLIC_DEFAULT_LOGIN_METHOD ||
     'phone'
-  );
+  )
+    .trim()
+    .toLowerCase();
+  const enabledMethods = getLoginMethodsEnabled();
+  return enabledMethods.includes(configured) ? configured : enabledMethods[0];
 }
 
 /**

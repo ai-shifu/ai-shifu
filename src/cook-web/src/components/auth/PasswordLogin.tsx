@@ -62,11 +62,15 @@ export function PasswordLogin({
   }, [isEmailOnlyIdentifier, supportEmailIdentifier, t]);
 
   const validateIdentifier = (value: string) => {
-    if (!value) {
+    const normalizedValue = value.trim();
+    if (!normalizedValue) {
       setIdentifierError(identifierTexts.emptyError);
       return false;
     }
-    if (isEmailOnlyIdentifier && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    if (
+      isEmailOnlyIdentifier &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedValue)
+    ) {
       setIdentifierError(t('module.auth.emailError'));
       return false;
     }
