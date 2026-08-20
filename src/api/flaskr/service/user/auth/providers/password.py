@@ -53,7 +53,7 @@ class PasswordAuthProvider(AuthProvider):
         if not aggregate:
             raise_error("server.user.invalidCredentials")
 
-        # Find password credential – look up by user_bid only.
+        # Find password credential: look up by user_bid only.
         # The password credential's identifier may differ from the login
         # identifier (e.g. user registered with phone but logs in with
         # email, or vice-versa), so we must not filter by identifier here.

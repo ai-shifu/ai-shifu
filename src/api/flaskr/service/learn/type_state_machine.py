@@ -6,10 +6,10 @@ produced by this module.
 
 State definitions
 -----------------
-- ``IDLE``       – no open element
-- ``BUILDING``   – accumulating a new element
-- ``PATCHING``   – applying incremental update to an existing element (``is_new=false``)
-- ``TERMINATED`` – final state after ``done`` / ``error``
+- ``IDLE``       - no open element
+- ``BUILDING``   - accumulating a new element
+- ``PATCHING``   - applying incremental update to an existing element (``is_new=false``)
+- ``TERMINATED`` - final state after ``done`` / ``error``
 
 See design doc §3.4 for the full transition table.
 """

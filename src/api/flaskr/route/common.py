@@ -58,7 +58,7 @@ def _extract_request_language() -> str | None:
     return _resolve_supported_language(raw_language)
 
 
-# 装饰器函数，用于跳过Token校验
+# Decorator that exempts a route from token validation
 def bypass_token_validation(func):
     by_pass_login_func.append(func.__name__)
 
