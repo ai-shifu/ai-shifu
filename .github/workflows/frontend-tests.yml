@@ -42,7 +42,7 @@ jobs:
             exit 0
           fi
 
-          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > /tmp/frontend-changed-files.txt
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" > /tmp/frontend-changed-files.txt
           if grep -Eq '^(\.github/workflows/frontend-tests\.yml$|src/cook-web/|src/i18n/)' /tmp/frontend-changed-files.txt; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
