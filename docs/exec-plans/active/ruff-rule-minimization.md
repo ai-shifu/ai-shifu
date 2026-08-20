@@ -371,6 +371,11 @@ plan's progress update for that rule.
   Ruff, and format also pass.
 - [x] 2026-08-21 06:25 CST: Every repository pre-commit hook passes on the
   N803 tip.
+- [x] 2026-08-21 06:29 CST: Opened ready N803 PR
+  [#2596](https://github.com/ai-shifu/ai-shifu/pull/2596) from
+  `sunner/ruff-n803` to the N815 branch after all local gates passed.
+- [ ] Merge or retarget N803 PR #2596 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
