@@ -30,6 +30,7 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
+
 from tests.common.fixtures.bill_products import build_billing_product
 
 _API_ROOT = Path(__file__).resolve().parents[3]

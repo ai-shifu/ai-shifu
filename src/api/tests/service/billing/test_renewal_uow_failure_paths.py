@@ -59,6 +59,7 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.renewal import run_billing_renewal_event
 from flaskr.util.datetime import now_utc
 from sqlalchemy.orm import sessionmaker
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 CREATOR_BID = "creator-uow-renewal"
