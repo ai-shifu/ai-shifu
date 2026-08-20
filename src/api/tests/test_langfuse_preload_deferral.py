@@ -7,12 +7,14 @@ crashes the hub (KeyError in AbstractLinkable._notify_links) and can
 interrupt unrelated in-flight DB exchanges.
 """
 
+from typing import ClassVar
+
 import flaskr.api.langfuse as langfuse_module
 from flaskr.api.langfuse import MockClient, init_langfuse
 
 
 class _RecordingLangfuse:
-    instances = []
+    instances: ClassVar[list[dict[str, object]]] = []
 
     def __init__(self, **kwargs):
         _RecordingLangfuse.instances.append(kwargs)

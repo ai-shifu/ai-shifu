@@ -12,6 +12,7 @@ rolling back on it.
 """
 
 import types
+from typing import ClassVar
 
 import pytest
 from flaskr.service.learn import runscript_v2
@@ -45,7 +46,7 @@ class _FakeSession:
 class _StubRunContext:
     """Yields scripted items (or raises) through run(); has_next() once."""
 
-    script: list = []
+    script: ClassVar[list] = []
 
     def __init__(self, **_kwargs):
         self._steps = iter([True, False])

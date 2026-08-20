@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     Column,
@@ -24,7 +26,7 @@ class Coupon(db.Model):
     """Coupon."""
 
     __tablename__ = "promo_coupons"
-    __table_args__ = {"comment": "Promo coupons"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Promo coupons"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     coupon_bid = Column(
         String(36),
@@ -123,7 +125,7 @@ class CouponUsage(db.Model):
     """
 
     __tablename__ = "promo_coupon_usages"
-    __table_args__ = {"comment": "Promo coupon usages"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Promo coupon usages"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     coupon_usage_bid = Column(
         String(36),
@@ -205,7 +207,7 @@ class PromoCampaign(db.Model):
     """Promotion campaign definition."""
 
     __tablename__ = "promo_promos"
-    __table_args__ = {
+    __table_args__: ClassVar[dict[str, str]] = {
         "comment": (
             "Promotion campaign definition table. Defines a discount campaign for a specific "
             "Shifu (join/apply type, time window, discount configuration, channel, and targeting "
@@ -329,7 +331,7 @@ class PromoRedemption(db.Model):
     """Promotion campaign redemption ledger."""
 
     __tablename__ = "promo_redemptions"
-    __table_args__ = {
+    __table_args__: ClassVar[dict[str, str]] = {
         "comment": (
             "Promotion campaign redemption ledger. Records each time a user redeems/applies a "
             "promo campaign to an order, including snapshot fields (campaign name/discount "
