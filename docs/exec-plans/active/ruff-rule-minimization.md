@@ -132,6 +132,20 @@ plan's progress update for that rule.
   613 findings, so the documentation cleanup transfers no line-length debt.
 - [ ] Merge or retarget D105 PR #2583 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 01:40 CST: Opened ready TC003 PR
+  [#2584](https://github.com/ai-shifu/ai-shifu/pull/2584) from
+  `sunner/ruff-tc003` to the D105 branch. Of 100 findings across 86 files, 95
+  genuinely annotation-only imports in 81 files moved behind `TYPE_CHECKING`;
+  five Pydantic DTO modules retain runtime `datetime` imports through a shared
+  Ruff runtime-evaluation contract. The import AST audit, 261 focused tests,
+  full backend suite, script entry points, and all pre-commit hooks pass.
+- [x] 2026-08-21 01:40 CST: Re-ran the stable `ALL` census on the TC003 tip. It
+  reports 30,518 findings across 37 rules and no TC003 findings. The Pydantic
+  runtime model also removes four TC002 false positives while TC002 remains a
+  separate global exception; deleting one unused fake clock removes one
+  ANN001 finding, and every other rule count is unchanged.
+- [ ] Merge or retarget TC003 PR #2584 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -191,6 +205,16 @@ plan's progress update for that rule.
   summaries. Shortening those summaries without weakening their observable
   contracts restored E501 to 613, making the final census a pure 155-finding
   reduction instead of moving debt between rules.
+- TC003's unsafe fixer correctly identified annotation-only imports but could
+  not see four obsolete tests monkeypatching module-level `datetime` names that
+  production never read. The focused suites exposed the fake seams; removing
+  those patches while retaining their real `now_utc` injection made the tests
+  describe the actual clock contract.
+- The next numerically smaller candidate, PLR0911, spans 72 complex control-flow
+  functions across authentication, billing, payment, permissions, and Alembic
+  infrastructure. It is not a safe mechanical unit: adopting it requires
+  behavior-specific decomposition rather than result-variable or threshold
+  workarounds, so TC003 was the smaller reviewable exception-removal stage.
 - FIX002 and TD003 report the same two TODOs. One is a real password-login
   rate-limit feature and one is a compatibility-removal checkpoint. Renaming
   them to evade lint would hide work, and implementing either is larger than a
@@ -220,6 +244,10 @@ plan's progress update for that rule.
   is immutable history. A global ignore is the last resort for a repository-
   wide contract that fundamentally conflicts with a rule.
 - 2026-08-20: Do not edit applied Alembic migrations to satisfy style rules.
+- 2026-08-21: A shared Ruff semantic setting required by one rule may also
+  remove false positives from another still-ignored rule. Record that census
+  effect explicitly, but do not treat the second rule as adopted until its own
+  independent rule PR removes its exception and passes its acceptance suite.
 
 ## Outcomes & Retrospective
 
@@ -316,6 +344,19 @@ docstrings are removed. The focused protocol suites pass 224 tests, the full
 backend suite passes 3,010 tests with 17 skips, and the repository-wide
 pre-commit gate passes. Future agents now have an explicit D105 repair contract
 that rejects filler summaries in favor of observable behavior.
+
+The TC003 stage removes the global standard-library type-only import exception.
+Ninety-five imports across 81 Python files now load only under `TYPE_CHECKING`;
+an AST normalization audit proves those modules have no other executable syntax
+changes. Five Pydantic DTO modules keep `datetime` available while their model
+classes resolve field annotations, modeled once through Ruff's runtime-
+evaluated base-class setting and protected by five parameterized assertions.
+Focused testing also removed four ineffective `datetime` monkeypatch calls
+while preserving the real `now_utc` clock injection. The cross-service suite
+passes 261 tests, the full backend suite passes 3,015 tests with 17 skips, both
+diagnostic script entry points import, and the repository-wide pre-commit gate
+passes. Future agents now distinguish postponed and local annotations from
+Pydantic fields, runtime reflection, and genuine module-attribute test seams.
 
 ## Context and Orientation
 
