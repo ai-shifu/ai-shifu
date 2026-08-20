@@ -1,3 +1,5 @@
+"""Select and initialize the shared cache backend."""
+
 from __future__ import annotations
 
 import threading

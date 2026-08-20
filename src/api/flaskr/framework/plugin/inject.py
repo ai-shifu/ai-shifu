@@ -1,3 +1,5 @@
+"""Inject plugin dependencies into application components."""
+
 from functools import wraps
 
 

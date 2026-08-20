@@ -1,3 +1,5 @@
+"""Verify billing consistency probes distinguish valid wallet states."""
+
 from __future__ import annotations
 
 import argparse

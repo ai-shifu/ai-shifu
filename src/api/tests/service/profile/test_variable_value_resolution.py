@@ -1,3 +1,5 @@
+"""Verify variable value resolution behavior."""
+
 from flaskr.service.profile.funcs import _get_latest_variable_value
 
 

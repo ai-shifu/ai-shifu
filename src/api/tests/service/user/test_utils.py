@@ -1,3 +1,5 @@
+"""Verify user language lookup and operator-role preservation."""
+
 import uuid
 from types import SimpleNamespace
 

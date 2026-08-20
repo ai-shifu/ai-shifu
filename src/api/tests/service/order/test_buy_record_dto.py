@@ -1,3 +1,5 @@
+"""Protect buy record data-transfer serialization contracts."""
+
 from flaskr.service.order.funs import BuyRecordDTO
 
 

@@ -1,3 +1,5 @@
+"""Map generated blocks to learner-facing element types."""
+
 from __future__ import annotations
 
 from flaskr.service.learn.const import ROLE_TEACHER

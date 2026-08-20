@@ -1,3 +1,5 @@
+"""Verify creator customization behavior."""
+
 import hashlib
 from importlib import import_module
 from io import BytesIO

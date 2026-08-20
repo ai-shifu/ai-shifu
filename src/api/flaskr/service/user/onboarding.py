@@ -1,3 +1,5 @@
+"""Resolve and complete user onboarding scenes."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

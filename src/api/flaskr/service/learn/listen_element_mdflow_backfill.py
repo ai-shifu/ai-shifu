@@ -1,3 +1,5 @@
+"""Backfill listen-mode elements from MarkdownFlow content."""
+
 from __future__ import annotations
 
 import uuid

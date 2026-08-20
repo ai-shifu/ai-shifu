@@ -1,3 +1,5 @@
+"""Verify study records expose generated learning blocks."""
+
 from flaskr.dao import db
 from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord

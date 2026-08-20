@@ -1,3 +1,5 @@
+"""Provide fake LLM support for common fixtures tests."""
+
 from collections.abc import Generator
 from types import SimpleNamespace
 

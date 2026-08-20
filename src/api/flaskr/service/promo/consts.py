@@ -1,3 +1,5 @@
+"""Define constants for promotions."""
+
 COUPON_TYPE_FIXED = 701
 COUPON_TYPE_PERCENT = 702
 

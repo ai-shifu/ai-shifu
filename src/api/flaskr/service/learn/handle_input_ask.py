@@ -1,3 +1,5 @@
+"""Handle learner follow-up questions and streamed answers."""
+
 from collections.abc import Generator
 from typing import Any
 

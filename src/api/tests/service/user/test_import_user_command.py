@@ -1,3 +1,5 @@
+"""Verify import user command behavior."""
+
 from importlib import import_module
 from types import SimpleNamespace
 

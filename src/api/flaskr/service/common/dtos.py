@@ -1,3 +1,5 @@
+"""Define DTOs for shared backend behavior."""
+
 import math
 
 from flaskr.common.swagger import register_schema_to_swagger

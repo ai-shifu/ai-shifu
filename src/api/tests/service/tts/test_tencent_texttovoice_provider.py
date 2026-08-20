@@ -1,3 +1,5 @@
+"""Verify tencent TextToVoice provider behavior."""
+
 import base64
 import hashlib
 import hmac

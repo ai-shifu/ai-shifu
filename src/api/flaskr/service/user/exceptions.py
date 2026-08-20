@@ -1,3 +1,5 @@
+"""Define domain exceptions for user accounts."""
+
 from flaskr.i18n import _
 from flaskr.service.common import ERROR_CODE, AppError
 from flaskr.util.deprecation import deprecated_alias_getattr

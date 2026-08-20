@@ -1,3 +1,5 @@
+"""Verify Feishu logging failure isolation and payload limits."""
+
 import logging
 
 import requests

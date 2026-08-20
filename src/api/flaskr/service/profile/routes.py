@@ -1,3 +1,5 @@
+"""Expose HTTP routes for learner profiles."""
+
 from flask import Flask, request
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response

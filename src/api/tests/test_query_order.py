@@ -1,3 +1,5 @@
+"""Verify order queries preserve stored promotion details."""
+
 from decimal import Decimal
 from types import SimpleNamespace
 

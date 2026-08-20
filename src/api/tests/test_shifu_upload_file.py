@@ -1,3 +1,5 @@
+"""Verify course uploads create missing resource records."""
+
 from types import SimpleNamespace
 
 from flaskr.dao import db

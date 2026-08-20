@@ -1,4 +1,6 @@
 # ruff: noqa: E402
+"""Provide pytest fixtures for backend tests."""
+
 import os
 import shutil
 import sys

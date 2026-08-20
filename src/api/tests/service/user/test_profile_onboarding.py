@@ -1,3 +1,5 @@
+"""Verify profile onboarding behavior."""
+
 from contextlib import contextmanager
 from types import SimpleNamespace
 

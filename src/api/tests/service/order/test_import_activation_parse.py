@@ -1,3 +1,5 @@
+"""Verify import activation parse behavior."""
+
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock

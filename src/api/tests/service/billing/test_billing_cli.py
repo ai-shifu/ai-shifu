@@ -1,3 +1,5 @@
+"""Verify billing backfill commands require explicit scope."""
+
 from __future__ import annotations
 
 import json

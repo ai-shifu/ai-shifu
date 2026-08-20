@@ -1,3 +1,5 @@
+"""Map Markdown source spans for listen-mode elements."""
+
 from __future__ import annotations
 
 from typing import Any
