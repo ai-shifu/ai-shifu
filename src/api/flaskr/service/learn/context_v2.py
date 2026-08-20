@@ -1346,6 +1346,13 @@ class RunScriptPreviewContextV2:
             try:
                 struct = get_shifu_struct(self.app, shifu_bid, is_preview)
             except Exception:
+                self.app.logger.debug(
+                    "outline hierarchy lookup skipped a struct: "
+                    "shifu_bid=%s is_preview=%s",
+                    shifu_bid,
+                    is_preview,
+                    exc_info=True,
+                )
                 continue
             path = find_node_with_parents(struct, outline_bid)
             if not path:

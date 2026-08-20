@@ -68,7 +68,7 @@ def main() -> int:
         for file_path in collect_json_files(code_dir):
             try:
                 data = read_json(file_path)
-            except Exception:
+            except (OSError, ValueError):
                 continue
             declared = data.get("__namespace__")
             if isinstance(declared, str) and declared:
