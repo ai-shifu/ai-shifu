@@ -190,6 +190,11 @@ best-effort refresh, recovers cleanly from an SSE stream that ends without a
 terminal event, renews Redis ownership during replay, and prevents a defer
 action from leaving a late-created guided session or provider run behind.
 
+On 2026-08-20 the complete series was rebased onto `main` at `e65aa770a` and
+passed the final local publication gates. The plan is complete and archived;
+ongoing pull-request CI and review status belongs to the PR rather than an
+unchecked implementation milestone.
+
 ## Context and Orientation
 
 - The existing editor shell and settings rerun live in

@@ -26,7 +26,6 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
-- [Unified Learner Profile Dialog](./active/unified-learner-profile-dialog.md)
 
 ## Completed
 
@@ -43,6 +42,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
 - [Profile onboarding guided questions (PR2)](./completed/profile-onboarding-guided.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
+- [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
 
 ## Supporting Tracker
 
