@@ -30,6 +30,7 @@ from flaskr.service.billing.models import (
     BillingDailyUsageMetric,
     BillingOrder,
     BillingProduct,
+    BillingProductProviderPrice,
     BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
@@ -1982,3 +1983,127 @@ def test_billing_upsert_product_cli_allows_manual_custom_product_values(
             "segment": "enterprise",
         }
         assert product.entitlement_payload == {"support_tier": "priority"}
+
+
+def test_billing_provider_price_cli_binds_lists_and_retires_mapping(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+    product_args = [
+        "console",
+        "billing",
+        "upsert-product",
+        "--product-bid",
+        "bill-product-provider-price-cli",
+        "--product-code",
+        "creator-global-growth-monthly",
+        "--product-type",
+        "plan",
+        "--billing-mode",
+        "recurring",
+        "--billing-interval",
+        "month",
+        "--billing-interval-count",
+        "1",
+        "--display-name-i18n-key",
+        "module.billing.catalog.growth.title",
+        "--description-i18n-key",
+        "module.billing.catalog.growth.description",
+        "--currency",
+        "usd",
+        "--price-amount",
+        "5900",
+        "--credit-amount",
+        "1000",
+        "--allocation-interval",
+        "per_cycle",
+        "--auto-renew-enabled",
+        "1",
+        "--status",
+        "active",
+        "--sort-order",
+        "20",
+        "--entitlement-json",
+        "{}",
+        "--metadata-json",
+        '{"plan_tier":"growth"}',
+    ]
+    bind_args = [
+        "console",
+        "billing",
+        "provider-price",
+        "bind",
+        "--product-bid",
+        "bill-product-provider-price-cli",
+        "--provider-account-id",
+        "acct_test",
+        "--provider-product-id",
+        "prod_growth",
+        "--provider-price-id",
+        "price_growth_month_cli",
+        "--testmode",
+        "--metadata-json",
+        '{"operator":"qa"}',
+    ]
+
+    seed_result = runner.invoke(args=product_args)
+    first_bind = runner.invoke(args=bind_args)
+    second_bind = runner.invoke(args=bind_args)
+    list_result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "provider-price",
+            "list",
+            "--product-bid",
+            "bill-product-provider-price-cli",
+        ]
+    )
+
+    assert seed_result.exit_code == 0
+    assert first_bind.exit_code == 0
+    assert second_bind.exit_code == 0
+    assert list_result.exit_code == 0
+
+    first_payload = json.loads(first_bind.output)
+    second_payload = json.loads(second_bind.output)
+    list_payload = json.loads(list_result.output)
+    provider_price_bid = first_payload["mapping"]["provider_price_bid"]
+
+    assert first_payload["created"] is True
+    assert second_payload["created"] is False
+    assert second_payload["mapping"]["provider_price_bid"] == provider_price_bid
+    assert list_payload["count"] == 1
+    assert "sk_test" not in list_result.output
+
+    inspect_result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "provider-price",
+            "inspect",
+            "--provider-price-bid",
+            provider_price_bid,
+        ]
+    )
+    retire_result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "provider-price",
+            "retire",
+            "--provider-price-bid",
+            provider_price_bid,
+        ]
+    )
+
+    assert inspect_result.exit_code == 0
+    assert retire_result.exit_code == 0
+    assert json.loads(retire_result.output)["mapping"]["status_label"] == "retired"
+
+    with billing_cli_db_app.app_context():
+        mapping = BillingProductProviderPrice.query.filter_by(
+            provider_price_bid=provider_price_bid
+        ).one()
+        assert mapping.provider_price_id == "price_growth_month_cli"
+        assert mapping.retired_at is not None
