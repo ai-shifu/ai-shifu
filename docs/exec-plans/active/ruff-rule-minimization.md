@@ -346,6 +346,11 @@ plan's progress update for that rule.
   Ruff, and format also pass.
 - [x] 2026-08-21 06:05 CST: Every repository pre-commit hook passes on the
   N815 tip.
+- [x] 2026-08-21 06:07 CST: Opened ready N815 PR
+  [#2595](https://github.com/ai-shifu/ai-shifu/pull/2595) from
+  `sunner/ruff-n815` to the RUF001 branch after all local gates passed.
+- [ ] Merge or retarget N815 PR #2595 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
