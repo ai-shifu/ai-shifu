@@ -9,10 +9,12 @@ WORKDIR /app
 # copy package.json and package-lock.json files
 COPY package*.json ./
 
-# copy project source code
-COPY . .
 # install dependencies
-RUN npm install --ignore-scripts
+RUN npm ci --ignore-scripts
+
+# copy project source code after dependencies so source-only changes reuse the
+# lockfile-keyed install layer
+COPY . .
 
 # expose port
 EXPOSE 3000
