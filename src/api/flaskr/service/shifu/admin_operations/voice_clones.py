@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.api.tts import get_default_voice_settings, synthesize_text
@@ -31,6 +30,9 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy import or_
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 OPERATOR_VOICE_CLONE_SOURCE_METHOD = "operator_register"
 # Short text/model used only to validate a registered voice_id against the

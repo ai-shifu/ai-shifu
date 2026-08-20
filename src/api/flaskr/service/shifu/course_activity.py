@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
 from flaskr.util.datetime import NAIVE_DATETIME_MIN
 from sqlalchemy import and_, or_
 
 from .models import DraftOutlineItem, DraftShifu, PublishedOutlineItem, PublishedShifu
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from datetime import datetime
 
 
 def _record_course_activity(

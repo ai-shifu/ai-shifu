@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import current_app
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.timezone import serialize_with_app_timezone
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 def coerce_operator_datetime(value: Any) -> datetime | None:

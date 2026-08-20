@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import contextlib
-import datetime
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as redis
@@ -44,6 +43,9 @@ from flaskr.service.user.utils import (
 )
 from flaskr.util.datetime import now_utc
 from sqlalchemy import text
+
+if TYPE_CHECKING:
+    import datetime
 
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
 

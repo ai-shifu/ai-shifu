@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.util.datetime import NAIVE_DATETIME_MAX, NAIVE_DATETIME_MIN
 
@@ -27,6 +26,9 @@ from .consts import (
 from .models import BillingOrder, CreditWalletBucket
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 OrderTypeLoader = Callable[[str], int | None]
 

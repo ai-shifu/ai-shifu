@@ -226,11 +226,9 @@ ignore = [
     "D103",    # undocumented public function
     "D203",    # blank line before a class docstring -- conflicts with D211
     "D213",    # summary on the second line -- conflicts with D212
-    # TC002 / TC003: moving a third-party or stdlib import into TYPE_CHECKING
-    # breaks anything that resolves annotations at runtime, which for this repo
-    # means the SQLAlchemy mappers and pydantic models (~230 hits).
+    # TC002: moving a third-party import into TYPE_CHECKING breaks anything
+    # that resolves annotations at runtime, including SQLAlchemy mappers.
     "TC002",
-    "TC003",
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
     # INP001 is enforced; see per-file-ignores for the entrypoints, Alembic
@@ -238,6 +236,12 @@ ignore = [
     # than imported.
     "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
 ]
+
+[lint.flake8-type-checking]
+# Pydantic resolves model field annotations while creating each class. Keep
+# their standard-library field types imported at runtime; TC003 moves only
+# genuinely annotation-only imports behind TYPE_CHECKING.
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [lint.per-file-ignores]
 # `assert` is the point of a test, and both scripts below are test code: one is

@@ -5,9 +5,7 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask, current_app
 from flaskr.common.cache_provider import cache as redis
@@ -65,6 +63,10 @@ from flaskr.service.user.utils import (
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import datetime
 
 
 def _load_latest_course_for_transfer(shifu_bid: str):

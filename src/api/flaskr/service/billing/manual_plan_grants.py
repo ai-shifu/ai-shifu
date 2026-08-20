@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as redis
@@ -36,6 +35,9 @@ from .queries import (
     load_primary_active_subscription as _load_primary_active_subscription,
 )
 from .subscriptions import grant_paid_order_credits, is_self_managed_billing_provider
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 _NOTIFICATION_EXTENSION_KEY = "admin_manual_plan_grant"
 _NOTIFICATION_STATUS_TEMPLATE_PENDING = "template_pending"
