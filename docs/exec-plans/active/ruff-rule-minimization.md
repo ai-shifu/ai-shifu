@@ -170,9 +170,10 @@ plan's progress update for that rule.
   reports 29,968 findings across 35 rules and no D100 findings. D100 falls by
   all 415 findings; deleting the empty module also removes one CPY001 finding,
   while ANN001, D101-D103, E501, and PLR0911 remain unchanged.
-- [ ] Open the ready D100 PR against the TC002 branch after the repository gates
-  pass, then merge or retarget it after its predecessors without combining it
-  with the next rule unit.
+- [x] 2026-08-21 02:47 CST: Opened ready D100 PR #2586 against the TC002
+  branch after all local gates passed.
+- [ ] Merge or retarget D100 PR #2586 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
