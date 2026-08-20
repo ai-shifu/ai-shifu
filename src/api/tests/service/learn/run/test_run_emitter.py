@@ -172,9 +172,7 @@ class WrapperDelegationTests(unittest.TestCase):
 
 
 class EmitterContextSeamTests(unittest.TestCase):
-    """The emitter must dispatch cross-calls through the context wrappers so
-    instance-level overrides on the context keep taking effect.
-    """
+    """The emitter must dispatch cross-calls through the context wrappers so instance-level overrides on the context keep taking effect."""
 
     def test_completion_tail_uses_context_overrides(self):
         ctx = _make_context()
