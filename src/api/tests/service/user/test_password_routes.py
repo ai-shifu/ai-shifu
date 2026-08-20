@@ -10,7 +10,6 @@ from unittest.mock import MagicMock
 
 import jwt
 from flaskr.service.user import phone_flow
-from flaskr.service.user.auth.providers import password as password_provider
 from redis.exceptions import RedisError
 
 if TYPE_CHECKING:
@@ -299,12 +298,13 @@ def test_password_login_throttles_one_ip_across_identifiers(
 def test_password_login_blocks_when_failure_counter_lock_is_busy(
     test_client: FlaskClient,
     monkeypatch: pytest.MonkeyPatch,
+    mock_redis_client: FakeRedis,
 ) -> None:
     """Do not let concurrent counter updates bypass password throttling."""
     busy_lock = MagicMock()
     busy_lock.acquire.return_value = False
     lock_factory = MagicMock(return_value=busy_lock)
-    monkeypatch.setattr(password_provider.cache, "lock", lock_factory)
+    monkeypatch.setattr(mock_redis_client, "lock", lock_factory)
 
     blocked, blocked_body = _post_json(
         test_client,
@@ -321,13 +321,12 @@ def test_password_login_blocks_when_failure_counter_lock_is_busy(
 def test_password_login_blocks_when_failure_counter_lock_errors(
     test_client: FlaskClient,
     monkeypatch: pytest.MonkeyPatch,
+    mock_redis_client: FakeRedis,
 ) -> None:
     """Fail closed when Redis errors after returning a lock object."""
     failing_lock = MagicMock()
     failing_lock.acquire.side_effect = RedisError("redis unavailable")
-    monkeypatch.setattr(
-        password_provider.cache, "lock", MagicMock(return_value=failing_lock)
-    )
+    monkeypatch.setattr(mock_redis_client, "lock", MagicMock(return_value=failing_lock))
 
     blocked, blocked_body = _post_json(
         test_client,
@@ -338,6 +337,70 @@ def test_password_login_blocks_when_failure_counter_lock_errors(
     assert blocked.status_code == _HTTP_OK
     assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
     failing_lock.release.assert_not_called()
+
+
+def test_password_login_blocks_without_a_shared_counter_backend(
+    test_client: FlaskClient,
+    mock_redis_client: FakeRedis,
+) -> None:
+    """Do not weaken throttling to process-local counters when Redis is absent."""
+    from flaskr.dao import set_redis_client
+
+    set_redis_client(None)
+    try:
+        blocked, blocked_body = _post_json(
+            test_client,
+            "/api/user/login_password",
+            {"identifier": "no-redis@example.com", "password": "wrong-password"},
+        )
+    finally:
+        set_redis_client(mock_redis_client)
+
+    assert blocked.status_code == _HTTP_OK
+    assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
+
+
+def test_password_login_waits_for_redis_before_clearing_failures(
+    test_client: FlaskClient,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_redis_client: FakeRedis,
+) -> None:
+    """Do not report login success until the shared failure count is cleared."""
+    phone = "15500002224"
+    password = "Abcd1234"
+    with app.app_context():
+        user_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=phone, code="9999"
+        )
+    _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": phone, "code": "9999", "new_password": password},
+        headers={"Token": user_token.token},
+    )
+
+    original_delete = mock_redis_client.delete
+    monkeypatch.setattr(
+        mock_redis_client,
+        "delete",
+        MagicMock(side_effect=RedisError("redis unavailable")),
+    )
+    _blocked, blocked_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": password},
+    )
+    assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
+
+    monkeypatch.setattr(mock_redis_client, "delete", original_delete)
+    recovered, recovered_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": password},
+    )
+    assert recovered.status_code == _HTTP_OK
+    assert recovered_body["code"] == 0
 
 
 def test_password_login_merges_authenticated_guest_learner_profile(test_client, app):
