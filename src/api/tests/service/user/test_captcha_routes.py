@@ -2,6 +2,7 @@ import base64
 import json
 from io import BytesIO
 
+from flasgger.utils import parse_docstring
 from PIL import Image
 
 
@@ -128,6 +129,22 @@ def test_send_sms_code_requires_captcha_ticket(test_client, app):
 
     assert response.status_code == 200
     assert body["code"] == 1009
+
+
+def test_send_sms_code_swagger_parameters_stay_valid_yaml(app):
+    view = app.view_functions["send_sms_code_api"]
+
+    _summary, _description, specification = parse_docstring(
+        view,
+        process_doc=lambda text: text,
+    )
+
+    assert specification["parameters"][0]["in"] == "body"
+    assert specification["parameters"][0]["required"] is True
+    assert specification["parameters"][0]["schema"]["required"] == [
+        "mobile",
+        "captcha_ticket",
+    ]
 
 
 def test_send_sms_code_localizes_missing_captcha_ticket_message(test_client, app):
