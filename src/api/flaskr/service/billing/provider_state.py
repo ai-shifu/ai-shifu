@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.util.datetime import now_utc
 
 from .consts import (
@@ -52,6 +51,8 @@ from .value_objects import JsonObjectMap
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from flask import Flask
 
     from .models import BillingOrder, BillingSubscription
 

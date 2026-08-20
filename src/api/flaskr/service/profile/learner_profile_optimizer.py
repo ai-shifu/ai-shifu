@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
     finalize_langfuse_trace,
@@ -19,6 +18,9 @@ from flaskr.service.profile.learner_profile import (
     normalize_learner_profile,
 )
 from flaskr.util.prompt_loader import load_prompt_template
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS = 15
 LEARNER_PROFILE_OPTIMIZATION_MAX_TOKENS = 1200

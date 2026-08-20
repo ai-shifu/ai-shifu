@@ -6,9 +6,8 @@ import json
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from math import ceil
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     BILLING_PRODUCT_STATUS_ACTIVE,
@@ -47,6 +46,9 @@ from .models import (
     ReferralInviteRelation,
     ReferralInviteReward,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 REFERRAL_CAMPAIGN_STATUS_FILTERS = {
     "active",

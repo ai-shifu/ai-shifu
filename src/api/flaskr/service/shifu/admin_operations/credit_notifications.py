@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.billing.api import (
     dry_run_credit_notifications,
     get_credit_notification_detail,
@@ -16,6 +15,9 @@ from flaskr.service.billing.api import (
 from flaskr.service.billing.api import (
     get_operator_credit_notification_overview as build_credit_notification_overview,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def get_operator_credit_notification_overview(app: Flask) -> dict[str, Any]:

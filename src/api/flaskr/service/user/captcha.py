@@ -7,12 +7,14 @@ import json
 import random
 import secrets
 from io import BytesIO
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.common.cache_provider import cache as redis
 from flaskr.service.common.models import raise_error
 from PIL import Image, ImageDraw, ImageFont
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _CAPTCHA_ALPHABET = "ACDEFHJKLMNPRTUVWXY3479"
 _CAPTCHA_IMAGE_WIDTH = 160

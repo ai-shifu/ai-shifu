@@ -6,9 +6,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.datetime import now_utc, parse_naive_utc
@@ -25,6 +24,9 @@ from .models import (
 from .ownership import resolve_usage_creator_bid
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _ZERO = Decimal(0)
 

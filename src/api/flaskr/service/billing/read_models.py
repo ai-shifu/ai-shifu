@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
@@ -174,6 +173,9 @@ from .wallets import (
     adjust_credit_wallet_balance,
     calculate_credit_wallet_snapshot_values,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _OPERATOR_PRODUCT_FILTER_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (

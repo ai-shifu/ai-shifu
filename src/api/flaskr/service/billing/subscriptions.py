@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.payment_providers import get_payment_provider
@@ -159,6 +158,8 @@ from .wallets import (
 )
 
 if TYPE_CHECKING:
+    from flask import Flask
+
     from .dtos import BillingSubscriptionDTO
 
 SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}

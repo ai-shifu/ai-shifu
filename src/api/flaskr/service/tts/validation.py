@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.api.tts import get_tts_provider
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.tts.cloned_voice_registry import (
     find_ready_cloned_voice,
     get_clone_provider_spec,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 SUPPORTED_TTS_PROVIDERS = {
     "minimax",

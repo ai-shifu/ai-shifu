@@ -3,10 +3,9 @@ from __future__ import annotations
 import json
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs
 
-from flask import Flask
 from flaskr.common.public_urls import build_alipay_notify_url
 from flaskr.service.config import get_config
 
@@ -19,6 +18,9 @@ from .base import (
     PaymentRefundResult,
     PaymentRequest,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 class AlipayProvider(PaymentProvider):

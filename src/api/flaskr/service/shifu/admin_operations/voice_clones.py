@@ -4,7 +4,6 @@ import math
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.api.tts import get_default_voice_settings, synthesize_text
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
@@ -33,6 +32,8 @@ from sqlalchemy import or_
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from flask import Flask
 
 OPERATOR_VOICE_CLONE_SOURCE_METHOD = "operator_register"
 # Short text/model used only to validate a registered voice_id against the
