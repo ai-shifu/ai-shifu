@@ -111,7 +111,6 @@ const ShifuCard = ({
     canManageArchive ||
     canManagePermissions,
   );
-
   return (
     <div
       className='relative w-full h-full group'
@@ -128,7 +127,9 @@ const ShifuCard = ({
           style={CARD_CONTAINER_STYLE}
         >
           <CardContent className={CARD_CONTENT_CLASS}>
-            <div className='mb-4 flex flex-row items-center justify-between'>
+            <div
+              className={`mb-4 flex flex-row items-center justify-between ${showMenu ? 'pr-8' : ''}`}
+            >
               <div className='flex min-w-0 flex-row items-center w-full'>
                 <div
                   className={COURSE_AVATAR_CLASS}
@@ -172,14 +173,13 @@ const ShifuCard = ({
       </Link>
       {showMenu && (
         <DropdownMenu>
-          {/* Reveal the menu when hovering the whole card, while keeping click behavior unchanged. */}
-          <div className='absolute top-0 right-0 h-10 w-10 flex items-center justify-center z-10 group'>
+          <div className='absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center'>
             <DropdownMenuTrigger asChild>
               <Button
                 type='button'
                 variant='ghost'
                 size='icon'
-                className='h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100'
+                className='h-8 w-8 bg-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted data-[state=open]:bg-muted data-[state=open]:text-foreground'
                 title={t('common.core.more')}
                 aria-label={t('common.core.more')}
                 onClick={event => {
@@ -187,14 +187,14 @@ const ShifuCard = ({
                   event.stopPropagation();
                 }}
               >
-                <MoreHorizontal className='h-4 w-4 text-muted-foreground' />
+                <MoreHorizontal className='h-5 w-5' />
               </Button>
             </DropdownMenuTrigger>
           </div>
           <DropdownMenuContent
             align='end'
-            sideOffset={0}
-            className='min-w-0'
+            sideOffset={4}
+            className='min-w-[9rem]'
           >
             {onImportActivationRequest && (
               <DropdownMenuItem
