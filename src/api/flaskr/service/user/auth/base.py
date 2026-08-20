@@ -93,9 +93,8 @@ class AuthProvider(ABC):
         self, app: Flask, request: ChallengeRequest
     ) -> ChallengeResponse:
         """Dispatch a verification challenge to the user."""
-        raise NotImplementedError(
-            f"Provider '{self.provider_name}' does not issue challenges"
-        )
+        message = f"Provider '{self.provider_name}' does not issue challenges"
+        raise NotImplementedError(message)
 
     @abstractmethod
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
@@ -103,14 +102,12 @@ class AuthProvider(ABC):
 
     def begin_oauth(self, app: Flask, metadata: dict[str, Any]) -> Any:
         """Initiate an OAuth flow (optional)."""
-        raise NotImplementedError(
-            f"Provider '{self.provider_name}' does not support OAuth begin"
-        )
+        message = f"Provider '{self.provider_name}' does not support OAuth begin"
+        raise NotImplementedError(message)
 
     def handle_oauth_callback(
         self, app: Flask, request: OAuthCallbackRequest
     ) -> AuthResult:
         """Complete an OAuth flow and produce an authentication result."""
-        raise NotImplementedError(
-            f"Provider '{self.provider_name}' does not support OAuth callbacks"
-        )
+        message = f"Provider '{self.provider_name}' does not support OAuth callbacks"
+        raise NotImplementedError(message)

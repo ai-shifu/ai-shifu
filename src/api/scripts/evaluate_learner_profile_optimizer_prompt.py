@@ -108,7 +108,8 @@ def _parse_codex_events(stdout: str) -> dict[str, Any]:
                 ):
                     warnings.append("code_mode_disabled_fail_closed")
                     continue
-                raise EvaluationError(f"codex CLI error item: {message[:200]}")
+                error_message = f"codex CLI error item: {message[:200]}"
+                raise EvaluationError(error_message)
             item_types.add(item_type)
         if event.get("type") == "turn.completed" and isinstance(
             event.get("usage"), dict
@@ -118,7 +119,8 @@ def _parse_codex_events(stdout: str) -> dict[str, Any]:
     disallowed_item_types = item_types - ALLOWED_CODEX_ITEM_TYPES
     if disallowed_item_types:
         disallowed = ", ".join(sorted(disallowed_item_types))
-        raise EvaluationError(f"codex CLI used disallowed tool item(s): {disallowed}")
+        error_message = f"codex CLI used disallowed tool item(s): {disallowed}"
+        raise EvaluationError(error_message)
     return {
         "item_types": sorted(item_types),
         "tool_calls_observed": False,
@@ -179,16 +181,14 @@ def _run_codex(
         except FileNotFoundError as exc:
             raise EvaluationError("codex CLI is not installed") from exc
         except subprocess.TimeoutExpired as exc:
-            raise EvaluationError(
-                f"codex CLI exceeded the {timeout_seconds}s timeout"
-            ) from exc
+            message = f"codex CLI exceeded the {timeout_seconds}s timeout"
+            raise EvaluationError(message) from exc
 
         if completed.returncode != 0:
             diagnostic = completed.stderr.strip().splitlines()
             detail = diagnostic[-1] if diagnostic else "no diagnostic output"
-            raise EvaluationError(
-                f"codex CLI exited with {completed.returncode}: {detail}"
-            )
+            message = f"codex CLI exited with {completed.returncode}: {detail}"
+            raise EvaluationError(message)
         if not output_path.exists():
             raise EvaluationError("codex CLI did not write a final response")
         result = output_path.read_text(encoding="utf-8")
@@ -392,7 +392,8 @@ def main() -> int:
         unknown_case_ids = requested_case_ids - known_case_ids
         if unknown_case_ids:
             unknown = ", ".join(sorted(unknown_case_ids))
-            raise EvaluationError(f"unknown case id(s): {unknown}")
+            message = f"unknown case id(s): {unknown}"
+            raise EvaluationError(message)
         cases = [case for case in cases if case["id"] in requested_case_ids]
 
     tasks = [

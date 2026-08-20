@@ -152,7 +152,8 @@ def _serialize_task_payload(result: Any) -> Any:
         return result.to_payload()
     if hasattr(result, "__json__"):
         return result.__json__()
-    raise TypeError(f"Unsupported task payload type: {type(result)!r}")
+    message = f"Unsupported task payload type: {type(result)!r}"
+    raise TypeError(message)
 
 
 def _load_renewal_task_config() -> dict[str, Any]:

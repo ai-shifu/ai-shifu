@@ -115,9 +115,8 @@ def _acquire_redis_slot(
     )
     acquired = lock.acquire(blocking=True, blocking_timeout=max_wait_seconds)
     if not acquired:
-        raise TTSRpmQueueTimeoutError(
-            f"TTS RPM queue lock timed out after {max_wait_seconds:.2f}s"
-        )
+        message = f"TTS RPM queue lock timed out after {max_wait_seconds:.2f}s"
+        raise TTSRpmQueueTimeoutError(message)
 
     try:
         now = now_fn()
@@ -125,9 +124,8 @@ def _acquire_redis_slot(
         next_available_at = _parse_timestamp(raw_next, default=now)
         scheduled_at = max(now, next_available_at)
         if scheduled_at > deadline:
-            raise TTSRpmQueueTimeoutError(
-                f"TTS RPM queue wait exceeded {max_wait_seconds:.2f}s"
-            )
+            message = f"TTS RPM queue wait exceeded {max_wait_seconds:.2f}s"
+            raise TTSRpmQueueTimeoutError(message)
 
         ttl_seconds = max(math.ceil(interval * 4 + max_wait_seconds + 60), 120)
         redis_client.set(next_key, f"{scheduled_at + interval:.6f}", ex=ttl_seconds)

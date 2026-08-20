@@ -720,7 +720,8 @@ def synthesize_long_text_to_oss(
         raise ValueError("TTS provider is required")
 
     if not is_tts_configured(provider):
-        raise ValueError(f"TTS provider is not configured: {provider}")
+        message = f"TTS provider is not configured: {provider}"
+        raise ValueError(message)
 
     segments = split_text_for_tts(
         text,

@@ -150,9 +150,8 @@ def _load_json_translations(app: Flask, root: Path):
 
 def _validate_json_translations(app: Flask, root: Path):
     if not root.exists():
-        raise FileNotFoundError(
-            f"Missing shared i18n directory at '{root}'. Run the migration checklist to generate JSON translations."
-        )
+        message = f"Missing shared i18n directory at '{root}'. Run the migration checklist to generate JSON translations."
+        raise FileNotFoundError(message)
 
     problems: list[str] = []
 

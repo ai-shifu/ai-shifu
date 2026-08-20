@@ -56,7 +56,8 @@ def get_oss_config(profile: str = OSS_PROFILE_DEFAULT) -> OSSConfig:
     profile = (profile or "").strip().lower() or OSS_PROFILE_DEFAULT
     keys = _OSS_CONFIG_KEYS.get(profile)
     if not keys:
-        raise ValueError(f"Unknown OSS profile: {profile}")
+        message = f"Unknown OSS profile: {profile}"
+        raise ValueError(message)
 
     endpoint = get_config(keys["endpoint"]) or ""
     access_key_id = get_config(keys["access_key_id"]) or ""

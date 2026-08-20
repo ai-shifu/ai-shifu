@@ -414,7 +414,8 @@ def ensure_user_aggregate(
     entity, created = upsert_user_entity(user_bid=user_bid, defaults=defaults)
     aggregate = load_user_aggregate(entity.user_bid)
     if not aggregate:
-        raise RuntimeError(f"Failed to load user aggregate for {user_bid}")
+        message = f"Failed to load user aggregate for {user_bid}"
+        raise RuntimeError(message)
     return aggregate, created
 
 
@@ -442,9 +443,8 @@ def ensure_user_for_identifier(
         db.session.flush()
         refreshed = load_user_aggregate(aggregate.user_bid)
         if not refreshed:
-            raise RuntimeError(
-                f"Failed to refresh user aggregate for provider {provider}"
-            )
+            message = f"Failed to refresh user aggregate for provider {provider}"
+            raise RuntimeError(message)
         return refreshed, False
 
     user_bid = defaults.get("user_bid") or generate_id(app)
@@ -460,7 +460,8 @@ def ensure_user_for_identifier(
     db.session.flush()
     aggregate = load_user_aggregate(user_bid)
     if not aggregate:
-        raise RuntimeError(f"Failed to create user aggregate for provider {provider}")
+        message = f"Failed to create user aggregate for provider {provider}"
+        raise RuntimeError(message)
     return aggregate, True
 
 

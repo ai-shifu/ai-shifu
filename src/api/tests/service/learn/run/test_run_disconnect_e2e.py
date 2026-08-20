@@ -66,10 +66,11 @@ def _consume_until_streaming(generator) -> list:
         content = getattr(event, "content", "")
         if isinstance(content, str) and STREAMED_MARKER in content:
             return events
-    raise AssertionError(
+    message = (
         "generator finished without yielding a streamed LLM chunk; "
         f"events: {[getattr(e, 'type', None) for e in events]}"
     )
+    raise AssertionError(message)
 
 
 def _load_rows(app, user_bid: str):

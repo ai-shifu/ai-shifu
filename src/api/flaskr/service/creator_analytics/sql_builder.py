@@ -82,10 +82,11 @@ def build_statement(
         # silently emit a WHERE col = '' clause that would always match
         # legacy rows whose creator field is empty.
         if not dsl.caller_user_id:
-            raise ValueError(
+            message = (
                 f"caller_user_id is required for creator-scoped table "
                 f"'{dsl.spec.table_key}'"
             )
+            raise ValueError(message)
         where_clauses.append(
             table.c[dsl.spec.creator_scoped_column]
             == bindparam("__user_id", value=dsl.caller_user_id)
@@ -158,7 +159,8 @@ def _compile_filter(column: Column, filt: Filter, index: int) -> ColumnElement[b
     if op == "is_not_null":
         return column.isnot(None)
 
-    raise ValueError(f"Unexpected DSL operator at sql_builder: {op!r}")
+    message = f"Unexpected DSL operator at sql_builder: {op!r}"
+    raise ValueError(message)
 
 
 def _compile_aggregate(table, agg: Aggregate) -> ColumnElement[Any]:
@@ -180,7 +182,8 @@ def _compile_aggregate(table, agg: Aggregate) -> ColumnElement[Any]:
     elif agg.fn == "max":
         expr = func.max(table.c[agg.field])
     else:
-        raise ValueError(f"Unexpected aggregate fn at sql_builder: {agg.fn!r}")
+        message = f"Unexpected aggregate fn at sql_builder: {agg.fn!r}"
+        raise ValueError(message)
     return expr.label(agg.alias)
 
 
@@ -208,4 +211,5 @@ def _aggregate_expression_by_alias(
     for agg in aggregates:
         if agg.alias == alias:
             return _compile_aggregate(table, agg)
-    raise ValueError(f"Unknown aggregate alias: {alias!r}")
+    message = f"Unknown aggregate alias: {alias!r}"
+    raise ValueError(message)

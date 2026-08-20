@@ -687,7 +687,8 @@ def _get_access_token(api_key: str, secret_key: str) -> str:
 
         if "access_token" not in result:
             error_msg = result.get("error_description", "Unknown error")
-            raise ValueError(f"Failed to get Baidu access token: {error_msg}")
+            message = f"Failed to get Baidu access token: {error_msg}"
+            raise ValueError(message)
 
         access_token = result["access_token"]
         expires_in = result.get("expires_in", 2592000)  # Default 30 days
@@ -700,7 +701,8 @@ def _get_access_token(api_key: str, secret_key: str) -> str:
 
     except requests.RequestException as e:
         logger.exception("Failed to get Baidu access token")
-        raise ValueError(f"Failed to get Baidu access token: {e}") from e
+        message = f"Failed to get Baidu access token: {e}"
+        raise ValueError(message) from e
     else:
         return access_token
 
@@ -915,14 +917,17 @@ class BaiduTTSProvider(BaseTTSProvider):
             try:
                 result = response.json()
             except ValueError as e:
-                raise ValueError(f"Baidu TTS API error: {response.text[:200]}") from e
+                message = f"Baidu TTS API error: {response.text[:200]}"
+                raise ValueError(message) from e
             error_code = result.get("err_no", "unknown")
             error_msg = result.get("err_msg", "Unknown error")
-            raise ValueError(f"Baidu TTS API error {error_code}: {error_msg}")
+            message = f"Baidu TTS API error {error_code}: {error_msg}"
+            raise ValueError(message)
 
         except requests.RequestException as e:
             logger.exception("Baidu TTS request failed")
-            raise ValueError(f"Baidu TTS request failed: {e}") from e
+            message = f"Baidu TTS request failed: {e}"
+            raise ValueError(message) from e
 
     def get_provider_config(self) -> ProviderConfig:
         """Get Baidu provider configuration for frontend."""

@@ -247,6 +247,29 @@ plan's progress update for that rule.
   `sunner/ruff-d101` to the N806 branch after all local gates passed.
 - [ ] Merge or retarget D101 PR #2590 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 04:52 CST: Prepared the EM102 stage on
+  `sunner/ruff-em102`, stacked on D101. Moved all 162 contextual f-string
+  exception messages across 72 Python files into collision-free locals
+  immediately before the original raise: 150 use `message`, while 12 functions
+  with an existing `message` binding use `error_message`. EM102 is now enforced
+  repository-wide with no suppression.
+- [x] 2026-08-21 04:52 CST: A reversible AST audit restored all 162 direct
+  f-string arguments and the one equivalent Coze URL conditional, then matched
+  every executable AST to the D101 parent. The stable `ALL` census falls to
+  29,175 findings across 31 rules: EM102 falls by 162, the same construct also
+  removes 136 TRY003 findings, formatter-owned COM812 falls by 60, and no rule
+  gains debt.
+- [x] 2026-08-21 04:52 CST: Translation and identifier checkers, affected
+  script help entry points, and 1,822 focused billing, payment-provider, TTS,
+  ask-provider, config, analytics, auth, migration, and error-path tests pass
+  with 10 skips. The full backend suite passes 3,019 tests with 17 skips;
+  repository Ruff and format also pass.
+- [x] 2026-08-21 04:54 CST: Collaboration and knowledge generators,
+  repository harness, architecture boundaries, development-tool validation,
+  and every repository pre-commit hook pass on the EM102 tip.
+- [ ] Open the ready EM102 PR against the D101 branch after the full repository
+  pre-commit gate passes, then merge or retarget it without combining its rule
+  unit with the next stage.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -285,6 +308,18 @@ plan's progress update for that rule.
   and inline field comments rather than `Class.__doc__`; a repository search
   found no direct runtime class-docstring consumer, and focused schema tests
   protect the framework-driven paths.
+- EM102 and TRY003 overlap on dynamic built-in exception messages: naming an
+  f-string before raising it resolves both findings at 136 sites even though
+  only EM102 is adopted in this rule unit. Ruff format also collapses 60 now-
+  simple exception calls, removing formatter-conflicting COM812 findings. One
+  Coze adapter initially crossed the PLR0915 statement threshold; an equivalent
+  lazy URL conditional kept that rule at its previous 128 findings rather than
+  adding new debt.
+- Backend audit scripts under `src/api/scripts` import `flaskr` correctly when
+  invoked as modules from `src/api`; executing their file paths directly from
+  the repository root omits the backend package from `sys.path` and fails before
+  argument parsing. The EM102 help-entry verification therefore uses
+  `python -m scripts.<name> --help` from the backend root.
 - G004's full-suite verification exposed a config fallback test that treated a
   mocked logger's first positional argument as the final rendered message. The
   test now verifies the constant message template and interpolation argument,

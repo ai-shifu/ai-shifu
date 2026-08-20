@@ -101,6 +101,10 @@ select = [
     "TRY300",  # return at the end of a try body that belongs in `else`
     "TRY301",  # raise inside a try body that the same block then catches
     "TRY004",  # type check raising something other than TypeError
+    # Build contextual exception text immediately before raising it. Naming
+    # the message keeps the source line in the traceback concise without
+    # changing the exception type, rendered text, or explicit cause chain.
+    "EM102",   # f-string literal passed directly to an exception constructor
 
     # --- Pylint subsets ---------------------------------------------------
     "PLE",     # pylint errors (yield/return in __init__, invalid dunders, ...)

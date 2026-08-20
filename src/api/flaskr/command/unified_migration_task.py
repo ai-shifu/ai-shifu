@@ -40,7 +40,8 @@ def _quote_identifier(name: str) -> str:
     unexpected value fails loudly instead of reaching the database.
     """
     if not _IDENTIFIER_PATTERN.fullmatch(name or ""):
-        raise ValueError(f"Unsafe SQL identifier: {name!r}")
+        message = f"Unsafe SQL identifier: {name!r}"
+        raise ValueError(message)
     return f"`{name}`"
 
 
@@ -491,9 +492,8 @@ class UnifiedMigrationTask:
                     if (
                         error_count > self.config.batch_size * 0.5
                     ):  # If more than 50% errors
-                        raise MigrationBatchError(
-                            f"Too many errors in batch: {error_count}"
-                        ) from e
+                        message = f"Too many errors in batch: {error_count}"
+                        raise MigrationBatchError(message) from e
 
             # Commit the batch
             session.commit()

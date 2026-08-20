@@ -185,10 +185,11 @@ def _bootstrap_mdflow(mdflow_root: str):
     root = Path(mdflow_root)
     init_file = root / "markdown_flow" / "__init__.py"
     if not init_file.exists():
-        raise SystemExit(
+        message = (
             f"markdown-flow root not found or incomplete: {root}. "
             "Expected markdown_flow/__init__.py"
         )
+        raise SystemExit(message)
 
     sys.path.insert(0, str(root))
     for name in list(sys.modules):
@@ -197,10 +198,11 @@ def _bootstrap_mdflow(mdflow_root: str):
 
     markdown_flow = importlib.import_module("markdown_flow")
     if not hasattr(markdown_flow, "StreamFormatter"):
-        raise SystemExit(
+        message = (
             f"markdown-flow loaded from {markdown_flow.__file__} "
             "does not expose StreamFormatter"
         )
+        raise SystemExit(message)
     return markdown_flow
 
 
@@ -723,7 +725,8 @@ def main() -> int:
     args = parse_args()
     input_path = Path(args.input)
     if not input_path.exists():
-        raise SystemExit(f"Input file not found: {input_path}")
+        message = f"Input file not found: {input_path}"
+        raise SystemExit(message)
 
     chunk_sizes = (
         tuple(int(part.strip()) for part in args.chunk_sizes.split(",") if part.strip())

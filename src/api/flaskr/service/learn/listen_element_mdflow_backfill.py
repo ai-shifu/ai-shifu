@@ -179,7 +179,8 @@ def _load_progress_record(progress_record_bid: str) -> LearnProgressRecord:
         .first()
     )
     if progress_record is None:
-        raise ValueError(f"progress record not found: {progress_record_bid}")
+        message = f"progress record not found: {progress_record_bid}"
+        raise ValueError(message)
     return progress_record
 
 

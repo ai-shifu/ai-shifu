@@ -136,7 +136,8 @@ def concat_audio_mp3(
 
     if failed_segments:
         failed_segment_list = ", ".join(str(index) for index in failed_segments)
-        raise ValueError(f"Failed to decode audio segments: {failed_segment_list}")
+        message = f"Failed to decode audio segments: {failed_segment_list}"
+        raise ValueError(message)
 
     # Export to bytes
     output_io = io.BytesIO()

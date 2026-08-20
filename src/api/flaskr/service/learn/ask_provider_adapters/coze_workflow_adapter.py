@@ -234,7 +234,8 @@ class CozeWorkflowAskProviderAdapter:
         except requests.Timeout as exc:
             raise AskProviderTimeoutError("coze_workflow request timeout") from exc
         except requests.RequestException as exc:
-            raise AskProviderError(f"coze_workflow request failed: {exc}") from exc
+            message = f"coze_workflow request failed: {exc}"
+            raise AskProviderError(message) from exc
 
         response = raise_for_provider_response(response, self.provider)
 

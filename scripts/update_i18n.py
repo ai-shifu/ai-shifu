@@ -52,7 +52,8 @@ def flatten_translation(data, namespace: str) -> dict[str, str]:
 def collect_defined_keys() -> tuple[dict[str, Path], set[str]]:
     """Return (namespace_to_relpath, defined_keys_set) using en-US as reference for mapping."""
     if not I18N_DIR.exists():
-        raise FileNotFoundError(f"Shared i18n directory not found: {I18N_DIR}")
+        message = f"Shared i18n directory not found: {I18N_DIR}"
+        raise FileNotFoundError(message)
     # Choose en-US as mapping reference
     mapping: dict[str, Path] = {}
     defined: set[str] = set()

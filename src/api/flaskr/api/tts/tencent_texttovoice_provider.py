@@ -357,20 +357,21 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
             body = response.json()
         except requests.RequestException as exc:
             logger.exception("Tencent TextToVoice request failed")
-            raise ValueError(f"Tencent TextToVoice request failed: {exc}") from exc
+            message = f"Tencent TextToVoice request failed: {exc}"
+            raise ValueError(message) from exc
         except ValueError as exc:
-            raise ValueError(
-                f"Tencent TextToVoice returned invalid JSON: {exc}"
-            ) from exc
+            message = f"Tencent TextToVoice returned invalid JSON: {exc}"
+            raise ValueError(message) from exc
 
         result = body.get("Response") or {}
         error = result.get("Error")
         if error:
             request_id = result.get("RequestId", "")
-            raise ValueError(
+            message = (
                 f"Tencent TextToVoice error {error.get('Code', 'unknown')}: "
                 f"{error.get('Message', '')} (request_id={request_id})"
             )
+            raise ValueError(message)
         audio_base64 = result.get("Audio") or ""
         if not audio_base64:
             raise ValueError("No audio data received from Tencent TextToVoice")
@@ -399,9 +400,8 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         try:
             voice_type = int(voice_id)
         except (TypeError, ValueError) as exc:
-            raise ValueError(
-                f"Invalid Tencent TextToVoice voice id: {voice_id}"
-            ) from exc
+            message = f"Invalid Tencent TextToVoice voice id: {voice_id}"
+            raise ValueError(message) from exc
 
         sample_rate = _resolve_sample_rate(voice_id, model)
         speed = float(voice_settings.speed or 0)

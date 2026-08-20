@@ -342,7 +342,8 @@ class StripeProvider(PaymentProvider):
                 provider_payload={"subscription": subscription},
                 charge_id=None,
             )
-        raise RuntimeError(f"Unsupported Stripe reference type: {reference_type}")
+        message = f"Unsupported Stripe reference type: {reference_type}"
+        raise RuntimeError(message)
 
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask

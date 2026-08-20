@@ -113,9 +113,8 @@ def _update_processing_renewal_event(
     db.session.flush()
     db.session.expire(event)
     if updated_rows != 1:
-        raise RenewalEventClaimLostError(
-            f"renewal_event_claim_lost:{event.renewal_event_bid}"
-        )
+        message = f"renewal_event_claim_lost:{event.renewal_event_bid}"
+        raise RenewalEventClaimLostError(message)
 
 
 def release_renewal_event(event: BillingRenewalEvent, *, now: datetime) -> None:

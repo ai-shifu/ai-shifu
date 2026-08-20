@@ -42,7 +42,8 @@ class StorageUploadResult:
 def _normalize_profile(profile: str) -> str:
     resolved = (profile or "").strip().lower() or OSS_PROFILE_DEFAULT
     if resolved not in _ALLOWED_PROFILES:
-        raise ValueError(f"Unknown storage profile: {profile}")
+        message = f"Unknown storage profile: {profile}"
+        raise ValueError(message)
     return resolved
 
 
@@ -226,4 +227,5 @@ def read_storage_bytes(
         bucket = create_oss_bucket(config)
         return bucket.get_object(resolved_key).read()
 
-    raise FileNotFoundError(f"storage object not found: {resolved_key}")
+    message = f"storage object not found: {resolved_key}"
+    raise FileNotFoundError(message)

@@ -26,7 +26,8 @@ def get_payment_provider(channel: str) -> PaymentProvider:
     try:
         provider_cls = _PROVIDER_REGISTRY[channel]
     except KeyError as exc:
-        raise ValueError(f"Unsupported payment channel: {channel}") from exc
+        message = f"Unsupported payment channel: {channel}"
+        raise ValueError(message) from exc
     return provider_cls()
 
 

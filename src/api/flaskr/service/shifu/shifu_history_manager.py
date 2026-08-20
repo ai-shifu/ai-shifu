@@ -376,9 +376,8 @@ def __save_new_item_history(
             row_id,
             parent_bid,
         )
-        raise RuntimeError(
-            f"Parent history node not found for {item_type} {item_bid} under {parent_bid}"
-        )
+        message = f"Parent history node not found for {item_type} {item_bid} under {parent_bid}"
+        raise RuntimeError(message)
 
     __save_shifu_history(app, user_id, shifu_bid, history)
 

@@ -34,7 +34,8 @@ class AlipayProvider(PaymentProvider):
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
         if request.channel != "alipay_qr":
-            raise RuntimeError(f"Unsupported Alipay channel: {request.channel}")
+            message = f"Unsupported Alipay channel: {request.channel}"
+            raise RuntimeError(message)
 
         client = self._ensure_client(app)
         sdk = self._load_sdk(app)
@@ -124,7 +125,8 @@ class AlipayProvider(PaymentProvider):
     ) -> PaymentNotificationResult:
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type not in {"payment", "trade", "charge"}:
-            raise RuntimeError(f"Unsupported Alipay reference type: {reference_type}")
+            message = f"Unsupported Alipay reference type: {reference_type}"
+            raise RuntimeError(message)
 
         client = self._ensure_client(app)
         sdk = self._load_sdk(app)
@@ -249,7 +251,8 @@ def _read_required_key(config_name: str, inline_config_name: str = "") -> str:
         return inline_value
     key_path = str(get_config(config_name, "") or "").strip()
     if not key_path:
-        raise RuntimeError(f"{config_name} must be configured")
+        message = f"{config_name} must be configured"
+        raise RuntimeError(message)
     path = Path(key_path)
     if not path.exists():
         raise FileNotFoundError(key_path)

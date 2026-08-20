@@ -44,7 +44,8 @@ class WechatPayProvider(PaymentProvider):
             return self._create_native_payment(request=request, app=app)
         if request.channel == "wx_pub":
             return self._create_jsapi_payment(request=request, app=app)
-        raise RuntimeError(f"Unsupported WeChat Pay channel: {request.channel}")
+        message = f"Unsupported WeChat Pay channel: {request.channel}"
+        raise RuntimeError(message)
 
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
@@ -78,9 +79,8 @@ class WechatPayProvider(PaymentProvider):
     ) -> PaymentNotificationResult:
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type not in {"payment", "trade", "charge"}:
-            raise RuntimeError(
-                f"Unsupported WeChat Pay reference type: {reference_type}"
-            )
+            message = f"Unsupported WeChat Pay reference type: {reference_type}"
+            raise RuntimeError(message)
 
         mch_id = _required_config("WECHATPAY_MCH_ID")
         path = f"/v3/pay/transactions/out-trade-no/{provider_reference}"
@@ -282,7 +282,8 @@ class WechatPayProvider(PaymentProvider):
             raise RuntimeError("WeChat Pay notification resource missing")
         algorithm = str(resource.get("algorithm") or "")
         if algorithm and algorithm != "AEAD_AES_256_GCM":
-            raise RuntimeError(f"Unsupported WeChat Pay algorithm: {algorithm}")
+            message = f"Unsupported WeChat Pay algorithm: {algorithm}"
+            raise RuntimeError(message)
         api_v3_key = _required_config("WECHATPAY_API_V3_KEY").encode("utf-8")
         aesgcm = AESGCM(api_v3_key)
         plaintext = aesgcm.decrypt(
@@ -305,7 +306,8 @@ def _wechatpay_app_id() -> str:
 def _required_config(name: str) -> str:
     value = str(get_config(name, "") or "").strip()
     if not value:
-        raise RuntimeError(f"{name} must be configured")
+        message = f"{name} must be configured"
+        raise RuntimeError(message)
     return value
 
 

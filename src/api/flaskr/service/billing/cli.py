@@ -1832,9 +1832,8 @@ def grant_billing_plan_by_identify(
     with _rollback_on_error():
         aggregate = load_user_aggregate_by_identifier(normalized_identify)
         if aggregate is None:
-            raise click.ClickException(
-                f"No user found for identify: {normalized_identify}"
-            )
+            message = f"No user found for identify: {normalized_identify}"
+            raise click.ClickException(message)
 
         product = _load_active_plan_product(
             product_bid=normalized_product_bid,
@@ -2069,7 +2068,8 @@ def grant_operator_credits_by_cli(
         )
         if aggregate is None:
             target = normalized_user_bid or normalized_identify
-            raise click.ClickException(f"No user found for target: {target}")
+            message = f"No user found for target: {target}"
+            raise click.ClickException(message)
         if not normalized_request_id:
             normalized_request_id = _build_cli_credit_grant_request_id(
                 user_bid=aggregate.user_bid,
@@ -2180,11 +2180,13 @@ def _parse_optional_json_object(
     try:
         parsed = json.loads(normalized_value)
     except json.JSONDecodeError as exc:
-        raise click.ClickException(f"--{option_name} must be valid JSON.") from exc
+        message = f"--{option_name} must be valid JSON."
+        raise click.ClickException(message) from exc
     if parsed is None:
         return None
     if not isinstance(parsed, dict):
-        raise click.ClickException(f"--{option_name} must decode to a JSON object.")
+        message = f"--{option_name} must decode to a JSON object."
+        raise click.ClickException(message)
     return parsed
 
 

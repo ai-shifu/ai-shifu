@@ -309,7 +309,8 @@ def _coerce_app_id(app_id: Any) -> int:
     try:
         return int(app_id)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"Invalid Tencent TTS AppId: {app_id!r}") from exc
+        message = f"Invalid Tencent TTS AppId: {app_id!r}"
+        raise ValueError(message) from exc
 
 
 def _clamp_float(value: float, minimum: float, maximum: float) -> float:

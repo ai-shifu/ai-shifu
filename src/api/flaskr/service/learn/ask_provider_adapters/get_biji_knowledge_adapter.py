@@ -78,8 +78,9 @@ def _raise_for_api_error(payload: Any) -> None:
     if not message:
         message = extract_text(error) or extract_text(payload) or str(payload)
     detail = f"{message} (reason: {reason})" if reason else message
+    error_message = f"get_biji_knowledge error: {detail}"
     raise AskProviderError(
-        f"get_biji_knowledge error: {detail}",
+        error_message,
         user_message=_user_message_for_error(code, reason),
     )
 
@@ -164,7 +165,8 @@ class GetBijiKnowledgeAskProviderAdapter:
         except requests.Timeout as exc:
             raise AskProviderTimeoutError("get_biji_knowledge request timeout") from exc
         except requests.RequestException as exc:
-            raise AskProviderError(f"get_biji_knowledge request failed: {exc}") from exc
+            message = f"get_biji_knowledge request failed: {exc}"
+            raise AskProviderError(message) from exc
 
         try:
             payload_data = response.json()
