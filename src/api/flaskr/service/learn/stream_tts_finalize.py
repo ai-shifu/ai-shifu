@@ -21,6 +21,9 @@ if TYPE_CHECKING:
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 
 class _StreamTTSFinalizeJob:
     def __init__(
