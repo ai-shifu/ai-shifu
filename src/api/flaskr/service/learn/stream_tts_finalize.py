@@ -18,6 +18,9 @@ if TYPE_CHECKING:
 
     from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 
 class _StreamTTSFinalizeJob:
     def __init__(
