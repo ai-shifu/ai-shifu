@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.models import (
@@ -61,6 +60,8 @@ from .serializers import (
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from flask import Flask
 
 
 @dataclass(slots=True, frozen=True)

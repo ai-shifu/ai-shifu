@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.util.datetime import now_utc
@@ -16,6 +16,9 @@ from .shifu_outline_funcs import (
     __lock_shifu_for_outline_write,
     build_outline_history_tree_from_outlines,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 @dataclass

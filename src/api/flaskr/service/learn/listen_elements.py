@@ -3,7 +3,6 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     LearnElementRecordDTO,
@@ -27,10 +26,6 @@ from flaskr.service.learn.listen_element_run_persistence import (
 from flaskr.service.learn.listen_element_run_sidecar import (
     ListenElementRunSidecarMixin,
 )
-from flaskr.service.learn.listen_element_run_state import (
-    BlockMeta,
-    BlockState,
-)
 from flaskr.service.learn.listen_element_run_stream import (
     ListenElementRunStreamMixin,
 )
@@ -41,6 +36,12 @@ from flaskr.service.learn.type_state_machine import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from flask import Flask
+    from flaskr.service.learn.listen_element_run_state import (
+        BlockMeta,
+        BlockState,
+    )
 
 __all__ = [
     "ListenElementRunAdapter",

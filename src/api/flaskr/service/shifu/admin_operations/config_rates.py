@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import unicodedata
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.api.llm import get_current_models
 from flaskr.api.tts import get_all_provider_configs
 from flaskr.dao import db
@@ -34,6 +33,9 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc, to_utc_iso
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _RATE_METRICS = {
     BILL_USAGE_TYPE_LLM: (

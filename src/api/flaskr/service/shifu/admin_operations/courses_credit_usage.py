@@ -10,7 +10,6 @@ import re
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.api.llm import PROVIDER_STATES, get_current_models
 from flaskr.api.tts import get_all_provider_configs
 from flaskr.dao import db
@@ -78,6 +77,8 @@ from sqlalchemy import and_, case, false, literal, not_, or_
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from flask import Flask
 
 
 def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:

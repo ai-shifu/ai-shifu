@@ -185,12 +185,13 @@ select = [
     # positionally (SQLAlchemy, the MySQL DBAPI `ping`, `socket.setblocking`,
     # `monkeypatch.setitem`) carry an inline noqa.
     "FBT003",  # boolean positional value in a call
-    # flake8-type-checking is enabled as a whole. TC002/TC003 are ignored below
-    # (they would push third-party imports behind TYPE_CHECKING, where runtime
-    # annotation resolution then fails); the rest have no violations and catch
-    # the mistakes a TYPE_CHECKING block invites: a name imported there but used
-    # at runtime (TC004), an empty or redundant block (TC005/TC010), a
-    # needlessly quoted annotation (TC006/TC007).
+    # flake8-type-checking is enabled as a whole. Annotation-only standard-
+    # library and third-party imports live behind TYPE_CHECKING; the Pydantic
+    # runtime-evaluation contract below keeps model field types available while
+    # classes are created. The remaining rules catch the mistakes such a block
+    # invites: a name imported there but used at runtime (TC004), an empty or
+    # redundant block (TC005/TC010), or a needlessly quoted annotation
+    # (TC006/TC007).
     "TC",
 
     # --- Docstrings -------------------------------------------------------
@@ -226,9 +227,6 @@ ignore = [
     "D103",    # undocumented public function
     "D203",    # blank line before a class docstring -- conflicts with D211
     "D213",    # summary on the second line -- conflicts with D212
-    # TC002: moving a third-party import into TYPE_CHECKING breaks anything
-    # that resolves annotations at runtime, including SQLAlchemy mappers.
-    "TC002",
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
     # INP001 is enforced; see per-file-ignores for the entrypoints, Alembic
@@ -239,8 +237,8 @@ ignore = [
 
 [lint.flake8-type-checking]
 # Pydantic resolves model field annotations while creating each class. Keep
-# their standard-library field types imported at runtime; TC003 moves only
-# genuinely annotation-only imports behind TYPE_CHECKING.
+# their standard-library and third-party field types imported at runtime;
+# TC002/TC003 move only genuinely annotation-only imports behind TYPE_CHECKING.
 runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [lint.per-file-ignores]

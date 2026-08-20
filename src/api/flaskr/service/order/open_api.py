@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.admin import (
@@ -16,6 +15,9 @@ from flaskr.service.order.funs import send_revoke_feishu
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.repository import load_user_aggregate_by_identifier
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def verify_course_ownership(app: Flask, owner_bid: str, shifu_bid: str) -> None:

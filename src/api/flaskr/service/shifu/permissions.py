@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 DEFAULT_SHIFU_PERMISSIONS = {"view", "edit", "publish"}
 

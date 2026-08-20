@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from flask import Flask
 from flaskr.common import cache_provider
 from flaskr.common.public_urls import build_stripe_billing_result_url
 from flaskr.dao import db
@@ -151,6 +150,8 @@ from .wallets import grant_refund_return_credits
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from datetime import datetime
+
+    from flask import Flask
 
 _SELF_MANAGED_PREORDER_PROVIDERS = {"pingxx", "alipay", "wechatpay"}
 

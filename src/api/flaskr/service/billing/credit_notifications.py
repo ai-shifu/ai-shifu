@@ -8,10 +8,9 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Flask
 from flaskr.api.sms.aliyun import (
     get_sms_template_ali,
     query_sms_template_list_ali,
@@ -65,6 +64,9 @@ from .primitives import is_billing_enabled
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 TASK_NAME = "billing.send_credit_notification"
 SOURCE_TYPE_LEDGER = "ledger"
