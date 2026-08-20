@@ -977,6 +977,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/oauth/google", methods=["GET"])
     @bypass_token_validation
+    @optional_token_validation
     def google_oauth_start():
         provider = get_provider("google")
         metadata = {}
@@ -989,10 +990,16 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         ui_language = request.args.get("language")
         if ui_language:
             metadata["language"] = ui_language
-        # Derived from the request, never from a caller-supplied parameter: a
-        # query value would let one login nominate a different customer's
-        # verified domain as the place to hand the authorization code back to.
+        # Every header here is attacker-controllable — the edge nginx passes
+        # inbound X-Forwarded-* through, and Origin is forwarded unchanged — so
+        # the origin alone cannot decide where the authorization code is sent.
+        # It is paired with the session that started the flow, and the callback
+        # refuses to hand the code back unless the same session presents it.
         metadata["origin"] = resolve_request_origin()
+        initiator = getattr(request, "user", None)
+        metadata["initiator_user_id"] = str(
+            getattr(initiator, "user_id", "") or ""
+        ).strip()
         result = provider.begin_oauth(app, metadata)
         dto = OAuthStartDTO(
             authorization_url=result["authorization_url"],

@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import flaskr.common.config as common_config
 import pytest
+from flaskr.service.common.models import AppError
 from flaskr.service.user.auth import oauth_origins
 from flaskr.service.user.auth.providers.google import (
     _encode_state,
+    _require_matching_initiator,
     resolve_state_return_origin,
 )
 
@@ -180,3 +182,43 @@ class TestResolveStateReturnOrigin:
 
     def test_missing_state_returns_empty(self, app) -> None:
         assert resolve_state_return_origin(app, None) == ""
+
+
+class TestInitiatorPairing:
+    """The return origin comes from forgeable headers, so it is only honored
+    together with the session that started the flow.
+
+    Without this, an attacker who owns a verified custom domain could start a
+    login with a forged Origin naming their own domain, get a victim to
+    authorize, and have the authorization code delivered to them.
+    """
+
+    def test_the_starting_session_may_complete_the_flow(self) -> None:
+        payload = {"origin": CUSTOM_ORIGIN, "initiator_user_id": "user-1"}
+        _require_matching_initiator(payload, "user-1")
+
+    def test_another_session_cannot_complete_the_flow(self, app) -> None:
+        # The attack: the code is handed to a domain the victim's session did
+        # not start the login from.
+        payload = {"origin": CUSTOM_ORIGIN, "initiator_user_id": "attacker"}
+        with app.app_context(), pytest.raises(AppError):
+            _require_matching_initiator(payload, "victim")
+
+    def test_an_anonymous_callback_cannot_complete_a_forwarded_flow(self, app) -> None:
+        payload = {"origin": CUSTOM_ORIGIN, "initiator_user_id": "user-1"}
+        for anonymous in (None, "", "   "):
+            with app.app_context(), pytest.raises(AppError):
+                _require_matching_initiator(payload, anonymous)
+
+    def test_an_origin_without_an_initiator_is_refused(self, app) -> None:
+        # A state carrying an origin but no initiator cannot be paired, so it
+        # must not be usable rather than falling through unchecked.
+        payload = {"origin": CUSTOM_ORIGIN}
+        with app.app_context(), pytest.raises(AppError):
+            _require_matching_initiator(payload, "user-1")
+
+    def test_same_domain_flows_are_unaffected(self) -> None:
+        # No origin means no forwarding, which is the pre-existing behavior and
+        # must keep working for anonymous sign-in.
+        _require_matching_initiator({}, None)
+        _require_matching_initiator({"initiator_user_id": "user-1"}, None)

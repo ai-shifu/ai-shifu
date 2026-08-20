@@ -163,8 +163,11 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
       }
 
       try {
+        // Defence in depth alongside the backend's session pairing: a state
+        // this browser never issued means the flow started somewhere else, so
+        // a missing stored value must fail rather than skip the comparison.
         const expectedState = getGoogleOAuthState();
-        if (expectedState && state && expectedState !== state) {
+        if (!expectedState || !state || expectedState !== state) {
           throw new Error(t('module.auth.googleStateMismatch'));
         }
 

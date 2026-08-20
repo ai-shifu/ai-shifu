@@ -109,6 +109,28 @@ def _resolve_redirect_uri(app, explicit_uri: str | None = None) -> str:
     return build_google_oauth_callback_url()
 
 
+def _require_matching_initiator(
+    state_payload: dict[str, Any], current_user_id: str | None
+) -> None:
+    """Refuse a code meant for a different browser session.
+
+    Only applies to flows that recorded a return origin, i.e. the ones whose
+    code gets handed to another domain. The origin comes from headers a caller
+    can forge, so without this an attacker could name their own verified custom
+    domain and have someone else's authorization code delivered there.
+    """
+    expected_initiator = str(state_payload.get("initiator_user_id") or "").strip()
+    if not state_payload.get("origin"):
+        return
+    if not expected_initiator:
+        raise_error("server.user.googleOAuthStateInvalid")
+    if str(current_user_id or "").strip() != expected_initiator:
+        current_app.logger.warning(
+            "Google OAuth callback presented by a different session than started it"
+        )
+        raise_error("server.user.googleOAuthStateInvalid")
+
+
 def resolve_state_return_origin(app, state: str | None) -> str:
     """Return the validated origin recorded in an OAuth state, or "".
 
@@ -174,11 +196,16 @@ class GoogleAuthProvider(AuthProvider):
             "login_context": login_context,
         }
         # All domains share one Google callback, so remember where the browser
-        # came from to hand it back afterwards. Validated on the way in so a
-        # rejected origin never reaches the state, and again on the way out.
+        # came from to hand it back afterwards. The origin is derived from
+        # headers an attacker can set, so it is only honored together with the
+        # session that started the flow: the callback requires the same session
+        # to present the code. Without a session there is nothing to pair it
+        # with, so the login simply finishes on the shared callback domain.
         return_origin = resolve_oauth_return_origin(app, metadata.get("origin"))
-        if return_origin:
+        initiator_user_id = str(metadata.get("initiator_user_id") or "").strip()
+        if return_origin and initiator_user_id:
             state_payload["origin"] = return_origin
+            state_payload["initiator_user_id"] = initiator_user_id
         # Persist the interface language so we can use it
         # when creating or updating the user record.
         if ui_language_from_frontend:
@@ -218,6 +245,8 @@ class GoogleAuthProvider(AuthProvider):
             language = state_payload.get("language")
         except Exception:  # noqa: BLE001 - defensive fallback
             current_app.logger.warning("Failed to parse Google OAuth state payload")
+
+        _require_matching_initiator(state_payload, request.current_user_id)
 
         redirect_uri = _resolve_redirect_uri(app, redirect_uri)
         session = self._create_session(app, redirect_uri)
