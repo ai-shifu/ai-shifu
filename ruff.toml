@@ -88,11 +88,12 @@ select = [
     "DTZ",
 
     # --- Logging ----------------------------------------------------------
-    # G004 (f-string logging) is the established house style and stays ignored
-    # below; the rest catch real defects: G001/G003 format the message eagerly
-    # (and `+` can raise TypeError on non-string values), G201 replaces
-    # `.error(..., exc_info=True)` with the equivalent `.exception(...)`, and
-    # G202 drops `exc_info` arguments that already match the call's default.
+    # Logging calls pass values as positional interpolation arguments so message
+    # rendering stays lazy. The group also catches real defects: G001/G003
+    # format the message eagerly (and `+` can raise TypeError on non-string
+    # values), G201 replaces `.error(..., exc_info=True)` with the equivalent
+    # `.exception(...)`, and G202 drops `exc_info` arguments that already match
+    # the call's default.
     "G",
     "LOG",     # flake8-logging (exc_info must name the exception outside except blocks)
     "TRY2",    # verbose re-raise / exception handler that only re-raises
@@ -232,7 +233,6 @@ ignore = [
     "TC002",
     "TC003",
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
-    "G004",    # f-string logging -- house style, and rewriting it is churn
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
     # INP001 is enforced; see per-file-ignores for the entrypoints, Alembic
     # revisions and boundary-check fixtures that are loaded by path rather

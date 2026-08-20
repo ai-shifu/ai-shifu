@@ -142,7 +142,7 @@ def update_demo_shifu(app: Flask):
             "DEMO_SHIFU_HASH",
             "Demo shifu file hash (Chinese)",
         )
-        app.logger.info(f"Chinese demo shifu bid: {cn_shifu_bid}")
+        app.logger.info("Chinese demo shifu bid: %s", cn_shifu_bid)
         _ensure_creator_permissions(app, cn_shifu_bid)
 
         # Process English demo shifu (en_demo.json -> DEMO_EN_SHIFU_BID)
@@ -154,7 +154,7 @@ def update_demo_shifu(app: Flask):
             "DEMO_EN_SHIFU_HASH",
             "Demo shifu file hash (English)",
         )
-        app.logger.info(f"English demo shifu bid: {en_shifu_bid}")
+        app.logger.info("English demo shifu bid: %s", en_shifu_bid)
         _ensure_creator_permissions(app, en_shifu_bid)
 
         db.session.commit()

@@ -36,17 +36,17 @@ class PluginManager:
 
     def register_extension(self, target_func_name, func):
         self.app.logger.info(
-            f"register_extension: {target_func_name} -> {func.__name__}"
+            "register_extension: %s -> %s", target_func_name, func.__name__
         )
         while hasattr(func, "__wrapped__"):
-            self.app.logger.warning(f"func is wrapped {func.__name__}")
+            self.app.logger.warning("func is wrapped %s", func.__name__)
             func = func.__wrapped__
         if target_func_name not in self.extension_functions:
             self.extension_functions[target_func_name] = []
         self.extension_functions[target_func_name].append(func)
 
     def execute_extensions(self, func_name, result, *args, **kwargs):
-        self.app.logger.info(f"execute_extensions: {func_name}")
+        self.app.logger.info("execute_extensions: %s", func_name)
         if not self.is_enabled:
             return result
         if func_name in self.extension_functions:
@@ -56,24 +56,24 @@ class PluginManager:
 
     def register_extensible_generic(self, func_name, func):
         self.app.logger.info(
-            f"register_extensible_generic: {func_name} -> {func.__name__}"
+            "register_extensible_generic: %s -> %s", func_name, func.__name__
         )
         while hasattr(func, "__wrapped__"):
-            self.app.logger.warning(f"func is wrapped {func.__name__}")
+            self.app.logger.warning("func is wrapped %s", func.__name__)
             func = func.__wrapped__
         if func_name not in self.extensible_generic_functions:
             self.extensible_generic_functions[func_name] = []
         self.extensible_generic_functions[func_name].append(func)
 
     def execute_extensible_generic(self, func_name, result, *args, **kwargs):
-        self.app.logger.info(f"execute_extensible_generic: {func_name}")
+        self.app.logger.info("execute_extensible_generic: %s", func_name)
         if not self.is_enabled:
             return result
         if func_name in self.extensible_generic_functions:
             for runc in self.extensible_generic_functions[func_name]:
                 func = runc
                 while hasattr(func, "__wrapped__"):
-                    self.app.logger.warning(f"func is wrapped {func.__name__}")
+                    self.app.logger.warning("func is wrapped %s", func.__name__)
                     func = func.__wrapped__
                 result = func(result, *args, **kwargs)
                 if result:
@@ -158,7 +158,7 @@ def extensible_generic(func):
         from flask import current_app, has_app_context
 
         if has_app_context():
-            current_app.logger.info(f"extensible_generic: {func.__name__}")
+            current_app.logger.info("extensible_generic: %s", func.__name__)
     except ImportError:
         pass
 

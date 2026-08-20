@@ -357,6 +357,15 @@ configuration quieter. For a finding in new or changed code:
    fundamentally conflicts with the rule. Do not weaken `select` or `ignore`
    to make an unrelated PR pass.
 
+For `G004`, keep log message construction lazy: pass a constant message and
+its values as positional logging arguments, preserving the message text,
+argument order, and log level. Use `%s` for normal or `!s` interpolation,
+`%r`/`%a` for the matching conversion, and escape a literal percent as `%%`.
+When an f-string field has a format specification that logging interpolation
+cannot express exactly, pre-format only that field with `format(value, "spec")`
+and keep the rest of the message parameterized. Do not hide an f-string in a
+temporary variable merely to silence the rule.
+
 Adopt or remove exceptions one rule unit at a time. A rule unit is normally
 one Ruff code; combine codes only when they report the same construct and have
 the same fix and exception boundary. Base each rule PR on the preceding rule
