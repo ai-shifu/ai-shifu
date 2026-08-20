@@ -185,7 +185,6 @@ def _resolve_supported_runtime_language(raw_language: str | None) -> str | None:
 
 def _resolve_profile_onboarding_runtime_language(user, raw_language: str | None) -> str:
     """Resolve profile research to a bounded application-supported locale."""
-
     supported_languages = (
         tuple(_translations.keys()) or _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES
     )
@@ -480,7 +479,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/profile-onboarding/session", methods=["POST"])
     def create_profile_onboarding_session_api():
         """Create a transient guided-profile session from the live config."""
-
         payload = _request_json_object("profile_onboarding_session")
         _reject_unknown_fields(
             payload,

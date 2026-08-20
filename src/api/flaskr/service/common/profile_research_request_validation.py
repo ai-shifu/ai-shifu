@@ -10,7 +10,6 @@ _PROFILE_RESEARCH_SESSION_ID_ALPHABET = frozenset("0123456789abcdef")
 
 def normalize_profile_research_session_id(value: object) -> str:
     """Return a normalized runtime session ID or raise a parameter error."""
-
     if not isinstance(value, str) or not value.strip():
         raise_param_error("session_id")
     normalized = value.strip()
@@ -25,7 +24,6 @@ def profile_research_user_input(
     payload: dict, *, parameter_name: str
 ) -> dict[str, list[str]] | None:
     """Validate the transport shape while preserving submitted string values."""
-
     if "user_input" not in payload:
         return None
     raw_user_input = payload["user_input"]
@@ -49,7 +47,6 @@ def profile_research_run_identity(
     payload: dict, *, parameter_name: str
 ) -> tuple[int | None, str | None]:
     """Validate the paired cursor and idempotency identity for one run."""
-
     has_expected_block_index = "expected_block_index" in payload
     has_request_id = "request_id" in payload
     if has_expected_block_index != has_request_id:

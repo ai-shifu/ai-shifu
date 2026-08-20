@@ -315,6 +315,7 @@ def _normalize_profile_onboarding_language(app: Flask, raw_language: str) -> str
         if supported_language.split("-", 1)[0].lower() == primary_language:
             return supported_language
     raise_param_error("language")
+    return ""  # pragma: no cover
 
 
 def _normalize_contacts(raw_contacts: object) -> list[str]:
@@ -1096,7 +1097,6 @@ def register_admin_operations_routes(
     )
     def admin_operation_create_profile_onboarding_preview():
         """Create an isolated preview from the operator's unsaved editor draft."""
-
         _require_operator()
         payload = _profile_onboarding_json_object("profile_onboarding_preview")
         _reject_profile_onboarding_unknown_fields(
@@ -1142,7 +1142,6 @@ def register_admin_operations_routes(
     )
     def admin_operation_run_profile_onboarding_preview(session_id: str):
         """Stream one owner- and preview-purpose-scoped cursor step."""
-
         _require_operator()
         normalized_session_id = normalize_profile_research_session_id(session_id)
         payload = _profile_onboarding_json_object("profile_onboarding_preview")

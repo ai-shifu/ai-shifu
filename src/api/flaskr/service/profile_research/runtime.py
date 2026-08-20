@@ -71,12 +71,21 @@ class ProfileResearchValidationError(ProfileResearchError):
     public_code = "transient_markdownflow_invalid"
 
 
-class ProfileResearchSessionNotFound(ProfileResearchError):
+class ProfileResearchSessionNotFoundError(ProfileResearchError):
     public_code = "transient_markdownflow_session_not_found"
 
 
-class ProfileResearchSessionBusy(ProfileResearchError):
+class ProfileResearchSessionBusyError(ProfileResearchError):
     public_code = "transient_markdownflow_session_busy"
+
+
+ProfileResearchSessionNotFound = ProfileResearchSessionNotFoundError
+ProfileResearchSessionBusy = ProfileResearchSessionBusyError
+
+
+def _acquire_profile_research_lock(lock) -> None:
+    if not bool(lock.acquire(blocking=False)):
+        raise ProfileResearchSessionBusy("session is busy")
 
 
 @contextlib.contextmanager
@@ -239,7 +248,7 @@ class _ProfileResearchSession:
                     dict(event) for event in raw_events if isinstance(event, Mapping)
                 ]
             else:
-                raise TypeError("invalid replay events")
+                raise ProfileResearchSessionNotFound("invalid replay events")
             last_expected_block_index = payload.get("last_expected_block_index")
             return cls(
                 session_id=str(payload["session_id"]),
@@ -503,7 +512,6 @@ def _replay_stream_key(event: Mapping[str, Any]) -> tuple[str, str, str] | None:
 
 def _compact_replay_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Store cumulative stream events as deltas without changing replay output."""
-
     previous_content: dict[tuple[str, str, str], str] = {}
     compacted: list[dict[str, Any]] = []
     for event in events:
@@ -544,7 +552,6 @@ def _append_profile_summary(document: str) -> str:
 
 def validate_profile_research_document(document: str) -> dict[str, Any]:
     """Validate the configured document with MarkdownFlow's own parser."""
-
     if not isinstance(document, str) or not document.strip():
         raise ProfileResearchValidationError("document is empty")
     if len(document) > _MAX_DOCUMENT_CODEPOINTS:
@@ -675,10 +682,8 @@ class ProfileResearchRuntime:
             with _hold_profile_research_lock(previous_lock):
                 previous_session = None
                 if previous_session_id:
-                    try:
+                    with contextlib.suppress(ProfileResearchSessionNotFound):
                         previous_session = self.store.load(previous_session_id)
-                    except ProfileResearchSessionNotFound:
-                        pass
                 self.store.save(session)
                 if (
                     previous_session
@@ -902,8 +907,7 @@ class ProfileResearchRuntime:
             raise ProfileResearchSessionBusy("session is busy")
         try:
             lock = self.store.lock(normalized_session_id)
-            if not bool(lock.acquire(blocking=False)):
-                raise ProfileResearchSessionBusy("session is busy")
+            _acquire_profile_research_lock(lock)
         except BaseException:
             with contextlib.suppress(Exception):
                 owner_lock.release()

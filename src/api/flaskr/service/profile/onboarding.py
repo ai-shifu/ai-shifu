@@ -124,12 +124,11 @@ def _current_values_for_response(app: Flask, user_id: str) -> dict[str, str]:
 
 def _is_legacy_profile_onboarding_variable_safe(variable_name: str) -> bool:
     """Match the variable-name subset understood by the retiring web parser."""
-
     # The old client's assignment capture accepts one or more non-whitespace,
     # non-`}` characters. U+FEFF is JavaScript whitespace but Python does not
     # classify it as whitespace, so keep this compatibility predicate explicit.
     return bool(variable_name) and all(
-        character != "}" and character != "\ufeff" and not character.isspace()
+        character not in {"}", "\ufeff"} and not character.isspace()
         for character in variable_name
     )
 
@@ -138,7 +137,6 @@ def _replace_legacy_interaction_variable(
     content: str, *, raw_variable: str | None, synthetic_name: str
 ) -> str:
     """Project an official interaction onto the retiring client's safe subset."""
-
     stripped_content = content.strip()
     if raw_variable is None:
         return f"?[%{{{{{synthetic_name}}}}}{stripped_content[2:]}"
@@ -155,7 +153,6 @@ def _replace_legacy_interaction_variable(
 
 def _extract_official_interaction_raw_variable(content: str) -> str:
     """Read marker text only after InteractionParser confirmed an assignment."""
-
     stripped_content = content.strip()
     marker_end = stripped_content.find("}}", len(_MARKDOWNFLOW_VARIABLE_PREFIX))
     if marker_end < 0:
@@ -165,7 +162,6 @@ def _extract_official_interaction_raw_variable(content: str) -> str:
 
 def _strip_retiring_web_whitespace(value: str) -> str:
     """Match the old parser's JavaScript trim for projected button values."""
-
     start = 0
     end = len(value)
     while start < end and value[start] in _ECMASCRIPT_TRIM_CHARACTERS:
@@ -179,7 +175,6 @@ def _plan_legacy_interaction_button_projection(
     *, parsed_interaction: dict[str, Any]
 ) -> tuple[list[str], bool] | None:
     """Plan the exact subset of official buttons the old parser can represent."""
-
     buttons = parsed_interaction.get("buttons")
     if not isinstance(buttons, list) or not buttons:
         return None
@@ -210,13 +205,11 @@ def _render_legacy_interaction_button_values(
     *, projected_values: list[str], variable_name: str
 ) -> str:
     """Render values as old-parser choices, omitting unsupported free text."""
-
     return f"?[%{{{{{variable_name}}}}} {' | '.join(projected_values)}]"
 
 
 def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
     """Give the one-release legacy wire assignment-shaped interactions."""
-
     flow = MarkdownFlow(document=document)
     interaction_parser = InteractionParser()
     existing_variables = {
@@ -277,7 +270,8 @@ def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
                     synthetic_name=synthetic_name,
                 )
                 changed = True
-            assert legacy_variable is not None
+            if legacy_variable is None:
+                raise ValueError("legacy interaction variable cannot be projected")
             if button_projection is not None:
                 content = _render_legacy_interaction_button_values(
                     projected_values=button_projection[0],
@@ -435,7 +429,6 @@ def complete_profile_onboarding_v2(
     nickname: str | None = None,
 ) -> dict[str, Any]:
     """Persist the canonical v2 profile, optional nickname, and state."""
-
     if (
         not isinstance(trigger_source, str)
         or trigger_source not in LEARNER_PROFILE_TRIGGER_SOURCES

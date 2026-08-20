@@ -46,7 +46,6 @@ def create_operator_profile_onboarding_preview_session(
     output_language: str,
 ) -> dict[str, Any]:
     """Create a course-neutral preview from the unsaved editor draft."""
-
     # Preview does not send the unsaved enabled switch. False serializes one
     # byte larger than true, so it safely represents either next saved value.
     preview_payload = build_profile_onboarding_config_payload(
@@ -91,7 +90,6 @@ def stream_operator_profile_onboarding_preview_session(
     request_id: str | None = None,
 ):
     """Run one cursor step while enforcing owner and preview-purpose scope."""
-
     from flaskr.service.profile_research.api import (
         PROFILE_ONBOARDING_PREVIEW_PURPOSE,
         stream_profile_research_session,
