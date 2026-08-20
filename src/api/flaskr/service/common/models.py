@@ -8,6 +8,7 @@ from flaskr.util.deprecation import deprecated_alias_getattr
 
 class AppError(Exception):
     def __init__(self, message, status_code=None, payload=None) -> None:
+        """Initialize an application error and response payload."""
         Exception.__init__(self)
         self.message = message
         self.code = status_code

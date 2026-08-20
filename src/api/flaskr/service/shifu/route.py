@@ -169,6 +169,7 @@ class ShifuTokenValidation:
         permission: ShifuPermission = ShifuPermission.VIEW,
         is_creator: bool = False,
     ) -> None:
+        """Configure permission checks for the decorated route."""
         self.permission = permission
         self.is_creator = is_creator
 

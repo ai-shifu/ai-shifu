@@ -5,6 +5,7 @@ DICTS = {}
 
 class DictItem:
     def __init__(self, display, value) -> None:
+        """Create a display-value dictionary item."""
         self.display = display
         self.value = value
 
@@ -14,6 +15,7 @@ class DictItem:
 
 class Dict:
     def __init__(self, name, display, items: list[DictItem]) -> None:
+        """Create a named dictionary definition."""
         self.name = name
         self.display = display
         self.items = items

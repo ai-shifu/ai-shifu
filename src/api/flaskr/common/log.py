@@ -19,6 +19,7 @@ from .request_context import thread_local
 
 class AppLoggerProxy:
     def __init__(self, fallback: logging.Logger) -> None:
+        """Configure the application logger fallback."""
         self._fallback = fallback
 
     def _resolve(self) -> logging.Logger:
@@ -84,6 +85,7 @@ class FeishuLogHandler(logging.Handler):
     MAX_TEXT_LENGTH = 18000
 
     def __init__(self, webhook_url) -> None:
+        """Configure Feishu webhook log delivery."""
         super().__init__(level=logging.ERROR)
         self.webhook_url = webhook_url
         # This handler is attached to app.logger, so reporting a webhook
@@ -133,6 +135,7 @@ class FeishuLogHandler(logging.Handler):
 
 class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):
     def __init__(self, fmt, **kwargs) -> None:
+        """Configure colored request-log formatting."""
         super().__init__(fmt, **kwargs)
 
 

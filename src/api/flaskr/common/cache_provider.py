@@ -147,6 +147,7 @@ class _InMemoryLock:
 
 class InMemoryCacheProvider:
     def __init__(self) -> None:
+        """Initialize an empty process-local cache."""
         self._store: dict[str, _InMemoryEntry] = {}
         self._locks: dict[str, threading.Lock] = {}
         self._mu = threading.RLock()
@@ -275,6 +276,7 @@ class FallbackCacheProvider:
     """Cache provider that prefers Redis when configured, and falls back to a process-local in-memory cache when Redis is unavailable."""
 
     def __init__(self, primary: CacheProvider, fallback: CacheProvider) -> None:
+        """Configure primary and fallback cache providers."""
         self._primary = primary
         self._fallback = fallback
 

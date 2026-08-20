@@ -9,6 +9,7 @@ class ColorSetting:
     text_color: str  # the text color of the profile item
 
     def __init__(self, color: str, text_color: str) -> None:
+        """Capture profile foreground and background colors."""
         self.color = color
         self.text_color = text_color
 
@@ -42,6 +43,7 @@ class ProfileItemDefinition:
         profile_id: str,
         is_hidden: bool = False,
     ) -> None:
+        """Build a profile-field definition."""
         self.profile_key = profile_key
         self.color_setting = color_setting
         self.profile_type = profile_type
@@ -91,6 +93,7 @@ class ProfileValueDto:
     value: str
 
     def __init__(self, name: str, value: str) -> None:
+        """Build a profile name-value payload."""
         self.name = name
         self.value = value
 
@@ -105,6 +108,7 @@ class ProfileToSave:
     bid: str
 
     def __init__(self, key: str, value: str, bid: str) -> None:
+        """Capture a profile value pending persistence."""
         self.key = key
         self.value = value
         self.bid = bid

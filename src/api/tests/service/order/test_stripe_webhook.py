@@ -34,6 +34,7 @@ def _load_route_module(module_name: str):
 
 class DummyStripeProvider:
     def __init__(self, notification: PaymentNotificationResult) -> None:
+        """Initialize the dummy stripe provider test double."""
         self._notification = notification
 
     def verify_webhook(self, *, headers, raw_body, app):

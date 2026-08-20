@@ -37,6 +37,7 @@ class FollowUpInfo:
         ask_mode,
         ask_provider_config=None,
     ) -> None:
+        """Capture follow-up model, prompt, and limit settings."""
         self.ask_model = ask_model
         self.ask_prompt = ask_prompt
         self.ask_history_count = ask_history_count
