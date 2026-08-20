@@ -137,6 +137,11 @@ select = [
     "S603",    # subprocess call with unvalidated input
     "S605",    # process started with a shell
     "S607",    # process started with a partial executable path
+    # S608 flags every SQL string built by interpolation. Values always use
+    # bound parameters; the remaining sites interpolate table or column names,
+    # which bound parameters cannot carry, and justify it inline. Applied
+    # Alembic revisions must not be edited, so they are exempt below.
+    "S608",    # SQL query built by string interpolation
 
     # --- Docstrings -------------------------------------------------------
     # pydocstyle is enabled as a whole; the members that would need thousands
@@ -220,5 +225,14 @@ ignore = [
 "src/api/conftest.py" = ["S101"]
 "scripts/test_*.py" = ["S101"]
 "scripts/check_example_identifiers.py" = ["S101"]
+# These applied Alembic revisions are immutable history: their backfill
+# statements interpolate table names and cannot be rewritten after deployment.
+# Listed one by one so new revisions stay covered by S608.
+"src/api/migrations/versions/4a1f6c8e9b2d_add_learn_generated_elements.py" = ["S608"]
+"src/api/migrations/versions/56b765541144_add_shifu_user_archives.py" = ["S608"]
+"src/api/migrations/versions/6b603528dac8_add_system_profile.py" = ["S608"]
+"src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["S608"]
+"src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608"]
+"src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608"]
 "scripts/**" = ["S603", "S607"]
 "src/api/scripts/**" = ["S603", "S607"]

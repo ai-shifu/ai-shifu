@@ -4,6 +4,7 @@
 import asyncio
 import logging
 import os
+import re
 import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
@@ -26,6 +27,21 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
+
+
+_IDENTIFIER_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _quote_identifier(name: str) -> str:
+    """Validate a table or column name and quote it for MySQL.
+
+    The migration statements below interpolate identifiers because bound
+    parameters cannot carry them. Every identifier passes through here so an
+    unexpected value fails loudly instead of reaching the database.
+    """
+    if not _IDENTIFIER_PATTERN.fullmatch(name or ""):
+        raise ValueError(f"Unsafe SQL identifier: {name!r}")
+    return f"`{name}`"
 
 
 class MigrationBatchError(RuntimeError):
@@ -362,11 +378,11 @@ class UnifiedMigrationTask:
                 # Incremental migration - get records with ID greater than last synced ID
                 query = text(
                     f"""
-                    SELECT * FROM {source_table}
+                    SELECT * FROM {_quote_identifier(source_table)}
                     WHERE id > :last_synced_id
                     ORDER BY id ASC
                     LIMIT :batch_size
-                """
+                """  # noqa: S608 - identifier validated by _quote_identifier
                 )
                 params = {
                     "last_synced_id": last_synced_id,
@@ -379,10 +395,10 @@ class UnifiedMigrationTask:
                 # Full migration - use OFFSET-based pagination
                 query = text(
                     f"""
-                    SELECT * FROM {source_table}
+                    SELECT * FROM {_quote_identifier(source_table)}
                     ORDER BY id ASC
                     LIMIT :batch_size OFFSET :offset
-                """
+                """  # noqa: S608 - identifier validated by _quote_identifier
                 )
                 params = {"batch_size": self.config.batch_size, "offset": offset}
                 logger.info(
@@ -400,9 +416,10 @@ class UnifiedMigrationTask:
                     # Check if record already exists in target table
                     existing_query = text(
                         f"""
-                        SELECT COUNT(*) FROM {target_table}
-                        WHERE {target_key} = :key_value AND deleted = 0
-                    """
+                        SELECT COUNT(*) FROM {_quote_identifier(target_table)}
+                        WHERE {_quote_identifier(target_key)} = :key_value
+                        AND deleted = 0
+                    """  # noqa: S608 - identifiers validated by _quote_identifier
                     )
 
                     existing_count = session.execute(
@@ -419,28 +436,34 @@ class UnifiedMigrationTask:
 
                         for field, value in mapped_data.items():
                             if field != target_key:  # Don't update the key field
-                                update_fields.append(f"{field} = :{field}")
+                                update_fields.append(
+                                    f"{_quote_identifier(field)} = :{field}"
+                                )
                                 update_params[field] = value
 
                         if update_fields:
                             update_query = text(
                                 f"""
-                                UPDATE {target_table}
+                                UPDATE {_quote_identifier(target_table)}
                                 SET {", ".join(update_fields)}
-                                WHERE {target_key} = :key_value
-                            """
+                                WHERE {_quote_identifier(target_key)} = :key_value
+                            """  # noqa: S608 - identifiers validated by _quote_identifier
                             )
                             session.execute(update_query, update_params)
                     else:
                         # Insert new record
                         field_names = list(mapped_data.keys())
+                        quoted_field_names = [
+                            _quote_identifier(field) for field in field_names
+                        ]
                         field_placeholders = [f":{field}" for field in field_names]
 
                         insert_query = text(
                             f"""
-                            INSERT INTO {target_table} ({", ".join(field_names)})
+                            INSERT INTO {_quote_identifier(target_table)}
+                            ({", ".join(quoted_field_names)})
                             VALUES ({", ".join(field_placeholders)})
-                        """
+                        """  # noqa: S608 - identifiers validated by _quote_identifier
                         )
                         session.execute(insert_query, mapped_data)
 
@@ -546,10 +569,10 @@ class UnifiedMigrationTask:
             # Get random sample from source table
             sample_query = text(
                 f"""
-                SELECT * FROM {source_table}
+                SELECT * FROM {_quote_identifier(source_table)}
                 ORDER BY RAND()
                 LIMIT :sample_size
-            """
+            """  # noqa: S608 - identifier validated by _quote_identifier
             )
 
             samples = session.execute(
@@ -564,10 +587,11 @@ class UnifiedMigrationTask:
                 # Find corresponding record in target table
                 target_query = text(
                     f"""
-                    SELECT * FROM {target_table}
-                    WHERE {target_key} = :key_value AND deleted = 0
+                    SELECT * FROM {_quote_identifier(target_table)}
+                    WHERE {_quote_identifier(target_key)} = :key_value
+                    AND deleted = 0
                     LIMIT 1
-                """
+                """  # noqa: S608 - identifiers validated by _quote_identifier
                 )
 
                 target_record = session.execute(
@@ -715,7 +739,7 @@ class UnifiedMigrationTask:
         session = self.SessionClass()
         try:
             result = session.execute(
-                text(f"SHOW TABLES LIKE '{table_name}'")
+                text("SHOW TABLES LIKE :table_name"), {"table_name": table_name}
             ).fetchone()
         except Exception:
             logger.exception(f"Error checking table existence {table_name}")
@@ -729,11 +753,13 @@ class UnifiedMigrationTask:
         self, session, table_name: str, where_clause: str = ""
     ) -> int:
         """Get table record count using provided session."""
-        try:
-            query = f"SELECT COUNT(*) FROM {table_name}"
-            if where_clause:
-                query += f" WHERE {where_clause}"
+        # Validated outside the try so an unsafe identifier is not reported as
+        # an empty table.
+        query = f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"  # noqa: S608
+        if where_clause:
+            query += f" WHERE {where_clause}"
 
+        try:
             count = session.execute(text(query)).scalar()
         except Exception:
             logger.exception(f"Error getting table count for {table_name}")
@@ -748,13 +774,14 @@ class UnifiedMigrationTask:
         try:
             result = session.execute(
                 text(
-                    f"""
+                    """
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE()
-                AND TABLE_NAME = '{table_name}'
-                AND COLUMN_NAME = '{column_name}'
+                AND TABLE_NAME = :table_name
+                AND COLUMN_NAME = :column_name
             """
-                )
+                ),
+                {"table_name": table_name, "column_name": column_name},
             ).scalar()
             # Compared inside the try: scalar() returns None when the
             # information_schema query matches nothing.
@@ -776,12 +803,14 @@ class UnifiedMigrationTask:
 
     def _get_table_count(self, table_name: str, where_clause: str = "") -> int:
         """Get table record count."""
+        # Validated before the session is opened so an unsafe identifier is not
+        # reported as an empty table.
+        query = f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"  # noqa: S608
+        if where_clause:
+            query += f" WHERE {where_clause}"
+
         session = self.SessionClass()
         try:
-            query = f"SELECT COUNT(*) FROM {table_name}"
-            if where_clause:
-                query += f" WHERE {where_clause}"
-
             count = session.execute(text(query)).scalar()
         except Exception:
             logger.exception(f"Error getting table count for {table_name}")

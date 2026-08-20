@@ -137,7 +137,8 @@ def migrate(
             count: int = (
                 conn.execute(
                     sa.text(
-                        f"SELECT COUNT(*) FROM `{table}` WHERE `{column}` LIKE :pat"
+                        # Identifiers come from the whitelisted TARGETS constant
+                        f"SELECT COUNT(*) FROM `{table}` WHERE `{column}` LIKE :pat"  # noqa: S608
                     ),
                     {"pat": pat},
                 ).scalar()
@@ -163,7 +164,8 @@ def migrate(
                 while True:
                     result = conn.execute(
                         sa.text(
-                            f"UPDATE `{table}` SET `{column}` = "
+                            # Identifiers come from the whitelisted TARGETS constant
+                            f"UPDATE `{table}` SET `{column}` = "  # noqa: S608
                             f"REPLACE(`{column}`, :old, :new) "
                             f"WHERE `{column}` LIKE :pat "
                             f"LIMIT :lim"
