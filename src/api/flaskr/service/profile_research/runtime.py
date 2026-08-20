@@ -960,6 +960,7 @@ class ProfileResearchRuntime:
                 user_input=normalized_user_input,
             )
             if replay is not None:
+                self.store.save(session)
                 yield from replay
                 return
             if session.done:
