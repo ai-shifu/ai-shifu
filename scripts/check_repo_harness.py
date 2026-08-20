@@ -162,9 +162,11 @@ def check_manual_agents(errors: list[str]) -> None:
         if DOC_COMMENT in text:
             errors.append(f"Manual AGENTS file should not be generated: {path}")
         check_ordered_headings(path, text, errors)
-        for marker in markers:
-            if marker not in text:
-                errors.append(f"Missing marker '{marker}' in {path}")
+        errors.extend(
+            f"Missing marker '{marker}' in {path}"
+            for marker in markers
+            if marker not in text
+        )
 
 
 def check_manual_rules(errors: list[str]) -> None:
@@ -175,28 +177,38 @@ def check_manual_rules(errors: list[str]) -> None:
         text = path.read_text(encoding="utf-8")
         if DOC_COMMENT in text:
             errors.append(f"Manual Claude rule should not be generated: {path}")
-        for marker in markers:
-            if marker not in text:
-                errors.append(f"Missing marker '{marker}' in {path}")
+        errors.extend(
+            f"Missing marker '{marker}' in {path}"
+            for marker in markers
+            if marker not in text
+        )
 
 
 def check_root_docs(errors: list[str]) -> None:
-    for path in REQUIRED_ROOT_DOCS:
-        if not path.exists():
-            errors.append(f"Missing required root knowledge doc: {path}")
-    for path in REQUIRED_DIRS:
-        if not path.exists():
-            errors.append(f"Missing required docs directory: {path}")
-    for path in REQUIRED_WORKFLOWS:
-        if not path.exists():
-            errors.append(f"Missing required harness workflow: {path}")
+    errors.extend(
+        f"Missing required root knowledge doc: {path}"
+        for path in REQUIRED_ROOT_DOCS
+        if not path.exists()
+    )
+    errors.extend(
+        f"Missing required docs directory: {path}"
+        for path in REQUIRED_DIRS
+        if not path.exists()
+    )
+    errors.extend(
+        f"Missing required harness workflow: {path}"
+        for path in REQUIRED_WORKFLOWS
+        if not path.exists()
+    )
 
     readme = DOCS_ROOT / "README.md"
     if readme.exists():
         text = readme.read_text(encoding="utf-8")
-        for marker in README_MARKERS:
-            if marker not in text:
-                errors.append(f"Missing marker '{marker}' in {readme}")
+        errors.extend(
+            f"Missing marker '{marker}' in {readme}"
+            for marker in README_MARKERS
+            if marker not in text
+        )
 
     if (ROOT / "tasks.md").exists():
         errors.append("Repository-root tasks.md is retired and must not exist")
@@ -221,14 +233,15 @@ def check_frontmatter_docs(errors: list[str]) -> None:
             if path.name == "index.md":
                 continue
             metadata = parse_frontmatter(path)
-            for field in FRONTMATTER_FIELDS:
-                if not metadata.get(field):
-                    errors.append(f"Missing frontmatter field '{field}' in {path}")
+            errors.extend(
+                f"Missing frontmatter field '{field}' in {path}"
+                for field in FRONTMATTER_FIELDS
+                if not metadata.get(field)
+            )
 
 
 def check_example_identifiers(errors: list[str]) -> None:
-    for violation in find_identifier_violations():
-        errors.append(str(violation))
+    errors.extend(str(violation) for violation in find_identifier_violations())
 
 
 def main() -> int:

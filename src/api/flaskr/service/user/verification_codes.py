@@ -7,6 +7,7 @@ resetting passwords where we only want to validate ownership of an identifier.
 
 from __future__ import annotations
 
+import contextlib
 import datetime
 from typing import Literal
 
@@ -25,12 +26,10 @@ CodeKind = Literal["sms", "email"]
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
     if value is None:
         return False
-    try:
+    # Defensive: keep the original value if tzinfo manipulation fails.
+    with contextlib.suppress(Exception):
         if value.tzinfo is not None:
             value = value.replace(tzinfo=None)
-    except Exception:
-        # Defensive: keep original value if tzinfo manipulation fails.
-        pass
     now = now_utc()
     return (now - value).total_seconds() <= seconds
 

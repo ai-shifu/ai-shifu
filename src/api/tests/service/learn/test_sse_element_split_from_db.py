@@ -70,28 +70,38 @@ def _fetch_blocks_raw(app, limit=100):
             .all()
         )
         # Detach from session so we can use outside app context
-        result = []
-        for r in rows:
-            result.append(
-                {
-                    "generated_block_bid": r.generated_block_bid,
-                    "shifu_bid": r.shifu_bid,
-                    "outline_item_bid": r.outline_item_bid,
-                    "user_bid": r.user_bid,
-                    "progress_record_bid": r.progress_record_bid,
-                    "role": int(r.role or 0),
-                    "type": int(r.type or 0),
-                    "position": int(r.position or 0),
-                    "generated_content": r.generated_content or "",
-                }
-            )
-        return result
+        return [
+            {
+                "generated_block_bid": r.generated_block_bid,
+                "shifu_bid": r.shifu_bid,
+                "outline_item_bid": r.outline_item_bid,
+                "user_bid": r.user_bid,
+                "progress_record_bid": r.progress_record_bid,
+                "role": int(r.role or 0),
+                "type": int(r.type or 0),
+                "position": int(r.position or 0),
+                "generated_content": r.generated_content or "",
+            }
+            for r in rows
+        ]
 
 
 def _role_str(role_int):
     if role_int == ROLE_STUDENT:
         return "student"
     return "teacher"
+
+
+def _try_simulate_sse_for_block(app, block, *, with_av_contract=True):
+    """Simulate SSE for a block, returning None when the simulation fails.
+
+    Callers scan a sample of production-shaped rows and skip the ones the
+    adapter cannot replay, so a failure here is not a test failure.
+    """
+    try:
+        return _simulate_sse_for_block(app, block, with_av_contract=with_av_contract)
+    except Exception:
+        return None
 
 
 def _simulate_sse_for_block(app, block, *, with_av_contract=True):
@@ -335,9 +345,8 @@ class TestSSEElementSplitFromDB:
         failures = []
         for block in sample_blocks:
             bid = block["generated_block_bid"]
-            try:
-                streamed = _simulate_sse_for_block(app, block)
-            except Exception:
+            streamed = _try_simulate_sse_for_block(app, block)
+            if streamed is None:
                 continue
 
             for evt in streamed:
@@ -387,9 +396,11 @@ class TestSSEElementSplitFromDB:
                         "is_final",
                         "content",
                     ]
-                    for field in required_fields:
-                        if field not in content:
-                            failures.append(f"Block {bid}: element missing '{field}'")
+                    failures.extend(
+                        f"Block {bid}: element missing '{field}'"
+                        for field in required_fields
+                        if field not in content
+                    )
 
         print(f"\n  SSE serialization tested on {len(sample_blocks)} blocks")
 
@@ -412,9 +423,8 @@ class TestSSEElementSplitFromDB:
             bid = block["generated_block_bid"]
             original_content = block["generated_content"].strip()
 
-            try:
-                streamed = _simulate_sse_for_block(app, block)
-            except Exception:
+            streamed = _try_simulate_sse_for_block(app, block)
+            if streamed is None:
                 continue
 
             # Collect all content from element events
@@ -491,9 +501,8 @@ class TestSSEElementSplitFromDB:
             bid = block["generated_block_bid"]
             content = block["generated_content"]
 
-            try:
-                streamed = _simulate_sse_for_block(app, block)
-            except Exception:
+            streamed = _try_simulate_sse_for_block(app, block)
+            if streamed is None:
                 continue
 
             for evt in streamed:
@@ -624,9 +633,8 @@ class TestSSEElementSplitFromDB:
         retire_issues = []
         for block in visual_blocks[:15]:
             bid = block["generated_block_bid"]
-            try:
-                streamed = _simulate_sse_for_block(app, block)
-            except Exception:
+            streamed = _try_simulate_sse_for_block(app, block)
+            if streamed is None:
                 continue
 
             element_events = [e for e in streamed if e.type == "element"]
@@ -649,9 +657,8 @@ class TestSSEElementSplitFromDB:
         proper_retire = 0
         for block in visual_blocks[:15]:
             bid = block["generated_block_bid"]
-            try:
-                streamed = _simulate_sse_for_block(app, block)
-            except Exception:
+            streamed = _try_simulate_sse_for_block(app, block)
+            if streamed is None:
                 continue
             element_events = [e for e in streamed if e.type == "element"]
             has_retire = any(

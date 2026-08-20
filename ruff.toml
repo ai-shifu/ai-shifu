@@ -52,7 +52,7 @@ select = [
     "RSE",     # unnecessary parentheses on a raised exception
     "C4",      # comprehension and collection-literal simplifications
     "FLY",     # static str.join that should be an f-string
-    "PERF",    # performance anti-patterns (PERF401 ignored below)
+    "PERF",    # performance anti-patterns
     "FURB",    # refurb modernizations
     "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
     "Q",       # quote style, matching the formatter
@@ -129,6 +129,11 @@ select = [
     "S104",    # binding a socket to all interfaces
     "S107",    # hardcoded password as a function default
     "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
+    # S110/S112 flag `except Exception: pass` / `continue`. A deliberate
+    # best-effort block reads better as `contextlib.suppress(...)`, which the
+    # repo already uses; a narrower `except OSError:` is not flagged either.
+    "S110",    # try-except-pass that swallows every exception
+    "S112",    # try-except-continue that swallows every exception
     "S113",    # requests call without a timeout
     "S310",    # urlopen without an audited URL scheme
     "S311",    # `random` where a cryptographic generator is required
@@ -154,6 +159,12 @@ select = [
     # frozen-clock `now()` doubles.
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
+    # flake8-type-checking is partial: TC002/TC003 would push third-party
+    # imports (SQLAlchemy, pydantic) behind TYPE_CHECKING, where any decorator
+    # or mapper that resolves annotations at runtime then fails. TC001 only
+    # covers first-party imports used solely in annotations, and every module
+    # it touches already has `from __future__ import annotations`.
+    "TC001",   # first-party import used only in annotations
 
     # --- Docstrings -------------------------------------------------------
     # pydocstyle is enabled as a whole; the members that would need thousands
@@ -169,7 +180,7 @@ select = [
     "UP",
 
     # --- Ruff-native rules ------------------------------------------------
-    # RUF001 (ambiguous unicode in a string), RUF012 and RUF100 are ignored
+    # RUF001 (ambiguous unicode in a string) and RUF100 are ignored
     # below.
     "RUF",
 ]
@@ -198,11 +209,9 @@ ignore = [
     "DTZ007",  # naive strptime() -- naive UTC is the house convention
     "DTZ901",  # datetime.min/max -- naive UTC is the house convention
     "G004",    # f-string logging -- house style, and rewriting it is churn
-    "PERF401", # manual list comprehension -- rewrites obscure the loop bodies
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
     "PLW0603", # global statement -- used by module-level singletons/caches
     "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
-    "RUF012",  # mutable class attribute without ClassVar -- annotation churn
     # RUF100: with a partial select list, ruff reports deliberate `# noqa:
     # BLE001 / DTZ001 / SLF001 / S102` markers as unused simply because those
     # rules are off here, so enforcing it would delete documentation of

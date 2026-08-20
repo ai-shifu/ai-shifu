@@ -1292,10 +1292,11 @@ def _missing_template_params(
     template_params: dict[str, Any] | None,
 ) -> list[str]:
     params = template_params or {}
-    missing: list[str] = []
-    for placeholder in _template_placeholders(template_code):
-        if not str(params.get(placeholder) or "").strip():
-            missing.append(placeholder)
+    missing: list[str] = [
+        placeholder
+        for placeholder in _template_placeholders(template_code)
+        if not str(params.get(placeholder) or "").strip()
+    ]
     return missing
 
 

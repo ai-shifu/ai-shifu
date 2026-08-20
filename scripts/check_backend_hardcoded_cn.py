@@ -40,7 +40,7 @@ def main() -> int:
             continue
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
+        except OSError:
             continue
         for i, line in enumerate(text.splitlines(), start=1):
             if CJK.search(line):

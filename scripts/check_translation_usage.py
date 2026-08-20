@@ -171,7 +171,7 @@ def load_metadata_namespaces() -> set[str]:
         for ns in data.get("namespaces", []) or []:
             if isinstance(ns, str) and ns:
                 namespaces.add(ns)
-    except Exception:
+    except (OSError, ValueError):
         pass
     return namespaces
 

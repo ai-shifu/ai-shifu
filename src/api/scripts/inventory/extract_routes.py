@@ -111,8 +111,9 @@ def collect_routes(scope_body, env, rel):
                                 methods = ast.literal_eval(kw.value)
                             except Exception:
                                 methods = ["<dyn>"]
-                    for m in methods:
-                        results.append((m, path, rel, node.lineno, node.name))
+                    results.extend(
+                        (m, path, rel, node.lineno, node.name) for m in methods
+                    )
             # recurse into nested scopes (rare but cheap)
             collect_routes(node.body, dict(env), rel)
         elif isinstance(node, (ast.If, ast.With, ast.Try, ast.For, ast.While)):
@@ -181,8 +182,9 @@ for rel in sorted(route_files):
                                 methods = ast.literal_eval(kw.value)
                             except Exception:
                                 methods = ["<dyn>"]
-                    for m in methods:
-                        results.append((m, path, rel, node.lineno, node.name))
+                    results.extend(
+                        (m, path, rel, node.lineno, node.name) for m in methods
+                    )
 
 seen = set()
 unresolved = 0
