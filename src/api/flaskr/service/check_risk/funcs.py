@@ -1,10 +1,10 @@
 from flask import Flask
 from flaskr.api.check import CHECK_RESULT_PASS, CHECK_RESULT_REJECT, check_text
 from flaskr.api.check.dto import CheckResultDTO
+from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.util.datetime import now_utc
 
-from ...dao import db
 from .models import RiskControlResult
 
 

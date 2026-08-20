@@ -11,6 +11,16 @@ from enum import Enum
 from typing import Any, Union
 
 from flask import Flask
+from flaskr.api.langfuse import (
+    LangfuseTraceHandle,
+    MockClient,
+    create_trace_with_root_span,
+    finalize_langfuse_trace,
+    get_langfuse_client,
+    get_request_trace_id,
+    normalize_langfuse_input_value,
+    normalize_langfuse_output_value,
+)
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.common.i18n_utils import (
@@ -119,17 +129,6 @@ from markdown_flow import (
     replace_variables_in_text,
 )
 from markdown_flow.llm import LLMResult
-
-from ...api.langfuse import (
-    LangfuseTraceHandle,
-    MockClient,
-    create_trace_with_root_span,
-    finalize_langfuse_trace,
-    get_langfuse_client,
-    get_request_trace_id,
-    normalize_langfuse_input_value,
-    normalize_langfuse_output_value,
-)
 
 context_local = threading.local()
 

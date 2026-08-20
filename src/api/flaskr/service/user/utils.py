@@ -11,7 +11,9 @@ from flask import Flask, has_app_context
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
+from flaskr.dao import db
 from flaskr.i18n import _
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
     normalize_phone_identifier,
@@ -24,8 +26,6 @@ from flaskr.service.user.token_store import token_store
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 
-from ...dao import db
-from ..common.models import raise_error, raise_param_error
 from .models import UserVerifyCode
 
 
