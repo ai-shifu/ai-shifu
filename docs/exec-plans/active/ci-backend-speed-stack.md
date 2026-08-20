@@ -27,7 +27,8 @@ that branch.
   installation precedes source copying.
 - [x] 2026-08-20 12:25 CST: Made each Backend Tests commit save a new testmon cache
   and restore the newest compatible cache.
-- [ ] 2026-08-20 12:30 CST: Validate and publish the three-PR stack.
+- [x] 2026-08-20 12:30 CST: Validated and published the three-PR stack as
+  PRs #2536, #2537, and #2538.
 
 ## Surprises & Discoveries
 
@@ -57,8 +58,17 @@ that branch.
 
 ## Outcomes & Retrospective
 
-Implementation is in progress. Record measured CI outcomes here after each pull
-request runs.
+The implementation is published as three ready pull requests:
+
+- PR #2536 isolates the API and Cook Web Docker cache scopes.
+- PR #2537 preserves the Cook Web dependency layer across source-only changes.
+- PR #2538 rolls pytest-testmon state forward after each successful commit.
+
+Workflow parsing, repository harness validation, architecture boundaries, npm
+lockfile installation, and the full lefthook pre-commit gate passed locally.
+Docker is unavailable in the worktree, so actual cache-hit rates and elapsed
+Runtime Harness time remain live-CI acceptance measurements rather than local
+claims.
 
 ## Context and Orientation
 
