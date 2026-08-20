@@ -31,6 +31,9 @@ from flaskr.service.profile.onboarding import (
 from flaskr.service.referral.service import extract_referral_post_auth_fields
 from flaskr.service.user.auth import get_provider
 from flaskr.service.user.auth.base import OAuthCallbackRequest, VerificationRequest
+from flaskr.service.user.auth.providers.google import (
+    resolve_state_return_origin,
+)
 from flaskr.service.user.captcha import (
     create_captcha_challenge,
     verify_captcha_code,
@@ -985,12 +988,31 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         ui_language = request.args.get("language")
         if ui_language:
             metadata["language"] = ui_language
+        origin = request.args.get("origin") or request.headers.get("Origin")
+        if origin:
+            metadata["origin"] = origin
         result = provider.begin_oauth(app, metadata)
         dto = OAuthStartDTO(
             authorization_url=result["authorization_url"],
             state=result["state"],
         )
         return make_common_response(dto)
+
+    @app.route(path_prefix + "/oauth/google/callback-origin", methods=["GET"])
+    @bypass_token_validation
+    def google_oauth_callback_origin():
+        """Resolve which domain a pending Google login should return to.
+
+        Every domain shares one Google callback, so the page that receives it
+        asks here whether the code belongs to a different domain and should be
+        forwarded there. Returns an empty origin when the login started on this
+        domain or when the recorded origin is no longer allowed.
+        ---
+        tags:
+            - user
+        """
+        origin = resolve_state_return_origin(app, request.args.get("state"))
+        return make_common_response({"origin": origin})
 
     @app.route(path_prefix + "/oauth/google/callback", methods=["GET"])
     @bypass_token_validation

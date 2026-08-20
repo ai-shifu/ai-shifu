@@ -122,6 +122,9 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
             redirect_uri: redirectUri,
             login_context: loginContext,
             language,
+            // All domains share one Google callback, so tell the backend where
+            // to send the browser back to once Google returns.
+            origin: window.location.origin,
           }),
         );
         const payload = extractData<OAuthStartPayload>(response);

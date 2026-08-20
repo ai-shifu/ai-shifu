@@ -19,6 +19,9 @@ from flaskr.service.user.auth.base import (
     OAuthCallbackRequest,
 )
 from flaskr.service.user.auth.factory import has_provider, register_provider
+from flaskr.service.user.auth.oauth_origins import (
+    resolve_oauth_return_origin,
+)
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
@@ -106,6 +109,22 @@ def _resolve_redirect_uri(app, explicit_uri: str | None = None) -> str:
     return build_google_oauth_callback_url()
 
 
+def resolve_state_return_origin(app, state: str | None) -> str:
+    """Return the validated origin recorded in an OAuth state, or "".
+
+    The shared callback page calls this to learn whether it should forward the
+    authorization code to the domain the login started from. Re-validated here
+    rather than trusted from the state, so revoking a custom domain takes effect
+    on in-flight logins too.
+    """
+    if not state:
+        return ""
+    payload = _decode_state(app, state)
+    if not payload:
+        return ""
+    return resolve_oauth_return_origin(app, payload.get("origin"))
+
+
 class GoogleAuthProvider(AuthProvider):
     provider_name = "google"
     supports_oauth = True
@@ -154,6 +173,12 @@ class GoogleAuthProvider(AuthProvider):
             "redirect_uri": redirect_uri,
             "login_context": login_context,
         }
+        # All domains share one Google callback, so remember where the browser
+        # came from to hand it back afterwards. Validated on the way in so a
+        # rejected origin never reaches the state, and again on the way out.
+        return_origin = resolve_oauth_return_origin(app, metadata.get("origin"))
+        if return_origin:
+            state_payload["origin"] = return_origin
         # Persist the interface language so we can use it
         # when creating or updating the user record.
         if ui_language_from_frontend:

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { resolveGoogleCallbackOrigin } from '@/lib/google-oauth-callback-origin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useTranslation } from 'react-i18next';
 
@@ -28,6 +29,25 @@ export default function GoogleCallbackPage() {
     const run = async () => {
       console.info('[Google OAuth] running');
       try {
+        // Every domain shares one Google callback so that a white-label domain
+        // needs no entry of its own in the Google console. If this login began
+        // on another domain, hand the code back to it: the token exchange must
+        // happen there, where the state was stored and the session belongs.
+        if (code && state) {
+          const forwardOrigin = await resolveGoogleCallbackOrigin(state);
+          if (forwardOrigin && forwardOrigin !== window.location.origin) {
+            const forwardUrl = new URL('/login/google-callback', forwardOrigin);
+            forwardUrl.searchParams.set('code', code);
+            forwardUrl.searchParams.set('state', state);
+            if (redirect) {
+              forwardUrl.searchParams.set('redirect', redirect);
+            }
+            console.info('[Google OAuth] forwarding to', forwardUrl.toString());
+            window.location.replace(forwardUrl.toString());
+            return;
+          }
+        }
+
         const fallbackRedirect =
           redirect && redirect.startsWith('/') ? redirect : undefined;
         console.info('[Google OAuth] exchanging token');

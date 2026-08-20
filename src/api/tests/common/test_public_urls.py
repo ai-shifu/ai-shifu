@@ -24,6 +24,7 @@ def clear_public_url_config_cache():
         "PATH_PREFIX",
         "WECHATPAY_APP_ID",
         "WECHATPAY_MCH_ID",
+        "GOOGLE_OAUTH_REDIRECT_URI",
     )
     _reset_config_cache(*keys)
     yield
@@ -183,3 +184,68 @@ def test_public_urls_omit_standard_port_from_forwarded_port(
             build_google_oauth_callback_url()
             == "https://app.example.com/login/google-callback"
         )
+
+
+def test_google_callback_can_be_pinned_to_one_shared_url(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """One callback for every domain, so Google needs no per-domain entry."""
+    monkeypatch.setenv("HOST_URL", "https://app.example.com")
+    monkeypatch.setenv(
+        "GOOGLE_OAUTH_REDIRECT_URI", "https://app.example.com/login/google-callback"
+    )
+    _reset_config_cache("HOST_URL", "GOOGLE_OAUTH_REDIRECT_URI")
+
+    assert (
+        build_google_oauth_callback_url()
+        == "https://app.example.com/login/google-callback"
+    )
+
+
+def test_pinned_google_callback_wins_over_the_request_origin(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A white-label domain must still send Google the shared callback."""
+    monkeypatch.delenv("HOST_URL", raising=False)
+    monkeypatch.setenv(
+        "GOOGLE_OAUTH_REDIRECT_URI", "https://app.example.com/login/google-callback"
+    )
+    _reset_config_cache("HOST_URL", "GOOGLE_OAUTH_REDIRECT_URI")
+
+    app = Flask(__name__)
+    with app.test_request_context(
+        "/", headers={"Origin": "https://learn.customer.example"}
+    ):
+        assert (
+            build_google_oauth_callback_url()
+            == "https://app.example.com/login/google-callback"
+        )
+
+
+def test_google_callback_falls_back_to_the_request_origin_when_unpinned(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Without the setting the historical per-origin behavior is kept."""
+    monkeypatch.delenv("HOST_URL", raising=False)
+    monkeypatch.delenv("GOOGLE_OAUTH_REDIRECT_URI", raising=False)
+    _reset_config_cache("HOST_URL", "GOOGLE_OAUTH_REDIRECT_URI")
+
+    app = Flask(__name__)
+    with app.test_request_context(
+        "/", headers={"Origin": "https://learn.customer.example"}
+    ):
+        assert (
+            build_google_oauth_callback_url()
+            == "https://learn.customer.example/login/google-callback"
+        )
+
+
+def test_malformed_pinned_google_callback_is_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOST_URL", "https://app.example.com")
+    monkeypatch.setenv("GOOGLE_OAUTH_REDIRECT_URI", "app.example.com/callback")
+    _reset_config_cache("HOST_URL", "GOOGLE_OAUTH_REDIRECT_URI")
+
+    with pytest.raises(RuntimeError):
+        build_google_oauth_callback_url()

@@ -12,7 +12,38 @@ STRIPE_BILLING_RESULT_PATH = "/payment/stripe/billing-result"
 
 
 def build_google_oauth_callback_url() -> str:
+    """Resolve the redirect_uri handed to Google.
+
+    Google does not accept wildcards in a client's authorized redirect URIs, so
+    letting this follow the requested origin means every white-label domain
+    needs its own entry in the Google console. When GOOGLE_OAUTH_REDIRECT_URI is
+    set, all domains share that one callback instead, and the browser is sent
+    back to its originating domain afterwards. Leaving it unset keeps the
+    historical per-origin behavior.
+    """
+    configured = _normalize_callback_url(
+        str(get_config("GOOGLE_OAUTH_REDIRECT_URI", "") or "")
+    )
+    if configured:
+        return configured
     return build_public_url(GOOGLE_OAUTH_CALLBACK_PATH)
+
+
+def _normalize_callback_url(value: str) -> str:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return ""
+    parsed = urlsplit(raw_value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise RuntimeError(
+            "GOOGLE_OAUTH_REDIRECT_URI must include http(s) scheme and host"
+        )
+    if parsed.query or parsed.fragment:
+        raise RuntimeError(
+            "GOOGLE_OAUTH_REDIRECT_URI must not carry a query or fragment"
+        )
+    path = parsed.path.rstrip("/") or GOOGLE_OAUTH_CALLBACK_PATH
+    return urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))
 
 
 def build_alipay_notify_url() -> str:
