@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.config.funcs import add_config, get_config
 from flaskr.util.datetime import now_utc, to_utc_iso
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 PROFILE_ONBOARDING_CONFIG_KEY = "PROFILE_ONBOARDING_FLOW"
 PROFILE_ONBOARDING_STATE_KEY = "_sys_profile_onboarding_state"

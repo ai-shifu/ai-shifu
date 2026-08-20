@@ -8,7 +8,6 @@ from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.dashboard.dtos import (
@@ -66,6 +65,8 @@ from sqlalchemy.orm import aliased
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from flask import Flask
 
 
 @dataclass(frozen=True)

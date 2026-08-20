@@ -8,7 +8,6 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import (
     raise_param_error,
@@ -56,6 +55,8 @@ from sqlalchemy import and_, or_
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from datetime import datetime
+
+    from flask import Flask
 
 
 def _build_course_follow_up_base_subquery(shifu_bid: str):

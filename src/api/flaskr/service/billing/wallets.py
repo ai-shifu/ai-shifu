@@ -5,9 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
@@ -60,6 +59,9 @@ from .primitives import credit_decimal_to_number as _credit_decimal_to_number
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 from .queries import load_primary_active_subscription
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _ZERO = Decimal(0)
 _PRESERVED_BUCKET_STATUSES = {

@@ -10,14 +10,16 @@ checked against domains we actually serve, which is what this module does.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit, urlunsplit
 
-from flask import Flask
 from flaskr.common.public_urls import (
     build_google_oauth_callback_url,
     resolve_public_origin,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 DEFAULT_PORTS = {"http": 80, "https": 443}
 

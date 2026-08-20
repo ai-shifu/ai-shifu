@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from flask import Flask
+from typing import TYPE_CHECKING
+
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.shifu.admin_dtos import (
@@ -56,6 +57,9 @@ from flaskr.service.user.consts import (
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from sqlalchemy import and_, case, or_
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def _build_user_query_filter(user_query: str):

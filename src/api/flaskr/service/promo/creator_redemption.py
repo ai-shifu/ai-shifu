@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from flask import Flask
+from typing import TYPE_CHECKING
+
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.promo.admin import (
@@ -25,6 +26,9 @@ from flaskr.service.promo.admin_dtos import (
 )
 from flaskr.service.promo.models import Coupon
 from flaskr.service.shifu.models import PublishedShifu
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def list_creator_course_redemption_coupons(
