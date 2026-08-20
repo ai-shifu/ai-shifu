@@ -205,13 +205,11 @@ def with_shifu_context(
             if shifu_bid:
                 app = None
                 creator_bid = None
-                try:
+                # Context population failures should not break the endpoint.
+                with contextlib.suppress(Exception):
                     app = current_app._get_current_object()
                     creator_bid = _get_shifu_creator_bid_cached(app, shifu_bid)
                     set_shifu_context(shifu_bid, creator_bid)
-                except Exception:
-                    # Context population failures should not break the endpoint.
-                    pass
                 if app is not None and creator_bid:
                     host_creator_bid = _resolve_host_creator_bid(
                         app, _extract_request_host(request) or ""
@@ -221,15 +219,13 @@ def with_shifu_context(
 
                         raise_error("server.shifu.shifuNotFound")
             else:
-                try:
+                # Host-based context is best effort for custom domain routing.
+                with contextlib.suppress(Exception):
                     app = current_app._get_current_object()
                     host = _extract_request_host(request)
                     creator_bid = _resolve_host_creator_bid(app, host or "")
                     if creator_bid:
                         set_shifu_context(None, creator_bid)
-                except Exception:
-                    # Host-based context is best effort for custom domain routing.
-                    pass
 
             return func(*args, **kwargs)
 

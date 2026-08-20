@@ -131,7 +131,7 @@ def collect_frontend_keys() -> set[str]:
             continue
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
+        except OSError:
             continue
         for pat in FRONTEND_PATTERNS:
             for m in pat.findall(text):
@@ -144,7 +144,7 @@ def collect_backend_keys() -> set[str]:
     for path in BACKEND_DIR.rglob("*.py"):
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
+        except OSError:
             continue
         for pat in BACKEND_PATTERNS:
             for m in pat.findall(text):

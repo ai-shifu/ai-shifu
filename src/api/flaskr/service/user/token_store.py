@@ -72,7 +72,8 @@ class TokenStoreProvider:
         ttl_seconds = int(ttl_seconds)
         cache_key = self._cache_key(app, token)
 
-        try:
+        # A cache outage must fall through to the database lookup below.
+        with contextlib.suppress(Exception):
             cached_user_id = self._cache.getex(cache_key, ex=ttl_seconds)
             if isinstance(cached_user_id, bytes):
                 cached_user_id = cached_user_id.decode("utf-8")
@@ -81,8 +82,6 @@ class TokenStoreProvider:
                     return TokenLookupResult(user_id=expected_user_id)
                 # Defensive: token should never map to a different user id.
                 self._cache.delete(cache_key)
-        except Exception:
-            pass
 
         now = now_utc()
         record = (

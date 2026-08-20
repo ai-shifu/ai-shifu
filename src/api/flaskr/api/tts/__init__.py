@@ -11,6 +11,7 @@ This module provides integration with multiple Text-to-Speech providers:
 The provider can be selected per-Shifu configuration.
 """
 
+import contextlib
 import json
 import logging
 from decimal import Decimal, InvalidOperation
@@ -217,11 +218,11 @@ def is_tts_configured(provider_name: str = "") -> bool:
     else:
         # Check if any provider is configured
         for _name, provider_cls in _iter_provider_classes(include_explicit_only=False):
-            try:
+            # A provider whose construction or config check blows up counts as
+            # not configured.
+            with contextlib.suppress(Exception):
                 if provider_cls().is_configured():
                     return True
-            except Exception:
-                continue
         return False
 
 

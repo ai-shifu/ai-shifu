@@ -129,6 +129,11 @@ select = [
     "S104",    # binding a socket to all interfaces
     "S107",    # hardcoded password as a function default
     "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
+    # S110/S112 flag `except Exception: pass` / `continue`. A deliberate
+    # best-effort block reads better as `contextlib.suppress(...)`, which the
+    # repo already uses; a narrower `except OSError:` is not flagged either.
+    "S110",    # try-except-pass that swallows every exception
+    "S112",    # try-except-continue that swallows every exception
     "S113",    # requests call without a timeout
     "S310",    # urlopen without an audited URL scheme
     "S311",    # `random` where a cryptographic generator is required
