@@ -239,14 +239,16 @@ def run_migrations_online() -> None:
             # check if it is unnecessary operation
             if should_skip_operation(op):
                 logger.info(
-                    f"Skipping unnecessary operation: {type(op).__name__} on {getattr(op, 'table_name', 'unknown')}"
+                    "Skipping unnecessary operation: %s on %s",
+                    type(op).__name__,
+                    getattr(op, "table_name", "unknown"),
                 )
                 continue
 
             # generate the unique identifier of the operation to avoid duplication
             op_signature = get_operation_signature(op)
             if op_signature in seen_operations:
-                logger.info(f"Skipping duplicate operation: {op_signature}")
+                logger.info("Skipping duplicate operation: %s", op_signature)
                 continue
 
             seen_operations.add(op_signature)
@@ -257,7 +259,9 @@ def run_migrations_online() -> None:
 
         if len(filtered_ops) != len(original_ops):
             logger.info(
-                f"Filtered operations from {len(original_ops)} to {len(filtered_ops)}"
+                "Filtered operations from %s to %s",
+                len(original_ops),
+                len(filtered_ops),
             )
 
     def get_operation_signature(op):
@@ -498,12 +502,14 @@ def run_migrations_online() -> None:
         for table_name, changes in table_changes.items():
             if len(changes) > 1:
                 logger.info(
-                    f"Table {table_name} has {len(changes)} changes, ensuring they are in the same migration"
+                    "Table %s has %s changes, ensuring they are in the same migration",
+                    table_name,
+                    len(changes),
                 )
 
                 # check if there are related change types
                 change_types = [type(op).__name__ for op in changes]
-                logger.info(f"Change types for {table_name}: {change_types}")
+                logger.info("Change types for %s: %s", table_name, change_types)
 
                 # if the same table has comment and server_default changes, log
                 has_comment_change = any("comment" in str(op).lower() for op in changes)
@@ -513,7 +519,8 @@ def run_migrations_online() -> None:
 
                 if has_comment_change and has_server_default_change:
                     logger.info(
-                        f"Table {table_name} has both comment and server_default changes - they should be in the same migration"
+                        "Table %s has both comment and server_default changes - they should be in the same migration",
+                        table_name,
                     )
 
                 # try to merge the related operations
@@ -535,7 +542,9 @@ def run_migrations_online() -> None:
                             and type(next_op).__name__ == "AlterColumnOp"
                         ):
                             logger.info(
-                                f"Merging operations for column {current_op.column_name} in table {table_name}"
+                                "Merging operations for column %s in table %s",
+                                current_op.column_name,
+                                table_name,
                             )
                             # here you can add the merge logic
                             i += 2  # skip the next operation
@@ -546,7 +555,10 @@ def run_migrations_online() -> None:
                 # update the operation list
                 if len(merged_ops) < len(changes):
                     logger.info(
-                        f"Reduced operations for table {table_name} from {len(changes)} to {len(merged_ops)}"
+                        "Reduced operations for table %s from %s to %s",
+                        table_name,
+                        len(changes),
+                        len(merged_ops),
                     )
                     # here you can update script.upgrade_ops.ops
 

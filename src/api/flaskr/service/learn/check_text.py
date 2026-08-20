@@ -111,7 +111,7 @@ def check_text_with_llm_response(
         db.session.flush()
 
     else:
-        app.logger.info(f"check_text_by_{res.provider} is None")
+        app.logger.info("check_text_by_%s is None", res.provider)
         # For generator functions, we need to yield a special marker to indicate None
         # and then return to stop the generator
         yield None

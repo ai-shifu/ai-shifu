@@ -41,7 +41,7 @@ class TestEnvironmentVariableFallback:
 
         return app, config
 
-    def test_fallback_to_env_var_with_warning(self, setup_app, caplog):
+    def test_fallback_to_env_var_with_warning(self, setup_app):
         """Test that undefined config keys fallback to environment variables with warning."""
         app, config = setup_app
 
@@ -52,11 +52,12 @@ class TestEnvironmentVariableFallback:
         assert value == "undefined_value_1"
 
         # Check warning was logged through app.logger (which is a MagicMock)
-        app.logger.warning.assert_called()
-        warning_call_args = app.logger.warning.call_args[0][0]
-        assert "UNDEFINED_VAR_1" in warning_call_args
-        assert "not defined in ENV_VARS registry" in warning_call_args
-        assert "Falling back to" in warning_call_args
+        app.logger.warning.assert_called_once_with(
+            "Configuration key '%s' not defined in ENV_VARS registry. Falling "
+            "back to environment variable value. Consider adding this to "
+            "ENV_VARS in config.py for proper type conversion and validation.",
+            "UNDEFINED_VAR_1",
+        )
 
     def test_fallback_cached_no_repeated_warning(self, setup_app, caplog):
         """Test that cached values don't trigger repeated warnings."""

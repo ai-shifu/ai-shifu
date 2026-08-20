@@ -115,7 +115,7 @@ def ilivedata_check(
             provider=PROVIDER,
             raw_data=ret,
         )
-    app.logger.error(f"ilivedata check error: {ret.get('errorCode')}")
+    app.logger.error("ilivedata check error: %s", ret.get("errorCode"))
     return CheckResultDTO(
         check_result=CHECK_RESULT_UNKNOWN,
         risk_labels=[],
