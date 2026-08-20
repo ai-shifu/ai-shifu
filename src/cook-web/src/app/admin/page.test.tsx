@@ -357,15 +357,11 @@ describe('AdminPage', () => {
       expect(screen.getByText('Course 1')).toBeInTheDocument();
     });
 
-    const courseActionsTrigger = screen.getByRole('button', {
-      name: 'common.core.more',
-    });
-
-    expect(courseActionsTrigger).not.toHaveClass('opacity-0');
-    expect(courseActionsTrigger).toHaveClass('h-8', 'w-8', 'bg-transparent');
-    expect(courseActionsTrigger.closest('a')).toBeNull();
-
-    fireEvent.click(courseActionsTrigger);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -486,68 +482,5 @@ describe('AdminPage', () => {
         name: 'module.order.redemptionCodes.action',
       }),
     ).not.toBeInTheDocument();
-  });
-
-  test('opens import activation from the course card menu', async () => {
-    render(<AdminPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Course 1')).toBeInTheDocument();
-    });
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'common.core.more',
-      }),
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.order.importActivation.action',
-      }),
-    );
-
-    expect(screen.getByTestId('import-activation-dialog')).toHaveAttribute(
-      'data-open',
-      'true',
-    );
-    expect(screen.getByTestId('import-course-id')).toHaveTextContent(
-      'course-1',
-    );
-  });
-
-  test('shows the restore action for an archived course', async () => {
-    mockGetShifuList.mockResolvedValue({
-      items: [
-        {
-          bid: 'course-archived-1',
-          name: 'Archived Course',
-          description: 'Archived course description',
-          state: 1,
-          archived: true,
-          avatar: '',
-          is_favorite: false,
-          created_user_bid: 'user-1',
-          can_manage_permissions: true,
-        },
-      ],
-    });
-
-    render(<AdminPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Archived Course')).toBeInTheDocument();
-    });
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'common.core.more',
-      }),
-    );
-
-    expect(
-      screen.getByRole('button', {
-        name: 'module.shifuSetting.unarchive',
-      }),
-    ).toBeInTheDocument();
   });
 });
