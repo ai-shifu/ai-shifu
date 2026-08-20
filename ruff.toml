@@ -161,12 +161,13 @@ select = [
     # frozen-clock `now()` doubles.
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
-    # flake8-type-checking is partial: TC002/TC003 would push third-party
-    # imports (SQLAlchemy, pydantic) behind TYPE_CHECKING, where any decorator
-    # or mapper that resolves annotations at runtime then fails. TC001 only
-    # covers first-party imports used solely in annotations, and every module
-    # it touches already has `from __future__ import annotations`.
-    "TC001",   # first-party import used only in annotations
+    # flake8-type-checking is enabled as a whole. TC002/TC003 are ignored below
+    # (they would push third-party imports behind TYPE_CHECKING, where runtime
+    # annotation resolution then fails); the rest have no violations and catch
+    # the mistakes a TYPE_CHECKING block invites: a name imported there but used
+    # at runtime (TC004), an empty or redundant block (TC005/TC010), a
+    # needlessly quoted annotation (TC006/TC007).
+    "TC",
 
     # --- Docstrings -------------------------------------------------------
     # pydocstyle is enabled as a whole; the members that would need thousands
@@ -207,6 +208,11 @@ ignore = [
     "D405",
     "D406",
     "D407",
+    # TC002 / TC003: moving a third-party or stdlib import into TYPE_CHECKING
+    # breaks anything that resolves annotations at runtime, which for this repo
+    # means the SQLAlchemy mappers and pydantic models (~230 hits).
+    "TC002",
+    "TC003",
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "DTZ007",  # naive strptime() -- naive UTC is the house convention
     "DTZ901",  # datetime.min/max -- naive UTC is the house convention
