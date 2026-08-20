@@ -92,6 +92,7 @@ class BillingOrderProviderUpdateResult:
     )
 
     def __bool__(self) -> bool:
+        """Return whether the provider update was applied."""
         return self.applied
 
     def stage_after_state_changes(

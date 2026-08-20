@@ -217,14 +217,13 @@ select = [
 ]
 ignore = [
     "E501",    # line length is owned by the formatter
-    # D1xx (except D104 and D107, which are enforced): ~4.6k undocumented
-    # modules, classes, methods, functions and magic methods. Writing them is a
-    # codebase project, not a lint config change.
+    # D1xx (except D104, D105 and D107, which are enforced): ~4.5k undocumented
+    # modules, classes, methods and functions. Writing them is a codebase
+    # project, not a lint config change.
     "D100",    # undocumented public module
     "D101",    # undocumented public class
     "D102",    # undocumented public method
     "D103",    # undocumented public function
-    "D105",    # undocumented magic method
     "D203",    # blank line before a class docstring -- conflicts with D211
     "D213",    # summary on the second line -- conflicts with D212
     # TC002 / TC003: moving a third-party or stdlib import into TYPE_CHECKING

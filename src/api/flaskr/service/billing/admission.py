@@ -47,6 +47,7 @@ class CreatorUsageAdmission:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a response field by key."""
         return self.to_response_dict()[key]
 
 

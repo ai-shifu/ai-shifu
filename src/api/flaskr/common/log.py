@@ -33,6 +33,7 @@ class AppLoggerProxy:
             return self._fallback
 
     def __getattr__(self, name: str) -> Any:
+        """Delegate attribute access to the active application logger."""
         return getattr(self._resolve(), name)
 
 

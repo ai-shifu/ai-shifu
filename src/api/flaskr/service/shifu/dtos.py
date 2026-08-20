@@ -87,6 +87,7 @@ class ShifuDto(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the shifu as JSON-compatible data."""
         return {
             "bid": self.bid,
             "name": self.name,
@@ -252,6 +253,7 @@ class ShifuDetailDto(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the shifu detail as JSON-compatible data."""
         return {
             "bid": self.bid,
             "name": self.name,
@@ -339,6 +341,7 @@ class SimpleOutlineDto(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the simple outline as JSON-compatible data."""
         return {
             "bid": self.bid,
             "position": self.position,
@@ -430,6 +433,7 @@ class OutlineDto(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the outline as JSON-compatible data."""
         return {
             "bid": self.bid,
             "position": self.position,
@@ -455,6 +459,7 @@ class ReorderOutlineItemDto:
         self.children = children
 
     def __json__(self) -> dict:
+        """Return the reorder outline item as JSON-compatible data."""
         return {
             "bid": self.bid,
             "children": self.children,
@@ -478,6 +483,7 @@ class MdflowDTOParseResult(BaseModel):
         super().__init__(variables=variables, blocks_count=blocks_count)
 
     def __json__(self) -> dict:
+        """Return parsed MarkdownFlow metadata as JSON-compatible data."""
         return {
             "variables": self.variables,
             "blocks_count": self.blocks_count,
