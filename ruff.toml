@@ -127,6 +127,7 @@ select = [
     # per-file-ignores below.
     "S101",    # assert used outside tests
     "S104",    # binding a socket to all interfaces
+    "S107",    # hardcoded password as a function default
     "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
     "S113",    # requests call without a timeout
     "S310",    # urlopen without an audited URL scheme
