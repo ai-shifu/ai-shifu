@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
 from flaskr.dao import db
 from flaskr.service.billing import consts as billing_consts
 from flaskr.service.billing.consts import (
@@ -19,6 +20,12 @@ from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_METRIC_TTS_REQUEST_COUNT,
+    BILLING_PROVIDER_PRICE_ACTIVE_SCOPE,
+    BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+    BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+    BILLING_PROVIDER_PRICE_STATUS_INVALID,
+    BILLING_PROVIDER_PRICE_STATUS_LABELS,
+    BILLING_PROVIDER_PRICE_STATUS_RETIRED,
     BILLING_TRIAL_PRODUCT_BID,
     BILLING_TRIAL_PRODUCT_CODE,
     BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,
@@ -28,6 +35,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingProduct,
+    BillingProductProviderPrice,
     CreditUsageRate,
     NotificationRecord,
 )
@@ -40,6 +48,32 @@ from flaskr.service.metering import consts as metering_consts
 from flaskr.service.promo import consts as promo_consts
 from flaskr.service.shifu import consts as shifu_consts
 from flaskr.service.user import consts as user_consts
+from sqlalchemy.exc import IntegrityError
+
+
+def _provider_price(
+    *,
+    provider_price_bid: str,
+    product_bid: str,
+    provider_price_id: str,
+    provider_product_id: str = "prod_shared",
+    status: int = BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+) -> BillingProductProviderPrice:
+    return BillingProductProviderPrice(
+        provider_price_bid=provider_price_bid,
+        product_bid=product_bid,
+        provider="stripe",
+        provider_account_id="acct_test",
+        provider_product_id=provider_product_id,
+        provider_price_id=provider_price_id,
+        livemode=0,
+        currency="USD",
+        unit_amount=5900,
+        billing_mode=billing_consts.BILLING_MODE_RECURRING,
+        billing_interval=BILLING_INTERVAL_MONTH,
+        billing_interval_count=1,
+        status=status,
+    )
 
 
 def test_billing_models_register_core_tables() -> None:
@@ -48,6 +82,7 @@ def test_billing_models_register_core_tables() -> None:
     assert "bill_products" in tables
     assert "bill_subscriptions" in tables
     assert "bill_orders" in tables
+    assert "bill_product_provider_prices" in tables
     assert "bill_campaigns" in tables
     assert "bill_campaign_products" in tables
     assert "credit_wallets" in tables
@@ -64,6 +99,10 @@ def test_billing_models_register_core_tables() -> None:
     assert "wallet_bucket_bid" in credit_ledger_entries.c
     assert "campaign_bid" in tables["bill_orders"].c
     assert "expires_at" in tables["bill_orders"].c
+    provider_prices = tables["bill_product_provider_prices"]
+    assert "provider_product_id" in provider_prices.c
+    assert "provider_price_id" in provider_prices.c
+    assert "active_scope" in provider_prices.c
     assert "idempotency_key" in credit_ledger_entries.c
     assert credit_ledger_entries.c.amount.type.precision == 20
     assert credit_ledger_entries.c.amount.type.scale == 10
@@ -112,6 +151,152 @@ def test_credit_usage_rate_seed_bids_fit_column_and_stay_unique() -> None:
 
 def test_billing_product_model_uses_catalog_table_name() -> None:
     assert BillingProduct.__tablename__ == "bill_products"
+
+
+def test_billing_product_provider_price_model_defines_mapping_constraints() -> None:
+    table = BillingProductProviderPrice.__table__
+    unique_constraints = {
+        constraint.name: tuple(column.name for column in constraint.columns)
+        for constraint in table.constraints
+        if constraint.name
+    }
+
+    assert BillingProductProviderPrice.__tablename__ == "bill_product_provider_prices"
+    assert unique_constraints["uq_bill_product_provider_prices_bid"] == (
+        "provider_price_bid",
+    )
+    assert unique_constraints["uq_bill_product_provider_prices_provider_price"] == (
+        "provider",
+        "provider_account_id",
+        "livemode",
+        "provider_price_id",
+        "deleted",
+    )
+    assert unique_constraints["uq_bill_product_provider_prices_active_scope"] == (
+        "product_bid",
+        "provider",
+        "provider_account_id",
+        "livemode",
+        "active_scope",
+    )
+
+
+def test_billing_provider_price_status_constants_remain_stable() -> None:
+    assert BILLING_PROVIDER_PRICE_STATUS_DRAFT == 7901
+    assert BILLING_PROVIDER_PRICE_STATUS_ACTIVE == 7902
+    assert BILLING_PROVIDER_PRICE_STATUS_RETIRED == 7903
+    assert BILLING_PROVIDER_PRICE_STATUS_INVALID == 7904
+    assert BILLING_PROVIDER_PRICE_ACTIVE_SCOPE == "active"
+    assert BILLING_PROVIDER_PRICE_STATUS_LABELS == {
+        BILLING_PROVIDER_PRICE_STATUS_DRAFT: "draft",
+        BILLING_PROVIDER_PRICE_STATUS_ACTIVE: "active",
+        BILLING_PROVIDER_PRICE_STATUS_RETIRED: "retired",
+        BILLING_PROVIDER_PRICE_STATUS_INVALID: "invalid",
+    }
+
+
+def test_provider_price_constraints_allow_shared_product_with_distinct_prices(
+    app,
+) -> None:
+    with app.app_context():
+        db.session.add_all(
+            [
+                _provider_price(
+                    provider_price_bid="provider-price-growth-month",
+                    product_bid="bill-product-growth-month",
+                    provider_price_id="price_growth_month",
+                ),
+                _provider_price(
+                    provider_price_bid="provider-price-growth-year",
+                    product_bid="bill-product-growth-year",
+                    provider_price_id="price_growth_year",
+                ),
+            ]
+        )
+        db.session.commit()
+
+        rows = BillingProductProviderPrice.query.filter(
+            BillingProductProviderPrice.provider_product_id == "prod_shared"
+        ).all()
+        assert {row.provider_price_id for row in rows} == {
+            "price_growth_month",
+            "price_growth_year",
+        }
+
+
+def test_provider_price_constraints_reject_duplicate_provider_price(app) -> None:
+    with app.app_context():
+        db.session.add(
+            _provider_price(
+                provider_price_bid="provider-price-duplicate-1",
+                product_bid="bill-product-duplicate-1",
+                provider_price_id="price_duplicate",
+            )
+        )
+        db.session.commit()
+
+        db.session.add(
+            _provider_price(
+                provider_price_bid="provider-price-duplicate-2",
+                product_bid="bill-product-duplicate-2",
+                provider_price_id="price_duplicate",
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
+
+
+def test_provider_price_constraints_reject_second_active_price_for_sku(app) -> None:
+    with app.app_context():
+        db.session.add(
+            _provider_price(
+                provider_price_bid="provider-price-active-1",
+                product_bid="bill-product-active-scope",
+                provider_price_id="price_active_1",
+                status=BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+            )
+        )
+        db.session.commit()
+
+        db.session.add(
+            _provider_price(
+                provider_price_bid="provider-price-active-2",
+                product_bid="bill-product-active-scope",
+                provider_price_id="price_active_2",
+                status=BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
+
+
+def test_provider_price_constraints_allow_multiple_drafts_for_sku(app) -> None:
+    with app.app_context():
+        db.session.add_all(
+            [
+                _provider_price(
+                    provider_price_bid="provider-price-draft-1",
+                    product_bid="bill-product-draft-scope",
+                    provider_price_id="price_draft_1",
+                ),
+                _provider_price(
+                    provider_price_bid="provider-price-draft-2",
+                    product_bid="bill-product-draft-scope",
+                    provider_price_id="price_draft_2",
+                ),
+            ]
+        )
+        db.session.commit()
+
+        rows = BillingProductProviderPrice.query.filter(
+            BillingProductProviderPrice.product_bid == "bill-product-draft-scope"
+        ).all()
+        assert {row.provider_price_id for row in rows} == {
+            "price_draft_1",
+            "price_draft_2",
+        }
 
 
 def test_calculate_billing_cycle_end_supports_day_month_and_year_intervals() -> None:

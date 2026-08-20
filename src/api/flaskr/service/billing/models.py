@@ -7,6 +7,7 @@ from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     JSON,
     Column,
+    Computed,
     DateTime,
     Index,
     Integer,
@@ -29,6 +30,8 @@ from .consts import (
     BILLING_ORDER_STATUS_INIT,
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+    BILLING_PROVIDER_PRICE_STATUS_DRAFT,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
     CREDIT_BUCKET_STATUS_ACTIVE,
@@ -181,6 +184,169 @@ class BillingProduct(BillingTableMixin, db.Model):
         nullable=False,
         default=0,
         comment="Sort order",
+    )
+
+
+class BillingProductProviderPrice(BillingTableMixin, db.Model):
+    __tablename__ = "bill_product_provider_prices"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider_price_bid",
+            name="uq_bill_product_provider_prices_bid",
+        ),
+        UniqueConstraint(
+            "provider",
+            "provider_account_id",
+            "livemode",
+            "provider_price_id",
+            "deleted",
+            name="uq_bill_product_provider_prices_provider_price",
+        ),
+        UniqueConstraint(
+            "product_bid",
+            "provider",
+            "provider_account_id",
+            "livemode",
+            "active_scope",
+            name="uq_bill_product_provider_prices_active_scope",
+        ),
+        Index(
+            "ix_bill_product_provider_prices_product_status",
+            "product_bid",
+            "status",
+        ),
+        Index(
+            "ix_bill_product_provider_prices_provider_status",
+            "provider",
+            "status",
+        ),
+        Index(
+            "ix_bill_product_provider_prices_provider_product",
+            "provider",
+            "provider_account_id",
+            "provider_product_id",
+        ),
+        {"comment": "Provider price mappings for billing products"},
+    )
+
+    provider_price_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider price mapping business identifier",
+    )
+    product_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing product business identifier",
+    )
+    provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Payment provider name",
+    )
+    provider_account_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider account identifier",
+    )
+    provider_product_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider product identifier",
+    )
+    provider_price_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider price identifier",
+    )
+    livemode = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Provider live mode flag",
+    )
+    currency = Column(
+        String(16),
+        nullable=False,
+        default="",
+        comment="Provider price currency code",
+    )
+    unit_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Provider price unit amount",
+    )
+    billing_mode = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Billing mode code validated against the provider price",
+    )
+    billing_interval = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Billing interval code validated against the provider price",
+    )
+    billing_interval_count = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Billing interval count validated against the provider price",
+    )
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+        index=True,
+        comment="Provider price mapping status code",
+    )
+    active_scope = Column(
+        String(16),
+        Computed(
+            f"CASE WHEN status = {BILLING_PROVIDER_PRICE_STATUS_ACTIVE} "
+            "AND deleted = 0 THEN 'active' ELSE NULL END",
+            persisted=True,
+        ),
+        nullable=True,
+        comment="Generated key enforcing one active price per SKU scope",
+    )
+    validated_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Last provider validation timestamp",
+    )
+    activated_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Activation timestamp",
+    )
+    retired_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Retirement timestamp",
+    )
+    validation_error = Column(
+        Text,
+        nullable=True,
+        comment="Last validation error summary",
+    )
+    metadata_json = Column(
+        "metadata",
+        JSON,
+        nullable=True,
+        comment="Provider price mapping metadata",
     )
 
 
