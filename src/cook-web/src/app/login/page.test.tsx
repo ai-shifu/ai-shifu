@@ -117,10 +117,33 @@ jest.mock('@/hooks/useGoogleAuth', () => ({
 }));
 
 jest.mock('@/components/ui/Tabs', () => ({
-  Tabs: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-  TabsContent: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
+  Tabs: ({
+    children,
+    value,
+  }: {
+    children?: React.ReactNode;
+    value?: string;
+  }) => (
+    <div>
+      {React.Children.map(children, child =>
+        React.isValidElement(child)
+          ? React.cloneElement(
+              child as React.ReactElement<{ activeValue?: string }>,
+              { activeValue: value },
+            )
+          : child,
+      )}
+    </div>
   ),
+  TabsContent: ({
+    children,
+    value,
+    activeValue,
+  }: {
+    children?: React.ReactNode;
+    value?: string;
+    activeValue?: string;
+  }) => (value === activeValue ? <div>{children}</div> : null),
   TabsList: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -201,5 +224,17 @@ describe('AuthPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('password-login')).toBeInTheDocument();
     });
+  });
+
+  it('uses password as the default when multiple methods are enabled', async () => {
+    mockEnvState.loginMethodsEnabled = ['phone', 'password'];
+    mockEnvState.defaultLoginMethod = 'password';
+
+    render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('password-login')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('phone-login')).not.toBeInTheDocument();
   });
 });
