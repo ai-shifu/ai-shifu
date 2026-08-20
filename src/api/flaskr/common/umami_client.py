@@ -1,3 +1,5 @@
+"""Send analytics events to Umami."""
+
 from __future__ import annotations
 
 import logging

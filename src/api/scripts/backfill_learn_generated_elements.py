@@ -1,3 +1,5 @@
+"""Run the backfill learn generated elements maintenance workflow."""
+
 from __future__ import annotations
 
 import argparse

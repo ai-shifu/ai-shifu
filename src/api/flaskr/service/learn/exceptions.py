@@ -1,3 +1,5 @@
+"""Define domain exceptions for learning sessions."""
+
 from flaskr.service.common import ERROR_CODE, AppError
 from flaskr.util.deprecation import deprecated_alias_getattr
 

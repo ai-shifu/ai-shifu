@@ -1,3 +1,5 @@
+"""Build public URLs from trusted application configuration."""
+
 from __future__ import annotations
 
 from urllib.parse import urlencode, urlsplit, urlunsplit

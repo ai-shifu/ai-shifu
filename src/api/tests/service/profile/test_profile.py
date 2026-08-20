@@ -1,3 +1,5 @@
+"""Verify learner-profile definitions, visibility, and variable usage."""
+
 from flaskr.service.profile import profile_manage
 from flaskr.service.profile.profile_manage import (
     add_profile_item_quick,

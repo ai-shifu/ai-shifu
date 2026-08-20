@@ -1,3 +1,5 @@
+"""Implement the update shifu demo CLI command."""
+
 import hashlib
 import json
 from io import BytesIO

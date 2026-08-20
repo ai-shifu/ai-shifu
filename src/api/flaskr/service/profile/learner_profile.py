@@ -1,3 +1,5 @@
+"""Validate, merge, persist, and serialize learner profiles."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypeVar

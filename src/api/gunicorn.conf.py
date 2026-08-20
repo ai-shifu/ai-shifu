@@ -2,6 +2,8 @@
 # gunicorn from /app (this file's directory); command-line flags from the
 # deployment entrypoint (e.g. -w) still take precedence over values here.
 
+"""Configure Gunicorn worker startup and lifecycle hooks."""
+
 import os
 import sys
 

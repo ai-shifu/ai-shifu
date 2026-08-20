@@ -1,3 +1,5 @@
+"""Verify payment channel resolution behavior."""
+
 import pytest
 from flaskr.service.common.models import AppError
 from flaskr.service.order.funs import _resolve_payment_channel

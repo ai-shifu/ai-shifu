@@ -1,3 +1,5 @@
+"""Verify TTS rate-limit queues isolate credentials and models."""
+
 import pytest
 from flaskr.service.tts import rpm_gate
 

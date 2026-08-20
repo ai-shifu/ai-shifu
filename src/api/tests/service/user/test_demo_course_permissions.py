@@ -1,3 +1,5 @@
+"""Verify demo course authorization behavior."""
+
 import json
 import uuid
 from decimal import Decimal

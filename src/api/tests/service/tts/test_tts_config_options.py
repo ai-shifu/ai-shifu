@@ -1,3 +1,5 @@
+"""Verify TTS config options behavior."""
+
 import json
 from decimal import Decimal
 

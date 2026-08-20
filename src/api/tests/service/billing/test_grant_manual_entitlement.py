@@ -1,3 +1,5 @@
+"""Verify grant manual entitlement behavior."""
+
 from __future__ import annotations
 
 from flaskr import dao

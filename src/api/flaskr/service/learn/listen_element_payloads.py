@@ -1,3 +1,5 @@
+"""Build serialized listen-mode element payloads."""
+
 from __future__ import annotations
 
 import json

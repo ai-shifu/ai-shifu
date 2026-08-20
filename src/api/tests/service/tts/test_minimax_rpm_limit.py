@@ -1,3 +1,5 @@
+"""Verify MiniMax RPM limit behavior."""
+
 from flaskr.api.tts import minimax_provider
 
 

@@ -1,3 +1,5 @@
+"""Verify AV speakable segmentation behavior."""
+
 import pytest
 
 

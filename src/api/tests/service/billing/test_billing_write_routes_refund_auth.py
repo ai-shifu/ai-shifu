@@ -1,3 +1,5 @@
+"""Verify billing write routes refund auth behavior."""
+
 from __future__ import annotations
 
 import pytest

@@ -1,3 +1,5 @@
+"""Moderate learner text with the configured LLM guardrail."""
+
 from flask import Flask
 from flaskr.api.check import (
     CHECK_RESULT_PASS,

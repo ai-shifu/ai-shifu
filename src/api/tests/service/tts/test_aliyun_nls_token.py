@@ -1,3 +1,5 @@
+"""Verify aliyun nls token behavior."""
+
 import json
 import time
 from typing import ClassVar

@@ -1,3 +1,5 @@
+"""Create and run the Flask application."""
+
 import os
 import subprocess
 import time

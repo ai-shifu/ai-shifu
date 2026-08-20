@@ -2,6 +2,8 @@
 # ref: https://support.dun.163.com/documents/588434200783982592?docId=791131792583602176
 
 
+"""Screen content through the Yidun risk API."""
+
 import hashlib
 import secrets
 import time

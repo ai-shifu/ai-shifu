@@ -1,3 +1,5 @@
+"""Expose HTTP routes for learning sessions."""
+
 import json
 import sys
 import uuid

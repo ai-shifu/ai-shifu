@@ -1,3 +1,5 @@
+"""Expose HTTP routes for LLM routing."""
+
 from flask import Flask
 from flaskr.api.llm import get_current_models
 from flaskr.framework.plugin.inject import inject

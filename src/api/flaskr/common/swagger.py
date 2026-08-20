@@ -1,3 +1,5 @@
+"""Generate Swagger schemas from annotated DTOs."""
+
 import ast
 import inspect
 import typing

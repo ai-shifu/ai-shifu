@@ -1,3 +1,5 @@
+"""Verify volcengine WebSocket provider behavior."""
+
 import threading
 from types import SimpleNamespace
 

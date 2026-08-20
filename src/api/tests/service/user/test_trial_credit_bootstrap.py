@@ -1,3 +1,5 @@
+"""Verify trial credit bootstrap behavior."""
+
 from __future__ import annotations
 
 import importlib

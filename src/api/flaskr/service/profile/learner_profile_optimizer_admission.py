@@ -1,3 +1,5 @@
+"""Limit concurrent learner-profile optimization requests."""
+
 from __future__ import annotations
 
 import hashlib

@@ -1,3 +1,5 @@
+"""Verify learning APIs expose draft and published course state."""
+
 from datetime import datetime, timedelta
 from decimal import Decimal
 

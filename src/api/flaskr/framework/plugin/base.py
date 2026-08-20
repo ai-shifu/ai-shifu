@@ -1,3 +1,6 @@
+"""Define the Flask plugin contract."""
+
+
 class BasePlugin:
     name: str = None
 

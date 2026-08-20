@@ -1,3 +1,5 @@
+"""Track sidecar state for listen-mode run adaptation."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

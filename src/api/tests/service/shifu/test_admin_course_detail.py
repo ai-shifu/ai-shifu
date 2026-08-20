@@ -1,3 +1,5 @@
+"""Verify admin course detail behavior."""
+
 from __future__ import annotations
 
 import json

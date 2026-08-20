@@ -1,3 +1,5 @@
+"""Expose order HTTP routes."""
+
 from datetime import UTC, datetime
 
 from flask import Flask, request

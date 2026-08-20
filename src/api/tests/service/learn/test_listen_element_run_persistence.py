@@ -1,3 +1,5 @@
+"""Verify listen element run persistence behavior."""
+
 import pytest
 from flaskr.dao import db
 from flaskr.service.learn import listen_element_run_persistence

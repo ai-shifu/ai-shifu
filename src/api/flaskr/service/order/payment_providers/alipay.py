@@ -1,3 +1,5 @@
+"""Integrate Alipay payments with legacy orders."""
+
 from __future__ import annotations
 
 import json

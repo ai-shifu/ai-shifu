@@ -1,4 +1,6 @@
 # ruff: noqa: E402
+"""Verify learning-context outline navigation and failure handling."""
+
 import asyncio
 import json
 import sys

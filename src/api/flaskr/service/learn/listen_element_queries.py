@@ -1,3 +1,5 @@
+"""Query persisted listen-mode element state."""
+
 from __future__ import annotations
 
 from flaskr.service.learn.learn_dtos import ElementType

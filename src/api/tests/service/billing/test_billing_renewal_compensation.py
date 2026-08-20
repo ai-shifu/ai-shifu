@@ -1,3 +1,5 @@
+"""Verify billing renewal compensation behavior."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta

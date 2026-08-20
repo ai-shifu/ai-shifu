@@ -1,3 +1,5 @@
+"""Protect learner-profile rolling-upgrade compatibility."""
+
 from __future__ import annotations
 
 import importlib.util

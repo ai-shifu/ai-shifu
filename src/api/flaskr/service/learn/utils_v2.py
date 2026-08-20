@@ -1,3 +1,5 @@
+"""Build prompts, variables, follow-up metadata, and generated blocks."""
+
 import re
 
 from flask import Flask

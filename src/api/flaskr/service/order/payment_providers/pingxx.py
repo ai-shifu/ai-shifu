@@ -1,3 +1,5 @@
+"""Integrate Ping++ payments with legacy orders."""
+
 from __future__ import annotations
 
 import base64

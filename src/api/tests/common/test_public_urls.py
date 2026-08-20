@@ -1,3 +1,5 @@
+"""Verify public URLs follow trusted origins and path prefixes."""
+
 from __future__ import annotations
 
 import flaskr.common.config as common_config

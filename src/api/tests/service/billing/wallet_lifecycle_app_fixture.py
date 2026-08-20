@@ -1,3 +1,5 @@
+"""Provide wallet lifecycle app fixture support for service billing tests."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
