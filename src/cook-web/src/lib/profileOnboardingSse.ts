@@ -60,15 +60,42 @@ export const streamProfileOnboardingRuntime = ({
     payload: JSON.stringify(payload || {}),
     method: 'POST',
   });
+  let settled = false;
+  let closedByConsumer = false;
+  const reportTransportError = (error: unknown) => {
+    if (settled || closedByConsumer) {
+      return;
+    }
+    settled = true;
+    onError(error);
+  };
+  const closeSource = source.close.bind(source);
+  source.close = () => {
+    closedByConsumer = true;
+    closeSource();
+  };
 
   source.addEventListener('message', event => {
     try {
-      onMessage(JSON.parse(event.data) as ProfileOnboardingStreamEvent);
+      const parsed = JSON.parse(event.data) as ProfileOnboardingStreamEvent;
+      const eventType = parsed.event_type || parsed.type || '';
+      if (eventType === 'done' && parsed.is_terminal === true) {
+        settled = true;
+      }
+      onMessage(parsed);
     } catch {
       // Ignore malformed SSE payloads; a later valid event may still recover.
     }
   });
-  source.addEventListener('error', error => onError(error));
+  source.addEventListener('error', error => reportTransportError(error));
+  source.addEventListener('readystatechange', event => {
+    const readyState = (event as Event & { readyState?: number }).readyState;
+    if ((readyState ?? source.readyState) === 2 && !settled) {
+      reportTransportError(
+        new Error('Profile onboarding stream closed before a terminal event'),
+      );
+    }
+  });
   attachSseBusinessResponseFallback(source, {
     requestToken: token || '',
     meta: {

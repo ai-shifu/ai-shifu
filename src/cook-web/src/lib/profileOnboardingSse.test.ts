@@ -18,6 +18,7 @@ const mockSource = {
   }),
   stream: jest.fn(),
   close: jest.fn(),
+  readyState: 0,
 };
 
 jest.mock('sse.js', () => ({
@@ -52,6 +53,8 @@ describe('streamProfileOnboardingRuntime', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Object.keys(mockListeners).forEach(key => delete mockListeners[key]);
+    mockSource.close = jest.fn();
+    mockSource.readyState = 0;
   });
 
   test('starts an authenticated POST stream with the language snapshot', () => {
@@ -113,7 +116,7 @@ describe('streamProfileOnboardingRuntime', () => {
     });
   });
 
-  test('forwards network and normalized business errors', () => {
+  test('forwards network and normalized business errors once per stream', () => {
     const onError = jest.fn();
     streamProfileOnboardingRuntime({
       path: '/run',
@@ -125,8 +128,20 @@ describe('streamProfileOnboardingRuntime', () => {
     mockListeners.error?.(networkError);
     expect(onError).toHaveBeenCalledWith(networkError);
 
+    mockSource.readyState = 2;
+    mockListeners.readystatechange?.(
+      Object.assign(new Event('readystatechange'), { readyState: 2 }),
+    );
+    expect(onError).toHaveBeenCalledTimes(1);
+
+    streamProfileOnboardingRuntime({
+      path: '/run',
+      onMessage: jest.fn(),
+      onError,
+    });
+
     const fallbackOptions = (attachSseBusinessResponseFallback as jest.Mock)
-      .mock.calls[0][1];
+      .mock.calls[1][1];
     fallbackOptions.onHandled({ message: 'busy', code: 409 });
 
     expect(mockSource.dispatchEvent).toHaveBeenCalled();
@@ -138,7 +153,58 @@ describe('streamProfileOnboardingRuntime', () => {
     ).toBe(409);
   });
 
+  test('reports a successful transport close without terminal done as retryable', () => {
+    const onError = jest.fn();
+    streamProfileOnboardingRuntime({
+      path: '/run',
+      onMessage: jest.fn(),
+      onError,
+    });
+
+    mockSource.readyState = 2;
+    mockListeners.readystatechange?.(
+      Object.assign(new Event('readystatechange'), { readyState: 2 }),
+    );
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toEqual(
+      new Error('Profile onboarding stream closed before a terminal event'),
+    );
+  });
+
+  test('does not report closure after terminal done or an intentional abort', () => {
+    const onError = jest.fn();
+    streamProfileOnboardingRuntime({
+      path: '/run',
+      onMessage: jest.fn(),
+      onError,
+    });
+    mockListeners.message?.(
+      Object.assign(new Event('message'), {
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      }),
+    );
+    mockSource.readyState = 2;
+    mockListeners.readystatechange?.(
+      Object.assign(new Event('readystatechange'), { readyState: 2 }),
+    );
+    expect(onError).not.toHaveBeenCalled();
+
+    const source = streamProfileOnboardingRuntime({
+      path: '/run',
+      onMessage: jest.fn(),
+      onError,
+    });
+    source.close();
+    mockSource.readyState = 2;
+    mockListeners.readystatechange?.(
+      Object.assign(new Event('readystatechange'), { readyState: 2 }),
+    );
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   test('exposes the SSE close operation for aborting an in-flight run', () => {
+    const close = mockSource.close;
     const source = streamProfileOnboardingRuntime({
       path: '/run',
       onMessage: jest.fn(),
@@ -147,6 +213,6 @@ describe('streamProfileOnboardingRuntime', () => {
 
     source.close();
 
-    expect(mockSource.close).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });
