@@ -368,7 +368,7 @@ def run_script_inner(
                 lesson_info = None
             else:
                 lesson_info = outline_item_info
-                app.logger.info(f"lesson_info: {lesson_info.__json__()}")
+                app.logger.info("lesson_info: %s", lesson_info.__json__())
 
             if shifu_info.price > 0:
                 success_buy_record = (
@@ -476,7 +476,7 @@ def run_script_inner(
                 ready_element_bids_by_block_bid.clear()
             while run_script_context.has_next():
                 app.logger.warning(
-                    f"run_script_context.has_next(): {run_script_context.has_next()}"
+                    "run_script_context.has_next(): %s", run_script_context.has_next()
                 )
                 if stop_event and stop_event.is_set():
                     app.logger.info("run_script_inner cancelled by stop_event")

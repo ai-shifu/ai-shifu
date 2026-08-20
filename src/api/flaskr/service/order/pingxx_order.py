@@ -15,7 +15,15 @@ def create_pingxx_order(
     app: Flask, order_no, app_id, channel, amount, client_ip, subject, body, extra=None
 ):
     app.logger.info(
-        f"create pingxx order,order_no:{order_no} app_id:{app_id} channel:{channel} amount:{amount} client_ip:{client_ip} subject:{subject} body:{body} extra:{extra}"
+        "create pingxx order,order_no:%s app_id:%s channel:%s amount:%s client_ip:%s subject:%s body:%s extra:%s",
+        order_no,
+        app_id,
+        channel,
+        amount,
+        client_ip,
+        subject,
+        body,
+        extra,
     )
     provider = _get_provider()
     request = PaymentRequest(

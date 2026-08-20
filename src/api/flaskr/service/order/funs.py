@@ -377,7 +377,7 @@ def init_buy_record(
     creator_bid = get_shifu_creator_bid(app, course_id)
     set_shifu_context(course_id, creator_bid)
     shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, preview_mode=False)
-    app.logger.info(f"shifu_info: {shifu_info}")
+    app.logger.info("shifu_info: %s", shifu_info)
     if not shifu_info:
         raise_error("server.shifu.courseNotFound")
 
@@ -527,7 +527,7 @@ def generate_charge(
 ) -> BuyRecordDTO:
     """Generate charge."""
     with _app_context_scope(app), unit_of_work():
-        app.logger.info(f"generate charge for record:{record_id} channel:{channel}")
+        app.logger.info("generate charge for record:%s channel:%s", record_id, channel)
 
         buy_record: Order = Order.query.filter(
             Order.order_bid == record_id,
@@ -543,9 +543,9 @@ def generate_charge(
         )
         if not shifu_info:
             raise_error("server.shifu.shifuNotFound")
-        app.logger.info(f"buy record found:{buy_record}")
+        app.logger.info("buy record found:%s", buy_record)
         if buy_record.status == ORDER_STATUS_SUCCESS:
-            app.logger.warning(f"buy record:{record_id} status is not init")
+            app.logger.warning("buy record:%s status is not init", record_id)
             return BuyRecordDTO(
                 buy_record.order_bid,
                 buy_record.user_bid,
@@ -1879,10 +1879,10 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
         )
 
         if not lock:
-            app.logger.error(f'lock failed for charge:"{charge_id}"')
+            app.logger.error('lock failed for charge:"%s"', charge_id)
         if lock.acquire(blocking=True):
             try:
-                app.logger.info(f'success buy record from pingxx charge:"{charge_id}"')
+                app.logger.info('success buy record from pingxx charge:"%s"', charge_id)
                 with unit_of_work():
                     pingxx_order = (
                         legacy_pingxx_snapshot_query()
@@ -1905,7 +1905,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                     ):
                         # Pre-uow behavior: the snapshot mutation was never
                         # committed on this path, so do not mutate it at all.
-                        app.logger.error(f"record:{pingxx_order.order_bid} not found")
+                        app.logger.error("record:%s not found", pingxx_order.order_bid)
                         return None
                     pingxx_order.update = now_utc()
                     pingxx_order.status = 1
@@ -1919,7 +1919,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                 return query_buy_record(app, buy_record.order_bid)
             except Exception:
                 app.logger.exception(
-                    f'success buy record from pingxx charge:"{charge_id}"'
+                    'success buy record from pingxx charge:"%s"', charge_id
                 )
             finally:
                 lock.release()
@@ -1934,7 +1934,7 @@ def success_buy_record(app: Flask, record_id: str):
     (generate_charge, payment webhooks, sync flows) the nested block joins
     the caller's transaction and the caller commits.
     """
-    app.logger.info(f'success buy record:"{record_id}"')
+    app.logger.info('success buy record:"%s"', record_id)
     buy_record = Order.query.filter(Order.order_bid == record_id).first()
     if buy_record:
         with unit_of_work():
@@ -1954,7 +1954,7 @@ def success_buy_record(app: Flask, record_id: str):
             order_bid = buy_record.order_bid
             uow.on_commit(lambda: send_order_feishu(app, order_bid))
         return query_buy_record(app, record_id)
-    app.logger.error(f"record:{record_id} not found")
+    app.logger.error("record:%s not found", record_id)
     return None
 
 
@@ -2101,7 +2101,7 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
     with _app_context_scope(app):
-        app.logger.info(f'query buy record:"{record_id}"')
+        app.logger.info('query buy record:"%s"', record_id)
         buy_record: Order = Order.query.filter(Order.order_bid == record_id).first()
         if buy_record:
             item = []

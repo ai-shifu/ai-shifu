@@ -464,7 +464,7 @@ def _stream_litellm_completion(
             else:
                 kwargs["max_tokens"] = max_tokens
         app.logger.info(
-            f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
+            "stream_litellm_completion: %s %s %s %s", model, messages, params, kwargs
         )
         return litellm.completion(
             model=model,
@@ -1102,11 +1102,11 @@ def invoke_llm(
             model=model,
         )
 
-    app.logger.info(f"invoke_llm response: {response_text} ")
+    app.logger.info("invoke_llm response: %s ", response_text)
     if usage is None:
         app.logger.info("invoke_llm usage: None")
     else:
-        app.logger.info(f"invoke_llm usage: {usage.__str__()}")
+        app.logger.info("invoke_llm usage: %s", usage.__str__())
     latency_ms = int((time.monotonic() - start_time) * 1000)
     resolved_usage_scene = normalize_usage_scene(usage_scene)
     if usage_context is None:
@@ -1189,7 +1189,9 @@ def chat_llm(
     usage_metadata: dict[str, Any] | None = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
-    app.logger.info(f"chat_llm [{model}] {messages} ,json:{json} ,kwargs:{kwargs}")
+    app.logger.info(
+        "chat_llm [%s] %s ,json:%s ,kwargs:%s", model, messages, json, kwargs
+    )
     stream_flag = bool(kwargs.get("stream", True))
     kwargs.pop("stream", None)
     usage_scene = (
@@ -1286,11 +1288,11 @@ def chat_llm(
             model=model,
         )
 
-    app.logger.info(f"chat_llm response: {response_text} ")
+    app.logger.info("chat_llm response: %s ", response_text)
     if usage is None:
         app.logger.info("chat_llm usage: None")
     else:
-        app.logger.info(f"chat_llm usage: {usage.__str__()}")
+        app.logger.info("chat_llm usage: %s", usage.__str__())
     latency_ms = int((time.monotonic() - start_time) * 1000)
     resolved_usage_scene = normalize_usage_scene(usage_scene)
     if usage_context is None:

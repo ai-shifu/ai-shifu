@@ -56,11 +56,11 @@ def enable_plugins(app: Flask):
         """Get plugin migrations."""
         plugins = []
         app.logger.info(
-            f"plugin_manager.plugins: {len(plugin_manager.plugins.values())}"
+            "plugin_manager.plugins: %s", len(plugin_manager.plugins.values())
         )
         for plugin in plugin_manager.plugins.values():
             app.logger.info(
-                f"plugin: {plugin.name}, migration_dir: {plugin.migration_dir}"
+                "plugin: %s, migration_dir: %s", plugin.name, plugin.migration_dir
             )
             if plugin.migration_dir and Path(plugin.migration_dir).exists():
                 plugins.append(plugin)
@@ -84,7 +84,7 @@ def enable_plugins(app: Flask):
 
         # set plugin version table
         if version_table:
-            app.logger.info(f"set version_table: {version_table}")
+            app.logger.info("set version_table: %s", version_table)
             alembic_cfg.set_main_option("version_table", version_table)
 
         return alembic_cfg
@@ -139,7 +139,7 @@ def enable_plugins(app: Flask):
         """Migrate the plugin database to the latest version."""
         plugins = get_plugin_migrations()
         for plugin in plugins:
-            app.logger.info(f"plugin: {plugin.name}")
+            app.logger.info("plugin: %s", plugin.name)
             if plugin.name == plugin_name:
                 click.echo(f"migrating the plugin: {plugin.name}")
                 version_table = get_version_table_name(plugin.name)

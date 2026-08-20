@@ -162,7 +162,7 @@ def generate_temp_user(
 
 
 def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
-    app.logger.info(f"update_user_open_id user_id: {user_id} wx_code: {wx_code}")
+    app.logger.info("update_user_open_id user_id: %s wx_code: %s", user_id, wx_code)
     with app.app_context():
         aggregate = load_user_aggregate(user_id)
         if not aggregate:
