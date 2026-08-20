@@ -222,10 +222,14 @@ The overall goal is accepted when:
 
 ## Idempotence and Recovery
 
-All census and validation commands are read-only and safe to rerun. Ruff fixes
-must not be run repository-wide without first limiting the rule and reviewing
-the proposed diff. If a formatter or hook rewrites unrelated files, restore
-only that generated churn and preserve user-owned changes.
+Census commands and checks that explicitly use check-only modes are read-only
+and safe to rerun. Tests can change external state, and
+`lefthook run pre-commit --all-files` runs formatters and fixers that can rewrite
+the worktree; safeguard unrelated changes and review the resulting diff before
+running either. Ruff fixes must not be run repository-wide without first
+limiting the rule and reviewing the proposed diff. If a formatter or hook
+rewrites unrelated files, restore only that generated churn and preserve
+user-owned changes.
 
 Each stack branch is independently recoverable. If a rule PR is rejected,
 retarget its successor to the last accepted predecessor and rebase or cherry-
