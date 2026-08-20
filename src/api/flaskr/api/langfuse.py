@@ -52,10 +52,10 @@ _LINK_KEYS = {"trace_id", "parent_observation_id", "id"}
 
 
 class MockClient:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         pass
 
-    def __getattr__(self, name):
+    def __getattr__(self, name) -> Any:
         def method(*args, **kwargs):
             return self
 
@@ -295,7 +295,7 @@ def _map_observation_kwargs(
 class LangfuseObservationHandle:
     """v2-style facade over a Langfuse SDK v3 span or generation."""
 
-    def __init__(self, delegate: Any, trace_id: str = ""):
+    def __init__(self, delegate: Any, trace_id: str = "") -> None:
         self._delegate = delegate
         delegate_trace_id = getattr(delegate, "trace_id", "")
         self.trace_id = trace_id or (

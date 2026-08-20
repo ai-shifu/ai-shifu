@@ -50,7 +50,7 @@ class _FakeRedis:
 
 
 class _FakeGoogleResponse:
-    def __init__(self, payload):
+    def __init__(self, payload) -> None:
         self._payload = payload
 
     def raise_for_status(self):
@@ -61,7 +61,7 @@ class _FakeGoogleResponse:
 
 
 class _FakeGoogleSession:
-    def __init__(self, profile):
+    def __init__(self, profile) -> None:
         self._profile = profile
 
     def fetch_token(self, *_args, **_kwargs):

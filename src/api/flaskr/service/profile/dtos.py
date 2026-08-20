@@ -8,14 +8,14 @@ class ColorSetting:
     color: str  # the background color of the profile item
     text_color: str  # the text color of the profile item
 
-    def __init__(self, color: str, text_color: str):
+    def __init__(self, color: str, text_color: str) -> None:
         self.color = color
         self.text_color = text_color
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {"color": self.color, "text_color": self.text_color}
 
-    def __str__(self):
+    def __str__(self) -> str:
         return json.dumps(self.__json__(), ensure_ascii=True)
 
 
@@ -41,7 +41,7 @@ class ProfileItemDefinition:
         profile_scope_str: str,
         profile_id: str,
         is_hidden: bool = False,
-    ):
+    ) -> None:
         self.profile_key = profile_key
         self.color_setting = color_setting
         self.profile_type = profile_type
@@ -52,7 +52,7 @@ class ProfileItemDefinition:
         self.profile_id = profile_id
         self.is_hidden = is_hidden
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "profile_key": self.profile_key,
             "color_setting": self.color_setting,
@@ -65,7 +65,7 @@ class ProfileItemDefinition:
             "is_hidden": self.is_hidden,
         }
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.__json__())
 
 
@@ -90,11 +90,11 @@ class ProfileValueDto:
     name: str
     value: str
 
-    def __init__(self, name: str, value: str):
+    def __init__(self, name: str, value: str) -> None:
         self.name = name
         self.value = value
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {"name": self.name, "value": self.value}
 
 
@@ -104,10 +104,10 @@ class ProfileToSave:
     value: str
     bid: str
 
-    def __init__(self, key: str, value: str, bid: str):
+    def __init__(self, key: str, value: str, bid: str) -> None:
         self.key = key
         self.value = value
         self.bid = bid
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {"key": self.key, "value": self.value, "bid": self.bid}

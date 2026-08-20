@@ -10,7 +10,7 @@ _PREVIEW_TOKEN = "preview-token"  # noqa: S105 - stub session token, `validate_u
 class _FakeObservation:
     """Mimics a Langfuse SDK v3 span/generation object."""
 
-    def __init__(self, kind: str = "span", **kwargs):
+    def __init__(self, kind: str = "span", **kwargs) -> None:
         self.kind = kind
         self.kwargs = kwargs
         self.updates = []
@@ -59,7 +59,7 @@ class _FakeObservation:
 
 
 class _FakeLangfuseClient:
-    def __init__(self):
+    def __init__(self) -> None:
         self.traces = []
 
     def start_span(self, trace_context=None, **kwargs):

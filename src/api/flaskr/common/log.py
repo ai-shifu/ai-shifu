@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
+from typing import Any
 
 import colorlog
 import pytz
@@ -17,7 +18,7 @@ from .request_context import thread_local
 
 
 class AppLoggerProxy:
-    def __init__(self, fallback: logging.Logger):
+    def __init__(self, fallback: logging.Logger) -> None:
         self._fallback = fallback
 
     def _resolve(self) -> logging.Logger:
@@ -30,7 +31,7 @@ class AppLoggerProxy:
         except Exception:
             return self._fallback
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         return getattr(self._resolve(), name)
 
 
@@ -82,7 +83,7 @@ class RequestFormatter(logging.Formatter):
 class FeishuLogHandler(logging.Handler):
     MAX_TEXT_LENGTH = 18000
 
-    def __init__(self, webhook_url):
+    def __init__(self, webhook_url) -> None:
         super().__init__(level=logging.ERROR)
         self.webhook_url = webhook_url
         # This handler is attached to app.logger, so reporting a webhook
@@ -131,7 +132,7 @@ class FeishuLogHandler(logging.Handler):
 
 
 class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):
-    def __init__(self, fmt, **kwargs):
+    def __init__(self, fmt, **kwargs) -> None:
         super().__init__(fmt, **kwargs)
 
 

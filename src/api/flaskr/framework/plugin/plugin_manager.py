@@ -8,7 +8,7 @@ plugin_manager = None
 
 
 class PluginManager:
-    def __init__(self, app: Flask):
+    def __init__(self, app: Flask) -> None:
         app.logger.info("PluginManager init")
         self.app = app
         self.extension_functions = {}

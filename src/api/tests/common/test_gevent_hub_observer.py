@@ -12,7 +12,7 @@ from flaskr.common.gevent_hub_observer import install_hub_error_observer
 
 
 class _StubHub:
-    def __init__(self):
+    def __init__(self) -> None:
         self.calls = []
 
         def _original(context, exc_type, value, tb):
@@ -33,7 +33,7 @@ def test_observer_logs_and_delegates(caplog):
     assert install_hub_error_observer(logger, hub=hub) is True
 
     class _FakeSemaphore:
-        def __repr__(self):
+        def __repr__(self) -> str:
             return "<FakeSemaphore links=3>"
 
     context = _FakeSemaphore()
@@ -83,7 +83,7 @@ def test_unreprable_context_is_still_logged(caplog):
     install_hub_error_observer(logger, hub=hub)
 
     class _BadRepr:
-        def __repr__(self):
+        def __repr__(self) -> str:
             raise ValueError("no repr for you")
 
     with caplog.at_level(logging.ERROR, logger="test-hub-observer-badrepr"):

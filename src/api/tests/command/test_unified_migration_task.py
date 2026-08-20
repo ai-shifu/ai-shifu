@@ -6,7 +6,7 @@ from flaskr.command.unified_migration_task import (
 
 
 class _FakeResult:
-    def __init__(self, value):
+    def __init__(self, value) -> None:
         self._value = value
 
     def scalar(self):
@@ -19,7 +19,7 @@ class _FakeResult:
 class _FakeSession:
     """Session double that records the statements a migration step issues."""
 
-    def __init__(self, value=1):
+    def __init__(self, value=1) -> None:
         self._value = value
         self.calls = []
 

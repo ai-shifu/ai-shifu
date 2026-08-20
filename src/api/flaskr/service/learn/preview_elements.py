@@ -26,7 +26,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         outline_bid: str,
         user_bid: str,
         run_session_bid: str | None = None,
-    ):
+    ) -> None:
         super().__init__(
             app,
             shifu_bid=shifu_bid,

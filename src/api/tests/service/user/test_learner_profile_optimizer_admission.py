@@ -6,7 +6,7 @@ from flaskr.service.profile import learner_profile_optimizer_admission as admiss
 
 
 class FakeRedis:
-    def __init__(self):
+    def __init__(self) -> None:
         self.in_flight_tokens: dict[str, str] = {}
         self.acquire_ttls: list[int] = []
 

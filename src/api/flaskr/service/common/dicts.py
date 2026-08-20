@@ -4,21 +4,21 @@ DICTS = {}
 
 
 class DictItem:
-    def __init__(self, display, value):
+    def __init__(self, display, value) -> None:
         self.display = display
         self.value = value
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {"display": self.display, "value": self.value}
 
 
 class Dict:
-    def __init__(self, name, display, items: list[DictItem]):
+    def __init__(self, name, display, items: list[DictItem]) -> None:
         self.name = name
         self.display = display
         self.items = items
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {"name": self.name, "display": self.display, "items": self.items}
 
 

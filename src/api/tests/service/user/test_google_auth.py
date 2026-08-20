@@ -34,7 +34,7 @@ def clear_google_public_url_config_cache():
 
 
 class _FakeGoogleResponse:
-    def __init__(self, payload):
+    def __init__(self, payload) -> None:
         self._payload = payload
 
     def raise_for_status(self):
@@ -45,7 +45,7 @@ class _FakeGoogleResponse:
 
 
 class _FakeGoogleSession:
-    def __init__(self, profile, *, fetch_token_error=None):
+    def __init__(self, profile, *, fetch_token_error=None) -> None:
         self._profile = profile
         self._fetch_token_error = fetch_token_error
 

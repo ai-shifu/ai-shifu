@@ -15,7 +15,7 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN205/ANN206, see `select`) / SLF001 / PLC0415 / PLR2004
+# - ANN (except ANN204/ANN205/ANN206, see `select`) / SLF001 / PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
@@ -119,51 +119,38 @@ select = [
     "A001",    # local variable shadowing a builtin
     "A002",    # function argument shadowing a builtin
     "A006",    # lambda argument shadowing a builtin
-    "N801",    # class name that is not CapWords
-    "N806",    # local variable that is not lowercase
-    "N802",    # function name that is not lowercase
-    "N803",    # argument name that is not lowercase
-    "N813",    # CamelCase imported under a lowercase alias
+    # pep8-naming is enabled as a whole. Beyond the members the repo already
+    # satisfied (N801-N803, N806, N813, N818), the group adds naming checks with
+    # no current violations: the first argument of a method/classmethod/
+    # metaclass method (N804/N805/N807), import aliases that change a name's
+    # case (N811/N812/N814/N817), global mixedCase (N816) and non-importable
+    # module filenames (N999). The two DTO modules whose camelCase fields ARE
+    # the serialized JSON keys the frontend reads stay exempt from N815 below.
+    "N",
     # TID252 bans reaching into a parent package with `from ..x import y`, which
     # hides which package a name really comes from; sibling-local `from .x`
     # imports stay allowed. The boundary-checker fixture below must keep its
     # parent-relative imports, since detecting them is what it tests.
     "TID252",  # relative import from a parent module
-    # N815 flags mixedCase class attributes. The two DTO modules whose fields
-    # ARE the serialized JSON keys the frontend reads are exempt below, so the
-    # rule still catches accidental camelCase everywhere else.
-    "N815",    # mixedCase variable in class scope
-    "N818",    # exception class name without an Error suffix
     "TD002",   # TODO without an author
-    # S101 bans `assert` in shipped code (python -O strips it, so an assert is
-    # not a runtime guard). Test suites and script self-tests are exempt via
-    # per-file-ignores below.
-    "S101",    # assert used outside tests
-    "S104",    # binding a socket to all interfaces
-    "S107",    # hardcoded password as a function default
-    "S105",    # string literal that looks like a hardcoded password
-    "S106",    # hardcoded password passed as an argument
-    "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
-    # S110/S112 flag `except Exception: pass` / `continue`. A deliberate
-    # best-effort block reads better as `contextlib.suppress(...)`, which the
-    # repo already uses; a narrower `except OSError:` is not flagged either.
-    "S110",    # try-except-pass that swallows every exception
-    "S112",    # try-except-continue that swallows every exception
-    "S113",    # requests call without a timeout
-    "S310",    # urlopen without an audited URL scheme
-    "S311",    # `random` where a cryptographic generator is required
-    "S324",    # hashlib md5/sha1 without usedforsecurity=False
-    # S603/S605/S607 flag every subprocess and shell invocation. Application
-    # code justifies each one inline; developer tooling is exempt through
-    # per-file-ignores below.
-    "S603",    # subprocess call with unvalidated input
-    "S605",    # process started with a shell
-    "S607",    # process started with a partial executable path
-    # S608 flags every SQL string built by interpolation. Values always use
-    # bound parameters; the remaining sites interpolate table or column names,
-    # which bound parameters cannot carry, and justify it inline. Applied
-    # Alembic revisions must not be edited, so they are exempt below.
-    "S608",    # SQL query built by string interpolation
+    # flake8-bandit is enabled as a whole. Every rule it adds beyond the ones
+    # this repo already satisfied is a security audit with zero current
+    # violations -- eval/exec, pickle and other unsafe deserializers,
+    # `shell=True`, disabled TLS verification, weak ciphers, XML parsers,
+    # Jinja autoescape -- so the group only guards against new ones. The
+    # members that do fire are documented individually:
+    # - S101: `assert` outside tests (python -O strips it, so it is not a
+    #   runtime guard); test suites and script self-tests are exempt below.
+    # - S110/S112: `except Exception: pass` / `continue`. A deliberate
+    #   best-effort block reads better as `contextlib.suppress(...)`, which the
+    #   repo already uses; a narrower `except OSError:` is not flagged either.
+    # - S603/S605/S607: every subprocess and shell invocation. Application code
+    #   justifies each one inline; developer tooling is exempt below.
+    # - S608: every SQL string built by interpolation. Values always use bound
+    #   parameters; the remaining sites interpolate table or column names, which
+    #   bound parameters cannot carry, and justify it inline. Applied Alembic
+    #   revisions must not be edited, so they are exempt below.
+    "S",
 
     # --- Type annotations -------------------------------------------------
     # flake8-annotations is otherwise off (see the header): annotating every
@@ -171,15 +158,21 @@ select = [
     # enough to keep enforced, and a staticmethod is where a missing return
     # type hides the most, since there is no `self` to infer from. ANN206
     # covers the classmethod counterpart, mostly alternative constructors and
-    # frozen-clock `now()` doubles.
+    # frozen-clock `now()` doubles. ANN204 is the same bet for special methods:
+    # `__init__`/`__exit__`/`__json__` and friends have a fixed contract, so the
+    # return type is never a judgement call and writing it down keeps the
+    # serialization dunders (`__json__` returning a dict vs an enum value's str)
+    # readable at a glance.
+    "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
-    # flake8-type-checking is partial: TC002/TC003 would push third-party
-    # imports (SQLAlchemy, pydantic) behind TYPE_CHECKING, where any decorator
-    # or mapper that resolves annotations at runtime then fails. TC001 only
-    # covers first-party imports used solely in annotations, and every module
-    # it touches already has `from __future__ import annotations`.
-    "TC001",   # first-party import used only in annotations
+    # flake8-type-checking is enabled as a whole. TC002/TC003 are ignored below
+    # (they would push third-party imports behind TYPE_CHECKING, where runtime
+    # annotation resolution then fails); the rest have no violations and catch
+    # the mistakes a TYPE_CHECKING block invites: a name imported there but used
+    # at runtime (TC004), an empty or redundant block (TC005/TC010), a
+    # needlessly quoted annotation (TC006/TC007).
+    "TC",
 
     # --- Docstrings -------------------------------------------------------
     # pydocstyle is enabled as a whole; the members that would need thousands
@@ -220,6 +213,11 @@ ignore = [
     "D405",
     "D406",
     "D407",
+    # TC002 / TC003: moving a third-party or stdlib import into TYPE_CHECKING
+    # breaks anything that resolves annotations at runtime, which for this repo
+    # means the SQLAlchemy mappers and pydantic models (~230 hits).
+    "TC002",
+    "TC003",
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "DTZ007",  # naive strptime() -- naive UTC is the house convention
     "DTZ901",  # datetime.min/max -- naive UTC is the house convention
@@ -228,7 +226,7 @@ ignore = [
     "PLW0603", # global statement -- used by module-level singletons/caches
     "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
     # RUF100: with a partial select list, ruff reports deliberate `# noqa:
-    # BLE001 / DTZ001 / SLF001 / S102` markers as unused simply because those
+    # BLE001 / DTZ001 / SLF001` markers as unused simply because those
     # rules are off here, so enforcing it would delete documentation of
     # intentional exceptions. Stale directives are pruned by hand instead.
     "RUF100",

@@ -63,7 +63,7 @@ class AdminOperationCourseSummaryDTO(BaseModel):
         updater_nickname: str,
         created_at: datetime | None,
         updated_at: datetime | None,
-    ):
+    ) -> None:
         super().__init__(
             shifu_bid=shifu_bid,
             course_name=course_name,
@@ -84,7 +84,7 @@ class AdminOperationCourseSummaryDTO(BaseModel):
             updated_at=updated_at,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "shifu_bid": self.shifu_bid,
             "course_name": self.course_name,

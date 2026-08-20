@@ -214,7 +214,7 @@ class RunScriptInfo:
         outline_bid: str,
         block_position: int,
         mdflow: str,
-    ):
+    ) -> None:
         self.attend = attend
         self.outline_bid = outline_bid
         self.block_position = block_position
@@ -260,7 +260,7 @@ class RUNLLMProvider(LLMProvider):
         trace_args: dict,
         usage_context: UsageContext,
         usage_scene: int,
-    ):
+    ) -> None:
         self.app = app
         self.llm_settings = llm_settings
         self.trace = trace
@@ -410,7 +410,7 @@ class MdflowContextV2:
         use_learner_language: bool = False,
         visual_mode: bool = True,
         output_language: str | None = None,
-    ):
+    ) -> None:
         self._mdflow = MarkdownFlow(
             document=document,
             llm_provider=llm_provider,
@@ -621,7 +621,7 @@ class _PreviewContextStore:
         outline_bid: str,
         ttl_seconds: int | None = None,
         language: str | None = None,
-    ):
+    ) -> None:
         self._cache = cache_provider
         self._ttl_seconds = ttl_seconds or self._DEFAULT_TTL_SECONDS
         prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
@@ -791,7 +791,7 @@ class _PreviewContextStore:
 class RunScriptPreviewContextV2:
     """MarkdownFlow preview using context v2 logic with optional Redis caching."""
 
-    def __init__(self, app: Flask):
+    def __init__(self, app: Flask) -> None:
         self.app = app
 
     def stream_preview(
@@ -1579,7 +1579,7 @@ class RunScriptContextV2:
         preview_mode: bool,
         listen: bool = False,
         stop_event: threading.Event | None = None,
-    ):
+    ) -> None:
         self._last_position = -1
         self.app = app
         self._struct = struct

@@ -41,7 +41,7 @@ class OrderAdminOverviewDTO(BaseModel):
         required=False,
     )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "total_order_count": self.total_order_count,
             "paid_order_count": self.paid_order_count,
@@ -105,7 +105,7 @@ class OrderAdminSummaryDTO(BaseModel):
         order_source: str = "",
         order_source_key: str = "",
         coupon_codes: list[str] | None = None,
-    ):
+    ) -> None:
         super().__init__(
             order_bid=order_bid,
             shifu_bid=shifu_bid,
@@ -128,7 +128,7 @@ class OrderAdminSummaryDTO(BaseModel):
             updated_at=updated_at,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "order_bid": self.order_bid,
             "shifu_bid": self.shifu_bid,
@@ -173,7 +173,7 @@ class OrderAdminActivityDTO(BaseModel):
         status_key: str,
         created_at: datetime | None,
         updated_at: datetime | None,
-    ):
+    ) -> None:
         super().__init__(
             active_id=active_id,
             active_name=active_name,
@@ -184,7 +184,7 @@ class OrderAdminActivityDTO(BaseModel):
             updated_at=updated_at,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "active_id": self.active_id,
             "active_name": self.active_name,
@@ -225,7 +225,7 @@ class OrderAdminCouponDTO(BaseModel):
         status_key: str,
         created_at: datetime | None,
         updated_at: datetime | None,
-    ):
+    ) -> None:
         super().__init__(
             coupon_bid=coupon_bid,
             code=code,
@@ -239,7 +239,7 @@ class OrderAdminCouponDTO(BaseModel):
             updated_at=updated_at,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "coupon_bid": self.coupon_bid,
             "code": self.code,
@@ -305,7 +305,7 @@ class OrderAdminPaymentDTO(BaseModel):
         channel: str = "",
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
-    ):
+    ) -> None:
         super().__init__(
             payment_channel=payment_channel,
             payment_channel_key=payment_channel_key,
@@ -325,7 +325,7 @@ class OrderAdminPaymentDTO(BaseModel):
             updated_at=updated_at,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "payment_channel": self.payment_channel,
             "payment_channel_key": self.payment_channel_key,
@@ -369,7 +369,7 @@ class OrderAdminDetailDTO(BaseModel):
         activities: list[OrderAdminActivityDTO],
         coupons: list[OrderAdminCouponDTO],
         payment: OrderAdminPaymentDTO,
-    ):
+    ) -> None:
         super().__init__(
             order=order,
             activities=activities,
@@ -377,7 +377,7 @@ class OrderAdminDetailDTO(BaseModel):
             payment=payment,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "order": self.order,
             "activities": self.activities,

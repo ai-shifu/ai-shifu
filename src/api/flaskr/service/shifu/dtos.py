@@ -68,7 +68,7 @@ class ShifuDto(BaseModel):
         created_user_bid: str = "",
         is_guide_course: bool = False,
         **kwargs,
-    ):
+    ) -> None:
         super().__init__(
             bid=shifu_id,
             name=shifu_name,
@@ -83,7 +83,7 @@ class ShifuDto(BaseModel):
             is_guide_course=is_guide_course,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "bid": self.bid,
             "name": self.name,
@@ -211,7 +211,7 @@ class ShifuDetailDto(BaseModel):
         ask_temperature: float = 0.0,
         ask_system_prompt: str = "",
         ask_provider_config: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         super().__init__(
             bid=shifu_id,
             name=shifu_name,
@@ -245,7 +245,7 @@ class ShifuDetailDto(BaseModel):
             ask_provider_config=ask_provider_config or {},
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "bid": self.bid,
             "name": self.name,
@@ -305,7 +305,7 @@ class SimpleOutlineDto(BaseModel):
         children: list,
         type: str | None = None,  # noqa: A002 - serialized DTO field name
         is_hidden: bool | None = None,
-    ):
+    ) -> None:
         normalized_children: list[SimpleOutlineDto] = []
         if children:
             for child in children:
@@ -331,7 +331,7 @@ class SimpleOutlineDto(BaseModel):
             is_hidden=is_hidden,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "bid": self.bid,
             "position": self.position,
@@ -354,7 +354,7 @@ class SimpleOutlineDto(BaseModel):
 class ShifuOutlineTreeNode:
     """Shifu outline tree node."""
 
-    def __init__(self, outline_item: DraftOutlineItem):
+    def __init__(self, outline_item: DraftOutlineItem) -> None:
         self.outline = outline_item
         self.children = []
         if outline_item:
@@ -408,7 +408,7 @@ class OutlineDto(BaseModel):
         index: int | None = None,
         system_prompt: str | None = None,
         is_hidden: bool | None = None,
-    ):
+    ) -> None:
         super().__init__(
             bid=bid,
             position=position,
@@ -420,7 +420,7 @@ class OutlineDto(BaseModel):
             is_hidden=is_hidden,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "bid": self.bid,
             "position": self.position,
@@ -440,12 +440,12 @@ class ReorderOutlineItemDto:
     bid: str
     children: list["ReorderOutlineItemDto"]
 
-    def __init__(self, bid: str, children: list["ReorderOutlineItemDto"]):
+    def __init__(self, bid: str, children: list["ReorderOutlineItemDto"]) -> None:
         """Init reorder outline item dto."""
         self.bid = bid
         self.children = children
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "bid": self.bid,
             "children": self.children,
@@ -464,10 +464,10 @@ class MdflowDTOParseResult(BaseModel):
     variables: list[str] = Field(..., description="variables", required=True)
     blocks_count: int = Field(..., description="blocks count", required=True)
 
-    def __init__(self, variables: list[str], blocks_count: int):
+    def __init__(self, variables: list[str], blocks_count: int) -> None:
         super().__init__(variables=variables, blocks_count=blocks_count)
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "variables": self.variables,
             "blocks_count": self.blocks_count,

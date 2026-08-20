@@ -32,7 +32,7 @@ def _load_route_module(module_name: str):
 
 
 class DummyStripeProvider:
-    def __init__(self, notification: PaymentNotificationResult):
+    def __init__(self, notification: PaymentNotificationResult) -> None:
         self._notification = notification
 
     def verify_webhook(self, *, headers, raw_body, app):

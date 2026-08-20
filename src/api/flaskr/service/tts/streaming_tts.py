@@ -278,7 +278,7 @@ class StreamingTTSProcessor:
         stream_element_type: str | None = None,
         av_contract: dict[str, Any] | None = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
-    ):
+    ) -> None:
         self.app = app
         self.generated_block_bid = generated_block_bid
         self.outline_bid = outline_bid
@@ -2090,7 +2090,7 @@ class AVStreamingTTSProcessor:
         tts_model: str = "",
         usage_scene: int = BILL_USAGE_SCENE_PROD,
         element_index_offset: int = 0,
-    ):
+    ) -> None:
         self.app = app
         self.generated_block_bid = generated_block_bid
         self.outline_bid = outline_bid
