@@ -300,6 +300,25 @@ plan's progress update for that rule.
   `sunner/ruff-em101` to the EM102 branch after all local gates passed.
 - [ ] Merge or retarget EM101 PR #2592 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 05:44 CST: Prepared the RUF001 stage on
+  `sunner/ruff-ruf001`, stacked on EM101. Audited all 162 findings across 24
+  files and 106 source lines: every occurrence is one of the five standard
+  Chinese punctuation characters `，`, `：`, `！`, `？`, or `；`, used in
+  Chinese prose and notification formatting or as a TTS sentence boundary.
+- [x] 2026-08-21 05:44 CST: Removed the global RUF001 ignore and replaced it
+  with Ruff's exact five-character `allowed-confusables` list. RUF001 now
+  rejects every other confusable without rewriting runtime text or fixtures;
+  RUF002 and RUF003 remain clean. The stable `ALL` census falls exactly 162
+  findings to 28,202 across 28 rules, with every other rule count unchanged.
+- [x] 2026-08-21 05:44 CST: Documented that future agents must preserve the
+  five intentional Chinese punctuation characters, fix every other confusable
+  by default, and inventory all uses before expanding the shared allowlist.
+  The 323 focused notification, learner-profile, TTS, and LLM tests pass with
+  five skips, and the TTS report entry point exposes its help successfully.
+- [x] 2026-08-21 05:48 CST: The full backend suite passes 3,019 tests with 17
+  skips. Translation checks, collaboration and knowledge generators, repository
+  harness, architecture boundaries, development-tool validation, configured
+  Ruff and format, and every repository pre-commit hook also pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -394,11 +413,13 @@ plan's progress update for that rule.
   annotations, while SQLAlchemy model classes used for executable query
   construction stayed available at runtime. The exact import-movement audit
   makes that boundary explicit.
-- RUF001 is not the next safe exception-removal stage: its 162 findings are
-  deliberate full-width Chinese punctuation in customer messages, TTS boundary
-  patterns, and tests that freeze those language semantics. Replacing them with
-  ASCII punctuation would change product and speech behavior merely to shorten
-  configuration.
+- RUF001's 162 findings are deliberate full-width Chinese punctuation in
+  customer messages, TTS boundary patterns, and tests that freeze those
+  language semantics. Replacing them with ASCII punctuation would change
+  product and speech behavior merely to shorten configuration. Ruff's
+  `allowed-confusables` setting provides the narrower resolution: allow exactly
+  the five audited punctuation characters while enforcing RUF001 for every
+  other confusable.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent

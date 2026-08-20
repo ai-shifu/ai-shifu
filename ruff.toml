@@ -36,6 +36,10 @@
 target-version = "py311"
 
 [lint]
+# These five code points are standard punctuation in Chinese prose and are
+# also meaningful TTS sentence boundaries. RUF001 still rejects every other
+# Unicode character that can be confused with an ASCII character.
+allowed-confusables = ["，", "：", "！", "？", "；"]
 select = [
     # --- Core correctness -------------------------------------------------
     "E",       # pycodestyle errors (E501 ignored below)
@@ -212,10 +216,9 @@ select = [
     "UP",
 
     # --- Ruff-native rules ------------------------------------------------
-    # RUF001 (ambiguous unicode in a string) is ignored below.
-    # RUF100 is enforced, so a `# noqa` may only name a rule this file
-    # selects: reasons for exceptions to non-selected rules (BLE001,
-    # DTZ001, SLF001) are written as plain comments instead.
+    # RUF100 is enforced, so a `# noqa` may only name a rule this file selects:
+    # reasons for exceptions to non-selected rules (BLE001, DTZ001, SLF001)
+    # are written as plain comments instead.
     "RUF",
 ]
 ignore = [
@@ -229,10 +232,6 @@ ignore = [
     "D213",    # summary on the second line -- conflicts with D212
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
-    # INP001 is enforced; see per-file-ignores for the entrypoints, Alembic
-    # revisions and boundary-check fixtures that are loaded by path rather
-    # than imported.
-    "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
 ]
 
 [lint.flake8-type-checking]

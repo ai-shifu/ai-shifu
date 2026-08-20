@@ -357,6 +357,15 @@ configuration quieter. For a finding in new or changed code:
    fundamentally conflicts with the rule. Do not weaken `select` or `ignore`
    to make an unrelated PR pass.
 
+For `RUF001`, preserve the standard fullwidth Chinese punctuation explicitly
+allowed by `ruff.toml`: `，`, `：`, `！`, `？`, and `；`. These code points are
+intentional in Chinese prose, notification formatting, and TTS sentence-boundary
+sets; do not replace them with ASCII punctuation merely to silence lint. Treat
+every other confusable as suspicious and replace it with the intended code point
+unless an exact external protocol or regression fixture requires it. Do not add
+another globally allowed character without inventorying every occurrence and
+documenting the shared semantic contract.
+
 For `G004`, keep log message construction lazy: pass a constant message and
 its values as positional logging arguments, preserving the message text,
 argument order, and log level. Use `%s` for normal or `!s` interpolation,
