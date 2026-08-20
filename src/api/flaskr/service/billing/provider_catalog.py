@@ -1,0 +1,470 @@
+"""Provider catalog read adapters and local mapping validation."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
+
+from flask import Flask
+from flaskr.service.config import get_config
+
+from .consts import (
+    BILLING_INTERVAL_DAY,
+    BILLING_INTERVAL_MONTH,
+    BILLING_INTERVAL_NONE,
+    BILLING_INTERVAL_YEAR,
+    BILLING_MODE_ONE_TIME,
+    BILLING_MODE_RECURRING,
+    BILLING_PRODUCT_TYPE_PLAN,
+    BILLING_PRODUCT_TYPE_TOPUP,
+)
+from .primitives import normalize_bid
+
+if TYPE_CHECKING:
+    from .models import BillingProduct
+
+_STRIPE_INTERVAL_BY_BILLING_INTERVAL = {
+    BILLING_INTERVAL_DAY: "day",
+    BILLING_INTERVAL_MONTH: "month",
+    BILLING_INTERVAL_YEAR: "year",
+}
+
+
+@dataclass(slots=True)
+class ProviderAccountSnapshot:
+    provider: str
+    account_id: str
+    livemode: bool | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class ProviderProductSnapshot:
+    provider: str
+    product_id: str
+    active: bool
+    livemode: bool | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class ProviderPriceSnapshot:
+    provider: str
+    price_id: str
+    product_id: str
+    active: bool
+    livemode: bool
+    currency: str
+    unit_amount: int
+    price_type: str
+    recurring_interval: str
+    recurring_interval_count: int
+    metadata: dict[str, Any] = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class ProviderCatalogSnapshot:
+    account: ProviderAccountSnapshot
+    product: ProviderProductSnapshot
+    price: ProviderPriceSnapshot
+
+
+@dataclass(slots=True)
+class ProviderCatalogValidationIssue:
+    code: str
+    message: str
+    expected: str = ""
+    actual: str = ""
+
+
+@dataclass(slots=True)
+class ProviderPriceMappingValidationResult:
+    valid: bool
+    errors: list[ProviderCatalogValidationIssue] = field(default_factory=list)
+    warnings: list[ProviderCatalogValidationIssue] = field(default_factory=list)
+
+
+class ProviderCatalogReadError(RuntimeError):
+    """Raised when a provider catalog object cannot be retrieved."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+
+class StripeCatalogReadAdapter:
+    """Read Stripe catalog objects and normalize them for billing services."""
+
+    provider = "stripe"
+
+    def _ensure_client(self, app: Flask):
+        try:
+            import stripe  # type: ignore[import-untyped]
+        except ImportError as exc:  # pragma: no cover - surfaced during runtime
+            app.logger.exception("Stripe SDK is not installed")
+            raise ProviderCatalogReadError(
+                "stripe_sdk_missing",
+                "Stripe SDK is required for catalog reads",
+            ) from exc
+        return stripe
+
+    def _client_options(self, app: Flask) -> tuple[Any, dict[str, Any]]:
+        stripe = self._ensure_client(app)
+        secret_key = get_config("STRIPE_SECRET_KEY")
+        if not secret_key:
+            raise ProviderCatalogReadError(
+                "stripe_secret_missing",
+                "Stripe secret key is not configured",
+            )
+
+        request_options: dict[str, Any] = {"api_key": secret_key}
+        api_version = get_config("STRIPE_API_VERSION")
+        if api_version:
+            request_options["stripe_version"] = api_version
+        return stripe, request_options
+
+    def retrieve_mapping_snapshot(
+        self,
+        app: Flask,
+        *,
+        provider_product_id: str,
+        provider_price_id: str,
+    ) -> ProviderCatalogSnapshot:
+        stripe, request_options = self._client_options(app)
+        normalized_product_id = normalize_bid(provider_product_id)
+        normalized_price_id = normalize_bid(provider_price_id)
+        if not normalized_product_id or not normalized_price_id:
+            raise ProviderCatalogReadError(
+                "stripe_catalog_reference_missing",
+                "Stripe product and price identifiers are required",
+            )
+
+        try:
+            account = _to_plain_dict(stripe.Account.retrieve(**request_options))
+            product = _to_plain_dict(
+                stripe.Product.retrieve(normalized_product_id, **request_options)
+            )
+            price = _to_plain_dict(
+                stripe.Price.retrieve(normalized_price_id, **request_options)
+            )
+        except Exception as exc:
+            raise ProviderCatalogReadError(
+                "stripe_catalog_retrieve_failed",
+                _build_safe_stripe_error_message(exc),
+            ) from exc
+
+        return ProviderCatalogSnapshot(
+            account=_normalize_stripe_account(account),
+            product=_normalize_stripe_product(product),
+            price=_normalize_stripe_price(price),
+        )
+
+
+def validate_provider_price_mapping(
+    product: BillingProduct,
+    snapshot: ProviderCatalogSnapshot,
+    *,
+    expected_provider_account_id: str,
+    expected_livemode: bool,
+    expected_provider_product_id: str,
+    expected_provider_price_id: str,
+) -> ProviderPriceMappingValidationResult:
+    """Validate a local product against normalized provider catalog objects."""
+    errors: list[ProviderCatalogValidationIssue] = []
+    warnings: list[ProviderCatalogValidationIssue] = []
+
+    _append_mismatch(
+        errors,
+        "provider_account_mismatch",
+        "Stripe account does not match the expected account",
+        expected_provider_account_id,
+        snapshot.account.account_id,
+    )
+    _append_mismatch(
+        errors,
+        "provider_product_mismatch",
+        "Stripe product does not match the expected product",
+        expected_provider_product_id,
+        snapshot.product.product_id,
+    )
+    _append_mismatch(
+        errors,
+        "provider_price_mismatch",
+        "Stripe price does not match the expected price",
+        expected_provider_price_id,
+        snapshot.price.price_id,
+    )
+    _append_mismatch(
+        errors,
+        "price_product_mismatch",
+        "Stripe price is not attached to the expected product",
+        expected_provider_product_id,
+        snapshot.price.product_id,
+    )
+
+    expected_livemode_label = _bool_label(expected_livemode)
+    for code, actual in (
+        ("product_livemode_mismatch", snapshot.product.livemode),
+        ("price_livemode_mismatch", snapshot.price.livemode),
+    ):
+        if actual is not None and bool(actual) != expected_livemode:
+            errors.append(
+                ProviderCatalogValidationIssue(
+                    code=code,
+                    message="Stripe catalog mode does not match the expected mode",
+                    expected=expected_livemode_label,
+                    actual=_bool_label(bool(actual)),
+                )
+            )
+
+    if not snapshot.product.active:
+        errors.append(
+            ProviderCatalogValidationIssue(
+                code="provider_product_inactive",
+                message="Stripe product is inactive",
+            )
+        )
+    if not snapshot.price.active:
+        errors.append(
+            ProviderCatalogValidationIssue(
+                code="provider_price_inactive",
+                message="Stripe price is inactive",
+            )
+        )
+
+    _append_mismatch(
+        errors,
+        "currency_mismatch",
+        "Stripe price currency does not match the local product",
+        str(product.currency or "").strip().lower(),
+        snapshot.price.currency,
+    )
+    _append_mismatch(
+        errors,
+        "unit_amount_mismatch",
+        "Stripe price amount does not match the local product",
+        str(int(product.price_amount or 0)),
+        str(snapshot.price.unit_amount),
+    )
+
+    product_type = int(product.product_type or 0)
+    if product_type == BILLING_PRODUCT_TYPE_PLAN:
+        _validate_plan_price(product, snapshot.price, errors)
+    elif product_type == BILLING_PRODUCT_TYPE_TOPUP:
+        _validate_topup_price(product, snapshot.price, errors)
+
+    _validate_metadata_warning(
+        warnings,
+        snapshot.product.metadata,
+        expected_key="product_code",
+        expected_value=str(product.product_code or "").strip(),
+        issue_code="product_metadata_product_code_mismatch",
+    )
+    _validate_metadata_warning(
+        warnings,
+        snapshot.price.metadata,
+        expected_key="product_bid",
+        expected_value=str(product.product_bid or "").strip(),
+        issue_code="price_metadata_product_bid_mismatch",
+    )
+
+    return ProviderPriceMappingValidationResult(
+        valid=not errors,
+        errors=errors,
+        warnings=warnings,
+    )
+
+
+def _validate_plan_price(
+    product: BillingProduct,
+    price: ProviderPriceSnapshot,
+    errors: list[ProviderCatalogValidationIssue],
+) -> None:
+    if int(product.billing_mode or 0) != BILLING_MODE_RECURRING:
+        errors.append(
+            ProviderCatalogValidationIssue(
+                code="local_plan_billing_mode_invalid",
+                message="Plan products must use recurring billing mode",
+                expected=str(BILLING_MODE_RECURRING),
+                actual=str(int(product.billing_mode or 0)),
+            )
+        )
+    if price.price_type != "recurring":
+        errors.append(
+            ProviderCatalogValidationIssue(
+                code="plan_requires_recurring_price",
+                message="Plan products must bind a recurring Stripe price",
+                expected="recurring",
+                actual=price.price_type,
+            )
+        )
+        return
+
+    expected_interval = _STRIPE_INTERVAL_BY_BILLING_INTERVAL.get(
+        int(product.billing_interval or BILLING_INTERVAL_NONE),
+        "",
+    )
+    _append_mismatch(
+        errors,
+        "billing_interval_mismatch",
+        "Stripe recurring interval does not match the local product",
+        expected_interval,
+        price.recurring_interval,
+    )
+    _append_mismatch(
+        errors,
+        "billing_interval_count_mismatch",
+        "Stripe recurring interval count does not match the local product",
+        str(int(product.billing_interval_count or 0)),
+        str(price.recurring_interval_count),
+    )
+
+
+def _validate_topup_price(
+    product: BillingProduct,
+    price: ProviderPriceSnapshot,
+    errors: list[ProviderCatalogValidationIssue],
+) -> None:
+    if int(product.billing_mode or 0) != BILLING_MODE_ONE_TIME:
+        errors.append(
+            ProviderCatalogValidationIssue(
+                code="local_topup_billing_mode_invalid",
+                message="Topup products must use one-time billing mode",
+                expected=str(BILLING_MODE_ONE_TIME),
+                actual=str(int(product.billing_mode or 0)),
+            )
+        )
+    if price.price_type != "one_time":
+        errors.append(
+            ProviderCatalogValidationIssue(
+                code="topup_requires_one_time_price",
+                message="Topup products must bind a one-time Stripe price",
+                expected="one_time",
+                actual=price.price_type,
+            )
+        )
+
+
+def _validate_metadata_warning(
+    warnings: list[ProviderCatalogValidationIssue],
+    metadata: dict[str, Any],
+    *,
+    expected_key: str,
+    expected_value: str,
+    issue_code: str,
+) -> None:
+    actual_value = str(metadata.get(expected_key) or "").strip()
+    if not expected_value or not actual_value or actual_value == expected_value:
+        return
+    warnings.append(
+        ProviderCatalogValidationIssue(
+            code=issue_code,
+            message="Stripe metadata does not match the local product",
+            expected=expected_value,
+            actual=actual_value,
+        )
+    )
+
+
+def _append_mismatch(
+    issues: list[ProviderCatalogValidationIssue],
+    code: str,
+    message: str,
+    expected: str,
+    actual: str,
+) -> None:
+    normalized_expected = str(expected or "").strip()
+    normalized_actual = str(actual or "").strip()
+    if normalized_expected and normalized_actual == normalized_expected:
+        return
+    issues.append(
+        ProviderCatalogValidationIssue(
+            code=code,
+            message=message,
+            expected=normalized_expected,
+            actual=normalized_actual,
+        )
+    )
+
+
+def _normalize_stripe_account(payload: dict[str, Any]) -> ProviderAccountSnapshot:
+    return ProviderAccountSnapshot(
+        provider="stripe",
+        account_id=str(payload.get("id") or "").strip(),
+        livemode=_coerce_optional_bool(payload.get("livemode")),
+        raw=payload,
+    )
+
+
+def _normalize_stripe_product(payload: dict[str, Any]) -> ProviderProductSnapshot:
+    return ProviderProductSnapshot(
+        provider="stripe",
+        product_id=str(payload.get("id") or "").strip(),
+        active=bool(payload.get("active")),
+        livemode=_coerce_optional_bool(payload.get("livemode")),
+        metadata=_normalize_metadata(payload.get("metadata")),
+        raw=payload,
+    )
+
+
+def _normalize_stripe_price(payload: dict[str, Any]) -> ProviderPriceSnapshot:
+    recurring = _to_plain_dict(payload.get("recurring") or {})
+    return ProviderPriceSnapshot(
+        provider="stripe",
+        price_id=str(payload.get("id") or "").strip(),
+        product_id=_normalize_stripe_reference_id(payload.get("product")),
+        active=bool(payload.get("active")),
+        livemode=bool(payload.get("livemode")),
+        currency=str(payload.get("currency") or "").strip().lower(),
+        unit_amount=int(payload.get("unit_amount") or 0),
+        price_type=str(payload.get("type") or "").strip(),
+        recurring_interval=str(recurring.get("interval") or "").strip(),
+        recurring_interval_count=int(recurring.get("interval_count") or 0),
+        metadata=_normalize_metadata(payload.get("metadata")),
+        raw=payload,
+    )
+
+
+def _normalize_stripe_reference_id(value: Any) -> str:
+    if isinstance(value, dict):
+        return str(value.get("id") or "").strip()
+    if hasattr(value, "to_dict"):
+        return str(_to_plain_dict(value).get("id") or "").strip()
+    return str(value or "").strip()
+
+
+def _normalize_metadata(value: Any) -> dict[str, Any]:
+    payload = _to_plain_dict(value or {})
+    return payload if isinstance(payload, dict) else {}
+
+
+def _to_plain_dict(value: Any) -> dict[str, Any]:
+    if hasattr(value, "to_dict"):
+        value = value.to_dict()
+    elif hasattr(value, "to_dict_recursive"):
+        value = value.to_dict_recursive()
+    if isinstance(value, dict):
+        return dict(value)
+    return {}
+
+
+def _coerce_optional_bool(value: Any) -> bool | None:
+    if value is None:
+        return None
+    return bool(value)
+
+
+def _bool_label(value: bool) -> str:
+    return "live" if value else "test"
+
+
+def _build_safe_stripe_error_message(exc: Exception) -> str:
+    status = getattr(exc, "http_status", None)
+    code = getattr(exc, "code", None)
+    if status or code:
+        return (
+            f"Stripe catalog retrieve failed ({status or 'unknown'} {code or 'error'})"
+        )
+    return f"Stripe catalog retrieve failed: {exc.__class__.__name__}"
