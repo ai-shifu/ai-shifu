@@ -35,7 +35,9 @@ export const SetPasswordModal = ({
     return methods;
   }, [userInfo?.email, userInfo?.mobile]);
 
-  const [method, setMethod] = useState<VerificationMethod>('phone');
+  const [method, setMethod] = useState<VerificationMethod>(
+    availableMethods[0] ?? 'phone',
+  );
 
   useEffect(() => {
     if (!open) {
@@ -202,15 +204,7 @@ export const SetPasswordModal = ({
     } finally {
       setIsSending(false);
     }
-  }, [
-    captchaCode,
-    identifier,
-    method,
-    refreshCaptcha,
-    t,
-    toast,
-    verifyCaptcha,
-  ]);
+  }, [captchaCode, identifier, method, t, toast, verifyCaptcha]);
 
   const handleSubmit = useCallback(async () => {
     if (!identifier) {
