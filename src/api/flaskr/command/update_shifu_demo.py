@@ -36,8 +36,7 @@ def _process_demo_shifu(
     hash_config_key: str,
     hash_config_remark: str,
 ) -> str:
-    """Process demo shifu: skip import if file unchanged, otherwise import/update and
-    upsert configs for shifu bid and file hash.
+    """Process demo shifu: skip import if file unchanged, otherwise import/update and upsert configs for shifu bid and file hash.
 
     Args:
         app: Flask application instance

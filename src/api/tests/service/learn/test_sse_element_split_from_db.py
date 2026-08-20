@@ -541,8 +541,7 @@ class TestSSEElementSplitFromDB:
             # not recognize the visual boundary
 
     def test_pure_visual_blocks_element_type(self, app, blocks):
-        """Diagnose element type inference for blocks whose content is pure
-        visual (SVG, HTML with no speakable text).
+        """Diagnose element type inference for blocks whose content is pure visual (SVG, HTML with no speakable text).
 
         These blocks have visual_boundaries in av_contract but no
         speakable_segments, so build_visual_segments_for_block returns [].

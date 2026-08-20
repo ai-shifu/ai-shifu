@@ -514,8 +514,7 @@ def _iter_stream_with_precontent_retry(
     params: dict,
     kwargs: dict,
 ):
-    """Yield litellm stream chunks, re-issuing the request when the stream
-    dies on a connection-level error before any content token arrived.
+    """Yield litellm stream chunks, re-issuing the request when the stream dies on a connection-level error before any content token arrived.
 
     The built-in openai/litellm retries only cover request setup; an
     established stream that dies mid-read (transient network corruption,

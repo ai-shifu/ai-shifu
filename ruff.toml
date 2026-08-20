@@ -227,7 +227,6 @@ ignore = [
     "D105",    # undocumented magic method
     "D107",    # undocumented __init__
     "D203",    # blank line before a class docstring -- conflicts with D211
-    "D205",    # summary wrapped over two lines -- 260 prose rewrites, deferred
     "D213",    # summary on the second line -- conflicts with D212
     # TC002 / TC003: moving a third-party or stdlib import into TYPE_CHECKING
     # breaks anything that resolves annotations at runtime, which for this repo

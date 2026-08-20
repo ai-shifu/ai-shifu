@@ -1020,10 +1020,7 @@ class TestUpdateConfig:
         mock_get_config_from_common,
         app,
     ):
-        """update_config must persist the caller's new value, not a stale cached
-        one, even when the cache is warm (regression: a warm cache used to
-        overwrite the new value and re-persist the old one).
-        """
+        """update_config must persist the caller's new value, not a stale cached one, even when the cache is warm (regression: a warm cache used to overwrite the new value and re-persist the old one)."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -1068,9 +1065,7 @@ class TestUpdateConfig:
         mock_get_config_from_common,
         app,
     ):
-        """update_config must persist the caller's new plain value, not a stale
-        cached one, even when the cache is warm.
-        """
+        """update_config must persist the caller's new plain value, not a stale cached one, even when the cache is warm."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             mock_get_config_from_common.return_value = None
