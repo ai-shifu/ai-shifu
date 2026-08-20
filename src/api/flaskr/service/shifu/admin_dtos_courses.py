@@ -64,6 +64,7 @@ class AdminOperationCourseSummaryDTO(BaseModel):
         created_at: datetime | None,
         updated_at: datetime | None,
     ) -> None:
+        """Build the admin operation course summary payload."""
         super().__init__(
             shifu_bid=shifu_bid,
             course_name=course_name,

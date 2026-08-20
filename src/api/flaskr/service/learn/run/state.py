@@ -80,6 +80,7 @@ class RunStateResolver:
     """
 
     def __init__(self, context: "RunScriptContextV2") -> None:
+        """Bind read-side state resolution to its run context."""
         self._context = context
 
     # -- explicit runtime inputs, read from the context at call time --

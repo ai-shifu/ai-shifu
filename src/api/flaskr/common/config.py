@@ -1788,6 +1788,7 @@ class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
     def __init__(self, env_vars: dict[str, EnvVar]) -> None:
+        """Load and validate the declared environment variables."""
         self.env_vars = env_vars
         self._cache: dict[str, Any] = {}
         self._validated = False
@@ -2105,6 +2106,7 @@ class Config(FlaskConfig):
     def __init__(
         self, parent: FlaskConfig, app: Flask, defaults: dict | None = None
     ) -> None:
+        """Build Flask configuration from defaults and environment variables."""
         self.parent = parent
         self.app = app
         self.enhanced = __ENHANCED_CONFIG__

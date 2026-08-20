@@ -69,6 +69,7 @@ class RunEventEmitter:
     """
 
     def __init__(self, context: "RunScriptContextV2") -> None:
+        """Bind the event emitter to its run context."""
         self._context = context
 
     def render_outline_updates(

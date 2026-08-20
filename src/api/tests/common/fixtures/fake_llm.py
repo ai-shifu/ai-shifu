@@ -13,6 +13,7 @@ class FakeLLMResponse:
         finish_reason: str = "stop",
         usage=None,
     ) -> None:
+        """Initialize the fake LLM response test double."""
         self.id = chunk_id
         self.is_end = is_end
         self.is_truncated = is_truncated

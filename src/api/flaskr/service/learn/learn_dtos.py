@@ -115,6 +115,7 @@ class VariableUpdateDTO(BaseModel):
         variable_name: str,
         variable_value: str,
     ) -> None:
+        """Build the variable update payload."""
         super().__init__(variable_name=variable_name, variable_value=variable_value)
 
     def __json__(self) -> dict:
@@ -140,6 +141,7 @@ class OutlineItemUpdateDTO(BaseModel):
         status: LearnStatus,
         has_children: bool,
     ) -> None:
+        """Build the outline item update payload."""
         super().__init__(
             outline_bid=outline_bid,
             title=title,
@@ -182,6 +184,7 @@ class LearnShifuInfoDTO(BaseModel):
         tts_enabled: bool = False,
         default_listen_mode_enabled: bool = False,
     ) -> None:
+        """Build the learner-facing course information payload."""
         super().__init__(
             bid=bid,
             title=title,
@@ -227,6 +230,7 @@ class LearnBannerInfoDTO(BaseModel):
         pop_up_confirm_text: str,
         pop_up_cancel_text: str,
     ) -> None:
+        """Build the learner banner payload."""
         super().__init__(
             title=title,
             pop_up_title=pop_up_title,
@@ -273,6 +277,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
         children: list[LearnOutlineItemInfoDTO],
         has_content_update_for_current_user: bool = False,
     ) -> None:
+        """Build a learner-facing outline item payload."""
         super().__init__(
             bid=bid,
             position=position,
@@ -311,6 +316,7 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
         banner_info: LearnBannerInfoDTO | None,
         outline_items: list[LearnOutlineItemInfoDTO],
     ) -> None:
+        """Combine the learner banner and outline item payloads."""
         super().__init__(
             banner_info=banner_info,
             outline_items=outline_items,
@@ -366,6 +372,7 @@ class AudioSegmentDTO(BaseModel):
         av_contract: dict[str, Any] | None = None,
         subtitle_cues: list[SubtitleCueDTO] | None = None,
     ) -> None:
+        """Build the audio segment payload."""
         super().__init__(
             position=position,
             stream_element_number=stream_element_number,
@@ -434,6 +441,7 @@ class AudioCompleteDTO(BaseModel):
         av_contract: dict[str, Any] | None = None,
         subtitle_cues: list[SubtitleCueDTO] | None = None,
     ) -> None:
+        """Build the completed-audio payload."""
         super().__init__(
             position=position,
             stream_element_number=stream_element_number,
@@ -469,6 +477,7 @@ class ElementVisualDTO(BaseModel):
     content: str = Field(..., description="Visual payload content", required=False)
 
     def __init__(self, visual_type: str, content: str) -> None:
+        """Build the element visual payload."""
         super().__init__(visual_type=visual_type, content=content)
 
     def __json__(self) -> dict:
@@ -495,6 +504,7 @@ class SubtitleCueDTO(BaseModel):
         segment_index: int,
         position: int = 0,
     ) -> None:
+        """Build the subtitle cue payload."""
         super().__init__(
             text=text or "",
             start_ms=int(start_ms or 0),
@@ -535,6 +545,7 @@ class ElementAudioDTO(BaseModel):
         position: int = 0,
         subtitle_cues: list[SubtitleCueDTO] | None = None,
     ) -> None:
+        """Build the element audio payload."""
         super().__init__(
             position=position,
             audio_url=audio_url,
@@ -593,6 +604,7 @@ class ElementPayloadDTO(BaseModel):
         diff_payload: list[dict[str, Any]] | None = None,
         asks: list[dict[str, Any]] | None = None,
     ) -> None:
+        """Build the composite element payload."""
         super().__init__(
             audio=audio,
             previous_visuals=previous_visuals or [],
@@ -845,6 +857,7 @@ class RunMarkdownFlowDTO(BaseModel):
         | AudioCompleteDTO,
         anchor_element_bid: str = "",
     ) -> None:
+        """Build the MarkdownFlow execution payload."""
         super().__init__(
             outline_bid=outline_bid,
             generated_block_bid=generated_block_bid,
@@ -951,6 +964,7 @@ class LearnElementRecordDTO(BaseModel):
         events: list[RunElementSSEMessageDTO] | None = None,
         last_progress_updated_at: str | None = None,
     ) -> None:
+        """Build the recorded learner-element payload."""
         super().__init__(
             elements=elements or [],
             events=events,
@@ -984,6 +998,7 @@ class RunStatusDTO(BaseModel):
         is_running: bool,
         running_time: int,
     ) -> None:
+        """Build the run status payload."""
         super().__init__(is_running=is_running, running_time=running_time)
 
     def __json__(self) -> dict:
@@ -1007,6 +1022,7 @@ class GeneratedInfoDTO(BaseModel):
         outline_name: str,
         is_trial_lesson: bool,
     ) -> None:
+        """Build generated-outline metadata."""
         super().__init__(
             position=position,
             outline_name=outline_name,

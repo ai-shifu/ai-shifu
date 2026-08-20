@@ -71,6 +71,7 @@ class ShifuDto(BaseModel):
         is_guide_course: bool = False,
         **kwargs,
     ) -> None:
+        """Build the shifu payload."""
         super().__init__(
             bid=shifu_id,
             name=shifu_name,
@@ -216,6 +217,7 @@ class ShifuDetailDto(BaseModel):
         ask_system_prompt: str = "",
         ask_provider_config: dict[str, Any] | None = None,
     ) -> None:
+        """Build the shifu detail payload."""
         super().__init__(
             bid=shifu_id,
             name=shifu_name,
@@ -310,6 +312,7 @@ class SimpleOutlineDto(BaseModel):
         type: str | None = None,  # noqa: A002 - serialized DTO field name
         is_hidden: bool | None = None,
     ) -> None:
+        """Build the simple outline payload."""
         normalized_children: list[SimpleOutlineDto] = []
         if children:
             for child in children:
@@ -359,6 +362,7 @@ class ShifuOutlineTreeNode:
     """Shifu outline tree node."""
 
     def __init__(self, outline_item: DraftOutlineItem) -> None:
+        """Build a tree node from a draft outline item."""
         self.outline = outline_item
         self.children = []
         if outline_item:
@@ -413,6 +417,7 @@ class OutlineDto(BaseModel):
         system_prompt: str | None = None,
         is_hidden: bool | None = None,
     ) -> None:
+        """Build the outline payload."""
         super().__init__(
             bid=bid,
             position=position,
@@ -469,6 +474,7 @@ class MdflowDTOParseResult(BaseModel):
     blocks_count: int = Field(..., description="blocks count", required=True)
 
     def __init__(self, variables: list[str], blocks_count: int) -> None:
+        """Capture parsed MarkdownFlow variables and block count."""
         super().__init__(variables=variables, blocks_count=blocks_count)
 
     def __json__(self) -> dict:

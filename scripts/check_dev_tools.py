@@ -68,6 +68,7 @@ class Check:
     """A single tool/state check and the command that fixes it."""
 
     def __init__(self, name: str, ok: bool, fix: str, *, required: bool = True) -> None:
+        """Record a development-tool availability check."""
         self.name = name
         self.ok = ok
         self.fix = fix
