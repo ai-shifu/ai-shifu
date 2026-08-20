@@ -166,6 +166,15 @@ select = [
     "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
+
+    # --- Boolean arguments ------------------------------------------------
+    # flake8-boolean-trap is otherwise off: FBT001/FBT002 would rewrite the
+    # signatures of stable service helpers and DTO constructors, which is a
+    # separate project. FBT003 only asks the caller to name the flag, so
+    # `get_shifu_info(app, bid, preview_mode=False)` says which of the two
+    # code paths it takes. Third-party APIs that only accept the flag
+    # positionally (SQLAlchemy, the MySQL DBAPI `ping`) carry an inline noqa.
+    "FBT003",  # boolean positional value in a call
     # flake8-type-checking is enabled as a whole. TC002/TC003 are ignored below
     # (they would push third-party imports behind TYPE_CHECKING, where runtime
     # annotation resolution then fails); the rest have no violations and catch

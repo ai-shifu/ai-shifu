@@ -83,19 +83,19 @@ def _patch_run_dependencies(monkeypatch, script):
     monkeypatch.setattr(
         runscript_v2,
         "get_outline_item_dto",
-        lambda _app, _bid, _preview: types.SimpleNamespace(
+        lambda _app, _bid, preview_mode: types.SimpleNamespace(
             bid="outline-1", shifu_bid="shifu-1", __json__=dict
         ),
     )
     monkeypatch.setattr(
         runscript_v2,
         "get_shifu_dto",
-        lambda _app, _bid, _preview: types.SimpleNamespace(bid="shifu-1", price=0),
+        lambda _app, _bid, preview_mode: types.SimpleNamespace(bid="shifu-1", price=0),
     )
     monkeypatch.setattr(
         runscript_v2,
         "get_shifu_struct",
-        lambda _app, _bid, _preview: types.SimpleNamespace(bid="shifu-1"),
+        lambda _app, _bid, preview_mode: types.SimpleNamespace(bid="shifu-1"),
     )
     _StubRunContext.script = list(script)
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", _StubRunContext)

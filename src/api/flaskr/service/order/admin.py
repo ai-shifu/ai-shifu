@@ -528,7 +528,7 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> list[str]:
             DraftShifu.title.like(like_value),
         )
         .yield_per(200)
-        .enable_eagerloads(False)
+        .enable_eagerloads(False)  # noqa: FBT003 -- SQLAlchemy takes the flag positionally
     ):
         shifu_bid = str(row.shifu_bid or "").strip()
         if shifu_bid:
@@ -540,7 +540,7 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> list[str]:
             PublishedShifu.title.like(like_value),
         )
         .yield_per(200)
-        .enable_eagerloads(False)
+        .enable_eagerloads(False)  # noqa: FBT003 -- SQLAlchemy takes the flag positionally
     ):
         shifu_bid = str(row.shifu_bid or "").strip()
         if shifu_bid:
@@ -606,7 +606,7 @@ def _apply_order_source_filter(query, order_source: str):
             )
         )
 
-    return query.filter(db.literal(False))
+    return query.filter(db.literal(False))  # noqa: FBT003 -- SQL literal value
 
 
 def _build_order_item(

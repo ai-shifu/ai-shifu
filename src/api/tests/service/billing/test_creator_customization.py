@@ -704,7 +704,7 @@ def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch):
     monkeypatch.setattr(customization, "import_module", fake_import)
 
     with app.app_context():
-        monkeypatch.setitem(app.config, "SAAS_PLUGIN_ENABLED", False)
+        monkeypatch.setitem(app.config, "SAAS_PLUGIN_ENABLED", False)  # noqa: FBT003
         grant_creator_manual_entitlement(
             app,
             "creator-disabled-plugin",

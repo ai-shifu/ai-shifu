@@ -364,8 +364,8 @@ def verify_phone_code(
                     app,
                     target_aggregate.user_bid,
                     new_profiles,
-                    False,
-                    normalized_course_id,
+                    update_all=False,
+                    course_id=normalized_course_id,
                 )
                 migrate_user_study_record(
                     app,

@@ -38,10 +38,12 @@ class ShifuDto(BaseModel):
     is_favorite: bool = Field(..., description="is favorite", required=False)
     archived: bool = Field(..., description="is archived", required=False)
     can_manage_archive: bool = Field(
-        False, description="whether current user can archive/unarchive", required=False
+        default=False,
+        description="whether current user can archive/unarchive",
+        required=False,
     )
     can_manage_permissions: bool = Field(
-        False,
+        default=False,
         description="whether current user can manage shared permissions",
         required=False,
     )
@@ -49,7 +51,7 @@ class ShifuDto(BaseModel):
         "", description="owner user business id", required=False
     )
     is_guide_course: bool = Field(
-        False,
+        default=False,
         description="whether this course is the built-in guide course",
         required=False,
     )
@@ -117,16 +119,18 @@ class ShifuDetailDto(BaseModel):
     readonly: bool = Field(..., description="is shifu readonly", required=False)
     archived: bool = Field(..., description="is shifu archived", required=False)
     can_manage_archive: bool = Field(
-        False, description="whether current user can archive/unarchive", required=False
+        default=False,
+        description="whether current user can archive/unarchive",
+        required=False,
     )
     can_publish: bool = Field(
-        False, description="whether current user can publish", required=False
+        default=False, description="whether current user can publish", required=False
     )
     created_user_bid: str = Field(
         "", description="owner user business id", required=False
     )
     # TTS Configuration
-    tts_enabled: bool = Field(False, description="TTS enabled", required=False)
+    tts_enabled: bool = Field(default=False, description="TTS enabled", required=False)
     tts_provider: str = Field(
         "",
         description="TTS provider: minimax, volcengine, volcengine_http, baidu, aliyun",
@@ -144,12 +148,12 @@ class ShifuDetailDto(BaseModel):
     )
     tts_emotion: str = Field("", description="TTS emotion setting", required=False)
     default_listen_mode_enabled: bool = Field(
-        False,
+        default=False,
         description="Default learner mode to listen when TTS is enabled",
         required=False,
     )
     use_learner_language: bool = Field(
-        False,
+        default=False,
         description="Use learner language for AI output",
         required=False,
     )

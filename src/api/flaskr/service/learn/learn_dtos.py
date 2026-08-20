@@ -164,9 +164,9 @@ class LearnShifuInfoDTO(BaseModel):
     keywords: list[str] = Field(..., description="shifu keywords", required=False)
     avatar: str = Field(..., description="shifu avatar", required=False)
     price: str = Field(..., description="shifu price", required=False)
-    tts_enabled: bool = Field(False, description="tts enabled", required=False)
+    tts_enabled: bool = Field(default=False, description="tts enabled", required=False)
     default_listen_mode_enabled: bool = Field(
-        False,
+        default=False,
         description="Default learner mode to listen when TTS is enabled",
         required=False,
     )

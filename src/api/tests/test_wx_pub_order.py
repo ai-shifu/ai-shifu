@@ -31,7 +31,7 @@ def test_generate_charge_uses_pingxx_channel(app, monkeypatch):
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, _preview: SimpleNamespace(
+        lambda _app, _bid, preview_mode: SimpleNamespace(
             title="Course", description="Desc"
         ),
     )

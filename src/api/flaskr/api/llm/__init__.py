@@ -358,12 +358,12 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     if not api_key:
         _log_warning(f"{config.api_key_env} not configured")
         return ProviderState(
-            False,
-            None,
-            [],
-            config.prefix,
-            config.wildcard_prefixes,
-            config.reload_params,
+            enabled=False,
+            params=None,
+            models=[],
+            prefix=config.prefix,
+            wildcard_prefixes=config.wildcard_prefixes,
+            reload_params=config.reload_params,
         )
     base_url = None
     if config.base_url_env:
@@ -399,12 +399,12 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     if display_models:
         _log_info(f"{config.key} models: {display_models}")
     return ProviderState(
-        True,
-        params,
-        display_models,
-        config.prefix,
-        config.wildcard_prefixes,
-        config.reload_params,
+        enabled=True,
+        params=params,
+        models=display_models,
+        prefix=config.prefix,
+        wildcard_prefixes=config.wildcard_prefixes,
+        reload_params=config.reload_params,
     )
 
 
@@ -1083,10 +1083,10 @@ def invoke_llm(
                 yield LLMStreamResponse(
                     res.id,
                     bool(res.choices[0].finish_reason),
-                    False,
-                    res.choices[0].delta.content,
-                    res.choices[0].finish_reason,
-                    None,
+                    is_truncated=False,
+                    result=res.choices[0].delta.content,
+                    finish_reason=res.choices[0].finish_reason,
+                    usage=None,
                 )
             res_usage = getattr(res, "usage", None)
             if res_usage:
@@ -1258,10 +1258,10 @@ def chat_llm(
                     yield LLMStreamResponse(
                         res.id,
                         bool(res.choices[0].finish_reason),
-                        False,
-                        res.choices[0].delta.content,
-                        res.choices[0].finish_reason,
-                        None,
+                        is_truncated=False,
+                        result=res.choices[0].delta.content,
+                        finish_reason=res.choices[0].finish_reason,
+                        usage=None,
                     )
                 res_usage = getattr(res, "usage", None)
                 if res_usage:
