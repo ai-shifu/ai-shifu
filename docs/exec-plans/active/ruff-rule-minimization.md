@@ -319,6 +319,11 @@ plan's progress update for that rule.
   skips. Translation checks, collaboration and knowledge generators, repository
   harness, architecture boundaries, development-tool validation, configured
   Ruff and format, and every repository pre-commit hook also pass.
+- [x] 2026-08-21 05:50 CST: Opened ready RUF001 PR
+  [#2593](https://github.com/ai-shifu/ai-shifu/pull/2593) from
+  `sunner/ruff-ruf001` to the EM101 branch after all local gates passed.
+- [ ] Merge or retarget RUF001 PR #2593 after its predecessors without
+  combining it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
