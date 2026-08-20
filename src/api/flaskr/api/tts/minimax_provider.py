@@ -406,8 +406,11 @@ class MinimaxTTSProvider(BaseTTSProvider):
         usage_characters = int(extra_info.get("usage_characters") or 0)
 
         logger.info(
-            f"Minimax TTS synthesis completed: duration={duration_ms}ms, "
-            f"size={len(audio_data)} bytes, usage_characters={usage_characters}, extra_info={extra_info}"
+            "Minimax TTS synthesis completed: duration=%sms, size=%s bytes, usage_characters=%s, extra_info=%s",
+            duration_ms,
+            len(audio_data),
+            usage_characters,
+            extra_info,
         )
 
         return TTSResult(
@@ -596,7 +599,9 @@ class MinimaxTTSProvider(BaseTTSProvider):
         }
 
         logger.debug(
-            f"Calling Minimax TTS API with model={tts_model}, text_length={len(text)}"
+            "Calling Minimax TTS API with model=%s, text_length=%s",
+            tts_model,
+            len(text),
         )
 
         response = requests.post(
@@ -611,7 +616,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
         status_code = base_resp.get("status_code", 0)
         if status_code != 0:
             status_msg = base_resp.get("status_msg", "Unknown error")
-            logger.error(f"Minimax TTS API error: {status_code} - {status_msg}")
+            logger.error("Minimax TTS API error: %s - %s", status_code, status_msg)
             # 2054 means the requested voice id does not exist on MiniMax (a stale
             # or foreign clone id that passed local shape validation). Surface it
             # as an actionable message instead of a generic API error.

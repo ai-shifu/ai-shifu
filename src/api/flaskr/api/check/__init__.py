@@ -27,7 +27,7 @@ def check_text(app: Flask, data_id: str, text: str, user_id: str):
         return ilivedata_check(app, data_id, text, user_id)
     if check_provider == "yidun":
         return yidun_check(app, data_id, text, user_id)
-    app.logger.warning(f"check_provider {check_provider} not supported")
+    app.logger.warning("check_provider %s not supported", check_provider)
     return CheckResultDTO(
         check_result=CHECK_RESULT_UNKNOWN,
         risk_labels=[],

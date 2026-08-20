@@ -157,7 +157,7 @@ def get_fmt_prompt(
         prompt = profile_tmplate or user_input
     else:
         prompt = safe_format_template(profile_tmplate, fmt_keys)
-    app.logger.info(f"fomat input:{prompt}")
+    app.logger.info("fomat input:%s", prompt)
     return prompt
 
 

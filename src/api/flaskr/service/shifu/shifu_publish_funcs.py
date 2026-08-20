@@ -250,7 +250,9 @@ def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None)
             )
         else:
             app.logger.exception(
-                f"Failed to generate shifu summary for {shifu_id}: {message}",
+                "Failed to generate shifu summary for %s: %s",
+                shifu_id,
+                message,
             )
 
 
@@ -267,7 +269,7 @@ def get_shifu_summary(app, shifu_id: str):
             .first()
         )
         if not shifu:
-            app.logger.error(f"get_shifu_summary shifu_id: {shifu_id} not found")
+            app.logger.error("get_shifu_summary shifu_id: %s not found", shifu_id)
             return
 
         # Get the prompt word template
@@ -378,7 +380,8 @@ def _generate_summaries(
             now_lesson_script_prompts = ""
             if outline_item and bool(outline_item.content):
                 app.logger.info(
-                    f"outline_item: {outline_item.outline_item_bid} has mdflow content,make summary from mdflow"
+                    "outline_item: %s has mdflow content,make summary from mdflow",
+                    outline_item.outline_item_bid,
                 )
                 mdflow = MarkdownFlow(outline_item.content).set_output_language(
                     get_markdownflow_output_language()

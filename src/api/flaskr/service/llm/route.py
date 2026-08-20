@@ -6,7 +6,7 @@ from flaskr.route.common import make_common_response
 
 @inject
 def register_llm_routes(app: Flask, path_prefix="/api/llm"):
-    app.logger.info(f"register llm routes {path_prefix}")
+    app.logger.info("register llm routes %s", path_prefix)
 
     @app.route(path_prefix + "/model-list", methods=["GET"])
     def model_list_api():
