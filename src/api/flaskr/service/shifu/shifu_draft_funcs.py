@@ -38,7 +38,7 @@ from flaskr.service.learn.ask_provider_adapters.consts import (  # noqa: F401
 )
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.util import generate_id
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 
 from .consts import (
     ASK_MODE_DEFAULT,
@@ -756,12 +756,12 @@ def get_shifu_draft_list(
 
         def resolve_updated_at(draft: DraftShifu) -> datetime:
             activity = activity_map.get(str(draft.shifu_bid or "").strip(), {})
-            return activity.get("updated_at") or draft.updated_at or datetime.min
+            return activity.get("updated_at") or draft.updated_at or NAIVE_DATETIME_MIN
 
         shifu_drafts.sort(
             key=lambda draft: (
                 resolve_updated_at(draft),
-                draft.updated_at or datetime.min,
+                draft.updated_at or NAIVE_DATETIME_MIN,
                 int(draft.id or 0),
             ),
             reverse=True,
