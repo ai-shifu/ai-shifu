@@ -1651,7 +1651,7 @@ class FakeSession:
 
 class FakeFunc:
     @staticmethod
-    def max(column: FakeColumn):
+    def max(column: FakeColumn) -> FakeMaxExpression:
         return FakeMaxExpression(column)
 
 

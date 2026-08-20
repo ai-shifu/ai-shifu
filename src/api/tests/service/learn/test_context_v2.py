@@ -1819,11 +1819,11 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 _ = args, kwargs
 
             @staticmethod
-            def normalize_context_messages(_value):
+            def normalize_context_messages(_value) -> None:
                 return None
 
             @staticmethod
-            def filter_context_by_output_language(context, _output_language):
+            def filter_context_by_output_language(context, _output_language) -> object:
                 return context
 
             def get_block(self, _block_index):
