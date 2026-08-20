@@ -88,6 +88,17 @@ plan's progress update for that rule.
   pre-commit hooks pass.
 - [ ] Merge or retarget PLW0603 PR #2579 after its predecessors without
   combining it with the next rule unit.
+- [x] 2026-08-20 23:42 CST: Opened ready G004 PR
+  [#2580](https://github.com/ai-shifu/ai-shifu/pull/2580) from
+  `sunner/ruff-g004` to the PLW0603 branch. All 195 findings across 44 backend
+  files now use parameterized logging, with no G004 suppression. An AST audit
+  proved that the conversion made no other production-code changes; 25 focused
+  tests and the full backend suite pass 3,009 tests with 17 skips, and all
+  repository pre-commit hooks pass.
+- [x] 2026-08-20 23:42 CST: Re-ran the stable `ALL` census on the G004 tip. It
+  reports 31,058 findings and no G004 findings.
+- [ ] Merge or retarget G004 PR #2580 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -120,6 +131,11 @@ plan's progress update for that rule.
   permanently replaced `dao.init_redis` during collection. Fixture-scoped
   injection now owns that test double, so collecting an unrelated test can no
   longer alter the production DAO module for the rest of the process.
+- G004's full-suite verification exposed a config fallback test that treated a
+  mocked logger's first positional argument as the final rendered message. The
+  test now verifies the constant message template and interpolation argument,
+  so it protects the parameterized logging contract instead of requiring eager
+  formatting.
 - FIX002 and TD003 report the same two TODOs. One is a real password-login
   rate-limit feature and one is a compatibility-removal checkpoint. Renaming
   them to evade lint would hide work, and implementing either is larger than a
@@ -204,6 +220,15 @@ for app, config, Redis, plugins, Celery, Langfuse, analytics, Ping++, and TTS;
 verification codes read the current app instead of cross-app caches. Focused
 lifecycle suites and the full backend suite pass 3,008 tests with 17 skips, and
 the repository-wide pre-commit gate passes.
+
+The G004 stage removes the global f-string logging ignore and converts all 195
+findings across 44 backend files to positional logging interpolation. Message
+text, argument order, conversions, levels, literal percent signs, and the one
+`.1f` format are preserved; an AST equivalence audit found no other production
+code changes. Exact config-warning and migration-progress log tests pass in the
+25-test focused set, the full backend suite passes 3,009 tests with 17 skips,
+and the repository-wide pre-commit gate passes. The engineering baseline now
+tells future agents to parameterize logging rather than hiding eager f-strings.
 
 ## Context and Orientation
 
