@@ -441,8 +441,7 @@ def cleanup_session_after(
 
 
 def release_session_classified(*, source: str) -> None:
-    """Remove the scoped session, discarding the connection first when a
-    stream-interrupting exception is propagating.
+    """Remove the scoped session, discarding the connection first when a stream-interrupting exception is propagating.
 
     Designed for ``finally`` blocks: ``sys.exc_info()`` still sees the
     in-flight exception there - including BaseExceptions like GreenletExit
@@ -463,12 +462,13 @@ def release_session_classified(*, source: str) -> None:
 
 
 def _rollback_quietly() -> bool:
-    """Roll back the current session after a failed transaction. An OperationalError
-    leaves the session in a broken state, so this must run on every catch -
-    including non-retryable errors and the final attempt - otherwise later
-    operations in the same context raise InvalidRequestError. A rollback
-    failure means the connection itself is broken: escalate to invalidate and
-    report failure so the caller stops retrying on it.
+    """Roll back the current session after a failed transaction.
+
+    An OperationalError leaves the session in a broken state, so this must run on every
+    catch - including non-retryable errors and the final attempt - otherwise later
+    operations in the same context raise InvalidRequestError. A rollback failure means the
+    connection itself is broken: escalate to invalidate and report failure so the caller
+    stops retrying on it.
     """
     if db is None:
         return True
@@ -494,13 +494,13 @@ def _rollback_quietly() -> bool:
 
 
 def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
-    """Retry a transactional function when MySQL reports a deadlock (1213) or a
-    lock wait timeout (1205). The failed transaction is rolled back on every
-    caught error so the session is left clean; retryable errors are retried with
-    exponential backoff plus jitter, while non-retryable errors and the final
-    attempt propagate unchanged. Protocol-interrupt errors (2013/2014) mean the
-    connection's response stream is desynced: the session is invalidated and
-    the error propagates immediately - neither rollback nor retry is safe on
+    """Retry a transactional function when MySQL reports a deadlock (1213) or a lock wait timeout (1205).
+
+    The failed transaction is rolled back on every caught error so the session is left
+    clean; retryable errors are retried with exponential backoff plus jitter, while
+    non-retryable errors and the final attempt propagate unchanged. Protocol-interrupt
+    errors (2013/2014) mean the connection's response stream is desynced: the session is
+    invalidated and the error propagates immediately - neither rollback nor retry is safe on
     that connection.
     """
 

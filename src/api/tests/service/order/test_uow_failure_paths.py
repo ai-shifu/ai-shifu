@@ -264,10 +264,7 @@ def test_success_buy_record_commits_alone_but_joins_outer_unit_of_work(
     monkeypatch: pytest.MonkeyPatch,
     stub_shifu,
 ):
-    """The key migration property: self-committing at top level, joining when
-    nested — legacy callers (coupon_funcs, admin) and migrated owners both
-    stay correct.
-    """
+    """The key migration property: self-committing at top level, joining when nested — legacy callers (coupon_funcs, admin) and migrated owners both stay correct."""
     monkeypatch.setattr(order_funs, "set_user_state", lambda *_a, **_k: None)
     feishu_calls = []
     monkeypatch.setattr(

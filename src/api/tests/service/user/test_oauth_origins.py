@@ -185,8 +185,7 @@ class TestResolveStateReturnOrigin:
 
 
 class TestInitiatorPairing:
-    """The return origin comes from forgeable headers, so it is only honored
-    together with the session that started the flow.
+    """The return origin comes from forgeable headers, so it is only honored together with the session that started the flow.
 
     Without this, an attacker who owns a verified custom domain could start a
     login with a forged Origin naming their own domain, get a victim to
