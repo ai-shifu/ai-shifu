@@ -318,7 +318,8 @@ class RUNLLMProvider(LLMProvider):
     ) -> str:
         # Extract the last message content as the main prompt
         if not messages:
-            raise ValueError("No messages provided")
+            message = "No messages provided"
+            raise ValueError(message)
         # Use provided model/temperature or fall back to settings
         actual_model = model or self.llm_settings.model
         actual_temperature = (
@@ -365,7 +366,8 @@ class RUNLLMProvider(LLMProvider):
     ) -> Generator[str, None, None]:
         # Extract the last message content as the main prompt
         if not messages:
-            raise ValueError("No messages provided")
+            message = "No messages provided"
+            raise ValueError(message)
 
         # Use provided model/temperature or fall back to settings
         actual_model = model or self.llm_settings.model
@@ -838,7 +840,8 @@ class RunScriptPreviewContextV2:
             outline.content if outline else ""
         )
         if not document:
-            raise ValueError("Markdown-Flow content is empty")
+            message = "Markdown-Flow content is empty"
+            raise ValueError(message)
 
         chapter_title = getattr(outline, "title", "") or outline_bid
         trace_scene = "lesson_preview"
@@ -1454,7 +1457,8 @@ class RunScriptPreviewContextV2:
                 model = allowed_available_models[0]
                 model_source = "allowlist"
             else:
-                raise ValueError("No allowed LLM models are available")
+                message = "No allowed LLM models are available"
+                raise ValueError(message)
 
         temperature = next(
             (t for t in temperature_candidates if t is not None),
@@ -1462,7 +1466,8 @@ class RunScriptPreviewContextV2:
         )
 
         if not model:
-            raise ValueError("LLM model is not configured")
+            message = "LLM model is not configured"
+            raise ValueError(message)
 
         self.app.logger.info(
             "preview resolved llm settings | model=%s | temperature=%s | source=%s",

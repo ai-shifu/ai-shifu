@@ -366,15 +366,20 @@ cannot express exactly, pre-format only that field with `format(value, "spec")`
 and keep the rest of the message parameterized. Do not hide an f-string in a
 temporary variable merely to silence the rule.
 
-For `EM102`, assign a contextual f-string to a collision-free local immediately
-before raising it, normally `message` or `error_message`, and pass that local as
-the same constructor argument. Preserve the exception type, exact f-string,
-remaining positional and keyword arguments, and any explicit `raise ... from`
-cause. Do not evade the rule by concatenating strings, changing formatting, or
-dropping useful values from the error. Before introducing the local, check the
-whole function for that name so a new binding cannot shadow an existing local,
-free variable, or global lookup. For bulk changes, prove the rewrite is
-structurally reversible and run tests that exercise the affected error paths.
+For the Ruff `EM` family (`EM101`-`EM103`), assign a direct string literal,
+contextual f-string, or `.format()` expression to a collision-free local
+immediately before raising it, then pass that local as the same constructor
+argument. Prefer `message`; use `error_message` or `exception_message` when the
+whole function already uses that name. Preserve the exception type, exact
+message expression, remaining positional and keyword arguments, and any
+explicit `raise ... from` cause. Do not evade the rule by concatenating strings,
+changing formatting, or dropping useful values from the error. Scan the whole
+function, including nested scopes, before introducing the local so a new binding
+cannot shadow an existing local, free variable, or global lookup. For bulk
+changes, prove the rewrite is structurally reversible and run tests that exercise
+the affected error paths. A `pytest.raises` body must remain one simple statement:
+bind its fixed message immediately before the context-manager block and keep only
+the `raise` inside.
 
 For `D205`, put the complete summary on the first physical docstring line,
 then use exactly one blank line before details, sections, or embedded protocol

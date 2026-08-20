@@ -131,8 +131,9 @@ class StripeCatalogReadAdapter:
         normalized_product_id = normalize_bid(provider_product_id)
         normalized_price_id = normalize_bid(provider_price_id)
         if not normalized_product_id or not normalized_price_id:
+            message = "stripe_catalog_reference_missing"
             raise ProviderCatalogReadError(
-                "stripe_catalog_reference_missing",
+                message,
                 "Stripe product and price identifiers are required",
             )
 
@@ -145,8 +146,9 @@ class StripeCatalogReadAdapter:
                 stripe.Price.retrieve(normalized_price_id, **request_options)
             )
         except Exception as exc:
+            message = "stripe_catalog_retrieve_failed"
             raise ProviderCatalogReadError(
-                "stripe_catalog_retrieve_failed",
+                message,
                 _build_safe_stripe_error_message(exc),
             ) from None
 

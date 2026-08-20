@@ -83,7 +83,8 @@ def test_send_notify_returns_none_for_request_error(monkeypatch):
     )
 
     def _raise(*args, **kwargs):
-        raise requests.RequestException("network down")
+        message = "network down"
+        raise requests.RequestException(message)
 
     monkeypatch.setattr(feishu.requests, "post", _raise)
 

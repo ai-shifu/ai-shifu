@@ -139,10 +139,11 @@ class GetBijiKnowledgeAskProviderAdapter:
         client_id = _normalize_text(config.get("client_id"))
         topic_id = _normalize_text(config.get("topic_id"))
         if not api_key or not client_id or not topic_id:
-            raise AskProviderConfigError(
+            error_message = (
                 "get_biji_knowledge api_key/client_id/topic_id are required "
                 "in ask_provider_config.config"
             )
+            raise AskProviderConfigError(error_message)
 
         payload = {
             "topic_id": topic_id,
@@ -163,7 +164,8 @@ class GetBijiKnowledgeAskProviderAdapter:
                 timeout=(5, provider_timeout_seconds()),
             )
         except requests.Timeout as exc:
-            raise AskProviderTimeoutError("get_biji_knowledge request timeout") from exc
+            error_message = "get_biji_knowledge request timeout"
+            raise AskProviderTimeoutError(error_message) from exc
         except requests.RequestException as exc:
             message = f"get_biji_knowledge request failed: {exc}"
             raise AskProviderError(message) from exc
@@ -178,7 +180,8 @@ class GetBijiKnowledgeAskProviderAdapter:
         _raise_for_api_error(payload_data)
         raise_for_provider_response(response, self.provider)
         if payload_data is None:
-            raise AskProviderError("get_biji_knowledge response is not valid json")
+            error_message = "get_biji_knowledge response is not valid json"
+            raise AskProviderError(error_message)
         results = _extract_results(payload_data)
         formatted_results = [
             formatted

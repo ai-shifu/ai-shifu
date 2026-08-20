@@ -171,7 +171,8 @@ def test_grant_manual_credit_wallet_balance_returns_noop_existing_after_integrit
             dao.db.session.rollback()
             dao.db.session.add(existing)
             original_commit()
-            raise IntegrityError("duplicate", {}, Exception("duplicate"))
+            message = "duplicate"
+            raise IntegrityError(message, {}, Exception("duplicate"))
         return original_commit()
 
     monkeypatch.setattr(dao.db.session, "commit", _commit_once_with_duplicate)

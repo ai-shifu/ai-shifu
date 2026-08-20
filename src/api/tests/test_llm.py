@@ -27,7 +27,8 @@ def _install_litellm_stub() -> None:
 
     def get_model_info(*args, **kwargs):
         _ = args, kwargs
-        raise ValueError("unknown model")
+        message = "unknown model"
+        raise ValueError(message)
 
     litellm_stub.register_model = register_model
     litellm_stub.get_max_tokens = lambda _model: 4096
@@ -417,7 +418,8 @@ def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(monkeypatch
     _configure_model_list(monkeypatch)
 
     def raise_lookup(_app):
-        raise RuntimeError("db unavailable")
+        message = "db unavailable"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(llm, "_load_llm_output_rate_rows", raise_lookup)
 
@@ -471,7 +473,8 @@ def test_deepseek_model_loader_lists_models(monkeypatch):
 def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch):
     def fake_get(*args, **kwargs):
         _ = args, kwargs
-        raise RuntimeError("network unavailable")
+        message = "network unavailable"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(llm.requests, "get", fake_get)
     config = llm.ProviderConfig(
@@ -660,7 +663,8 @@ def test_stream_litellm_completion_omits_unknown_limit(monkeypatch, app):
     captured = {}
 
     def raise_unknown(_model):
-        raise ValueError("unknown model")
+        message = "unknown model"
+        raise ValueError(message)
 
     monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
     monkeypatch.setattr(llm.litellm, "get_max_tokens", raise_unknown)
@@ -777,7 +781,8 @@ def test_openai_params_use_litellm_reasoning_capabilities(
 def test_openai_params_fall_back_to_existing_policy_for_unknown_model(monkeypatch):
     def raise_unknown(*args, **kwargs):
         _ = args, kwargs
-        raise ValueError("unknown model")
+        message = "unknown model"
+        raise ValueError(message)
 
     monkeypatch.setattr(llm.litellm, "get_model_info", raise_unknown)
 
@@ -1367,7 +1372,8 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(monkeypatch, ap
 
     def fake_completion(*args, **kwargs):
         yield FakeResponse("chunk-1", content="你好")
-        raise RepeatedChunkError("The model is repeating the same chunk = ！ ！ .")
+        message = "The model is repeating the same chunk = ！ ！ ."
+        raise RepeatedChunkError(message)
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
     monkeypatch.setattr(llm, "record_llm_usage", lambda *args, **kwargs: None)

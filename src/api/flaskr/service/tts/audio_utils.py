@@ -88,13 +88,15 @@ def concat_audio_mp3(
 
     """
     if not PYDUB_AVAILABLE:
-        raise ImportError(
+        error_message = (
             "pydub is required for audio concatenation. "
             "Install it with: pip install pydub"
         )
+        raise ImportError(error_message)
 
     if not segments:
-        raise ValueError("No audio segments to concatenate")
+        error_message = "No audio segments to concatenate"
+        raise ValueError(error_message)
 
     if len(segments) == 1:
         return segments[0]
@@ -132,7 +134,8 @@ def concat_audio_mp3(
             )
 
     if combined is None:
-        raise ValueError("Failed to concatenate audio segments")
+        error_message = "Failed to concatenate audio segments"
+        raise ValueError(error_message)
 
     if failed_segments:
         failed_segment_list = ", ".join(str(index) for index in failed_segments)

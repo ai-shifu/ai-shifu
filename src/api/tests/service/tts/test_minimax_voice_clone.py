@@ -315,7 +315,8 @@ def test_run_minimax_voice_clone_success_captures_credit_once(
             return SimpleNamespace(file_id="file-source")
 
         def upload_prompt_audio(self, audio_bytes, filename, content_type):
-            raise AssertionError("prompt upload should not be called")
+            message = "prompt upload should not be called"
+            raise AssertionError(message)
 
         def clone_voice(self, **kwargs):
             assert kwargs["file_id"] == "file-source"
@@ -433,7 +434,8 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
             return SimpleNamespace(file_id="file-source")
 
         def upload_prompt_audio(self, audio_bytes, filename, content_type):
-            raise AssertionError("prompt upload should not be called")
+            message = "prompt upload should not be called"
+            raise AssertionError(message)
 
         def clone_voice(self, **kwargs):
             return SimpleNamespace(
@@ -599,7 +601,8 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
             return SimpleNamespace(file_id="file-source")
 
         def upload_prompt_audio(self, audio_bytes, filename, content_type):
-            raise AssertionError("prompt upload should not be called")
+            message = "prompt upload should not be called"
+            raise AssertionError(message)
 
         def clone_voice(self, **kwargs):
             return SimpleNamespace(

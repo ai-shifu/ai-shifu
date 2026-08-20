@@ -69,7 +69,8 @@ class AlipayProvider(PaymentProvider):
 
         qr_code = str(response_payload.get("qr_code") or "")
         if not qr_code:
-            raise RuntimeError("Alipay precreate response missing qr_code")
+            error_message = "Alipay precreate response missing qr_code"
+            raise RuntimeError(error_message)
 
         provider_payload = {
             "request": {
@@ -103,7 +104,8 @@ class AlipayProvider(PaymentProvider):
         del headers
         payload = _parse_form_payload(raw_body)
         if not self._verify_notification_signature(payload, app):
-            raise RuntimeError("Alipay notify signature verification failed")
+            message = "Alipay notify signature verification failed"
+            raise RuntimeError(message)
         return self._notification_from_payload(payload)
 
     def handle_notification(
@@ -117,7 +119,8 @@ class AlipayProvider(PaymentProvider):
                 app=app,
             )
         if not self._verify_notification_signature(normalized_payload, app):
-            raise RuntimeError("Alipay notify signature verification failed")
+            message = "Alipay notify signature verification failed"
+            raise RuntimeError(message)
         return self._notification_from_payload(normalized_payload)
 
     def sync_reference(
@@ -149,13 +152,15 @@ class AlipayProvider(PaymentProvider):
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
         del request, app
-        raise RuntimeError("Alipay refunds are not supported")
+        message = "Alipay refunds are not supported"
+        raise RuntimeError(message)
 
     def _ensure_client(self, app: Flask) -> Any:
         sdk = self._load_sdk(app)
         app_id = str(get_config("ALIPAY_APP_ID", "") or "").strip()
         if not app_id:
-            raise RuntimeError("ALIPAY_APP_ID must be configured for Alipay")
+            message = "ALIPAY_APP_ID must be configured for Alipay"
+            raise RuntimeError(message)
         private_key = _read_required_key(
             "ALIPAY_APP_PRIVATE_KEY_PATH", "ALIPAY_APP_PRIVATE_KEY"
         )
@@ -194,7 +199,8 @@ class AlipayProvider(PaymentProvider):
             )
         except Exception as exc:  # pragma: no cover - depends on runtime package
             app.logger.exception("Alipay SDK is not available")
-            raise RuntimeError("alipay-sdk-python is required for Alipay") from exc
+            message = "alipay-sdk-python is required for Alipay"
+            raise RuntimeError(message) from exc
 
         return {
             "AlipayClientConfig": AlipayClientConfig,
@@ -218,7 +224,8 @@ class AlipayProvider(PaymentProvider):
             )
         except Exception as exc:  # pragma: no cover - depends on runtime package
             app.logger.exception("Alipay signature utility is not available")
-            raise RuntimeError("Alipay signature utility is required") from exc
+            message = "Alipay signature utility is required"
+            raise RuntimeError(message) from exc
 
         public_key = _read_required_key("ALIPAY_PUBLIC_KEY_PATH", "ALIPAY_PUBLIC_KEY")
         sign = str(payload.get("sign") or "")
@@ -274,7 +281,8 @@ def _parse_alipay_response(raw_response: Any, response_key: str) -> dict[str, An
         raw_response = json.loads(raw_response)
     if not isinstance(raw_response, dict):
         # RuntimeError is this provider's uniform failure type.
-        raise RuntimeError("Invalid Alipay response")  # noqa: TRY004
+        message = "Invalid Alipay response"
+        raise RuntimeError(message)  # noqa: TRY004
     nested = raw_response.get(response_key)
     if isinstance(nested, dict):
         return nested

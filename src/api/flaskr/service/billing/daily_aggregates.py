@@ -640,7 +640,8 @@ def _resolve_stat_date_range(
     start_date = parse_naive_utc(start_value, "%Y-%m-%d")
     end_date = parse_naive_utc(end_value, "%Y-%m-%d")
     if end_date < start_date:
-        raise ValueError("date_to must be greater than or equal to date_from")
+        message = "date_to must be greater than or equal to date_from"
+        raise ValueError(message)
     return start_date, end_date
 
 

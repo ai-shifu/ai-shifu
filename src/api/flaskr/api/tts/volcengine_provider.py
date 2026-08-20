@@ -444,12 +444,12 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         """
         if not WEBSOCKET_AVAILABLE:
-            raise ValueError(
-                "websocket-client package is not installed. Install with: pip install websocket-client"
-            )
+            exception_message = "websocket-client package is not installed. Install with: pip install websocket-client"
+            raise ValueError(exception_message)
 
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            exception_message = "Text cannot be empty"
+            raise ValueError(exception_message)
 
         if not voice_settings:
             voice_settings = self.get_default_voice_settings()
@@ -477,10 +477,11 @@ class VolcengineTTSProvider(BaseTTSProvider):
         model_version = ""
 
         if not app_key or not access_key or not resource_id:
-            raise ValueError(
+            exception_message = (
                 "Volcengine TTS credentials are not configured. "
                 "Set VOLCENGINE_TTS_APP_KEY and VOLCENGINE_TTS_ACCESS_KEY."
             )
+            raise ValueError(exception_message)
 
         # Generate unique IDs
         connect_id = str(uuid.uuid4())
@@ -628,7 +629,8 @@ class VolcengineTTSProvider(BaseTTSProvider):
         try:
             # Wait for connection to be established
             if not connection_established.wait(timeout=10):
-                raise ValueError("Timeout waiting for connection")
+                exception_message = "Timeout waiting for connection"
+                raise ValueError(exception_message)
 
             if error_message:
                 raise ValueError(error_message)
@@ -655,7 +657,8 @@ class VolcengineTTSProvider(BaseTTSProvider):
             if not session_started.wait(timeout=10):
                 if error_message:
                     raise ValueError(error_message)
-                raise ValueError("Timeout waiting for TTS session to start")
+                exception_message = "Timeout waiting for TTS session to start"
+                raise ValueError(exception_message)
 
             if error_message:
                 raise ValueError(error_message)
@@ -672,7 +675,8 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
             # Wait for session to finish
             if not session_finished.wait(timeout=60):
-                raise ValueError("Timeout waiting for TTS synthesis")
+                exception_message = "Timeout waiting for TTS synthesis"
+                raise ValueError(exception_message)
 
             if error_message:
                 raise ValueError(error_message)
@@ -696,7 +700,8 @@ class VolcengineTTSProvider(BaseTTSProvider):
                 session_id,
                 connect_id,
             )
-            raise ValueError("No audio data received")
+            exception_message = "No audio data received"
+            raise ValueError(exception_message)
 
         # Combine audio chunks
         audio_data = b"".join(audio_chunks)

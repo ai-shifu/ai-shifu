@@ -184,9 +184,8 @@ def _reject_desynced_connection_on_checkout(
         )
         # DisconnectionError makes the pool discard this connection and
         # transparently retry the checkout with another one.
-        raise DisconnectionError(
-            "pooled connection has unread protocol data (desynced stream)"
-        )
+        message = "pooled connection has unread protocol data (desynced stream)"
+        raise DisconnectionError(message)
     # Protected liveness ping, replacing pool_pre_ping. The stock pre_ping
     # path is the one wire operation with NO BaseException protection: a
     # GreenletExit landing in COM_PING's recv escapes every layer, leaks the
@@ -208,9 +207,8 @@ def _reject_desynced_connection_on_checkout(
         )
         if isinstance(ping_exc, Exception):
             # Dead connection: let the pool retry with a fresh one.
-            raise DisconnectionError(
-                "pooled connection failed the checkout liveness ping"
-            ) from ping_exc
+            message = "pooled connection failed the checkout liveness ping"
+            raise DisconnectionError(message) from ping_exc
         # GreenletExit and friends propagate; the record is already
         # invalidated so nothing dirty can reach the pool.
         raise
@@ -281,10 +279,11 @@ def _intercept_desync_before_execute(
         )
         with contextlib.suppress(Exception):
             conn.invalidate()
-        raise DisconnectionError(
+        message = (
             "connection has an unread response from a previous statement "
             "(interrupted exchange); refusing to execute on a desynced stream"
         )
+        raise DisconnectionError(message)
 
 
 @event.listens_for(Engine, "after_cursor_execute")

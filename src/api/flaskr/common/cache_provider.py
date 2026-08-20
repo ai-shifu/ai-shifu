@@ -72,11 +72,13 @@ class _DynamicRedisCacheProvider:
         try:
             from flaskr.dao import get_redis_client
         except Exception as exc:  # pragma: no cover - defensive
-            raise CacheUnavailableError("Redis client import failed") from exc
+            message = "Redis client import failed"
+            raise CacheUnavailableError(message) from exc
 
         redis_client = get_redis_client()
         if redis_client is None:
-            raise CacheUnavailableError("Redis is not configured")
+            message = "Redis is not configured"
+            raise CacheUnavailableError(message)
         return redis_client
 
     def get(self, key: str):

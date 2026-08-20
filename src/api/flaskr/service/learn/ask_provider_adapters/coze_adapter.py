@@ -47,9 +47,8 @@ class CozeAskProviderAdapter:
         base_url = str(config.get("base_url") or DEFAULT_COZE_BASE_URL).strip()
         api_key = str(config.get("api_key") or "").strip()
         if not api_key:
-            raise AskProviderConfigError(
-                "coze api_key is required in ask_provider_config.config"
-            )
+            exception_message = "coze api_key is required in ask_provider_config.config"
+            raise AskProviderConfigError(exception_message)
 
         bot_id = str(config.get("bot_id") or "").strip()
         api_path = str(config.get("api_path") or "/v3/chat").strip() or "/v3/chat"
@@ -60,7 +59,8 @@ class CozeAskProviderAdapter:
         )
 
         if api_path == "/v3/chat" and not bot_id:
-            raise AskProviderConfigError("coze bot_id is required")
+            exception_message = "coze bot_id is required"
+            raise AskProviderConfigError(exception_message)
 
         payload: dict[str, Any] = {
             "stream": True,
@@ -72,9 +72,8 @@ class CozeAskProviderAdapter:
                     "content_type": "text",
                 }
             ],
+            **({"bot_id": bot_id} if bot_id else {}),
         }
-        if bot_id:
-            payload["bot_id"] = bot_id
 
         conversation_id = str(config.get("conversation_id") or "").strip()
         if conversation_id:
@@ -98,7 +97,8 @@ class CozeAskProviderAdapter:
                 timeout=(5, provider_timeout_seconds()),
             )
         except requests.Timeout as exc:
-            raise AskProviderTimeoutError("coze request timeout") from exc
+            exception_message = "coze request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
         except requests.RequestException as exc:
             message = f"coze request failed: {exc}"
             raise AskProviderError(message) from exc

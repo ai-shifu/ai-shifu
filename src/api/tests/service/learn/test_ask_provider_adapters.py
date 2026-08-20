@@ -115,7 +115,8 @@ def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
     )
 
     def _raise_timeout(*_args, **_kwargs):
-        raise requests.Timeout("timeout")
+        message = "timeout"
+        raise requests.Timeout(message)
 
     monkeypatch.setattr(coze_adapter.requests, "post", _raise_timeout)
 
@@ -359,6 +360,7 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
 
     def _fake_post(url, **kwargs):
         request_state["url"] = url
+        request_state["json"] = kwargs["json"]
         return _FakeResponse(
             lines=[
                 'data: {"event":"message","content":"ok"}',
@@ -384,6 +386,7 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
     )
 
     assert request_state["url"] == "https://api.coze.cn/v3/chat"
+    assert request_state["json"]["bot_id"] == "bot-1"
     assert [chunk.content for chunk in chunks] == ["ok"]
 
 
@@ -748,7 +751,8 @@ def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(app, monkeypatc
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     def _raise_timeout(*_args, **_kwargs):
-        raise requests.Timeout("timeout")
+        message = "timeout"
+        raise requests.Timeout(message)
 
     monkeypatch.setattr(get_biji_knowledge_adapter.requests, "post", _raise_timeout)
 

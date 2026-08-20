@@ -29,7 +29,8 @@ class LlmAskProviderAdapter:
     ) -> Generator[AskProviderChunk, None, None]:
         _ = (app, user_id, user_query, messages, provider_config)
         if runtime is None or runtime.llm_stream_factory is None:
-            raise AskProviderConfigError("llm runtime is not configured")
+            message = "llm runtime is not configured"
+            raise AskProviderConfigError(message)
 
         for chunk in runtime.llm_stream_factory():
             current_content = getattr(chunk, "result", None)

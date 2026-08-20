@@ -60,7 +60,8 @@ class EmailAuthProvider(AuthProvider):
 
         aggregate = load_user_aggregate(user_token.userInfo.user_id)
         if not aggregate:
-            raise RuntimeError("User aggregate missing after email verification")
+            message = "User aggregate missing after email verification"
+            raise RuntimeError(message)
 
         credential = find_credential(
             provider_name="email",

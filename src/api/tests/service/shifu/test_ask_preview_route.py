@@ -163,7 +163,8 @@ def test_ask_preview_route_fallbacks_to_llm(monkeypatch, test_client):
         _ = args
         provider = kwargs.get("provider", "")
         if provider == "dify":
-            raise AskProviderError("provider failed")
+            message = "provider failed"
+            raise AskProviderError(message)
         assert provider == "llm"
         yield SimpleNamespace(content="llm fallback")
 
@@ -368,9 +369,12 @@ def test_ask_preview_route_surfaces_friendly_provider_error(monkeypatch, test_cl
 
     def fake_stream_ask_provider_response(*args, **kwargs):
         _ = (args, kwargs)
-        raise AskProviderError(
+        message = (
             "get_biji_knowledge request failed: 401 Client Error for url: "
-            "https://openapi.biji.com/... | {raw json body}",
+            "https://openapi.biji.com/... | {raw json body}"
+        )
+        raise AskProviderError(
+            message,
             user_message="Knowledge base authentication failed.",
         )
         yield  # pragma: no cover
@@ -413,7 +417,8 @@ def test_ask_preview_route_falls_back_to_generic_provider_error(
 
     def fake_stream_ask_provider_response(*args, **kwargs):
         _ = (args, kwargs)
-        raise AskProviderError("dify request failed: 500 | {raw body}")
+        message = "dify request failed: 500 | {raw body}"
+        raise AskProviderError(message)
         yield  # pragma: no cover
 
     monkeypatch.setattr(

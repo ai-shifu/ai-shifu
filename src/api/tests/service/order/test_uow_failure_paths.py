@@ -102,7 +102,8 @@ def _fail_after_pricing_sync(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def failing_sync(*args, **kwargs):
         real_sync(*args, **kwargs)
-        raise RuntimeError("boom after pricing sync")
+        message = "boom after pricing sync"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(order_funs, "_sync_order_campaign_pricing", failing_sync)
 
@@ -281,7 +282,8 @@ def test_success_buy_record_commits_alone_but_joins_outer_unit_of_work(
         with uow.unit_of_work():
             success_buy_record(order_app, order_bid)
             assert feishu_calls == []  # not yet durable, must not notify
-            raise RuntimeError("outer boom")
+            message = "outer boom"
+            raise RuntimeError(message)
 
     with pytest.raises(RuntimeError, match="outer boom"):
         flip_then_fail()

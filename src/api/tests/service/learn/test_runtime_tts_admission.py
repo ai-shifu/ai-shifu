@@ -21,7 +21,8 @@ def _install_litellm_stub() -> None:
 
     def get_model_info(*args, **kwargs):
         _ = args, kwargs
-        raise ValueError("unknown model")
+        message = "unknown model"
+        raise ValueError(message)
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
@@ -88,7 +89,8 @@ def _find_register_learn_routes() -> ast.FunctionDef:
     for node in _MODULE.body:
         if isinstance(node, ast.FunctionDef) and node.name == "register_learn_routes":
             return node
-    raise AssertionError("register_learn_routes not found")
+    message = "register_learn_routes not found"
+    raise AssertionError(message)
 
 
 def _find_nested_route(name: str) -> ast.FunctionDef:
@@ -177,7 +179,8 @@ def test_stream_passthrough_ignores_request_db_session_remove_failure(monkeypatc
 
     def _remove():
         calls.append("remove")
-        raise RuntimeError("remove failed")
+        message = "remove failed"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(
         routes,
@@ -215,7 +218,8 @@ def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
     )
 
     def _messages():
-        raise AppError("TTS provider quota exceeded", 45000292)
+        message = "TTS provider quota exceeded"
+        raise AppError(message, 45000292)
         yield  # pragma: no cover
 
     with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):
@@ -246,7 +250,8 @@ def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog):
     )
 
     def _messages():
-        raise RuntimeError("tts worker crashed")
+        message = "tts worker crashed"
+        raise RuntimeError(message)
         yield  # pragma: no cover
 
     with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):
@@ -277,7 +282,8 @@ def test_stream_sse_emits_error_event_for_business_error_with_factory(
     )
 
     def _messages():
-        raise AppError("TTS provider quota exceeded", 45000292)
+        message = "TTS provider quota exceeded"
+        raise AppError(message, 45000292)
         yield  # pragma: no cover
 
     with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):

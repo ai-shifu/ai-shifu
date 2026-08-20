@@ -329,7 +329,8 @@ def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
     from flaskr.service.shifu import shifu_outline_funcs
 
     def fail_outline_risk(*_args, **_kwargs):
-        raise AssertionError("default outline content should not trigger risk check")
+        message = "default outline content should not trigger risk check"
+        raise AssertionError(message)
 
     monkeypatch.setattr(
         shifu_outline_funcs,
@@ -365,7 +366,8 @@ def test_create_shifu_draft_raises_when_default_outline_init_fails(app, monkeypa
     )
 
     def fail_default_outlines(*_args, **_kwargs):
-        raise AppError("outline init failed")
+        message = "outline init failed"
+        raise AppError(message)
 
     monkeypatch.setattr(
         draft_module,

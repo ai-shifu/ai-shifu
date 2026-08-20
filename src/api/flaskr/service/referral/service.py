@@ -286,7 +286,8 @@ def _create_invite_code_with_retry(
                 return existing
         else:
             return invite_code
-    raise RuntimeError("unable to generate referral invite code")
+    message = "unable to generate referral invite code"
+    raise RuntimeError(message)
 
 
 def _reward_count_for_rule(
@@ -336,7 +337,8 @@ def _resolve_public_origin() -> str:
             if normalized_origin:
                 return normalized_origin
         return _normalize_origin(f"{request.scheme}://{request.host}")
-    raise RuntimeError("HOST_URL must be configured to build referral invite URLs")
+    message = "HOST_URL must be configured to build referral invite URLs"
+    raise RuntimeError(message)
 
 
 def _normalize_origin(value: str) -> str:
@@ -345,11 +347,11 @@ def _normalize_origin(value: str) -> str:
         return ""
     parsed = urlsplit(raw_value)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise RuntimeError("HOST_URL must include http(s) scheme and host")
+        message = "HOST_URL must include http(s) scheme and host"
+        raise RuntimeError(message)
     if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
-        raise RuntimeError(
-            "HOST_URL must be an origin without path, query, or fragment"
-        )
+        message = "HOST_URL must be an origin without path, query, or fragment"
+        raise RuntimeError(message)
     return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
 
@@ -395,7 +397,8 @@ def build_invite_profile(app: Flask, *, inviter_user_bid: str) -> InviteProfileD
     with _with_app_context(app):
         normalized_inviter = str(inviter_user_bid or "").strip()
         if not normalized_inviter:
-            raise ValueError("inviter_user_bid is required")
+            message = "inviter_user_bid is required"
+            raise ValueError(message)
         campaign = load_active_campaign()
         if campaign is None:
             return InviteProfileDTO.unavailable()
@@ -500,7 +503,8 @@ def record_invite_event(app: Flask, payload: InviteEventInput) -> InviteEventRes
     with _with_app_context(app):
         event_type = str(payload.event_type or "").strip()
         if event_type not in REFERRAL_INVITE_EVENT_TYPES:
-            raise ValueError("unsupported referral invite event type")
+            message = "unsupported referral invite event type"
+            raise ValueError(message)
         normalized_code = str(payload.invite_code or "").strip().upper()
         invite_code = _load_invite_code(normalized_code) if normalized_code else None
         campaign_bid = ""

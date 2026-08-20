@@ -854,7 +854,8 @@ def test_sync_credit_notification_template_records_provider_exception(
     )
 
     def raise_provider_error(app: Flask, *, template_code: str) -> None:
-        raise RuntimeError("provider down")
+        message = "provider down"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.get_sms_template_ali",
@@ -2336,7 +2337,8 @@ def test_provider_exception_marks_notification_failed(
     _enable_policy(app)
 
     def raise_provider_error(*args, **kwargs) -> None:
-        raise RuntimeError("provider raised")
+        message = "provider raised"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.send_sms_ali",

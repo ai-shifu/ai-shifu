@@ -368,7 +368,8 @@ def test_post_auth_extension_failures_do_not_block_trial_bootstrap(
         dao.db.session.commit()
 
     def _failing_post_auth_handler(_context, *, app):
-        raise RuntimeError("boom")
+        message = "boom"
+        raise RuntimeError(message)
 
     plugin_manager = get_plugin_manager()
     assert plugin_manager is not None

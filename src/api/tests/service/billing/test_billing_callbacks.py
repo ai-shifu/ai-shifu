@@ -882,7 +882,8 @@ class TestBillingNativeCallbacks:
     ) -> None:
         class FakeWechatPayProvider:
             def verify_webhook(self, *, headers, raw_body, app):
-                raise RuntimeError("secret verification detail")
+                message = "secret verification detail"
+                raise RuntimeError(message)
 
         monkeypatch.setattr(
             "flaskr.route.callback.get_payment_provider",

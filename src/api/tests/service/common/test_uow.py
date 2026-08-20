@@ -36,7 +36,8 @@ def test_outermost_rolls_back_on_exception(app):
             with uow.unit_of_work():
                 dao.db.session.add(_make_shifu("uow-rollback-1"))
                 dao.db.session.flush()
-                raise RuntimeError("boom")
+                message = "boom"
+                raise RuntimeError(message)
 
         with pytest.raises(RuntimeError):
             write_then_fail()
@@ -54,7 +55,8 @@ def test_nested_block_joins_outer_transaction(app):
             with uow.unit_of_work():
                 helper()
                 dao.db.session.add(_make_shifu("uow-nested-outer-1"))
-                raise RuntimeError("outer fails after helper 'completed'")
+                message = "outer fails after helper 'completed'"
+                raise RuntimeError(message)
 
         with pytest.raises(RuntimeError):
             outer_fails_after_helper()
@@ -99,8 +101,9 @@ def test_depth_is_isolated_per_thread(app):
 
 def test_depth_resets_after_exception(app):
     with app.app_context():
+        message = "boom"
         with pytest.raises(RuntimeError), uow.unit_of_work():
-            raise RuntimeError("boom")
+            raise RuntimeError(message)
         assert not uow.in_unit_of_work()
 
 
@@ -129,7 +132,8 @@ def test_on_commit_dropped_on_rollback(app):
         def schedule_then_fail():
             with uow.unit_of_work():
                 uow.on_commit(lambda: calls.append("never"))
-                raise RuntimeError("boom")
+                message = "boom"
+                raise RuntimeError(message)
 
         with pytest.raises(RuntimeError):
             schedule_then_fail()
@@ -140,7 +144,8 @@ def test_on_commit_callback_exception_does_not_propagate(app):
     calls = []
 
     def boom():
-        raise RuntimeError("callback boom")
+        message = "callback boom"
+        raise RuntimeError(message)
 
     with app.app_context(), uow.unit_of_work():
         uow.on_commit(boom)

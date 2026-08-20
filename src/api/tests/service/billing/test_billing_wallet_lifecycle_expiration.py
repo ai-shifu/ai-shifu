@@ -1066,7 +1066,8 @@ def test_expire_credit_wallet_buckets_skips_bucket_on_wallet_version_conflict(
         def _persist_conflict_once(target_wallet, **kwargs):
             state["calls"] += 1
             if state["calls"] == 1:
-                raise RuntimeError("credit_wallet_version_conflict")
+                message = "credit_wallet_version_conflict"
+                raise RuntimeError(message)
             return real_persist(target_wallet, **kwargs)
 
         monkeypatch.setattr(

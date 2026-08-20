@@ -102,7 +102,8 @@ class WechatPayProvider(PaymentProvider):
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
         del request, app
-        raise RuntimeError("WeChat Pay refunds are not supported")
+        message = "WeChat Pay refunds are not supported"
+        raise RuntimeError(message)
 
     def _create_native_payment(
         self, *, request: PaymentRequest, app: Flask
@@ -116,7 +117,8 @@ class WechatPayProvider(PaymentProvider):
         )
         code_url = str(response_payload.get("code_url") or "")
         if not code_url:
-            raise RuntimeError("WeChat Native response missing code_url")
+            message = "WeChat Native response missing code_url"
+            raise RuntimeError(message)
         return PaymentCreationResult(
             provider_reference=request.order_bid,
             raw_response=response_payload,
@@ -132,7 +134,8 @@ class WechatPayProvider(PaymentProvider):
     ) -> PaymentCreationResult:
         open_id = str((request.extra or {}).get("open_id") or "").strip()
         if not open_id:
-            raise RuntimeError("WeChat JSAPI payment requires open_id")
+            message = "WeChat JSAPI payment requires open_id"
+            raise RuntimeError(message)
         body = self._build_transaction_body(request)
         body["payer"] = {"openid": open_id}
         response_payload = self._request(
@@ -143,7 +146,8 @@ class WechatPayProvider(PaymentProvider):
         )
         prepay_id = str(response_payload.get("prepay_id") or "")
         if not prepay_id:
-            raise RuntimeError("WeChat JSAPI response missing prepay_id")
+            message = "WeChat JSAPI response missing prepay_id"
+            raise RuntimeError(message)
         jsapi_params = self._build_jsapi_params(prepay_id=prepay_id)
         return PaymentCreationResult(
             provider_reference=request.order_bid,
@@ -264,7 +268,8 @@ class WechatPayProvider(PaymentProvider):
         nonce = normalized_headers.get("wechatpay-nonce", "")
         signature = normalized_headers.get("wechatpay-signature", "")
         if not timestamp or not nonce or not signature:
-            raise RuntimeError("WeChat Pay signature headers missing")
+            error_message = "WeChat Pay signature headers missing"
+            raise RuntimeError(error_message)
         public_key = _load_public_key_from_certificate()
         message = f"{timestamp}\n{nonce}\n{raw_body}\n".encode()
         public_key.verify(
@@ -279,7 +284,8 @@ class WechatPayProvider(PaymentProvider):
         resource: dict[str, Any],
     ) -> dict[str, Any]:
         if not resource:
-            raise RuntimeError("WeChat Pay notification resource missing")
+            error_message = "WeChat Pay notification resource missing"
+            raise RuntimeError(error_message)
         algorithm = str(resource.get("algorithm") or "")
         if algorithm and algorithm != "AEAD_AES_256_GCM":
             message = f"Unsupported WeChat Pay algorithm: {algorithm}"
@@ -299,7 +305,8 @@ def _wechatpay_app_id() -> str:
         get_config("WECHATPAY_APP_ID", "") or get_config("WECHAT_APP_ID", "") or ""
     ).strip()
     if not value:
-        raise RuntimeError("WECHATPAY_APP_ID must be configured for WeChat Pay")
+        message = "WECHATPAY_APP_ID must be configured for WeChat Pay"
+        raise RuntimeError(message)
     return value
 
 

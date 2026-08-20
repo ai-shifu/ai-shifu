@@ -42,7 +42,8 @@ def normalize_usage_type(
 ) -> int:
     if value is None or value == "":
         if strict:
-            raise ValueError("usage_type is required")
+            message = "usage_type is required"
+            raise ValueError(message)
         return default
     try:
         numeric_value = int(value)
@@ -53,7 +54,8 @@ def normalize_usage_type(
     if numeric_value in _LEGACY_USAGE_TYPE_MAP:
         return _LEGACY_USAGE_TYPE_MAP[numeric_value]
     if strict:
-        raise ValueError("usage_type is invalid")
+        message = "usage_type is invalid"
+        raise ValueError(message)
     return default
 
 
@@ -62,7 +64,8 @@ def normalize_usage_scene(
 ) -> int:
     if value is None or value == "":
         if strict:
-            raise ValueError("usage_scene is required")
+            message = "usage_scene is required"
+            raise ValueError(message)
         return default
     try:
         numeric_value = int(value)
@@ -77,5 +80,6 @@ def normalize_usage_scene(
     if numeric_value in _LEGACY_USAGE_SCENE_MAP:
         return _LEGACY_USAGE_SCENE_MAP[numeric_value]
     if strict:
-        raise ValueError("usage_scene is invalid")
+        message = "usage_scene is invalid"
+        raise ValueError(message)
     return default

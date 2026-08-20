@@ -176,7 +176,8 @@ def enable_commands(app: Flask):
                 migration_task.close()
 
         if migration_failed:
-            raise click.ClickException("Migration failed")
+            error_message = "Migration failed"
+            raise click.ClickException(error_message)
 
     @console.command(name="verify")
     def verify_command():

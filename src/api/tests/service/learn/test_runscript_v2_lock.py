@@ -297,7 +297,8 @@ def test_run_script_producer_done_survives_db_session_remove_failure(monkeypatch
 
         def _remove():
             remove_calls.append("remove")
-            raise RuntimeError("remove failed")
+            message = "remove failed"
+            raise RuntimeError(message)
 
         monkeypatch.setattr(
             runscript_v2,
@@ -691,7 +692,8 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
 
     def _remove():
         remove_calls.append("remove")
-        raise RuntimeError("remove failed")
+        message = "remove failed"
+        raise RuntimeError(message)
 
     session_spy.commit = _commit
     session_spy.rollback = _rollback
@@ -743,7 +745,8 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
             return False
 
         def run(self, _app):
-            raise RuntimeError("boom")
+            message = "boom"
+            raise RuntimeError(message)
 
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
 
@@ -1243,9 +1246,8 @@ def test_run_script_maps_llm_stream_connection_error_to_retryable_message(
         monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
 
         def fake_run_script_inner(**_kwargs):
-            raise RuntimeError(
-                "litellm.APIConnectionError: APIConnectionError: OpenAIException - [SSL] record layer failure (_ssl.c:2590)"
-            )
+            message = "litellm.APIConnectionError: APIConnectionError: OpenAIException - [SSL] record layer failure (_ssl.c:2590)"
+            raise RuntimeError(message)
             yield  # pragma: no cover
 
         monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
@@ -1278,7 +1280,8 @@ def test_run_script_maps_standard_timeout_error_to_retryable_message(monkeypatch
         monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
 
         def fake_run_script_inner(**_kwargs):
-            raise RuntimeError("stream failed") from TimeoutError(
+            message = "stream failed"
+            raise RuntimeError(message) from TimeoutError(
                 "The read operation timed out"
             )
             yield  # pragma: no cover

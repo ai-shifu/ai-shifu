@@ -101,7 +101,8 @@ def test_query_status_converts_transport_error_to_param_error(monkeypatch) -> No
     _patch_config(monkeypatch)
 
     def _raise_transport_error(*args, **kwargs):
-        raise requests_lib.exceptions.ConnectTimeout("connect timeout")
+        message = "connect timeout"
+        raise requests_lib.exceptions.ConnectTimeout(message)
 
     monkeypatch.setattr(volcengine_voice_clone.requests, "post", _raise_transport_error)
     with pytest.raises(AppError):
@@ -116,7 +117,8 @@ def test_query_status_converts_invalid_json_to_param_error(monkeypatch) -> None:
         text = "<html>gateway error</html>"
 
         def json(self):
-            raise ValueError("no json")
+            message = "no json"
+            raise ValueError(message)
 
     monkeypatch.setattr(
         volcengine_voice_clone.requests,

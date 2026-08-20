@@ -16,7 +16,8 @@ from .plugin_manager import get_plugin_manager
 def enable_plugins(app: Flask):
     plugin_manager = get_plugin_manager()
     if plugin_manager is None:
-        raise RuntimeError("Plugin manager is not enabled")
+        message = "Plugin manager is not enabled"
+        raise RuntimeError(message)
 
     @app.cli.group()
     def plugin():
@@ -32,7 +33,8 @@ def enable_plugins(app: Flask):
             return
         git_executable = shutil.which("git")
         if git_executable is None:
-            raise click.ClickException("git is not available on PATH")
+            message = "git is not available on PATH"
+            raise click.ClickException(message)
         # The repository URL is supplied by the operator running this CLI command.
         subprocess.run([git_executable, "clone", repo_url, dest_dir], check=False)  # noqa: S603
 

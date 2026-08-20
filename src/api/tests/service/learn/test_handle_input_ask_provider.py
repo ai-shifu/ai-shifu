@@ -13,7 +13,8 @@ def _install_litellm_stub() -> None:
 
     def get_model_info(*args, **kwargs):
         _ = args, kwargs
-        raise ValueError("unknown model")
+        message = "unknown model"
+        raise ValueError(message)
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
@@ -319,7 +320,8 @@ def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
     def _raise_provider_error(**_kwargs):
         if False:
             yield None
-        raise AskProviderError("provider failed")
+        message = "provider failed"
+        raise AskProviderError(message)
 
     monkeypatch.setattr(module, "stream_ask_provider_response", _raise_provider_error)
 
@@ -390,7 +392,8 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(app, monkeypatch):
                 types.SimpleNamespace(content=chunk.result)
                 for chunk in runtime.llm_stream_factory()
             )
-        raise AskProviderError("provider failed")
+        message = "provider failed"
+        raise AskProviderError(message)
 
     monkeypatch.setattr(
         module,

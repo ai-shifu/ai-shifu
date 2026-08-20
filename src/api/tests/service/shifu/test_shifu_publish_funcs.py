@@ -22,7 +22,8 @@ def _install_litellm_stub() -> None:
 
     def get_model_info(*args, **kwargs):
         _ = args, kwargs
-        raise ValueError("unknown model")
+        message = "unknown model"
+        raise ValueError(message)
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
@@ -222,10 +223,11 @@ def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
 
     def _raise_shutdown(*_a, **_k):
-        raise RuntimeError(
+        message = (
             "litellm.MidStreamFallbackError: APIConnectionError: OpenAIException - "
             "cannot schedule new futures after shutdown"
         )
+        raise RuntimeError(message)
 
     monkeypatch.setattr(module, "get_shifu_summary", _raise_shutdown)
 
@@ -249,7 +251,8 @@ def test_run_summary_logs_error_for_other_failures(monkeypatch):
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
 
     def _raise_other(*_a, **_k):
-        raise ValueError("boom")
+        message = "boom"
+        raise ValueError(message)
 
     monkeypatch.setattr(module, "get_shifu_summary", _raise_other)
 

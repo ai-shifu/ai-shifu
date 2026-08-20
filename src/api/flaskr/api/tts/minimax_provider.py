@@ -376,7 +376,8 @@ class MinimaxTTSProvider(BaseTTSProvider):
 
         """
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            message = "Text cannot be empty"
+            raise ValueError(message)
 
         # Call API with hex output format
         result = self._call_api(
@@ -392,7 +393,8 @@ class MinimaxTTSProvider(BaseTTSProvider):
         audio_hex = data.get("audio")
 
         if not audio_hex:
-            raise ValueError("No audio data in API response")
+            message = "No audio data in API response"
+            raise ValueError(message)
 
         # Decode hex to bytes
         audio_data = bytes.fromhex(audio_hex)
@@ -436,11 +438,13 @@ class MinimaxTTSProvider(BaseTTSProvider):
         decodable audio segments before sending them to the frontend.
         """
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            error_message = "Text cannot be empty"
+            raise ValueError(error_message)
 
         api_key = get_config("MINIMAX_API_KEY")
         if not api_key:
-            raise ValueError("MINIMAX_API_KEY is not configured")
+            error_message = "MINIMAX_API_KEY is not configured"
+            raise ValueError(error_message)
 
         tts_model = _resolve_minimax_model(model)
         voice_settings = voice_settings or self.get_default_voice_settings()
@@ -503,9 +507,8 @@ class MinimaxTTSProvider(BaseTTSProvider):
             try:
                 message = json.loads(line)
             except json.JSONDecodeError as exc:
-                raise ValueError(
-                    "Invalid MiniMax HTTP streaming JSON response"
-                ) from exc
+                error_message = "Invalid MiniMax HTTP streaming JSON response"
+                raise ValueError(error_message) from exc
 
             _ensure_minimax_base_resp(message, "MiniMax HTTP streaming error")
             data = message.get("data") or {}
@@ -514,7 +517,8 @@ class MinimaxTTSProvider(BaseTTSProvider):
             try:
                 audio_data = bytes.fromhex(audio_hex) if audio_hex else b""
             except ValueError as exc:
-                raise ValueError("Invalid MiniMax HTTP streaming audio hex") from exc
+                error_message = "Invalid MiniMax HTTP streaming audio hex"
+                raise ValueError(error_message) from exc
 
             status = int(data.get("status") or 0)
             is_final = status == 2 or bool(extra_info) or bool(message.get("is_final"))
@@ -567,7 +571,8 @@ class MinimaxTTSProvider(BaseTTSProvider):
         tts_model = _resolve_minimax_model(model)
 
         if not api_key:
-            raise ValueError("MINIMAX_API_KEY is not configured")
+            error_message = "MINIMAX_API_KEY is not configured"
+            raise ValueError(error_message)
 
         if not voice_settings:
             voice_settings = self.get_default_voice_settings()

@@ -125,7 +125,8 @@ def upsert_native_snapshot(
         or order_bid_value
         or bill_order_bid_value
     ):
-        raise ValueError("Native payment snapshot requires a stable identifier")
+        message = "Native payment snapshot requires a stable identifier"
+        raise ValueError(message)
 
     query = model.query.filter(
         model.deleted == 0,

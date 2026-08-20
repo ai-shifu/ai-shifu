@@ -554,7 +554,8 @@ def _split_by_sentence_and_newline(text: str) -> list[str]:
 
 def _split_text_by_max_chars(units: Sequence[str], max_chars: int) -> list[str]:
     if max_chars <= 0:
-        raise ValueError("max_chars must be > 0")
+        message = "max_chars must be > 0"
+        raise ValueError(message)
 
     segments: list[str] = []
     current = ""
@@ -604,7 +605,8 @@ def _split_text_by_max_bytes(
     This is mainly required for providers like Baidu which enforce byte limits.
     """
     if max_bytes <= 0:
-        raise ValueError("max_bytes must be > 0")
+        message = "max_bytes must be > 0"
+        raise ValueError(message)
 
     output: list[str] = []
     for raw_segment in segments:
@@ -717,7 +719,8 @@ def synthesize_long_text_to_oss(
     """
     provider = (provider_name or "").strip().lower()
     if not provider:
-        raise ValueError("TTS provider is required")
+        error_message = "TTS provider is required"
+        raise ValueError(error_message)
 
     if not is_tts_configured(provider):
         message = f"TTS provider is not configured: {provider}"
@@ -729,7 +732,8 @@ def synthesize_long_text_to_oss(
         max_segment_chars=max_segment_chars,
     )
     if not segments:
-        raise ValueError("No speakable text after preprocessing")
+        error_message = "No speakable text after preprocessing"
+        raise ValueError(error_message)
 
     cleaned_text = preprocess_for_tts(text or "")
     raw_length = len(text or "")
@@ -765,7 +769,8 @@ def synthesize_long_text_to_oss(
     max_workers = max(1, int(max_workers or 1))
     sleep_between_segments = float(sleep_between_segments or 0.0)
     if sleep_between_segments < 0:
-        raise ValueError("sleep_between_segments must be >= 0")
+        error_message = "sleep_between_segments must be >= 0"
+        raise ValueError(error_message)
 
     if max_workers == 1:
         audio_parts: list[bytes] = []
@@ -873,7 +878,8 @@ def synthesize_long_text_to_oss(
 
     final_audio = concat_audio_best_effort(audio_parts)
     if not final_audio:
-        raise ValueError("No audio data produced")
+        error_message = "No audio data produced"
+        raise ValueError(error_message)
 
     duration_ms = get_audio_duration_ms(final_audio, audio_format="mp3")
 

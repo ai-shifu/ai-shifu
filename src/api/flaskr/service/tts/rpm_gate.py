@@ -151,7 +151,8 @@ def _acquire_local_slot(
         now = now_fn()
         scheduled_at = max(now, _LOCAL_STATE.get(scope_key, now))
         if scheduled_at > deadline:
-            raise TTSRpmQueueTimeoutError("TTS RPM local queue wait exceeded limit")
+            message = "TTS RPM local queue wait exceeded limit"
+            raise TTSRpmQueueTimeoutError(message)
 
         _LOCAL_STATE[scope_key] = scheduled_at + interval
         return TTSRpmGateResult(
@@ -165,7 +166,8 @@ def _get_redis_client():
 
     redis_client = get_redis_client()
     if redis_client is None:
-        raise RuntimeError("Redis is not configured")
+        message = "Redis is not configured"
+        raise RuntimeError(message)
     return redis_client
 
 

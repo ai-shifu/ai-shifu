@@ -135,7 +135,8 @@ def test_cleanup_escalates_to_invalidate_when_rollback_fails():
 
         def rollback(self):
             events.append("rollback")
-            raise RuntimeError("rollback broke")
+            message = "rollback broke"
+            raise RuntimeError(message)
 
     outcome = cleanup_session_after(ValueError("business"), source="t", session=_Fake())
     assert outcome == "invalidated"
@@ -180,8 +181,9 @@ def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
         lambda *, source, session=None: invalidations.append(source) or True,
     )
 
+    message = "business"
     with pytest.raises(ValueError, match="business"), app.app_context():
-        raise ValueError("business")
+        raise ValueError(message)
 
     assert invalidations == []
 
@@ -246,7 +248,8 @@ def test_release_session_classified_ignores_ordinary_exceptions(app, monkeypatch
     with app.app_context():
         try:
             try:
-                raise ValueError("business")
+                message = "business"
+                raise ValueError(message)
             finally:
                 dao.release_session_classified(source="t-ordinary")
         except ValueError:

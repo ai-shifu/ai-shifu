@@ -41,7 +41,8 @@ class ExplodingRedis:
     """Simulate a Redis failure for tests."""
 
     def eval(self, *_args, **_kwargs):
-        raise RuntimeError("redis unavailable")
+        message = "redis unavailable"
+        raise RuntimeError(message)
 
 
 @pytest.fixture(autouse=True)
@@ -54,6 +55,7 @@ def reset_local_admission_state():
 
 
 def _assert_admission_denied(app, *, user_id: str) -> None:
+    message = "denied admission must not enter the request body"
     with (
         pytest.raises(AppError) as raised,
         admission.learner_profile_optimization_admission(
@@ -61,7 +63,7 @@ def _assert_admission_denied(app, *, user_id: str) -> None:
             user_id=user_id,
         ),
     ):
-        raise AssertionError("denied admission must not enter the request body")
+        raise AssertionError(message)
     assert raised.value.code == 1023
 
 
@@ -99,6 +101,7 @@ def test_admission_releases_slot_after_request_error(app, monkeypatch):
     fake_redis = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
+    message = "provider failed"
     with (
         pytest.raises(RuntimeError, match="provider failed"),
         admission.learner_profile_optimization_admission(
@@ -106,7 +109,7 @@ def test_admission_releases_slot_after_request_error(app, monkeypatch):
             user_id="error-user",
         ),
     ):
-        raise RuntimeError("provider failed")
+        raise RuntimeError(message)
 
     with admission.learner_profile_optimization_admission(
         app,

@@ -799,7 +799,8 @@ class BaiduTTSProvider(BaseTTSProvider):
 
         """
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            error_message = "Text cannot be empty"
+            raise ValueError(error_message)
 
         # Check text length (1024 bytes limit, per Baidu docs).
         # NOTE: `requests` will URL-encode query params using UTF-8; do not pre-encode `tex`,
@@ -823,10 +824,11 @@ class BaiduTTSProvider(BaseTTSProvider):
         api_key, secret_key = self._get_credentials()
 
         if not api_key or not secret_key:
-            raise ValueError(
+            error_message = (
                 "Baidu TTS credentials are not configured. "
                 "Set BAIDU_TTS_API_KEY and BAIDU_TTS_SECRET_KEY"
             )
+            raise ValueError(error_message)
 
         # Get access token
         access_token = _get_access_token(api_key, secret_key)

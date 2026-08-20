@@ -742,7 +742,8 @@ def main() -> int:
 
     samples = _load_samples(input_path, limit=args.limit)
     if not samples:
-        raise SystemExit("No samples loaded")
+        error_message = "No samples loaded"
+        raise SystemExit(error_message)
 
     app, temp_dir = _make_app()
     try:

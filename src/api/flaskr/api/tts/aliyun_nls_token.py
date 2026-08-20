@@ -243,10 +243,11 @@ def get_aliyun_nls_token(
 
     access_key_id, access_key_secret = _get_access_keys()
     if not access_key_id or not access_key_secret:
-        raise ValueError(
+        message = (
             "Aliyun NLS token is not configured. Set ALIYUN_TTS_TOKEN, or set "
             "ALIYUN_AK_ID and ALIYUN_AK_SECRET to auto-fetch a temporary token."
         )
+        raise ValueError(message)
 
     lock = cache.lock(_get_lock_key(), timeout=15, blocking_timeout=2)
     acquired = False

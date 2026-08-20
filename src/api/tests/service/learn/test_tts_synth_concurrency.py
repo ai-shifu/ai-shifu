@@ -44,7 +44,8 @@ class ExplodingRedis:
 
     def eval(self, *_args, **_kwargs):
         self.calls += 1
-        raise RuntimeError("redis down")
+        message = "redis down"
+        raise RuntimeError(message)
 
 
 def test_tts_synth_semaphore_caps_at_limit_and_releases(app, monkeypatch):

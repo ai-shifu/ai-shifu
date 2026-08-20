@@ -272,6 +272,31 @@ plan's progress update for that rule.
   `sunner/ruff-em102` to the D101 branch after all local gates passed.
 - [ ] Merge or retarget EM102 PR #2591 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 05:24 CST: Prepared the EM101 stage on
+  `sunner/ruff-em101`, stacked on EM102. Moved all 388 fixed exception strings
+  across 135 Python files into whole-function collision-free bindings: 296 use
+  `message`, 67 use `error_message`, and 25 use `exception_message`. With EM103
+  already clean, the configuration now enforces the complete `EM` family
+  instead of selecting one code.
+- [x] 2026-08-21 05:24 CST: A reversible AST audit restored all 388 literal
+  arguments, including eight bindings outside single-statement `pytest.raises`
+  bodies, and found no unexpected executable difference after normalizing one
+  equivalent Coze payload consolidation. The strengthened Coze test now asserts
+  that `bot_id` reaches the provider request.
+- [x] 2026-08-21 05:24 CST: The stable `ALL` census falls to 28,364 findings
+  across 29 rules: EM101 falls by 388, the same rewrites remove all 358 TRY003
+  findings, formatter-owned COM812 falls by 64, and the Coze test removes one
+  ARG001 finding. PT012 and PLR0915 briefly increased, then returned to their
+  parent counts; no rule gains debt.
+- [x] 2026-08-21 05:24 CST: All 61 touched test modules pass 918 tests with 14
+  skips, followed by the full backend suite at 3,019 tests passed with 17
+  skipped. Identifier, translation, affected script-entry, repository Ruff,
+  and format checks also pass.
+- [x] 2026-08-21 05:26 CST: Collaboration and knowledge generators,
+  repository harness, architecture boundaries, development-tool validation,
+  and every repository pre-commit hook pass on the EM101 tip.
+- [ ] Open the ready EM101 PR against the EM102 branch without combining it
+  with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -317,6 +342,13 @@ plan's progress update for that rule.
   Coze adapter initially crossed the PLR0915 statement threshold; an equivalent
   lazy URL conditional kept that rule at its previous 128 findings rather than
   adding new debt.
+- EM101 has the same overlap: naming its 388 fixed strings removes the remaining
+  358 TRY003 findings, while formatting removes 64 COM812 findings. Eight test
+  raises must bind their messages before the surrounding `pytest.raises` block
+  so PT012 keeps the block to one statement. The Coze adapter again sat exactly
+  at the PLR0915 boundary; folding its optional `bot_id` into the payload literal
+  and asserting the outgoing value keeps PLR0915 at 128 without changing the
+  request contract.
 - Backend audit scripts under `src/api/scripts` import `flaskr` correctly when
   invoked as modules from `src/api`; executing their file paths directly from
   the repository root omits the backend package from `sys.path` and fails before

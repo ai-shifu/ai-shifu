@@ -38,7 +38,8 @@ def test_unit_of_work_classifies_desync_exceptions(app, monkeypatch):
 
     from sqlalchemy.exc import ResourceClosedError
 
+    message = "desynced"
     with app.app_context(), pytest.raises(ResourceClosedError), unit_of_work():
-        raise ResourceClosedError("desynced")
+        raise ResourceClosedError(message)
 
     assert outcomes == [("ResourceClosedError", "unit_of_work")]
