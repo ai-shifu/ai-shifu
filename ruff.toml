@@ -131,6 +131,8 @@ select = [
     "S101",    # assert used outside tests
     "S104",    # binding a socket to all interfaces
     "S107",    # hardcoded password as a function default
+    "S105",    # string literal that looks like a hardcoded password
+    "S106",    # hardcoded password passed as an argument
     "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
     # S110/S112 flag `except Exception: pass` / `continue`. A deliberate
     # best-effort block reads better as `contextlib.suppress(...)`, which the
@@ -237,7 +239,9 @@ ignore = [
 # Developer tooling (repo scripts, backend scripts, test harnesses) also shells
 # out to `git`, `node` and `python` with statically built argument lists, so the
 # subprocess audit rules only add noise there.
-"src/api/tests/**" = ["S101", "S603", "S607"]
+# Test suites are also full of literal fake passwords, tokens and secret keys
+# for fixtures and negative cases, which is what S105/S106 flag.
+"src/api/tests/**" = ["S101", "S105", "S106", "S603", "S607"]
 # These suites bind SQLAlchemy model classes and session factories to local
 # names, where the CapWords spelling is the point.
 "src/api/tests/service/shifu/test_archive.py" = ["N806"]
