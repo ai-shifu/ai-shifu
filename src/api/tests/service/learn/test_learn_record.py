@@ -40,7 +40,7 @@ from flaskr.util import generate_id
 
 class LearnRecordFallbackTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("learn-record-fallback")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

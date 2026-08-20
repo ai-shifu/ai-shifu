@@ -19,7 +19,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu
@@ -129,7 +129,7 @@ def test_validate_minimax_custom_voice_id_rules() -> None:
 
     assert settings.voice_id == "AiShifu_voice_123"
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         validate_tts_settings_strict(
             provider="baidu",
             model="",

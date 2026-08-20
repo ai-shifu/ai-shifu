@@ -87,7 +87,7 @@ from flaskr.service.tts import (
     resolve_tts_billable_chars,
 )
 from flaskr.service.tts.api import (
-    TTSRpmQueueTimeout,
+    TTSRpmQueueTimeoutError,
     create_streaming_tts_processor,
     find_ready_cloned_voice,
     find_tracked_cloned_voice,
@@ -996,7 +996,7 @@ def _yield_with_tts_error_mapping(
         yield from body()
     except ValueError as exc:
         raise_error_with_args("server.common.paramsError", param_message=str(exc))
-    except TTSRpmQueueTimeout as exc:
+    except TTSRpmQueueTimeoutError as exc:
         # The TTS provider's RPM quota is saturated. This is expected
         # backpressure, not a crash: log at WARNING (so it does not page ops as
         # an ERROR) and surface a retryable message instead of a generic

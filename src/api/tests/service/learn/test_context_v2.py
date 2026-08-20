@@ -108,7 +108,7 @@ from flaskr.service.learn.context_v2 import (
 )
 from flaskr.service.learn.context_v2 import (
     MdflowContextV2,
-    PaidException,
+    PaidError,
     RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
@@ -289,7 +289,7 @@ class RunAsyncInSafeContextTests(unittest.TestCase):
 
 class NextChapterInteractionTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("next-chapter-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -567,7 +567,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
 
 class ExceptionGateFeedbackTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-feedback")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -649,7 +649,7 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
 
 class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-interaction-persistence")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -799,7 +799,7 @@ class StreamTtsGateTests(unittest.TestCase):
 
 class ReloadFromElementBidTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("reload-from-element-bid")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -1819,11 +1819,11 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 _ = args, kwargs
 
             @staticmethod
-            def normalize_context_messages(_value):
+            def normalize_context_messages(_value) -> None:
                 return None
 
             @staticmethod
-            def filter_context_by_output_language(context, _output_language):
+            def filter_context_by_output_language(context, _output_language) -> object:
                 return context
 
             def get_block(self, _block_index):
@@ -2385,7 +2385,7 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
         ctx = _make_context()
 
         def _raise_paid(_app):
-            raise PaidException
+            raise PaidError
 
         ctx.run_inner = _raise_paid
         ctx._emit_feedback_after_exception_gate = lambda: iter(["feedback"])
@@ -2547,7 +2547,7 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
     """
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("stream-prompt-capture-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

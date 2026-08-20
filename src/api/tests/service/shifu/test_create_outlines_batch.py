@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.shifu import shifu_outline_funcs
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_outline_funcs import (
@@ -177,6 +177,6 @@ def test_batch_rejects_empty_payload(app):
     shifu_bid = "shifu_batch_empty"
     with app.app_context():
         _seed_shifu(shifu_bid)
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             create_outlines_batch(app, "creator-1", shifu_bid, [])
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]

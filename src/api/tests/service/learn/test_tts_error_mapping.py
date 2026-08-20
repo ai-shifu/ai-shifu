@@ -1,20 +1,20 @@
 import logging
 
 import pytest
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.learn_funcs import _yield_with_tts_error_mapping
-from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeout
+from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeoutError
 
 
 def test_rpm_queue_timeout_maps_to_rate_limited_not_unknown(app, caplog):
     def _body():
-        raise TTSRpmQueueTimeout("TTS RPM queue wait exceeded 10.00s")
+        raise TTSRpmQueueTimeoutError("TTS RPM queue wait exceeded 10.00s")
         yield  # pragma: no cover
 
     with (
         app.app_context(),
         caplog.at_level(logging.WARNING),
-        pytest.raises(AppException) as exc_info,
+        pytest.raises(AppError) as exc_info,
     ):
         list(
             _yield_with_tts_error_mapping(
@@ -39,7 +39,7 @@ def test_unexpected_error_still_maps_to_unknown_error(app, caplog):
     with (
         app.app_context(),
         caplog.at_level(logging.ERROR),
-        pytest.raises(AppException) as exc_info,
+        pytest.raises(AppError) as exc_info,
     ):
         list(
             _yield_with_tts_error_mapping(

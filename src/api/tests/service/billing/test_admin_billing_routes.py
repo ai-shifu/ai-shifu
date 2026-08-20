@@ -69,7 +69,7 @@ from flaskr.service.billing.read_models import (
     build_admin_bill_subscriptions_page,
     build_admin_billing_focus_teachers_page,
 )
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user.models import UserInfo
 from flaskr.service.user.repository import create_user_entity, upsert_credential
 from tests.common.fixtures.bill_products import build_bill_products
@@ -85,7 +85,7 @@ register_billing_routes = load_register_billing_routes()
 def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
     class _FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz=None) -> datetime:
             current = cls(2026, 4, 6, 12, 0, 0)
             if tz is not None:
                 return current.replace(tzinfo=tz)
@@ -121,8 +121,8 @@ def admin_billing_client(monkeypatch):
     dao.db.init_app(app)
     load_translations(app)
 
-    @app.errorhandler(AppException)
-    def _handle_app_exception(error: AppException):
+    @app.errorhandler(AppError)
+    def _handle_app_exception(error: AppError):
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response

@@ -18,7 +18,7 @@ if not hasattr(dao, "redis_client"):
 
 class TestStreamingTtsSubtitles:
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         cls.app = Flask("streaming-tts-subtitles")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

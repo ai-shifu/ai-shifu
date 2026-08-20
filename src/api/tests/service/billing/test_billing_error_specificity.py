@@ -15,7 +15,7 @@ from flaskr.service.billing.manual_credit_grants import (
     grant_manual_credits_to_user,
 )
 from flaskr.service.billing.manual_plan_grants import grant_manual_plan_to_user
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 
 
 class _UnavailableLock:
@@ -37,7 +37,7 @@ def test_subscription_checkout_lock_conflict_returns_busy_error(app, monkeypatch
 
     with (
         app.app_context(),
-        pytest.raises(AppException) as exc_info,
+        pytest.raises(AppError) as exc_info,
         checkout_module._subscription_checkout_lock(app, "creator-busy"),
     ):
         raise AssertionError("lock body should not execute")
@@ -48,7 +48,7 @@ def test_subscription_checkout_lock_conflict_returns_busy_error(app, monkeypatch
 def test_manual_plan_grant_lock_conflict_returns_busy_error(app, monkeypatch):
     monkeypatch.setattr(manual_plan_grants_module.redis, "lock", _LockFactory().lock)
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         grant_manual_plan_to_user(
             app,
             user_bid="creator-busy",
@@ -72,7 +72,7 @@ def test_manual_credit_grant_failure_returns_specific_error(app, monkeypatch):
         ),
     )
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         grant_manual_credits_to_user(
             app,
             user_bid="creator-credit-failed",
@@ -94,7 +94,7 @@ def test_credit_notification_policy_save_failure_returns_specific_error(
         credit_notifications_module, "add_config", lambda *_, **__: False
     )
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         save_credit_notification_policy(
             app,
             {"enabled": False, "types": {}},

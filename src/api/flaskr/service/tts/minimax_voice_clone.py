@@ -20,7 +20,7 @@ except Exception:  # pragma: no cover - exercised only when pydub is missing.
 
     class AudioSegment:  # type: ignore[no-redef]
         @staticmethod
-        def from_file(*_args, **_kwargs):
+        def from_file(*_args, **_kwargs) -> None:
             raise RuntimeError("audio decoder is not available")
 
 

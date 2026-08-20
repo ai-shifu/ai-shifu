@@ -12,7 +12,7 @@ from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import (
-    AppException,
+    AppError,
     raise_error,
     raise_error_with_args,
     raise_param_error,
@@ -162,7 +162,7 @@ def _mask_contact_identifier(identifier: str) -> str:
     return f"hash:{digest}"
 
 
-def _log_error_code(exc: AppException) -> str:
+def _log_error_code(exc: AppError) -> str:
     """Return a safe error identifier for logs without leaking PII."""
     if getattr(exc, "code", None) is not None:
         return str(exc.code)
@@ -778,7 +778,7 @@ def import_activation_orders(
                 contact_type=contact_type,
             )
             results["success"].append({"mobile": normalized_mobile, **order})
-        except AppException as exc:
+        except AppError as exc:
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.warning(
@@ -828,7 +828,7 @@ def import_activation_orders_from_entries(
                 allow_empty_nickname=True,
             )
             results["success"].append({"mobile": normalized_mobile, **order})
-        except AppException as exc:
+        except AppError as exc:
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.warning(

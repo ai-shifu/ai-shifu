@@ -11,6 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from flaskr.common.log import AppLoggerProxy
+from flaskr.util.deprecation import deprecated_alias_getattr
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
@@ -20,7 +21,7 @@ _FALLBACK_WARNING_LOCK = threading.Lock()
 _FALLBACK_WARNING_KEYS: set[str] = set()
 
 
-class TTSRpmQueueTimeout(TimeoutError):
+class TTSRpmQueueTimeoutError(TimeoutError):
     """Raised when a TTS request cannot enter the RPM queue fast enough."""
 
 
@@ -71,7 +72,7 @@ def acquire_tts_rpm_slot(
             max_wait_seconds=wait_cap,
             now_fn=now_fn,
         )
-    except TTSRpmQueueTimeout:
+    except TTSRpmQueueTimeoutError:
         raise
     except Exception as exc:
         _warn_redis_fallback_once(provider=provider, scope_key=scope_key, exc=exc)
@@ -111,7 +112,7 @@ def _acquire_redis_slot(
     )
     acquired = lock.acquire(blocking=True, blocking_timeout=max_wait_seconds)
     if not acquired:
-        raise TTSRpmQueueTimeout(
+        raise TTSRpmQueueTimeoutError(
             f"TTS RPM queue lock timed out after {max_wait_seconds:.2f}s"
         )
 
@@ -121,7 +122,7 @@ def _acquire_redis_slot(
         next_available_at = _parse_timestamp(raw_next, default=now)
         scheduled_at = max(now, next_available_at)
         if scheduled_at > deadline:
-            raise TTSRpmQueueTimeout(
+            raise TTSRpmQueueTimeoutError(
                 f"TTS RPM queue wait exceeded {max_wait_seconds:.2f}s"
             )
 
@@ -149,7 +150,7 @@ def _acquire_local_slot(
         now = now_fn()
         scheduled_at = max(now, _LOCAL_STATE.get(scope_key, now))
         if scheduled_at > deadline:
-            raise TTSRpmQueueTimeout("TTS RPM local queue wait exceeded limit")
+            raise TTSRpmQueueTimeoutError("TTS RPM local queue wait exceeded limit")
 
         _LOCAL_STATE[scope_key] = scheduled_at + interval
         return TTSRpmGateResult(
@@ -208,3 +209,8 @@ def _warn_redis_fallback_once(*, provider: str, scope_key: str, exc: Exception) 
         (provider or "default").strip().lower() or "default",
         exc,
     )
+
+
+__getattr__ = deprecated_alias_getattr(
+    __name__, {"TTSRpmQueueTimeout": "TTSRpmQueueTimeoutError"}, globals()
+)

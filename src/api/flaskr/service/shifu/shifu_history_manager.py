@@ -68,7 +68,7 @@ class HistoryItem(BaseModel, Generic[T]):
         return self.model_dump_json()
 
     @classmethod
-    def from_json(cls, json: str):
+    def from_json(cls, json: str) -> "HistoryItem":
         """From json to history item."""
         return cls.model_validate_json(json)
 

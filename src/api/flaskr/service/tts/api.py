@@ -18,7 +18,7 @@ from flaskr.service.tts.minimax_voice_clone import (
     submit_minimax_voice_clone,
 )
 from flaskr.service.tts.pipeline import build_av_segmentation_contract
-from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeout
+from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeoutError
 from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
@@ -27,6 +27,7 @@ from flaskr.service.tts.volcengine_voice_clone import (
     is_valid_volcengine_custom_voice_id,
     verify_volcengine_voice_id,
 )
+from flaskr.util.deprecation import deprecated_alias_getattr
 
 
 def create_streaming_tts_processor(**kwargs):
@@ -36,7 +37,7 @@ def create_streaming_tts_processor(**kwargs):
 
 
 __all__ = [
-    "TTSRpmQueueTimeout",
+    "TTSRpmQueueTimeoutError",
     "append_subtitle_cue",
     "build_av_segmentation_contract",
     "build_minimax_clone_cost",
@@ -57,3 +58,8 @@ __all__ = [
     "supports_cloned_voices",
     "verify_volcengine_voice_id",
 ]
+
+
+__getattr__ = deprecated_alias_getattr(
+    __name__, {"TTSRpmQueueTimeout": "TTSRpmQueueTimeoutError"}, globals()
+)

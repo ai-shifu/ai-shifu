@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.tts import volcengine_voice_clone
 from flaskr.service.tts.volcengine_voice_clone import (
     VOLCENGINE_ICL_RESOURCE_ID,
@@ -82,13 +82,13 @@ def test_query_status_raises_on_base_resp_error(monkeypatch) -> None:
             {"BaseResp": {"StatusCode": 1001, "StatusMessage": "bad request"}}
         ),
     )
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
 def test_query_status_raises_without_credentials(monkeypatch) -> None:
     _patch_config(monkeypatch, config={})
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
@@ -104,7 +104,7 @@ def test_query_status_converts_transport_error_to_param_error(monkeypatch) -> No
         raise requests_lib.exceptions.ConnectTimeout("connect timeout")
 
     monkeypatch.setattr(volcengine_voice_clone.requests, "post", _raise_transport_error)
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
@@ -123,7 +123,7 @@ def test_query_status_converts_invalid_json_to_param_error(monkeypatch) -> None:
         "post",
         lambda *args, **kwargs: _BadJsonResponse(),
     )
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
@@ -139,7 +139,7 @@ def test_query_status_converts_http_error_to_param_error(monkeypatch) -> None:
             {"message": "parameter license not found for appid"}, status_code=403
         ),
     )
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxxx")
 
 
@@ -166,7 +166,7 @@ def test_verify_rejects_not_ready_statuses(monkeypatch, status) -> None:
             {"BaseResp": {"StatusCode": 0}, "status": status}
         ),
     )
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         verify_volcengine_voice_id("S_xxxxxxxxxx")
 
 

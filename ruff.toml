@@ -15,9 +15,9 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN / SLF001 / PLC0415 / PLR2004 (and D1xx, see the ignore block):
-#   thousands of violations each; enforcing them is a codebase-wide project,
-#   not a lint config change.
+# - ANN (except ANN205/ANN206, see `select`) / SLF001 / PLC0415 / PLR2004
+#   (and D1xx, see the ignore block): thousands of violations each; enforcing
+#   them is a codebase-wide project, not a lint config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
 #   tuples/lists, not a missed comma. ISC001/ISC002 also conflict with the
 #   formatter.
@@ -120,12 +120,14 @@ select = [
     "N802",    # function name that is not lowercase
     "N803",    # argument name that is not lowercase
     "N813",    # CamelCase imported under a lowercase alias
+    "N818",    # exception class name without an Error suffix
     "TD002",   # TODO without an author
     # S101 bans `assert` in shipped code (python -O strips it, so an assert is
     # not a runtime guard). Test suites and script self-tests are exempt via
     # per-file-ignores below.
     "S101",    # assert used outside tests
     "S104",    # binding a socket to all interfaces
+    "S107",    # hardcoded password as a function default
     "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
     "S113",    # requests call without a timeout
     "S310",    # urlopen without an audited URL scheme
@@ -143,6 +145,16 @@ select = [
     # Alembic revisions must not be edited, so they are exempt below.
     "S608",    # SQL query built by string interpolation
 
+    # --- Type annotations -------------------------------------------------
+    # flake8-annotations is otherwise off (see the header): annotating every
+    # argument and return in the repo is a separate project. ANN205 is small
+    # enough to keep enforced, and a staticmethod is where a missing return
+    # type hides the most, since there is no `self` to infer from. ANN206
+    # covers the classmethod counterpart, mostly alternative constructors and
+    # frozen-clock `now()` doubles.
+    "ANN205",  # missing return type on a staticmethod
+    "ANN206",  # missing return type on a classmethod
+
     # --- Docstrings -------------------------------------------------------
     # pydocstyle is enabled as a whole; the members that would need thousands
     # of new docstrings, conflict with a selected sibling rule, or rewrite
@@ -157,8 +169,8 @@ select = [
     "UP",
 
     # --- Ruff-native rules ------------------------------------------------
-    # RUF001-RUF003 (ambiguous unicode) fire on intentional CJK punctuation in
-    # user-facing strings, RUF012 and RUF100 are ignored below.
+    # RUF001 (ambiguous unicode in a string), RUF012 and RUF100 are ignored
+    # below.
     "RUF",
 ]
 ignore = [
@@ -190,8 +202,6 @@ ignore = [
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
     "PLW0603", # global statement -- used by module-level singletons/caches
     "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
-    "RUF002",  # ambiguous unicode in a docstring -- same
-    "RUF003",  # ambiguous unicode in a comment -- same
     "RUF012",  # mutable class attribute without ClassVar -- annotation churn
     # RUF100: with a partial select list, ruff reports deliberate `# noqa:
     # BLE001 / DTZ001 / SLF001 / S102` markers as unused simply because those

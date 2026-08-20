@@ -10,7 +10,7 @@ from werkzeug.exceptions import HTTPException
 from flaskr.common.shifu_context import clear_shifu_context
 from flaskr.i18n import _, _translations, clear_language, set_language
 
-from ..service.common import AppException
+from ..service.common import AppError
 
 by_pass_login_func = [
     "flasgger.apispec_1",
@@ -58,7 +58,7 @@ def _extract_request_language() -> str | None:
     return _resolve_supported_language(raw_language)
 
 
-# 装饰器函数，用于跳过Token校验
+# Decorator that exempts a route from token validation
 def bypass_token_validation(func):
     by_pass_login_func.append(func.__name__)
 
@@ -70,8 +70,8 @@ def bypass_token_validation(func):
 
 
 def register_common_handler(app: Flask) -> Flask:
-    @app.errorhandler(AppException)
-    def handle_invalid_usage(error: AppException):
+    @app.errorhandler(AppError)
+    def handle_invalid_usage(error: AppError):
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response

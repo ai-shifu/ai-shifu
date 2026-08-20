@@ -56,7 +56,7 @@ from flaskr.service.shifu.consts import (
 
 class LearnRecordLoadTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("learn-record-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

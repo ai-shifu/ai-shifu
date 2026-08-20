@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.shifu.shifu_history_manager import (
     get_shifu_draft_meta,
@@ -156,7 +156,7 @@ def test_get_shifu_mdflow_history_version_detail_returns_content_and_user(app):
 
 
 def test_get_shifu_mdflow_history_version_detail_raises_not_found(app):
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         get_shifu_mdflow_history_version_detail(
             app,
             "shifu-mdflow-history-detail-2",
@@ -175,7 +175,7 @@ def test_save_shifu_mdflow_rejects_outline_from_other_shifu(app):
         0,
     )
 
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         save_shifu_mdflow(
             app,
             "user-attacker",

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.order.admin import (
     import_activation_order,
     normalize_mobile,
@@ -73,7 +73,7 @@ def test_normalize_mobile_handles_valid_edge_cases(input_phone, expected):
 
 @pytest.mark.parametrize("input_phone", ["", None])
 def test_normalize_mobile_rejects_empty_values(input_phone):
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         normalize_mobile(input_phone)
 
 

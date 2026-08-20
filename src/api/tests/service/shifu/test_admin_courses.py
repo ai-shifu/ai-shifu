@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 from flask import Flask
 from flaskr.dao import db
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.learn.const import LEARN_STATUS_COMPLETED
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS
@@ -696,7 +696,7 @@ def test_list_operator_courses_filters_by_course_status():
 def test_list_operator_courses_applies_quick_filters(monkeypatch):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):  # noqa: ARG003 - matches datetime.now signature
+        def now(cls, tz=None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -817,7 +817,7 @@ def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overv
         ) as overview_mock,
         patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
     ):
-        with pytest.raises(AppException) as excinfo:
+        with pytest.raises(AppError) as excinfo:
             list_operator_courses(app, 1, 20, {"quick_filter": "invalid"})
         assert excinfo.value.code is not None
 
@@ -828,7 +828,7 @@ def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overv
 def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):  # noqa: ARG003 - matches datetime.now signature
+        def now(cls, tz=None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -1651,7 +1651,7 @@ class FakeSession:
 
 class FakeFunc:
     @staticmethod
-    def max(column: FakeColumn):
+    def max(column: FakeColumn) -> FakeMaxExpression:
         return FakeMaxExpression(column)
 
 

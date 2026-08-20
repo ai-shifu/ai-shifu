@@ -190,7 +190,7 @@ def assert_outline_items_publishable(
         outline_items: Draft outline items that would be published
 
     Raises:
-        AppException: server.shifu.outlineStructureBroken when positions collide
+        AppError: server.shifu.outlineStructureBroken when positions collide
 
     """
     positions: dict[str, list[str]] = {}

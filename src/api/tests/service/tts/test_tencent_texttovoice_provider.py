@@ -287,7 +287,7 @@ def test_synthesize_rejects_non_numeric_voice_id(monkeypatch):
 
 
 def test_validation_requires_model_and_tier_consistency():
-    from flaskr.service.common.models import AppException
+    from flaskr.service.common.models import AppError
     from flaskr.service.tts.validation import validate_tts_settings_strict
 
     # Valid: premium voice with premium tier.
@@ -313,7 +313,7 @@ def test_validation_requires_model_and_tier_consistency():
     assert settings.model == "large-model"
 
     # Missing model is rejected (provider requires model).
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         validate_tts_settings_strict(
             provider="tencent_texttovoice",
             model="",
@@ -324,7 +324,7 @@ def test_validation_requires_model_and_tier_consistency():
         )
 
     # Cross-tier combination is rejected (premium voice + large-model tier).
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         validate_tts_settings_strict(
             provider="tencent_texttovoice",
             model="large-model",
@@ -335,7 +335,7 @@ def test_validation_requires_model_and_tier_consistency():
         )
 
     # Emotion is not supported.
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         validate_tts_settings_strict(
             provider="tencent_texttovoice",
             model="premium",

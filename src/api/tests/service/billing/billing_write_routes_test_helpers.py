@@ -76,7 +76,7 @@ from flaskr.service.billing.subscriptions import (
     repair_topup_grant_expiries,
     sync_subscription_lifecycle_events,
 )
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.order.models import PingxxOrder, StripeOrder
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,
@@ -524,8 +524,8 @@ def billing_write_client(monkeypatch):
         lambda: True,
     )
 
-    @app.errorhandler(AppException)
-    def _handle_app_exception(error: AppException):
+    @app.errorhandler(AppError)
+    def _handle_app_exception(error: AppError):
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
