@@ -131,8 +131,10 @@ def collect_checks() -> tuple[list[Check], list[Check]]:
         Check("ruff", shutil.which("ruff") is not None, PIP_INSTALL),
         Check("cz (commitizen)", shutil.which("cz") is not None, PIP_INSTALL),
     ]
-    for script in PRE_COMMIT_HOOKS_SCRIPTS:
-        core.append(Check(script, shutil.which(script) is not None, PIP_INSTALL))
+    core.extend(
+        Check(script, shutil.which(script) is not None, PIP_INSTALL)
+        for script in PRE_COMMIT_HOOKS_SCRIPTS
+    )
 
     frontend: list[Check] = [
         Check("node", shutil.which("node") is not None, NODE_INSTALL, required=False),

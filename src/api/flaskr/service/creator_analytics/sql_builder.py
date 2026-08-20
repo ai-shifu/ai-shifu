@@ -53,11 +53,10 @@ def build_statement(
     """
     table = dsl.spec.model.__table__
 
-    select_items: list[ColumnElement[Any]] = []
-    for col_name in dsl.select:
-        select_items.append(table.c[col_name].label(col_name))
-    for agg in dsl.aggregates:
-        select_items.append(_compile_aggregate(table, agg))
+    select_items: list[ColumnElement[Any]] = [
+        table.c[col_name].label(col_name) for col_name in dsl.select
+    ]
+    select_items.extend(_compile_aggregate(table, agg) for agg in dsl.aggregates)
 
     stmt = select(*select_items).select_from(table)
 

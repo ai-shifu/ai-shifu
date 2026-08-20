@@ -60,13 +60,13 @@ def read_text(path: Path) -> str:
 
 
 def collect_frontend_imports(path: Path, frontend_root: Path) -> list[str]:
-    imports: list[str] = []
     text = read_text(path)
-    for match in IMPORT_FROM_PATTERN.findall(text):
-        imports.append(match.strip())
+    imports: list[str] = [match.strip() for match in IMPORT_FROM_PATTERN.findall(text)]
     # Support dynamic imports without `from`.
-    for dynamic in re.findall(r"""import\(\s*["']([^"']+)["']\s*\)""", text):
-        imports.append(dynamic.strip())
+    imports.extend(
+        dynamic.strip()
+        for dynamic in re.findall(r"""import\(\s*["']([^"']+)["']\s*\)""", text)
+    )
     return imports
 
 
@@ -245,8 +245,7 @@ def iter_python_imports(path: Path, backend_root: Path) -> list[str]:
     tree = ast.parse(read_text(path), filename=str(path))
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            for alias in node.names:
-                imports.append(alias.name)
+            imports.extend(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
             if node.level:
