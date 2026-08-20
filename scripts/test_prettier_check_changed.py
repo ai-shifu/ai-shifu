@@ -11,12 +11,17 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = REPO_ROOT / "src/cook-web/scripts/prettier-check-changed.mjs"
+ALLOWED_TEST_EXECUTABLES = {"git", "node"}
 
 
 def run(
     command: list[str], cwd: Path, env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    executable = command[0] if command else "<missing>"
+    if executable not in ALLOWED_TEST_EXECUTABLES:
+        message = f"unexpected test executable: {executable}"
+        raise ValueError(message)
+    return subprocess.run(  # noqa: S603 - executable is allowlisted above
         command,
         cwd=cwd,
         env=env,
@@ -100,6 +105,16 @@ class PrettierCheckChangedTest(unittest.TestCase):
         assert result.returncode == 0, result.stderr
         assert not self.args_file.exists()
         assert "No changed Cook Web files" in result.stdout
+
+    def test_rejects_unexpected_executable(self) -> None:
+        """Reject commands outside the source-owned test allowlist."""
+        error = None
+        try:
+            run(["python", "untrusted.py"], self.repo)
+        except ValueError as exc:
+            error = exc
+
+        assert str(error) == "unexpected test executable: python"
 
 
 if __name__ == "__main__":

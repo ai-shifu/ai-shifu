@@ -48,8 +48,13 @@ def grep_paths(root, extra_args=None):
     if not Path(root).is_dir():
         return set()
     # no quote anchoring: f-strings like f"{base}/api/x/{bid}/export" must hit
-    cmd = ["grep", "-rhoE", r"/api/[^'\"`[:space:]]*", root]
-    out = subprocess.run(cmd, capture_output=True, text=True, check=False).stdout
+    cmd = ["grep", "-rhoE", r"/api/[^'\"`[:space:]]*", "--", root]
+    out = subprocess.run(  # noqa: S603 - fixed grep with an option boundary
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout
     paths = set()
     for line in out.splitlines():
         p = line.strip().rstrip(".,;:)]}")

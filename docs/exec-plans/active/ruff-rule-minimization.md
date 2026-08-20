@@ -465,6 +465,33 @@ plan's progress update for that rule.
 - [x] 2026-08-21 07:14 CST: Opened ready S603 PR
   [#2601](https://github.com/ai-shifu/ai-shifu/pull/2601) from
   `sunner/ruff-s603` to the S607 branch after all local gates passed.
+- [x] 2026-08-21 07:28 CST: Extended the still-unstacked S603 PR instead of
+  opening a second PR for the same rule. Isolated scanning exposed four more
+  calls hidden by `scripts/**` and `src/api/scripts/**`: a fixed-interpreter
+  diagnostics runner, an allowlisted test-command helper, the fixed Codex
+  evaluator command, and a fixed `grep` route-inventory command.
+- [x] 2026-08-21 07:28 CST: Removed S603 from both script-tree exceptions and
+  replaced them with per-call audits. The Prettier test helper now rejects
+  executables outside `git` and `node`; the route inventory puts `--` before
+  its environment-provided root so a leading-dash path cannot become a grep
+  option. The other two commands already fixed the executable and constructed
+  every argument from source-owned structure.
+- [x] 2026-08-21 07:28 CST: Added regression coverage for the executable
+  allowlist, shell-like request and prompt values remaining single arguments,
+  and a leading-dash inventory directory. The two root script suites pass four
+  tests; the two new backend script tests plus the original S603 owners pass 63
+  tests and skip only the opt-in MySQL smoke and locally mismatched LiteLLM
+  contract.
+- [x] 2026-08-21 07:28 CST: Configured and isolated S603 scans pass. Ignoring
+  suppressions exposes seven explicit calls repository-wide: the six S603 PR
+  calls and the existing operator-supplied plugin clone. The stable `ALL`
+  census remains exactly 28,202 findings across 28 rules after making the new
+  tests ALL-neutral; all 18 remaining per-file patterns resolve to real files.
+- [x] 2026-08-21 07:32 CST: Collaboration and knowledge generators produced no
+  extra diff; repository Ruff and format, translations, repository harness,
+  architecture boundaries, development-tool validation, and all 19
+  pre-commit hooks pass for the extended S603 change. Final-SHA CI remains the
+  post-push acceptance gate.
 - [ ] Merge or retarget S603 PR #2601 after its predecessors without combining
   it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
@@ -594,7 +621,10 @@ plan's progress update for that rule.
   test subprocesses or moving their scripts in-process would only weaken their
   environment-isolation coverage. Both use the current interpreter and fixed
   source owned by the test; their security boundary is narrow enough to explain
-  inline, allowing the entire backend test tree to become enforced.
+  inline, allowing the entire backend test tree to become enforced. The two
+  script-tree S603 exceptions also hid only four calls, not a durable class of
+  safe code. Auditing them individually exposed a real option-boundary gap in
+  the route inventory and made both broad exceptions removable.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent
@@ -831,16 +861,17 @@ Configured S607, repository Ruff, format, and harness pass, and the stable
 census remains 28,202 findings across 28 rules. Future runtime, test, and
 contributor code now follows the same executable-resolution contract.
 
-The S603 stage removes the backend test-tree exception and replaces it with two
-explained inline audits. Both calls run the current interpreter against fixed,
-test-owned source: one isolates a fresh-MySQL Alembic upgrade, and one isolates
-the pinned LiteLLM native-adapter contract. The owning files pass 61 tests;
-the MySQL smoke and current-LiteLLM contract skip locally only at their explicit
-environment gates, with the latter covered by final backend CI using checked-in
-requirements. Configured and isolated S603 scans pass, the stable census remains
-28,202 findings across 28 rules, and every repository hook passes. Future code
-now validates each subprocess boundary at the call rather than exempting tests
-as a class.
+The S603 stage removes the backend test-tree and both script-tree exceptions,
+replacing them with six explained inline audits. The two child-process tests run
+the current interpreter against fixed, test-owned source. The diagnostics
+runner does the same with a fixed repository script; the prompt evaluator uses
+a fixed Codex command; the Prettier helper allowlists `git` and `node`; and the
+route inventory terminates grep options before its dynamic directory. The root
+script suites pass four tests, while the backend script tests and original S603
+owners pass 63 tests with only the explicit local environment skips. Configured
+and isolated S603 scans pass, the stable census remains 28,202 findings across
+28 rules, and future code validates every subprocess boundary at the call
+rather than exempting tests or contributor scripts as a class.
 
 ## Context and Orientation
 

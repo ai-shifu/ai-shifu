@@ -378,12 +378,13 @@ suppression at that call.
 For `S603`, treat every subprocess as a security boundary even when
 `shell=False`: use an argument list, fix or validate the executable, and
 allowlist or construct every dynamic argument rather than forwarding request or
-fixture input. When a test deliberately starts `sys.executable` with a script
-defined entirely in that test, preserve the process-isolation contract and use
-one explained inline suppression at the call; do not exempt the whole test
-tree. Run the test so its expected output, failure, or side effect still proves
-why the child process exists. Contributor maintenance scripts remain covered by
-their documented controlled-environment exception.
+fixture input. Put `--` before a dynamic positional path when the child CLI
+supports an option terminator, so a value beginning with `-` cannot become an
+option. When a test deliberately starts a fixed executable with source-defined
+arguments, preserve the process-isolation contract and use one explained inline
+suppression at the call. Run the test so its expected output, failure, or side
+effect still proves why the child process exists. Apply the same per-call audit
+to contributor tooling; do not exempt an entire test or script tree from S603.
 
 For `RUF001`, preserve the standard fullwidth Chinese punctuation explicitly
 allowed by `ruff.toml`: `，`, `：`, `！`, `？`, and `；`. These code points are

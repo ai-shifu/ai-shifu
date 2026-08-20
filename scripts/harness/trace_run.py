@@ -208,7 +208,7 @@ def run_backend_diagnostics(
         return entry
 
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603 - fixed interpreter and script
             command,
             cwd=script.parent.parent,
             capture_output=True,

@@ -181,7 +181,7 @@ def _run_codex(
         )
         started_at = time.monotonic()
         try:
-            completed = subprocess.run(
+            completed = subprocess.run(  # noqa: S603 - fixed Codex CLI command
                 command,
                 check=False,
                 capture_output=True,
