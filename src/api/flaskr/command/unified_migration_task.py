@@ -1031,8 +1031,10 @@ class UnifiedMigrationTask:
             report.append("RECOMMENDATIONS")
             report.append("-" * 40)
             report.append("The following tables failed consistency checks:")
-            for table in failed_consistency:
-                report.append(f"  - {table}: Review data mapping and re-run migration")
+            report.extend(
+                f"  - {table}: Review data mapping and re-run migration"
+                for table in failed_consistency
+            )
             report.append("")
 
         return "\n".join(report)

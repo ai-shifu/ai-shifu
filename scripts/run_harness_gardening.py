@@ -82,12 +82,11 @@ def retired_term_hits() -> list[str]:
         for line_number, line in enumerate(text.splitlines(), start=1):
             if any(pattern.search(line) for pattern in allowed_patterns):
                 continue
-            for term in RETIRED_TERM_PATTERNS:
-                if term in line:
-                    hits.append(
-                        f"{path.relative_to(ROOT)}:{line_number} contains retired "
-                        f"term `{term}`"
-                    )
+            hits.extend(
+                f"{path.relative_to(ROOT)}:{line_number} contains retired term `{term}`"
+                for term in RETIRED_TERM_PATTERNS
+                if term in line
+            )
     return hits
 
 

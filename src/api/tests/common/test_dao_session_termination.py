@@ -211,7 +211,7 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
 
     with app.app_context():
         try:
-            raise _Interrupt
+            raise _Interrupt  # noqa: TRY301 - the in-flight exception is the subject
         except _Interrupt:
             pass
         # No in-flight exception here: plain removal, no invalidate.

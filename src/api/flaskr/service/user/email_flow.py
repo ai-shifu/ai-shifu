@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import datetime
 import uuid
 from typing import Any
@@ -42,11 +43,9 @@ def configure_fix_check_code(value: str | None) -> None:
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
     if value is None:
         return False
-    try:
+    with contextlib.suppress(Exception):
         if value.tzinfo is not None:
             value = value.replace(tzinfo=None)
-    except Exception:
-        pass
     now = now_utc()
     return (now - value).total_seconds() <= seconds
 

@@ -79,9 +79,11 @@ def detect_langfuse_mode() -> str:
 def collect_matches(log_files: list[Path], request_id: str) -> list[tuple[Path, str]]:
     matches: list[tuple[Path, str]] = []
     for path in log_files:
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-            if request_id in line:
-                matches.append((path, line))
+        matches.extend(
+            (path, line)
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+            if request_id in line
+        )
     return matches
 
 

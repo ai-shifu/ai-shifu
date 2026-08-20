@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.util.datetime import now_utc
@@ -24,7 +24,6 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
 )
-from .models import BillingOrder, BillingSubscription
 from .paid_side_effects import (
     BillingPaidOrderSideEffects,
 )
@@ -51,6 +50,9 @@ from .subscriptions import (
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
 from .value_objects import JsonObjectMap
+
+if TYPE_CHECKING:
+    from .models import BillingOrder, BillingSubscription
 
 _STRIPE_SUCCESS_EVENT_TYPES = {
     "payment_intent.succeeded",
