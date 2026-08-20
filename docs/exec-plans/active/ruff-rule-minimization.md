@@ -99,6 +99,17 @@ plan's progress update for that rule.
   reports 31,058 findings and no G004 findings.
 - [ ] Merge or retarget G004 PR #2580 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 00:20 CST: Opened ready D205 PR
+  [#2581](https://github.com/ai-shifu/ai-shifu/pull/2581) from
+  `sunner/ruff-d205` to the G004 branch. All 262 findings across 66 tracked
+  Python files now have separated summaries; a semantic audit found no
+  non-docstring AST changes and proved all 112 touched Swagger YAML bodies are
+  unchanged. The repository-wide Swagger regression test, full backend suite,
+  and all pre-commit hooks pass.
+- [x] 2026-08-21 00:20 CST: Re-ran the stable `ALL` census on the D205 tip. It
+  reports 30,901 findings across 40 rules and no D205 findings.
+- [ ] Merge or retarget D205 PR #2581 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -136,6 +147,15 @@ plan's progress update for that rule.
   test now verifies the constant message template and interpolation argument,
   so it protects the parameterized logging contract instead of requiring eager
   formatting.
+- Correcting D205 structure made pydocstyle recognize sections that malformed
+  summaries had hidden. This exposed D200, D410, D411, D413, and D417 findings
+  from rules already selected by the repository; satisfying them in the D205
+  stage preserves the existing lint baseline rather than adopting another rule
+  unit.
+- The repository has 114 source-defined Swagger docstrings. Three existing
+  learner-route specifications contain invalid YAML; the new parser test
+  freezes their exact identities without changing them in this rule PR, while
+  rejecting any additional unparseable specification.
 - FIX002 and TD003 report the same two TODOs. One is a real password-login
   rate-limit feature and one is a compatibility-removal checkpoint. Renaming
   them to evade lint would hide work, and implementing either is larger than a
@@ -229,6 +249,17 @@ code changes. Exact config-warning and migration-progress log tests pass in the
 25-test focused set, the full backend suite passes 3,009 tests with 17 skips,
 and the repository-wide pre-commit gate passes. The engineering baseline now
 tells future agents to parameterize logging rather than hiding eager f-strings.
+
+The D205 stage removes the global missing-blank-line exception and gives all
+262 affected docstrings a complete first-line summary. A semantic AST audit
+confirms that the 66 tracked Python files contain no code changes outside
+docstrings and that all 112 touched Flasgger YAML bodies are identical. The new
+repository-wide parser regression test discovers all 114 Swagger docstrings,
+requires the D205 boundary, parses every valid specification, and freezes the
+three pre-existing invalid specifications. The focused suite passes 11 tests,
+the full backend suite passes 3,010 tests with 17 skips, and the repository-wide
+pre-commit gate passes. Future agents now have an explicit D205 and Flasgger
+repair contract in the engineering baseline.
 
 ## Context and Orientation
 
