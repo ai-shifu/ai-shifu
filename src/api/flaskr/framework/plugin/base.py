@@ -2,6 +2,7 @@ class BasePlugin:
     name: str = None
 
     def __init__(self) -> None:
+        """Initialize plugin lifecycle state."""
         self.name = self.__class__.__name__
         self.migration_dir = None  # plugin migration dir
 

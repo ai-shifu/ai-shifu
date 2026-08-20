@@ -106,6 +106,7 @@ class OrderAdminSummaryDTO(BaseModel):
         order_source_key: str = "",
         coupon_codes: list[str] | None = None,
     ) -> None:
+        """Build the order admin summary payload."""
         super().__init__(
             order_bid=order_bid,
             shifu_bid=shifu_bid,
@@ -174,6 +175,7 @@ class OrderAdminActivityDTO(BaseModel):
         created_at: datetime | None,
         updated_at: datetime | None,
     ) -> None:
+        """Build the order admin activity payload."""
         super().__init__(
             active_id=active_id,
             active_name=active_name,
@@ -226,6 +228,7 @@ class OrderAdminCouponDTO(BaseModel):
         created_at: datetime | None,
         updated_at: datetime | None,
     ) -> None:
+        """Build the order admin coupon payload."""
         super().__init__(
             coupon_bid=coupon_bid,
             code=code,
@@ -306,6 +309,7 @@ class OrderAdminPaymentDTO(BaseModel):
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
     ) -> None:
+        """Build the order admin payment payload."""
         super().__init__(
             payment_channel=payment_channel,
             payment_channel_key=payment_channel_key,
@@ -370,6 +374,7 @@ class OrderAdminDetailDTO(BaseModel):
         coupons: list[OrderAdminCouponDTO],
         payment: OrderAdminPaymentDTO,
     ) -> None:
+        """Build the order admin detail payload."""
         super().__init__(
             order=order,
             activities=activities,

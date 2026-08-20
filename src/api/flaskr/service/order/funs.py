@@ -103,6 +103,7 @@ class PayItemDto:
     discount_code: str
 
     def __init__(self, name, price_name, price, is_discount, discount_code) -> None:
+        """Build the pay item payload."""
         self.name = name
         self.price_name = price_name
         self.price = price
@@ -143,6 +144,7 @@ class AICourseBuyRecordDTO:
         price_item,
         payment_channel="",
     ) -> None:
+        """Build the AI course buy record payload."""
         self.order_id = record_id
         self.user_id = user_id
         self.course_id = course_id
@@ -496,6 +498,7 @@ class BuyRecordDTO:
         payment_channel: str = "",
         payment_payload: dict[str, Any] | None = None,
     ) -> None:
+        """Build the buy record payload."""
         self.order_id = record_id
         self.user_id = user_id
         self.price = price
@@ -1961,6 +1964,7 @@ class DiscountInfo:
     items: list[PayItemDto]
 
     def __init__(self, discount_value, items) -> None:
+        """Capture the discount value and affected payment items."""
         self.discount_value = discount_value
         self.items = items
 

@@ -27,6 +27,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         user_bid: str,
         run_session_bid: str | None = None,
     ) -> None:
+        """Configure in-memory preview event adaptation."""
         super().__init__(
             app,
             shifu_bid=shifu_bid,

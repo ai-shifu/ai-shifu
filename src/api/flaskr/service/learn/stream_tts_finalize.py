@@ -30,6 +30,7 @@ class StreamTTSFinalizeDrainer:
     """Finalize switched-out text TTS without blocking mdflow visual chunks."""
 
     def __init__(self, run_context: Any, *, log_prefix: str) -> None:
+        """Configure deferred TTS finalization for a run."""
         self._run_context = run_context
         self._app = run_context.app
         self._log_prefix = log_prefix

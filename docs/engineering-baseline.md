@@ -373,6 +373,13 @@ owned. In Flasgger route docstrings, keep the `---` YAML separator after that
 blank line and run the Swagger-docstring parser regression test rather than
 suppressing the rule or reindenting the specification.
 
+For `D107`, describe what constructing the instance establishes: its payload,
+owned state, bound dependency, or non-obvious setup. Keep the constructor
+docstring to one line when that is the whole contract, and add details only for
+real side effects or invariants. Do not copy the signature or write a generic
+"Initialize the object" sentence merely to satisfy the rule. Test doubles
+should name the state or collaborator they stand in for.
+
 Adopt or remove exceptions one rule unit at a time. A rule unit is normally
 one Ruff code; combine codes only when they report the same construct and have
 the same fix and exception boundary. Base each rule PR on the preceding rule
