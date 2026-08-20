@@ -269,7 +269,7 @@ def test_password_login_throttles_one_ip_across_identifiers(
         test_client,
         "/api/user/login_password",
         {"identifier": "first@example.com", "password": "wrong-password"},
-        headers={"X-Forwarded-For": "198.51.100.8"},
+        headers={"X-Forwarded-For": "203.0.113.10, 198.51.100.8"},
         environ_overrides={"REMOTE_ADDR": "172.18.0.2"},
     )
     assert first_failure.status_code == _HTTP_OK
@@ -279,7 +279,7 @@ def test_password_login_throttles_one_ip_across_identifiers(
         test_client,
         "/api/user/login_password",
         {"identifier": "second@example.com", "password": "wrong-password"},
-        headers={"X-Forwarded-For": "198.51.100.8"},
+        headers={"X-Forwarded-For": "203.0.113.11, 198.51.100.8"},
         environ_overrides={"REMOTE_ADDR": "172.18.0.3"},
     )
     assert blocked.status_code == _HTTP_OK
@@ -289,7 +289,7 @@ def test_password_login_throttles_one_ip_across_identifiers(
         test_client,
         "/api/user/login_password",
         {"identifier": "third@example.com", "password": "wrong-password"},
-        headers={"X-Forwarded-For": "198.51.100.8"},
+        headers={"X-Forwarded-For": "203.0.113.12, 198.51.100.8"},
         environ_overrides={"REMOTE_ADDR": "172.18.0.4"},
     )
     assert still_blocked.status_code == _HTTP_OK
