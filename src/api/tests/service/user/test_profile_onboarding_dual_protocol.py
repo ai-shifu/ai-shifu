@@ -27,7 +27,6 @@ LEGACY_DISTINCT_BUTTON_PROJECTED_FLOW = "?[%{{sys_user_style}} brief | full]"
 
 def _parse_retiring_web_step(content: str) -> dict[str, object]:
     """Mirror the retired frontend parser's assignment and choice rules."""
-
     interaction_match = re.fullmatch(r"\?\[([\s\S]*?)\]", content)
     assert interaction_match is not None
     step_match = re.fullmatch(

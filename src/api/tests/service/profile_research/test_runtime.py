@@ -778,7 +778,7 @@ def test_run_lock_lease_has_worker_cleanup_headroom_without_using_session_ttl():
             "blocking_timeout": 0,
         },
     ]
-    assert 5 * 60 < PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS
+    assert PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS > 5 * 60
     assert (
         PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS < PROFILE_RESEARCH_SESSION_TTL_SECONDS
     )

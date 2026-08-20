@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from flaskr.service.common.models import AppError
 
 
 def test_profile_onboarding_config_uses_runtime_validation(app, monkeypatch):
@@ -86,14 +87,12 @@ def test_profile_onboarding_config_rejects_invalid_types_or_empty_enabled_flow(
         lambda: module.normalize_profile_onboarding_config_payload({}),
     )
 
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(AppError, match=field):
         module.update_profile_onboarding_config(
             app,
             payload=payload,
             operator_user_bid="operator-1",
         )
-
-    assert field in str(exc_info.value)
 
 
 def test_profile_onboarding_config_rejects_unanswerable_interaction(app, monkeypatch):
@@ -111,14 +110,13 @@ def test_profile_onboarding_config_rejects_unanswerable_interaction(app, monkeyp
         lambda _app, payload, *, updated_by: saved_payloads.append(payload),
     )
 
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(AppError, match="markdownflow"):
         module.update_profile_onboarding_config(
             app,
             payload={"enabled": True, "markdownflow": "?[]"},
             operator_user_bid="operator-1",
         )
 
-    assert "markdownflow" in str(exc_info.value)
     assert saved_payloads == []
 
 
@@ -137,7 +135,7 @@ def test_profile_onboarding_config_rejects_oversized_document_prompt(app, monkey
         lambda _app, payload, *, updated_by: saved_payloads.append(payload),
     )
 
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(AppError, match="document_prompt"):
         module.update_profile_onboarding_config(
             app,
             payload={
@@ -149,7 +147,6 @@ def test_profile_onboarding_config_rejects_oversized_document_prompt(app, monkey
             operator_user_bid="operator-1",
         )
 
-    assert "document_prompt" in str(exc_info.value)
     assert saved_payloads == []
 
 
@@ -188,7 +185,7 @@ def test_profile_onboarding_config_size_limit_uses_exact_serialized_utf8_bytes(
         "markdownflow": payload["markdownflow"] + "测",
     }
 
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(AppError, match="profile_onboarding_config"):
         module.save_profile_onboarding_config_payload(
             app, oversized_payload, updated_by="operator-1"
         )
@@ -197,7 +194,6 @@ def test_profile_onboarding_config_size_limit_uses_exact_serialized_utf8_bytes(
         module.PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES
     )
     assert len(oversized_payload["markdownflow"]) == len(payload["markdownflow"]) + 1
-    assert "profile_onboarding_config" in str(exc_info.value)
     assert saved_values == [json.dumps(payload, ensure_ascii=False)]
 
 
