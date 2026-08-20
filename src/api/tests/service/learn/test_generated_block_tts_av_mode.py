@@ -130,7 +130,7 @@ def _patch_run_tts_processor(
 
 class TestGeneratedBlockListenTtsElementFirst:
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         cls.app = Flask("generated-block-listen-tts")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

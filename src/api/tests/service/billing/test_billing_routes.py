@@ -93,7 +93,7 @@ billing_routes_module = load_billing_routes_module()
 def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
     class _FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz=None) -> datetime:
             current = cls(2026, 4, 6, 12, 0, 0)
             if tz is not None:
                 return current.replace(tzinfo=tz)
@@ -1154,7 +1154,7 @@ class TestBillingRoutes:
     ) -> None:
         class _FixedDateTime(datetime):
             @classmethod
-            def now(cls, tz=None):
+            def now(cls, tz=None) -> datetime:
                 current = cls(2026, 5, 1, 12, 0, 0)
                 if tz is not None:
                     return current.replace(tzinfo=tz)

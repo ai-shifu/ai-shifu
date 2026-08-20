@@ -298,7 +298,7 @@ def test_onboarding_status_uses_conservative_fallback_when_new_creator_gate_miss
 
     class _MockDateTime(datetime):
         @classmethod
-        def utcnow(cls):
+        def utcnow(cls) -> datetime:
             return cls(2026, 6, 23, 10, 0, 0)
 
     monkeypatch.setattr("flaskr.service.user.onboarding.datetime", _MockDateTime)

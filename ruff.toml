@@ -15,9 +15,9 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN205, see `select`) / SLF001 / PLC0415 / PLR2004 (and D1xx,
-#   see the ignore block): thousands of violations each; enforcing them is a
-#   codebase-wide project, not a lint config change.
+# - ANN (except ANN205/ANN206, see `select`) / SLF001 / PLC0415 / PLR2004
+#   (and D1xx, see the ignore block): thousands of violations each; enforcing
+#   them is a codebase-wide project, not a lint config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
 #   tuples/lists, not a missed comma. ISC001/ISC002 also conflict with the
 #   formatter.
@@ -147,8 +147,11 @@ select = [
     # flake8-annotations is otherwise off (see the header): annotating every
     # argument and return in the repo is a separate project. ANN205 is small
     # enough to keep enforced, and a staticmethod is where a missing return
-    # type hides the most, since there is no `self`/`cls` to infer from.
+    # type hides the most, since there is no `self` to infer from. ANN206
+    # covers the classmethod counterpart, mostly alternative constructors and
+    # frozen-clock `now()` doubles.
     "ANN205",  # missing return type on a staticmethod
+    "ANN206",  # missing return type on a classmethod
 
     # --- Docstrings -------------------------------------------------------
     # pydocstyle is enabled as a whole; the members that would need thousands

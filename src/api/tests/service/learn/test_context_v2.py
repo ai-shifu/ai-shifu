@@ -289,7 +289,7 @@ class RunAsyncInSafeContextTests(unittest.TestCase):
 
 class NextChapterInteractionTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("next-chapter-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -567,7 +567,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
 
 class ExceptionGateFeedbackTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-feedback")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -649,7 +649,7 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
 
 class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-interaction-persistence")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -799,7 +799,7 @@ class StreamTtsGateTests(unittest.TestCase):
 
 class ReloadFromElementBidTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("reload-from-element-bid")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -2547,7 +2547,7 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
     """
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("stream-prompt-capture-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
