@@ -420,6 +420,11 @@ plan's progress update for that rule.
   Ruff and format, translation checks, repository harness, architecture
   boundaries, development-tool validation, and every repository pre-commit
   hook pass on the S607 tip.
+- [x] 2026-08-21 07:01 CST: Opened ready S607 PR
+  [#2599](https://github.com/ai-shifu/ai-shifu/pull/2599) from
+  `sunner/ruff-s607` to the S101 branch after all local gates passed.
+- [ ] Merge or retarget S607 PR #2599 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
