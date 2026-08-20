@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     Column,
@@ -21,7 +23,7 @@ class Order(db.Model):
     """Order."""
 
     __tablename__ = "order_orders"
-    __table_args__ = {"comment": "Order orders"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Order orders"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     order_bid = Column(
         String(36),
@@ -565,7 +567,7 @@ class WechatPayOrder(_NativeProviderOrderBase):
 
 class BannerInfo(db.Model):
     __tablename__ = "order_banner_info"
-    __table_args__ = {"comment": "Order banner info"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Order banner info"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     banner_id = Column(
         String(36), nullable=False, default="", index=True, comment="Banner identifier"

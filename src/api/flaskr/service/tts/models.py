@@ -3,6 +3,8 @@
 This module defines the database models for storing TTS audio records.
 """
 
+from typing import ClassVar
+
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc, to_utc_iso
 from sqlalchemy import (
@@ -51,7 +53,9 @@ class LearnGeneratedAudio(db.Model):
     """
 
     __tablename__ = "learn_generated_audios"
-    __table_args__ = {"comment": "TTS audio for generated content blocks"}
+    __table_args__: ClassVar[dict[str, str]] = {
+        "comment": "TTS audio for generated content blocks"
+    }
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
 
