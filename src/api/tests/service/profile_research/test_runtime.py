@@ -705,6 +705,28 @@ def test_delete_uses_the_run_lock_before_removing_a_session():
     assert _active_test_session_id(runtime) is None
 
 
+def test_delete_active_session_removes_the_owner_purpose_session():
+    _app, runtime, _providers = _make_runtime()
+    learner = _start_test_session(runtime)
+    preview = _start_test_session(
+        runtime,
+        purpose=PROFILE_ONBOARDING_PREVIEW_PURPOSE,
+        document="?[Preview]",
+    )
+
+    runtime.delete_active_session(
+        user_bid="user-1",
+        purpose=PROFILE_ONBOARDING_PURPOSE,
+    )
+
+    with pytest.raises(ProfileResearchSessionNotFound):
+        runtime.store.load(learner["session_id"])
+    assert _active_test_session_id(runtime) is None
+    assert runtime.store.load(preview["session_id"]).purpose == (
+        PROFILE_ONBOARDING_PREVIEW_PURPOSE
+    )
+
+
 def test_stale_cleanup_does_not_clear_the_replacement_active_pointer():
     _app, runtime, _providers = _make_runtime()
     first = _start_test_session(runtime)
