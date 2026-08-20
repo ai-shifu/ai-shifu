@@ -329,6 +329,15 @@ def test_identical_retry_replays_without_running_markdownflow_again():
         )
     )
     provider_count = len(providers)
+    stored_session = runtime.store.load(session_id)
+    session_key = runtime.store._key(session_id)
+    active_key = runtime.store._active_key(
+        stored_session.user_bid,
+        stored_session.purpose,
+    )
+    cache = runtime.store._cache
+    cache._store[session_key].expires_at = cache._now() + 1
+    cache._store[active_key].expires_at = cache._now() + 1
 
     replay = list(
         runtime.stream_session(
@@ -344,6 +353,8 @@ def test_identical_retry_replays_without_running_markdownflow_again():
     assert replay == original
     assert runtime.store.load(session_id).block_index == 1
     assert len(providers) == provider_count
+    assert cache.ttl(session_key) > PROFILE_RESEARCH_SESSION_TTL_SECONDS - 5
+    assert cache.ttl(active_key) > PROFILE_RESEARCH_SESSION_TTL_SECONDS - 5
     with pytest.raises(ProfileResearchValidationError, match="expected_block_index"):
         list(
             runtime.stream_session(
