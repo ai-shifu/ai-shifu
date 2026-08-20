@@ -479,7 +479,8 @@ def test_optimize_reports_a_wrapped_timeout_as_timeout(app, monkeypatch):
 
     def timeout_invoke(*_args, **_kwargs):
         try:
-            raise TimeoutError("provider timeout")
+            # The wrapped-timeout shape is exactly what this test asserts.
+            raise TimeoutError("provider timeout")  # noqa: TRY301
         except TimeoutError as exc:
             raise AppError("wrapped provider failure", 9999) from exc
         yield  # pragma: no cover

@@ -88,6 +88,7 @@ select = [
     "TRY400",  # logging.error inside except that should be logging.exception
     "TRY401",  # exception object interpolated into a logging.exception message
     "TRY300",  # return at the end of a try body that belongs in `else`
+    "TRY301",  # raise inside a try body that the same block then catches
     "TRY004",  # type check raising something other than TypeError
 
     # --- Pylint subsets ---------------------------------------------------

@@ -157,12 +157,17 @@ def validate_locale_files(locale_dirs: Iterable[Path]):
         raise TranslationError(message)
 
 
+def _require_locale_dirs() -> list[Path]:
+    """Return the locale directories, or fail when none exist."""
+    locale_dirs = list(iter_locale_dirs())
+    if not locale_dirs:
+        raise TranslationError(f"No locale directories found under {I18N_DIR}")
+    return locale_dirs
+
+
 def main() -> int:
     try:
-        locale_dirs = list(iter_locale_dirs())
-        if not locale_dirs:
-            raise TranslationError(f"No locale directories found under {I18N_DIR}")
-        validate_locale_files(locale_dirs)
+        validate_locale_files(_require_locale_dirs())
     except TranslationError as error:
         print(str(error), file=sys.stderr)
         return 1
