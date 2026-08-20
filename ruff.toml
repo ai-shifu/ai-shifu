@@ -199,7 +199,8 @@ select = [
     "D",
 
     # --- Modernization ----------------------------------------------------
-    # UP046/UP047 (PEP 695 generic classes/functions) are ignored below.
+    # UP046 (PEP 695 generic classes) is ignored below. UP047 is selected but
+    # target-gated until Python 3.12.
     # UP040 is enforced by an explicit Python 3.12 hook and CI check because
     # the repository-wide Python 3.11 target would otherwise leave it dormant.
     # UP035 is satisfied except in the two `admin` / `admin_operations.courses`
@@ -241,12 +242,10 @@ ignore = [
     # revisions and boundary-check fixtures that are loaded by path rather
     # than imported.
     "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
-    # UP046 / UP047: PEP 695 type-parameter syntax (`class T`, `def T`). The
-    # py311 target currently suppresses them; moving to py312+ would expose
-    # unsafe generic rewrites that can change TypeVar variance. Defer until the
-    # runtime is Python 3.12+.
+    # UP046: PEP 695 generic-class syntax (`class T`). The py311 target
+    # currently suppresses it; moving to py312+ would expose unsafe generic
+    # rewrites that can change TypeVar variance. Defer until Python 3.12+.
     "UP046",
-    "UP047",
 ]
 
 [lint.per-file-ignores]
