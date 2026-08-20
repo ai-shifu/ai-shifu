@@ -26,7 +26,8 @@ class _UnavailableLock:
         return False
 
     def release(self) -> None:  # pragma: no cover - should not be called
-        raise AssertionError("unacquired lock should not be released")
+        message = "unacquired lock should not be released"
+        raise AssertionError(message)
 
 
 class _LockFactory:
@@ -37,12 +38,13 @@ class _LockFactory:
 def test_subscription_checkout_lock_conflict_returns_busy_error(app, monkeypatch):
     monkeypatch.setattr(checkout_module.cache_provider, "cache", _LockFactory())
 
+    message = "lock body should not execute"
     with (
         app.app_context(),
         pytest.raises(AppError) as exc_info,
         checkout_module._subscription_checkout_lock(app, "creator-busy"),
     ):
-        raise AssertionError("lock body should not execute")
+        raise AssertionError(message)
 
     assert exc_info.value.code == ERROR_CODE["server.billing.subscriptionCheckoutBusy"]
 

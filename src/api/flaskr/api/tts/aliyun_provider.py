@@ -1250,7 +1250,8 @@ class AliyunTTSProvider(BaseTTSProvider):
 
         """
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            exception_message = "Text cannot be empty"
+            raise ValueError(exception_message)
 
         # Check text length (300 characters limit)
         if len(text) > 300:
@@ -1269,9 +1270,10 @@ class AliyunTTSProvider(BaseTTSProvider):
         appkey, region = self._get_settings()
 
         if not appkey:
-            raise ValueError(
+            exception_message = (
                 "Aliyun TTS credentials are not configured. Set ALIYUN_TTS_APPKEY"
             )
+            raise ValueError(exception_message)
         token = get_aliyun_nls_token()
 
         # Get endpoint URL

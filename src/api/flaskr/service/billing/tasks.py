@@ -579,7 +579,8 @@ def send_credit_notification_task(
         "provider_failed",
         "provider_exception",
     }:
-        raise CreditNotificationRetryableError("retrying credit notification")
+        message = "retrying credit notification"
+        raise CreditNotificationRetryableError(message)
     return payload
 
 

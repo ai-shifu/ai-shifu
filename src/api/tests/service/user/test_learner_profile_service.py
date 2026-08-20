@@ -1252,7 +1252,8 @@ def test_complete_rolls_back_profile_and_state_together(app, monkeypatch):
         original_commit = db.session.commit
 
         def fail_commit():
-            raise RuntimeError("database unavailable")
+            message = "database unavailable"
+            raise RuntimeError(message)
 
         monkeypatch.setattr(db.session, "commit", fail_commit)
         with pytest.raises(RuntimeError, match="database unavailable"):
@@ -1296,7 +1297,8 @@ def test_clear_rolls_back_profile_and_state_together(app, monkeypatch):
         original_commit = db.session.commit
 
         def fail_commit():
-            raise RuntimeError("database unavailable")
+            message = "database unavailable"
+            raise RuntimeError(message)
 
         monkeypatch.setattr(db.session, "commit", fail_commit)
         with pytest.raises(RuntimeError, match="database unavailable"):

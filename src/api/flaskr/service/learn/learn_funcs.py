@@ -869,14 +869,16 @@ def _yield_tts_segments(
 ):
     provider_name = (provider or "").strip().lower()
     if not provider_name:
-        raise ValueError("TTS provider is required")
+        error_message = "TTS provider is required"
+        raise ValueError(error_message)
     if not is_tts_configured(provider_name):
         message = f"TTS provider is not configured: {provider_name}"
         raise ValueError(message)
 
     segments = split_text_for_tts(text, provider_name=provider_name)
     if not segments:
-        raise ValueError("No speakable text after preprocessing")
+        error_message = "No speakable text after preprocessing"
+        raise ValueError(error_message)
 
     safe_audio_settings = replace(audio_settings, format="mp3")
     for index, segment_text in enumerate(segments):
@@ -957,7 +959,8 @@ def _finalize_tts_stream_audio(
 ) -> tuple[str, int]:
     final_audio = concat_audio_best_effort(audio_parts)
     if not final_audio:
-        raise ValueError("No audio data produced")
+        message = "No audio data produced"
+        raise ValueError(message)
 
     duration_ms = int(get_audio_duration_ms(final_audio, audio_format="mp3") or 0)
     oss_url, bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
@@ -1548,7 +1551,8 @@ def _yield_run_tts_audio_events(
         )
         yield event
     if not emitted_audio_complete:
-        raise RuntimeError("TTS stream finalized without audio_complete")
+        message = "TTS stream finalized without audio_complete"
+        raise RuntimeError(message)
 
 
 def _audio_stream_element_type(element) -> str:

@@ -200,9 +200,8 @@ class CozeWorkflowAskProviderAdapter:
         api_key = str(config.get("api_key") or "").strip()
         workflow_id = str(config.get("workflow_id") or "").strip()
         if not api_key or not workflow_id:
-            raise AskProviderConfigError(
-                "coze_workflow api_key/workflow_id are required in ask_provider_config.config"
-            )
+            error_message = "coze_workflow api_key/workflow_id are required in ask_provider_config.config"
+            raise AskProviderConfigError(error_message)
 
         query_key = str(config.get("query_key") or "query").strip() or "query"
         parameters = config.get("parameters")
@@ -232,7 +231,8 @@ class CozeWorkflowAskProviderAdapter:
                 timeout=(5, provider_timeout_seconds()),
             )
         except requests.Timeout as exc:
-            raise AskProviderTimeoutError("coze_workflow request timeout") from exc
+            error_message = "coze_workflow request timeout"
+            raise AskProviderTimeoutError(error_message) from exc
         except requests.RequestException as exc:
             message = f"coze_workflow request failed: {exc}"
             raise AskProviderError(message) from exc
@@ -242,10 +242,12 @@ class CozeWorkflowAskProviderAdapter:
         try:
             response_payload = response.json()
         except ValueError as exc:
-            raise AskProviderError("coze_workflow response is not valid json") from exc
+            error_message = "coze_workflow response is not valid json"
+            raise AskProviderError(error_message) from exc
 
         if not isinstance(response_payload, dict):
-            raise AskProviderError("coze_workflow response has invalid payload")
+            error_message = "coze_workflow response has invalid payload"
+            raise AskProviderError(error_message)
 
         response_code = response_payload.get("code")
         if response_code not in (0, "0"):
@@ -253,6 +255,7 @@ class CozeWorkflowAskProviderAdapter:
 
         text = _extract_workflow_text(response_payload)
         if not text:
-            raise AskProviderError("coze_workflow response has no retrievable text")
+            error_message = "coze_workflow response has no retrievable text"
+            raise AskProviderError(error_message)
 
         yield AskProviderChunk(content=text)

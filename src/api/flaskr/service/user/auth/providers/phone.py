@@ -61,7 +61,8 @@ class PhoneAuthProvider(AuthProvider):
 
         aggregate = load_user_aggregate(user_token.userInfo.user_id)
         if not aggregate:
-            raise RuntimeError("User aggregate missing after phone verification")
+            message = "User aggregate missing after phone verification"
+            raise RuntimeError(message)
 
         credential = find_credential(
             provider_name="phone",

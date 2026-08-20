@@ -4813,7 +4813,8 @@ def test_registration_source_map_skips_user_query_when_users_argument_is_empty(
 ):
     class ForbiddenUserQuery:
         def filter(self, *_args, **_kwargs):
-            raise AssertionError("expected no user query when users=[] is provided")
+            message = "expected no user query when users=[] is provided"
+            raise AssertionError(message)
 
     with app.app_context():
         monkeypatch.setattr(
@@ -4866,7 +4867,8 @@ def test_registration_source_map_skips_unknown_provider_when_supported_one_exist
 def test_contact_map_skips_user_query_when_users_argument_is_empty(app, monkeypatch):
     class ForbiddenUserQuery:
         def filter(self, *_args, **_kwargs):
-            raise AssertionError("expected no user query when users=[] is provided")
+            message = "expected no user query when users=[] is provided"
+            raise AssertionError(message)
 
     with app.app_context():
         monkeypatch.setattr(

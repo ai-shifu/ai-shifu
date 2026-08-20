@@ -68,7 +68,8 @@ def test_logger_failure_never_blocks_the_original_handler():
 
     class _BrokenLogger:
         def error(self, *args, **kwargs):
-            raise RuntimeError("logging backend down")
+            message = "logging backend down"
+            raise RuntimeError(message)
 
     install_hub_error_observer(_BrokenLogger(), hub=hub)
     result = _fire(hub)
@@ -84,7 +85,8 @@ def test_unreprable_context_is_still_logged(caplog):
 
     class _BadRepr:
         def __repr__(self) -> str:
-            raise ValueError("no repr for you")
+            message = "no repr for you"
+            raise ValueError(message)
 
     with caplog.at_level(logging.ERROR, logger="test-hub-observer-badrepr"):
         _fire(hub, context=_BadRepr())

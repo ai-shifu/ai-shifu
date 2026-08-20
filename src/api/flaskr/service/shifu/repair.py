@@ -289,7 +289,8 @@ def repair_shifu_outline_structure(
     dry_run: bool = False,
 ) -> OutlineStructureRepairResult:
     if not dry_run and not user_bid:
-        raise ValueError("user_bid is required when dry_run is False")
+        message = "user_bid is required when dry_run is False"
+        raise ValueError(message)
 
     with app.app_context():
         items = _load_latest_active_outline_items(shifu_bids)

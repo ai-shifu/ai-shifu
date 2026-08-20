@@ -583,7 +583,8 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app):
                     target_user_id=target.user_bid,
                 )
                 db.session.flush()
-                raise RuntimeError("abort sign-in")
+                message = "abort sign-in"
+                raise RuntimeError(message)
 
         with pytest.raises(RuntimeError, match="abort sign-in"):
             merge_then_fail()

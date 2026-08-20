@@ -135,7 +135,8 @@ def test_rollback_db_failure_escalates_and_stops_retrying(monkeypatch):
 
     class _BrokenSession:
         def rollback(self):
-            raise OperationalError("ROLLBACK", {}, Exception())
+            message = "ROLLBACK"
+            raise OperationalError(message, {}, Exception())
 
     class _FakeDb:
         session = _BrokenSession()

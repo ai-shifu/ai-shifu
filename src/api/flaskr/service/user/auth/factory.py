@@ -25,7 +25,8 @@ def register_provider(provider_cls: type[AuthProvider]) -> None:
     """Register a provider class with the global registry."""
     provider_name = getattr(provider_cls, "provider_name", None)
     if not provider_name:
-        raise ValueError("Auth providers must define a non-empty provider_name")
+        error_message = "Auth providers must define a non-empty provider_name"
+        raise ValueError(error_message)
 
     normalized = provider_name.lower()
     if normalized in _REGISTRY:

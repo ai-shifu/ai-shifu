@@ -8,7 +8,8 @@ from flaskr.common.log import FeishuLogHandler
 
 class _FailingResponse:
     def raise_for_status(self):
-        raise requests.exceptions.HTTPError("400 Client Error")
+        message = "400 Client Error"
+        raise requests.exceptions.HTTPError(message)
 
 
 def test_feishu_log_handler_does_not_reemit_webhook_failures(monkeypatch):

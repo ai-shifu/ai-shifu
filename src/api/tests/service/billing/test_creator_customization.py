@@ -335,7 +335,8 @@ def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
         except AppError:
             pass
         else:
-            raise AssertionError("expired custom payment must block new checkout")
+            message = "expired custom payment must block new checkout"
+            raise AssertionError(message)
 
 
 def test_callback_token_requires_valid_integration_secret_key(app):
@@ -691,9 +692,8 @@ def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch):
 
     class _ExplodingModule:
         def __getattr__(self, name) -> Any:
-            raise AssertionError(
-                "SaaS plugin must not be used while SAAS_PLUGIN_ENABLED is false"
-            )
+            message = "SaaS plugin must not be used while SAAS_PLUGIN_ENABLED is false"
+            raise AssertionError(message)
 
     def fake_import(name):
         if name.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
@@ -914,7 +914,8 @@ def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(app, monke
             except AppError:
                 pass
             else:
-                raise AssertionError("invalid logo content must be rejected")
+                message = "invalid logo content must be rejected"
+                raise AssertionError(message)
 
 
 def test_creator_brand_logo_upload_normalizes_square_variant(app, monkeypatch):

@@ -374,7 +374,8 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
             raise ValueError(message)
         audio_base64 = result.get("Audio") or ""
         if not audio_base64:
-            raise ValueError("No audio data received from Tencent TextToVoice")
+            error_message = "No audio data received from Tencent TextToVoice"
+            raise ValueError(error_message)
         return base64.b64decode(audio_base64)
 
     def synthesize(
@@ -385,12 +386,14 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         model: str | None = None,
     ) -> TTSResult:
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            error_message = "Text cannot be empty"
+            raise ValueError(error_message)
         if not self.is_configured():
-            raise ValueError(
+            error_message = (
                 "Tencent TextToVoice is not configured. "
                 "Set TENCENT_TTS_SECRET_ID and TENCENT_TTS_SECRET_KEY"
             )
+            raise ValueError(error_message)
 
         if not voice_settings:
             voice_settings = self.get_default_voice_settings()
@@ -408,7 +411,8 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
 
         segments = _split_text(text)
         if not segments:
-            raise ValueError("Text cannot be empty")
+            error_message = "Text cannot be empty"
+            raise ValueError(error_message)
 
         logger.debug(
             "Calling Tencent TextToVoice: voice_type=%s, sample_rate=%s, "
@@ -425,7 +429,8 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         ]
         audio_data = concat_audio_best_effort(audio_segments, output_format="mp3")
         if not audio_data:
-            raise ValueError("No audio data received from Tencent TextToVoice")
+            error_message = "No audio data received from Tencent TextToVoice"
+            raise ValueError(error_message)
         duration_ms = try_get_audio_duration_ms(audio_data, audio_format="mp3") or 0
 
         return TTSResult(

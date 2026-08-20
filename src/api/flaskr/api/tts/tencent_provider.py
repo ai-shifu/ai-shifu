@@ -297,7 +297,8 @@ def _export_tencent_pcm_to_mp3(audio_data: bytes, *, sample_rate: int) -> bytes:
     if not audio_data:
         return b""
     if PydubAudioSegment is None:
-        raise ValueError("pydub is required to convert Tencent TTS PCM audio to MP3")
+        message = "pydub is required to convert Tencent TTS PCM audio to MP3"
+        raise ValueError(message)
 
     segment = PydubAudioSegment(
         data=audio_data,
@@ -1118,7 +1119,8 @@ def parse_tencent_sse_message(
             base64.b64decode(audio_value, validate=True) if audio_value else b""
         )
     except ValueError as exc:
-        raise ValueError("Invalid Tencent TTS SSE audio base64") from exc
+        error_message = "Invalid Tencent TTS SSE audio base64"
+        raise ValueError(error_message) from exc
     if not audio_data and not subtitles and not has_final_field:
         return None
 
@@ -1154,7 +1156,8 @@ class TencentTTSProvider(BaseTTSProvider):
         secret_id = str(get_config("TENCENT_TTS_SECRET_ID", "") or "").strip()
         secret_key = str(get_config("TENCENT_TTS_SECRET_KEY", "") or "").strip()
         if not secret_id or not secret_key:
-            raise ValueError("Tencent TTS credentials are not configured")
+            message = "Tencent TTS credentials are not configured"
+            raise ValueError(message)
         return TencentTTSCredentials(
             app_id=_coerce_app_id(app_id),
             secret_id=secret_id,
@@ -1221,10 +1224,12 @@ class TencentTTSProvider(BaseTTSProvider):
         model: str | None = None,
     ):
         if not self.is_configured():
-            raise ValueError("Tencent TTS is not configured")
+            error_message = "Tencent TTS is not configured"
+            raise ValueError(error_message)
         request_text = str(text or "").strip()
         if not request_text:
-            raise ValueError("Text cannot be empty")
+            error_message = "Text cannot be empty"
+            raise ValueError(error_message)
 
         credentials = self.get_credentials()
         effective_voice_settings = voice_settings or self.get_default_voice_settings()
@@ -1282,19 +1287,22 @@ class TencentTTSProvider(BaseTTSProvider):
                 try:
                     message = json.loads(line)
                 except json.JSONDecodeError as exc:
-                    raise ValueError("Invalid Tencent TTS SSE JSON response") from exc
+                    error_message = "Invalid Tencent TTS SSE JSON response"
+                    raise ValueError(error_message) from exc
                 chunk = parse_tencent_sse_message(message, request_text=request_text)
                 if chunk is None:
                     continue
                 if chunk.audio_data:
                     received_audio = True
                 if chunk.is_final and not received_audio:
-                    raise ValueError("No audio data received from Tencent TTS")
+                    error_message = "No audio data received from Tencent TTS"
+                    raise ValueError(error_message)
                 yield chunk
                 if chunk.is_final:
                     break
             if not received_audio:
-                raise ValueError("No audio data received from Tencent TTS")
+                error_message = "No audio data received from Tencent TTS"
+                raise ValueError(error_message)
         finally:
             close = getattr(response, "close", None)
             if callable(close):
@@ -1308,10 +1316,12 @@ class TencentTTSProvider(BaseTTSProvider):
         model: str | None = None,
     ) -> TTSResult:
         if not self.is_configured():
-            raise ValueError("Tencent TTS is not configured")
+            message = "Tencent TTS is not configured"
+            raise ValueError(message)
         request_text = str(text or "").strip()
         if not request_text:
-            raise ValueError("Text cannot be empty")
+            message = "Text cannot be empty"
+            raise ValueError(message)
 
         effective_voice_settings = voice_settings or self.get_default_voice_settings()
         if not effective_voice_settings.voice_id:
@@ -1351,13 +1361,15 @@ class TencentTTSProvider(BaseTTSProvider):
                 segment for segment in chunk_pcm_segments if segment
             )
             if not chunk_pcm_audio:
-                raise ValueError("No audio data received from Tencent TTS")
+                message = "No audio data received from Tencent TTS"
+                raise ValueError(message)
             chunk_mp3_audio = _export_tencent_pcm_to_mp3(
                 chunk_pcm_audio,
                 sample_rate=sample_rate,
             )
             if not chunk_mp3_audio:
-                raise ValueError("No decodable audio data received from Tencent TTS")
+                message = "No decodable audio data received from Tencent TTS"
+                raise ValueError(message)
             audio_segments.append(chunk_mp3_audio)
 
             duration_ms = _tencent_pcm_duration_ms(
@@ -1396,7 +1408,8 @@ class TencentTTSProvider(BaseTTSProvider):
             audio_segments, output_format=output_format
         )
         if not final_audio:
-            raise ValueError("No decodable audio data received from Tencent TTS")
+            message = "No decodable audio data received from Tencent TTS"
+            raise ValueError(message)
         if duration_total_ms <= 0:
             decoded_duration_ms = try_get_audio_duration_ms(
                 final_audio,

@@ -357,7 +357,8 @@ def test_persist_cleanup_targets_failed_session_inside_context(app, monkeypatch)
             pass
 
         def commit(self):
-            raise ResourceClosedError("desynced")
+            message = "desynced"
+            raise ResourceClosedError(message)
 
     monkeypatch.setattr(
         recorder_module, "db", type("D", (), {"session": _FailingSession()})

@@ -889,7 +889,8 @@ def _probe_provider_credentials(
     if provider == "wechatpay":
         api_v3_key = str(secret_config.get("api_v3_key") or "").strip()
         if len(api_v3_key.encode("utf-8")) != 32:
-            raise ValueError("WeChat Pay API v3 key must be 32 bytes")
+            error_message = "WeChat Pay API v3 key must be 32 bytes"
+            raise ValueError(error_message)
         _parse_pem_private_key(secret_config.get("private_key"))
         _parse_x509_certificate(secret_config.get("platform_cert"))
         return
@@ -908,11 +909,14 @@ def _probe_stripe_credentials(
     secret_key = str(secret_config.get("secret_key") or "").strip()
     webhook_secret = str(secret_config.get("webhook_secret") or "").strip()
     if not publishable_key.startswith(("pk_live_", "pk_test_")):
-        raise ValueError("Stripe publishable key must start with pk_live_ or pk_test_")
+        message = "Stripe publishable key must start with pk_live_ or pk_test_"
+        raise ValueError(message)
     if not secret_key.startswith(("sk_live_", "sk_test_")):
-        raise ValueError("Stripe secret key must start with sk_live_ or sk_test_")
+        message = "Stripe secret key must start with sk_live_ or sk_test_"
+        raise ValueError(message)
     if not webhook_secret.startswith("whsec_"):
-        raise ValueError("Stripe webhook secret must start with whsec_")
+        message = "Stripe webhook secret must start with whsec_"
+        raise ValueError(message)
     if app.config.get("TESTING"):
         return
     try:
@@ -924,7 +928,8 @@ def _probe_stripe_credentials(
             request_options["stripe_version"] = api_version
         stripe.Account.retrieve(**request_options)
     except Exception as exc:
-        raise ValueError("Stripe credentials could not be verified") from exc
+        message = "Stripe credentials could not be verified"
+        raise ValueError(message) from exc
 
 
 def _parse_pem_private_key(value: Any) -> None:
@@ -932,7 +937,8 @@ def _parse_pem_private_key(value: Any) -> None:
     try:
         serialization.load_pem_private_key(pem, password=None)
     except (TypeError, ValueError) as exc:
-        raise ValueError("Private key is not a valid PEM key") from exc
+        message = "Private key is not a valid PEM key"
+        raise ValueError(message) from exc
 
 
 def _parse_pem_public_key(value: Any) -> None:
@@ -940,7 +946,8 @@ def _parse_pem_public_key(value: Any) -> None:
     try:
         serialization.load_pem_public_key(pem)
     except (TypeError, ValueError) as exc:
-        raise ValueError("Public key is not a valid PEM key") from exc
+        message = "Public key is not a valid PEM key"
+        raise ValueError(message) from exc
 
 
 def _parse_x509_certificate(value: Any) -> None:
@@ -948,7 +955,8 @@ def _parse_x509_certificate(value: Any) -> None:
     try:
         x509.load_pem_x509_certificate(pem)
     except ValueError as exc:
-        raise ValueError("Certificate is not a valid PEM certificate") from exc
+        message = "Certificate is not a valid PEM certificate"
+        raise ValueError(message) from exc
 
 
 def _normalize_pem(value: Any, label: str) -> bytes:
@@ -988,11 +996,13 @@ def _build_callback_token(app: Flask, integration_bid: str) -> str:
 def _require_creator_integration_secret_key(app: Flask) -> str:
     key = str(app.config.get("CREATOR_INTEGRATION_ENCRYPTION_KEY") or "").strip()
     if not key:
-        raise RuntimeError("CREATOR_INTEGRATION_ENCRYPTION_KEY must be configured")
+        message = "CREATOR_INTEGRATION_ENCRYPTION_KEY must be configured"
+        raise RuntimeError(message)
     try:
         Fernet(key.encode("ascii"))
     except (ValueError, TypeError) as exc:
-        raise RuntimeError("CREATOR_INTEGRATION_ENCRYPTION_KEY is invalid") from exc
+        message = "CREATOR_INTEGRATION_ENCRYPTION_KEY is invalid"
+        raise RuntimeError(message) from exc
     return key
 
 
@@ -1299,7 +1309,8 @@ def _saas_funcs(*, required: bool = True):
         if not str(exc.name or "").startswith("flaskr.plugins.ai_shifu_saas_plugin"):
             raise
         if required:
-            raise RuntimeError("SaaS config plugin is not installed") from exc
+            message = "SaaS config plugin is not installed"
+            raise RuntimeError(message) from exc
         return None
     # The plugin ships with the image even on deployments that never
     # configure its dedicated database. Plugin initialization then leaves
@@ -1308,7 +1319,8 @@ def _saas_funcs(*, required: bool = True):
     # installed" and let callers fall back to entitlement-backed storage.
     if has_app_context() and not current_app.config.get("SAAS_PLUGIN_ENABLED"):
         if required:
-            raise RuntimeError("SaaS config plugin is not enabled")
+            message = "SaaS config plugin is not enabled"
+            raise RuntimeError(message)
         return None
     return module
 

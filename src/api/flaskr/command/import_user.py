@@ -23,7 +23,8 @@ def import_user(
     with app.app_context():
         normalized_mobile = normalize_phone_identifier(mobile)
         if not normalized_mobile:
-            raise RuntimeError("Mobile must not be empty for import_user")
+            message = "Mobile must not be empty for import_user"
+            raise RuntimeError(message)
 
         # Ensure there is a canonical user bound to this phone number, and that
         # the canonical record tracks the phone in ``user_identify`` together
@@ -42,7 +43,8 @@ def import_user(
         )
 
         if not aggregate:
-            raise RuntimeError("Failed to resolve user aggregate during import")
+            message = "Failed to resolve user aggregate during import"
+            raise RuntimeError(message)
 
         user_id = aggregate.user_bid
 

@@ -440,7 +440,8 @@ def _bootstrap_trial_subscription(
 
     granted = _grant_paid_order_credits(app, order)
     if not granted:
-        raise RuntimeError("trial_order_credit_grant_failed")
+        message = "trial_order_credit_grant_failed"
+        raise RuntimeError(message)
 
     grant_notification = _stage_credit_granted_notification_for_order(
         app,

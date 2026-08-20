@@ -102,7 +102,8 @@ def is_oss_profile_configured(profile: str = OSS_PROFILE_DEFAULT) -> bool:
 
 def create_oss_bucket(config: OSSConfig) -> oss2.Bucket:
     if oss2 is None:  # pragma: no cover
-        raise RuntimeError("oss2 dependency is not installed")
+        message = "oss2 dependency is not installed"
+        raise RuntimeError(message)
     auth = oss2.Auth(config.access_key_id, config.access_key_secret)
     return oss2.Bucket(auth, config.endpoint, config.bucket)
 

@@ -24,10 +24,11 @@ def test_module_does_not_create_an_executor_at_import_time():
                 isinstance(value, ast.Call)
                 and getattr(value.func, "id", None) == "ThreadPoolExecutor"
             ):
-                raise AssertionError(
+                message = (
                     "module-level ThreadPoolExecutor recreates the "
                     "fork-inheritance hazard; use _get_tts_executor()"
                 )
+                raise AssertionError(message)
 
 
 def test_executor_is_cached_within_one_process(monkeypatch):

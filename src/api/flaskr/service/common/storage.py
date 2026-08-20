@@ -71,11 +71,14 @@ def _resolve_provider(profile: str) -> str:
 def _normalize_object_key(object_key: str) -> str:
     key = (object_key or "").replace("\\", "/").strip()
     if not key:
-        raise ValueError("object_key is required")
+        message = "object_key is required"
+        raise ValueError(message)
     if key.startswith("/"):
-        raise ValueError("object_key must be a relative path")
+        message = "object_key must be a relative path"
+        raise ValueError(message)
     if ".." in key.split("/"):
-        raise ValueError("object_key must not contain '..'")
+        message = "object_key must not contain '..'"
+        raise ValueError(message)
     return key
 
 
@@ -94,7 +97,8 @@ def get_local_storage_path(profile: str, object_key: str) -> Path:
     root_abs = root.resolve()
     target_abs = target.resolve()
     if os.path.commonpath([str(root_abs), str(target_abs)]) != str(root_abs):
-        raise ValueError("Resolved path escapes LOCAL_STORAGE_ROOT")
+        message = "Resolved path escapes LOCAL_STORAGE_ROOT"
+        raise ValueError(message)
     return target
 
 
@@ -108,7 +112,8 @@ def build_local_storage_url(profile: str, object_key: str) -> str:
 
 def _coerce_to_binary_stream(file_content: Any) -> io.BufferedReader:
     if file_content is None:
-        raise ValueError("file_content is required")
+        message = "file_content is required"
+        raise ValueError(message)
 
     if isinstance(file_content, (bytes, bytearray)):
         return io.BufferedReader(io.BytesIO(file_content))
@@ -117,7 +122,8 @@ def _coerce_to_binary_stream(file_content: Any) -> io.BufferedReader:
         # Werkzeug FileStorage / BytesIO / file object.
         return file_content  # type: ignore[return-value]
 
-    raise TypeError("file_content must be bytes or a file-like object")
+    message = "file_content must be bytes or a file-like object"
+    raise TypeError(message)
 
 
 def _upload_to_local(

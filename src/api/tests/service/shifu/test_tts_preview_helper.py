@@ -245,7 +245,8 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> 
                 "owner_user_bid": owner_user_bid,
             }
         )
-        raise AppError("voice unavailable", ERROR_CODE["server.common.paramsError"])
+        message = "voice unavailable"
+        raise AppError(message, ERROR_CODE["server.common.paramsError"])
 
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.assert_preview_cloned_voice_available",

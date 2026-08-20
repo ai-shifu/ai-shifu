@@ -87,7 +87,8 @@ class TestIsAllowedOAuthOrigin:
 
     def test_lookup_failure_refuses_rather_than_allows(self, app, monkeypatch) -> None:
         def _boom(app, host):
-            raise RuntimeError("database is down")
+            message = "database is down"
+            raise RuntimeError(message)
 
         monkeypatch.setattr(oauth_origins, "_resolve_creator_bid_by_host", _boom)
         assert oauth_origins.is_allowed_oauth_origin(app, CUSTOM_ORIGIN) is False

@@ -21,7 +21,8 @@ from flaskr.service.billing.cycle_transitions import (
 
 
 def _raise_unexpected_call(*_args, **_kwargs):
-    raise AssertionError("unexpected callback call")
+    message = "unexpected callback call"
+    raise AssertionError(message)
 
 
 def test_resolve_order_effective_from_prefers_order_cycle_metadata() -> None:

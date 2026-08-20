@@ -230,7 +230,8 @@ def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(
     class FakeSession:
         @staticmethod
         def create(**_kwargs) -> None:
-            raise RuntimeError("session failed")
+            message = "session failed"
+            raise RuntimeError(message)
 
     class FakeCheckout:
         Session = FakeSession

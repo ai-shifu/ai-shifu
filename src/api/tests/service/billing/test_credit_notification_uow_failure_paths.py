@@ -295,7 +295,8 @@ def test_scan_item_failure_is_isolated_from_neighbor_items(
     def staging_then_boom(app_arg, **kwargs):
         result = original_stage(app_arg, **kwargs)
         if kwargs.get("creator_bid") == "creator-uow-2":
-            raise RuntimeError("boom in creator-uow-2")
+            message = "boom in creator-uow-2"
+            raise RuntimeError(message)
         return result
 
     monkeypatch.setattr(
@@ -400,7 +401,8 @@ def test_failed_provider_marker_persists_and_stays_retryable(
     notification_bid = str(staged["notification_bid"])
 
     def crashing_send(*_args, **_kwargs):
-        raise RuntimeError("provider connection dropped")
+        message = "provider connection dropped"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(credit_notifications, "send_sms_ali", crashing_send)
     failed = deliver_credit_notification(app, notification_bid=notification_bid)
@@ -456,7 +458,8 @@ def test_granted_dispatch_fires_after_commit_and_drops_on_rollback(
             )
             assert staged["status"] == CREDIT_NOTIFICATION_STATUS_PENDING
             assert enqueued == []  # not yet durable, must not dispatch
-            raise RuntimeError("outer boom")
+            message = "outer boom"
+            raise RuntimeError(message)
 
     with pytest.raises(RuntimeError, match="outer boom"):
         stage_then_fail()

@@ -77,13 +77,15 @@ class PingxxProvider(PaymentProvider):
             client = _get_pingpp_client()
         except Exception as exc:  # pragma: no cover
             app.logger.exception("Pingxx dependency is not available")
-            raise RuntimeError("Pingxx dependency is not available") from exc
+            message = "Pingxx dependency is not available"
+            raise RuntimeError(message) from exc
 
         api_key = get_config("PINGXX_SECRET_KEY")
         private_key = str(get_config("PINGXX_PRIVATE_KEY", "") or "").strip()
         private_key_path = get_config("PINGXX_PRIVATE_KEY_PATH")
         if not private_key and not private_key_path:
-            raise RuntimeError("Pingxx private key is not configured")
+            message = "Pingxx private key is not configured"
+            raise RuntimeError(message)
         if not private_key and not Path(private_key_path).exists():
             app.logger.error("Pingxx private key not found at %s", private_key_path)
             raise FileNotFoundError(private_key_path)
@@ -163,17 +165,20 @@ class PingxxProvider(PaymentProvider):
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
-        raise RuntimeError("Pingxx does not support subscriptions")
+        message = "Pingxx does not support subscriptions"
+        raise RuntimeError(message)
 
     def cancel_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
-        raise RuntimeError("Pingxx does not support subscriptions")
+        message = "Pingxx does not support subscriptions"
+        raise RuntimeError(message)
 
     def resume_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
-        raise RuntimeError("Pingxx does not support subscriptions")
+        message = "Pingxx does not support subscriptions"
+        raise RuntimeError(message)
 
     def verify_webhook(
         self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
@@ -191,7 +196,8 @@ class PingxxProvider(PaymentProvider):
         if webhook_public_key:
             signature = normalized_headers.get("x-pingplusplus-signature", "")
             if not signature:
-                raise RuntimeError("Pingxx signature header missing")
+                message = "Pingxx signature header missing"
+                raise RuntimeError(message)
             public_key = serialization.load_pem_public_key(
                 webhook_public_key.encode("utf-8")
             )

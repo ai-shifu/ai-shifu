@@ -91,7 +91,8 @@ def test_send_sms_code_ali_returns_none_without_keys(monkeypatch):
     from flaskr.api.sms import aliyun as sms_aliyun
 
     def fake_client(_config):
-        raise AssertionError("client should not be created")
+        message = "client should not be created"
+        raise AssertionError(message)
 
     monkeypatch.setattr(sms_aliyun, "Dysmsapi20170525Client", fake_client)
 
