@@ -15,13 +15,13 @@ from urllib.parse import urlparse
 import requests
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
+from flaskr.dao import db
+from flaskr.service.common.models import raise_error
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES, get_image_content_type
 from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config import get_config
+from flaskr.service.resource.models import Resource
 
-from ...dao import db
-from ...service.resource.models import Resource
-from ..common.models import raise_error
 from .models import AiCourseAuth, FavoriteScenario
 from .utils import get_shifu_creator_bid
 

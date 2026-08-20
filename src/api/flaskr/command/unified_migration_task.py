@@ -284,7 +284,7 @@ class UnifiedMigrationTask:
                 )
 
                 # Also print for visibility during flask db upgrade
-                print(
+                print(  # noqa: T201
                     f"[MIGRATION] {source_table}: {progress:.1f}% ({synced_count}/{total_count})"
                 )
                 import sys
@@ -312,7 +312,8 @@ class UnifiedMigrationTask:
 
         completion_message = f"Migration completed for {source_table}: {synced_count}/{total_count} records, {error_count} errors"
         logger.info(completion_message)
-        print(f"[MIGRATION] ✅ {completion_message}")
+        # Printed so progress stays visible during `flask db upgrade`.
+        print(f"[MIGRATION] ✅ {completion_message}")  # noqa: T201
         import sys
 
         sys.stdout.flush()
@@ -1099,7 +1100,7 @@ async def main():
                 await asyncio.to_thread(_write_report)
                 logger.info(f"Report saved to: {args.output_file}")
             else:
-                print(report)
+                print(report)  # noqa: T201 - CLI report on stdout
 
         elif args.action == "verify":
             logger.info("Starting data consistency verification...")
@@ -1107,7 +1108,7 @@ async def main():
 
             for result in consistency_results.values():
                 status = "PASSED" if result.is_consistent else "FAILED"
-                print(f"{status}: {result.table_pair}")
+                print(f"{status}: {result.table_pair}")  # noqa: T201 - CLI output
                 if not result.is_consistent:
                     sys.exit(1)
 
@@ -1118,7 +1119,7 @@ async def main():
             report = migration_task.generate_migration_report(
                 migration_results, consistency_results
             )
-            print(report)
+            print(report)  # noqa: T201 - CLI report on stdout
 
     finally:
         migration_task.close()

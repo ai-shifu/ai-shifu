@@ -9,8 +9,7 @@ from werkzeug.exceptions import HTTPException
 
 from flaskr.common.shifu_context import clear_shifu_context
 from flaskr.i18n import _, _translations, clear_language, set_language
-
-from ..service.common import AppError
+from flaskr.service.common import AppError
 
 by_pass_login_func = [
     "flasgger.apispec_1",

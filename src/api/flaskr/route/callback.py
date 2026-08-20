@@ -9,15 +9,15 @@ from flaskr.service.billing.webhooks import (
     handle_billing_pingxx_webhook,
 )
 from flaskr.service.config import config_overrides
-from flaskr.service.order.models import Order, PingxxOrder
-from flaskr.service.order.payment_providers import get_payment_provider
-from flaskr.service.order.raw_snapshots import native_snapshot_model
-
-from ..service.order import (
+from flaskr.service.order import (
     handle_stripe_webhook,
     success_buy_record_from_native,
     success_buy_record_from_pingxx,
 )
+from flaskr.service.order.models import Order, PingxxOrder
+from flaskr.service.order.payment_providers import get_payment_provider
+from flaskr.service.order.raw_snapshots import native_snapshot_model
+
 from .common import bypass_token_validation
 
 

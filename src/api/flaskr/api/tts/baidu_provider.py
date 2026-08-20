@@ -28,7 +28,7 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Baidu TTS API endpoints
 BAIDU_TTS_API_URL = "https://tsn.baidu.com/text2audio"
-BAIDU_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"
+BAIDU_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"  # noqa: S105 - endpoint URL
 
 # Baidu audio format mapping
 BAIDU_AUDIO_FORMATS = {
