@@ -188,22 +188,21 @@ def _render_html(rows: list[ReportRow], *, output_path: str) -> str:
     success = sum(1 for row in rows if row.audio_url and not row.error)
     failed = len(rows) - success
 
-    tr_rows = []
-    for row in rows:
-        tr_rows.append(
-            "<tr>"
-            f"<td>{html.escape(row.provider)}</td>"
-            f"<td>{html.escape(row.model)}</td>"
-            f"<td>{html.escape(row.voice_id)}</td>"
-            f"<td>{html.escape(row.voice_label)}</td>"
-            f"<td>{html.escape(row.language)}</td>"
-            f"<td>{row.segment_count}</td>"
-            f"<td>{row.duration_ms}</td>"
-            f"<td>{row.elapsed_seconds:.3f}</td>"
-            f"<td>{row.to_html_audio()}</td>"
-            f"<td style='color:#b91c1c'>{html.escape(row.error)}</td>"
-            "</tr>"
-        )
+    tr_rows = [
+        "<tr>"
+        f"<td>{html.escape(row.provider)}</td>"
+        f"<td>{html.escape(row.model)}</td>"
+        f"<td>{html.escape(row.voice_id)}</td>"
+        f"<td>{html.escape(row.voice_label)}</td>"
+        f"<td>{html.escape(row.language)}</td>"
+        f"<td>{row.segment_count}</td>"
+        f"<td>{row.duration_ms}</td>"
+        f"<td>{row.elapsed_seconds:.3f}</td>"
+        f"<td>{row.to_html_audio()}</td>"
+        f"<td style='color:#b91c1c'>{html.escape(row.error)}</td>"
+        "</tr>"
+        for row in rows
+    ]
 
     html_body = f"""<!doctype html>
 <html lang="en">
@@ -278,25 +277,25 @@ def _render_markdown(rows: list[ReportRow], *, output_path: str) -> str:
     )
     lines.append("|---|---|---|---|---|---:|---:|---:|---|---|")
 
-    for row in rows:
-        lines.append(
-            "| "
-            + " | ".join(
-                [
-                    _escape_markdown_cell(row.provider),
-                    _escape_markdown_cell(row.model),
-                    _escape_markdown_cell(row.voice_id),
-                    _escape_markdown_cell(row.voice_label),
-                    _escape_markdown_cell(row.language),
-                    str(int(row.segment_count)),
-                    str(int(row.duration_ms)),
-                    f"{row.elapsed_seconds:.3f}",
-                    row.to_html_audio() or "",
-                    _escape_markdown_cell(row.error),
-                ]
-            )
-            + " |"
+    lines.extend(
+        "| "
+        + " | ".join(
+            [
+                _escape_markdown_cell(row.provider),
+                _escape_markdown_cell(row.model),
+                _escape_markdown_cell(row.voice_id),
+                _escape_markdown_cell(row.voice_label),
+                _escape_markdown_cell(row.language),
+                str(int(row.segment_count)),
+                str(int(row.duration_ms)),
+                f"{row.elapsed_seconds:.3f}",
+                row.to_html_audio() or "",
+                _escape_markdown_cell(row.error),
+            ]
         )
+        + " |"
+        for row in rows
+    )
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -381,25 +380,25 @@ def main():
             # Still produce rows (as failures) so the report is complete.
             cfg = provider.get_provider_config()
             if cfg.models:
-                for model in cfg.models:
-                    cases.append(
-                        {
-                            "provider": provider_name,
-                            "model": _safe_str(model.get("value")),
-                            "voice_id": provider.get_default_voice_settings().voice_id,
-                            "voice_label": "",
-                        }
-                    )
+                cases.extend(
+                    {
+                        "provider": provider_name,
+                        "model": _safe_str(model.get("value")),
+                        "voice_id": provider.get_default_voice_settings().voice_id,
+                        "voice_label": "",
+                    }
+                    for model in cfg.models
+                )
             else:
-                for voice in cfg.voices:
-                    cases.append(
-                        {
-                            "provider": provider_name,
-                            "model": "",
-                            "voice_id": _safe_str(voice.get("value")),
-                            "voice_label": _safe_str(voice.get("label")),
-                        }
-                    )
+                cases.extend(
+                    {
+                        "provider": provider_name,
+                        "model": "",
+                        "voice_id": _safe_str(voice.get("value")),
+                        "voice_label": _safe_str(voice.get("label")),
+                    }
+                    for voice in cfg.voices
+                )
             continue
 
         cases.extend(_build_cases(provider_name=provider_name, matrix=args.matrix))

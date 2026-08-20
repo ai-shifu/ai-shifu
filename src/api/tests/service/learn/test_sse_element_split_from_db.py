@@ -70,22 +70,20 @@ def _fetch_blocks_raw(app, limit=100):
             .all()
         )
         # Detach from session so we can use outside app context
-        result = []
-        for r in rows:
-            result.append(
-                {
-                    "generated_block_bid": r.generated_block_bid,
-                    "shifu_bid": r.shifu_bid,
-                    "outline_item_bid": r.outline_item_bid,
-                    "user_bid": r.user_bid,
-                    "progress_record_bid": r.progress_record_bid,
-                    "role": int(r.role or 0),
-                    "type": int(r.type or 0),
-                    "position": int(r.position or 0),
-                    "generated_content": r.generated_content or "",
-                }
-            )
-        return result
+        return [
+            {
+                "generated_block_bid": r.generated_block_bid,
+                "shifu_bid": r.shifu_bid,
+                "outline_item_bid": r.outline_item_bid,
+                "user_bid": r.user_bid,
+                "progress_record_bid": r.progress_record_bid,
+                "role": int(r.role or 0),
+                "type": int(r.type or 0),
+                "position": int(r.position or 0),
+                "generated_content": r.generated_content or "",
+            }
+            for r in rows
+        ]
 
 
 def _role_str(role_int):
@@ -387,9 +385,11 @@ class TestSSEElementSplitFromDB:
                         "is_final",
                         "content",
                     ]
-                    for field in required_fields:
-                        if field not in content:
-                            failures.append(f"Block {bid}: element missing '{field}'")
+                    failures.extend(
+                        f"Block {bid}: element missing '{field}'"
+                        for field in required_fields
+                        if field not in content
+                    )
 
         print(f"\n  SSE serialization tested on {len(sample_blocks)} blocks")
 

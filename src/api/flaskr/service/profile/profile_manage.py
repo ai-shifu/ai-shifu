@@ -107,14 +107,13 @@ def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
     """Determine custom profile keys that are not referenced in any outline content."""
     definitions = get_profile_item_definition_list(app, parent_id=shifu_bid)
     used_variables = _collect_used_variables(app, shifu_bid)
-    unused_keys: list[str] = []
-    for definition in definitions:
-        if (
-            definition.profile_scope == CONST_PROFILE_SCOPE_USER
-            and definition.profile_key
-            and definition.profile_key not in used_variables
-        ):
-            unused_keys.append(definition.profile_key)
+    unused_keys: list[str] = [
+        definition.profile_key
+        for definition in definitions
+        if definition.profile_scope == CONST_PROFILE_SCOPE_USER
+        and definition.profile_key
+        and definition.profile_key not in used_variables
+    ]
     return unused_keys
 
 

@@ -453,16 +453,16 @@ def init_buy_record(
             )
         )
         if campaign_applications:
-            for campaign_application in campaign_applications:
-                price_items.append(
-                    PayItemDto(
-                        _("server.order.payItemPromotion"),
-                        campaign_application.promo_name,
-                        campaign_application.discount_amount,
-                        True,
-                        None,
-                    )
+            price_items.extend(
+                PayItemDto(
+                    _("server.order.payItemPromotion"),
+                    campaign_application.promo_name,
+                    campaign_application.discount_amount,
+                    True,
+                    None,
                 )
+                for campaign_application in campaign_applications
+            )
         return AICourseBuyRecordDTO(
             buy_record.order_bid,
             buy_record.user_bid,

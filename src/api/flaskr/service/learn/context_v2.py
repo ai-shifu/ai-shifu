@@ -339,10 +339,7 @@ class RUNLLMProvider(LLMProvider):
             usage_scene=self.usage_scene,
         )
         # Collect all stream responses and concatenate the results
-        content_parts = []
-        for response in res:
-            if response.result:
-                content_parts.append(response.result)
+        content_parts = [response.result for response in res if response.result]
         output = "".join(content_parts)
         self._log_preview_output(
             model=actual_model,
