@@ -40,18 +40,23 @@ class JsonObjectMap(MutableMapping[str, Any]):
     values: dict[str, Any] = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> Any:
+        """Return a stored JSON value by key."""
         return self.values[key]
 
     def __setitem__(self, key: str, value: Any) -> None:
+        """Store a JSON value under the normalized string key."""
         self.values[str(key)] = value
 
     def __delitem__(self, key: str) -> None:
+        """Delete the stored JSON value for a key."""
         del self.values[key]
 
     def __iter__(self) -> Iterator[str]:
+        """Iterate over the stored JSON keys."""
         return iter(self.values)
 
     def __len__(self) -> int:
+        """Return the number of stored JSON keys."""
         return len(self.values)
 
     def get(self, key: str, default: Any = None) -> Any:

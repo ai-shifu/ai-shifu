@@ -29,6 +29,7 @@ class LegacyGeneratedBlockRecord:
     audios: list[AudioCompleteDTO] | None = None
 
     def __json__(self) -> dict:
+        """Return the legacy generated block record as JSON-compatible data."""
         ret = {
             "generated_block_bid": self.generated_block_bid,
             "content": self.content,
@@ -52,6 +53,7 @@ class LegacyLearnRecord:
     records: list[LegacyGeneratedBlockRecord]
 
     def __json__(self) -> dict:
+        """Return the legacy learn record as JSON-compatible data."""
         return {
             "records": self.records,
         }

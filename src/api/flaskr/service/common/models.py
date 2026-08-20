@@ -15,15 +15,18 @@ class AppError(Exception):
         self.payload = payload
 
     def __json__(self) -> dict:
+        """Return the application error as JSON-compatible data."""
         rv = dict(self.payload or ())
         rv["message"] = self.message
         rv["code"] = self.code
         return rv
 
     def __str__(self) -> str:
+        """Return the application error message."""
         return self.message
 
     def __html__(self) -> dict:
+        """Return the serialized application-error payload."""
         return self.__json__()
 
 

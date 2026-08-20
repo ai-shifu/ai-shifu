@@ -39,6 +39,7 @@ class ManualCreditGrantResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
