@@ -738,7 +738,7 @@ def retry_pending_referral_rewards(
                         "bill_order_bid": billing_artifacts.get("bill_order_bid", ""),
                     }
                 )
-            except Exception as exc:  # noqa: BLE001 - repair must continue per row.
+            except Exception as exc:  # repair must continue per row.
                 db.session.rollback()
                 _mark_reward_grant_failed(reward_bid=reward.reward_bid, error=exc)
                 results.append(
@@ -851,7 +851,7 @@ def process_referral_post_auth(
                 reward_bid=reward.reward_bid,
                 billing_artifacts=billing_artifacts,
             )
-        except Exception as exc:  # noqa: BLE001 - referral grant is best-effort.
+        except Exception as exc:  # referral grant is best-effort.
             db.session.rollback()
             _mark_reward_grant_failed(reward_bid=reward.reward_bid, error=exc)
             return ReferralPostAuthResult(

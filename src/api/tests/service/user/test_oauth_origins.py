@@ -26,7 +26,7 @@ CUSTOM_ORIGIN = f"https://{CUSTOM_DOMAIN}"
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
-        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
 
 
 @pytest.fixture(autouse=True)
