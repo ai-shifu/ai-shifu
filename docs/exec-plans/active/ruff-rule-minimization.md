@@ -119,6 +119,17 @@ plan's progress update for that rule.
   reports 30,778 findings across 39 rules and no D107 findings.
 - [ ] Merge or retarget D107 PR #2582 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 01:09 CST: Opened ready D105 PR
+  [#2583](https://github.com/ai-shifu/ai-shifu/pull/2583) from
+  `sunner/ruff-d105` to the D107 branch. All 155 findings across 37 Python
+  files now document each magic method's observable protocol. A semantic AST
+  audit found no executable change after removing docstrings; 224 focused
+  tests, the full backend suite, and all pre-commit hooks pass.
+- [x] 2026-08-21 01:09 CST: Re-ran the stable `ALL` census on the D105 tip. It
+  reports 30,623 findings across 38 rules and no D105 findings. E501 remains at
+  613 findings, so the documentation cleanup transfers no line-length debt.
+- [ ] Merge or retarget D105 PR #2583 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -174,6 +185,10 @@ plan's progress update for that rule.
   `pass` statement redundant under the already-selected PIE790 rule. Removing
   that no-op preserves the configured baseline and runtime behavior; it does
   not adopt a second rule unit.
+- The first D105 pass introduced four E501 findings through long protocol
+  summaries. Shortening those summaries without weakening their observable
+  contracts restored E501 to 613, making the final census a pure 155-finding
+  reduction instead of moving debt between rules.
 - FIX002 and TD003 report the same two TODOs. One is a real password-login
   rate-limit feature and one is a compatibility-removal checkpoint. Renaming
   them to evade lint would hide work, and implementing either is larger than a
@@ -286,6 +301,17 @@ suites pass 166 tests with one skip, the full backend suite passes 3,010 tests
 with 17 skips, and the repository-wide pre-commit gate passes. The engineering
 baseline tells future agents to document the payload, state, dependency, setup,
 or real side effects instead of copying a signature or adding generic filler.
+
+The D105 stage removes the global missing-magic-method-docstring exception and
+documents all 155 affected methods in 37 files. The 106 `__json__` methods state
+whether they expose a scalar, JSON-compatible data, or a serialized string;
+mapping, representation, comparison, iteration, and delegation methods name
+their visible protocol result. No runtime path consumes these docstrings, and a
+semantic AST audit proves the Python sources are otherwise identical after
+docstrings are removed. The focused protocol suites pass 224 tests, the full
+backend suite passes 3,010 tests with 17 skips, and the repository-wide
+pre-commit gate passes. Future agents now have an explicit D105 repair contract
+that rejects filler summaries in favor of observable behavior.
 
 ## Context and Orientation
 
