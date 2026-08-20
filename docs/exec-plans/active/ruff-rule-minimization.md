@@ -147,6 +147,7 @@ plan's progress update for that rule.
   test now verifies the constant message template and interpolation argument,
   so it protects the parameterized logging contract instead of requiring eager
   formatting.
+<<<<<<< HEAD
 - Correcting D205 structure made pydocstyle recognize sections that malformed
   summaries had hidden. This exposed D200, D410, D411, D413, and D417 findings
   from rules already selected by the repository; satisfying them in the D205
@@ -156,6 +157,8 @@ plan's progress update for that rule.
   learner-route specifications contain invalid YAML; the new parser test
   freezes their exact identities without changing them in this rule PR, while
   rejecting any additional unparseable specification.
+=======
+>>>>>>> 63368696 (chore: record the G004 stack progress)
 - FIX002 and TD003 report the same two TODOs. One is a real password-login
   rate-limit feature and one is a compatibility-removal checkpoint. Renaming
   them to evade lint would hide work, and implementing either is larger than a
@@ -250,6 +253,7 @@ code changes. Exact config-warning and migration-progress log tests pass in the
 and the repository-wide pre-commit gate passes. The engineering baseline now
 tells future agents to parameterize logging rather than hiding eager f-strings.
 
+<<<<<<< HEAD
 The D205 stage removes the global missing-blank-line exception and gives all
 262 affected docstrings a complete first-line summary. A semantic AST audit
 confirms that the 66 tracked Python files contain no code changes outside
@@ -261,6 +265,8 @@ the full backend suite passes 3,010 tests with 17 skips, and the repository-wide
 pre-commit gate passes. Future agents now have an explicit D205 and Flasgger
 repair contract in the engineering baseline.
 
+=======
+>>>>>>> 63368696 (chore: record the G004 stack progress)
 ## Context and Orientation
 
 Start with these files:
