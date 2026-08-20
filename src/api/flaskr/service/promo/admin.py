@@ -6,8 +6,8 @@ import math
 import secrets
 import string
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.api import (
@@ -66,6 +66,9 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc, parse_naive_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy import and_, case, func, not_, or_
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 PROMOTION_SCOPE_ALL_COURSES = "all_courses"
 PROMOTION_SCOPE_SINGLE_COURSE = "single_course"

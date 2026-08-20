@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
-import pytest
-from flask import Flask
 from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_FAILED,
@@ -24,6 +23,10 @@ from tests.service.billing.renewal_execution_test_helpers import (
     create_renewal_event,
     create_renewal_subscription,
 )
+
+if TYPE_CHECKING:
+    import pytest
+    from flask import Flask
 
 pytest_plugins = ["tests.service.billing.renewal_execution_app_fixture"]
 

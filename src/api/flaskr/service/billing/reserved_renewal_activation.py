@@ -5,9 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 
@@ -50,6 +49,9 @@ from .wallets import (
     refresh_credit_wallet_snapshot,
     resolve_bucket_source_type_for_category,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 class ExpireBucketBalanceForTransition(Protocol):

@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
@@ -37,6 +36,8 @@ from .wallets import persist_credit_wallet_snapshot, sync_credit_bucket_status
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from flask import Flask
 
 _ZERO = Decimal(0)
 

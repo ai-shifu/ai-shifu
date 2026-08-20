@@ -5,14 +5,16 @@ from __future__ import annotations
 import importlib
 import os
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from celery import Celery, Task
 from celery.schedules import crontab
 from celery.signals import worker_process_init
-from flask import Flask
 
 from flaskr.common.config import get_explicit_env_override
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _DEFAULT_BROKER_URL = "redis://localhost:6379/0"
 _DEFAULT_BILLING_RENEWAL_CRON = "* * * * *"

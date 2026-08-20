@@ -6,7 +6,6 @@ import contextlib
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
@@ -33,6 +32,8 @@ from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
     import datetime
+
+    from flask import Flask
 
 
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:

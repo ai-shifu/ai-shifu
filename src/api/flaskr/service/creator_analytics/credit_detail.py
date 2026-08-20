@@ -48,7 +48,6 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.i18n import _
 from flaskr.service.billing.consts import CREDIT_SOURCE_TYPE_USAGE
 from flaskr.service.billing.models import CreditLedgerEntry
@@ -56,12 +55,14 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.permissions import get_user_shifu_permissions
 from sqlalchemy import and_, bindparam, func, select
-from sqlalchemy.sql import Select
 
 from .engine import get_analytics_engine
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+
+    from flask import Flask
+    from sqlalchemy.sql import Select
 
 # Reuse the DSL-path error names so the HTTP wrapper maps them consistently
 # (the error name → HTTP code mapping lives in error_codes.json).
