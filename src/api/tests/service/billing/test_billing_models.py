@@ -206,18 +206,23 @@ def test_provider_price_constraints_allow_shared_product_with_distinct_prices(
                     provider_price_bid="provider-price-growth-month",
                     product_bid="bill-product-growth-month",
                     provider_price_id="price_growth_month",
+                    provider_product_id="prod_growth_shared",
                 ),
                 _provider_price(
                     provider_price_bid="provider-price-growth-year",
                     product_bid="bill-product-growth-year",
                     provider_price_id="price_growth_year",
+                    provider_product_id="prod_growth_shared",
                 ),
             ]
         )
         db.session.commit()
 
+        # Scoped to this test's own provider product: the shared default is
+        # also written by the other tests here, so querying it would make this
+        # assertion depend on which of them ran first.
         rows = BillingProductProviderPrice.query.filter(
-            BillingProductProviderPrice.provider_product_id == "prod_shared"
+            BillingProductProviderPrice.provider_product_id == "prod_growth_shared"
         ).all()
         assert {row.provider_price_id for row in rows} == {
             "price_growth_month",
