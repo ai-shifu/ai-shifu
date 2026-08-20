@@ -10,12 +10,17 @@ const mockSetPassword = jest.fn();
 const mockVerifyCaptcha = jest.fn();
 const mockSetCaptchaCode = jest.fn();
 const mockRefreshCaptcha = jest.fn();
+const mockUseCaptchaTicket = jest.fn();
 
 const mockUserStoreState = {
-  userInfo: {
-    mobile: '',
-    email: 'learner@example.com',
-  },
+  userInfo: null as {
+    mobile: string;
+    email: string;
+  } | null,
+};
+const defaultUserInfo = {
+  mobile: '',
+  email: 'learner@example.com',
 };
 
 jest.mock('react-i18next', () => ({
@@ -42,14 +47,17 @@ jest.mock('@/hooks/useToast', () => ({
 }));
 
 jest.mock('@/hooks/useCaptchaTicket', () => ({
-  useCaptchaTicket: (enabled: boolean) => ({
-    captchaImage: enabled ? 'captcha-image' : '',
-    captchaCode: enabled ? '1234' : '',
-    setCaptchaCode: mockSetCaptchaCode,
-    isCaptchaLoading: false,
-    refreshCaptcha: mockRefreshCaptcha,
-    verifyCaptcha: mockVerifyCaptcha,
-  }),
+  useCaptchaTicket: (enabled: boolean) => {
+    mockUseCaptchaTicket(enabled);
+    return {
+      captchaImage: enabled ? 'captcha-image' : '',
+      captchaCode: enabled ? '1234' : '',
+      setCaptchaCode: mockSetCaptchaCode,
+      isCaptchaLoading: false,
+      refreshCaptcha: mockRefreshCaptcha,
+      verifyCaptcha: mockVerifyCaptcha,
+    };
+  },
 }));
 
 jest.mock('@/api', () => ({
@@ -111,10 +119,7 @@ describe('SetPasswordModal', () => {
     mockSendSmsCode.mockResolvedValue({ code: 0 });
     mockSetPassword.mockResolvedValue({ code: 0 });
     mockVerifyCaptcha.mockResolvedValue('captcha-ticket');
-    mockUserStoreState.userInfo = {
-      mobile: '',
-      email: 'learner@example.com',
-    };
+    mockUserStoreState.userInfo = defaultUserInfo;
   });
 
   it('uses email verification without image captcha for an email-only user', async () => {
@@ -129,6 +134,49 @@ describe('SetPasswordModal', () => {
       'learner@example.com',
     );
     expect(screen.queryByTestId('captcha-input')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.settings.sendCode' }),
+    );
+
+    await waitFor(() => {
+      expect(mockSendEmailCode).toHaveBeenCalledWith({
+        email: 'learner@example.com',
+        language: 'en-US',
+      });
+    });
+    expect(mockSendSmsCode).not.toHaveBeenCalled();
+    expect(mockVerifyCaptcha).not.toHaveBeenCalled();
+  });
+
+  it('switches to email verification when user info hydrates after mount', async () => {
+    mockUserStoreState.userInfo = null;
+
+    const { rerender } = render(
+      <SetPasswordModal
+        open
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText('module.settings.noContactMethod'),
+    ).toBeInTheDocument();
+    expect(mockUseCaptchaTicket).toHaveBeenLastCalledWith(false);
+
+    mockUserStoreState.userInfo = defaultUserInfo;
+    rerender(
+      <SetPasswordModal
+        open
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('module.settings.email')).toHaveValue(
+      'learner@example.com',
+    );
+    expect(screen.queryByTestId('captcha-input')).not.toBeInTheDocument();
+    expect(mockUseCaptchaTicket).toHaveBeenLastCalledWith(false);
 
     fireEvent.click(
       screen.getByRole('button', { name: 'module.settings.sendCode' }),

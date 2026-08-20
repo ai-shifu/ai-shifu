@@ -38,6 +38,9 @@ export const SetPasswordModal = ({
   const [method, setMethod] = useState<VerificationMethod>(
     availableMethods[0] ?? 'phone',
   );
+  const activeMethod = availableMethods.includes(method)
+    ? method
+    : (availableMethods[0] ?? 'phone');
 
   useEffect(() => {
     if (!open) {
@@ -46,13 +49,13 @@ export const SetPasswordModal = ({
     if (availableMethods.length === 0) {
       return;
     }
-    if (!availableMethods.includes(method)) {
-      setMethod(availableMethods[0]);
+    if (method !== activeMethod) {
+      setMethod(activeMethod);
     }
-  }, [availableMethods, method, open]);
+  }, [activeMethod, availableMethods.length, method, open]);
 
   const identifier =
-    method === 'phone' ? userInfo?.mobile || '' : userInfo?.email || '';
+    activeMethod === 'phone' ? userInfo?.mobile || '' : userInfo?.email || '';
 
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -71,7 +74,7 @@ export const SetPasswordModal = ({
     isCaptchaLoading,
     refreshCaptcha,
     verifyCaptcha,
-  } = useCaptchaTicket(open && method === 'phone');
+  } = useCaptchaTicket(open && activeMethod === 'phone' && Boolean(identifier));
 
   useEffect(() => {
     if (!open) {
@@ -110,7 +113,7 @@ export const SetPasswordModal = ({
   }, [countdown, open]);
 
   useEffect(() => {
-    if (!open || method !== 'phone') {
+    if (!open || activeMethod !== 'phone') {
       previousCountdownRef.current = countdown;
       return;
     }
@@ -119,7 +122,7 @@ export const SetPasswordModal = ({
       void refreshCaptcha().catch(() => {});
     }
     previousCountdownRef.current = countdown;
-  }, [countdown, method, open, refreshCaptcha]);
+  }, [activeMethod, countdown, open, refreshCaptcha]);
 
   const validatePassword = useCallback(
     (value: string) => {
@@ -172,7 +175,7 @@ export const SetPasswordModal = ({
 
     try {
       setIsSending(true);
-      if (method === 'phone') {
+      if (activeMethod === 'phone') {
         if (!captchaCode.trim()) {
           setCaptchaError(t('module.auth.captchaRequired'));
           toast({
@@ -204,7 +207,7 @@ export const SetPasswordModal = ({
     } finally {
       setIsSending(false);
     }
-  }, [captchaCode, identifier, method, t, toast, verifyCaptcha]);
+  }, [activeMethod, captchaCode, identifier, t, toast, verifyCaptcha]);
 
   const handleSubmit = useCallback(async () => {
     if (!identifier) {
@@ -289,7 +292,7 @@ export const SetPasswordModal = ({
             {availableMethods.includes('phone') ? (
               <Button
                 type='button'
-                variant={method === 'phone' ? 'default' : 'outline'}
+                variant={activeMethod === 'phone' ? 'default' : 'outline'}
                 className='h-8 flex-1'
                 onClick={() => setMethod('phone')}
                 disabled={isSending || isSubmitting}
@@ -300,7 +303,7 @@ export const SetPasswordModal = ({
             {availableMethods.includes('email') ? (
               <Button
                 type='button'
-                variant={method === 'email' ? 'default' : 'outline'}
+                variant={activeMethod === 'email' ? 'default' : 'outline'}
                 className='h-8 flex-1'
                 onClick={() => setMethod('email')}
                 disabled={isSending || isSubmitting}
@@ -313,7 +316,7 @@ export const SetPasswordModal = ({
 
         <div className='space-y-2'>
           <Label htmlFor='set-password-identifier'>
-            {method === 'phone'
+            {activeMethod === 'phone'
               ? t('module.settings.phone')
               : t('module.settings.email')}
           </Label>
@@ -325,7 +328,7 @@ export const SetPasswordModal = ({
           />
         </div>
 
-        {method === 'phone' ? (
+        {activeMethod === 'phone' ? (
           <ImageCaptchaInput
             id='set-password-captcha'
             value={captchaCode}
@@ -367,7 +370,7 @@ export const SetPasswordModal = ({
                 countdown > 0 ||
                 isSending ||
                 isSubmitting ||
-                (method === 'phone' &&
+                (activeMethod === 'phone' &&
                   (isCaptchaLoading || !captchaCode.trim()))
               }
               className='shrink-0'
