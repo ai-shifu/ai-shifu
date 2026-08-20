@@ -302,12 +302,22 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
     if guided_available:
         try:
             validate_profile_onboarding_markdownflow(markdownflow)
-            legacy_markdownflow = _project_legacy_profile_onboarding_markdownflow(
-                markdownflow
-            )
         except Exception:
             app.logger.warning("profile onboarding config is invalid", exc_info=True)
             guided_available = False
+        else:
+            try:
+                legacy_markdownflow = _project_legacy_profile_onboarding_markdownflow(
+                    markdownflow
+                )
+            except Exception:
+                # The retiring wire projection is best-effort. Officially valid
+                # documents must remain available to the V2 runtime even when
+                # MarkdownFlow preprocessing prevents an exact legacy rewrite.
+                app.logger.warning(
+                    "profile onboarding legacy projection unavailable",
+                    exc_info=True,
+                )
 
     legacy_handled = _has_onboarding_state(user_id)
     v2_state = load_learner_profile_state(user_id)
