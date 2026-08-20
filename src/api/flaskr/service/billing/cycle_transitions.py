@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .consts import (
     BILLING_INTERVAL_DAY,
@@ -18,6 +17,9 @@ from .queries import (
     extract_resolved_order_cycle_end_at,
     extract_resolved_order_cycle_start_at,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def resolve_order_effective_from(

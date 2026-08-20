@@ -2926,7 +2926,6 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(app, monke
         def now(cls, tz=None) -> datetime:
             return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
 
-    monkeypatch.setattr(referral_reward_grants_module, "datetime", FixedDateTime)
     monkeypatch.setattr(
         referral_reward_grants_module,
         "now_utc",
@@ -3019,12 +3018,6 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(app, monke
 def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
     app, monkeypatch
 ):
-    class FixedDateTime(datetime):
-        @classmethod
-        def now(cls, tz=None) -> datetime:
-            return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
-
-    monkeypatch.setattr(referral_reward_grants_module, "datetime", FixedDateTime)
     monkeypatch.setattr(
         referral_reward_grants_module,
         "now_utc",

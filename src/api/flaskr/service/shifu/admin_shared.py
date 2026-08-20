@@ -7,8 +7,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
-from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import current_app
 from flaskr.service.user.consts import (
@@ -17,6 +16,9 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
+
+if TYPE_CHECKING:
+    from decimal import Decimal
 
 COURSE_STATUS_PUBLISHED = "published"
 

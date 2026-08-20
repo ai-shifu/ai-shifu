@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Generator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
 from flaskr.service.learn.learn_dtos import (
@@ -59,6 +58,9 @@ from flaskr.service.learn.listen_source_span_utils import (
 from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.learn.type_state_machine import TypeInput
 from flaskr.service.tts.api import normalize_subtitle_cues
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class ListenElementRunStreamMixin:

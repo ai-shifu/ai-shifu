@@ -5,10 +5,9 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask, current_app
 from flaskr.dao import db
@@ -61,6 +60,9 @@ from flaskr.service.shifu.models import (
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from sqlalchemy import and_, case, literal, not_, or_
 from sqlalchemy.orm import defer
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
 
 @dataclass

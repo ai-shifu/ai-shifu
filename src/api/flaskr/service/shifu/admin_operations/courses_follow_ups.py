@@ -6,9 +6,7 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -54,6 +52,10 @@ from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
 from sqlalchemy import and_, or_
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import datetime
 
 
 def _build_course_follow_up_base_subquery(shifu_bid: str):

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -37,6 +36,9 @@ from .models import (
     ReferralInviteReward,
 )
 from .reward_queue import build_referral_reward_queue
+
+if TYPE_CHECKING:
+    from decimal import Decimal
 
 ABNORMAL_STATUS_BY_LABEL = {
     "normal": REFERRAL_ABNORMAL_STATUS_NORMAL,
