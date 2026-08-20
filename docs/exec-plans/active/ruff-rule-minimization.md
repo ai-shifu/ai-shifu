@@ -69,9 +69,17 @@ plan's progress update for that rule.
   passed.
 - [ ] Merge or retarget UP047 PR #2576 after its predecessors without combining
   it with the next rule unit.
-- [ ] Remove the target-gated UP046 global ignore. It has zero findings under
-  the configured Python 3.11 target and two explicit Python 3.12 findings that
-  should surface in the future runtime-upgrade PR instead of staying hidden.
+- [x] 2026-08-20 22:36 CST: Opened ready UP046 PR
+  [#2577](https://github.com/ai-shifu/ai-shifu/pull/2577) from
+  `sunner/ruff-up046` to the UP047 branch. The last target-gated PEP 695 ignore
+  was removed; the Python 3.11 check is clean, both Python 3.12 migration sites
+  are audited, 674 focused billing/history tests pass with 10 skips, and all
+  repository pre-commit hooks passed.
+- [ ] Merge or retarget UP046 PR #2577 after its predecessors without combining
+  it with the next rule unit.
+- [ ] Remove the PLW0603 global ignore by classifying and testing all 25 module-
+  state mutations, then refactoring safe cases and retaining only intrinsic
+  narrow exceptions.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -168,6 +176,12 @@ The UP047 stage removes another preemptive exception without introducing Python
 explicit Python 3.12 audit records the single generic-function migration in the
 learner-profile retry helper. Its 48-test service suite and the full repository
 gates pass.
+
+The UP046 stage removes the final preemptive PEP 695 exception without adding
+Python 3.12-only syntax. UP046 is clean under the configured Python 3.11 target;
+an explicit Python 3.12 audit records the `PageWindow` and `HistoryItem` class
+migrations. The billing suite passes 673 tests with 10 skips, the focused shifu
+history test passes, and the full repository gates pass.
 
 ## Context and Orientation
 
