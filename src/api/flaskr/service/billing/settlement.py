@@ -87,6 +87,7 @@ class SettlementResult:
         return payload
 
     def __getitem__(self, key: str) -> Any:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
@@ -108,6 +109,7 @@ class BackfillSettlementItem:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
@@ -137,6 +139,7 @@ class BackfillSettlementResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
