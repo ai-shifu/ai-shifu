@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -62,7 +62,6 @@ from .cycle_transitions import (
 from .cycle_transitions import (
     resolve_order_effective_to as _resolve_order_effective_to,
 )
-from .dtos import BillingSubscriptionDTO
 from .models import (
     BillingOrder,
     BillingProduct,
@@ -158,6 +157,9 @@ from .wallets import (
     resolve_bucket_source_type_for_category,
     sync_credit_bucket_status,
 )
+
+if TYPE_CHECKING:
+    from .dtos import BillingSubscriptionDTO
 
 SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
 

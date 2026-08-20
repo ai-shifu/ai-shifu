@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.service.metering.consts import (
@@ -73,19 +73,6 @@ from .dtos import (
     OperatorCreditOrderDTO,
     OperatorCreditOrderGrantDTO,
 )
-from .models import (
-    BillingCampaign,
-    BillingCampaignProduct,
-    BillingDailyLedgerSummary,
-    BillingDailyUsageMetric,
-    BillingOrder,
-    BillingProduct,
-    BillingRenewalEvent,
-    BillingSubscription,
-    CreditLedgerEntry,
-    CreditWallet,
-    CreditWalletBucket,
-)
 from .primitives import (
     credit_decimal_to_number,
     normalize_bid,
@@ -93,6 +80,21 @@ from .primitives import (
     to_decimal,
 )
 from .queries import load_product_code_map
+
+if TYPE_CHECKING:
+    from .models import (
+        BillingCampaign,
+        BillingCampaignProduct,
+        BillingDailyLedgerSummary,
+        BillingDailyUsageMetric,
+        BillingOrder,
+        BillingProduct,
+        BillingRenewalEvent,
+        BillingSubscription,
+        CreditLedgerEntry,
+        CreditWallet,
+        CreditWalletBucket,
+    )
 
 _USAGE_SCENE_LABELS = {
     BILL_USAGE_SCENE_DEBUG: "debug",

@@ -154,6 +154,12 @@ select = [
     # frozen-clock `now()` doubles.
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
+    # flake8-type-checking is partial: TC002/TC003 would push third-party
+    # imports (SQLAlchemy, pydantic) behind TYPE_CHECKING, where any decorator
+    # or mapper that resolves annotations at runtime then fails. TC001 only
+    # covers first-party imports used solely in annotations, and every module
+    # it touches already has `from __future__ import annotations`.
+    "TC001",   # first-party import used only in annotations
 
     # --- Docstrings -------------------------------------------------------
     # pydocstyle is enabled as a whole; the members that would need thousands
