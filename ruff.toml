@@ -200,7 +200,8 @@ select = [
 
     # --- Modernization ----------------------------------------------------
     # UP046/UP047 (PEP 695 generic classes/functions) are ignored below.
-    # UP040 remains enforced because the repository has no affected aliases.
+    # UP040 is enforced by an explicit Python 3.12 hook and CI check because
+    # the repository-wide Python 3.11 target would otherwise leave it dormant.
     # UP035 is satisfied except in the two `admin` / `admin_operations.courses`
     # compatibility shims, which re-export `typing.Dict` / `typing.Set` as part
     # of their public surface and carry a file-level `# ruff: noqa: UP035`.

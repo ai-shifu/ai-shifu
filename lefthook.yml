@@ -59,6 +59,9 @@ pre-commit:
       glob: "*.py"
       run: ruff check --fix {staged_files}
       stage_fixed: true
+    ruff-up040-py312:
+      glob: "*.py"
+      run: ruff check --select UP040 --target-version py312 {staged_files}
     ruff-format:
       glob: "*.py"
       run: ruff format {staged_files}

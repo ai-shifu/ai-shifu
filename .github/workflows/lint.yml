@@ -141,6 +141,7 @@ jobs:
           all=$(cat /tmp/changed.txt)
           [ -n "$all" ] && check-symlinks $all
           ruff check .
+          ruff check . --select UP040 --target-version py312
           ruff format --check .
           python3 scripts/check_backend_hardcoded_cn.py
           echo "Lint hard-fail checks passed."
