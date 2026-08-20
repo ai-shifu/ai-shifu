@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from flask import Flask
 
@@ -13,7 +14,6 @@ from .credit_notifications import (
 from .credit_notifications import (
     stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
 )
-from .models import BillingOrder
 from .notifications import (
     enqueue_billing_paid_feishu as _enqueue_billing_paid_feishu,
 )
@@ -28,6 +28,9 @@ from .notifications import (
 )
 from .preorders import is_preorder_order as _is_preorder_order
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
+
+if TYPE_CHECKING:
+    from .models import BillingOrder
 
 
 @dataclass(slots=True, frozen=True)
