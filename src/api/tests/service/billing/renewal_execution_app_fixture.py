@@ -5,6 +5,7 @@ from collections.abc import Generator
 import pytest
 from flask import Flask
 from flaskr import dao
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 

@@ -87,6 +87,7 @@ from flaskr.service.order.payment_providers import (
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
 from flaskr.util.datetime import now_utc, to_utc_iso
+
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,

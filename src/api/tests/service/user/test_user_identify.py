@@ -183,6 +183,7 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
     import flaskr.service.user.utils as user_utils
     from flaskr.dao import db
     from flaskr.service.user.models import UserVerifyCode
+
     from tests.common.fixtures.fake_redis import FakeRedis
 
     class _FakeSMTP:

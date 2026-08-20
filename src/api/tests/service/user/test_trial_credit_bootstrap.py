@@ -32,6 +32,7 @@ from flaskr.service.user.repository import (
 )
 from flaskr.service.user.token_store import token_store
 from flaskr.service.user.utils import generate_token
+
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.common.fixtures.fake_redis import FakeRedis
 
