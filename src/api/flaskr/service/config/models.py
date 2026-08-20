@@ -1,5 +1,6 @@
 from typing import ClassVar
 
+from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     Column,
@@ -9,8 +10,6 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-
-from ...dao import db
 
 
 class Config(db.Model):

@@ -7,6 +7,9 @@ from flaskr.api.check import (
     CHECK_RESULT_REJECT,
     check_text,
 )
+from flaskr.dao import db
+from flaskr.i18n import _
+from flaskr.service.check_risk.funcs import add_risk_control_result
 from flaskr.service.common import raise_error
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
@@ -21,9 +24,6 @@ from flaskr.service.user.repository import (
 )
 from flaskr.util.uuid import generate_id
 
-from ...dao import db
-from ...i18n import _
-from ..check_risk.funcs import add_risk_control_result
 from .constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
 from .models import VariableValue
 

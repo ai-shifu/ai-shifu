@@ -1,13 +1,13 @@
 import jwt
 from flask import Flask, has_app_context
+from flaskr.dao import db
 from flaskr.i18n import get_i18n_list
+from flaskr.service.common.dtos import UserInfo, UserToken
+from flaskr.service.common.models import raise_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.profile.dtos import ProfileToSave
+from flaskr.service.profile.funcs import save_user_profiles
 
-from ...dao import db
-from ..common.dtos import UserInfo, UserToken
-from ..common.models import raise_error
-from ..profile.dtos import ProfileToSave
-from ..profile.funcs import save_user_profiles
 from .auth import get_provider
 from .auth.base import VerificationRequest
 from .repository import (

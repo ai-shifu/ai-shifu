@@ -124,6 +124,11 @@ select = [
     "N802",    # function name that is not lowercase
     "N803",    # argument name that is not lowercase
     "N813",    # CamelCase imported under a lowercase alias
+    # TID252 bans reaching into a parent package with `from ..x import y`, which
+    # hides which package a name really comes from; sibling-local `from .x`
+    # imports stay allowed. The boundary-checker fixture below must keep its
+    # parent-relative imports, since detecting them is what it tests.
+    "TID252",  # relative import from a parent module
     # N815 flags mixedCase class attributes. The two DTO modules whose fields
     # ARE the serialized JSON keys the frontend reads are exempt below, so the
     # rule still catches accidental camelCase everywhere else.
@@ -273,4 +278,7 @@ ignore = [
 # Developer scripts and the backend inventory/harness tooling are console
 # programs: printing to stdout is their interface.
 "scripts/**" = ["S603", "S607", "T20"]
+# This fixture exists so check_architecture_boundaries.py can prove it resolves
+# parent-relative imports; rewriting them would delete the test case.
+"scripts/testdata/architecture_boundaries/**" = ["TID252"]
 "src/api/scripts/**" = ["S603", "S607", "T20"]

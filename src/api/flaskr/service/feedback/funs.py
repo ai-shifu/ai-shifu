@@ -1,8 +1,8 @@
 from flask import Flask
 from flaskr.api.doc.feishu import send_notify
+from flaskr.dao import db
 from flaskr.service.user.repository import load_user_aggregate
 
-from ...dao import db
 from .models import FeedBack
 
 

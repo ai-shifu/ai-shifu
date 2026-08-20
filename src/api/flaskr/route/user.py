@@ -6,8 +6,10 @@ from flask import Flask, current_app, make_response, request
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao import db
 from flaskr.i18n import _translations, set_language
+from flaskr.service.common.dtos import OAuthStartDTO, UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.feedback.funs import submit_feedback
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.profile.funcs import (
     get_user_profile_labels,
@@ -26,17 +28,27 @@ from flaskr.service.profile.onboarding import (
     complete_profile_onboarding,
     get_profile_onboarding_status,
 )
+from flaskr.service.referral.service import extract_referral_post_auth_fields
+from flaskr.service.user.auth import get_provider
+from flaskr.service.user.auth.base import OAuthCallbackRequest, VerificationRequest
 from flaskr.service.user.captcha import (
     create_captcha_challenge,
     verify_captcha_code,
 )
+from flaskr.service.user.common import update_user_info, validate_user
 from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
 from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.onboarding import (
+    ONBOARDING_VERSION,
+    build_onboarding_status,
+    complete_onboarding_scene,
+)
 from flaskr.service.user.password_utils import (
     hash_password,
     validate_password_strength,
     verify_password,
 )
+from flaskr.service.user.post_auth import PostAuthContext, run_post_auth_extensions
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     find_credential,
@@ -46,31 +58,19 @@ from flaskr.service.user.repository import (
     load_user_aggregate_by_identifier,
     set_password_hash,
 )
-from flaskr.service.user.verification_codes import consume_verification_code
-from flaskr.util.uuid import generate_id
-
-from ..service.common.dtos import OAuthStartDTO, UserToken
-from ..service.feedback.funs import submit_feedback
-from ..service.referral.service import extract_referral_post_auth_fields
-from ..service.user.auth import get_provider
-from ..service.user.auth.base import OAuthCallbackRequest, VerificationRequest
-from ..service.user.common import update_user_info, validate_user
-from ..service.user.onboarding import (
-    ONBOARDING_VERSION,
-    build_onboarding_status,
-    complete_onboarding_scene,
-)
-from ..service.user.post_auth import PostAuthContext, run_post_auth_extensions
-from ..service.user.user import (
+from flaskr.service.user.user import (
     generate_temp_user,
     update_user_open_id,
     upload_user_avatar,
 )
-from ..service.user.utils import (
+from flaskr.service.user.utils import (
     ensure_admin_creator_and_demo_permissions,
     send_email_code,
     send_sms_code,
 )
+from flaskr.service.user.verification_codes import consume_verification_code
+from flaskr.util.uuid import generate_id
+
 from .common import by_pass_login_func, bypass_token_validation, make_common_response
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
