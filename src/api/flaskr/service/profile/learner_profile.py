@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from flask import Flask
 from flaskr.api.check import (
     CHECK_RESULT_PASS,
     CHECK_RESULT_REJECT,
@@ -38,6 +37,8 @@ from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from flask import Flask
 
 LEARNER_PROFILE_MAX_LENGTH = 1000
 LEARNER_PROFILE_NICKNAME_MAX_LENGTH = 64

@@ -7,11 +7,10 @@ import threading
 from dataclasses import dataclass, field
 from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from flask import Flask
 from flaskr.service.config import get_config
 
 from . import register_payment_provider
@@ -22,6 +21,9 @@ from .base import (
     PaymentRequest,
     SubscriptionUpdateResult,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _PINGPP_CONFIG_LOCK = threading.RLock()
 

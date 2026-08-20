@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.native_payment_status import (
     NATIVE_PAYMENT_STATE_CANCELED,
@@ -87,6 +86,8 @@ from .queries import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from flask import Flask
 
 _STRIPE_SUBSCRIPTION_EVENT_TYPES = {
     "customer.subscription.created",

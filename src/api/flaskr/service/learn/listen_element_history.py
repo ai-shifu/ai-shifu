@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementDTO,
@@ -35,6 +34,8 @@ from sqlalchemy import and_, or_
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from flask import Flask
 
 
 def _load_interaction_user_input_by_block_bid(

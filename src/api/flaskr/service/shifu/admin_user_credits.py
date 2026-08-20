@@ -121,15 +121,16 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.service.user.models import (
-    UserInfo as UserEntity,
-)
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from sqlalchemy import case, not_, or_
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from datetime import datetime
+
+    from flaskr.service.user.models import (
+        UserInfo as UserEntity,
+    )
 
 
 def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:

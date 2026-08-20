@@ -7,9 +7,8 @@ import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import (
     cleanup_session_after,
     db,
@@ -29,6 +28,9 @@ from flaskr.service.user.consts import (
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 logger = logging.getLogger(__name__)
 

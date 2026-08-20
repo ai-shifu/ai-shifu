@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-import pytest
-from flask import Flask
 from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_TOPUP,
@@ -29,6 +28,10 @@ from flaskr.service.billing.wallets import (
     grant_refund_return_credits,
 )
 from sqlalchemy.exc import IntegrityError
+
+if TYPE_CHECKING:
+    import pytest
+    from flask import Flask
 
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
 
