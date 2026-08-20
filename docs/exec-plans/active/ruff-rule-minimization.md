@@ -295,8 +295,11 @@ plan's progress update for that rule.
 - [x] 2026-08-21 05:26 CST: Collaboration and knowledge generators,
   repository harness, architecture boundaries, development-tool validation,
   and every repository pre-commit hook pass on the EM101 tip.
-- [ ] Open the ready EM101 PR against the EM102 branch without combining it
-  with the next rule unit.
+- [x] 2026-08-21 05:29 CST: Opened ready EM101 PR
+  [#2592](https://github.com/ai-shifu/ai-shifu/pull/2592) from
+  `sunner/ruff-em101` to the EM102 branch after all local gates passed.
+- [ ] Merge or retarget EM101 PR #2592 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
