@@ -19,11 +19,13 @@ import i18n from '@/i18n';
 interface PasswordLoginProps {
   onLoginSuccess: () => void;
   supportEmailIdentifier?: boolean;
+  forceEmailIdentifier?: boolean;
 }
 
 export function PasswordLogin({
   onLoginSuccess,
   supportEmailIdentifier = true,
+  forceEmailIdentifier = false,
 }: PasswordLoginProps) {
   const { toast } = useToast();
   const { login } = useUserStore();
@@ -37,25 +39,35 @@ export function PasswordLogin({
   const [showPassword, setShowPassword] = useState(false);
   const [identifierError, setIdentifierError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const identifierTexts = useMemo(
-    () =>
-      supportEmailIdentifier
-        ? {
-            label: t('module.auth.identifier'),
-            placeholder: t('module.auth.identifierPlaceholder'),
-            emptyError: t('module.auth.identifierEmpty'),
-          }
-        : {
-            label: t('module.auth.identifierPhoneOnly'),
-            placeholder: t('module.auth.identifierPhoneOnlyPlaceholder'),
-            emptyError: t('module.auth.identifierPhoneOnlyEmpty'),
-          },
-    [supportEmailIdentifier, t],
-  );
+  const isEmailOnlyIdentifier = forceEmailIdentifier;
+  const identifierTexts = useMemo(() => {
+    if (isEmailOnlyIdentifier) {
+      return {
+        label: t('module.auth.email'),
+        placeholder: t('module.auth.emailPlaceholder'),
+        emptyError: t('module.auth.emailEmpty'),
+      };
+    }
+    return supportEmailIdentifier
+      ? {
+          label: t('module.auth.identifier'),
+          placeholder: t('module.auth.identifierPlaceholder'),
+          emptyError: t('module.auth.identifierEmpty'),
+        }
+      : {
+          label: t('module.auth.identifierPhoneOnly'),
+          placeholder: t('module.auth.identifierPhoneOnlyPlaceholder'),
+          emptyError: t('module.auth.identifierPhoneOnlyEmpty'),
+        };
+  }, [isEmailOnlyIdentifier, supportEmailIdentifier, t]);
 
   const validateIdentifier = (value: string) => {
     if (!value) {
       setIdentifierError(identifierTexts.emptyError);
+      return false;
+    }
+    if (isEmailOnlyIdentifier && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setIdentifierError(t('module.auth.emailError'));
       return false;
     }
     setIdentifierError('');
@@ -165,6 +177,9 @@ export function PasswordLogin({
           </Label>
           <Input
             id='identifier'
+            type={isEmailOnlyIdentifier ? 'email' : 'text'}
+            inputMode={isEmailOnlyIdentifier ? 'email' : undefined}
+            autoComplete={isEmailOnlyIdentifier ? 'email' : 'username'}
             placeholder={identifierTexts.placeholder}
             value={identifier}
             onChange={handleIdentifierChange}

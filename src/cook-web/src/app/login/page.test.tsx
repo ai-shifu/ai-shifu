@@ -7,6 +7,21 @@ const logoutMock = jest.fn(() => Promise.resolve());
 const searchParamsMock = {
   get: jest.fn(() => null),
 };
+const mockPasswordLogin = jest.fn(
+  ({
+    forceEmailIdentifier,
+    supportEmailIdentifier,
+  }: {
+    forceEmailIdentifier?: boolean;
+    supportEmailIdentifier?: boolean;
+  }) => (
+    <div
+      data-testid='password-login'
+      data-force-email-identifier={String(Boolean(forceEmailIdentifier))}
+      data-support-email-identifier={String(Boolean(supportEmailIdentifier))}
+    />
+  ),
+);
 
 const mockUserState = {
   userInfo: null as { language?: string } | null,
@@ -94,7 +109,10 @@ jest.mock('@/components/auth/GoogleLoginButton', () => ({
 }));
 
 jest.mock('@/components/auth/PasswordLogin', () => ({
-  PasswordLogin: () => <div data-testid='password-login' />,
+  PasswordLogin: (props: {
+    forceEmailIdentifier?: boolean;
+    supportEmailIdentifier?: boolean;
+  }) => mockPasswordLogin(props),
 }));
 
 jest.mock('@/components/language-select', () => ({
@@ -151,6 +169,7 @@ jest.mock('@/components/ui/Card', () => ({
 describe('AuthPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPasswordLogin.mockClear();
     mockUserState.userInfo = null;
     mockUserState.isLoggedIn = false;
     mockUserState.isInitialized = true;
@@ -201,5 +220,32 @@ describe('AuthPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('password-login')).toBeInTheDocument();
     });
+    expect(screen.getByTestId('password-login')).toHaveAttribute(
+      'data-force-email-identifier',
+      'false',
+    );
+    expect(screen.getByTestId('password-login')).toHaveAttribute(
+      'data-support-email-identifier',
+      'false',
+    );
+  });
+
+  it('uses email-only password login when Google and password are enabled without phone', async () => {
+    mockEnvState.loginMethodsEnabled = ['google', 'password'];
+    mockEnvState.defaultLoginMethod = 'password';
+
+    render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('password-login')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('password-login')).toHaveAttribute(
+      'data-force-email-identifier',
+      'true',
+    );
+    expect(screen.getByTestId('password-login')).toHaveAttribute(
+      'data-support-email-identifier',
+      'true',
+    );
   });
 });
