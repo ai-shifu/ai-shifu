@@ -242,9 +242,11 @@ plan's progress update for that rule.
   tests, identifier-example validation, repository Ruff, and format also pass.
 - [x] 2026-08-21 04:24 CST: Development-tool validation and every repository
   pre-commit hook pass on the D101 tip.
-- [ ] Open the ready D101 PR against the N806 branch after the full repository
-  pre-commit gate passes, then merge or retarget it without combining its rule
-  unit with the next stage.
+- [x] 2026-08-21 04:27 CST: Opened ready D101 PR
+  [#2590](https://github.com/ai-shifu/ai-shifu/pull/2590) from
+  `sunner/ruff-d101` to the N806 branch after all local gates passed.
+- [ ] Merge or retarget D101 PR #2590 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
