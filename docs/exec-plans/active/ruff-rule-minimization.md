@@ -492,6 +492,12 @@ plan's progress update for that rule.
   architecture boundaries, development-tool validation, and all 19
   pre-commit hooks pass for the extended S603 change. Final-SHA CI remains the
   post-push acceptance gate.
+- [x] 2026-08-21 07:39 CST: Final Backend Tests exposed a test-only platform
+  assumption: the new evaluator boundary test entered the script's macOS
+  `/private/tmp` context on a Linux runner. Kept the production evaluator
+  contract unchanged and isolated the test with pytest's cross-platform
+  `tmp_path`; the test still exercises the exact subprocess command and stdin
+  boundary it owns.
 - [ ] Merge or retarget S603 PR #2601 after its predecessors without combining
   it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest

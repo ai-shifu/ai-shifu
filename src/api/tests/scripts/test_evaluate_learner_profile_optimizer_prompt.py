@@ -6,6 +6,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
 from scripts import evaluate_learner_profile_optimizer_prompt as evaluator
 
@@ -15,6 +16,7 @@ if TYPE_CHECKING:
 
 def test_run_codex_keeps_dynamic_values_as_arguments(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     """Keep prompt, model, and learner text out of the executable position."""
     captured_command: list[str] = []
@@ -35,6 +37,9 @@ def test_run_codex_keeps_dynamic_values_as_arguments(
             stderr="",
         )
 
+    temporary_directory = MagicMock()
+    temporary_directory.return_value.__enter__.return_value = str(tmp_path)
+    monkeypatch.setattr(evaluator.tempfile, "TemporaryDirectory", temporary_directory)
     monkeypatch.setattr(evaluator.subprocess, "run", fake_run)
 
     # Exercise the internal runner without widening the production script API.
