@@ -385,7 +385,7 @@ class RunStateResolver:
         mdflow_context = runtime.MdflowContextV2(document=outline_item_info.mdflow)
         block_list = mdflow_context.get_all_blocks()
         self.app.logger.info(
-            f"attend position: {attend.block_position} blocks:{len(block_list)}"
+            "attend position: %s blocks:%s", attend.block_position, len(block_list)
         )
         if attend.block_position >= len(block_list) and not is_ask:
             return None

@@ -20,7 +20,7 @@ def load_plugins_from_dir(
     app: Flask, plugins_dir: str, plugin_manager: PluginManager = None
 ):
     plugins = []
-    app.logger.info(f"load modules from: {plugins_dir}")
+    app.logger.info("load modules from: %s", plugins_dir)
 
     def load_from_directory(directory, plugin_manager: PluginManager = None):
         files = [path.name for path in Path(directory).iterdir()]
@@ -45,7 +45,7 @@ def load_plugins_from_dir(
                                     Path(directory) / MIGRATION_DIR
                                 )
                             plugin_manager.plugins[plugin_define.name] = plugin_define
-                            app.logger.info(f"load plugin: {plugin_define.name}")
+                            app.logger.info("load plugin: %s", plugin_define.name)
         for filename in files:
             if filename in ("__pycache__", MIGRATION_DIR) or filename.startswith("."):
                 continue
@@ -60,7 +60,7 @@ def load_plugins_from_dir(
                 module = importlib.import_module(module_full_name)
                 for name, obj in getmembers(module, isfunction):
                     if hasattr(obj, "inject"):
-                        app.logger.info(f"set inject for {name}")
+                        app.logger.info("set inject for %s", name)
                         wrapped_func = partial(inject(obj), app=app)
                         setattr(module, name, wrapped_func)
                         wrapped_func()
@@ -69,12 +69,12 @@ def load_plugins_from_dir(
         files = [path.name for path in Path(plugins_dir).iterdir()]
         for file in files:
             if (Path(plugins_dir) / file).is_dir():
-                app.logger.info(f"begin load plugin: {file}")
+                app.logger.info("begin load plugin: %s", file)
                 try:
                     load_from_directory(str(Path(plugins_dir) / file), plugin_manager)
-                    app.logger.info(f"load plugin: {file} success")
+                    app.logger.info("load plugin: %s success", file)
                 except Exception:
-                    app.logger.exception(f"load plugin: {file} error")
+                    app.logger.exception("load plugin: %s error", file)
             else:
-                app.logger.warning(f"skip non-directory file: {file}")
+                app.logger.warning("skip non-directory file: %s", file)
     return plugins
