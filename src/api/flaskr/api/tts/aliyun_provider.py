@@ -1376,17 +1376,20 @@ class AliyunTTSProvider(BaseTTSProvider):
             try:
                 result = response.json()
             except ValueError as e:
-                raise ValueError(f"Aliyun TTS API error: {response.text[:200]}") from e
+                error_message = f"Aliyun TTS API error: {response.text[:200]}"
+                raise ValueError(error_message) from e
             status = result.get("status", "unknown")
             message = result.get("message", "Unknown error")
             task_id = result.get("task_id", "")
-            raise ValueError(
+            error_message = (
                 f"Aliyun TTS API error {status}: {message} (task_id: {task_id})"
             )
+            raise ValueError(error_message)
 
         except requests.RequestException as e:
             logger.exception("Aliyun TTS request failed")
-            raise ValueError(f"Aliyun TTS request failed: {e}") from e
+            error_message = f"Aliyun TTS request failed: {e}"
+            raise ValueError(error_message) from e
 
     def get_provider_config(self) -> ProviderConfig:
         """Get Aliyun provider configuration for frontend."""

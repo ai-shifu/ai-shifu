@@ -296,7 +296,8 @@ def backfill_learn_generated_elements_for_progress(
         .first()
     )
     if progress_record is None:
-        raise ValueError(f"progress record not found: {progress_record_bid}")
+        message = f"progress record not found: {progress_record_bid}"
+        raise ValueError(message)
 
     stats = LearnElementsBackfillStats(
         progress_record_bid=progress_record.progress_record_bid or progress_record_bid,

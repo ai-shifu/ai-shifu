@@ -130,7 +130,8 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch
                     payload={},
                     error_code=None,
                 )
-            raise AssertionError(f"unexpected frame: {message!r}")
+            error_message = f"unexpected frame: {message!r}"
+            raise AssertionError(error_message)
 
     class FakeWebSocketApp:
         def __init__(

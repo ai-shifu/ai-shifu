@@ -88,7 +88,8 @@ def __getattr__(name: str) -> Redis | None:
     """Expose the owned Redis client to plugins using the legacy import name."""
     if name == "redis_client":
         return get_redis_client()
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    message = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(message)
 
 
 def _socket_has_unread_data(dbapi_connection, timeout: float = 0) -> bool:

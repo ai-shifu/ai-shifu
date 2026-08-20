@@ -179,21 +179,22 @@ def _request_new_token(access_key_id: str, access_key_secret: str) -> AliyunNlsT
     try:
         resp = requests.get(url, headers={"Accept": "application/json"}, timeout=10)
     except requests.RequestException as exc:
-        raise ValueError(f"Aliyun NLS token request failed: {exc}") from exc
+        message = f"Aliyun NLS token request failed: {exc}"
+        raise ValueError(message) from exc
 
     if resp.status_code != 200:
         # POP errors are JSON with fields like Code/Message/RequestId.
         text = (resp.text or "").strip()
-        raise ValueError(
+        message = (
             f"Aliyun NLS token request failed: HTTP {resp.status_code}: {text[:200]}"
         )
+        raise ValueError(message)
 
     try:
         payload = resp.json()
     except Exception as exc:
-        raise ValueError(
-            f"Aliyun NLS token response is not valid JSON: {resp.text[:200]}"
-        ) from exc
+        message = f"Aliyun NLS token response is not valid JSON: {resp.text[:200]}"
+        raise ValueError(message) from exc
 
     token_obj = payload.get("Token") or {}
     token = (token_obj.get("Id") or "").strip()
@@ -208,9 +209,8 @@ def _request_new_token(access_key_id: str, access_key_secret: str) -> AliyunNlsT
     try:
         expire_int = int(expire_time)
     except Exception as exc:
-        raise ValueError(
-            f"Aliyun NLS token response has invalid ExpireTime: {expire_time}"
-        ) from exc
+        message = f"Aliyun NLS token response has invalid ExpireTime: {expire_time}"
+        raise ValueError(message) from exc
 
     return AliyunNlsToken(token=token, expire_time=expire_int)
 

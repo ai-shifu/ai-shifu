@@ -122,9 +122,11 @@ def migrate(
         for table, column, is_content in TARGETS:
             # Whitelist check (defence-in-depth; values come from the constant above)
             if table not in _ALLOWED_TABLES:
-                raise ValueError(f"Unknown table: {table!r}")
+                message = f"Unknown table: {table!r}"
+                raise ValueError(message)
             if column not in _ALLOWED_COLUMNS:
-                raise ValueError(f"Unknown column: {column!r}")
+                message = f"Unknown column: {column!r}"
+                raise ValueError(message)
 
             # Check table exists in this deployment
             exists = conn.execute(

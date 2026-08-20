@@ -621,11 +621,13 @@ class MinimaxTTSProvider(BaseTTSProvider):
             # or foreign clone id that passed local shape validation). Surface it
             # as an actionable message instead of a generic API error.
             if status_code == 2054:
-                raise ValueError(
+                message = (
                     "Minimax TTS voice is not available "
                     f"(voice id does not exist on provider): {status_msg}"
                 )
-            raise ValueError(f"Minimax TTS API error: {status_code} - {status_msg}")
+                raise ValueError(message)
+            message = f"Minimax TTS API error: {status_code} - {status_msg}"
+            raise ValueError(message)
 
         return result
 

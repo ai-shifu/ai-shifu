@@ -895,7 +895,8 @@ def _probe_provider_credentials(
         return
     if provider == "wechat_oauth":
         return
-    raise ValueError(f"Unsupported integration provider: {provider}")
+    message = f"Unsupported integration provider: {provider}"
+    raise ValueError(message)
 
 
 def _probe_stripe_credentials(
@@ -953,14 +954,16 @@ def _parse_x509_certificate(value: Any) -> None:
 def _normalize_pem(value: Any, label: str) -> bytes:
     text = str(value or "").strip()
     if not text:
-        raise ValueError(f"{label.title()} is required")
+        message = f"{label.title()} is required"
+        raise ValueError(message)
     if "-----BEGIN" in text:
         return text.encode("utf-8")
     compact = "".join(text.split())
     try:
         base64.b64decode(compact, validate=True)
     except binascii.Error as exc:
-        raise ValueError(f"{label.title()} is not valid PEM or base64") from exc
+        message = f"{label.title()} is not valid PEM or base64"
+        raise ValueError(message) from exc
     lines = "\n".join(compact[i : i + 64] for i in range(0, len(compact), 64))
     return f"-----BEGIN {label}-----\n{lines}\n-----END {label}-----\n".encode("ascii")
 

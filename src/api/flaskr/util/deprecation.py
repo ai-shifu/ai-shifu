@@ -15,7 +15,8 @@ def deprecated_alias_getattr(
     def module_getattr(name: str) -> object:
         current = aliases.get(name)
         if current is None:
-            raise AttributeError(f"module {module_name!r} has no attribute {name!r}")
+            message = f"module {module_name!r} has no attribute {name!r}"
+            raise AttributeError(message)
         warnings.warn(
             f"{module_name}.{name} is deprecated, use {current} instead",
             DeprecationWarning,

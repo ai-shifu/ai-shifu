@@ -237,7 +237,8 @@ class PingxxProvider(PaymentProvider):
     ) -> PaymentNotificationResult:
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type not in {"charge", "payment"}:
-            raise RuntimeError(f"Unsupported Pingxx reference type: {reference_type}")
+            message = f"Unsupported Pingxx reference type: {reference_type}"
+            raise RuntimeError(message)
         charge = self.retrieve_charge(charge_id=provider_reference, app=app)
         return PaymentNotificationResult(
             order_bid=str(charge.get("order_no") or ""),

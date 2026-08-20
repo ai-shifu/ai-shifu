@@ -367,6 +367,16 @@ cannot express exactly, pre-format only that field with `format(value, "spec")`
 and keep the rest of the message parameterized. Do not hide an f-string in a
 temporary variable merely to silence the rule.
 
+For `EM102`, assign a contextual f-string to a collision-free local immediately
+before raising it, normally `message` or `error_message`, and pass that local as
+the same constructor argument. Preserve the exception type, exact f-string,
+remaining positional and keyword arguments, and any explicit `raise ... from`
+cause. Do not evade the rule by concatenating strings, changing formatting, or
+dropping useful values from the error. Before introducing the local, check the
+whole function for that name so a new binding cannot shadow an existing local,
+free variable, or global lookup. For bulk changes, prove the rewrite is
+structurally reversible and run tests that exercise the affected error paths.
+
 For `D205`, put the complete summary on the first physical docstring line,
 then use exactly one blank line before details, sections, or embedded protocol
 content. Do not wrap the summary across source lines; line length is formatter

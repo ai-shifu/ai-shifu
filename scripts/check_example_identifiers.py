@@ -425,7 +425,8 @@ def _read_index_objects(object_ids: list[str]) -> dict[str, bytes]:
             raise OSError("git cat-file returned a truncated header")
         header = result.stdout[offset:header_end].split()
         if len(header) != 3 or header[1] != b"blob":
-            raise OSError(f"git cat-file did not return blob {object_id}")
+            message = f"git cat-file did not return blob {object_id}"
+            raise OSError(message)
         size = int(header[2])
         content_start = header_end + 1
         content_end = content_start + size

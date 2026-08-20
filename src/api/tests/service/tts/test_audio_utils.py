@@ -19,15 +19,17 @@ class _FakeSegment:
     def append(self, other, crossfade=100):
         _FakeSegment.append_crossfades.append(crossfade)
         if crossfade > len(self):
-            raise ValueError(
+            message = (
                 f"Crossfade is longer than original AudioSegment "
                 f"({crossfade}ms > {len(self)}ms)"
             )
+            raise ValueError(message)
         if crossfade > len(other):
-            raise ValueError(
+            message = (
                 f"Crossfade is longer than the appended AudioSegment "
                 f"({crossfade}ms > {len(other)}ms)"
             )
+            raise ValueError(message)
         return _FakeSegment(self.duration_ms + len(other) - crossfade)
 
     def __getitem__(self, key) -> "_FakeSegment":

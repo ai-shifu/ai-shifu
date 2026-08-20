@@ -94,9 +94,8 @@ class TypeStateMachine:
 
         """
         if self._state is TypeState.TERMINATED:
-            raise ValueError(
-                f"State machine already terminated; cannot process {trigger!r}"
-            )
+            message = f"State machine already terminated; cannot process {trigger!r}"
+            raise ValueError(message)
 
         if trigger is TypeInput.CONTENT_START:
             if is_new:
@@ -128,7 +127,8 @@ class TypeStateMachine:
             self._state = TypeState.TERMINATED
             return TYPE_ERROR
 
-        raise ValueError(f"Unknown trigger: {trigger!r}")  # pragma: no cover
+        message = f"Unknown trigger: {trigger!r}"
+        raise ValueError(message)  # pragma: no cover
 
     def reset(self) -> None:
         """Reset the machine to ``IDLE``."""

@@ -96,7 +96,8 @@ def _find_nested_route(name: str) -> ast.FunctionDef:
     for node in register_fn.body:
         if isinstance(node, ast.FunctionDef) and node.name == name:
             return node
-    raise AssertionError(f"{name} not found inside register_learn_routes")
+    message = f"{name} not found inside register_learn_routes"
+    raise AssertionError(message)
 
 
 def _collect_called_names(node: ast.AST) -> set[str]:
@@ -121,7 +122,8 @@ def _find_call_by_name(node: ast.AST, name: str) -> ast.Call:
             return child
         if isinstance(func, ast.Attribute) and func.attr == name:
             return child
-    raise AssertionError(f"{name} call not found")
+    message = f"{name} call not found"
+    raise AssertionError(message)
 
 
 def _mock_user(monkeypatch, user_id: str, *, is_creator: bool = False):

@@ -533,7 +533,8 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
                 "prompt_audio_filename",
             }
             if name in protected and not in_context:
-                raise RuntimeError(f"{name} accessed outside app context")
+                message = f"{name} accessed outside app context"
+                raise RuntimeError(message)
             return object.__getattribute__(self, name)
 
     row = DetachedSensitiveRow()

@@ -130,7 +130,8 @@ def audit_credit_state(
     else:
         audit_at = coerce_datetime(as_of)
         if audit_at is None:
-            raise ValueError(f"Unable to parse as_of value: {as_of!r}")
+            message = f"Unable to parse as_of value: {as_of!r}"
+            raise ValueError(message)
     resolved_limit = int(limit or 0)
 
     with db.session.no_autoflush:

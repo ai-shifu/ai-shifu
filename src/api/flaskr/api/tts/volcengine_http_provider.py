@@ -250,7 +250,8 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 sample_rate,
                 len(text),
             )
-            raise ValueError(f"Volcengine HTTP TTS request failed: {exc}") from exc
+            error_message = f"Volcengine HTTP TTS request failed: {exc}"
+            raise ValueError(error_message) from exc
 
         if response.status_code != 200:
             self._log_http_error_response(
@@ -266,10 +267,11 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 response.raise_for_status()
             except requests.RequestException as exc:
                 body_preview = (response.text or "")[:2000]
-                raise ValueError(
+                error_message = (
                     f"Volcengine HTTP TTS HTTP {response.status_code}: "
                     f"{body_preview or response.reason}"
-                ) from exc
+                )
+                raise ValueError(error_message) from exc
 
         try:
             result = response.json()
@@ -296,7 +298,8 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 code,
                 message,
             )
-            raise ValueError(f"Volcengine HTTP TTS error {code}: {message}")
+            error_message = f"Volcengine HTTP TTS error {code}: {message}"
+            raise ValueError(error_message)
 
         audio_base64 = result.get("data") or ""
         if not audio_base64:

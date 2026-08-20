@@ -871,7 +871,8 @@ def _yield_tts_segments(
     if not provider_name:
         raise ValueError("TTS provider is required")
     if not is_tts_configured(provider_name):
-        raise ValueError(f"TTS provider is not configured: {provider_name}")
+        message = f"TTS provider is not configured: {provider_name}"
+        raise ValueError(message)
 
     segments = split_text_for_tts(text, provider_name=provider_name)
     if not segments:

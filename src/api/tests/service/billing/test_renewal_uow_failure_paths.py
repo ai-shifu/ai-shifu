@@ -168,7 +168,8 @@ def _failing_lifecycle_sync(monkeypatch: pytest.MonkeyPatch, *, failing_bids: se
 
     def fake_sync(_app, subscription):
         if subscription.subscription_bid in failing_bids:
-            raise RuntimeError(f"boom in {subscription.subscription_bid}")
+            message = f"boom in {subscription.subscription_bid}"
+            raise RuntimeError(message)
 
     monkeypatch.setattr(
         billing_renewal, "_sync_subscription_lifecycle_events", fake_sync

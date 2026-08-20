@@ -49,5 +49,6 @@ def create_pingxx_order(
 def _get_provider() -> PingxxProvider:
     provider = get_payment_provider("pingxx")
     if not isinstance(provider, PingxxProvider):
-        raise TypeError(f"Expected PingxxProvider, got {provider.__class__.__name__}")
+        message = f"Expected PingxxProvider, got {provider.__class__.__name__}"
+        raise TypeError(message)
     return provider

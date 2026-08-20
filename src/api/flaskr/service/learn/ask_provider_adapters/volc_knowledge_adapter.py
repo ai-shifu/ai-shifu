@@ -291,7 +291,8 @@ class VolcKnowledgeAskProviderAdapter:
         except requests.Timeout as exc:
             raise AskProviderTimeoutError("volc_knowledge request timeout") from exc
         except requests.RequestException as exc:
-            raise AskProviderError(f"volc_knowledge request failed: {exc}") from exc
+            error_message = f"volc_knowledge request failed: {exc}"
+            raise AskProviderError(error_message) from exc
 
         response = raise_for_provider_response(response, self.provider)
 
@@ -305,7 +306,8 @@ class VolcKnowledgeAskProviderAdapter:
             data = payload_data.get("data")
             if code is not None and str(code) not in {"0", "200"} and data is None:
                 message = extract_text(payload_data.get("message")) or str(payload_data)
-                raise AskProviderError(f"volc_knowledge error: {message}")
+                error_message = f"volc_knowledge error: {message}"
+                raise AskProviderError(error_message)
 
         chunks = _collect_text_chunks(payload_data)
         if not chunks:

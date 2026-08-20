@@ -55,7 +55,8 @@ def stream_ask_provider_response(
 ) -> Generator[AskProviderChunk, None, None]:
     adapter = get_ask_provider_adapter(provider)
     if not adapter:
-        raise AskProviderConfigError(f"unsupported provider: {provider}")
+        message = f"unsupported provider: {provider}"
+        raise AskProviderConfigError(message)
     yield from adapter.stream_answer(
         app, user_id, user_query, messages, provider_config, runtime
     )
