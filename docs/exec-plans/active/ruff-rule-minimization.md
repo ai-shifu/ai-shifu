@@ -79,9 +79,15 @@ plan's progress update for that rule.
   repository pre-commit hooks passed.
 - [ ] Merge or retarget UP046 PR #2577 after its predecessors without combining
   it with the next rule unit.
-- [ ] Remove the PLW0603 global ignore by classifying and testing all 25 module-
-  state mutations, then refactoring safe cases and retaining only intrinsic
-  narrow exceptions.
+- [x] 2026-08-20 23:16 CST: Opened ready PLW0603 PR
+  [#2579](https://github.com/ai-shifu/ai-shifu/pull/2579) from
+  `sunner/ruff-plw0603` to the UP046 branch. All 25 findings across 13
+  state-writing sites were replaced with stable extensions, typed state
+  owners, or explicit accessors; no PLW0603 suppression remains. The full
+  backend suite passes 3,008 tests with 17 skips, and all repository
+  pre-commit hooks pass.
+- [ ] Merge or retarget PLW0603 PR #2579 after its predecessors without
+  combining it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -110,6 +116,10 @@ plan's progress update for that rule.
   `/api/user/send_sms_code` Flasgger YAML docstring. Rewriting it as a NumPy
   docstring section would corrupt the API specification, so the correct end
   state is global enforcement plus a narrow, explained suppression.
+- PLW0603's full-suite verification exposed a pre-existing test class that
+  permanently replaced `dao.init_redis` during collection. Fixture-scoped
+  injection now owns that test double, so collecting an unrelated test can no
+  longer alter the production DAO module for the rest of the process.
 - FIX002 and TD003 report the same two TODOs. One is a real password-login
   rate-limit feature and one is a compatibility-removal checkpoint. Renaming
   them to evade lint would hide work, and implementing either is larger than a
@@ -186,6 +196,14 @@ Python 3.12-only syntax. UP046 is clean under the configured Python 3.11 target;
 an explicit Python 3.12 audit records the `PageWindow` and `HistoryItem` class
 migrations. The billing suite passes 673 tests with 10 skips, the focused shifu
 history test passes, and the full repository gates pass.
+
+The PLW0603 stage removes the global ignore and every Python `global` statement
+without adding inline or per-file exceptions. Stable Flask extensions keep
+imported identities intact; replaceable process state now has explicit owners
+for app, config, Redis, plugins, Celery, Langfuse, analytics, Ping++, and TTS;
+verification codes read the current app instead of cross-app caches. Focused
+lifecycle suites and the full backend suite pass 3,008 tests with 17 skips, and
+the repository-wide pre-commit gate passes.
 
 ## Context and Orientation
 
