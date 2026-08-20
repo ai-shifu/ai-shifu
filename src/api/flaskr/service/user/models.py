@@ -19,6 +19,8 @@ from .consts import CREDENTIAL_STATE_UNVERIFIED, USER_STATE_UNREGISTERED
 
 
 class UserConversion(db.Model):
+    """Persist user conversion records."""
+
     __tablename__ = "user_conversion"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
@@ -68,6 +70,8 @@ class UserConversion(db.Model):
 
 
 class UserToken(db.Model):
+    """Persist user token records."""
+
     __tablename__ = "user_token"
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
     user_id = Column(String(36), nullable=False, default="", comment="User UUID")
@@ -89,6 +93,8 @@ class UserToken(db.Model):
 
 
 class UserVerifyCode(db.Model):
+    """Persist user verify code records."""
+
     __tablename__ = "user_verify_code"
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
     phone = Column(String(36), nullable=False, default="", comment="User phone")
@@ -124,6 +130,8 @@ class UserVerifyCode(db.Model):
 
 
 class UserInfo(db.Model):
+    """Persist user info records."""
+
     __tablename__ = "user_users"
 
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
@@ -211,6 +219,8 @@ class UserInfo(db.Model):
 
 
 class UserOnboardingState(db.Model):
+    """Persist user onboarding state records."""
+
     __tablename__ = "user_onboarding_states"
     __table_args__ = (
         UniqueConstraint(
@@ -272,6 +282,8 @@ class UserOnboardingState(db.Model):
 
 
 class AuthCredential(db.Model):
+    """Persist auth credential records."""
+
     __tablename__ = "user_auth_credentials"
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
     credential_bid = Column(

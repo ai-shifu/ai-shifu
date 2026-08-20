@@ -195,6 +195,8 @@ def _setup_handle_input_ask_test_doubles(
 
 
 class TestElementType:
+    """Verify element type behavior."""
+
     def test_new_enum_values(self):
         from flaskr.service.learn.learn_dtos import ElementType
 
@@ -255,6 +257,8 @@ class TestElementType:
 
 
 class TestElementDTONewFields:
+    """Verify element DTO new fields behavior."""
+
     def _make_dto(self, **overrides):
         from flaskr.service.learn.learn_dtos import ElementDTO, ElementType
 
@@ -349,6 +353,8 @@ class TestElementDTONewFields:
 
 
 class TestRunMarkdownFlowDTO:
+    """Verify run markdown flow DTO behavior."""
+
     def test_private_mdflow_stream_parts_do_not_leak_into_json(self):
         from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 
@@ -374,6 +380,8 @@ class TestRunMarkdownFlowDTO:
 
 
 class TestTypeStateMachine:
+    """Verify type state machine behavior."""
+
     def test_initial_state_is_idle(self):
         from flaskr.service.learn.type_state_machine import TypeState, TypeStateMachine
 
@@ -535,6 +543,8 @@ class TestTypeStateMachine:
 
 
 class TestVisualKindMapping:
+    """Verify visual kind mapping behavior."""
+
     def test_known_mappings(self):
         from flaskr.service.learn.learn_dtos import ElementType
         from flaskr.service.learn.listen_element_types import (
@@ -1472,6 +1482,8 @@ def test_backfill_populates_sequence_number_and_audio_url(app):
 
 
 class TestElementPayloadAsks:
+    """Verify element payload asks behavior."""
+
     def test_payload_asks_none_by_default(self):
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
 
@@ -1535,6 +1547,8 @@ class TestElementPayloadAsks:
 
 
 class TestGeneratedTypeAsk:
+    """Verify generated type ask behavior."""
+
     def test_ask_enum_exists(self):
         from flaskr.service.learn.learn_dtos import GeneratedType
 
@@ -2563,6 +2577,8 @@ class TestHandleAskAdapter:
 
 
 class TestRunMarkdownFlowDTOAnchorBid:
+    """Verify run markdown flow DTO anchor bid behavior."""
+
     def test_default_anchor_element_bid_empty(self):
         from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 
@@ -2592,6 +2608,8 @@ class TestRunMarkdownFlowDTOAnchorBid:
 
 
 class TestElementChangeTypeSemantics:
+    """Verify element change type semantics behavior."""
+
     def test_text_patch_keeps_render_change_type(self, adapter_app):
         from flaskr.service.learn.learn_dtos import (
             ElementChangeType,

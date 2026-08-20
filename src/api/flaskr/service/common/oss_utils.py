@@ -43,6 +43,8 @@ _OSS_CONFIG_KEYS: Mapping[str, Mapping[str, str]] = {
 
 @dataclass(frozen=True)
 class OSSConfig:
+    """Describe credentials and endpoints for OSS storage."""
+
     endpoint: str
     access_key_id: str
     access_key_secret: str

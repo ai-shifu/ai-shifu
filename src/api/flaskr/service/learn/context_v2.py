@@ -200,11 +200,15 @@ def _iter_llm_result_content_parts(
 
 
 class RunType(Enum):
+    """Enumerate supported run type values."""
+
     INPUT = "input"
     OUTPUT = "output"
 
 
 class RunScriptInfo:
+    """Carry script identity and metadata for a learning run."""
+
     attend: LearnProgressRecord
     outline_bid: str
     block_position: int
@@ -246,6 +250,8 @@ def _resolve_runtime_language_context(
 
 
 class RUNLLMProvider(LLMProvider):
+    """Provide model calls for the learning runtime."""
+
     app: Flask
     llm_settings: LLMSettings
     trace: LangfuseTraceHandle
@@ -403,6 +409,8 @@ class RUNLLMProvider(LLMProvider):
 
 
 class MdflowContextV2:
+    """Track shared MarkdownFlow state for a version-two learning run."""
+
     def __init__(
         self,
         *,
@@ -1546,6 +1554,8 @@ class _RunStepState:
 
 
 class RunScriptContextV2:
+    """Coordinate state and output for a version-two learning run."""
+
     user_id: str
     attend_id: str
     is_paid: bool

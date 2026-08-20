@@ -2,6 +2,8 @@
 
 
 class BasePlugin:
+    """Define the lifecycle contract implemented by backend plugins."""
+
     name: str = None
 
     def __init__(self) -> None:

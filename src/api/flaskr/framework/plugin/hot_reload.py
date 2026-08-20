@@ -9,6 +9,8 @@ from watchdog.observers import Observer
 
 
 class PluginHotReloader:
+    """Reload backend plugins when their source files change."""
+
     def __init__(self, app: Flask) -> None:
         """Configure plugin file watching for the Flask app."""
         self.app = app
@@ -125,6 +127,8 @@ class PluginHotReloader:
 
 
 class PluginFileHandler(FileSystemEventHandler):
+    """Handle plugin source changes reported by the file watcher."""
+
     def __init__(self, reloader: PluginHotReloader) -> None:
         """Connect file-system events to the plugin reloader."""
         self.reloader = reloader

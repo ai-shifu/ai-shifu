@@ -34,6 +34,8 @@ REFERRAL_CREDIT_NUMERIC = Numeric(20, 10)
 
 
 class ReferralTableMixin:
+    """Provide shared columns for referral persistence models."""
+
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Primary key")
     deleted = Column(
         SmallInteger,
@@ -58,6 +60,8 @@ class ReferralTableMixin:
 
 
 class ReferralCampaign(ReferralTableMixin, db.Model):
+    """Persist referral campaign records."""
+
     __tablename__ = "referral_campaigns"
     __table_args__ = (
         UniqueConstraint("campaign_bid", name="uq_referral_campaigns_campaign_bid"),
@@ -92,6 +96,8 @@ class ReferralCampaign(ReferralTableMixin, db.Model):
 
 
 class ReferralCampaignRewardRule(ReferralTableMixin, db.Model):
+    """Persist referral campaign reward rule records."""
+
     __tablename__ = "referral_campaign_reward_rules"
     __table_args__ = (
         UniqueConstraint(
@@ -174,6 +180,8 @@ class ReferralCampaignRewardRule(ReferralTableMixin, db.Model):
 
 
 class ReferralInviteCode(ReferralTableMixin, db.Model):
+    """Persist referral invite code records."""
+
     __tablename__ = "referral_invite_codes"
     __table_args__ = (
         UniqueConstraint("invite_code_bid", name="uq_referral_invite_codes_code_bid"),
@@ -206,6 +214,8 @@ class ReferralInviteCode(ReferralTableMixin, db.Model):
 
 
 class ReferralInviteEvent(db.Model):
+    """Persist referral invite event records."""
+
     __tablename__ = "referral_invite_events"
     __table_args__ = (
         UniqueConstraint("event_bid", name="uq_referral_invite_events_event_bid"),
@@ -234,6 +244,8 @@ class ReferralInviteEvent(db.Model):
 
 
 class ReferralInviteRelation(ReferralTableMixin, db.Model):
+    """Persist referral invite relation records."""
+
     __tablename__ = "referral_invite_relations"
     __table_args__ = (
         UniqueConstraint("relation_bid", name="uq_referral_invite_relations_bid"),
@@ -282,6 +294,8 @@ class ReferralInviteRelation(ReferralTableMixin, db.Model):
 
 
 class ReferralInviteReward(ReferralTableMixin, db.Model):
+    """Persist referral invite reward records."""
+
     __tablename__ = "referral_invite_rewards"
     __table_args__ = (
         UniqueConstraint("reward_bid", name="uq_referral_invite_rewards_reward_bid"),

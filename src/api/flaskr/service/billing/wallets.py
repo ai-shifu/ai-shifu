@@ -76,6 +76,8 @@ _SINGLE_BUCKET_CATEGORIES = {
 
 @dataclass(slots=True, frozen=True)
 class WalletSnapshotRecord:
+    """Record wallet snapshot details."""
+
     wallet_bid: str
     creator_bid: str
     available_credits: int | float
@@ -106,6 +108,8 @@ class WalletSnapshotRecord:
 
 @dataclass(slots=True, frozen=True)
 class WalletSnapshotRebuildResult:
+    """Capture the rebuild outcome for wallet snapshot."""
+
     status: str
     creator_bid: str | None
     wallet_bid: str | None
@@ -132,6 +136,8 @@ class WalletSnapshotRebuildResult:
 
 @dataclass(slots=True, frozen=True)
 class RefundReturnCreditsResult:
+    """Capture credits returned while refunding a billing order."""
+
     status: str
     creator_bid: str | None
     source_bid: str | None
@@ -156,6 +162,8 @@ class RefundReturnCreditsResult:
 
 @dataclass(slots=True, frozen=True)
 class WalletExpirationResult:
+    """Capture credits expired from a wallet."""
+
     status: str
     creator_bid: str | None
     bucket_count: int
@@ -176,6 +184,8 @@ class WalletExpirationResult:
 
 @dataclass(slots=True, frozen=True)
 class ExpireLedgerBucketDriftRecord:
+    """Record expire ledger bucket drift details."""
+
     wallet_bucket_bid: str
     wallet_bid: str
     creator_bid: str
@@ -212,6 +222,8 @@ class ExpireLedgerBucketDriftRecord:
 
 @dataclass(slots=True, frozen=True)
 class ExpireLedgerBucketDriftRepairResult:
+    """Capture the repair outcome for expire ledger bucket drift."""
+
     status: str
     creator_bid: str | None
     wallet_bucket_bid: str | None
@@ -240,6 +252,8 @@ class ExpireLedgerBucketDriftRepairResult:
 
 @dataclass(slots=True, frozen=True)
 class ExpiredCreditPackBucketRestoreRecord:
+    """Record expired credit pack bucket restore details."""
+
     bill_order_bid: str
     creator_bid: str | None
     wallet_bid: str | None
@@ -278,6 +292,8 @@ class ExpiredCreditPackBucketRestoreRecord:
 
 @dataclass(slots=True, frozen=True)
 class ExpiredCreditPackBucketRestoreResult:
+    """Capture credits restored from an expired credit-pack bucket."""
+
     status: str
     bill_order_bids: list[str]
     order_count: int
@@ -306,6 +322,8 @@ class ExpiredCreditPackBucketRestoreResult:
 
 @dataclass(slots=True, frozen=True)
 class ManualCreditGrantResult:
+    """Capture the outcome of manual credit grant."""
+
     status: str
     creator_bid: str | None
     amount: int | float = 0
@@ -334,6 +352,8 @@ class ManualCreditGrantResult:
 
 @dataclass(slots=True, frozen=True)
 class ReservedGrantRepairRecord:
+    """Record reserved grant repair details."""
+
     creator_bid: str
     bill_order_bid: str
     subscription_bid: str | None
@@ -362,6 +382,8 @@ class ReservedGrantRepairRecord:
 
 @dataclass(slots=True, frozen=True)
 class RenewalStateDriftRepairResult:
+    """Capture the repair outcome for renewal state drift."""
+
     status: str
     creator_bid: str | None
     creator_count: int

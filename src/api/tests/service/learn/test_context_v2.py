@@ -168,6 +168,8 @@ _HAS_RUN_ASYNC = hasattr(RunScriptContextV2, "_run_async_in_safe_context")
 
 
 class OutlinePathGuardTests(unittest.TestCase):
+    """Verify outline path guard behavior."""
+
     def test_get_next_outline_item_ignores_missing_current_outline_item(self):
         ctx = _make_context()
         ctx._struct = HistoryItem(bid="shifu-bid", id=1, type="shifu", children=[])
@@ -224,6 +226,8 @@ class OutlinePathGuardTests(unittest.TestCase):
     "_collect_async_generator helper removed in current architecture.",
 )
 class CollectAsyncGeneratorTests(unittest.TestCase):
+    """Verify collect async generator behavior."""
+
     def test_without_running_loop(self):
         ctx = _make_context()
 
@@ -253,6 +257,8 @@ class CollectAsyncGeneratorTests(unittest.TestCase):
     "_run_async_in_safe_context helper removed in current architecture.",
 )
 class RunAsyncInSafeContextTests(unittest.TestCase):
+    """Verify run async in safe context behavior."""
+
     def test_without_running_loop(self):
         ctx = _make_context()
 
@@ -274,6 +280,8 @@ class RunAsyncInSafeContextTests(unittest.TestCase):
 
 
 class NextChapterInteractionTests(unittest.TestCase):
+    """Verify next chapter interaction behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("next-chapter-tests")
@@ -335,6 +343,8 @@ class NextChapterInteractionTests(unittest.TestCase):
 
 
 class AccessGateFeedbackHelperTests(unittest.TestCase):
+    """Verify access gate feedback helper behavior."""
+
     def test_detects_blocking_access_gate(self):
         ctx = _make_context()
         ctx._is_paid = False
@@ -355,6 +365,8 @@ class AccessGateFeedbackHelperTests(unittest.TestCase):
 
 
 class CompletionTailInteractionTests(unittest.TestCase):
+    """Verify completion tail interaction behavior."""
+
     def test_emits_feedback_and_next_when_both_conditions_met(self):
         ctx = _make_context()
         calls: list[str] = []
@@ -435,6 +447,8 @@ class CompletionTailInteractionTests(unittest.TestCase):
 
 
 class RuntimeOutlineBlockCountTests(unittest.TestCase):
+    """Verify runtime outline block count behavior."""
+
     def test_get_next_outline_item_uses_runtime_block_count_for_leaf_outline(self):
         ctx = _make_context()
         ctx.app = Flask("runtime-outline-block-count-tests")
@@ -552,6 +566,8 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
 
 
 class ExceptionGateFeedbackTests(unittest.TestCase):
+    """Verify exception gate feedback behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-feedback")
@@ -634,6 +650,8 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
 
 
 class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
+    """Verify exception gate interaction persistence behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-interaction-persistence")
@@ -683,6 +701,8 @@ class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
 
 
 class StreamTtsGateTests(unittest.TestCase):
+    """Verify stream TTS gate behavior."""
+
     def test_should_stream_tts_respects_preview_and_listen(self):
         ctx = _make_context()
 
@@ -784,6 +804,8 @@ class StreamTtsGateTests(unittest.TestCase):
 
 
 class ReloadFromElementBidTests(unittest.TestCase):
+    """Verify reload from element bid behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("reload-from-element-bid")
@@ -1033,6 +1055,8 @@ class ReloadFromElementBidTests(unittest.TestCase):
 
 
 class StreamTtsTeardownTests(unittest.TestCase):
+    """Verify stream TTS teardown behavior."""
+
     def test_teardown_flushes_content_then_finalizes_tts(self):
         app = Flask("stream-tts-teardown")
         ctx = _make_context()
@@ -1110,6 +1134,8 @@ class StreamTtsTeardownTests(unittest.TestCase):
 
 
 class MdflowContextCompatibilityTests(unittest.TestCase):
+    """Verify MarkdownFlow context compatibility behavior."""
+
     def test_init_ignores_visual_mode_when_api_missing(self):
         class FakeMarkdownFlow:
             def __init__(self, *args, **kwargs) -> None:
@@ -1183,6 +1209,8 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
 
 class RuntimeOutputLanguageTests(unittest.TestCase):
+    """Verify runtime output language behavior."""
+
     def test_runtime_language_overrides_stale_profile_language(self):
         with patch(
             "flaskr.service.learn.context_v2.get_current_language",
@@ -1238,6 +1266,8 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
 
 
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
+    """Verify preview resolve LLM settings behavior."""
+
     def test_falls_back_to_allowlist_when_persisted_model_not_allowed(self):
         app = Flask("preview-llm-settings")
         app.config.update(
@@ -1275,6 +1305,8 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
 
 
 class PreviewResolveVariablesTests(unittest.TestCase):
+    """Verify preview resolve variables behavior."""
+
     def test_injects_request_language_when_missing(self):
         app = Flask("preview-variables")
         preview_ctx = RunScriptPreviewContextV2(app)
@@ -1373,6 +1405,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
 
 class CoursePromptCompositionTests(unittest.TestCase):
+    """Verify course prompt composition behavior."""
+
     def assert_composed_course_prompt(
         self,
         prompt: str | None,
@@ -1605,6 +1639,8 @@ class CoursePromptCompositionTests(unittest.TestCase):
 
 
 class PreviewRunLlmLoggingTests(unittest.TestCase):
+    """Verify preview run LLM logging behavior."""
+
     def test_complete_logs_full_preview_output(self):
         app = Flask("preview-run-llm-logging")
         parent_observation = object()
@@ -1659,6 +1695,8 @@ class PreviewRunLlmLoggingTests(unittest.TestCase):
 
 
 class LangfuseTraceFinalizationTests(unittest.TestCase):
+    """Verify langfuse trace finalization behavior."""
+
     def test_runtime_context_uses_current_langfuse_client(self):
         app = Flask("runtime-langfuse-client")
         sentinel_client = object()
@@ -1784,6 +1822,8 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
 
 
 class PreviewLangfuseTraceTests(unittest.TestCase):
+    """Verify preview langfuse trace behavior."""
+
     def test_stream_preview_sets_session_id_and_finalizes_root_span(self):
         app = Flask("preview-langfuse-trace")
         preview_ctx = RunScriptPreviewContextV2(app)
@@ -1913,6 +1953,8 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
 
 
 class PreviewElementizationTests(unittest.TestCase):
+    """Verify preview elementization behavior."""
+
     def test_preview_content_events_preserve_stream_parts(self):
         app = Flask("preview-content-events")
         preview_ctx = RunScriptPreviewContextV2(app)
@@ -2222,6 +2264,8 @@ class PreviewSentPromptCaptureTests(unittest.TestCase):
 
 
 class PreviewContextStoreTruncationTests(unittest.TestCase):
+    """Verify preview context store truncation behavior."""
+
     def _populate(self, store, doc, indices):
         for idx in indices:
             store.append_context(doc, idx, f"u{idx}", f"a{idx}")
@@ -2363,6 +2407,8 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
 
 
 class RuntimeExceptionLangfuseTests(unittest.TestCase):
+    """Verify runtime exception langfuse behavior."""
+
     def test_run_emits_gate_interaction_after_paid_exception(self):
         app = Flask("runtime-langfuse-paid")
         ctx = _make_context()

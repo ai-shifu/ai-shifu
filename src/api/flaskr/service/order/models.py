@@ -568,6 +568,8 @@ class WechatPayOrder(_NativeProviderOrderBase):
 
 
 class BannerInfo(db.Model):
+    """Persist banner metadata attached to an order."""
+
     __tablename__ = "order_banner_info"
     __table_args__: ClassVar[dict[str, str]] = {"comment": "Order banner info"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)

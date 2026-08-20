@@ -18,6 +18,8 @@ try:
 except Exception:  # pragma: no cover - exercised only when pydub is missing.
 
     class AudioSegment:  # type: ignore[no-redef]
+        """Reference one time range in a source audio file."""
+
         @staticmethod
         def from_file(*_args, **_kwargs) -> None:
             raise RuntimeError("audio decoder is not available")
@@ -81,6 +83,8 @@ _PENDING_AUDIO_BLOBS: dict[str, bytes] = {}
 
 @dataclass(slots=True, frozen=True)
 class NormalizedAudioBlob:
+    """Represent the binary data for normalized audio."""
+
     audio_bytes: bytes
     duration_ms: int
     extension: str = "wav"
@@ -89,6 +93,8 @@ class NormalizedAudioBlob:
 
 @dataclass(slots=True, frozen=True)
 class StoredResourceRef:
+    """Reference stored resource."""
+
     resource_bid: str
     url: str
     object_key: str
@@ -96,6 +102,8 @@ class StoredResourceRef:
 
 @dataclass(slots=True, frozen=True)
 class MiniMaxUploadedFile:
+    """Reference one file uploaded to MiniMax."""
+
     file_id: str
     extra_info: dict[str, Any] = field(default_factory=dict)
     trace_id: str = ""
@@ -103,6 +111,8 @@ class MiniMaxUploadedFile:
 
 @dataclass(slots=True, frozen=True)
 class MiniMaxVoiceCloneResult:
+    """Capture the voice created by MiniMax."""
+
     voice_id: str
     demo_audio: str = ""
     status_code: int = 0
@@ -115,6 +125,8 @@ class MiniMaxVoiceCloneResult:
 
 @dataclass(slots=True, frozen=True)
 class MiniMaxVoiceCloneRunResult:
+    """Capture artifacts produced by one MiniMax voice-cloning run."""
+
     status: str
     voice_bid: str
     voice_id: str = ""
@@ -176,6 +188,8 @@ def normalize_audio_blob(
 
 
 class MiniMaxVoiceCloneClient:
+    """Call MiniMax APIs for voice-cloning workflows."""
+
     def __init__(self) -> None:
         """Configure the MiniMax voice-clone API client."""
         self.api_key = str(get_config("MINIMAX_API_KEY") or "").strip()

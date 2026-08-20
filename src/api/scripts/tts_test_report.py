@@ -65,6 +65,8 @@ This course teaches how to train AI, helping you become the master of AI. Moreov
 
 @dataclass(frozen=True)
 class ReportRow:
+    """Represent one row in a TTS test report."""
+
     provider: str
     model: str
     voice_id: str

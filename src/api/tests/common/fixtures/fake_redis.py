@@ -5,6 +5,8 @@ from typing import Any
 
 
 class FakeRedisLock:
+    """Simulate Redis lock behavior for tests."""
+
     def __init__(self, locks: dict[str, bool], key: str) -> None:
         """Initialize the fake Redis lock test double."""
         self._locks = locks
@@ -25,6 +27,8 @@ class FakeRedisLock:
 
 
 class FakeRedis:
+    """Simulate Redis behavior for tests."""
+
     def __init__(self) -> None:
         """Initialize the fake Redis test double."""
         self._store: dict[str, Any] = {}

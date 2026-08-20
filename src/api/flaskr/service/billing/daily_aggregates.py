@@ -33,6 +33,8 @@ _ZERO = Decimal(0)
 
 @dataclass(slots=True, frozen=True)
 class DailyAggregateJobResult:
+    """Capture rows processed by one daily billing aggregation job."""
+
     status: str
     stat_date: str
     creator_bid: str | None = None
@@ -75,6 +77,8 @@ class DailyAggregateJobResult:
 
 @dataclass(slots=True, frozen=True)
 class RebuildDailyAggregatesResult:
+    """Capture daily billing aggregates rebuilt for a date range."""
+
     status: str
     creator_bid: str | None
     shifu_bid: str | None

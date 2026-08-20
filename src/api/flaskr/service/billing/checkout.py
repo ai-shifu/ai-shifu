@@ -186,6 +186,8 @@ _SUBSCRIPTION_CHECKOUT_ORDER_TYPES = {
 
 @dataclass(slots=True, frozen=True)
 class ProviderReferenceReconcileResult:
+    """Capture the result of reconciling a provider reference."""
+
     status: str
     creator_bid: str | None
     bill_order_bid: str | None
@@ -208,6 +210,8 @@ class ProviderReferenceReconcileResult:
 
 @dataclass(slots=True, frozen=True)
 class StripeLineItemPayload:
+    """Carry the payload for Stripe line item."""
+
     currency: str
     unit_amount: int
     product_name: str
@@ -231,6 +235,8 @@ class StripeLineItemPayload:
 
 @dataclass(slots=True, frozen=True)
 class RefundProviderMetadata:
+    """Carry metadata for refund provider."""
+
     bill_order_bid: str
     creator_bid: str
     payment_intent_id: str | None = None

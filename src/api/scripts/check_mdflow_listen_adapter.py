@@ -59,6 +59,8 @@ DEFAULT_MDFLOW_ROOT = str(Path(tempfile.gettempdir()) / "mdflow255")
 
 @dataclass
 class BlockSample:
+    """Represent one MarkdownFlow block used by an audit script."""
+
     id: int
     generated_block_bid: str
     shifu_bid: str
@@ -72,6 +74,8 @@ class BlockSample:
 
 @dataclass
 class ExpectedStreamElement:
+    """Describe one stream element expected by an audit script."""
+
     number: int
     stream_type: str
     content_text: str
@@ -79,6 +83,8 @@ class ExpectedStreamElement:
 
 @dataclass
 class AnalysisResult:
+    """Capture findings from a stream-analysis script."""
+
     mode: str
     sample: BlockSample
     issues: list[str]

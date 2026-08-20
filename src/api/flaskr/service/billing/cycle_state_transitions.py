@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class SubscriptionCycleWindow:
+    """Describe the window used by subscription cycle."""
+
     start_at: datetime
     end_at: datetime
 

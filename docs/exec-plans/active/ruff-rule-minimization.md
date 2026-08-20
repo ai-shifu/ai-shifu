@@ -226,6 +226,25 @@ plan's progress update for that rule.
   `sunner/ruff-n806` to the TD003 branch after all local gates passed.
 - [ ] Merge or retarget N806 PR #2589 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 04:22 CST: Prepared the D101 stage on `sunner/ruff-d101`,
+  stacked on N806. Added role- or contract-focused docstrings to all 431 public
+  classes across 144 Python files, removed the global D101 exception, and
+  documented how future classes should distinguish DTO, persistence, protocol,
+  exception, test-group, and test-double ownership.
+- [x] 2026-08-21 04:22 CST: A semantic audit found exactly 431 added class
+  docstrings, no removed or changed existing class docstrings, and no executable
+  AST differences after normalizing the new docstrings and two now-redundant
+  empty-class `pass` statements. The stable `ALL` census falls by exactly 431
+  findings to 29,533 across 32 rules; every other rule count is unchanged.
+- [x] 2026-08-21 04:22 CST: The 110-test Swagger, Pydantic, DTO, and schema
+  contract set passes, followed by the full backend suite at 3,019 tests passed
+  with 17 skipped. Collaboration and knowledge generators, architecture fixture
+  tests, identifier-example validation, repository Ruff, and format also pass.
+- [x] 2026-08-21 04:24 CST: Development-tool validation and every repository
+  pre-commit hook pass on the D101 tip.
+- [ ] Open the ready D101 PR against the N806 branch after the full repository
+  pre-commit gate passes, then merge or retarget it without combining its rule
+  unit with the next stage.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -258,6 +277,12 @@ plan's progress update for that rule.
   permanently replaced `dao.init_redis` during collection. Fixture-scoped
   injection now owns that test double, so collecting an unrelated test can no
   longer alter the production DAO module for the rest of the process.
+- D101 covers runtime-visible metadata, not comments: 103 affected classes are
+  registered with the custom Swagger collector, and Pydantic can expose class
+  docstrings in generated schemas. The custom collector reads annotated fields
+  and inline field comments rather than `Class.__doc__`; a repository search
+  found no direct runtime class-docstring consumer, and focused schema tests
+  protect the framework-driven paths.
 - G004's full-suite verification exposed a config fallback test that treated a
   mocked logger's first positional argument as the final rendered message. The
   test now verifies the constant message template and interpolation argument,

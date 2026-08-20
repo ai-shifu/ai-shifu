@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class TokenLookupResult:
+    """Capture a stored token and its expiration state."""
+
     user_id: str
 
 

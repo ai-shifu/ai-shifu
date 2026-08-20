@@ -44,6 +44,8 @@ _DEFAULT_REFRESH_LEEWAY_SECONDS = 60
 
 @dataclass(frozen=True)
 class AliyunNlsToken:
+    """Carry an Aliyun NLS token and its expiration time."""
+
     token: str
     expire_time: int  # unix epoch seconds
 

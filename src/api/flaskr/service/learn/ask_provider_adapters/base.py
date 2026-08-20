@@ -9,6 +9,8 @@ from flask import Flask
 
 @dataclass
 class AskProviderChunk:
+    """Represent one normalized chunk from an ask provider."""
+
     content: str
 
 
@@ -50,6 +52,8 @@ class AskProviderTimeoutError(AskProviderError):
 
 
 class AskProviderAdapter(Protocol):
+    """Define the streaming contract for ask-provider adapters."""
+
     provider: str
 
     def stream_answer(

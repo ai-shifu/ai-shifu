@@ -178,6 +178,8 @@ def _build_workflow_error_message(response_payload: dict[str, Any]) -> str:
 
 
 class CozeWorkflowAskProviderAdapter:
+    """Adapt Coze workflow responses to the common ask stream."""
+
     provider = ASK_PROVIDER_COZE_WORKFLOW
 
     def stream_answer(

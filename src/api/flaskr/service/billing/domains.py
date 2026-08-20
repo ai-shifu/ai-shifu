@@ -55,6 +55,8 @@ _DOMAIN_VERIFICATION_METHOD_CODES = {
 
 @dataclass(slots=True, frozen=True)
 class DomainVerificationResult:
+    """Capture the outcome of domain verification."""
+
     creator_bid: str
     action: str
     binding: BillingDomainBindingDTO

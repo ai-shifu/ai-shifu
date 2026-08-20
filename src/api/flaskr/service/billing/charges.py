@@ -61,6 +61,8 @@ _USAGE_TYPE_RATE_METRICS = {
 
 @dataclass(slots=True, frozen=True)
 class UsageMetricCharge:
+    """Describe credits charged for one usage metric."""
+
     billing_metric: int
     metric_label: str
     raw_amount: int
@@ -77,6 +79,8 @@ class UsageMetricCharge:
 
 @dataclass(slots=True, frozen=True)
 class UsageMetricBreakdownItem:
+    """Represent one breakdown item for usage metric."""
+
     billing_metric: str
     billing_metric_code: int
     raw_amount: int
@@ -101,6 +105,8 @@ class UsageMetricBreakdownItem:
 
 @dataclass(slots=True, frozen=True)
 class UsageBucketMetricBreakdownItem:
+    """Represent one breakdown item for usage bucket metric."""
+
     billing_metric: str
     billing_metric_code: int
     consumed_credits: Decimal
@@ -115,6 +121,8 @@ class UsageBucketMetricBreakdownItem:
 
 @dataclass(slots=True, frozen=True)
 class UsageBucketBreakdownItem:
+    """Represent one breakdown item for usage bucket."""
+
     wallet_bucket_bid: str
     bucket_category: str
     source_type: str
@@ -141,6 +149,8 @@ class UsageBucketBreakdownItem:
 
 @dataclass(slots=True, frozen=True)
 class UsageEntryMetadata:
+    """Carry metadata for usage entry."""
+
     usage_bid: str
     usage_record_id: int
     usage_scene: int

@@ -9,6 +9,8 @@ from flaskr.service.profile import learner_profile_optimizer_admission as admiss
 
 
 class FakeRedis:
+    """Simulate Redis behavior for tests."""
+
     def __init__(self) -> None:
         """Initialize the fake Redis test double."""
         self.in_flight_tokens: dict[str, str] = {}
@@ -36,6 +38,8 @@ class FakeRedis:
 
 
 class ExplodingRedis:
+    """Simulate a Redis failure for tests."""
+
     def eval(self, *_args, **_kwargs):
         raise RuntimeError("redis unavailable")
 

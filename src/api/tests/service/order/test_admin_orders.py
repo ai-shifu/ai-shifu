@@ -34,6 +34,8 @@ from sqlalchemy.sql import column
 
 
 class DummyOrder:
+    """Simulate order behavior for tests."""
+
     def __init__(self) -> None:
         """Initialize the dummy order test double."""
         self.order_bid = "order-1"
@@ -49,6 +51,8 @@ class DummyOrder:
 
 
 class DummyShifu:
+    """Simulate shifu behavior for tests."""
+
     def __init__(self) -> None:
         """Initialize the dummy shifu test double."""
         self.title = "Demo Course"

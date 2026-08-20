@@ -673,6 +673,8 @@ def split_text_for_tts(
 
 @dataclass(frozen=True)
 class SynthesizeToOssResult:
+    """Capture audio uploaded to OSS after speech synthesis."""
+
     provider: str
     model: str
     voice_id: str

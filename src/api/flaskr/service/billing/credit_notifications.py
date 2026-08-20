@@ -115,6 +115,8 @@ _maybe_app_context = app_context_scope
 
 @dataclass(slots=True, frozen=True)
 class CreditNotificationStageResult:
+    """Capture notification work completed for one credit event."""
+
     status: str
     notification_bid: str = ""
     notification_type: str = ""

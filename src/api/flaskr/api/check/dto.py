@@ -8,6 +8,8 @@ CHECK_RESULT_UNCONF = 4
 
 
 class CheckResultDTO:
+    """Represent the check result API payload."""
+
     check_result: int
     risk_labels: list[str]
     risk_label_ids: list[int]

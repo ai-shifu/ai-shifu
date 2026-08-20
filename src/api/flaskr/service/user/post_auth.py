@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True, frozen=True)
 class PostAuthContext:
+    """Carry context for post auth."""
+
     user_id: str
     source: str
     login_context: str | None = None

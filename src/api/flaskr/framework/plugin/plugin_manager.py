@@ -8,6 +8,8 @@ from .hot_reload import PluginHotReloader
 
 
 class PluginManager:
+    """Coordinate backend plugin discovery and lifecycle events."""
+
     def __init__(self, app: Flask) -> None:
         """Initialize plugin discovery for the Flask app."""
         app.logger.info("PluginManager init")

@@ -35,6 +35,8 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True, frozen=True)
 class BillingPaidOrderSideEffects:
+    """Coordinate side effects after a billing order is paid."""
+
     bill_order_bid: str = ""
     should_enqueue_subscription_purchase_sms: bool = False
     should_enqueue_billing_paid_feishu: bool = False

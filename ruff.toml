@@ -216,10 +216,9 @@ select = [
 ]
 ignore = [
     "E501",    # line length is owned by the formatter
-    # D1xx (except D100, D104, D105 and D107, which are enforced): ~4.1k
-    # undocumented classes, methods and functions. Writing them is a codebase
-    # project, not a lint config change.
-    "D101",    # undocumented public class
+    # D1xx (except D100, D101, D104, D105 and D107, which are enforced): ~3.7k
+    # undocumented methods and functions. Writing them is a codebase project,
+    # not a lint config change.
     "D102",    # undocumented public method
     "D103",    # undocumented public function
     "D203",    # blank line before a class docstring -- conflicts with D211

@@ -35,6 +35,8 @@ def _load_route_module(module_name: str):
 
 
 class DummyStripeProvider:
+    """Simulate Stripe provider behavior for tests."""
+
     def __init__(self, notification: PaymentNotificationResult) -> None:
         """Initialize the dummy stripe provider test double."""
         self._notification = notification

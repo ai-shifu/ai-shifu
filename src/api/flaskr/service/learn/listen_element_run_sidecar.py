@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 
 
 class ListenElementRunSidecarMixin:
+    """Provide sidecar state operations for listen-mode element runs."""
+
     def _new_interaction_element_bid(self) -> str:
         return _new_element_bid(self.app)
 

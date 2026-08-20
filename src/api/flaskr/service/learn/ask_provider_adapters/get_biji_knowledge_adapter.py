@@ -115,6 +115,8 @@ def _format_result(index: int, result: Any) -> str:
 
 
 class GetBijiKnowledgeAskProviderAdapter:
+    """Adapt Get Biji knowledge responses to the common ask stream."""
+
     provider = ASK_PROVIDER_GET_BIJI_KNOWLEDGE
 
     def stream_answer(

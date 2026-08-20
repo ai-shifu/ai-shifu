@@ -45,6 +45,8 @@ EMPTY_COURSE_OVERVIEW = AdminOperationCourseOverviewDTO()
 
 
 class DummyCourse:
+    """Simulate course behavior for tests."""
+
     def __init__(
         self,
         *,
@@ -1545,6 +1547,8 @@ def test_merge_courses_checks_published_visibility_once():
 
 
 class FakeColumn:
+    """Simulate column behavior for tests."""
+
     __hash__ = None
 
     def __init__(self, name: str) -> None:
@@ -1577,6 +1581,8 @@ class FakeColumn:
 
 
 class FakeMaxExpression:
+    """Simulate max expression behavior for tests."""
+
     def __init__(self, column: FakeColumn) -> None:
         """Initialize the fake max expression test double."""
         self.column = column
@@ -1586,12 +1592,16 @@ class FakeMaxExpression:
 
 
 class FakeLatestSubquery:
+    """Simulate latest subquery behavior for tests."""
+
     def __init__(self) -> None:
         """Initialize the fake latest subquery test double."""
         self.c = type("Columns", (), {"max_id": "latest-max-id"})()
 
 
 class FakeLatestQuery:
+    """Simulate latest query behavior for tests."""
+
     def __init__(self) -> None:
         """Initialize the fake latest query test double."""
         self.filters = []
@@ -1611,12 +1621,16 @@ class FakeLatestQuery:
 
 
 class FakeIdQuery:
+    """Simulate ID query behavior for tests."""
+
     def __init__(self, target) -> None:
         """Initialize the fake ID query test double."""
         self.target = target
 
 
 class FakeOuterQuery:
+    """Simulate outer query behavior for tests."""
+
     def __init__(self, result) -> None:
         """Initialize the fake outer query test double."""
         self.filters = []
@@ -1646,6 +1660,8 @@ class FakeOuterQuery:
 
 
 class FakeSession:
+    """Simulate session behavior for tests."""
+
     def __init__(
         self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery
     ) -> None:
@@ -1665,12 +1681,16 @@ class FakeSession:
 
 
 class FakeFunc:
+    """Simulate func behavior for tests."""
+
     @staticmethod
     def max(column: FakeColumn) -> FakeMaxExpression:
         return FakeMaxExpression(column)
 
 
 class FakeDB:
+    """Simulate database behavior for tests."""
+
     def __init__(
         self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery
     ) -> None:
@@ -1680,6 +1700,8 @@ class FakeDB:
 
 
 class FakeModel:
+    """Simulate model behavior for tests."""
+
     id = FakeColumn("id")
     deleted = FakeColumn("deleted")
     shifu_bid = FakeColumn("shifu_bid")
@@ -1690,6 +1712,8 @@ class FakeModel:
 
 
 class FakeMappedModel(FakeModel):
+    """Simulate mapped model behavior for tests."""
+
     __mapper__ = object()
     llm_system_prompt = FakeColumn("llm_system_prompt")
     price = FakeColumn("price")

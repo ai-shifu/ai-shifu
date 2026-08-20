@@ -408,6 +408,18 @@ file-level tool directives. Because adding it changes `module.__doc__`, search
 runtime introspection before a bulk adoption and verify executable AST equality
 after removing the new module docstrings.
 
+For `D101`, document the class's role or observable contract, not its spelling.
+DTOs name the payload they carry, persistence models name the state they store,
+protocols name the operations they require, exceptions name the failure they
+signal, and test doubles name the collaborator or failure they simulate. A test
+class names the behavior group it verifies. Keep the contract to one line when
+that is sufficient, and do not write filler such as "Class for X" or merely
+split the CapWords name into a sentence. Because a class docstring is visible
+through `Class.__doc__` and may feed schema or inspection frameworks, search
+runtime introspection before adding it and verify executable AST equality after
+removing only the new class docstrings. Run focused schema tests when a touched
+class is registered with Swagger or created by Pydantic.
+
 For `FIX002`, do not make an unresolved task invisible by renaming `TODO`,
 adding `noqa`, or turning the same promise into an untracked prose comment.
 Complete the work when it is part of the current change. When it genuinely

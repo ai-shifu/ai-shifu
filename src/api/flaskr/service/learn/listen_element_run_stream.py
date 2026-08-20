@@ -66,6 +66,8 @@ if TYPE_CHECKING:
 
 
 class ListenElementRunStreamMixin:
+    """Provide streaming operations for listen-mode element runs."""
+
     @staticmethod
     def _normalize_live_audio_position(position: Any) -> int:
         try:
