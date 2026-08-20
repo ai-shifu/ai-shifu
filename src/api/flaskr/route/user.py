@@ -569,6 +569,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("captcha_code")
         return make_common_response(verify_captcha_code(app, captcha_id, captcha_code))
 
+    # Flasgger parses `parameters:` below as a YAML key; D406's NumPy-docstring
+    # fix would remove the colon and invalidate the published API specification.
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
@@ -617,7 +619,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             400:
                 description: parameter error
 
-        """
+        """  # noqa: D406
         payload = request.get_json(silent=True)
         payload = payload if isinstance(payload, dict) else {}
         _apply_request_language(payload)
