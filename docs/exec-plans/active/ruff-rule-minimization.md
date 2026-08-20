@@ -324,6 +324,28 @@ plan's progress update for that rule.
   `sunner/ruff-ruf001` to the EM101 branch after all local gates passed.
 - [ ] Merge or retarget RUF001 PR #2593 after its predecessors without
   combining it with the next rule unit.
+- [x] 2026-08-21 05:59 CST: Prepared the N815 stage on
+  `sunner/ruff-n815`, stacked on RUF001. An isolated scan exposed 27 findings
+  hidden by two file-wide exceptions: 26 camelCase fields on the Pydantic
+  `RuntimeConfigDTO` and the annotated `UserToken.userInfo` wire field.
+- [x] 2026-08-21 05:59 CST: Replaced all 26 Pydantic fields with snake_case
+  Python names and exact `Field(alias=...)` wire names, then changed the route
+  builder to use the Python names. The one non-Pydantic `userInfo` annotation
+  retains its exact JSON and generated Swagger contract through one explained
+  inline suppression. Both N815 per-file exceptions are removed.
+- [x] 2026-08-21 05:59 CST: The isolated repository-wide N815 scan is clean.
+  Twenty-eight focused DTO, runtime-config, JSON-alias, and Swagger-contract
+  tests pass; the stable `ALL` census remains exactly 28,202 findings across
+  28 rules, with every other rule count unchanged.
+- [x] 2026-08-21 06:01 CST: The wider billing and common-service regression
+  suites pass 749 tests with 10 skips, covering the route builder, DTO payloads,
+  billing consumers, and shared serialization paths.
+- [x] 2026-08-21 06:04 CST: The full backend suite passes 3,020 tests with 17
+  skips. Translation checks, collaboration and knowledge generators, repository
+  harness, architecture boundaries, development-tool validation, configured
+  Ruff, and format also pass.
+- [x] 2026-08-21 06:05 CST: Every repository pre-commit hook passes on the
+  N815 tip.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -425,6 +447,12 @@ plan's progress update for that rule.
   `allowed-confusables` setting provides the narrower resolution: allow exactly
   the five audited punctuation characters while enforcing RUF001 for every
   other confusable.
+- N815's normal configured scan hid 27 findings behind two per-file ignores,
+  while the stable `ALL` census also honored those exceptions. The isolated
+  scan exposed that only one field was intrinsically camelCase: the annotated
+  name drives both `UserToken` JSON and its generated Swagger schema. Pydantic
+  aliases preserve all 26 runtime-config wire keys without sacrificing Python
+  naming, so the final exception can be one field rather than two files.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent

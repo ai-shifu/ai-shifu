@@ -366,6 +366,14 @@ unless an exact external protocol or regression fixture requires it. Do not add
 another globally allowed character without inventorying every occurrence and
 documenting the shared semantic contract.
 
+For `N815`, keep Python DTO field names in snake_case even when the public JSON
+contract uses camelCase. Pydantic DTOs should declare the public name with
+`Field(alias="...")`, accept internal construction through `populate_by_name`,
+and serialize with `by_alias=True`; tests must lock both the Python attribute
+and exact wire keys. A non-Pydantic DTO whose annotated name directly drives
+both JSON and generated Swagger may use one explained inline suppression for
+that field. Do not exempt the containing file or rename the external contract.
+
 For `G004`, keep log message construction lazy: pass a constant message and
 its values as positional logging arguments, preserving the message text,
 argument order, and log level. Use `%s` for normal or `!s` interpolation,

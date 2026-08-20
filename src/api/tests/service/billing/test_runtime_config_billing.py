@@ -444,8 +444,8 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
     config = RuntimeConfigDTO(**route_payload)
 
     assert isinstance(config, RuntimeConfigDTO)
-    assert config.billingEnabled is True
-    assert config.officialSiteUrl == "https://official.example.com"
+    assert config.billing_enabled is True
+    assert config.official_site_url == "https://official.example.com"
     assert config.__json__()["legalUrls"]["privacy"] == {
         "zh-CN": "/legal/privacy/zh",
         "en-US": "/legal/privacy/en",
