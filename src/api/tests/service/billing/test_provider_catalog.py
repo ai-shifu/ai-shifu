@@ -24,7 +24,7 @@ from flaskr.service.config import config_overrides
 
 
 class _StripeObject:
-    def __init__(self, payload):
+    def __init__(self, payload) -> None:
         self._payload = payload
 
     def to_dict(self):
@@ -32,7 +32,7 @@ class _StripeObject:
 
 
 class _FakeStripeResource:
-    def __init__(self, payload):
+    def __init__(self, payload) -> None:
         self.payload = payload
         self.calls = []
 
@@ -42,7 +42,7 @@ class _FakeStripeResource:
 
 
 class _FakeStripe:
-    def __init__(self):
+    def __init__(self) -> None:
         self.Account = _FakeStripeResource(
             {
                 "id": "acct_test",
@@ -95,7 +95,7 @@ class _FailingStripe:
 
 
 class _FakeStripeAdapter(StripeCatalogReadAdapter):
-    def __init__(self, stripe):
+    def __init__(self, stripe) -> None:
         self.stripe = stripe
 
     def _client_options(self, app):
