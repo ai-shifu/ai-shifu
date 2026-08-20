@@ -1092,21 +1092,20 @@ def _load_order_activities(order_bid: str) -> list[OrderAdminActivityDTO]:
         PromoRedemption.order_bid == order_bid,
         PromoRedemption.deleted == 0,
     ).all()
-    activities: list[OrderAdminActivityDTO] = []
-    for record in records:
-        activities.append(
-            OrderAdminActivityDTO(
-                active_id=record.promo_bid,
-                active_name=record.promo_name,
-                price=_format_decimal(record.discount_amount),
-                status=record.status,
-                status_key=ACTIVE_STATUS_KEY_MAP.get(
-                    record.status, "module.order.activeStatus.unknown"
-                ),
-                created_at=record.created_at,
-                updated_at=record.updated_at,
-            )
+    activities: list[OrderAdminActivityDTO] = [
+        OrderAdminActivityDTO(
+            active_id=record.promo_bid,
+            active_name=record.promo_name,
+            price=_format_decimal(record.discount_amount),
+            status=record.status,
+            status_key=ACTIVE_STATUS_KEY_MAP.get(
+                record.status, "module.order.activeStatus.unknown"
+            ),
+            created_at=record.created_at,
+            updated_at=record.updated_at,
         )
+        for record in records
+    ]
     return activities
 
 
@@ -1116,26 +1115,25 @@ def _load_order_coupons(order_bid: str) -> list[OrderAdminCouponDTO]:
         CouponUsage.order_bid == order_bid,
         CouponUsage.deleted == 0,
     ).all()
-    coupons: list[OrderAdminCouponDTO] = []
-    for record in records:
-        coupons.append(
-            OrderAdminCouponDTO(
-                coupon_bid=record.coupon_bid,
-                code=record.code,
-                name=record.name,
-                discount_type=record.discount_type,
-                discount_type_key=COUPON_TYPE_KEY_MAP.get(
-                    record.discount_type, "module.order.couponType.unknown"
-                ),
-                value=_format_decimal(record.value),
-                status=record.status,
-                status_key=COUPON_STATUS_KEY_MAP.get(
-                    record.status, "module.order.couponStatus.unknown"
-                ),
-                created_at=record.created_at,
-                updated_at=record.updated_at,
-            )
+    coupons: list[OrderAdminCouponDTO] = [
+        OrderAdminCouponDTO(
+            coupon_bid=record.coupon_bid,
+            code=record.code,
+            name=record.name,
+            discount_type=record.discount_type,
+            discount_type_key=COUPON_TYPE_KEY_MAP.get(
+                record.discount_type, "module.order.couponType.unknown"
+            ),
+            value=_format_decimal(record.value),
+            status=record.status,
+            status_key=COUPON_STATUS_KEY_MAP.get(
+                record.status, "module.order.couponStatus.unknown"
+            ),
+            created_at=record.created_at,
+            updated_at=record.updated_at,
         )
+        for record in records
+    ]
     return coupons
 
 

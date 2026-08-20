@@ -909,11 +909,11 @@ class BaiduTTSProvider(BaseTTSProvider):
             # Error response (JSON)
             try:
                 result = response.json()
-                error_code = result.get("err_no", "unknown")
-                error_msg = result.get("err_msg", "Unknown error")
-                raise ValueError(f"Baidu TTS API error {error_code}: {error_msg}")
             except ValueError as e:
                 raise ValueError(f"Baidu TTS API error: {response.text[:200]}") from e
+            error_code = result.get("err_no", "unknown")
+            error_msg = result.get("err_msg", "Unknown error")
+            raise ValueError(f"Baidu TTS API error {error_code}: {error_msg}")
 
         except requests.RequestException as e:
             logger.exception("Baidu TTS request failed")

@@ -243,11 +243,9 @@ def isolate_env_for_non_app_tests(request):
 
     with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    try:
+    with contextlib.suppress(Exception):
         if config_module.__INSTANCE__ is not None:
             config_module.__INSTANCE__.enhanced._cache.clear()
-    except Exception:
-        pass
     yield
     for key, value in original.items():
         if value is None:
@@ -257,8 +255,6 @@ def isolate_env_for_non_app_tests(request):
 
     with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    try:
+    with contextlib.suppress(Exception):
         if config_module.__INSTANCE__ is not None:
             config_module.__INSTANCE__.enhanced._cache.clear()
-    except Exception:
-        pass

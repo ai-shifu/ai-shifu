@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -115,7 +116,7 @@ def _resolve_llm_model_display(app: Flask, model: str) -> _LlmModelDisplay:
     normalized = str(model or "").strip()
     if not normalized:
         return _LlmModelDisplay(label="", multiplier=None)
-    try:
+    with contextlib.suppress(Exception):
         for option in get_current_models(app):
             if str(option.get("model", "") or "").strip() == normalized:
                 label = str(option.get("display_name", "") or "").strip()
@@ -126,8 +127,6 @@ def _resolve_llm_model_display(app: Flask, model: str) -> _LlmModelDisplay:
                     label=label or _format_model_label_fallback(normalized),
                     multiplier=multiplier or None,
                 )
-    except Exception:
-        pass
     return _LlmModelDisplay(
         label=_format_model_label_fallback(normalized),
         multiplier=None,
@@ -139,7 +138,7 @@ def _resolve_tts_model_label(provider: str, model: str) -> str:
     normalized_model = str(model or "").strip()
     if not normalized_provider and not normalized_model:
         return ""
-    try:
+    with contextlib.suppress(Exception):
         options = get_all_provider_configs().get("model_options") or []
         for option in options:
             option_provider = str(option.get("provider", "") or "").strip().lower()
@@ -166,8 +165,6 @@ def _resolve_tts_model_label(provider: str, model: str) -> str:
                     label = str(option.get("label", "") or "").strip()
                     if label:
                         return label
-    except Exception:
-        pass
     return _format_model_label_fallback(normalized_model or normalized_provider)
 
 
@@ -179,7 +176,7 @@ def _resolve_tts_model_multiplier_label(
 ) -> str | None:
     normalized_provider = str(provider or "").strip().lower()
     normalized_model = str(model or "").strip()
-    try:
+    with contextlib.suppress(Exception):
         options = get_all_provider_configs().get("model_options") or []
         provider_fallback: str | None = None
         for option in options:
@@ -194,8 +191,6 @@ def _resolve_tts_model_multiplier_label(
                 provider_fallback = credit_label
         if provider_fallback:
             return provider_fallback
-    except Exception:
-        pass
     return resolve_credit_multiplier_label(
         usage_type=BILL_USAGE_TYPE_TTS,
         provider=normalized_provider,

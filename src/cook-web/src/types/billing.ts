@@ -543,6 +543,7 @@ export type AdminBillingSubscriptionItem = BillingSubscription & {
   creator_bid: string;
   creator_identify?: string;
   creator_mobile?: string;
+  creator_email?: string;
   creator_nickname?: string;
   product_name_key?: string;
   next_product_code?: string;
@@ -556,6 +557,7 @@ export type AdminBillingEntitlementItem = BillingEntitlements & {
   creator_bid: string;
   creator_identify?: string;
   creator_mobile?: string;
+  creator_email?: string;
   creator_nickname?: string;
   source_kind: AdminBillingEntitlementSourceKind;
   source_type: BillingBucketSourceType | '';
@@ -615,6 +617,7 @@ export type AdminBillingDomainBindingItem = BillingDomainBinding & {
 export type AdminBillingDailyUsageMetricItem = BillingDailyUsageMetricItem & {
   creator_bid: string;
   creator_mobile?: string;
+  creator_email?: string;
   creator_nickname?: string;
 };
 
@@ -634,6 +637,7 @@ export type AdminBillingFocusAttentionReason =
 export type AdminBillingFocusTeacherItem = {
   creator_bid: string;
   creator_mobile?: string;
+  creator_email?: string;
   creator_nickname?: string;
   credits_7d: number;
   credits_30d: number;

@@ -28,6 +28,7 @@ Author: yfge
 Date: 2025-08-07
 """
 
+import contextlib
 import json
 import re
 import tempfile
@@ -1811,9 +1812,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         try:
             version_id_int = int(version_id)
-            if version_id_int <= 0:
-                raise ValueError
         except (TypeError, ValueError):
+            raise_param_error("version_id")
+        if version_id_int <= 0:
             raise_param_error("version_id")
 
         return make_common_response(
@@ -2150,11 +2151,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             token = request.headers.get("Token", None)
 
         if token:
-            try:
+            # An unusable token just means the default language is kept.
+            with contextlib.suppress(Exception):
                 user = validate_user(app, str(token))
                 set_language(get_user_language(user))
-            except Exception:
-                pass
 
         try:
             return make_common_response(get_ask_provider_metadata())

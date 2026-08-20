@@ -5,14 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 
 from .consts import CREDIT_BUCKET_STATUS_EXHAUSTED, CREDIT_BUCKET_STATUS_EXPIRED
-from .models import CreditLedgerEntry, CreditWalletBucket
 from .primitives import normalize_json_object, quantize_credit_amount, to_decimal
 from .wallets import sync_credit_bucket_status
+
+if TYPE_CHECKING:
+    from .models import CreditLedgerEntry, CreditWalletBucket
 
 
 @dataclass(slots=True, frozen=True)

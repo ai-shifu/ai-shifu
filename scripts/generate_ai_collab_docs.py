@@ -1513,8 +1513,7 @@ def render_cursor_rule(
         f"description: {description}",
         "globs:",
     ]
-    for glob in globs:
-        lines.append(f"  - {glob}")
+    lines.extend(f"  - {glob}" for glob in globs)
     lines.extend(
         [
             f"alwaysApply: {'true' if always_apply else 'false'}",

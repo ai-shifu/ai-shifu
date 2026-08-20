@@ -1,4 +1,5 @@
 import ast
+import contextlib
 import json
 import os
 import re
@@ -185,10 +186,8 @@ def _parse_langfuse_text_value(value: str) -> Any:
     stripped = value.strip()
     if not _looks_like_structured_text(stripped):
         return value
-    try:
+    with contextlib.suppress(Exception):
         return json.loads(stripped)
-    except Exception:
-        pass
     try:
         return ast.literal_eval(stripped)
     except Exception:

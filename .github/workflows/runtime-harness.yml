@@ -99,8 +99,10 @@ jobs:
           targets: ai-shifu-api-dev,ai-shifu-cook-web-dev
           load: true
           set: |
-            *.cache-from=type=gha
-            *.cache-to=type=gha,mode=min
+            ai-shifu-api-dev.cache-from=type=gha,scope=runtime-api
+            ai-shifu-api-dev.cache-to=type=gha,scope=runtime-api,mode=min
+            ai-shifu-cook-web-dev.cache-from=type=gha,scope=runtime-cook-web
+            ai-shifu-cook-web-dev.cache-to=type=gha,scope=runtime-cook-web,mode=min
 
       - name: Start dev stack
         working-directory: docker
