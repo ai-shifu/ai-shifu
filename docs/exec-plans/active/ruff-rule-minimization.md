@@ -159,6 +159,18 @@ plan's progress update for that rule.
   passed.
 - [ ] Merge or retarget TC002 PR #2585 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 02:34 CST: Prepared the D100 stage on `sunner/ruff-d100`,
+  stacked on TC002. Added ownership- or behavior-focused module docstrings to
+  414 Python files and removed one unreferenced zero-byte test placeholder. A
+  semantic AST audit found no executable changes; entry-point tests, script
+  help commands, architecture fixtures, and the full backend suite pass.
+- [x] 2026-08-21 02:34 CST: Re-ran the stable `ALL` census on the D100 tip. It
+  reports 29,968 findings across 35 rules and no D100 findings. D100 falls by
+  all 415 findings; deleting the empty module also removes one CPY001 finding,
+  while ANN001, D101-D103, E501, and PLR0911 remain unchanged.
+- [ ] Open the ready D100 PR against the TC002 branch after the repository gates
+  pass, then merge or retarget it after its predecessors without combining it
+  with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -228,6 +240,15 @@ plan's progress update for that rule.
   annotations, while SQLAlchemy model classes used for executable query
   construction stayed available at runtime. The exact import-movement audit
   makes that boundary explicit.
+- RUF001 is not the next safe exception-removal stage: its 162 findings are
+  deliberate full-width Chinese punctuation in customer messages, TTS boundary
+  patterns, and tests that freeze those language semantics. Replacing them with
+  ASCII punctuation would change product and speech behavior merely to shorten
+  configuration.
+- D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
+  it was more honest than inventing a module purpose and also removed one
+  CPY001 finding; every documented module otherwise differs from its parent
+  only by the first docstring statement.
 - The next numerically smaller candidate, PLR0911, spans 72 complex control-flow
   functions across authentication, billing, payment, permissions, and Alembic
   infrastructure. It is not a safe mechanical unit: adopting it requires
@@ -384,6 +405,18 @@ the full backend suite passes 3,015 tests with 17 skips, and the stable `ALL`
 census falls exactly 134 findings to 30,384 across 36 rules. Future agents now
 apply the same runtime-resolution test to both third-party and standard-library
 annotation imports instead of treating import provenance as the safety proof.
+
+The D100 stage removes the global undocumented-module exception. Four hundred
+fourteen production, script, fixture, and test modules now state the service
+responsibility, operation, or behavior group they own; one empty and
+unreferenced test placeholder is removed instead of receiving filler text. A
+semantic AST audit proves that stripping the new first-statement docstrings
+restores every module exactly, and repository search found no runtime consumer
+of module `__doc__`. Entry-point tests pass 10 cases with one infrastructure
+skip, both changed maintenance scripts expose their help successfully, the
+full backend suite passes 3,015 tests with 17 skips, and the stable `ALL` census
+falls to 29,968 findings across 35 rules. Future agents now document module
+ownership rather than restating filenames or inventing generic helper prose.
 
 ## Context and Orientation
 

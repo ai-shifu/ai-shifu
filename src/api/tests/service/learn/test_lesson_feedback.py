@@ -1,3 +1,5 @@
+"""Verify lesson feedback behavior."""
+
 import json
 import unittest
 from datetime import datetime

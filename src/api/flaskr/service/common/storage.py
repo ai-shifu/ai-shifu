@@ -1,3 +1,5 @@
+"""Read and write files through configured storage providers."""
+
 from __future__ import annotations
 
 import io

@@ -1,3 +1,5 @@
+"""Verify storage uploads, local fallback, and object serving."""
+
 import flaskr.common.config as common_config
 from flask import Flask
 from flaskr.route.storage import register_storage_handler

@@ -1,3 +1,5 @@
+"""Define learning-session DTOs and element payloads."""
+
 from __future__ import annotations
 
 from enum import Enum

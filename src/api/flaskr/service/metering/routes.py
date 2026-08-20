@@ -1,3 +1,5 @@
+"""Expose HTTP routes for usage metering."""
+
 import datetime
 
 from flask import Flask, request

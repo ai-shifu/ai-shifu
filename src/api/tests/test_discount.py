@@ -1,3 +1,5 @@
+"""Verify coupon filtering and course eligibility."""
+
 from flaskr.service.order.coupon_funcs import (
     _coupon_matches_course,
     _get_course_id_from_filter,

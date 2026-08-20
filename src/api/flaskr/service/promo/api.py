@@ -1,3 +1,5 @@
+"""Expose the promotions service API."""
+
 from __future__ import annotations
 
 from flaskr.service.promo.admin import (

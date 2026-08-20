@@ -1,3 +1,5 @@
+"""Define constants for legacy orders."""
+
 from flaskr.i18n import _
 
 ORDER_STATUS_INIT = 501

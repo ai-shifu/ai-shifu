@@ -1,4 +1,6 @@
 # Desc: Common models for the application
+"""Define persistence models for shared backend behavior."""
+
 import json
 from pathlib import Path
 

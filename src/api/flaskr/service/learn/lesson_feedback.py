@@ -1,3 +1,5 @@
+"""Handle lesson feedback for learning sessions."""
+
 from __future__ import annotations
 
 import json

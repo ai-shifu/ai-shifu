@@ -1,3 +1,5 @@
+"""Verify ask preview HTTP route behavior."""
+
 from types import SimpleNamespace
 
 from flaskr.service.common.models import ERROR_CODE

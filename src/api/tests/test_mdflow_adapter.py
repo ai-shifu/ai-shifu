@@ -1,3 +1,5 @@
+"""Verify MarkdownFlow parsing and history compatibility."""
+
 from datetime import datetime, timedelta
 from decimal import Decimal
 

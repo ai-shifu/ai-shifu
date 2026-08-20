@@ -1,3 +1,5 @@
+"""Verify TTS error mapping behavior."""
+
 import logging
 
 import pytest

@@ -1,3 +1,5 @@
+"""Handle Ping++ order for legacy orders."""
+
 from flask import Flask
 
 from .payment_providers import PaymentRequest, get_payment_provider

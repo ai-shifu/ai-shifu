@@ -1,3 +1,5 @@
+"""Enforce course authoring and administration permissions."""
+
 from __future__ import annotations
 
 import json

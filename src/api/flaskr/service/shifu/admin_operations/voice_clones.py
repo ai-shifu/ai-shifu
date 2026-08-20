@@ -1,3 +1,5 @@
+"""Handle voice clones for course-administration operations."""
+
 from __future__ import annotations
 
 import math

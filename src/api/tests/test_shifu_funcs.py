@@ -1,3 +1,5 @@
+"""Verify course summaries isolate and report generation failures."""
+
 from flaskr.service.shifu import shifu_publish_funcs
 
 

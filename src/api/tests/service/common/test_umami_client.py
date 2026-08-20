@@ -1,3 +1,5 @@
+"""Verify umami client integration behavior."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

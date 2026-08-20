@@ -1,3 +1,5 @@
+"""Define DTOs for learner profiles."""
+
 import json
 
 from flaskr.common.swagger import register_schema_to_swagger

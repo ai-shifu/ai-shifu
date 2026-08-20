@@ -1,3 +1,5 @@
+"""Provide UUID utilities."""
+
 import uuid
 
 from flask import Flask

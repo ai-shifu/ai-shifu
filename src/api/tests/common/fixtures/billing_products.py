@@ -1,3 +1,5 @@
+"""Provide billing products support for common fixtures tests."""
+
 from __future__ import annotations
 
 from copy import deepcopy

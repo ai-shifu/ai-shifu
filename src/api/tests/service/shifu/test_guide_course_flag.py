@@ -1,3 +1,5 @@
+"""Verify guide course flag behavior."""
+
 from __future__ import annotations
 
 import uuid

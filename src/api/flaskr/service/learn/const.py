@@ -1,3 +1,5 @@
+"""Define constants for learning sessions."""
+
 ROLE_TEACHER = 1
 ROLE_STUDENT = 2
 ROLE_UI = 3

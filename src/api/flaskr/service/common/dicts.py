@@ -1,3 +1,5 @@
+"""Register and serialize shared dictionary values."""
+
 from flask import Flask
 
 DICTS = {}

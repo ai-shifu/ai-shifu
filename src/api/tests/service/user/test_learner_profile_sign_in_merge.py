@@ -1,3 +1,5 @@
+"""Verify learner profile sign in merge behavior."""
+
 from __future__ import annotations
 
 import logging

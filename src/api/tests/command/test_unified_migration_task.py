@@ -1,3 +1,5 @@
+"""Verify identifier safety and row counting in migration tasks."""
+
 import asyncio
 import logging
 

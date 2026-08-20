@@ -1,3 +1,5 @@
+"""Implement coupon operations for legacy orders."""
+
 import decimal
 import json
 

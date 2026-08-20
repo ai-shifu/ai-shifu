@@ -1,3 +1,5 @@
+"""Protect legacy boundary contracts."""
+
 from __future__ import annotations
 
 from flask import Flask

@@ -1,3 +1,5 @@
+"""Verify Feishu delivery metadata and failure handling."""
+
 import requests
 from flaskr.api.doc import feishu
 

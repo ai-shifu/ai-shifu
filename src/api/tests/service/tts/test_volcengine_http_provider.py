@@ -1,3 +1,5 @@
+"""Verify volcengine HTTP provider behavior."""
+
 import base64
 from typing import ClassVar
 

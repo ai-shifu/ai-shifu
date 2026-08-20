@@ -1,3 +1,5 @@
+"""Translate course content to and from MarkdownFlow."""
+
 from datetime import timedelta
 from typing import TypedDict
 

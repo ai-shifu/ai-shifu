@@ -1,3 +1,5 @@
+"""Verify translation loading, fallback, and locale selection."""
+
 from pathlib import Path
 
 import pytest

@@ -1,3 +1,5 @@
+"""Define DTOs for user accounts."""
+
 import datetime
 
 from flaskr.common.swagger import register_schema_to_swagger

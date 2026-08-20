@@ -1,3 +1,5 @@
+"""Verify legacy order initialization and promotion state."""
+
 from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace

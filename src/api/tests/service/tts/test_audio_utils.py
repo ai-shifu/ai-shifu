@@ -1,3 +1,5 @@
+"""Verify audio utility behavior."""
+
 import io
 from typing import ClassVar
 

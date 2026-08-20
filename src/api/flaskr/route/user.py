@@ -1,3 +1,5 @@
+"""Expose user HTTP routes."""
+
 import contextlib
 from functools import wraps
 

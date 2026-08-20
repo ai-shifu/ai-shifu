@@ -1,3 +1,5 @@
+"""Verify credit grant allocation views behavior."""
+
 from __future__ import annotations
 
 import math

@@ -1,3 +1,5 @@
+"""Build legacy record for learning sessions."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

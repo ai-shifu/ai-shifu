@@ -1,3 +1,5 @@
+"""Verify provider public URLs behavior."""
+
 from __future__ import annotations
 
 import json

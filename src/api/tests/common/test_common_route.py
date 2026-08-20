@@ -1,3 +1,5 @@
+"""Verify translated error handling on shared HTTP routes."""
+
 from pathlib import Path
 
 from flask import Flask

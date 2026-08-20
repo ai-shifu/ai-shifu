@@ -1,3 +1,5 @@
+"""Implement business operations for user feedback."""
+
 from flask import Flask
 from flaskr.api.doc.feishu import send_notify
 from flaskr.dao import db
