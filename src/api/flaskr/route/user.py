@@ -37,6 +37,9 @@ from flaskr.service.user.auth.base import OAuthCallbackRequest, VerificationRequ
 from flaskr.service.user.auth.providers.google import (
     resolve_state_return_origin,
 )
+from flaskr.service.user.auth.providers.password import (
+    clear_password_login_identifier_failures,
+)
 from flaskr.service.user.captcha import (
     create_captcha_challenge,
     verify_captcha_code,
@@ -1332,6 +1335,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             db.session.add(pwd_cred)
             set_password_hash(pwd_cred, hash_password(new_password))
 
+        clear_password_login_identifier_failures(
+            app,
+            identifier=normalized_identifier,
+        )
         db.session.commit()
         return make_common_response({"success": True})
 
