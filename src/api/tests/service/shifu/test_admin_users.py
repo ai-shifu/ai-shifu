@@ -37,7 +37,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -2485,7 +2485,7 @@ def test_get_operator_user_credit_usage_detail_uses_ledger_owner_not_usage_user(
             user_bid="usage-detail-wallet-owner",
             usage_bid="usage-detail-owner-check",
         )
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             get_operator_user_credit_usage_detail(
                 app,
                 user_bid="usage-detail-other-owner",
@@ -3170,7 +3170,7 @@ def test_grant_operator_user_referral_reward_rejects_non_integer_amount(app):
             providers=[("email", "referral-reward-invalid-amount@example.com")],
         )
 
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             grant_operator_user_credits(
                 app,
                 user_bid="referral-reward-invalid-amount",
@@ -3231,7 +3231,7 @@ def test_grant_operator_user_credits_rejects_unknown_grant_type(app):
             providers=[("email", "credits-grant-unknown-type@example.com")],
         )
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             grant_operator_user_credits(
                 app,
                 user_bid="credits-grant-unknown-type",
@@ -3323,7 +3323,7 @@ def test_grant_operator_user_credits_rejects_regular_user_targets(app):
             providers=[("email", "credits-grant-regular@example.com")],
         )
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             grant_operator_user_credits(
                 app,
                 user_bid="credits-grant-regular",
@@ -3612,7 +3612,7 @@ def test_grant_operator_user_package_rejects_active_stripe_subscription(app):
             current_period_end_at=now_utc() + timedelta(days=29),
         )
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             grant_operator_user_package(
                 app,
                 user_bid="package-grant-stripe-conflict",

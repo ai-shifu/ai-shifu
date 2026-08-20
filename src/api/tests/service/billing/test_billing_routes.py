@@ -69,7 +69,7 @@ from flaskr.service.billing.read_models import (
     build_billing_overview,
     build_billing_wallet_buckets,
 )
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -147,8 +147,8 @@ def billing_test_client(monkeypatch):
 
     dao.db.init_app(app)
 
-    @app.errorhandler(AppException)
-    def _handle_app_exception(error: AppException):
+    @app.errorhandler(AppError)
+    def _handle_app_exception(error: AppError):
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response

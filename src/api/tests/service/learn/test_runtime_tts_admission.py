@@ -200,7 +200,7 @@ def test_stream_passthrough_ignores_request_db_session_remove_failure(monkeypatc
 
 
 def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
-    from flaskr.service.common.models import AppException
+    from flaskr.service.common.models import AppError
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -211,7 +211,7 @@ def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
     )
 
     def _messages():
-        raise AppException("TTS provider quota exceeded", 45000292)
+        raise AppError("TTS provider quota exceeded", 45000292)
         yield  # pragma: no cover
 
     with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):
@@ -221,7 +221,7 @@ def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
             close_log="closed",
             error_log="synthesize generated block audio failed",
         )
-        with caplog.at_level(logging.WARNING), contextlib.suppress(AppException):
+        with caplog.at_level(logging.WARNING), contextlib.suppress(AppError):
             list(resp.response)
 
     assert (
@@ -262,7 +262,7 @@ def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog):
 def test_stream_sse_emits_error_event_for_business_error_with_factory(
     monkeypatch, caplog
 ):
-    from flaskr.service.common.models import AppException
+    from flaskr.service.common.models import AppError
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -273,7 +273,7 @@ def test_stream_sse_emits_error_event_for_business_error_with_factory(
     )
 
     def _messages():
-        raise AppException("TTS provider quota exceeded", 45000292)
+        raise AppError("TTS provider quota exceeded", 45000292)
         yield  # pragma: no cover
 
     with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):

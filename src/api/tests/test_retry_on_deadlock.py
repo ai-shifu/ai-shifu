@@ -6,14 +6,14 @@ from flaskr.dao import retry_on_deadlock
 from sqlalchemy.exc import OperationalError
 
 
-class _FakeOrig(Exception):
+class _FakeOrigError(Exception):
     def __init__(self, errno, message):
         super().__init__(errno, message)
         self.args = (errno, message)
 
 
 def _operational_error(errno):
-    return OperationalError("SELECT 1", {}, _FakeOrig(errno, "boom"))
+    return OperationalError("SELECT 1", {}, _FakeOrigError(errno, "boom"))
 
 
 def test_retries_deadlock_then_succeeds():

@@ -11,7 +11,7 @@ import pytest
 from flaskr.common import config as config_module
 from flaskr.dao import db
 from flaskr.i18n import _
-from flaskr.service.common.models import ERROR_CODE, AppException, raise_error
+from flaskr.service.common.models import ERROR_CODE, AppError, raise_error
 from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.admin import copy_operator_course
 from flaskr.service.shifu.models import AiCourseAuth, DraftOutlineItem, DraftShifu
@@ -565,7 +565,7 @@ def test_copy_course_rejects_builtin_demo_course(app):
         db.session.add(demo_draft)
         db.session.commit()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             copy_operator_course(
                 app,
                 shifu_bid=shifu_bid,
@@ -594,7 +594,7 @@ def test_copy_course_requires_operator_user_bid(app):
         )
         db.session.commit()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             copy_operator_course(
                 app,
                 shifu_bid=shifu_bid,
@@ -744,7 +744,7 @@ def test_copy_course_risk_rejection_does_not_create_target_user(app, monkeypatch
         _reject_risk,
     )
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         copy_operator_course(
             app,
             shifu_bid=shifu_bid,

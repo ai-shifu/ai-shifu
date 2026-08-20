@@ -1,5 +1,5 @@
 import pytest
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.shifu.shifu_outline_funcs import (
     convert_outline_to_reorder_outline_item_dto,
 )
@@ -36,11 +36,11 @@ def test_convert_accepts_empty_list():
 
 @pytest.mark.parametrize("bad_value", [None, {}, "outlines", 42])
 def test_convert_rejects_non_list_top_level(bad_value):
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         convert_outline_to_reorder_outline_item_dto(bad_value)
 
 
 @pytest.mark.parametrize("bad_item", ["not-a-dict", 1, ["nested"], None])
 def test_convert_rejects_non_dict_items(bad_item):
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         convert_outline_to_reorder_outline_item_dto([bad_item])

@@ -7,7 +7,7 @@ then consumed by :mod:`flaskr.service.creator_analytics.sql_builder`.
 
 Validation is intentionally strict — every shape, table, column, operator,
 aggregate, and limit is checked against an explicit allowlist before any SQL
-is composed. Errors are raised as :class:`AppException` with stable error
+is composed. Errors are raised as :class:`AppError` with stable error
 names registered in ``src/api/error_codes.json``.
 """
 
@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from flaskr.i18n import _
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 
 from .whitelist import (
     ALLOWED_AGGREGATE_FUNCTIONS,
@@ -89,7 +89,7 @@ _LIKE_MIN_NON_WILDCARD_CHARS = 2
 
 
 def _raise(error_name: str, detail: str | None = None) -> None:
-    """Raise an :class:`AppException` with a stable error name.
+    """Raise an :class:`AppError` with a stable error name.
 
     ``detail`` is appended in parentheses so the client gets actionable
     feedback (e.g. which column failed validation) without leaking internals.
@@ -98,7 +98,7 @@ def _raise(error_name: str, detail: str | None = None) -> None:
     if detail:
         message = f"{message} ({detail})"
     code = ERROR_CODE.get(error_name, ERROR_CODE.get("server.common.unknownError"))
-    raise AppException(message, code)
+    raise AppError(message, code)
 
 
 @dataclass(frozen=True)

@@ -1888,7 +1888,7 @@ class TestGeneratedBlockListenTtsElementFirst:
         self, monkeypatch
     ):
         from flaskr.dao import db
-        from flaskr.service.common.models import AppException
+        from flaskr.service.common.models import AppError
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
 
         user_bid = "user-finalize-no-complete-1"
@@ -1953,7 +1953,7 @@ class TestGeneratedBlockListenTtsElementFirst:
             lambda _parts: b"",
         )
 
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             list(
                 stream_generated_block_audio(
                     self.app,

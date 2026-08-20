@@ -17,7 +17,7 @@ from cryptography import x509
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from flask import Flask, current_app, has_app_context
-from flaskr.service.common.models import AppException, raise_error, raise_param_error
+from flaskr.service.common.models import AppError, raise_error, raise_param_error
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
 from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config.funcs import get_config
@@ -678,7 +678,7 @@ def _serialize_latest_management_integration(
         return _serialize_active_integration(app, creator_bid, provider)
     try:
         integration_bid = _latest_version_bid(app, creator_bid, provider)
-    except AppException:
+    except AppError:
         return _serialize_active_integration(app, creator_bid, provider)
     record = _load_integration_record(
         app,
@@ -739,7 +739,7 @@ def _load_latest_record_or_active(
         return None
     try:
         integration_bid = _latest_version_bid(app, creator_bid, provider)
-    except AppException:
+    except AppError:
         return _load_active_record(creator_bid, provider)
     return _load_integration_record(
         app,
@@ -1084,7 +1084,7 @@ def _normalize_home_url_lenient(value: Any) -> str:
     """
     try:
         return _normalize_home_url(value)
-    except AppException:
+    except AppError:
         return ""
 
 

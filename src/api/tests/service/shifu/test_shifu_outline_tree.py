@@ -9,7 +9,7 @@ blocked with a clear error instead of shipping a broken course.
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.shifu.shifu_outline_funcs import (
     assert_outline_tree_publishable,
@@ -102,7 +102,7 @@ def test_assert_publishable_raises_on_position_collision(app):
         _mk_item(shifu_bid, "b", "0101", parent_bid="root1")  # collision
         db.session.commit()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             assert_outline_tree_publishable(app, shifu_bid)
         # 4010 == server.shifu.outlineStructureBroken (see error_codes.json)
         assert exc_info.value.code == 4010

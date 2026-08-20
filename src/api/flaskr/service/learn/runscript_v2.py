@@ -24,10 +24,10 @@ from flaskr.dao import (
     is_protocol_interrupt_error,
 )
 from flaskr.i18n import _, get_current_language, set_language
-from flaskr.service.common.models import AppException, raise_error
+from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.context_v2 import RunScriptContextV2
-from flaskr.service.learn.exceptions import BreakException
+from flaskr.service.learn.exceptions import BreakError
 from flaskr.service.learn.learn_dtos import (
     AudioBackfillReadyDTO,
     GeneratedType,
@@ -492,13 +492,13 @@ def run_script_inner(
             yield from _iter_audio_backfill_ready_events(
                 ready_element_bids_by_block_bid
             )
-        except BreakException:
+        except BreakError:
             _finalize_langfuse_if_available(run_script_context)
             db.session.commit()
             yield from _iter_audio_backfill_ready_events(
                 ready_element_bids_by_block_bid
             )
-            app.logger.info("BreakException")
+            app.logger.info("BreakError")
         except GeneratorExit:
             # The close lands at an arbitrary yield point (client disconnect),
             # so the connection's protocol state is unknowable: this is the
@@ -541,10 +541,10 @@ def _to_sse_chunk(payload: object) -> str:
 
 
 def _log_run_script_stream_error(app: Flask, stream_error: Exception) -> None:
-    """Log a run-script stream error, keeping handled AppExceptions off ERROR.
+    """Log a run-script stream error, keeping handled AppErrors off ERROR.
 
     Unexpected errors are logged at ERROR for operational alerting, while a
-    handled, user-facing AppException is logged at INFO so it stays out of the
+    handled, user-facing AppError is logged at INFO so it stays out of the
     alert stream but remains diagnosable.
     """
     error_traceback = "".join(
@@ -560,8 +560,8 @@ def _log_run_script_stream_error(app: Flask, stream_error: Exception) -> None:
         "traceback": error_traceback,
     }
 
-    if isinstance(stream_error, AppException):
-        # AppException is already a handled, user-facing business error (for example,
+    if isinstance(stream_error, AppError):
+        # AppError is already a handled, user-facing business error (for example,
         # a stale lesson URL after a course republish). Keep it out of ERROR-level
         # operational alerts while preserving enough context for diagnostics.
         app.logger.info("run_script handled app exception")
@@ -969,7 +969,7 @@ def run_script(
                 and isinstance(stream_error, Exception)
             ):
                 _log_run_script_stream_error(app, stream_error)
-                if isinstance(stream_error, AppException):
+                if isinstance(stream_error, AppError):
                     error_content = str(stream_error)
                 elif _is_retryable_llm_stream_connection_error(stream_error):
                     error_content = str(_("server.learn.llmStreamInterrupted"))

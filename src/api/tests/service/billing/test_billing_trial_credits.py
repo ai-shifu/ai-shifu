@@ -30,7 +30,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.billing.trials import bootstrap_new_creator_trial_credits
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
 from tests.common.fixtures.bill_products import build_bill_products
@@ -72,8 +72,8 @@ def trial_billing_client(monkeypatch):
 
     dao.db.init_app(app)
 
-    @app.errorhandler(AppException)
-    def _handle_app_exception(error: AppException):
+    @app.errorhandler(AppError)
+    def _handle_app_exception(error: AppError):
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response

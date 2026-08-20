@@ -12,7 +12,7 @@ from flaskr.service.billing.entitlements import (
     resolve_creator_entitlement_state,
 )
 from flaskr.service.billing.models import BillingEntitlement
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.user import user as user_service
 from flaskr.util.datetime import now_utc
 from PIL import Image
@@ -257,7 +257,7 @@ def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
             customization.resolve_payment_integration_for_new_order(
                 app, "creator-expired-1", "stripe"
             )
-        except AppException:
+        except AppError:
             pass
         else:
             raise AssertionError("expired custom payment must block new checkout")
@@ -716,7 +716,7 @@ def test_creator_brand_favicon_upload_converts_png_to_ico(app, monkeypatch):
             filename="fake.ico",
             content_type="image/x-icon",
         )
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             customization.upload_creator_brand_logo(
                 app,
                 "creator-favicon-1",
@@ -803,7 +803,7 @@ def test_creator_branding_home_url_roundtrip(app, monkeypatch):
         )
         assert cleared["home_url"] == ""
 
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             customization.save_creator_branding(
                 app,
                 "creator-home-url-1",
@@ -839,7 +839,7 @@ def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(app, monke
                     "creator-logo-invalid",
                     logo,
                 )
-            except AppException:
+            except AppError:
                 pass
             else:
                 raise AssertionError("invalid logo content must be rejected")

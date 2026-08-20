@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.profile import learner_profile_optimizer_admission as admission
 
 
@@ -47,7 +47,7 @@ def reset_local_admission_state():
 
 def _assert_admission_denied(app, *, user_id: str) -> None:
     with (
-        pytest.raises(AppException) as raised,
+        pytest.raises(AppError) as raised,
         admission.learner_profile_optimization_admission(
             app,
             user_id=user_id,

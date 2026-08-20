@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 from flask import Flask, has_app_context
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.learn_dtos import (
     ElementDTO,
@@ -596,7 +596,7 @@ def test_log_run_script_stream_error_does_not_error_for_app_exception():
     app.logger.error = lambda *args, **kwargs: error_calls.append(args)
 
     runscript_v2._log_run_script_stream_error(
-        app, AppException("outline unit does not exist", status_code=1001)
+        app, AppError("outline unit does not exist", status_code=1001)
     )
 
     assert error_calls == []
@@ -646,7 +646,7 @@ def test_run_script_inner_rejects_missing_course_without_default(monkeypatch):
         ),
     )
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         list(
             runscript_v2.run_script_inner(
                 app=app,
@@ -1054,7 +1054,7 @@ def test_run_script_inner_emits_audio_backfill_ready_after_break_commit(monkeypa
                 type=GeneratedType.CONTENT,
                 content="hello",
             )
-            raise runscript_v2.BreakException
+            raise runscript_v2.BreakError
 
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
 

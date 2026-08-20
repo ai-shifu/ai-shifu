@@ -108,7 +108,7 @@ from flaskr.service.learn.context_v2 import (
 )
 from flaskr.service.learn.context_v2 import (
     MdflowContextV2,
-    PaidException,
+    PaidError,
     RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
@@ -2385,7 +2385,7 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
         ctx = _make_context()
 
         def _raise_paid(_app):
-            raise PaidException
+            raise PaidError
 
         ctx.run_inner = _raise_paid
         ctx._emit_feedback_after_exception_gate = lambda: iter(["feedback"])

@@ -64,7 +64,7 @@ from flaskr.service.tts.pipeline import (
     _find_next_av_boundary,
     build_av_segmentation_contract,
 )
-from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeout
+from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeoutError
 from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
@@ -664,7 +664,7 @@ class StreamingTTSProcessor:
                     f"TTS segment {segment.index} synthesized: "
                     f"text_len={len(segment.text)}, duration={segment.duration_ms}ms"
                 )
-            except TTSRpmQueueTimeout as e:
+            except TTSRpmQueueTimeoutError as e:
                 self._enabled = False
                 logger.warning(
                     "TTS segment %s skipped after RPM queue timeout: %s",

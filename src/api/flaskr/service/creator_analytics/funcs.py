@@ -6,7 +6,7 @@ from typing import Any
 
 from flask import Flask
 from flaskr.i18n import _
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.shifu.permissions import get_user_shifu_permissions
 
 from .dsl import parse_dsl
@@ -138,7 +138,7 @@ def _redact_user_users_rows(result: dict[str, Any]) -> None:
 def _raise(error_name: str) -> None:
     message = _(error_name)
     code = ERROR_CODE.get(error_name, ERROR_CODE.get("server.common.unknownError"))
-    raise AppException(message, code)
+    raise AppError(message, code)
 
 
 __all__ = ["ERR_NO_PERMISSION", "run_dsl"]

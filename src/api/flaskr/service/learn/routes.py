@@ -15,7 +15,7 @@ from flaskr.i18n import get_current_language
 from flaskr.route.common import bypass_token_validation, make_common_response
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.common import raise_error
-from flaskr.service.common.models import AppException, raise_param_error
+from flaskr.service.common.models import AppError, raise_param_error
 from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
 from flaskr.service.learn.learn_dtos import (
     PlaygroundPreviewRequest,
@@ -116,7 +116,7 @@ def _stream_sse_response(
             # ROLLBACK on a possibly desynced stream.
             invalidate_session(source="learn stream_sse_response close")
             raise
-        except AppException as exc:
+        except AppError as exc:
             app.logger.warning("%s: %s (code: %s)", error_log, exc, exc.code)
             if error_event_factory is None:
                 raise

@@ -1799,7 +1799,7 @@ def test_listen_run_persists_exception_gate_block_before_element_rows(app):
 
     from flaskr.dao import db
     from flaskr.service.learn.context_v2 import RunScriptContextV2
-    from flaskr.service.learn.exceptions import PaidException
+    from flaskr.service.learn.exceptions import PaidError
     from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
@@ -1845,7 +1845,7 @@ def test_listen_run_persists_exception_gate_block_before_element_rows(app):
         )
 
         def _raise_paid(self, current_app):
-            raise PaidException
+            raise PaidError
             yield  # pragma: no cover
 
         ctx.run_inner = types.MethodType(_raise_paid, ctx)
