@@ -29,12 +29,19 @@ _TEST_FAILURE_WINDOW_SECONDS = 300
 _PASSWORD_COUNTER_KEY_COUNT = 2
 
 
-def _post_json(client, path: str, payload: dict, headers: dict | None = None):
+def _post_json(
+    client,
+    path: str,
+    payload: dict,
+    headers: dict | None = None,
+    environ_overrides: dict | None = None,
+):
     resp = client.post(
         path,
         data=json.dumps(payload),
         content_type="application/json",
         headers=headers or {},
+        environ_overrides=environ_overrides,
     )
     return resp, json.loads(resp.data)
 
@@ -261,6 +268,8 @@ def test_password_login_throttles_one_ip_across_identifiers(
         test_client,
         "/api/user/login_password",
         {"identifier": "first@example.com", "password": "wrong-password"},
+        headers={"X-Forwarded-For": "198.51.100.8"},
+        environ_overrides={"REMOTE_ADDR": "172.18.0.2"},
     )
     assert first_failure.status_code == _HTTP_OK
     assert first_body["code"] == _INVALID_CREDENTIALS_CODE
@@ -269,6 +278,8 @@ def test_password_login_throttles_one_ip_across_identifiers(
         test_client,
         "/api/user/login_password",
         {"identifier": "second@example.com", "password": "wrong-password"},
+        headers={"X-Forwarded-For": "198.51.100.8"},
+        environ_overrides={"REMOTE_ADDR": "172.18.0.3"},
     )
     assert blocked.status_code == _HTTP_OK
     assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
@@ -277,6 +288,8 @@ def test_password_login_throttles_one_ip_across_identifiers(
         test_client,
         "/api/user/login_password",
         {"identifier": "third@example.com", "password": "wrong-password"},
+        headers={"X-Forwarded-For": "198.51.100.8"},
+        environ_overrides={"REMOTE_ADDR": "172.18.0.4"},
     )
     assert still_blocked.status_code == _HTTP_OK
     assert still_blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
