@@ -265,7 +265,6 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # These trees are input fixtures for check_architecture_boundaries.py, not
 # importable code.
 "scripts/testdata/**" = ["INP001"]
-"src/api/conftest.py" = ["S101"]
 "scripts/test_*.py" = ["S101"]
 "scripts/check_example_identifiers.py" = ["S101"]
 # These applied Alembic revisions are immutable history: their backfill

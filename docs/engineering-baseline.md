@@ -357,6 +357,14 @@ configuration quieter. For a finding in new or changed code:
    fundamentally conflicts with the rule. Do not weaken `select` or `ignore`
    to make an unrelated PR pass.
 
+For `S101`, use `assert` only where assertion reporting is the interface: pytest
+tests and executable self-test fixtures. Production validation, authorization,
+and state guards must raise an explicit, meaningful exception because Python
+removes assertions under `-O`. Keep test exceptions on the narrowest real file
+class, and delete an exact-file exception as soon as that path disappears or a
+valid broader test pattern already owns it; a stale `per-file-ignores` entry is
+not documentation.
+
 For `RUF001`, preserve the standard fullwidth Chinese punctuation explicitly
 allowed by `ruff.toml`: `，`, `：`, `！`, `？`, and `；`. These code points are
 intentional in Chinese prose, notification formatting, and TTS sentence-boundary

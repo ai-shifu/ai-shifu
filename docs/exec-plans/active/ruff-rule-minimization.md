@@ -376,6 +376,23 @@ plan's progress update for that rule.
   `sunner/ruff-n803` to the N815 branch after all local gates passed.
 - [ ] Merge or retarget N803 PR #2596 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 06:47 CST: Prepared the S101 stale-exception stage on
+  `sunner/ruff-s101`, stacked on N803. The exact
+  `src/api/conftest.py` exception names no tracked or on-disk file and has no
+  history on any local branch; the real `src/api/tests/conftest.py` is already
+  owned by the test-tree exception and has no S101 finding of its own.
+- [x] 2026-08-21 06:47 CST: Removed the dead exact-file S101 exception while
+  retaining the test-tree and executable self-test boundaries that have real
+  assertion findings. Documented that production guards raise explicit
+  exceptions and stale paths must be deleted rather than kept as commentary.
+- [x] 2026-08-21 06:47 CST: Configured S101 scans with and without inline
+  suppressions are clean. All 18 remaining per-file ignore patterns match real
+  files, and the stable `ALL` census remains exactly 28,202 findings across 28
+  rules because the removed path never hid a live finding.
+- [x] 2026-08-21 06:47 CST: Collaboration and knowledge generators, repository
+  Ruff and format, translation checks, repository harness, architecture
+  boundaries, development-tool validation, and every repository pre-commit
+  hook pass on the S101 tip.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -487,6 +504,11 @@ plan's progress update for that rule.
   internal Python API even when it is assigned to a camelCase serialized
   attribute, so renaming the parameter and keyword callers removes the
   suppression without changing JSON, Swagger, or positional callers.
+- S101 had one exact-file exception for `src/api/conftest.py`, but the path is
+  absent and has no tracked history. The similarly named backend fixture is
+  `src/api/tests/conftest.py`; it is already inside the test-tree exception and
+  contains no assertions today. Exact exception paths are obligations to
+  validate, not durable breadcrumbs for files that no longer exist.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent
@@ -698,6 +720,16 @@ unchanged. All 37 owning tests pass, an isolated repository-wide N806 scan is
 clean, and the stable census is unchanged because it already honored those
 exceptions. Future agents now preserve lazy imports and name their local class
 values explicitly instead of moving imports or adding file-wide suppressions.
+
+The S101 stale-exception stage removes the exact `src/api/conftest.py` entry
+because that path is neither tracked nor present. The actual backend fixture
+is under the already-exempt test tree and currently contains no assertions.
+Configured scans with and without inline suppressions stay clean, every
+remaining per-file ignore pattern resolves to real files, and the stable
+`ALL` census remains 28,202 findings across 28 rules. Future agents now keep
+assertions in tests and self-tests, use explicit exceptions for production
+guards, and delete obsolete exact-file exceptions instead of preserving them
+as historical commentary.
 
 ## Context and Orientation
 
