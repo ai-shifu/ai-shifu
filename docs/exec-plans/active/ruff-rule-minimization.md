@@ -205,7 +205,11 @@ plan's progress update for that rule.
 - [x] 2026-08-21 03:44 CST: Repository Ruff, format, generated knowledge,
   harness, architecture boundaries, development-tool checks, and every
   pre-commit hook pass on the TD003 tip.
-- [ ] Open the ready TD003 PR against FIX002 after repository verification.
+- [x] 2026-08-21 03:45 CST: Opened ready TD003 PR
+  [#2588](https://github.com/ai-shifu/ai-shifu/pull/2588) from
+  `sunner/ruff-td003` to the FIX002 branch after all repository checks passed.
+- [ ] Merge or retarget TD003 PR #2588 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
