@@ -38,16 +38,36 @@ jobs:
           cache: pip
           cache-dependency-path: src/api/requirements.txt
 
+      - name: Resolve testmon cache lineage
+        id: testmon-cache
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            current_sha="$PR_HEAD_SHA"
+          else
+            current_sha="$GITHUB_SHA"
+          fi
+          previous_sha="$(git rev-parse "${current_sha}^" 2>/dev/null || true)"
+          if [[ -z "$previous_sha" ]]; then
+            previous_sha="$current_sha"
+          fi
+          echo "current-sha=$current_sha" >> "$GITHUB_OUTPUT"
+          echo "previous-sha=$previous_sha" >> "$GITHUB_OUTPUT"
+
       - name: Restore testmon cache
         uses: actions/cache@v4
         with:
           path: |
             src/api/.testmondata
             src/api/.pytest_cache
-          # A unique exact key lets each successful commit publish updated
-          # testmon state; the prefixes below restore the newest compatible run.
-          key: testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}-${{ github.sha }}
+          # A unique exact key lets each successful commit publish updated state.
+          # Prefer the exact parent commit before broader branch/main fallbacks.
+          key: testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}-${{ steps.testmon-cache.outputs.current-sha }}
           restore-keys: |
+            testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}-${{ steps.testmon-cache.outputs.previous-sha }}
             testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}
             testmon-${{ runner.os }}-py311-main-main-${{ hashFiles('src/api/requirements.txt') }}
             testmon-${{ runner.os }}-py311-main-

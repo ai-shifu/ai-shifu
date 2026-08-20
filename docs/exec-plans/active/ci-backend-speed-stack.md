@@ -43,6 +43,10 @@ that branch.
 - The local worktree does not have a Docker CLI, so the bake definition cannot be
   expanded locally. Workflow parsing and repository checks are the local gate;
   the first pull request's Runtime Harness run is the live cache-scope gate.
+- A SHA-less restore prefix did not select the previous cache written under the
+  same pull request merge ref, even though both entries had the same cache
+  version. The workflow now uses the pull request head SHA as the saved key and
+  resolves its direct parent for an exact lineage restore before broad fallbacks.
 
 ## Decision Log
 
@@ -55,6 +59,10 @@ that branch.
 - Decision: keep `mode=min` for the Docker caches. Rationale: the confirmed defect
   is scope collision; changing cache breadth at the same time would make the
   result harder to attribute and may increase cache storage pressure.
+- Decision: restore the exact parent-head cache on pull request updates instead
+  of relying only on a SHA-less prefix. Rationale: live Actions runs proved exact
+  cache matches work across commits while the current-ref prefix fell through to
+  main; retaining the broad prefixes still covers rebases and multi-commit pushes.
 
 ## Outcomes & Retrospective
 
@@ -74,9 +82,10 @@ Runtime Harness times were measured in GitHub Actions:
 - PR #2537 completed in 7m44s cold and 5m15s warm. Its image-build step fell
   from 3m49s to 1m19s, and the logs reported cache hits for both the API pip
   layer and the Cook Web `npm ci` layer.
-- PR #2538's first Backend Tests run passed in 1m20s and saved the SHA-specific
-  testmon cache. This measurement update provides the next commit that can
-  restore that newly written state by prefix.
+- PR #2538's first two Backend Tests runs passed in 1m20s and saved SHA-specific
+  caches. The second run exposed that a current-PR prefix still fell through to
+  main, so the final implementation resolves and restores the direct parent head
+  SHA exactly before using branch or main fallbacks.
 
 ## Context and Orientation
 
