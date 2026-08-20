@@ -398,6 +398,28 @@ plan's progress update for that rule.
   `sunner/ruff-s101` to the N803 branch after all local gates passed.
 - [ ] Merge or retarget S101 PR #2598 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 06:55 CST: Prepared the S607 stage on
+  `sunner/ruff-s607`, stacked on S101. Isolated test-tree scans with and without
+  inline suppressions report zero findings, so the inherited test-tree S607
+  exception is redundant rather than a hidden test contract.
+- [x] 2026-08-21 06:55 CST: Audited the retained boundaries before removing the
+  test exception: repository maintenance scripts have five findings, the
+  backend evaluation scripts have one, and the Windows application entrypoint
+  has one explained inline `tzutil` exception. Those contributor and platform
+  contracts remain unchanged.
+- [x] 2026-08-21 06:55 CST: Removed S607 only from the test-tree exception and
+  documented that application and test subprocess calls use an absolute or
+  resolved executable, while controlled maintenance scripts retain their
+  explicit tree-level boundary.
+- [x] 2026-08-21 06:57 CST: Configured S607 and isolated test-tree scans pass;
+  all 18 remaining per-file ignore patterns still match real files. The stable
+  `ALL` census remains exactly 28,202 findings across 28 rules because the
+  removed test exception hid no live finding. No runtime source changed, so no
+  behavior test is applicable to this policy-only stage.
+- [x] 2026-08-21 06:57 CST: Collaboration and knowledge generators, repository
+  Ruff and format, translation checks, repository harness, architecture
+  boundaries, development-tool validation, and every repository pre-commit
+  hook pass on the S607 tip.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -514,6 +536,13 @@ plan's progress update for that rule.
   `src/api/tests/conftest.py`; it is already inside the test-tree exception and
   contains no assertions today. Exact exception paths are obligations to
   validate, not durable breadcrumbs for files that no longer exist.
+- The test-tree exception grouped S607 with rules that have thousands of real
+  fixture findings, but isolated scans showed no partial executable path in any
+  backend test, even when inline suppressions were ignored. The six live S607
+  findings belong to executable maintenance scripts, while the only application
+  call is the explained Windows `tzutil` entrypoint. A broad rule list must be
+  audited code by code; a valid path pattern does not prove every listed code is
+  still necessary.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent
@@ -735,6 +764,16 @@ remaining per-file ignore pattern resolves to real files, and the stable
 assertions in tests and self-tests, use explicit exceptions for production
 guards, and delete obsolete exact-file exceptions instead of preserving them
 as historical commentary.
+
+The S607 stage removes only the test-tree exception after isolated scans prove
+that no backend test starts a process through a partial executable path, even
+when inline suppressions are ignored. Five repository-maintenance findings,
+one backend evaluation-script finding, and the explained Windows `tzutil`
+entrypoint remain inside their existing script or inline boundaries. Configured
+S607, repository Ruff, format, harness, and every pre-commit hook pass; the
+stable census remains 28,202 findings across 28 rules. Future application and
+test code now resolves executables explicitly, while contributor scripts may
+continue to rely on the controlled development `PATH` boundary.
 
 ## Context and Orientation
 

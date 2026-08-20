@@ -365,6 +365,15 @@ class, and delete an exact-file exception as soon as that path disappears or a
 valid broader test pattern already owns it; a stale `per-file-ignores` entry is
 not documentation.
 
+For `S607`, application and test code should start a process through an absolute
+or already resolved executable path, such as `sys.executable`, a checked
+`shutil.which(...)` result, or a repository-local tool path. Keep arguments in a
+list and preserve the existing subprocess error contract. Contributor-facing
+maintenance scripts may rely on the controlled development `PATH` through the
+documented script-tree exception; that exception does not extend to tests. If a
+test or platform entrypoint must freeze an executable name because the name
+itself is the contract, use one explained inline suppression at that call.
+
 For `RUF001`, preserve the standard fullwidth Chinese punctuation explicitly
 allowed by `ruff.toml`: `，`, `：`, `！`, `？`, and `；`. These code points are
 intentional in Chinese prose, notification formatting, and TTS sentence-boundary
