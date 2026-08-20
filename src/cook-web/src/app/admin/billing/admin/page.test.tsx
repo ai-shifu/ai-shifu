@@ -950,4 +950,75 @@ describe('AdminBillingOperationsConsole', () => {
       }),
     );
   });
+
+  test('identifies the course owner by email when the site uses email login', async () => {
+    // The overseas site signs teachers in with Google, so the dialog must ask
+    // for an email address and send it lowercased.
+    mockEnvState.loginMethodsEnabled = ['google'];
+    mockEnvState.defaultLoginMethod = 'google';
+    mockGrantAdminBillingEntitlement.mockResolvedValue({
+      creator_bid: 'creator-9',
+      branding_enabled: true,
+      custom_domain_enabled: false,
+      custom_wechat_enabled: false,
+      custom_payment_enabled: false,
+    });
+    const user = userEvent.setup();
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingOperationsConsole />
+      </SWRConfig>,
+    );
+
+    await user.click(
+      screen.getByRole('tab', {
+        name: 'module.billing.admin.tabs.entitlements',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'module.billing.admin.entitlements.grant.open',
+      }),
+    );
+
+    expect(
+      screen.queryByLabelText(
+        'module.billing.admin.entitlements.grant.fields.creatorMobile',
+      ),
+    ).not.toBeInTheDocument();
+    const contactInput = screen.getByLabelText(
+      'module.billing.admin.entitlements.grant.fields.creatorEmail',
+    );
+    expect(contactInput).toHaveAttribute(
+      'placeholder',
+      'module.billing.admin.entitlements.grant.creatorEmailPlaceholder',
+    );
+
+    await user.type(contactInput, 'Teacher@Example.COM');
+    await user.click(
+      screen.getByRole('switch', {
+        name: 'module.billing.admin.entitlements.grant.fields.branding_enabled',
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.admin.entitlements.grant.submit',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockGrantAdminBillingEntitlement).toHaveBeenCalledWith({
+        creator_mobile: 'teacher@example.com',
+        branding_enabled: true,
+        custom_domain_enabled: false,
+        custom_wechat_enabled: false,
+        custom_payment_enabled: false,
+      }),
+    );
+  });
 });

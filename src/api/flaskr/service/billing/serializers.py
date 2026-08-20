@@ -375,6 +375,7 @@ def serialize_admin_subscription(
         creator_bid=row.creator_bid,
         creator_identify=str(creator.get("identify") or ""),
         creator_mobile=str(creator.get("mobile") or ""),
+        creator_email=str(creator.get("email") or ""),
         creator_nickname=str(creator.get("nickname") or ""),
         product_bid=row.product_bid,
         product_code=product_codes.get(row.product_bid, ""),
@@ -608,6 +609,7 @@ def serialize_admin_entitlement_state(
         creator_bid=normalize_bid(state.creator_bid),
         creator_identify=str(creator.get("identify") or ""),
         creator_mobile=str(creator.get("mobile") or ""),
+        creator_email=str(creator.get("email") or ""),
         creator_nickname=str(creator.get("nickname") or ""),
         source_kind=str(state.source_kind or "default"),
         source_type=str(state.source_type or ""),
@@ -643,6 +645,7 @@ def serialize_admin_daily_usage_metric(
         **payload.__json__(),
         creator_bid=row.creator_bid,
         creator_mobile=str((creator or {}).get("mobile") or ""),
+        creator_email=str((creator or {}).get("email") or ""),
         creator_nickname=str((creator or {}).get("nickname") or ""),
     )
 
@@ -699,6 +702,7 @@ def serialize_admin_order_summary(
         **payload.__json__(),
         creator_identify=str((creator or {}).get("identify") or ""),
         creator_mobile=str((creator or {}).get("mobile") or ""),
+        creator_email=str((creator or {}).get("email") or ""),
         creator_nickname=str((creator or {}).get("nickname") or ""),
         product_name_key=str(product.display_name_i18n_key or "")
         if product is not None

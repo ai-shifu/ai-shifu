@@ -1687,6 +1687,7 @@ def build_admin_billing_focus_teachers_page(
                 AdminBillingFocusTeacherDTO(
                     creator_bid=creator_bid,
                     creator_mobile=str(creator.get("mobile") or ""),
+                    creator_email=str(creator.get("email") or ""),
                     creator_nickname=str(creator.get("nickname") or ""),
                     credits_7d=credit_decimal_to_number(credits_7d),
                     credits_30d=credit_decimal_to_number(credits_30d),
