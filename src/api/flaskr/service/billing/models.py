@@ -199,7 +199,7 @@ class BillingProductProviderPrice(BillingTableMixin, db.Model):
             "provider_account_id",
             "livemode",
             "provider_price_id",
-            "deleted",
+            "provider_price_live_scope",
             name="uq_bill_product_provider_prices_provider_price",
         ),
         UniqueConstraint(
@@ -311,6 +311,15 @@ class BillingProductProviderPrice(BillingTableMixin, db.Model):
         default=BILLING_PROVIDER_PRICE_STATUS_DRAFT,
         index=True,
         comment="Provider price mapping status code",
+    )
+    provider_price_live_scope = Column(
+        String(16),
+        Computed(
+            "CASE WHEN deleted = 0 THEN 'live' ELSE NULL END",
+            persisted=True,
+        ),
+        nullable=True,
+        comment="Generated key enforcing one live provider price mapping",
     )
     active_scope = Column(
         String(16),

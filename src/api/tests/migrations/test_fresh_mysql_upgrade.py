@@ -199,7 +199,7 @@ def test_fresh_mysql_upgrade_reaches_head():
             "provider_account_id",
             "livemode",
             "provider_price_id",
-            "deleted",
+            "provider_price_live_scope",
         )
         assert provider_price_unique_constraints[
             "uq_bill_product_provider_prices_active_scope"

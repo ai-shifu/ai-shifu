@@ -48,6 +48,7 @@ def test_billing_core_models_define_catalog_subscription_order_tables() -> None:
     assert "provider_price_bid" in provider_price_table.c
     assert "provider_product_id" in provider_price_table.c
     assert "provider_price_id" in provider_price_table.c
+    assert "provider_price_live_scope" in provider_price_table.c
     assert "active_scope" in provider_price_table.c
     assert "creator_bid" in order_table.c
     assert "provider_reference_id" in order_table.c
@@ -110,6 +111,7 @@ def test_billing_product_provider_price_migration_defines_mapping_table() -> Non
     assert '"product_bid"' in source
     assert '"provider_product_id"' in source
     assert '"provider_price_id"' in source
+    assert '"provider_price_live_scope"' in source
     assert '"active_scope"' in source
     assert "sa.Computed(" in source
     assert "uq_bill_product_provider_prices_provider_price" in source

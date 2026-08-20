@@ -102,6 +102,7 @@ def test_billing_models_register_core_tables() -> None:
     provider_prices = tables["bill_product_provider_prices"]
     assert "provider_product_id" in provider_prices.c
     assert "provider_price_id" in provider_prices.c
+    assert "provider_price_live_scope" in provider_prices.c
     assert "active_scope" in provider_prices.c
     assert "idempotency_key" in credit_ledger_entries.c
     assert credit_ledger_entries.c.amount.type.precision == 20
@@ -170,7 +171,7 @@ def test_billing_product_provider_price_model_defines_mapping_constraints() -> N
         "provider_account_id",
         "livemode",
         "provider_price_id",
-        "deleted",
+        "provider_price_live_scope",
     )
     assert unique_constraints["uq_bill_product_provider_prices_active_scope"] == (
         "product_bid",
@@ -245,6 +246,37 @@ def test_provider_price_constraints_reject_duplicate_provider_price(app) -> None
         with pytest.raises(IntegrityError):
             db.session.commit()
         db.session.rollback()
+
+
+def test_provider_price_constraints_allow_repeated_soft_delete_lifecycle(app) -> None:
+    with app.app_context():
+        first = _provider_price(
+            provider_price_bid="provider-price-lifecycle-1",
+            product_bid="bill-product-lifecycle-1",
+            provider_price_id="price_lifecycle",
+        )
+        db.session.add(first)
+        db.session.commit()
+
+        first.deleted = 1
+        db.session.commit()
+
+        second = _provider_price(
+            provider_price_bid="provider-price-lifecycle-2",
+            product_bid="bill-product-lifecycle-2",
+            provider_price_id="price_lifecycle",
+        )
+        db.session.add(second)
+        db.session.commit()
+
+        second.deleted = 1
+        db.session.commit()
+
+        rows = BillingProductProviderPrice.query.filter(
+            BillingProductProviderPrice.provider_price_id == "price_lifecycle"
+        ).all()
+        assert len(rows) == 2
+        assert {row.deleted for row in rows} == {1}
 
 
 def test_provider_price_constraints_reject_second_active_price_for_sku(app) -> None:
