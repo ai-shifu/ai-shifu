@@ -41,14 +41,14 @@ class _FakeSegment:
 
 class _FakeAudioSegment:
     @staticmethod
-    def from_mp3(segment_io: io.BytesIO):
+    def from_mp3(segment_io: io.BytesIO) -> "_FakeSegment":
         duration = int(segment_io.getvalue().decode("utf-8"))
         return _FakeSegment(duration)
 
 
 class _PartiallyBrokenAudioSegment:
     @staticmethod
-    def from_mp3(segment_io: io.BytesIO):
+    def from_mp3(segment_io: io.BytesIO) -> "_FakeSegment":
         payload = segment_io.getvalue()
         if payload == b"BAD":
             raise ValueError("Decoding failed")
@@ -59,7 +59,7 @@ class _RecordingAudioSegment:
     from_file_formats: list[str] = []
 
     @staticmethod
-    def from_file(segment_io: io.BytesIO, format="mp3"):  # noqa: A002 - mirrors the pydub API
+    def from_file(segment_io: io.BytesIO, format="mp3") -> "_FakeSegment":  # noqa: A002 - mirrors the pydub API
         _RecordingAudioSegment.from_file_formats.append(format)
         return _FakeSegment(int(segment_io.getvalue().decode("utf-8")))
 
