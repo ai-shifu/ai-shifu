@@ -13,7 +13,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 
 from .consts import (
     BILLING_METRIC_LABELS,
@@ -341,7 +341,7 @@ def load_usage_rate(
             row.provider == provider,
             row.model in set(model_candidates),
             model_priority.get(row.model, 0),
-            row.effective_from or datetime.min,
+            row.effective_from or NAIVE_DATETIME_MIN,
             int(row.id or 0),
         ),
         reverse=True,

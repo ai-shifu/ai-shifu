@@ -11,7 +11,7 @@ from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
-from flaskr.util.datetime import now_utc, to_utc_iso
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 from sqlalchemy import case, func, or_
 from sqlalchemy.exc import IntegrityError
@@ -939,7 +939,7 @@ def load_primary_credit_bucket_by_category(
         return (
             status_rank,
             has_balance_rank,
-            row.created_at or datetime.min,
+            row.created_at or NAIVE_DATETIME_MIN,
             int(row.id or 0),
         )
 

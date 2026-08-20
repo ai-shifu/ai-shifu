@@ -49,7 +49,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_LLM,
     normalize_usage_scene,
 )
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 
 logger = logging.getLogger(__name__)
 
@@ -1452,7 +1452,7 @@ def _select_credit_usage_rate(
             row.provider == normalized_provider,
             row.model in candidate_set,
             model_priority.get(row.model, 0),
-            row.effective_from or datetime.min,
+            row.effective_from or NAIVE_DATETIME_MIN,
             int(row.id or 0),
         ),
         reverse=True,

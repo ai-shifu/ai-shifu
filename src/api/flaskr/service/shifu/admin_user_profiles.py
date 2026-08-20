@@ -68,7 +68,7 @@ from flaskr.service.user.models import (
 from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from sqlalchemy import case, or_
 
 
@@ -514,7 +514,7 @@ def _load_operator_user_registration_source_map(
         if credential_rows is not None
         else _load_operator_user_auth_credentials(normalized_user_bids),
         key=lambda credential: (
-            getattr(credential, "created_at", None) or datetime.min,
+            getattr(credential, "created_at", None) or NAIVE_DATETIME_MIN,
             int(getattr(credential, "id", 0) or 0),
         ),
     )

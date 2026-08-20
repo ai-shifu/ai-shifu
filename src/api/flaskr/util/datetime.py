@@ -3,6 +3,13 @@ from datetime import UTC, datetime
 import pytz
 from flask import Flask
 
+# Sentinels for ordering and comparing the naive UTC timestamps stored in the
+# database, used where a nullable column takes part in a sort key or a range
+# check. They are naive on purpose: an aware sentinel raises `TypeError` as
+# soon as it meets a stored value.
+NAIVE_DATETIME_MIN = datetime.min  # noqa: DTZ901
+NAIVE_DATETIME_MAX = datetime.max  # noqa: DTZ901
+
 
 def now_utc() -> datetime:
     """Return the current UTC time as a naive datetime.
