@@ -26,9 +26,16 @@ plan's progress update for that rule.
 - [x] 2026-08-20 21:25 CST: Generated the Cursor/Copilot mirrors and knowledge
   indexes; repository harness, Ruff, format, architecture, translation, JSON,
   YAML, frontend lint/format, and all other pre-commit hooks passed.
-- [ ] Create and merge the policy-only foundation pull request.
-- [ ] Remove the global D406 exception while preserving the embedded Swagger
-  YAML contract with a narrow suppression and regression test.
+- [x] 2026-08-20 21:56 CST: Opened ready foundation PR
+  [#2571](https://github.com/ai-shifu/ai-shifu/pull/2571) from
+  `sunner/ruff-rule-minimization-foundation` to `main`.
+- [x] 2026-08-20 22:04 CST: Opened ready D406 PR
+  [#2572](https://github.com/ai-shifu/ai-shifu/pull/2572) from
+  `sunner/ruff-d406` to the foundation branch. The global exception became one
+  explained inline suppression, and the focused Flasgger schema test plus all
+  repository pre-commit hooks passed.
+- [ ] Merge foundation PR #2571, then merge or retarget D406 PR #2572 without
+  combining its rule unit with its successor.
 - [ ] Remove the global D407 exception on top of D406 using the same Swagger
   contract test.
 - [ ] Remove the global D405 exception by fixing ordinary docstrings and
@@ -99,6 +106,13 @@ rule set. It establishes the continuation contract, baseline evidence, stacked
 PR model, and AI-facing decision process. Record cumulative rule counts,
 exception reductions, test results, and any revised prioritization here as the
 stack progresses.
+
+The D406 stage removes one global ignore and leaves one coded inline exception
+on the Flasgger YAML docstring. `ruff check . --select D406` reports no
+unsuppressed findings. The focused captcha-route suite passes 10 tests after
+parsing the registered view's docstring and asserting its required request-body
+schema; the repository Ruff, format, harness, developer-tool, and full
+pre-commit gates also pass.
 
 ## Context and Orientation
 
