@@ -128,9 +128,19 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         # asking about a different creator made a custom domain look like none:
         # branding fell back to the platform default and the WeChat suppression
         # below stopped applying.
-        domain_owner_bid = str(
-            resolve_creator_bid_by_host(app, request_host) or ""
-        ).strip()
+        try:
+            domain_owner_bid = str(
+                resolve_creator_bid_by_host(app, request_host) or ""
+            ).strip()
+        except Exception:
+            # Runtime config is a public bootstrap dependency, so a failure to
+            # look the host up degrades to requester-scoped branding rather
+            # than taking the endpoint down.
+            app.logger.exception(
+                "Failed to resolve domain owner for runtime config; request_host=%s",
+                request_host or "-",
+            )
+            domain_owner_bid = ""
 
         owner_billing = None
         if domain_owner_bid and domain_owner_bid != creator_bid:
@@ -269,7 +279,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             currencySymbol=get_config("CURRENCY_SYMBOL", "¥"),
             legalUrls=legal_urls,
             entitlements=runtime_billing.entitlements,
-            branding=runtime_billing.branding,
+            branding=branding_source.branding,
             domain=domain_context,
             customizationCapabilities=customization_capabilities,
             paymentConfigurationReady=(
