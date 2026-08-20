@@ -221,8 +221,11 @@ plan's progress update for that rule.
   skips; generated collaboration and knowledge documents, the repository
   harness, architecture boundaries, development-tool checks, and every
   repository pre-commit hook also pass.
-- [ ] Open the ready N806 PR against TD003 after the full repository gates
-  pass.
+- [x] 2026-08-21 04:01 CST: Opened ready N806 PR
+  [#2589](https://github.com/ai-shifu/ai-shifu/pull/2589) from
+  `sunner/ruff-n806` to the TD003 branch after all local gates passed.
+- [ ] Merge or retarget N806 PR #2589 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
