@@ -63,8 +63,16 @@ plan's progress update for that rule.
   explicit Python 3.12 hook and CI gate that keep the target-gated rule active.
 - [ ] Merge or retarget UP040 PR #2575 after its predecessors without combining
   it with the next rule unit.
-- [ ] Remove the target-gated UP047 global ignore. It has zero findings under
-  the configured Python 3.11 target and one explicit Python 3.12 finding that
+- [x] 2026-08-20 22:28 CST: Opened ready UP047 PR
+  [#2576](https://github.com/ai-shifu/ai-shifu/pull/2576) from
+  `sunner/ruff-up047` to the UP040 branch. The target-gated ignore was removed;
+  the Python 3.11 check is clean, the one Python 3.12 migration site is audited,
+  the 48-test learner-profile suite passes, and all repository pre-commit hooks
+  passed.
+- [ ] Merge or retarget UP047 PR #2576 after its predecessors without combining
+  it with the next rule unit.
+- [ ] Remove the target-gated UP046 global ignore. It has zero findings under
+  the configured Python 3.11 target and two explicit Python 3.12 findings that
   should surface in the future runtime-upgrade PR instead of staying hidden.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
@@ -158,6 +166,12 @@ either Python 3.11 or Python 3.12. The local hook and CI run the latter check
 explicitly so future type aliases cannot bypass the rule while the repository's
 minimum runtime remains Python 3.11. Rule-specific checks for both targets and
 the full repository gates pass.
+
+The UP047 stage removes another preemptive exception without introducing Python
+3.12-only syntax. UP047 is clean under the configured Python 3.11 target; an
+explicit Python 3.12 audit records the single generic-function migration in the
+learner-profile retry helper. Its 48-test service suite and the full repository
+gates pass.
 
 ## Context and Orientation
 
