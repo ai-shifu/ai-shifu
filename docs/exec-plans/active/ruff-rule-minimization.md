@@ -174,6 +174,25 @@ plan's progress update for that rule.
   branch after all local gates passed.
 - [ ] Merge or retarget D100 PR #2586 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 03:21 CST: Prepared the FIX002 stage on
+  `sunner/ruff-fix002`, stacked on D100. Implemented password-login failure
+  throttling by privacy-preserving identifier and client-IP counters, and
+  removed the expired interaction-key remap after verifying both learner
+  clients submit the canonical key and the pinned MarkdownFlow release has
+  passed the documented rollout checkpoint.
+- [x] 2026-08-21 03:21 CST: Re-ran the stable `ALL` census on the FIX002 tip.
+  It reports 29,964 findings across 33 rules: FIX002 and TD003 both fall from
+  two findings to zero, while every other rule count is unchanged. FIX002 is
+  the only rule newly selected in this stage; TD003 remains a separate rule
+  PR.
+- [x] 2026-08-21 03:28 CST: Verified the affected contracts with 254 user-
+  service tests, 78 learn-context tests with four skips, 13 learner-client
+  submission tests, and 127 config tests. The full backend suite passes 3,019
+  tests with 17 skips; translations, repository Ruff and format, the repository
+  harness, the architecture-boundary check, and every repository pre-commit
+  hook also pass.
+- [ ] Open the ready FIX002 PR against D100 after the full backend suite and
+  repository pre-commit gate pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -257,10 +276,14 @@ plan's progress update for that rule.
   infrastructure. It is not a safe mechanical unit: adopting it requires
   behavior-specific decomposition rather than result-variable or threshold
   workarounds, so TC003 was the smaller reviewable exception-removal stage.
-- FIX002 and TD003 report the same two TODOs. One is a real password-login
-  rate-limit feature and one is a compatibility-removal checkpoint. Renaming
-  them to evade lint would hide work, and implementing either is larger than a
-  lint cleanup, so they are deliberately not the first rule unit.
+- FIX002 and TD003 reported the same two TODOs. Treating FIX002 as a semantic
+  review exposed two different exit paths: the password-login security gap
+  required a real guard with failure-path tests, while the compatibility
+  checkpoint could be deleted only after confirming current and preview
+  clients use the canonical input key and the pinned MarkdownFlow release has
+  passed one release cycle. Resolving the work removes both rule findings, but
+  only FIX002 is selected in this stage so the one-rule PR contract remains
+  intact.
 
 ## Decision Log
 
@@ -435,6 +458,19 @@ skip, both changed maintenance scripts expose their help successfully, the
 full backend suite passes 3,015 tests with 17 skips, and the stable `ALL` census
 falls to 29,968 findings across 35 rules. Future agents now document module
 ownership rather than restating filenames or inventing generic helper prose.
+
+The FIX002 stage makes unfinished-work markers enforceable only after resolving
+their actual contracts. Password login now throttles repeated failures per
+identifier and client IP using expiring HMAC-fingerprinted counters, returns a
+translated dedicated error at the configured limit, clears an account counter
+after successful authentication, and never stores or logs the raw identifier
+or address. The expired interaction-key remap is removed after focused backend
+and learner-client tests prove canonical submissions and preserve noncanonical
+keys instead of silently renaming them. The stable `ALL` census falls exactly
+four findings to 29,964 across 33 rules without transferring debt. Future
+agents are directed to complete security work, prove rollout exit conditions,
+or move genuinely future work into the owning ExecPlan or issue rather than
+hiding it through comment wording or lint suppression.
 
 ## Context and Orientation
 

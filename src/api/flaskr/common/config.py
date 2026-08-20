@@ -890,6 +890,35 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Maximum attempts allowed for a single image captcha challenge",
         group="auth",
     ),
+    "PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT": EnvVar(
+        name="PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT",
+        default=5,
+        type=int,
+        description=(
+            "Failed password attempts allowed per account identifier before "
+            "temporary throttling"
+        ),
+        group="auth",
+        validator=lambda value: int(value) >= 1,
+    ),
+    "PASSWORD_LOGIN_IP_FAILURE_LIMIT": EnvVar(
+        name="PASSWORD_LOGIN_IP_FAILURE_LIMIT",
+        default=20,
+        type=int,
+        description=(
+            "Failed password attempts allowed per client IP before temporary throttling"
+        ),
+        group="auth",
+        validator=lambda value: int(value) >= 1,
+    ),
+    "PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS",
+        default=900,
+        type=int,
+        description="Sliding window for failed password login counters in seconds",
+        group="auth",
+        validator=lambda value: int(value) >= 1,
+    ),
     "CAPTCHA_CODE_OVERRIDE": EnvVar(
         name="CAPTCHA_CODE_OVERRIDE",
         default="",
@@ -1788,6 +1817,7 @@ REDIS_KEY_SUFFIXES: dict[str, str] = {
     "REDIS_KEY_PREFIX_PHONE_LIMIT": "phone_limit:",
     "REDIS_KEY_PREFIX_IP_BAN": "ip_ban:",
     "REDIS_KEY_PREFIX_IP_LIMIT": "ip_limit:",
+    "REDIS_KEY_PREFIX_PASSWORD_LOGIN_FAILURE": "password_login_failure:",
 }
 
 

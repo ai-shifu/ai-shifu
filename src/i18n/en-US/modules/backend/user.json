@@ -22,6 +22,7 @@
     "mailCheckError": "Email verification code error",
     "mailSendExpired": "Email verification code expired",
     "passwordAlreadySet": "Password already set",
+    "passwordLoginRateLimited": "Too many failed password attempts. Try again later.",
     "passwordNeedsDigit": "Password must contain at least one digit",
     "passwordNeedsLetter": "Password must contain at least one letter",
     "passwordTooShort": "Password must be at least 8 characters",

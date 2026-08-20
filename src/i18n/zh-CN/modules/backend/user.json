@@ -22,6 +22,7 @@
     "mailCheckError": "邮件验证码错误",
     "mailSendExpired": "邮件验证码过期",
     "passwordAlreadySet": "密码已设置",
+    "passwordLoginRateLimited": "密码尝试次数过多，请稍后重试",
     "passwordNeedsDigit": "密码需包含至少一个数字",
     "passwordNeedsLetter": "密码需包含至少一个字母",
     "passwordTooShort": "密码长度至少为8位",

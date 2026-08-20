@@ -58,6 +58,12 @@ class FakeRedis:
             return None
         return self._store.get(key)
 
+    def stored_keys(self) -> list[str]:
+        """Return active keys for assertions without exposing storage internals."""
+        for key in list(self._store):
+            self._is_expired(key)
+        return list(self._store)
+
     def getex(self, key: str, ex: int | None = None, px: int | None = None):
         value = self.get(key)
         if value is None:

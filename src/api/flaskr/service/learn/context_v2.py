@@ -2787,28 +2787,6 @@ class RunScriptContextV2:
         user_input_param = MdflowContextV2.normalize_user_input_map(
             self._input, expected_variable
         )
-        # Backward compatible: some clients may still send `{input: [...]}` or a single
-        # unnamed key even when the interaction expects a specific variable.
-        # TODO(non-assignment rollout): markdown-flow >= 0.3.0 merges values
-        # from any key for no-variable interactions, and the web client now
-        # submits the canonical "input" key. Drop this remap once the
-        # "input"-key frontend has been fully rolled out for one release
-        # cycle (older cached clients may still send the legacy keys).
-        if expected_variable and expected_variable not in user_input_param:
-            if "input" in user_input_param and len(user_input_param) == 1:
-                app.logger.warning(
-                    "Remap interaction input key 'input' -> '%s'", expected_variable
-                )
-                user_input_param = {expected_variable: user_input_param["input"]}
-            elif len(user_input_param) == 1:
-                only_key, only_values = next(iter(user_input_param.items()))
-                if only_values:
-                    app.logger.warning(
-                        "Remap interaction input key '%s' -> '%s'",
-                        only_key,
-                        expected_variable,
-                    )
-                    user_input_param = {expected_variable: only_values}
 
         generated_block.generated_content = MdflowContextV2.flatten_user_input_map(
             user_input_param
