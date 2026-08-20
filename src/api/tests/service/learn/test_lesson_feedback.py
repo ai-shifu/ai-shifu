@@ -21,7 +21,7 @@ from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 
 class LessonFeedbackTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("lesson-feedback-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

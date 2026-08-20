@@ -917,7 +917,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
 
         class FrozenDateTime(datetime):
             @classmethod
-            def now(cls, tz=None):
+            def now(cls, tz=None) -> datetime:
                 frozen_now = datetime(2026, 4, 24, 10, 0, 0)
                 if tz is not None:
                     return frozen_now.replace(tzinfo=tz)
