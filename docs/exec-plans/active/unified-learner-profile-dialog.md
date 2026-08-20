@@ -40,6 +40,11 @@ operation that persists the canonical learner profile and profile-v2 state.
       including default and empty guidance, processing help, original-draft
       recovery, retry, and undo controls, without restoring removed save-page
       guidance or a second dialog.
+- [x] 2026-08-20 CST: Rebased the complete dialog series onto current `main` at
+      `e65aa770a` and retained the latest backend import and lint baselines.
+- [x] 2026-08-20 CST: Resolved the remaining guided-flow review findings in
+      independent commits and re-ran the affected backend, SSE, conversation,
+      and dialog regression suites before final publication gates.
 
 ## Surprises & Discoveries
 
@@ -177,6 +182,13 @@ returning all controls that belong specifically to "帮我优化". Focused tests
 cover its default, empty, processing, success, failure, retry, original-draft,
 and undo states; removed prompt cards, long page-level guidance, and PR3-only
 collection routes remain absent.
+
+The final review pass keeps valid fenced MarkdownFlow available even when the
+retiring legacy projection cannot reproduce it, rejects interaction choices
+that exceed the runtime submission contract, closes durable saves before a
+best-effort refresh, recovers cleanly from an SSE stream that ends without a
+terminal event, renews Redis ownership during replay, and prevents a defer
+action from leaving a late-created guided session or provider run behind.
 
 ## Context and Orientation
 
