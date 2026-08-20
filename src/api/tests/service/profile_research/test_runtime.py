@@ -170,6 +170,27 @@ def test_validation_rejects_interactions_without_answerable_input(document):
 
 
 @pytest.mark.parametrize(
+    "document",
+    [
+        f"?[Short//{'x' * 4_001} | Detailed//full]",
+        "?[" + " | ".join(f"Option {index}" for index in range(101)) + "]",
+        "?["
+        + " || ".join(
+            [
+                f"First//{'a' * 3_500}",
+                f"Second//{'b' * 3_500}",
+                f"Third//{'c' * 3_500}",
+            ]
+        )
+        + "]",
+    ],
+)
+def test_validation_rejects_options_outside_runtime_input_limits(document):
+    with pytest.raises(ProfileResearchValidationError, match="runtime input limits"):
+        validate_profile_research_document(document)
+
+
+@pytest.mark.parametrize(
     "user_input",
     [
         {f"key-{index}": [""] for index in range(101)},

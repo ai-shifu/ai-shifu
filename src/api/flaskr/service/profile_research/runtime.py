@@ -583,14 +583,38 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
         question = parsed_interaction.get("question")
         has_question = isinstance(question, str) and bool(question.strip())
         buttons = parsed_interaction.get("buttons")
-        has_usable_button = isinstance(buttons, list) and any(
-            isinstance(button, dict)
-            and isinstance(button.get("display"), str)
-            and bool(button["display"].strip())
-            and isinstance(button.get("value"), str)
-            and bool(button["value"].strip())
-            for button in buttons
-        )
+        button_values: list[str] = []
+        if isinstance(buttons, list):
+            if len(buttons) > _MAX_INPUT_VALUE_COUNT:
+                raise ProfileResearchValidationError(
+                    "interaction options exceed runtime input limits"
+                )
+            for button in buttons:
+                display = button.get("display") if isinstance(button, dict) else None
+                value = button.get("value") if isinstance(button, dict) else None
+                if (
+                    not isinstance(display, str)
+                    or not display.strip()
+                    or not isinstance(value, str)
+                    or not value.strip()
+                ):
+                    raise ProfileResearchValidationError(
+                        "interaction has no answerable input"
+                    )
+                if len(value) > _MAX_INPUT_VALUE_CODEPOINTS:
+                    raise ProfileResearchValidationError(
+                        "interaction options exceed runtime input limits"
+                    )
+                button_values.append(value)
+            if (
+                parsed_interaction.get("is_multi_select")
+                and sum(len(value) for value in button_values)
+                > _MAX_INPUT_TOTAL_CODEPOINTS
+            ):
+                raise ProfileResearchValidationError(
+                    "interaction options exceed runtime input limits"
+                )
+        has_usable_button = bool(button_values)
         if not has_question and not has_usable_button:
             raise ProfileResearchValidationError("interaction has no answerable input")
     return {

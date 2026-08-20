@@ -120,6 +120,34 @@ def test_profile_onboarding_config_rejects_unanswerable_interaction(app, monkeyp
     assert saved_payloads == []
 
 
+def test_profile_onboarding_config_rejects_oversized_button_values(app, monkeypatch):
+    from flaskr.service.common import profile_onboarding as module
+
+    saved_payloads: list[dict] = []
+    monkeypatch.setattr(
+        module,
+        "load_profile_onboarding_config_payload",
+        lambda: module.normalize_profile_onboarding_config_payload({}),
+    )
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda _app, payload, *, updated_by: saved_payloads.append(payload),
+    )
+
+    with pytest.raises(AppError, match="markdownflow"):
+        module.update_profile_onboarding_config(
+            app,
+            payload={
+                "enabled": True,
+                "markdownflow": f"?[Short//{'x' * 4_001} | Detailed//full]",
+            },
+            operator_user_bid="operator-1",
+        )
+
+    assert saved_payloads == []
+
+
 def test_profile_onboarding_config_rejects_oversized_document_prompt(app, monkeypatch):
     from flaskr.service.common import profile_onboarding as module
 
