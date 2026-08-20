@@ -2,7 +2,7 @@
 
 ## Purpose / Big Picture
 
-Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1 merged at `020f0392138e8c1cc9c619add1896a39b86b50fd`; the branch is synchronized with current `main` at `f86e0cbd7d026e780c2fb45de7f6a3b1e001bb24`. Learners answer the teacher's MarkdownFlow questions, review the generated plain-text learner profile, and can defer only through an explicit low-emphasis action. The release preserves the established legacy onboarding protocol during backend-first rollout.
+Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1 merged at `020f0392138e8c1cc9c619add1896a39b86b50fd`; the branch is synchronized with current `main` at `e65aa770ac19c611233d710d622fa58fddf8f58f`. Learners answer the teacher's MarkdownFlow questions, review the generated plain-text learner profile, and can defer only through an explicit low-emphasis action. The release preserves the established legacy onboarding protocol during backend-first rollout.
 
 ## Progress
 
@@ -28,6 +28,8 @@ Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1
 - [x] 2026-08-16 17:15 CST: Closed nine post-sync review findings as independent changes: preserved exact official button values in V2, projected label/value choices safely for legacy clients, centralized learner/admin run validation, preserved the original legacy wire layout, normalized completion payloads, aligned the French teacher term, restored virgin admin defaults, kept optional settings status from blocking edits, and rejected oversized answers before making an interaction read-only.
 - [x] 2026-08-16 17:22 CST: Passed 305 focused backend regressions, 10 focused frontend suites / 139 tests, TypeScript, changed-file ESLint/Prettier, Ruff/format, three-language translation checks, architecture, repository harness, `git diff --check`, and the complete all-files lefthook gate on `f86e0cbd7`.
 - [x] 2026-08-16 17:45 CST: Closed the final post-push Unicode review finding in its own commit by matching the retiring web parser's exact ECMAScript trim set, preserving U+0085 in legacy button values, and passing all 21 dual-protocol regressions plus Ruff, format, dev-tool, and diff checks.
+- [x] 2026-08-20 CST: Rebased the complete guided-profile and unified-dialog series onto current `main` at `e65aa770a`, preserving the new absolute backend import layout and current lint rules.
+- [x] 2026-08-20 CST: Closed the remaining natural review findings in isolated commits covering fenced legacy projection fallback, answerable configuration limits, durable-save refresh ordering, incomplete SSE recovery, replay TTL renewal, and defer/session-creation races.
 
 ## Surprises & Discoveries
 
