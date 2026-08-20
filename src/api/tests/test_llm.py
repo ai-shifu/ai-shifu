@@ -1184,7 +1184,7 @@ def test_litellm_195_native_adapter_contracts():
     )
     env = os.environ.copy()
     env["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-    completed = subprocess.run(
+    completed = subprocess.run(  # noqa: S603 - runs a fixed adapter test script
         [sys.executable, "-c", script],
         capture_output=True,
         env=env,

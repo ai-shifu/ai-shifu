@@ -249,7 +249,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # subprocess audit rules only add noise there.
 # Test suites are also full of literal fake passwords, tokens and secret keys
 # for fixtures and negative cases, which is what S105/S106 flag.
-"src/api/tests/**" = ["S101", "S105", "S106", "S603", "T20"]
+"src/api/tests/**" = ["S101", "S105", "S106", "T20"]
 # `app.py`, `celery_app.py` and `gunicorn.conf.py` are process entrypoints run
 # by path and never imported, so making `src/api` a package would only shadow
 # the top-level `flaskr` import path. `src/api/scripts` is a real package

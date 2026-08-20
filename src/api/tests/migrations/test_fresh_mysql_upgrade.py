@@ -147,7 +147,7 @@ def test_fresh_mysql_upgrade_reaches_head():
     env["SQLALCHEMY_DATABASE_URI"] = temp_uri
 
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603 - runs a fixed migration test script
             [sys.executable, "-c", _migration_subprocess_script()],
             cwd=API_ROOT,
             env=env,

@@ -438,6 +438,30 @@ plan's progress update for that rule.
   `sunner/ruff-s607` to the S101 branch after all local gates passed.
 - [ ] Merge or retarget S607 PR #2599 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 07:07 CST: Prepared the S603 stage on
+  `sunner/ruff-s603`, stacked on S607. Removing the test-tree exception exposes
+  exactly two calls: the fresh-MySQL migration smoke test and the pinned
+  LiteLLM adapter-contract test.
+- [x] 2026-08-21 07:07 CST: Both calls execute the current `sys.executable`
+  with a test-owned fixed `-c` script. No request, fixture, environment, or
+  database value can select the executable or become a command argument, and
+  child-process isolation is the behavior those tests need to exercise.
+- [x] 2026-08-21 07:07 CST: Removed S603 from the test-tree exception, retained
+  the two audited calls behind explained inline suppressions, and documented
+  the project contract for validating subprocess executables and arguments.
+- [x] 2026-08-21 07:11 CST: Configured and isolated test-tree S603 scans pass;
+  ignoring suppressions exposes exactly the two audited calls. The stable
+  `ALL` census remains exactly 28,202 findings across 28 rules because the
+  broad exception became equivalent narrow suppressions without debt transfer.
+- [x] 2026-08-21 07:11 CST: The two owning test files pass 61 tests and skip two
+  explicit environment contracts: the opt-in fresh-MySQL smoke test and the
+  LiteLLM 1.95.0 adapter test, because the shared local venv has 1.80.11 while
+  checked-in requirements pin 1.95.0. Final backend CI owns the clean current-
+  dependency execution of the latter.
+- [x] 2026-08-21 07:11 CST: Collaboration and knowledge generators, repository
+  Ruff and format, translation checks, repository harness, architecture
+  boundaries, development-tool validation, and every repository pre-commit
+  hook pass on the S603 tip.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -561,6 +585,11 @@ plan's progress update for that rule.
   paths; only the explained Windows `tzutil` entrypoint remains. A broad rule
   list must be audited code by code, and a clean lint result for a variable
   command does not replace semantic subprocess review.
+- S603 reports every subprocess even with `shell=False`, so deleting the two
+  test subprocesses or moving their scripts in-process would only weaken their
+  environment-isolation coverage. Both use the current interpreter and fixed
+  source owned by the test; their security boundary is narrow enough to explain
+  inline, allowing the entire backend test tree to become enforced.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent
@@ -796,6 +825,17 @@ explained Windows `tzutil` platform entrypoint is the only inline exception.
 Configured S607, repository Ruff, format, and harness pass, and the stable
 census remains 28,202 findings across 28 rules. Future runtime, test, and
 contributor code now follows the same executable-resolution contract.
+
+The S603 stage removes the backend test-tree exception and replaces it with two
+explained inline audits. Both calls run the current interpreter against fixed,
+test-owned source: one isolates a fresh-MySQL Alembic upgrade, and one isolates
+the pinned LiteLLM native-adapter contract. The owning files pass 61 tests;
+the MySQL smoke and current-LiteLLM contract skip locally only at their explicit
+environment gates, with the latter covered by final backend CI using checked-in
+requirements. Configured and isolated S603 scans pass, the stable census remains
+28,202 findings across 28 rules, and every repository hook passes. Future code
+now validates each subprocess boundary at the call rather than exempting tests
+as a class.
 
 ## Context and Orientation
 
