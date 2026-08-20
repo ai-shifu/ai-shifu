@@ -792,9 +792,10 @@ def test_shifu_draft_select_parses() -> None:
 
 
 def test_shifu_meta_aggregate_rejected() -> None:
-    """Count / count_distinct on metadata tables would leak permission edges (e.g.
+    """Metadata-table aggregates would leak permission edges.
 
-    count_distinct(shifu_bid) reveals "how many courses do I own that match this filter").
+    For example, count_distinct(shifu_bid) reveals "how many courses do I own that match this
+    filter".
     """
     payload = {
         "shifu_bid": "shifu-abc",
