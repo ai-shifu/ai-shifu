@@ -426,6 +426,7 @@ class AdminBillingSubscriptionDTO(BillingSubscriptionDTO):
     creator_bid: str
     creator_identify: str = ""
     creator_mobile: str = ""
+    creator_email: str = ""
     creator_nickname: str = ""
     product_name_key: str = ""
     next_product_code: str = ""
@@ -449,6 +450,7 @@ class AdminBillingEntitlementDTO(BillingEntitlementsDTO):
     creator_bid: str
     creator_identify: str = ""
     creator_mobile: str = ""
+    creator_email: str = ""
     creator_nickname: str = ""
     source_kind: str
     source_type: str = ""
@@ -502,6 +504,7 @@ class BillingDomainBindResultDTO(BillingBaseDTO):
 class AdminBillingOrderDTO(BillingOrderSummaryDTO):
     creator_identify: str = ""
     creator_mobile: str = ""
+    creator_email: str = ""
     creator_nickname: str = ""
     product_name_key: str = ""
     product_credit_amount: int | float = 0
@@ -652,6 +655,7 @@ class OperatorCreditOrderDetailDTO(BillingBaseDTO):
 class AdminBillingDailyUsageMetricDTO(BillingDailyUsageMetricDTO):
     creator_bid: str
     creator_mobile: str = ""
+    creator_email: str = ""
     creator_nickname: str = ""
 
 
@@ -668,6 +672,7 @@ class AdminBillingDailyUsageMetricsPageDTO(BillingBaseDTO):
 class AdminBillingFocusTeacherDTO(BillingBaseDTO):
     creator_bid: str
     creator_mobile: str = ""
+    creator_email: str = ""
     creator_nickname: str = ""
     credits_7d: int | float = 0
     credits_30d: int | float = 0

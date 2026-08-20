@@ -1385,6 +1385,7 @@ class TestBillingRoutes:
         assert entitlements_payload["data"]["items"][0] == {
             "creator_bid": "creator-1",
             "creator_mobile": "",
+            "creator_email": "",
             "creator_nickname": "",
             "creator_identify": "",
             "source_kind": "snapshot",
@@ -1406,6 +1407,7 @@ class TestBillingRoutes:
         assert entitlements_payload["data"]["items"][2] == {
             "creator_bid": "creator-3",
             "creator_mobile": "",
+            "creator_email": "",
             "creator_nickname": "",
             "creator_identify": "",
             "source_kind": "product_payload",
@@ -1430,6 +1432,7 @@ class TestBillingRoutes:
             {
                 "creator_bid": "creator-1",
                 "creator_mobile": "",
+                "creator_email": "",
                 "creator_nickname": "",
                 "daily_usage_metric_bid": "daily-usage-1",
                 "stat_date": "2026-04-06",
