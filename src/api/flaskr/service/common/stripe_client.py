@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.config import get_config
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 class StripeClientConfigError(RuntimeError):

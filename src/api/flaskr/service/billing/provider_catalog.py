@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.stripe_client import get_stripe_client_options
 
 from .consts import (
@@ -24,6 +23,8 @@ from .consts import (
 from .primitives import normalize_bid, to_decimal
 
 if TYPE_CHECKING:
+    from flask import Flask
+
     from .models import BillingProduct
 
 _STRIPE_INTERVAL_BY_BILLING_INTERVAL = {

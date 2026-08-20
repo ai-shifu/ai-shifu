@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.config.funcs import get_config as get_dynamic_config
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 BUILTIN_DEMO_TITLES: set[str] = {
     "AI 师傅教学引导",

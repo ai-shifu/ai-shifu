@@ -8,7 +8,7 @@ import traceback
 import uuid
 from collections.abc import Generator
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as cache_provider
@@ -38,7 +38,6 @@ from flaskr.service.learn.learn_dtos import (
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.shifu_struct_manager import (
     ShifuInfoDto,
     ShifuOutlineItemDto,
@@ -50,6 +49,9 @@ from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.datetime import to_utc_iso
 from sqlalchemy import text as sa_text
 from sqlalchemy.exc import InterfaceError, OperationalError, ResourceClosedError
+
+if TYPE_CHECKING:
+    from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 RUN_SCRIPT_TIMEOUT_SECONDS = 5 * 60
 RUN_SCRIPT_STATUS_REFRESH_SECONDS = 30

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.framework.plugin.plugin_manager import extension
 
 from .service import process_referral_post_auth
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 @extension("run_post_auth_extensions")

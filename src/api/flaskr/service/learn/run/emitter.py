@@ -53,11 +53,11 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
-from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.util import generate_id
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle guard, typing only
     from flaskr.service.learn.context_v2 import RunScriptContextV2
+    from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 
 
 class RunEventEmitter:

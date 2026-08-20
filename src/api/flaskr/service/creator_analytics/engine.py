@@ -14,13 +14,15 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine, Result
-from sqlalchemy.sql import Select
+
+if TYPE_CHECKING:
+    from flask import Flask
+    from sqlalchemy.engine import Engine, Result
+    from sqlalchemy.sql import Select
 
 
 @dataclass(slots=True)

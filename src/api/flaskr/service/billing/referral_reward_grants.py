@@ -5,7 +5,6 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.util.datetime import now_utc
@@ -48,6 +47,8 @@ from .wallets import (
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from flask import Flask
 
 REFERRAL_REWARD_GRANT_TYPE = "referral_reward"
 REFERRAL_REWARD_SCENE = "referral"

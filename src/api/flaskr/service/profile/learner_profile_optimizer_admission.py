@@ -8,11 +8,12 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.service.common.models import raise_error
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from flask import Flask
 
 IN_FLIGHT_TTL_SECONDS = 360
 

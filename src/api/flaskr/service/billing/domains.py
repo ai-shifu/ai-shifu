@@ -7,11 +7,10 @@ import re
 import socket
 import ssl
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 import dns.resolver
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
@@ -41,6 +40,9 @@ from .entitlements import resolve_creator_entitlement_state
 from .models import BillingDomainBinding
 from .primitives import normalize_bid as _normalize_bid
 from .value_objects import JsonObjectMap
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _DOMAIN_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 

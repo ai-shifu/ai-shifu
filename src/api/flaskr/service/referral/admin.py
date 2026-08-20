@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.pagination import normalize_pagination
@@ -39,6 +38,8 @@ from .reward_queue import build_referral_reward_queue
 
 if TYPE_CHECKING:
     from decimal import Decimal
+
+    from flask import Flask
 
 ABNORMAL_STATUS_BY_LABEL = {
     "normal": REFERRAL_ABNORMAL_STATUS_NORMAL,
