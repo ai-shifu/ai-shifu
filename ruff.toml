@@ -226,13 +226,13 @@ ignore = [
     "D203",    # blank line before a class docstring -- conflicts with D211
     "D205",    # summary wrapped over two lines -- 260 prose rewrites, deferred
     "D213",    # summary on the second line -- conflicts with D212
-    # D405 / D407: route docstrings carry the flasgger/Swagger spec after a
-    # `---` line, and these rules read YAML keys such as `parameters:` as
-    # numpydoc section headers. Their fixes capitalize keys or insert a dashed
-    # underline, turning the embedded spec into invalid YAML. D406 is enforced;
-    # its one Swagger conflict is justified inline and contract-tested.
+    # D405: route docstrings carry the flasgger/Swagger spec after a `---` line,
+    # and this rule reads YAML keys such as `parameters:` as numpydoc section
+    # headers. Its fix capitalizes the key into valid YAML under `Parameters`,
+    # so Flasgger loses the lowercase OpenAPI `parameters` field. D406 / D407
+    # are enforced; their one Swagger conflict is justified inline and
+    # contract-tested.
     "D405",
-    "D407",
     # TC002 / TC003: moving a third-party or stdlib import into TYPE_CHECKING
     # breaks anything that resolves annotations at runtime, which for this repo
     # means the SQLAlchemy mappers and pydantic models (~230 hits).
