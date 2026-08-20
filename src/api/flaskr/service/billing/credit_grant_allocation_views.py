@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from decimal import Decimal
 from typing import TYPE_CHECKING, Literal
 
 from flask import has_app_context
@@ -35,6 +33,9 @@ from .consts import (
 from .primitives import normalize_json_object, to_decimal
 
 if TYPE_CHECKING:
+    from datetime import datetime
+    from decimal import Decimal
+
     from .models import CreditLedgerEntry, CreditWalletBucket
 
 CreditAssetKind = Literal[

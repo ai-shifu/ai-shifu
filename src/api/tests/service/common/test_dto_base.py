@@ -1,9 +1,12 @@
 """Tests for the AutoJsonMixin DTO serialization base."""
 
+import importlib
 import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import get_args
 
+import pytest
 from flaskr.route.common import fmt
 from flaskr.service.common.dto_base import AutoJsonMixin
 from pydantic import BaseModel, Field
@@ -120,3 +123,47 @@ def test_key_overrides_and_exclusions():
     assert payload == {"page": 2, "items": ["a", "b"]}
     assert list(payload.keys()) == ["page", "items"]
     assert "internal_state" not in payload
+
+
+@pytest.mark.parametrize(
+    ("module_name", "model_name", "field_name"),
+    [
+        (
+            "flaskr.service.billing.dtos",
+            "BillingSubscriptionDTO",
+            "current_period_end_at",
+        ),
+        (
+            "flaskr.service.dashboard.dtos",
+            "DashboardEntryCourseItemDTO",
+            "last_active_at",
+        ),
+        (
+            "flaskr.service.order.admin_dtos",
+            "OrderAdminSummaryDTO",
+            "created_at",
+        ),
+        (
+            "flaskr.service.shifu.admin_dtos_courses",
+            "AdminOperationCourseSummaryDTO",
+            "created_at",
+        ),
+        (
+            "flaskr.service.shifu.admin_dtos_users",
+            "AdminOperationUserSummaryDTO",
+            "created_at",
+        ),
+    ],
+)
+def test_pydantic_datetime_fields_keep_runtime_imports(
+    module_name: str,
+    model_name: str,
+    field_name: str,
+) -> None:
+    """Keep Pydantic field types available while each model class is built."""
+    module = importlib.import_module(module_name)
+    model = getattr(module, model_name)
+
+    assert module.datetime is datetime
+    annotation = model.model_fields[field_name].annotation
+    assert annotation is datetime or datetime in get_args(annotation)

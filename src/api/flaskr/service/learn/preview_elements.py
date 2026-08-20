@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Generator
+from typing import TYPE_CHECKING
 
 from flask import Flask
 from flaskr.service.learn.learn_dtos import (
@@ -13,6 +13,9 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.service.learn.listen_element_run_state import BlockMeta
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class PreviewElementRunAdapter(ListenElementRunAdapter):

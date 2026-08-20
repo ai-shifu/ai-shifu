@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -15,6 +14,9 @@ except ModuleNotFoundError:  # pragma: no cover
 
 from flaskr.service.common.models import raise_error, raise_error_with_args
 from flaskr.service.config import get_config
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 OSS_PROFILE_DEFAULT = "default"
 OSS_PROFILE_COURSES = "courses"
