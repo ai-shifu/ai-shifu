@@ -388,7 +388,7 @@ def _validate_price_metadata_warnings(
     for key, expected_value in (
         ("product_code", str(product.product_code or "").strip()),
         ("credit_amount", _format_metadata_decimal(product.credit_amount)),
-        ("billing_interval", _billing_interval_label(product.billing_interval)),
+        ("billing_interval", _expected_price_billing_interval_metadata(product)),
     ):
         _validate_metadata_warning(
             warnings,
@@ -462,6 +462,12 @@ def _expected_plan_tier_metadata(product: BillingProduct) -> str:
 
 def _product_type_label(value: Any) -> str:
     return BILLING_PRODUCT_TYPE_LABELS.get(int(value or 0), "")
+
+
+def _expected_price_billing_interval_metadata(product: BillingProduct) -> str:
+    if int(product.product_type or 0) == BILLING_PRODUCT_TYPE_TOPUP:
+        return "one_time"
+    return _billing_interval_label(product.billing_interval)
 
 
 def _billing_interval_label(value: Any) -> str:

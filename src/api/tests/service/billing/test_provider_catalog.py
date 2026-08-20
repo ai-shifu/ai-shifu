@@ -277,7 +277,7 @@ def test_topup_provider_price_mapping_accepts_matching_one_time_price() -> None:
         price_metadata={
             "product_code": "creator-global-topup-1000",
             "credit_amount": "1000",
-            "billing_interval": "none",
+            "billing_interval": "one_time",
         },
     )
 
@@ -285,6 +285,38 @@ def test_topup_provider_price_mapping_accepts_matching_one_time_price() -> None:
 
     assert result.valid is True
     assert result.errors == []
+
+
+@pytest.mark.parametrize(
+    ("product_code", "credit_amount"),
+    [
+        ("creator-global-credits-250", 250),
+        ("creator-global-credits-3000", 3000),
+    ],
+)
+def test_topup_provider_price_mapping_accepts_credit_pack_metadata_contract(
+    product_code,
+    credit_amount,
+) -> None:
+    product = _topup_product(product_code=product_code, credit_amount=credit_amount)
+    snapshot = _snapshot(
+        price_type="one_time",
+        recurring_interval="",
+        recurring_interval_count=0,
+        unit_amount=1900,
+        product_metadata={"market": "global", "product_type": "topup"},
+        price_metadata={
+            "product_code": product_code,
+            "credit_amount": str(credit_amount),
+            "billing_interval": "one_time",
+        },
+    )
+
+    result = _validate(product, snapshot)
+
+    assert result.valid is True
+    assert result.errors == []
+    assert result.warnings == []
 
 
 @pytest.mark.parametrize(
