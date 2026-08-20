@@ -351,6 +351,26 @@ plan's progress update for that rule.
   `sunner/ruff-n815` to the RUF001 branch after all local gates passed.
 - [ ] Merge or retarget N815 PR #2595 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 06:20 CST: Prepared the N803 stage on
+  `sunner/ruff-n803`, stacked on N815. Ignoring suppressions exposed exactly one
+  repository-wide finding: the `UserToken` constructor copied the camelCase
+  serialized field name into its Python parameter.
+- [x] 2026-08-21 06:20 CST: Renamed the constructor argument to `user_info`,
+  updated all five keyword call sites, and removed the only N803 suppression.
+  The annotated `userInfo` attribute and JSON/Swagger field remain unchanged.
+- [x] 2026-08-21 06:20 CST: The isolated N803 scan with `--ignore-noqa` is
+  clean, no camelCase `UserToken` keyword caller remains, and 72 focused shared
+  DTO and authentication-flow tests pass. The stable `ALL` census remains
+  exactly 28,202 findings across 28 rules with no debt transfer.
+- [x] 2026-08-21 06:21 CST: The wider user-service and shared DTO suites pass
+  266 tests, covering every authentication provider and account-flow consumer
+  of the constructor.
+- [x] 2026-08-21 06:24 CST: The full backend suite passes 3,020 tests with 17
+  skips. Translation checks, collaboration and knowledge generators, repository
+  harness, architecture boundaries, development-tool validation, configured
+  Ruff, and format also pass.
+- [x] 2026-08-21 06:25 CST: Every repository pre-commit hook passes on the
+  N803 tip.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -458,6 +478,10 @@ plan's progress update for that rule.
   name drives both `UserToken` JSON and its generated Swagger schema. Pydantic
   aliases preserve all 26 runtime-config wire keys without sacrificing Python
   naming, so the final exception can be one field rather than two files.
+- N803 did not share N815's wire constraint. A constructor parameter is an
+  internal Python API even when it is assigned to a camelCase serialized
+  attribute, so renaming the parameter and keyword callers removes the
+  suppression without changing JSON, Swagger, or positional callers.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent

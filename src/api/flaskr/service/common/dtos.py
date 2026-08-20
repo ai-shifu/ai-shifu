@@ -91,9 +91,9 @@ class UserToken:
     userInfo: UserInfo  # noqa: N815 - exact serialized and Swagger field name
     token: str
 
-    def __init__(self, userInfo: UserInfo, token) -> None:  # noqa: N803 - mirrors the serialized field name
+    def __init__(self, user_info: UserInfo, token) -> None:
         """Pair serialized user information with its access token."""
-        self.userInfo = userInfo
+        self.userInfo = user_info
         self.token = token
 
     def __json__(self) -> dict:

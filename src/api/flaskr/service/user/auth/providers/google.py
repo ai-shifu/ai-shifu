@@ -391,7 +391,7 @@ class GoogleAuthProvider(AuthProvider):
                 raise RuntimeError(message)
             user_dto = build_user_info_from_aggregate(refreshed)
             token_value = generate_token(app, refreshed.user_bid)
-            user_token = UserToken(userInfo=user_dto, token=token_value)
+            user_token = UserToken(user_info=user_dto, token=token_value)
             snapshot = build_user_profile_snapshot_from_aggregate(refreshed)
 
         return AuthResult(
