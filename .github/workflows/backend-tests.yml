@@ -68,8 +68,8 @@ jobs:
           key: testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}-${{ steps.testmon-cache.outputs.current-sha }}
           restore-keys: |
             testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}-${{ steps.testmon-cache.outputs.previous-sha }}
-            testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}
-            testmon-${{ runner.os }}-py311-main-main-${{ hashFiles('src/api/requirements.txt') }}
+            testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}-
+            testmon-${{ runner.os }}-py311-main-main-${{ hashFiles('src/api/requirements.txt') }}-
             testmon-${{ runner.os }}-py311-main-
             testmon-${{ runner.os }}-py311-
 
