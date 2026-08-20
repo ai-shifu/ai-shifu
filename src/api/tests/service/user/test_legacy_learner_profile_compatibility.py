@@ -1,3 +1,5 @@
+"""Verify legacy learner profile compatibility behavior."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

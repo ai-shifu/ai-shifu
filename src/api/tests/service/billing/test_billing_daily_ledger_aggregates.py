@@ -1,3 +1,5 @@
+"""Verify billing daily ledger aggregates behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime

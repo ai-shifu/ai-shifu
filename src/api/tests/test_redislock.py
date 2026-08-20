@@ -1,3 +1,6 @@
+"""Verify Redis-guarded work runs only with a configured client."""
+
+
 def test_run_with_redis_executes_once(app, monkeypatch):
     from flaskr import dao
 

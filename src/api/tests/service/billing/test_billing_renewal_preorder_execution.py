@@ -1,3 +1,5 @@
+"""Verify billing renewal preorder execution behavior."""
+
 from __future__ import annotations
 
 from datetime import timedelta

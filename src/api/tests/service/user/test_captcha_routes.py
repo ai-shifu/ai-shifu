@@ -1,3 +1,5 @@
+"""Verify captcha HTTP route behavior."""
+
 import base64
 import json
 from io import BytesIO

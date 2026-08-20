@@ -1,3 +1,5 @@
+"""Verify course access grants, revocation, and teacher promotion."""
+
 import contextlib
 import json
 from decimal import Decimal

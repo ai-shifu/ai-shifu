@@ -1,3 +1,5 @@
+"""Verify listen elements legacy record behavior."""
+
 from flask import Flask
 from flaskr import dao
 

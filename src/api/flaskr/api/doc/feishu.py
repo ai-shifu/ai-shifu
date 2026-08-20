@@ -1,3 +1,5 @@
+"""Send document notifications through Feishu."""
+
 import json
 
 import requests

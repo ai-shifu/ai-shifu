@@ -1,3 +1,5 @@
+"""Verify admin operation datetime filters behavior."""
+
 from datetime import datetime
 
 from flaskr.service.shifu.admin_operations.route import _parse_datetime_filter

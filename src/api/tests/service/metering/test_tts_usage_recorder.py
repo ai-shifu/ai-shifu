@@ -1,3 +1,5 @@
+"""Verify TTS usage recorder behavior."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

@@ -1,3 +1,5 @@
+"""Verify ask config HTTP route behavior."""
+
 from types import SimpleNamespace
 
 

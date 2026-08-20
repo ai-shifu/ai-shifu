@@ -1,3 +1,5 @@
+"""Verify Google sign-in preserves account trust and paid state."""
+
 import uuid
 
 import flaskr.common.config as common_config

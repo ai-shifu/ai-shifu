@@ -1,3 +1,5 @@
+"""Verify listen elements behavior."""
+
 import json
 import time
 import types

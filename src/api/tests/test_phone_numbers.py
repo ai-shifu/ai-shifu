@@ -1,3 +1,5 @@
+"""Verify Chinese phone-number normalization and SMS eligibility."""
+
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
     normalize_phone_identifier,

@@ -1,3 +1,5 @@
+"""Provide structured debug output for backend tests."""
+
 import pprint
 from typing import Any
 

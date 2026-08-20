@@ -1,3 +1,5 @@
+"""Verify billing renewal expire activation behavior."""
+
 from __future__ import annotations
 
 from datetime import timedelta

@@ -1,3 +1,5 @@
+"""Handle TTS preview for course authoring."""
+
 from __future__ import annotations
 
 import base64

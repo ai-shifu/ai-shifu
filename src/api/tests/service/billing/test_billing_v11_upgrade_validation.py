@@ -1,3 +1,5 @@
+"""Verify billing v11 upgrade validation behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta

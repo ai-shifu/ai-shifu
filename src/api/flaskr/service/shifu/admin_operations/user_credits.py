@@ -1,3 +1,5 @@
+"""Handle user credits for course-administration operations."""
+
 from __future__ import annotations
 
 from decimal import Decimal

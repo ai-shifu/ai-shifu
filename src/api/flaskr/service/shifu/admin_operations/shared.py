@@ -1,3 +1,5 @@
+"""Provide shared helpers for course-administration operations."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime

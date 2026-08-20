@@ -1,3 +1,5 @@
+"""Verify listen element history subtitles behavior."""
+
 from flask import Flask
 from flaskr import dao
 

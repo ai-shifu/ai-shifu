@@ -1,3 +1,5 @@
+"""Create request-scoped observability metadata."""
+
 from __future__ import annotations
 
 import time

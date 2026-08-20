@@ -1,3 +1,5 @@
+"""Optimize learner profiles through the shared LLM wrapper."""
+
 from __future__ import annotations
 
 import json

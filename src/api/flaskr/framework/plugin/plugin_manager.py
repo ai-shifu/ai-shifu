@@ -1,3 +1,5 @@
+"""Coordinate Flask plugin registration and lifecycle."""
+
 from functools import wraps
 
 from flask import Flask

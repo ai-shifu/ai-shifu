@@ -1,3 +1,5 @@
+"""Verify admin ops state behavior."""
+
 from flaskr import dao
 from flaskr.service.billing import admin_ops_state
 

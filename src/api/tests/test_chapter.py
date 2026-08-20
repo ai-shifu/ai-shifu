@@ -1,3 +1,5 @@
+"""Verify preview outline trees preserve draft structure."""
+
 from flaskr.dao import db
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftStruct
 from flaskr.service.shifu.shifu_history_manager import HistoryItem

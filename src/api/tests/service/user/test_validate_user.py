@@ -1,3 +1,5 @@
+"""Verify validate user behavior."""
+
 import jwt
 import pytest
 from flask import Flask

@@ -1,3 +1,5 @@
+"""Verify WeChat public-account charges select the Ping++ channel."""
+
 from decimal import Decimal
 from types import SimpleNamespace
 

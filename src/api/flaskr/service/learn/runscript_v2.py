@@ -1,3 +1,5 @@
+"""Execute learning sessions and stream their results."""
+
 import contextlib
 import json
 import queue

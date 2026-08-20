@@ -1,3 +1,5 @@
+"""Protect course data-transfer serialization contracts."""
+
 from flaskr.service.shifu.consts import STATUS_PUBLISHED
 from flaskr.service.shifu.dtos import ShifuDto
 

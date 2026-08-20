@@ -1,3 +1,5 @@
+"""Verify preview authorization behavior."""
+
 import json
 from decimal import Decimal
 from types import SimpleNamespace

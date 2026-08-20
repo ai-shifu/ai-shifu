@@ -1,3 +1,5 @@
+"""Reload plugin modules during development."""
+
 import importlib
 import time
 

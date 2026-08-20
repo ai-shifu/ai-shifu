@@ -1,3 +1,5 @@
+"""Integrate Langfuse tracing and prompt retrieval."""
+
 import ast
 import contextlib
 import json

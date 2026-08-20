@@ -1,3 +1,5 @@
+"""Verify profile HTTP route behavior."""
+
 from types import SimpleNamespace
 
 import flaskr.service.config.funcs as config_funcs

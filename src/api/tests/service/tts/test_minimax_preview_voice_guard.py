@@ -1,3 +1,5 @@
+"""Verify MiniMax preview voice guard behavior."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

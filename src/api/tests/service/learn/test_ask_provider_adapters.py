@@ -1,3 +1,5 @@
+"""Verify ask provider adapter behavior."""
+
 import types
 
 import pytest

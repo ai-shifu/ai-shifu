@@ -1,3 +1,6 @@
+"""Verify prompt variables resolve without mutating learner profiles."""
+
+
 def test_fmt_prompt_replaces_known_variables(app, monkeypatch):
     from flaskr.service.learn import utils_v2
 

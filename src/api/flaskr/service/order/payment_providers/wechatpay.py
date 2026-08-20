@@ -1,3 +1,5 @@
+"""Integrate WeChat Pay payments with legacy orders."""
+
 from __future__ import annotations
 
 import base64

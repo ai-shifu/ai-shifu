@@ -1,3 +1,5 @@
+"""Verify admin credit notifications behavior."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

@@ -218,10 +218,9 @@ select = [
 ]
 ignore = [
     "E501",    # line length is owned by the formatter
-    # D1xx (except D104, D105 and D107, which are enforced): ~4.5k undocumented
-    # modules, classes, methods and functions. Writing them is a codebase
+    # D1xx (except D100, D104, D105 and D107, which are enforced): ~4.1k
+    # undocumented classes, methods and functions. Writing them is a codebase
     # project, not a lint config change.
-    "D100",    # undocumented public module
     "D101",    # undocumented public class
     "D102",    # undocumented public method
     "D103",    # undocumented public function

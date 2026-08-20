@@ -1,3 +1,5 @@
+"""Handle payment channel resolution for legacy orders."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

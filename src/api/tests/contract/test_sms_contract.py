@@ -1,3 +1,5 @@
+"""Protect Aliyun SMS request and error-handling contracts."""
+
 import logging
 from types import SimpleNamespace
 
