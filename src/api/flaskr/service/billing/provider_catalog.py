@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from flask import Flask
@@ -10,15 +11,17 @@ from flaskr.service.common.stripe_client import get_stripe_client_options
 
 from .consts import (
     BILLING_INTERVAL_DAY,
+    BILLING_INTERVAL_LABELS,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_NONE,
     BILLING_INTERVAL_YEAR,
     BILLING_MODE_ONE_TIME,
     BILLING_MODE_RECURRING,
+    BILLING_PRODUCT_TYPE_LABELS,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
 )
-from .primitives import normalize_bid
+from .primitives import normalize_bid, to_decimal
 
 if TYPE_CHECKING:
     from .models import BillingProduct
@@ -250,20 +253,8 @@ def validate_provider_price_mapping(
             )
         )
 
-    _validate_metadata_warning(
-        warnings,
-        snapshot.product.metadata,
-        expected_key="product_code",
-        expected_value=str(product.product_code or "").strip(),
-        issue_code="product_metadata_product_code_mismatch",
-    )
-    _validate_metadata_warning(
-        warnings,
-        snapshot.price.metadata,
-        expected_key="product_bid",
-        expected_value=str(product.product_bid or "").strip(),
-        issue_code="price_metadata_product_bid_mismatch",
-    )
+    _validate_product_metadata_warnings(product, snapshot.product.metadata, warnings)
+    _validate_price_metadata_warnings(product, snapshot.price.metadata, warnings)
 
     return ProviderPriceMappingValidationResult(
         valid=not errors,
@@ -340,6 +331,24 @@ def _validate_topup_price(
                 actual=str(int(product.billing_mode or 0)),
             )
         )
+    if int(product.billing_interval or 0) != BILLING_INTERVAL_NONE:
+        errors.append(
+            ProviderCatalogValidationIssue(
+                code="local_topup_billing_interval_invalid",
+                message="Topup products must not use a recurring billing interval",
+                expected=str(BILLING_INTERVAL_NONE),
+                actual=str(int(product.billing_interval or 0)),
+            )
+        )
+    if int(product.billing_interval_count or 0) != 0:
+        errors.append(
+            ProviderCatalogValidationIssue(
+                code="local_topup_billing_interval_count_invalid",
+                message="Topup products must use a zero billing interval count",
+                expected="0",
+                actual=str(int(product.billing_interval_count or 0)),
+            )
+        )
     if price.price_type != "one_time":
         errors.append(
             ProviderCatalogValidationIssue(
@@ -351,6 +360,46 @@ def _validate_topup_price(
         )
 
 
+def _validate_product_metadata_warnings(
+    product: BillingProduct,
+    metadata: dict[str, Any],
+    warnings: list[ProviderCatalogValidationIssue],
+) -> None:
+    for key, expected_value in (
+        ("market", _expected_market_metadata(product)),
+        ("plan_tier", _expected_plan_tier_metadata(product)),
+        ("product_type", _product_type_label(product.product_type)),
+    ):
+        _validate_metadata_warning(
+            warnings,
+            metadata,
+            expected_key=key,
+            expected_value=expected_value,
+            issue_code=f"product_metadata_{key}_mismatch",
+            missing_issue_code=f"product_metadata_{key}_missing",
+        )
+
+
+def _validate_price_metadata_warnings(
+    product: BillingProduct,
+    metadata: dict[str, Any],
+    warnings: list[ProviderCatalogValidationIssue],
+) -> None:
+    for key, expected_value in (
+        ("product_code", str(product.product_code or "").strip()),
+        ("credit_amount", _format_metadata_decimal(product.credit_amount)),
+        ("billing_interval", _billing_interval_label(product.billing_interval)),
+    ):
+        _validate_metadata_warning(
+            warnings,
+            metadata,
+            expected_key=key,
+            expected_value=expected_value,
+            issue_code=f"price_metadata_{key}_mismatch",
+            missing_issue_code=f"price_metadata_{key}_missing",
+        )
+
+
 def _validate_metadata_warning(
     warnings: list[ProviderCatalogValidationIssue],
     metadata: dict[str, Any],
@@ -358,18 +407,87 @@ def _validate_metadata_warning(
     expected_key: str,
     expected_value: str,
     issue_code: str,
+    missing_issue_code: str,
 ) -> None:
-    actual_value = str(metadata.get(expected_key) or "").strip()
-    if not expected_value or not actual_value or actual_value == expected_value:
+    normalized_expected = str(expected_value or "").strip()
+    if not normalized_expected:
+        return
+    actual = metadata.get(expected_key)
+    actual_value = _normalize_metadata_compare_value(actual)
+    if not actual_value:
+        warnings.append(
+            ProviderCatalogValidationIssue(
+                code=missing_issue_code,
+                message="Stripe metadata is missing an expected local product value",
+                expected=normalized_expected,
+                actual="",
+            )
+        )
+        return
+    if actual_value == normalized_expected:
         return
     warnings.append(
         ProviderCatalogValidationIssue(
             code=issue_code,
             message="Stripe metadata does not match the local product",
-            expected=expected_value,
+            expected=normalized_expected,
             actual=actual_value,
         )
     )
+
+
+def _expected_market_metadata(product: BillingProduct) -> str:
+    metadata = product.metadata_json if isinstance(product.metadata_json, dict) else {}
+    explicit_market = str(metadata.get("market") or "").strip()
+    if explicit_market:
+        return explicit_market
+    parts = str(product.product_code or "").strip().split("-")
+    return parts[1] if len(parts) >= 3 and parts[0] == "creator" else ""
+
+
+def _expected_plan_tier_metadata(product: BillingProduct) -> str:
+    if int(product.product_type or 0) != BILLING_PRODUCT_TYPE_PLAN:
+        return ""
+    metadata = product.metadata_json if isinstance(product.metadata_json, dict) else {}
+    for key in ("stripe_plan_tier", "plan_tier_code"):
+        explicit_tier = str(metadata.get(key) or "").strip()
+        if explicit_tier:
+            return explicit_tier
+    parts = str(product.product_code or "").strip().split("-")
+    if len(parts) >= 4 and parts[0] == "creator":
+        return parts[2]
+    raw_tier = metadata.get("plan_tier")
+    return str(raw_tier or "").strip()
+
+
+def _product_type_label(value: Any) -> str:
+    return BILLING_PRODUCT_TYPE_LABELS.get(int(value or 0), "")
+
+
+def _billing_interval_label(value: Any) -> str:
+    return BILLING_INTERVAL_LABELS.get(int(value or BILLING_INTERVAL_NONE), "")
+
+
+def _format_metadata_decimal(value: Any) -> str:
+    try:
+        normalized = to_decimal(value)
+    except (InvalidOperation, ValueError):
+        return str(value or "").strip()
+    if normalized == normalized.to_integral_value():
+        return str(int(normalized))
+    return format(normalized.normalize(), "f").rstrip("0").rstrip(".")
+
+
+def _normalize_metadata_compare_value(value: Any) -> str:
+    if isinstance(value, Decimal):
+        return _format_metadata_decimal(value)
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        return _format_metadata_decimal(text)
+    except Exception:
+        return text
 
 
 def _append_mismatch(

@@ -4,6 +4,7 @@ import pytest
 from flaskr.service.billing.consts import (
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_NONE,
+    BILLING_INTERVAL_YEAR,
     BILLING_MODE_ONE_TIME,
     BILLING_MODE_RECURRING,
     BILLING_PRODUCT_STATUS_ACTIVE,
@@ -52,7 +53,11 @@ class _FakeStripe:
                 "id": "prod_growth",
                 "active": True,
                 "livemode": False,
-                "metadata": {"product_code": "creator-global-growth-monthly"},
+                "metadata": {
+                    "market": "global",
+                    "plan_tier": "growth",
+                    "product_type": "plan",
+                },
             }
         )
         self.Price = _FakeStripeResource(
@@ -69,7 +74,11 @@ class _FakeStripe:
                     "interval_count": 1,
                     "usage_type": "licensed",
                 },
-                "metadata": {"product_bid": "bill-product-growth-month"},
+                "metadata": {
+                    "product_code": "creator-global-growth-monthly",
+                    "credit_amount": "1000",
+                    "billing_interval": "month",
+                },
             }
         )
 
@@ -103,6 +112,7 @@ def _plan_product(**overrides) -> BillingProduct:
         "billing_interval_count": 1,
         "currency": "USD",
         "price_amount": 5900,
+        "credit_amount": 1000,
         "status": BILLING_PRODUCT_STATUS_ACTIVE,
     }
     values.update(overrides)
@@ -119,6 +129,7 @@ def _topup_product(**overrides) -> BillingProduct:
         "billing_interval_count": 0,
         "currency": "USD",
         "price_amount": 1900,
+        "credit_amount": 1000,
         "status": BILLING_PRODUCT_STATUS_ACTIVE,
     }
     values.update(overrides)
@@ -152,7 +163,11 @@ def _snapshot(
         "livemode": livemode,
         "metadata": product_metadata
         if product_metadata is not None
-        else {"product_code": "creator-global-growth-monthly"},
+        else {
+            "market": "global",
+            "plan_tier": "growth",
+            "product_type": "plan",
+        },
     }
     fake.Price.payload = {
         "id": price_id,
@@ -171,7 +186,11 @@ def _snapshot(
         else None,
         "metadata": price_metadata
         if price_metadata is not None
-        else {"product_bid": "bill-product-growth-month"},
+        else {
+            "product_code": "creator-global-growth-monthly",
+            "credit_amount": "1000",
+            "billing_interval": "month",
+        },
     }
     with config_overrides({"STRIPE_SECRET_KEY": "sk_test_secret"}):
         return _FakeStripeAdapter(fake).retrieve_mapping_snapshot(
@@ -254,8 +273,12 @@ def test_topup_provider_price_mapping_accepts_matching_one_time_price() -> None:
         product_id="prod_growth",
         price_product_id="prod_growth",
         price_id="price_growth_month",
-        product_metadata={"product_code": "creator-global-topup-1000"},
-        price_metadata={"product_bid": "bill-product-topup-1000"},
+        product_metadata={"market": "global", "product_type": "topup"},
+        price_metadata={
+            "product_code": "creator-global-topup-1000",
+            "credit_amount": "1000",
+            "billing_interval": "none",
+        },
     )
 
     result = _validate(product, snapshot)
@@ -340,18 +363,104 @@ def test_topup_provider_price_mapping_rejects_recurring_price() -> None:
     assert "topup_requires_one_time_price" in {issue.code for issue in result.errors}
 
 
+def test_topup_provider_price_mapping_rejects_local_recurring_interval() -> None:
+    result = _validate(
+        _topup_product(billing_interval=BILLING_INTERVAL_MONTH),
+        _snapshot(price_type="one_time", unit_amount=1900),
+    )
+
+    assert result.valid is False
+    assert "local_topup_billing_interval_invalid" in {
+        issue.code for issue in result.errors
+    }
+
+
+def test_topup_provider_price_mapping_rejects_local_interval_count() -> None:
+    result = _validate(
+        _topup_product(billing_interval_count=1),
+        _snapshot(price_type="one_time", unit_amount=1900),
+    )
+
+    assert result.valid is False
+    assert "local_topup_billing_interval_count_invalid" in {
+        issue.code for issue in result.errors
+    }
+
+
+def test_plan_provider_price_mapping_allows_shared_product_with_price_sku_metadata() -> (
+    None
+):
+    product = _plan_product(
+        product_bid="bill-product-growth-year",
+        product_code="creator-global-growth-yearly",
+        billing_interval=BILLING_INTERVAL_YEAR,
+        price_amount=59000,
+        credit_amount=12000,
+    )
+    snapshot = _snapshot(
+        recurring_interval="year",
+        unit_amount=59000,
+        product_metadata={
+            "market": "global",
+            "plan_tier": "growth",
+            "product_type": "plan",
+        },
+        price_metadata={
+            "product_code": "creator-global-growth-yearly",
+            "credit_amount": "12000",
+            "billing_interval": "year",
+        },
+    )
+
+    result = _validate(product, snapshot)
+
+    assert result.valid is True
+    assert result.errors == []
+    assert result.warnings == []
+
+
 def test_provider_price_mapping_reports_metadata_drift_as_warning_only() -> None:
     result = _validate(
         _plan_product(),
         _snapshot(
-            product_metadata={"product_code": "wrong-product-code"},
-            price_metadata={"product_bid": "wrong-product-bid"},
+            product_metadata={
+                "market": "cn",
+                "plan_tier": "studio",
+                "product_type": "topup",
+            },
+            price_metadata={
+                "product_code": "wrong-product-code",
+                "credit_amount": "999",
+                "billing_interval": "year",
+            },
         ),
     )
 
     assert result.valid is True
     assert result.errors == []
     assert {
-        "product_metadata_product_code_mismatch",
-        "price_metadata_product_bid_mismatch",
+        "product_metadata_market_mismatch",
+        "product_metadata_plan_tier_mismatch",
+        "product_metadata_product_type_mismatch",
+        "price_metadata_product_code_mismatch",
+        "price_metadata_credit_amount_mismatch",
+        "price_metadata_billing_interval_mismatch",
+    } == {issue.code for issue in result.warnings}
+
+
+def test_provider_price_mapping_reports_missing_metadata_as_warning_only() -> None:
+    result = _validate(
+        _plan_product(),
+        _snapshot(product_metadata={}, price_metadata={}),
+    )
+
+    assert result.valid is True
+    assert result.errors == []
+    assert {
+        "product_metadata_market_missing",
+        "product_metadata_plan_tier_missing",
+        "product_metadata_product_type_missing",
+        "price_metadata_product_code_missing",
+        "price_metadata_credit_amount_missing",
+        "price_metadata_billing_interval_missing",
     } == {issue.code for issue in result.warnings}
