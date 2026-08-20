@@ -341,9 +341,7 @@ def _stub_preview_pipeline(monkeypatch):
 
 
 def test_preview_stream_close_invalidates_session(monkeypatch) -> None:
-    """A client walking away mid-preview may interrupt the usage-metering DB
-    write; the GeneratorExit handler must discard the session connection.
-    """
+    """A client walking away mid-preview may interrupt the usage-metering DB write; the GeneratorExit handler must discard the session connection."""
     app = Flask(__name__)
     _stub_preview_pipeline(monkeypatch)
 

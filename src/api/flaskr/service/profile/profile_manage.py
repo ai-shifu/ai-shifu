@@ -28,9 +28,7 @@ from .models import (
 
 
 def _collect_used_variables(app: Flask, shifu_bid: str) -> set[str]:
-    """Collect variable names referenced across the latest mdflow content
-    for all draft outline items under a shifu.
-    """
+    """Collect variable names referenced across the latest mdflow content for all draft outline items under a shifu."""
     with app.app_context():
         latest_ids_subquery = (
             db.session.query(

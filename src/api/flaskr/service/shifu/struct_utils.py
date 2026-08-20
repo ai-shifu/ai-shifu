@@ -12,13 +12,15 @@ from flaskr.service.shifu.shifu_history_manager import HistoryItem
 def find_node_with_parents(
     root: HistoryItem, target_bid: str, current_path: list[HistoryItem] | None = None
 ) -> list[HistoryItem] | None:
-    """Find node with parents
+    """Find node with parents.
+
     Args:
         root: Root node
         target_bid: Target bid
         current_path: Current path
     Returns:
         Optional[list[HistoryItem]]: Path to target node.
+
     """
     if current_path is None:
         current_path = []

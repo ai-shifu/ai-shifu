@@ -121,7 +121,8 @@ def get_fmt_prompt(
     *,
     profile_overrides: dict | None = None,
 ) -> str:
-    """Get fmt prompt
+    """Get fmt prompt.
+
     Args:
         app: Flask application instance
         user_id: User id
@@ -131,6 +132,7 @@ def get_fmt_prompt(
         profile_overrides: Request-local profile values that take precedence
     Returns:
         str: Fmt prompt.
+
     """
     app.logger.info("raw prompt: %s", profile_tmplate)
     propmpt_keys = []
