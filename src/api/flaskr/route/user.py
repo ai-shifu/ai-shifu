@@ -3,6 +3,7 @@ from functools import wraps
 
 from flask import Flask, current_app, make_response, request
 
+from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao import db
 from flaskr.i18n import _translations, set_language
@@ -31,6 +32,9 @@ from flaskr.service.profile.onboarding import (
 from flaskr.service.referral.service import extract_referral_post_auth_fields
 from flaskr.service.user.auth import get_provider
 from flaskr.service.user.auth.base import OAuthCallbackRequest, VerificationRequest
+from flaskr.service.user.auth.providers.google import (
+    resolve_state_return_origin,
+)
 from flaskr.service.user.captcha import (
     create_captcha_challenge,
     verify_captcha_code,
@@ -973,6 +977,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/oauth/google", methods=["GET"])
     @bypass_token_validation
+    @optional_token_validation
     def google_oauth_start():
         provider = get_provider("google")
         metadata = {}
@@ -985,12 +990,38 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         ui_language = request.args.get("language")
         if ui_language:
             metadata["language"] = ui_language
+        # Every header here is attacker-controllable — the edge nginx passes
+        # inbound X-Forwarded-* through, and Origin is forwarded unchanged — so
+        # the origin alone cannot decide where the authorization code is sent.
+        # It is paired with the session that started the flow, and the callback
+        # refuses to hand the code back unless the same session presents it.
+        metadata["origin"] = resolve_request_origin()
+        initiator = getattr(request, "user", None)
+        metadata["initiator_user_id"] = str(
+            getattr(initiator, "user_id", "") or ""
+        ).strip()
         result = provider.begin_oauth(app, metadata)
         dto = OAuthStartDTO(
             authorization_url=result["authorization_url"],
             state=result["state"],
         )
         return make_common_response(dto)
+
+    @app.route(path_prefix + "/oauth/google/callback-origin", methods=["GET"])
+    @bypass_token_validation
+    def google_oauth_callback_origin():
+        """Resolve which domain a pending Google login should return to.
+
+        Every domain shares one Google callback, so the page that receives it
+        asks here whether the code belongs to a different domain and should be
+        forwarded there. Returns an empty origin when the login started on this
+        domain or when the recorded origin is no longer allowed.
+        ---
+        tags:
+            - user
+        """
+        origin = resolve_state_return_origin(app, request.args.get("state"))
+        return make_common_response({"origin": origin})
 
     @app.route(path_prefix + "/oauth/google/callback", methods=["GET"])
     @bypass_token_validation
