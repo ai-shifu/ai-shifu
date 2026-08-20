@@ -33,7 +33,6 @@
 #   callbacks, fixtures and test doubles.
 # - TD003 / FIX002: the remaining TODOs have no tracking issue to link, and
 #   inventing one (or downgrading the comment) would hide real pending work.
-# - N815: camelCase DTO attributes encode serialized JSON field names.
 
 # Matches the Python pinned by src/api/Dockerfile and the CI workflows.
 target-version = "py311"
@@ -115,12 +114,15 @@ select = [
     "A001",    # local variable shadowing a builtin
     "A002",    # function argument shadowing a builtin
     "A006",    # lambda argument shadowing a builtin
-    # pep8-naming is partial: N815 stays off (see the header above).
     "N801",    # class name that is not CapWords
     "N806",    # local variable that is not lowercase
     "N802",    # function name that is not lowercase
     "N803",    # argument name that is not lowercase
     "N813",    # CamelCase imported under a lowercase alias
+    # N815 flags mixedCase class attributes. The two DTO modules whose fields
+    # ARE the serialized JSON keys the frontend reads are exempt below, so the
+    # rule still catches accidental camelCase everywhere else.
+    "N815",    # mixedCase variable in class scope
     "N818",    # exception class name without an Error suffix
     "TD002",   # TODO without an author
     # S101 bans `assert` in shipped code (python -O strips it, so an assert is
@@ -254,5 +256,10 @@ ignore = [
 "src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["S608"]
 "src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608"]
 "src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608"]
+# Every field in these two DTOs is serialized verbatim into an API response and
+# read by the frontend under that exact key, so the camelCase spelling is the
+# wire contract, not a naming slip.
+"src/api/flaskr/service/billing/dtos.py" = ["N815"]
+"src/api/flaskr/service/common/dtos.py" = ["N815"]
 "scripts/**" = ["S603", "S607"]
 "src/api/scripts/**" = ["S603", "S607"]
