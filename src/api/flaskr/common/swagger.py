@@ -3,6 +3,8 @@ import inspect
 import typing
 from enum import Enum
 
+from flasgger.base import BR_SANITIZER
+
 swagger_config = {
     "openapi": "3.0.2",
     "info": {"title": "AI Shifu API", "version": "1.0.0"},
@@ -29,6 +31,18 @@ swagger_config = {
         "responseInterceptor": "function(response) { return response; }",
     },
 }
+
+
+def sanitize_swagger_docstring(text: str) -> str:
+    """Preserve Flasgger formatting without inventing blank descriptions.
+
+    D205 requires a blank line after a one-line summary. Flasgger passes that
+    whitespace through its sanitizer and otherwise emits ``<br/>`` as an
+    operation description.
+    """
+    if not text.strip():
+        return ""
+    return BR_SANITIZER(text)
 
 
 def parse_comments(cls):
