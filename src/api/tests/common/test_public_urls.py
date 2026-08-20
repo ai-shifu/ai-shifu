@@ -9,6 +9,7 @@ from flaskr.common.public_urls import (
     build_stripe_billing_result_url,
     build_stripe_learner_result_url,
     build_wechatpay_notify_url,
+    resolve_request_origin,
 )
 
 
@@ -249,3 +250,29 @@ def test_malformed_pinned_google_callback_is_rejected(
 
     with pytest.raises(RuntimeError):
         build_google_oauth_callback_url()
+
+
+class TestResolveRequestOrigin:
+    """The OAuth return origin comes from here, so it must not be caller-driven."""
+
+    def test_a_query_parameter_cannot_nominate_another_domain(self):
+        # The attack this guards: starting a login on one domain while naming
+        # another customer's verified domain as where to hand the code back.
+        app = Flask(__name__)
+        with app.test_request_context(
+            "/api/user/oauth/google?origin=https://other-customer.example",
+            headers={"Origin": "https://learn.customer.example"},
+        ):
+            assert resolve_request_origin() == "https://learn.customer.example"
+
+    def test_falls_back_to_the_forwarded_host(self):
+        # Same-origin calls send no Origin header; the ingress sets these.
+        app = Flask(__name__)
+        with app.test_request_context(
+            "/api/user/oauth/google?origin=https://other-customer.example",
+            headers={
+                "X-Forwarded-Proto": "https",
+                "X-Forwarded-Host": "learn.customer.example",
+            },
+        ):
+            assert resolve_request_origin() == "https://learn.customer.example"

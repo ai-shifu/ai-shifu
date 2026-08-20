@@ -3,6 +3,7 @@ from functools import wraps
 
 from flask import Flask, current_app, make_response, request
 
+from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao import db
 from flaskr.i18n import _translations, set_language
@@ -988,9 +989,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         ui_language = request.args.get("language")
         if ui_language:
             metadata["language"] = ui_language
-        origin = request.args.get("origin") or request.headers.get("Origin")
-        if origin:
-            metadata["origin"] = origin
+        # Derived from the request, never from a caller-supplied parameter: a
+        # query value would let one login nominate a different customer's
+        # verified domain as the place to hand the authorization code back to.
+        metadata["origin"] = resolve_request_origin()
         result = provider.begin_oauth(app, metadata)
         dto = OAuthStartDTO(
             authorization_url=result["authorization_url"],

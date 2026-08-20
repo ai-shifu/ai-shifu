@@ -903,6 +903,19 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         secret=True,
         group="auth",
     ),
+    "GOOGLE_OAUTH_REDIRECT_URI": EnvVar(
+        name="GOOGLE_OAUTH_REDIRECT_URI",
+        default="",
+        description=(
+            "Shared Google OAuth callback URL for every domain this deployment "
+            "serves. Google does not accept wildcards in a client's authorized "
+            "redirect URIs, so pinning one callback here keeps white-label "
+            "domains from each needing their own entry; the browser is handed "
+            "back to the domain it started from afterwards. Leave empty to "
+            "derive the callback from the requested origin."
+        ),
+        group="auth",
+    ),
     "GOOGLE_OAUTH_TOKEN_ENDPOINT": EnvVar(
         name="GOOGLE_OAUTH_TOKEN_ENDPOINT",
         default="https://oauth2.googleapis.com/token",

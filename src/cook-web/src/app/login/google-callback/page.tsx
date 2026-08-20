@@ -42,7 +42,9 @@ export default function GoogleCallbackPage() {
             if (redirect) {
               forwardUrl.searchParams.set('redirect', redirect);
             }
-            console.info('[Google OAuth] forwarding to', forwardUrl.toString());
+            // Log the origin only: the URL carries the authorization code
+            // and the signed state.
+            console.info('[Google OAuth] forwarding to', forwardOrigin);
             window.location.replace(forwardUrl.toString());
             return;
           }

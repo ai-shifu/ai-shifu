@@ -88,6 +88,16 @@ def _api_path(path: str) -> str:
     return f"{prefix}{_normalize_path(path)}"
 
 
+def resolve_request_origin() -> str:
+    """Return the origin this request actually arrived on.
+
+    Reads the Origin header and the proxy's X-Forwarded-* headers, which the
+    browser and ingress control, so a caller cannot nominate someone else's
+    domain.
+    """
+    return _request_origin()
+
+
 def _request_origin() -> str:
     if not has_request_context():
         return ""

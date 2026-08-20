@@ -104,6 +104,59 @@ class TestIsAllowedOAuthOrigin:
         )
 
 
+class TestNormalizeOrigin:
+    """Only the hostname is checked downstream, so nothing else may survive."""
+
+    def test_bare_origin_is_kept(self) -> None:
+        assert oauth_origins.normalize_origin(CUSTOM_ORIGIN) == CUSTOM_ORIGIN
+
+    def test_explicit_default_port_is_dropped(self) -> None:
+        # Must equal the browser's window.location.origin, or the callback page
+        # would forward to a URL it considers different and loop.
+        assert oauth_origins.normalize_origin(f"{CUSTOM_ORIGIN}:443") == CUSTOM_ORIGIN
+        assert (
+            oauth_origins.normalize_origin(f"http://{CUSTOM_DOMAIN}:80")
+            == f"http://{CUSTOM_DOMAIN}"
+        )
+
+    def test_non_default_port_is_refused(self) -> None:
+        assert oauth_origins.normalize_origin(f"{CUSTOM_ORIGIN}:8443") == ""
+
+    def test_userinfo_is_refused(self) -> None:
+        assert oauth_origins.normalize_origin(f"https://evil@{CUSTOM_DOMAIN}") == ""
+        assert (
+            oauth_origins.normalize_origin(f"https://user:pass@{CUSTOM_DOMAIN}:8443")
+            == ""
+        )
+
+    def test_malformed_port_is_refused(self) -> None:
+        assert oauth_origins.normalize_origin(f"{CUSTOM_ORIGIN}:notaport") == ""
+
+
+class TestPortAndUserinfoAreNotServedDomains:
+    """The hostname check must not be reachable with a decorated origin."""
+
+    @pytest.mark.usefixtures("_verified_custom_domain")
+    def test_non_default_port_on_a_verified_domain_is_refused(self, app) -> None:
+        assert (
+            oauth_origins.is_allowed_oauth_origin(app, f"{CUSTOM_ORIGIN}:8443") is False
+        )
+
+    @pytest.mark.usefixtures("_verified_custom_domain")
+    def test_userinfo_on_a_verified_domain_is_refused(self, app) -> None:
+        assert (
+            oauth_origins.is_allowed_oauth_origin(app, f"https://evil@{CUSTOM_DOMAIN}")
+            is False
+        )
+
+    @pytest.mark.usefixtures("_verified_custom_domain")
+    def test_explicit_default_port_still_resolves(self, app) -> None:
+        assert (
+            oauth_origins.resolve_oauth_return_origin(app, f"{CUSTOM_ORIGIN}:443")
+            == CUSTOM_ORIGIN
+        )
+
+
 class TestResolveStateReturnOrigin:
     @pytest.mark.usefixtures("_verified_custom_domain")
     def test_returns_the_recorded_origin(self, app) -> None:

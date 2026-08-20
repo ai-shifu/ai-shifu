@@ -19,16 +19,39 @@ from flaskr.common.public_urls import (
     resolve_public_origin,
 )
 
+DEFAULT_PORTS = {"http": 80, "https": 443}
+
 
 def normalize_origin(value: Any) -> str:
-    """Reduce a URL to a bare ``scheme://host[:port]`` origin, or "" if unusable."""
+    """Reduce a URL to a bare ``scheme://host`` origin, or "" if unusable.
+
+    Credentials and non-default ports are refused rather than carried through:
+    only the hostname is checked against our custom domains, so keeping either
+    would let ``https://someone@customer.example:8443`` pass that check and then
+    be handed the authorization code. An explicit default port is dropped so the
+    result compares equal to the browser's own ``window.location.origin``.
+    """
     raw_value = str(value or "").strip().rstrip("/")
     if not raw_value:
         return ""
-    parsed = urlsplit(raw_value)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    try:
+        parsed = urlsplit(raw_value)
+    except ValueError:
         return ""
-    return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
+    if parsed.scheme not in {"http", "https"}:
+        return ""
+    if parsed.username or parsed.password:
+        return ""
+    try:
+        port = parsed.port
+    except ValueError:
+        return ""
+    if port is not None and port != DEFAULT_PORTS[parsed.scheme]:
+        return ""
+    hostname = parsed.hostname
+    if not hostname:
+        return ""
+    return urlunsplit((parsed.scheme, hostname, "", "", ""))
 
 
 def is_allowed_oauth_origin(app: Flask, origin: Any) -> bool:
