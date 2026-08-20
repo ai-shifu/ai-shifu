@@ -7,6 +7,7 @@ from flasgger.utils import parse_docstring
 from yaml import YAMLError
 
 API_ROOT = Path(__file__).resolve().parents[2]
+EXPECTED_SWAGGER_DOCSTRING_COUNT = 114
 KNOWN_UNPARSEABLE_SWAGGER_DOCSTRINGS = {
     ("flaskr/service/learn/routes.py", "preview_outline_block_api"),
     ("flaskr/service/learn/routes.py", "run_outline_item_api"),
@@ -57,5 +58,5 @@ def test_all_swagger_docstrings_keep_valid_yaml_after_summary():
         assert isinstance(specification, dict), (path, function_name)
         assert specification, (path, function_name)
 
-    assert discovered
+    assert len(discovered) == EXPECTED_SWAGGER_DOCSTRING_COUNT
     assert unparseable == KNOWN_UNPARSEABLE_SWAGGER_DOCSTRINGS
