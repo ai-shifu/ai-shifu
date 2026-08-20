@@ -643,7 +643,7 @@
     },
     "featuresLabel": "Avantages inclus",
     "footnote": {
-      "intro": "Les sessions apprenant estimées reposent sur l’expérience de la plateforme et utilisent le repère suivant : un apprenant termine une fois un cours d’environ 10 sections, à raison d’environ 15 minutes d’apprentissage normal par section, avec DeepSeek et le mode écoute activé. La facturation réelle dépend de la consommation du modèle pendant l’apprentissage, l’aperçu et le débogage ; le relevé de crédits fait foi. Facteurs influençant la consommation de crédits :",
+      "intro": "Les sessions d’apprentissage estimées reposent sur l’expérience de la plateforme et utilisent la référence “un apprenant termine le cours une fois, avec un cours d’environ 10 sections, une moyenne d’environ 15 minutes d’étude régulière par section, en utilisant le modèle par défaut tout au long du cours et avec le mode écoute activé”. La facturation réelle est calculée à partir de la consommation du modèle pendant l’étude, la prévisualisation et le débogage ; le détail des crédits consommés fait foi. Facteurs influant sur la consommation de crédits :",
       "validity": "Validité des crédits : les crédits mensuels sont valables 30 jours à compter de leur attribution, jour inclus ; les crédits annuels sont valables 12 mois à compter de leur attribution. Les deux expirent à 23 h 59 le dernier jour."
     },
     "learnerEstimateLabel": "Sessions apprenant estimées",
@@ -655,24 +655,24 @@
       "business": {
         "description": "Grandes organisations diffusant des apprentissages personnalisés à grande échelle.",
         "estimates": {
-          "annual": "5 000–15 000 sessions",
-          "monthly": "400–1 200 sessions"
+          "annual": "500–1 500 sessions",
+          "monthly": "40–120 sessions"
         },
         "name": "Business"
       },
       "growth": {
         "description": "Petites et moyennes organisations d’enseignement.",
         "estimates": {
-          "annual": "2 500–7 500 sessions",
-          "monthly": "200–600 sessions"
+          "annual": "250–750 sessions",
+          "monthly": "20–60 sessions"
         },
         "name": "Growth"
       },
       "scale": {
         "description": "Très grandes organisations gérant des programmes d’apprentissage à fort volume.",
         "estimates": {
-          "annual": "11 000–33 000 sessions",
-          "monthly": "900–2 700 sessions"
+          "annual": "1 100–3 300 sessions",
+          "monthly": "90–270 sessions"
         },
         "name": "Scale"
       },
@@ -680,7 +680,7 @@
         "description": "Tester un cours léger ou valider une première expérience d’apprentissage.",
         "estimates": {
           "annual": "Forfait mensuel uniquement",
-          "monthly": "50–150 sessions"
+          "monthly": "5–15 sessions"
         },
         "name": "Studio"
       }
