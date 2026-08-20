@@ -24,7 +24,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.api.tts import (
     AudioSettings,
     VoiceSettings,
@@ -66,6 +65,8 @@ from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from flask import Flask
 
 _AV_LATEX_BLOCK = AV_LATEX_BLOCK
 

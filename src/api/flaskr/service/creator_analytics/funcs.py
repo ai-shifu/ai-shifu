@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.i18n import _
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.shifu.permissions import get_user_shifu_permissions
@@ -13,6 +12,9 @@ from .dsl import parse_dsl
 from .engine import get_analytics_engine, run_query
 from .pii import mask_user_identify, redact_pii
 from .sql_builder import build_statement
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 ERR_NO_PERMISSION = "server.creatorAnalytics.noPermission"
 

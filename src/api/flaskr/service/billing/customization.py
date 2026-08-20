@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass
 from importlib import import_module
 from io import BytesIO
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 from cryptography import x509
@@ -29,7 +29,6 @@ from flaskr.service.config.funcs import get_config
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 from PIL import Image, ImageOps, UnidentifiedImageError
-from werkzeug.datastructures import FileStorage
 
 from .domains import build_creator_domain_bindings
 from .entitlements import (
@@ -38,6 +37,9 @@ from .entitlements import (
     serialize_creator_entitlements,
 )
 from .primitives import normalize_bid
+
+if TYPE_CHECKING:
+    from werkzeug.datastructures import FileStorage
 
 BRANDING_KEY = "CUSTOMIZATION.BRANDING"
 ADMIN_DRAFT_KEY = "CUSTOMIZATION.ADMIN_DRAFT"

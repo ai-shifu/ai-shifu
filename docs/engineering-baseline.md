@@ -388,21 +388,27 @@ visible result. Keep a one-line contract when sufficient, and make test-double
 operators name the fake expression they build. Do not write filler such as
 "Implement `__json__`".
 
-For `TC003`, move a standard-library import into an `if TYPE_CHECKING:` block
-only after confirming every use is an annotation that Python does not need to
-resolve at runtime. Postponed annotations are the normal proof; a local
-variable annotation that is never evaluated is also safe. Keep imports that a
-framework, decorator, function signature without postponed evaluation, or
-explicit runtime reflection resolves while importing the module. Pydantic
-`BaseModel` fields are declared as runtime-evaluated in `ruff.toml`, so their
-field types stay imported normally; do not replace that contract with
-scattered `noqa` comments. When another shared runtime-evaluated base class or
-decorator is introduced, model it centrally in Ruff and add an import or
-schema smoke test. Use a narrow explained suppression only for a one-off
-runtime consumer that Ruff cannot model. Search tests for `monkeypatch`,
-`getattr`, and module-attribute assertions before moving an import: preserve a
-real injection seam, but remove an obsolete patch that never influences the
-code under test instead of keeping a fake runtime dependency.
+For `TC002` and `TC003`, move a third-party or standard-library import into an
+`if TYPE_CHECKING:` block only after confirming every use is an annotation that
+Python does not need to resolve at runtime. Postponed annotations are the
+normal proof; a quoted annotation or a local variable annotation that is never
+evaluated is also safe. An import's source does not prove that it is safe to
+defer: keep imports that provide registration side effects or that a framework,
+decorator, function signature without postponed evaluation, or explicit
+runtime reflection resolves while importing the module. When one import
+statement mixes runtime values with annotation-only types, split the statement
+and move only the type-only names.
+
+Pydantic `BaseModel` fields are declared as runtime-evaluated in `ruff.toml`,
+so both their standard-library and third-party field types stay imported
+normally; do not replace that contract with scattered `noqa` comments. When
+another shared runtime-evaluated base class or decorator is introduced, model
+it centrally in Ruff and add an import or schema smoke test. Use a narrow
+explained suppression only for a one-off runtime consumer that Ruff cannot
+model. Search tests for `monkeypatch`, `getattr`, and module-attribute
+assertions before moving an import: preserve a real injection seam, but remove
+an obsolete patch that never influences the code under test instead of keeping
+a fake runtime dependency.
 
 Adopt or remove exceptions one rule unit at a time. A rule unit is normally
 one Ruff code; combine codes only when they report the same construct and have

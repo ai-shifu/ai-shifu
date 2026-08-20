@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+from typing import TYPE_CHECKING
 
-from flaskr.service.billing.models import CreditUsageRate
 from flaskr.service.common.credit_rate_references import (
     load_llm_credit_1x_unit_cost,
 )
+
+if TYPE_CHECKING:
+    from flaskr.service.billing.models import CreditUsageRate
 
 
 def rate_unit_cost(rate: CreditUsageRate | None) -> Decimal | None:

@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.models import raise_error
 from flaskr.util.datetime import now_utc
 
@@ -21,6 +20,9 @@ from .ownership import resolve_shifu_creator_bid
 from .primitives import is_billing_enabled
 from .primitives import to_decimal as _to_decimal
 from .subscriptions import load_effective_topup_subscription
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _ZERO_CREDITS = Decimal(0)
 

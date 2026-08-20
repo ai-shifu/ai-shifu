@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.billing.api import (
     build_billing_catalog,
@@ -99,6 +98,9 @@ from flaskr.service.shifu.admin_dtos import (
 from flaskr.util.datetime import now_utc
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import aliased
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def grant_operator_user_credits(

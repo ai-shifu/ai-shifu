@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from flask import Flask
+from typing import TYPE_CHECKING
+
 from flaskr.service.user.auth.base import (
     AuthProvider,
     AuthResult,
@@ -17,6 +18,9 @@ from flaskr.service.user.auth.factory import (
 from flaskr.service.user.email_flow import verify_email_code
 from flaskr.service.user.repository import find_credential, load_user_aggregate
 from flaskr.service.user.utils import send_email_code
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 class EmailAuthProvider(AuthProvider):

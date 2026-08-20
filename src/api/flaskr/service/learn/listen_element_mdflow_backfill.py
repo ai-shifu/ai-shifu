@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Any
-
-from flask import Flask
+from typing import TYPE_CHECKING, Any
 
 try:
     from markdown_flow import format_content
@@ -93,6 +91,9 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 SUPPORTED_BLOCK_TYPES = {
     BLOCK_TYPE_MDCONTENT_VALUE,
