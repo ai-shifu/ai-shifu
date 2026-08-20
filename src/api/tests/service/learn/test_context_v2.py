@@ -2620,6 +2620,13 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
     )
     INTERACTION = "?[网络招聘网站 | 猎头公司 | 人才测评 | 培训业务]"
 
+    def test_normalizer_preserves_a_noncanonical_single_key(self) -> None:
+        """Keep old client keys visible instead of silently renaming them."""
+        assert MdflowContextV2.normalize_user_input_map(
+            {"legacy_key": ["Alice"]},
+            default_key="profile_name",
+        ) == {"legacy_key": ["Alice"]}
+
     def _blocks(self, selection):
         return [
             types.SimpleNamespace(
