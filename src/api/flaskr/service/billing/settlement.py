@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.metering.models import BillUsageRecord
@@ -47,6 +46,8 @@ from .wallets import (
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from flask import Flask
 
 _ZERO = Decimal(0)
 _SETTLEMENT_LOCK_TIMEOUT_SECONDS = 60

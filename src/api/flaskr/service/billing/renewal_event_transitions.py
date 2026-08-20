@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
@@ -30,6 +29,8 @@ from .primitives import normalize_mysql_datetime as _normalize_mysql_datetime
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from flask import Flask
 
 MANAGED_RENEWAL_EVENT_TYPES = (
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,

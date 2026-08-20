@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.learn.learn_dtos import (
     BlockType,
@@ -42,6 +41,9 @@ from flaskr.service.learn.listen_slide_builder import (
 )
 from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
 from flaskr.service.tts.pipeline import build_av_segmentation_contract
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 @dataclass

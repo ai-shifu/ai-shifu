@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
@@ -26,6 +25,9 @@ from .queries import add_months as _add_months
 from .queries import add_years as _add_years
 from .queries import load_primary_active_subscription
 from .wallets import grant_manual_credit_wallet_balance
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 MANUAL_CREDIT_GRANT_SOURCE_REWARD = "reward"
 MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION = "compensation"

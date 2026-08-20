@@ -4,7 +4,6 @@ import json
 from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.config.funcs import get_config, update_config
 
@@ -12,6 +11,8 @@ from .primitives import normalize_bid
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from flask import Flask
 
 _ADMIN_OPS_OWNER_BID = "billing-admin-ops"
 _CONFIG_STATUS_KEY = "ADMIN_BILLING.CONFIG_STATUS"

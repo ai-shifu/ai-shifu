@@ -6,7 +6,6 @@ import contextlib
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
@@ -46,6 +45,8 @@ from sqlalchemy import text
 
 if TYPE_CHECKING:
     import datetime
+
+    from flask import Flask
 
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
 

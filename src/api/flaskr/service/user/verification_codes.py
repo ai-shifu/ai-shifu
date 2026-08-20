@@ -10,7 +10,6 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING, Literal
 
-from flask import Flask
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
@@ -21,6 +20,8 @@ from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
     import datetime
+
+    from flask import Flask
 
 CodeKind = Literal["sms", "email"]
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Flask
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def get_app_timezone(app: Flask, tz_name: str | None = None) -> ZoneInfo:

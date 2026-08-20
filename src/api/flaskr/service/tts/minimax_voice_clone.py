@@ -8,11 +8,10 @@ import re
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import requests
-from flask import Flask
 
 try:
     from pydub import AudioSegment
@@ -61,6 +60,9 @@ from flaskr.service.tts.models import (
 )
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 MINIMAX_FILE_UPLOAD_URL = "https://api.minimaxi.com/v1/files/upload"
 MINIMAX_VOICE_CLONE_URL = "https://api.minimaxi.com/v1/voice_clone"

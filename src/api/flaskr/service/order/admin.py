@@ -5,9 +5,8 @@ import re
 from collections import defaultdict
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.dtos import PageNationDTO
@@ -72,6 +71,9 @@ from flaskr.service.user.repository import (
 from flaskr.service.user.utils import ensure_demo_course_permissions
 from flaskr.util.datetime import parse_naive_utc
 from sqlalchemy import case
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 ORDER_STATUS_KEY_MAP = {
     ORDER_STATUS_INIT: "server.order.orderStatusInit",

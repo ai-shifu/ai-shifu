@@ -3,14 +3,16 @@ from __future__ import annotations
 import logging
 import time
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import requests
-from flask import Flask
 
 from flaskr.common.cache_provider import cache
 from flaskr.common.config import get_config
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 UMAMI_CLOUD_API_BASE_URL = "https://api.umami.is/v1"
 UMAMI_ACCESS_TOKEN_CACHE_SUFFIX = "analytics:umami:access-token"  # noqa: S105 - cache key suffix
