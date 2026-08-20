@@ -12,7 +12,7 @@ class FakeRedis:
     Distinguishes acquire (key, max, ttl) from release (key) by arg count.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.counters: dict[str, int] = {}
 
     def eval(self, _script, _numkeys, *args):
@@ -34,7 +34,7 @@ class FakeRedis:
 class ExplodingRedis:
     """Redis stub whose .eval always raises, to exercise the fail-open path."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.calls = 0
 
     def eval(self, *_args, **_kwargs):

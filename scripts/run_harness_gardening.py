@@ -57,7 +57,11 @@ def stale_review_docs() -> list[str]:
                 stale.append(f"{path.relative_to(ROOT)} (missing last_reviewed)")
                 continue
             try:
-                reviewed_date = datetime.strptime(reviewed, "%Y-%m-%d").date()
+                # Repo scripts cannot import `flaskr.util.datetime`; the doc
+                # metadata carries a bare calendar date, so naive is correct.
+                reviewed_date = datetime.strptime(  # noqa: DTZ007
+                    reviewed, "%Y-%m-%d"
+                ).date()
             except ValueError:
                 stale.append(
                     f"{path.relative_to(ROOT)} (invalid last_reviewed={reviewed})"

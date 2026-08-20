@@ -107,7 +107,7 @@ def _server_thread_id(dbapi_connection):
     """Best-effort MySQL server-side connection id for log correlation."""
     try:
         return dbapi_connection.thread_id()
-    except Exception:  # noqa: BLE001 - diagnostics only
+    except Exception:  # diagnostics only
         return None
 
 
@@ -125,7 +125,7 @@ def _pool_diagnostics_logger():
         # Resolved inside the try: attribute access on current_app raises
         # outside an application context.
         return current_app.logger  # noqa: TRY300
-    except Exception:  # noqa: BLE001 - outside app context
+    except Exception:  # outside app context
         return logger
 
 
@@ -179,7 +179,8 @@ def _reject_desynced_connection_on_checkout(
         _mark_checkout_boundary(connection_record)
         return
     try:
-        ping(False)
+        # MySQL's DBAPI ping() takes `reconnect` positionally.
+        ping(False)  # noqa: FBT003
     except BaseException as ping_exc:
         connection_record.invalidate(
             e=ping_exc if isinstance(ping_exc, Exception) else None
@@ -377,7 +378,7 @@ def invalidate_session(*, source: str, session=None) -> bool:
         if not hasattr(target, "invalidate") and callable(target):
             target = target()
         target.invalidate()
-    except Exception:  # noqa: BLE001 - termination cleanup must not raise
+    except Exception:  # termination cleanup must not raise
         _pool_diagnostics_logger().warning(
             "%s: session invalidate failed", source, exc_info=True
         )
@@ -406,7 +407,7 @@ def cleanup_session_after(
         return "noop"
     try:
         target.rollback()
-    except Exception:  # noqa: BLE001 - escalate, never raise from cleanup
+    except Exception:  # escalate, never raise from cleanup
         _pool_diagnostics_logger().warning(
             "%s: rollback failed; escalating to session invalidate",
             source,
@@ -434,7 +435,7 @@ def release_session_classified(*, source: str) -> None:
         invalidate_session(source=source)
     try:
         db.session.remove()
-    except Exception:  # noqa: BLE001 - cleanup must not mask the original
+    except Exception:  # cleanup must not mask the original
         _pool_diagnostics_logger().warning(
             "%s db session cleanup failed", source, exc_info=True
         )
@@ -462,7 +463,7 @@ def _rollback_quietly() -> bool:
         )
         invalidate_session(source="retry_on_deadlock rollback failure")
         return False
-    except Exception as rollback_exc:  # noqa: BLE001 - best-effort cleanup
+    except Exception as rollback_exc:  # best-effort cleanup
         # Environmental failures (e.g. no app context in unit tests) keep the
         # legacy tolerant behavior: log and let the retry loop proceed.
         logger.warning("retry_on_deadlock rollback failed: %s", rollback_exc)

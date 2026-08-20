@@ -5,7 +5,7 @@ from sqlalchemy.exc import OperationalError
 
 
 class _EchoResult:
-    def __init__(self, value):
+    def __init__(self, value) -> None:
         self._value = value
 
     def scalar(self):
@@ -13,7 +13,7 @@ class _EchoResult:
 
 
 class _FakeConnection:
-    def __init__(self):
+    def __init__(self) -> None:
         self.invalidated = 0
 
     def invalidate(self):
@@ -23,7 +23,7 @@ class _FakeConnection:
 class _FakeSession:
     """Scripted session: each execute() consumes the next behaviour."""
 
-    def __init__(self, behaviours):
+    def __init__(self, behaviours) -> None:
         # behaviours: list of "ok" | "raise" | any-fixed-echo-value
         self._behaviours = list(behaviours)
         self.executed = 0

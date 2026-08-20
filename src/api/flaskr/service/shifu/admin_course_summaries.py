@@ -45,7 +45,7 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from markdown_flow import MarkdownFlow
 from sqlalchemy import and_, case, literal, not_
 from sqlalchemy.orm import defer
@@ -861,8 +861,8 @@ def _merge_courses(
         sorted(
             course_map.values(),
             key=lambda item: (
-                item.updated_at or datetime.min,
-                item.created_at or datetime.min,
+                item.updated_at or NAIVE_DATETIME_MIN,
+                item.created_at or NAIVE_DATETIME_MIN,
                 item.shifu_bid or "",
             ),
             reverse=True,

@@ -24,7 +24,7 @@ from sqlalchemy.exc import OperationalError, ResourceClosedError
 
 
 class _FakeSession:
-    def __init__(self):
+    def __init__(self) -> None:
         self.rollbacks = 0
         self.commits = 0
         self.invalidations = 0
@@ -48,7 +48,7 @@ class _StubRunContext:
 
     script: ClassVar[list] = []
 
-    def __init__(self, **_kwargs):
+    def __init__(self, **_kwargs) -> None:
         self._steps = iter([True, False])
 
     def set_input(self, *_args, **_kwargs):
@@ -83,19 +83,19 @@ def _patch_run_dependencies(monkeypatch, script):
     monkeypatch.setattr(
         runscript_v2,
         "get_outline_item_dto",
-        lambda _app, _bid, _preview: types.SimpleNamespace(
+        lambda _app, _bid, preview_mode: types.SimpleNamespace(
             bid="outline-1", shifu_bid="shifu-1", __json__=dict
         ),
     )
     monkeypatch.setattr(
         runscript_v2,
         "get_shifu_dto",
-        lambda _app, _bid, _preview: types.SimpleNamespace(bid="shifu-1", price=0),
+        lambda _app, _bid, preview_mode: types.SimpleNamespace(bid="shifu-1", price=0),
     )
     monkeypatch.setattr(
         runscript_v2,
         "get_shifu_struct",
-        lambda _app, _bid, _preview: types.SimpleNamespace(bid="shifu-1"),
+        lambda _app, _bid, preview_mode: types.SimpleNamespace(bid="shifu-1"),
     )
     _StubRunContext.script = list(script)
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", _StubRunContext)
@@ -192,7 +192,7 @@ def test_stop_event_cancellation_invalidates_instead_of_rollback(app, monkeypatc
     class _TwoRoundContext(_StubRunContext):
         # Two has_next rounds so the stop_event check at the loop boundary
         # fires between them.
-        def __init__(self, **kwargs):
+        def __init__(self, **kwargs) -> None:
             super().__init__(**kwargs)
             # Each loop round consumes TWO steps: the while condition and the
             # has_next() call inside the log line.

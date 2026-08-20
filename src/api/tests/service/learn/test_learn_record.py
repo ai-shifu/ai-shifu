@@ -147,7 +147,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -184,7 +184,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -204,7 +204,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert result.records == []
@@ -220,7 +220,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 1
@@ -238,7 +238,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -257,7 +257,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -276,7 +276,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -300,7 +300,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -329,7 +329,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2

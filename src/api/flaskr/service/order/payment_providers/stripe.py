@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Flask
+from flaskr.service.common.stripe_client import get_stripe_client_options
 from flaskr.service.config import get_config
 
 from . import register_payment_provider
@@ -23,26 +24,10 @@ class StripeProvider(PaymentProvider):
     channel = "stripe"
 
     def _ensure_client(self, app: Flask):
-        try:
-            import stripe  # type: ignore[import-untyped]
-        except ImportError as exc:  # pragma: no cover - surfaced during runtime
-            app.logger.exception("Stripe SDK is not installed")
-            raise RuntimeError("Stripe SDK is required for Stripe payments") from exc
-        return stripe
+        return get_stripe_client_options(app)[0]
 
     def _client_options(self, app: Flask) -> tuple[Any, dict[str, Any]]:
-        stripe = self._ensure_client(app)
-        secret_key = get_config("STRIPE_SECRET_KEY")
-        if not secret_key:
-            app.logger.error("STRIPE_SECRET_KEY configuration is missing")
-            raise RuntimeError("STRIPE_SECRET_KEY must be configured for Stripe")
-
-        request_options: dict[str, Any] = {"api_key": secret_key}
-        api_version = get_config("STRIPE_API_VERSION")
-        if api_version:
-            request_options["stripe_version"] = api_version
-
-        return stripe, request_options
+        return get_stripe_client_options(app)
 
     def create_payment(
         self, *, request: PaymentRequest, app: Flask

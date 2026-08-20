@@ -82,7 +82,7 @@ GeneratedType = importlib.import_module("flaskr.service.learn.learn_dtos").Gener
 class _DummyColumn:
     __hash__ = None
 
-    def __eq__(self, _other):
+    def __eq__(self, _other) -> bool:
         return True
 
 
@@ -129,13 +129,13 @@ class _DummyLearnGeneratedElementModel:
 
 
 class _DummyFollowUpInfo:
-    def __init__(self, ask_provider_config):
+    def __init__(self, ask_provider_config) -> None:
         self.ask_prompt = "ASK_PROMPT::{shifu_system_message}::{knowledge_section}"
         self.ask_model = "gpt-test"
         self.model_args = {"temperature": 0.2}
         self.ask_provider_config = ask_provider_config
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "ask_model": self.ask_model,
             "ask_provider_config": self.ask_provider_config,
@@ -143,7 +143,7 @@ class _DummyFollowUpInfo:
 
 
 class _DummyGeneration:
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
@@ -152,7 +152,7 @@ class _DummyGeneration:
 
 
 class _DummySpan:
-    def __init__(self):
+    def __init__(self) -> None:
         self.output = ""
         self.generations = []
         self.updated = {}
@@ -183,7 +183,7 @@ class _DummySpan:
 
 
 class _DummyTrace:
-    def __init__(self):
+    def __init__(self) -> None:
         self.span_output = None
         self.updated = {}
         self.last_span = None
@@ -197,12 +197,12 @@ class _DummyTrace:
 
 
 class _LLMChunk:
-    def __init__(self, result: str):
+    def __init__(self, result: str) -> None:
         self.result = result
 
 
 class _Context:
-    def __init__(self):
+    def __init__(self) -> None:
         self._shifu_info = types.SimpleNamespace(use_learner_language=0)
         self.langfuse_outputs = []
 
@@ -215,12 +215,14 @@ class _Context:
 
 def _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config):
     class _DummyLLMSettings:
-        def __init__(self, model, temperature):
+        def __init__(self, model, temperature) -> None:
             self.model = model
             self.temperature = temperature
 
     class _DummyAskProviderRuntime:
-        def __init__(self, llm_stream_factory=None, llm_context_stream_factory=None):
+        def __init__(
+            self, llm_stream_factory=None, llm_context_stream_factory=None
+        ) -> None:
             self.llm_stream_factory = llm_stream_factory
             self.llm_context_stream_factory = llm_context_stream_factory
 

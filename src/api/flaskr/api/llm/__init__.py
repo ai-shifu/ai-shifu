@@ -49,7 +49,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_LLM,
     normalize_usage_scene,
 )
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 
 logger = logging.getLogger(__name__)
 
@@ -358,12 +358,12 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     if not api_key:
         _log_warning(f"{config.api_key_env} not configured")
         return ProviderState(
-            False,
-            None,
-            [],
-            config.prefix,
-            config.wildcard_prefixes,
-            config.reload_params,
+            enabled=False,
+            params=None,
+            models=[],
+            prefix=config.prefix,
+            wildcard_prefixes=config.wildcard_prefixes,
+            reload_params=config.reload_params,
         )
     base_url = None
     if config.base_url_env:
@@ -399,12 +399,12 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     if display_models:
         _log_info(f"{config.key} models: {display_models}")
     return ProviderState(
-        True,
-        params,
-        display_models,
-        config.prefix,
-        config.wildcard_prefixes,
-        config.reload_params,
+        enabled=True,
+        params=params,
+        models=display_models,
+        prefix=config.prefix,
+        wildcard_prefixes=config.wildcard_prefixes,
+        reload_params=config.reload_params,
     )
 
 
@@ -657,7 +657,7 @@ def _reload_openai_params(model_id: str, temperature: float) -> dict[str, Any]:
                 model=model_id,
                 custom_llm_provider="openai",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             # Keep the existing prefix-based behavior for model aliases that
             # have not reached LiteLLM's bundled model map yet.
             logger.debug(
@@ -951,14 +951,16 @@ if not any_litellm_enabled:
 
 
 class LLMStreamaUsage:
-    def __init__(self, prompt_tokens, completion_tokens, total_tokens):
+    def __init__(self, prompt_tokens, completion_tokens, total_tokens) -> None:
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
         self.total_tokens = total_tokens
 
 
 class LLMStreamResponse:
-    def __init__(self, response_id, is_end, is_truncated, result, finish_reason, usage):
+    def __init__(
+        self, response_id, is_end, is_truncated, result, finish_reason, usage
+    ) -> None:
         self.id = response_id
 
         self.is_end = is_end
@@ -1081,10 +1083,10 @@ def invoke_llm(
                 yield LLMStreamResponse(
                     res.id,
                     bool(res.choices[0].finish_reason),
-                    False,
-                    res.choices[0].delta.content,
-                    res.choices[0].finish_reason,
-                    None,
+                    is_truncated=False,
+                    result=res.choices[0].delta.content,
+                    finish_reason=res.choices[0].finish_reason,
+                    usage=None,
                 )
             res_usage = getattr(res, "usage", None)
             if res_usage:
@@ -1256,10 +1258,10 @@ def chat_llm(
                     yield LLMStreamResponse(
                         res.id,
                         bool(res.choices[0].finish_reason),
-                        False,
-                        res.choices[0].delta.content,
-                        res.choices[0].finish_reason,
-                        None,
+                        is_truncated=False,
+                        result=res.choices[0].delta.content,
+                        finish_reason=res.choices[0].finish_reason,
+                        usage=None,
                     )
                 res_usage = getattr(res, "usage", None)
                 if res_usage:
@@ -1450,7 +1452,7 @@ def _select_credit_usage_rate(
             row.provider == normalized_provider,
             row.model in candidate_set,
             model_priority.get(row.model, 0),
-            row.effective_from or datetime.min,
+            row.effective_from or NAIVE_DATETIME_MIN,
             int(row.id or 0),
         ),
         reverse=True,

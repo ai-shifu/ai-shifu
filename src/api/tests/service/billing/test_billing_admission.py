@@ -34,6 +34,7 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.shifu.models import PublishedShifu
 from flaskr.util.datetime import now_utc
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 

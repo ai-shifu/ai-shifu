@@ -73,6 +73,7 @@ from flaskr.service.billing.read_models import (
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user.models import AuthCredential, UserInfo
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,

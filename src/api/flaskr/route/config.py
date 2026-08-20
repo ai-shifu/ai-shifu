@@ -241,7 +241,9 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             stripeEnabled=(
                 "stripe" in custom_payment_channels
                 if custom_payment_enabled
-                else _to_bool(get_config("STRIPE_ENABLED", False), False)
+                else _to_bool(
+                    get_config("STRIPE_ENABLED", default=False), default=False
+                )
             ),
             paymentChannels=payment_channels,
             payOrderExpireSeconds=_to_int(
@@ -249,8 +251,8 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 600,
             ),
             alwaysShowLessonTree=_to_bool(
-                get_config("UI_ALWAYS_SHOW_LESSON_TREE", False),
-                False,
+                get_config("UI_ALWAYS_SHOW_LESSON_TREE", default=False),
+                default=False,
             ),
             logoWideUrl=logo_wide_url,
             logoSquareUrl=logo_square_url,
@@ -264,8 +266,8 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 "",
             ),
             enableEruda=_to_bool(
-                get_config("DEBUG_ERUDA_ENABLED", False),
-                False,
+                get_config("DEBUG_ERUDA_ENABLED", default=False),
+                default=False,
             ),
             loginMethodsEnabled=_to_list(
                 get_config("LOGIN_METHODS_ENABLED", "phone"),

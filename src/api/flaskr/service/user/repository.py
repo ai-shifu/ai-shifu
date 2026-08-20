@@ -864,7 +864,7 @@ def transactional_session():
         else:
             try:
                 nested.rollback()
-            except Exception:  # noqa: BLE001 - savepoint already broken
+            except Exception:  # savepoint already broken
                 invalidate_session(source="transactional_session rollback failure")
             # Preserve the legacy contract: a failure rolls back the whole
             # session transaction, not only the savepoint.

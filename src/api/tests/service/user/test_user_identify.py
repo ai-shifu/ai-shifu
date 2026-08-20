@@ -2,7 +2,7 @@ import uuid
 
 
 class _FakeRedis:
-    def __init__(self, values=None):
+    def __init__(self, values=None) -> None:
         self.values = dict(values or {})
         self.deleted = []
 
@@ -183,10 +183,11 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
     import flaskr.service.user.utils as user_utils
     from flaskr.dao import db
     from flaskr.service.user.models import UserVerifyCode
+
     from tests.common.fixtures.fake_redis import FakeRedis
 
     class _FakeSMTP:
-        def __init__(self, *_args, **_kwargs):
+        def __init__(self, *_args, **_kwargs) -> None:
             self.sent_to = None
 
         def starttls(self):

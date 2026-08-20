@@ -11,6 +11,7 @@ from flaskr.service.billing.models import BillingOrder, BillingProduct
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 

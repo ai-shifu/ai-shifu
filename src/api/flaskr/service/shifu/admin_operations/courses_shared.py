@@ -40,6 +40,7 @@ from flaskr.service.user.models import (
 from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
+from flaskr.util.datetime import NAIVE_DATETIME_MIN
 from sqlalchemy import case, or_
 
 COURSE_STATUS_PUBLISHED = "published"
@@ -609,8 +610,8 @@ def _merge_courses(
         sorted(
             course_map.values(),
             key=lambda item: (
-                item.updated_at or datetime.min,
-                item.created_at or datetime.min,
+                item.updated_at or NAIVE_DATETIME_MIN,
+                item.created_at or NAIVE_DATETIME_MIN,
                 item.shifu_bid or "",
             ),
             reverse=True,

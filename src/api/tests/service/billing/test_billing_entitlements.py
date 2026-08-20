@@ -28,6 +28,7 @@ from flaskr.service.billing.queries import (
     load_primary_active_subscription,
 )
 from flaskr.util.datetime import now_utc
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 

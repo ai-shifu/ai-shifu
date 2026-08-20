@@ -63,7 +63,7 @@ def _patch_credentials(monkeypatch):
 
 
 class _FakeResponse:
-    def __init__(self, body):
+    def __init__(self, body) -> None:
         self._body = body
 
     def json(self):

@@ -7,22 +7,22 @@ from flaskr.util.deprecation import deprecated_alias_getattr
 
 
 class AppError(Exception):
-    def __init__(self, message, status_code=None, payload=None):
+    def __init__(self, message, status_code=None, payload=None) -> None:
         Exception.__init__(self)
         self.message = message
         self.code = status_code
         self.payload = payload
 
-    def __json__(self):
+    def __json__(self) -> dict:
         rv = dict(self.payload or ())
         rv["message"] = self.message
         rv["code"] = self.code
         return rv
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.message
 
-    def __html__(self):
+    def __html__(self) -> dict:
         return self.__json__()
 
 

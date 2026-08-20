@@ -212,7 +212,7 @@ def _best_effort_password_login_user(app: Flask):
 
     try:
         return validate_user(app, str(token))
-    except Exception:  # noqa: BLE001 - stale login tokens must not block recovery
+    except Exception:  # stale login tokens must not block recovery
         return None
 
 

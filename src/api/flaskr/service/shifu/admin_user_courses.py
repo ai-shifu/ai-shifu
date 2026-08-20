@@ -6,7 +6,6 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
 
 from flaskr.dao import db
 from flaskr.service.learn.const import (
@@ -33,6 +32,7 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
+from flaskr.util.datetime import NAIVE_DATETIME_MIN
 
 
 def _build_operator_user_course_summary(
@@ -357,7 +357,7 @@ def _load_operator_user_course_maps(
     sorted_learned_rows = sorted(
         learned_rows,
         key=lambda row: (
-            row.last_activity_at or datetime.min,
+            row.last_activity_at or NAIVE_DATETIME_MIN,
             str(row.shifu_bid or "").strip(),
         ),
         reverse=True,

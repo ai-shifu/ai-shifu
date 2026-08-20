@@ -19,6 +19,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+
 from tests.service.billing.cycle_state_test_helpers import (
     add_reserved_renewal_activation_state,
     build_cycle_state_app,

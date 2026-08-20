@@ -184,7 +184,7 @@ def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails
     )
 
     class CacheWrapper:
-        def __init__(self):
+        def __init__(self) -> None:
             self._cache = InMemoryCacheProvider()
 
         def get(self, key):
@@ -228,7 +228,7 @@ def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
     )
 
     class CacheWrapper:
-        def __init__(self):
+        def __init__(self) -> None:
             self._cache = InMemoryCacheProvider()
 
         def get(self, key):
@@ -358,7 +358,7 @@ def test_login_for_access_token_returns_token_when_cache_write_fails(monkeypatch
     )
 
     class CacheWrapper:
-        def __init__(self):
+        def __init__(self) -> None:
             self._cache = InMemoryCacheProvider()
 
         def get(self, key):

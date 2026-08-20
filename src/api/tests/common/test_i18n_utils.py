@@ -14,7 +14,7 @@ def test_existing_english_and_chinese_names_are_unchanged():
 
 def test_french_native_name_reaches_content_and_interaction_prompts():
     class CapturingProvider:
-        def __init__(self):
+        def __init__(self) -> None:
             self.calls = []
 
         def complete(self, messages, **_kwargs):
