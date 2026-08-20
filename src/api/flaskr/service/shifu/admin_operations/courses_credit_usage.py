@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Sequence
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.api.llm import PROVIDER_STATES, get_current_models
@@ -76,6 +75,9 @@ from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
 from sqlalchemy import and_, case, false, literal, not_, or_
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:

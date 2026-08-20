@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from flask import Flask
 from flaskr.service.learn.learn_dtos import (
@@ -38,6 +38,9 @@ from flaskr.service.learn.type_state_machine import (
     TypeInput,
     TypeStateMachine,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 __all__ = [
     "ListenElementRunAdapter",

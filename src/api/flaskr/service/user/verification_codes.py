@@ -8,8 +8,7 @@ resetting passwords where we only want to validate ownership of an identifier.
 from __future__ import annotations
 
 import contextlib
-import datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as redis
@@ -19,6 +18,9 @@ from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.models import UserVerifyCode
 from flaskr.util.datetime import now_utc
+
+if TYPE_CHECKING:
+    import datetime
 
 CodeKind = Literal["sms", "email"]
 

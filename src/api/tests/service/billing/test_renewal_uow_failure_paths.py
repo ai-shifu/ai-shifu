@@ -22,8 +22,8 @@ These tests pin the new semantics:
 from __future__ import annotations
 
 from datetime import timedelta
-from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -61,6 +61,9 @@ from flaskr.util.datetime import now_utc
 from sqlalchemy.orm import sessionmaker
 
 from tests.common.fixtures.bill_products import build_bill_products
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 CREATOR_BID = "creator-uow-renewal"
 

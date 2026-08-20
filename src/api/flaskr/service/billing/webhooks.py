@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -85,6 +84,9 @@ from .provider_state import (
 from .queries import (
     load_latest_billing_order_by_subscription as _load_latest_billing_order_by_subscription,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _STRIPE_SUBSCRIPTION_EVENT_TYPES = {
     "customer.subscription.created",

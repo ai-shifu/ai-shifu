@@ -13,8 +13,8 @@ write path (``admin_operations/voice_clones.py``).
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from flaskr.service.tts.minimax_voice_clone import is_valid_minimax_custom_voice_id
 from flaskr.service.tts.models import (
@@ -26,6 +26,9 @@ from flaskr.service.tts.models import (
 from flaskr.service.tts.volcengine_voice_clone import (
     is_valid_volcengine_custom_voice_id,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass(frozen=True)

@@ -25,7 +25,6 @@ import shutil
 import sys
 import tempfile
 from collections import Counter, OrderedDict
-from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -33,10 +32,15 @@ os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
 
+from typing import TYPE_CHECKING
+
 from flask import Flask
 from flaskr import dao
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from sqlalchemy.ext.compiler import compiles
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 @compiles(LONGTEXT, "sqlite")
