@@ -22,6 +22,8 @@ from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
 @dataclass
 class LegacyGeneratedBlockRecord:
+    """Record legacy generated block details."""
+
     generated_block_bid: str
     content: str
     like_status: LikeStatus
@@ -52,6 +54,8 @@ class LegacyGeneratedBlockRecord:
 
 @dataclass
 class LegacyLearnRecord:
+    """Record legacy learn details."""
+
     records: list[LegacyGeneratedBlockRecord]
 
     def __json__(self) -> dict:

@@ -149,6 +149,8 @@ _HOME_URL_MAX_LENGTH = 512
 
 @dataclass(slots=True, frozen=True)
 class ProviderCredentialContext:
+    """Carry context for provider credential."""
+
     integration_bid: str
     creator_bid: str
     provider: str

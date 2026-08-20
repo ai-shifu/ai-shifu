@@ -66,6 +66,8 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True, frozen=True)
 class AppliedBillingCampaignResult:
+    """Capture the campaign benefits applied to a billing purchase."""
+
     campaign_bid: str = ""
     benefit_type_code: int = 0
     discount_type_code: int = 0
@@ -103,6 +105,8 @@ class AppliedBillingCampaignResult:
 
 @dataclass(slots=True, frozen=True)
 class NormalizedCampaignProductConfig:
+    """Describe normalized product settings for a billing campaign."""
+
     product_bid: str
     product_type: int
     benefit_type_code: int

@@ -4,6 +4,8 @@ import flaskr.service.order.funs as order_funs
 
 
 class DummyLock:
+    """Simulate lock behavior for tests."""
+
     def __init__(self) -> None:
         """Reset acquisition and release call counters."""
         self.acquired = 0
@@ -18,6 +20,8 @@ class DummyLock:
 
 
 class DummyRedis:
+    """Simulate Redis behavior for tests."""
+
     def __init__(self) -> None:
         """Capture lock arguments and expose one reusable test lock."""
         self.last_key = None
@@ -33,6 +37,8 @@ class DummyRedis:
 
 
 class DummyApp:
+    """Simulate app behavior for tests."""
+
     def __init__(self, prefix="ai-shifu") -> None:
         """Expose the configured Redis key prefix to lock tests."""
         self.config = {"REDIS_KEY_PREFIX": prefix}

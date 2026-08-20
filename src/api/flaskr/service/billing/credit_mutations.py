@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True, frozen=True)
 class CreditMutationResult:
+    """Capture wallet and ledger changes from one credit mutation."""
+
     mutation_type: str
     completed: bool
     status: str

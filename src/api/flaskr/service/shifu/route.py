@@ -150,6 +150,8 @@ from .funcs import (
 
 
 class ShifuPermission(Enum):
+    """Enumerate permission levels for course operations."""
+
     VIEW = "view"
     EDIT = "edit"
     PUBLISH = "publish"

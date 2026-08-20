@@ -43,6 +43,8 @@ def billing_write_client(monkeypatch):
 
 
 class TestBillingWriteRoutesTopup:
+    """Verify billing write routes topup behavior."""
+
     def test_topup_checkout_and_sync_mark_order_paid(
         self, billing_write_client
     ) -> None:

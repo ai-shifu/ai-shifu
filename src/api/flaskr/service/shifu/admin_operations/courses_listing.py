@@ -67,6 +67,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class OperatorCourseListSeed:
+    """Carry seed data for operator course list."""
+
     id: int
     shifu_bid: str
     title: str
@@ -82,6 +84,8 @@ class OperatorCourseListSeed:
 
 @dataclass
 class OperatorCourseListCandidate:
+    """Represent a candidate for operator course list."""
+
     id: int
     shifu_bid: str
     title: str

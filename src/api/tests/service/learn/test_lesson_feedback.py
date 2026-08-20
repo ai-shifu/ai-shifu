@@ -22,6 +22,8 @@ from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 
 
 class LessonFeedbackTests(unittest.TestCase):
+    """Verify lesson feedback behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("lesson-feedback-tests")

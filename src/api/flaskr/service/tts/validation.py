@@ -29,6 +29,8 @@ PROVIDERS_REQUIRING_MODEL = {"minimax", "volcengine", "tencent_texttovoice"}
 
 @dataclass(frozen=True)
 class StrictTTSSettings:
+    """Validate the complete settings required for speech synthesis."""
+
     provider: str
     model: str
     voice_id: str

@@ -148,6 +148,8 @@ def resolve_state_return_origin(app, state: str | None) -> str:
 
 
 class GoogleAuthProvider(AuthProvider):
+    """Authenticate users through Google OAuth."""
+
     provider_name = "google"
     supports_oauth = True
 

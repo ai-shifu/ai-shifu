@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 
 
 class EmailAuthProvider(AuthProvider):
+    """Authenticate users through an email verification flow."""
+
     provider_name = "email"
     supports_challenge = True
 

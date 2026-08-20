@@ -67,6 +67,8 @@ def _maybe_app_context(app: Flask):
 
 @dataclass(slots=True, frozen=True)
 class TrialOfferState:
+    """Track whether a teacher can claim a billing trial."""
+
     enabled: bool
     status: str
     product_bid: str

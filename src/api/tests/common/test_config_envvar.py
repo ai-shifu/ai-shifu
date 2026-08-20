@@ -237,6 +237,8 @@ class TestEnvVarValidation:
 
 
 class TestLLMModelMaxOutputTokensConfig:
+    """Verify LLM model max output tokens config behavior."""
+
     def test_parse_valid_routed_model_limits(self):
         assert parse_llm_model_max_output_tokens(
             '{"qwen/deepseek-v4-flash":393216,"gemini-3.5-flash":65536}'

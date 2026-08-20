@@ -214,6 +214,8 @@ TENCENT_EMOTIONS = [
 
 @dataclass(frozen=True)
 class TencentTTSCredentials:
+    """Carry credentials for Tencent TTS."""
+
     app_id: int
     secret_id: str
     secret_key: str
@@ -221,6 +223,8 @@ class TencentTTSCredentials:
 
 @dataclass(frozen=True)
 class TencentSSEStreamChunk:
+    """Represent one streamed chunk from Tencent SSE stream."""
+
     audio_data: bytes
     is_final: bool = False
     subtitles: list[dict[str, Any]] = field(default_factory=list)
@@ -230,6 +234,8 @@ class TencentSSEStreamChunk:
 
 
 class TencentTTSError(ValueError):
+    """Signal that Tencent speech synthesis returned invalid data."""
+
     def __init__(
         self,
         *,
@@ -1136,6 +1142,8 @@ def parse_tencent_sse_message(
 
 
 class TencentTTSProvider(BaseTTSProvider):
+    """Stream synthesized speech through Tencent TTS."""
+
     @property
     def provider_name(self) -> str:
         return "tencent"

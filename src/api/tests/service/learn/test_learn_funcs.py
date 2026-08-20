@@ -41,6 +41,8 @@ from flaskr.service.shifu.consts import (
 
 
 class LearnRecordLoadTests(unittest.TestCase):
+    """Verify learn record load behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("learn-record-tests")

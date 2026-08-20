@@ -56,6 +56,8 @@ class _DTOBase(BaseModel):
 
 @register_schema_to_swagger
 class AdminPromotionSummaryDTO(_DTOBase):
+    """Represent the admin promotion summary API payload."""
+
     total: int = Field(..., description="Total item count", required=False)
     active: int = Field(..., description="Active item count", required=False)
     usage_count: int = Field(..., description="Usage count", required=False)
@@ -70,6 +72,8 @@ class AdminPromotionSummaryDTO(_DTOBase):
 
 @register_schema_to_swagger
 class AdminPromotionCouponItemDTO(_DTOBase):
+    """Represent the admin promotion coupon item API payload."""
+
     coupon_bid: str = Field(..., description="Coupon batch identifier", required=False)
     name: str = Field(..., description="Coupon batch name", required=False)
     code: str = Field(..., description="Generic coupon code", required=False)
@@ -108,6 +112,8 @@ class AdminPromotionCouponItemDTO(_DTOBase):
 
 @register_schema_to_swagger
 class AdminPromotionCampaignItemDTO(_DTOBase):
+    """Represent the admin promotion campaign item API payload."""
+
     promo_bid: str = Field(..., description="Promotion identifier", required=False)
     name: str = Field(..., description="Promotion name", required=False)
     shifu_bid: str = Field(..., description="Course identifier", required=False)
@@ -144,6 +150,8 @@ class AdminPromotionCampaignItemDTO(_DTOBase):
 
 @register_schema_to_swagger
 class AdminPromotionCouponUsageDTO(_DTOBase):
+    """Represent the admin promotion coupon usage API payload."""
+
     coupon_usage_bid: str = Field(
         ..., description="Coupon usage identifier", required=False
     )
@@ -172,6 +180,8 @@ class AdminPromotionCouponUsageDTO(_DTOBase):
 
 @register_schema_to_swagger
 class AdminPromotionCouponCodeDTO(_DTOBase):
+    """Represent the admin promotion coupon code API payload."""
+
     coupon_usage_bid: str = Field(
         ..., description="Coupon usage identifier", required=False
     )
@@ -191,6 +201,8 @@ class AdminPromotionCouponCodeDTO(_DTOBase):
 
 @register_schema_to_swagger
 class AdminPromotionCampaignRedemptionDTO(_DTOBase):
+    """Represent the admin promotion campaign redemption API payload."""
+
     redemption_bid: str = Field(
         ..., description="Promotion redemption identifier", required=False
     )
@@ -216,6 +228,8 @@ class AdminPromotionCampaignRedemptionDTO(_DTOBase):
 
 @register_schema_to_swagger
 class AdminPromotionCouponDetailDTO(_DTOBase):
+    """Represent the admin promotion coupon detail API payload."""
+
     coupon: AdminPromotionCouponItemDTO = Field(
         ..., description="Coupon detail", required=False
     )
@@ -237,6 +251,8 @@ class AdminPromotionCouponDetailDTO(_DTOBase):
 
 @register_schema_to_swagger
 class AdminPromotionCampaignDetailDTO(_DTOBase):
+    """Represent the admin promotion campaign detail API payload."""
+
     campaign: AdminPromotionCampaignItemDTO = Field(
         ..., description="Campaign detail", required=False
     )
@@ -256,6 +272,8 @@ class AdminPromotionCampaignDetailDTO(_DTOBase):
 
 @register_schema_to_swagger
 class AdminPromotionListResponseDTO(_DTOBase):
+    """Represent the admin promotion list response API payload."""
+
     summary: AdminPromotionSummaryDTO = Field(
         ..., description="Summary payload", required=False
     )

@@ -360,6 +360,8 @@ def admin_billing_client(monkeypatch):
 
 
 class TestAdminBillingRoutes:
+    """Verify admin billing routes behavior."""
+
     def test_admin_bill_subscriptions_returns_wallet_and_renewal_context(
         self, admin_billing_client
     ) -> None:

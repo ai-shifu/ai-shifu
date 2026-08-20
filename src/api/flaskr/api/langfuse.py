@@ -55,6 +55,8 @@ _LINK_KEYS = {"trace_id", "parent_observation_id", "id"}
 
 
 class MockClient:
+    """Provide a no-op Langfuse client when tracing is disabled."""
+
     def __init__(self, *args, **kwargs) -> None:
         """Initialize the no-op Langfuse client."""
 

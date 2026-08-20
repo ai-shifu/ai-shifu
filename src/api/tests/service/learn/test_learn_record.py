@@ -25,6 +25,8 @@ from flaskr.util import generate_id
 
 
 class LearnRecordFallbackTests(unittest.TestCase):
+    """Verify learn record fallback behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("learn-record-fallback")

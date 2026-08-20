@@ -475,6 +475,8 @@ class ReorderOutlineDto:
 
 @register_schema_to_swagger
 class MdflowDTOParseResult(BaseModel):
+    """Represent the MarkdownFlow DTO parse result API payload."""
+
     variables: list[str] = Field(..., description="variables", required=True)
     blocks_count: int = Field(..., description="blocks count", required=True)
 

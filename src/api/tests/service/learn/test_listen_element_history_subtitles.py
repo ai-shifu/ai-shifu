@@ -5,6 +5,8 @@ from flaskr import dao
 
 
 class TestListenElementHistorySubtitles:
+    """Verify listen element history subtitles behavior."""
+
     @classmethod
     def setup_class(cls) -> None:
         cls.app = Flask("listen-element-history-subtitles")

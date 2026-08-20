@@ -62,6 +62,8 @@ def _serialize_metadata_dt(value: datetime | None) -> str | None:
 
 @dataclass(slots=True, frozen=True)
 class SettlementResult:
+    """Capture wallet and ledger changes from order settlement."""
+
     status: str
     usage_bid: str | None
     creator_bid: str | None = None
@@ -96,6 +98,8 @@ class SettlementResult:
 
 @dataclass(slots=True, frozen=True)
 class BackfillSettlementItem:
+    """Represent one item in backfill settlement."""
+
     usage_bid: str
     usage_id: int
     status: str
@@ -118,6 +122,8 @@ class BackfillSettlementItem:
 
 @dataclass(slots=True, frozen=True)
 class BackfillSettlementResult:
+    """Capture billing orders processed by a settlement backfill."""
+
     status: str
     creator_bid: str | None
     usage_id_start: int | None

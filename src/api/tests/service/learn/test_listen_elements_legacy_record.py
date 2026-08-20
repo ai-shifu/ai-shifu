@@ -5,6 +5,8 @@ from flaskr import dao
 
 
 class TestBuildListenElementsFromLegacyRecord:
+    """Verify build listen elements from legacy record behavior."""
+
     @classmethod
     def setup_class(cls) -> None:
         cls.app = Flask("listen-elements-legacy-record")

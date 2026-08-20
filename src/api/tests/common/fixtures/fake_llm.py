@@ -5,6 +5,8 @@ from types import SimpleNamespace
 
 
 class FakeLLMResponse:
+    """Simulate LLM response behavior for tests."""
+
     def __init__(
         self,
         result: str,

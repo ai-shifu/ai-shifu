@@ -25,6 +25,8 @@ def _stub_profile_config_cache(monkeypatch):
 
 @pytest.mark.usefixtures("app")
 class TestProfileRoutes:
+    """Verify profile routes behavior."""
+
     def _mock_request_user(self, monkeypatch):
         dummy_user = SimpleNamespace(user_id="test-user", language="en-US")
         monkeypatch.setattr(

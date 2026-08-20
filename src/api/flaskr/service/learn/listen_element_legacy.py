@@ -50,6 +50,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class LearnElementsBackfillStats:
+    """Summarize statistics for learn elements backfill."""
+
     progress_record_bid: str
     progress_record_id: int = 0
     shifu_bid: str = ""

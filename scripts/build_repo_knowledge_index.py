@@ -43,6 +43,8 @@ REQUIRED_RUNTIME_ASSETS = (
 
 @dataclass(frozen=True)
 class DocRecord:
+    """Record doc details."""
+
     path: Path
     title: str
     category: str

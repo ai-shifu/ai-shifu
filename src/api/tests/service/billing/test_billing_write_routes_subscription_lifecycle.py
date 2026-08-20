@@ -63,6 +63,8 @@ def billing_write_client(monkeypatch):
 
 
 class TestBillingWriteRoutesSubscriptionLifecycle:
+    """Verify billing write routes subscription lifecycle behavior."""
+
     def test_pingxx_subscription_checkout_and_sync_grant_initial_credits(
         self, billing_write_client
     ) -> None:

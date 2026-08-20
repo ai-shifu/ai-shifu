@@ -36,6 +36,8 @@ _STRIPE_INTERVAL_BY_BILLING_INTERVAL = {
 
 @dataclass(slots=True)
 class ProviderAccountSnapshot:
+    """Capture a snapshot of provider account."""
+
     provider: str
     account_id: str
     livemode: bool | None = None
@@ -44,6 +46,8 @@ class ProviderAccountSnapshot:
 
 @dataclass(slots=True)
 class ProviderProductSnapshot:
+    """Capture a snapshot of provider product."""
+
     provider: str
     product_id: str
     active: bool
@@ -54,6 +58,8 @@ class ProviderProductSnapshot:
 
 @dataclass(slots=True)
 class ProviderPriceSnapshot:
+    """Capture a snapshot of provider price."""
+
     provider: str
     price_id: str
     product_id: str
@@ -71,6 +77,8 @@ class ProviderPriceSnapshot:
 
 @dataclass(slots=True)
 class ProviderCatalogSnapshot:
+    """Capture a snapshot of provider catalog."""
+
     account: ProviderAccountSnapshot
     product: ProviderProductSnapshot
     price: ProviderPriceSnapshot
@@ -78,6 +86,8 @@ class ProviderCatalogSnapshot:
 
 @dataclass(slots=True)
 class ProviderCatalogValidationIssue:
+    """Describe an issue detected by provider catalog validation."""
+
     code: str
     message: str
     expected: str = ""
@@ -86,6 +96,8 @@ class ProviderCatalogValidationIssue:
 
 @dataclass(slots=True)
 class ProviderPriceMappingValidationResult:
+    """Capture the validation outcome for provider price mapping."""
+
     valid: bool
     errors: list[ProviderCatalogValidationIssue] = field(default_factory=list)
     warnings: list[ProviderCatalogValidationIssue] = field(default_factory=list)

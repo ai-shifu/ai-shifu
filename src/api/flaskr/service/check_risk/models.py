@@ -13,6 +13,8 @@ from sqlalchemy.dialects.mysql import BIGINT
 
 
 class RiskControlResult(db.Model):
+    """Persist content risk-control decisions."""
+
     __tablename__ = "risk_control_result"
 
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)

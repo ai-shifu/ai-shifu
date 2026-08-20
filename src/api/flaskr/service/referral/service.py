@@ -61,6 +61,8 @@ _INVITE_CODE_LENGTH = 8
 
 @dataclass(slots=True, frozen=True)
 class InviteEventInput:
+    """Carry request context for a referral invite event."""
+
     event_type: str
     invite_code: str = ""
     landing_path: str = ""
@@ -73,6 +75,8 @@ class InviteEventInput:
 
 @dataclass(slots=True, frozen=True)
 class InviteEventResult:
+    """Capture the persisted outcome of a referral invite event."""
+
     success: bool
     session_id: str
     recognized: bool
@@ -80,6 +84,8 @@ class InviteEventResult:
 
 @dataclass(slots=True, frozen=True)
 class ReferralPostAuthResult:
+    """Capture referral work completed after authentication."""
+
     created_relation: bool = False
     created_reward: bool = False
     relation_bid: str = ""

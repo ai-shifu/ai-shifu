@@ -194,6 +194,8 @@ def _collect_text_chunks(payload: Any) -> list[str]:
 
 
 class VolcKnowledgeAskProviderAdapter:
+    """Adapt Volcengine knowledge responses to the common ask stream."""
+
     provider = ASK_PROVIDER_VOLC_KNOWLEDGE
 
     def stream_answer(

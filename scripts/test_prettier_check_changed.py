@@ -27,6 +27,8 @@ def run(
 
 
 class PrettierCheckChangedTest(unittest.TestCase):
+    """Verify prettier check changed behavior."""
+
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.repo = Path(self.tempdir.name)

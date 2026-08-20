@@ -31,6 +31,8 @@ _ALLOWED_PROFILES = {OSS_PROFILE_DEFAULT, OSS_PROFILE_COURSES}
 
 @dataclass(frozen=True)
 class StorageUploadResult:
+    """Capture the location and metadata of an uploaded object."""
+
     provider: str
     url: str
     bucket: str
