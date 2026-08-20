@@ -220,6 +220,59 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     }
 
 
+def test_white_label_branding_survives_another_creators_bid(
+    runtime_config_client,
+) -> None:
+    """A white-label host keeps its owner's brand whoever is asking.
+
+    The creator console re-fetches this with the signed-in creator's bid to show
+    their own branding. On a custom domain that must not win, or the owner's
+    site briefly shows their logo and then flips to the platform default.
+    """
+    response = runtime_config_client.get(
+        "/api/runtime-config?creator_bid=creator-2",
+        headers={"Host": "creator.example.com"},
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
+    assert payload["logoSquareUrl"] == "https://cdn.example.com/creator-square.png"
+    assert payload["faviconUrl"] == "https://cdn.example.com/creator-favicon.ico"
+    assert payload["domain"]["is_custom_domain"] is True
+    assert payload["domain"]["creator_bid"] == "creator-1"
+    # The WeChat suppression keys off the same verdict, so it must hold too.
+    assert payload["wechatAppId"] == ""
+    assert payload["enableWechatCode"] is False
+
+
+def test_non_custom_domain_still_follows_the_requested_creator(
+    runtime_config_client,
+) -> None:
+    """Off a white-label host the caller's creator still decides the branding."""
+    response = runtime_config_client.get(
+        "/api/runtime-config?creator_bid=creator-1",
+        headers={"Host": "app.example.com"},
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
+    assert payload["domain"]["is_custom_domain"] is False
+
+
+def test_unverified_domain_does_not_borrow_its_owners_branding(
+    runtime_config_client,
+) -> None:
+    """inactive.example.com is bound but not entitled, so it is not white-label."""
+    response = runtime_config_client.get(
+        "/api/runtime-config",
+        headers={"Host": "inactive.example.com"},
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["domain"]["is_custom_domain"] is False
+    assert payload["logoWideUrl"] != "https://cdn.example.com/creator-wide.png"
+
+
 def test_runtime_config_hides_creator_keys_without_matching_capability(
     runtime_config_client,
     monkeypatch,
