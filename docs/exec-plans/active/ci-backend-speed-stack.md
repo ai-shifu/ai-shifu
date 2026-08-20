@@ -105,8 +105,15 @@ sharing the same restore prefix.
 
 ## Validation and Acceptance
 
-- `docker buildx bake --file docker/docker-compose.dev.yml --print` with the
-  workflow's target-specific overrides shows distinct scopes for both images.
+- This command reproduces the workflow overrides and prints distinct scopes for
+  both images:
+
+      docker buildx bake --file docker/docker-compose.dev.yml \
+        --set ai-shifu-api-dev.cache-from=type=gha,scope=runtime-api \
+        --set ai-shifu-api-dev.cache-to=type=gha,scope=runtime-api,mode=min \
+        --set ai-shifu-cook-web-dev.cache-from=type=gha,scope=runtime-cook-web \
+        --set ai-shifu-cook-web-dev.cache-to=type=gha,scope=runtime-cook-web,mode=min \
+        --print
 - `src/cook-web/Dockerfile_DEV` copies package manifests and installs with
   `npm ci --ignore-scripts` before copying application source.
 - The Backend Tests exact cache key includes the current commit SHA, and its
