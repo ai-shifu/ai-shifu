@@ -17,18 +17,17 @@ OUTLINE = "outline-history-pg"
 
 
 def _seed_versions(count: int) -> list[int]:
-    rows = []
-    for index in range(count):
-        rows.append(
-            DraftOutlineItem(
-                outline_item_bid=OUTLINE,
-                shifu_bid=SHIFU,
-                title=f"v{index}",
-                content=f"content-{index}",
-                position="01",
-                deleted=0,
-            )
+    rows = [
+        DraftOutlineItem(
+            outline_item_bid=OUTLINE,
+            shifu_bid=SHIFU,
+            title=f"v{index}",
+            content=f"content-{index}",
+            position="01",
+            deleted=0,
         )
+        for index in range(count)
+    ]
     db.session.add_all(rows)
     db.session.commit()
     return sorted((int(row.id) for row in rows), reverse=True)

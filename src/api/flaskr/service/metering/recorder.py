@@ -175,7 +175,8 @@ def record_llm_usage(
             record_level=0,
         ):
             _enqueue_usage_settlement(app, usage_bid=usage_bid)
-        try:
+        # Best-effort logging; ignore failures so they do not mask the result.
+        with contextlib.suppress(Exception):
             usage_source = (
                 (extra or {}).get("usage_source", "") if isinstance(extra, dict) else ""
             )
@@ -200,9 +201,6 @@ def record_llm_usage(
                 context.request_id or "",
                 context.trace_id or "",
             )
-        except Exception:
-            # Best-effort logging; ignore failures so they do not mask the result.
-            pass
         return usage_bid
     return ""
 

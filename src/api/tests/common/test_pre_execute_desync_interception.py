@@ -8,6 +8,7 @@ statement via the per-connection journal.
 """
 
 import socket
+from typing import ClassVar
 
 import pytest
 from flaskr import dao
@@ -41,7 +42,7 @@ def test_pre_execute_probe_blocks_desynced_connection():
 
         class _FakeConn:
             connection = _FakeFairy()
-            info = {}
+            info: ClassVar[dict[str, object]] = {}
             invalidated_count = 0
 
             def invalidate(self):

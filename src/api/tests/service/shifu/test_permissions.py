@@ -60,11 +60,9 @@ def _mock_user(monkeypatch, user_id: str, is_creator: bool = True):
 def _clear_config_caches() -> None:
     with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    try:
+    with contextlib.suppress(Exception):
         if config_module.__INSTANCE__ is not None:
             config_module.__INSTANCE__.enhanced._cache.clear()
-    except Exception:
-        pass
 
 
 def _allow_email_login(monkeypatch) -> None:

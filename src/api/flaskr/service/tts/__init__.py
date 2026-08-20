@@ -3,6 +3,7 @@
 This module provides text preprocessing for TTS synthesis.
 """
 
+import contextlib
 import html
 import logging
 import unicodedata
@@ -207,15 +208,13 @@ def preprocess_for_tts(text: str) -> str:
 
     # Normalize common HTML entity escaping (e.g. '&lt;p&gt;') so tag stripping
     # works consistently for content coming from HTML renderers.
-    try:
+    # Best-effort only; keep the original text on unescape errors.
+    with contextlib.suppress(Exception):
         for _ in range(2):  # handle double-escaped content (e.g. '&amp;lt;')
             unescaped = html.unescape(text)
             if unescaped == text:
                 break
             text = unescaped
-    except Exception:
-        # Best-effort only; keep original text on unescape errors.
-        pass
 
     # Replace non-breaking spaces from HTML with regular spaces.
     if "\xa0" in text:

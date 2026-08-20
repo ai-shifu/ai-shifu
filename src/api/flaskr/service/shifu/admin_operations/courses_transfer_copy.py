@@ -151,17 +151,16 @@ def _build_outline_history_tree(
     def _build(parent_bid: str) -> list[HistoryItem]:
         children = outline_children_map.get(parent_bid, [])
         children.sort(key=lambda item: (item.position or "", item.id))
-        history_items: list[HistoryItem] = []
-        for child in children:
-            history_items.append(
-                HistoryItem(
-                    bid=str(child.outline_item_bid or "").strip(),
-                    id=int(child.id),
-                    type="outline",
-                    children=_build(str(child.outline_item_bid or "").strip()),
-                    child_count=_count_blocks(child.content or ""),
-                )
+        history_items: list[HistoryItem] = [
+            HistoryItem(
+                bid=str(child.outline_item_bid or "").strip(),
+                id=int(child.id),
+                type="outline",
+                children=_build(str(child.outline_item_bid or "").strip()),
+                child_count=_count_blocks(child.content or ""),
             )
+            for child in children
+        ]
         return history_items
 
     return _build("")

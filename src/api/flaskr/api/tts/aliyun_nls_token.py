@@ -64,9 +64,10 @@ def _percent_encode(value: Any) -> str:
 
 def _canonicalized_query(params: dict[str, Any]) -> str:
     """Build canonicalized query string from params (excluding Signature)."""
-    parts: list[str] = []
-    for key in sorted(params.keys()):
-        parts.append(f"{_percent_encode(key)}={_percent_encode(params[key])}")
+    parts: list[str] = [
+        f"{_percent_encode(key)}={_percent_encode(params[key])}"
+        for key in sorted(params.keys())
+    ]
     return "&".join(parts)
 
 

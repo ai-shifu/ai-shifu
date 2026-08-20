@@ -216,19 +216,18 @@ def _normalize_identifier(provider: str, identifier: str | None) -> str:
 def _summarize_credentials(
     credentials: list[AuthCredential],
 ) -> list[CredentialSummary]:
-    summaries: list[CredentialSummary] = []
-    for credential in credentials:
-        summaries.append(
-            CredentialSummary(
-                credential_bid=credential.credential_bid,
-                provider=credential.provider_name,
-                identifier=credential.identifier,
-                subject_id=credential.subject_id,
-                subject_format=credential.subject_format,
-                state=credential.state,
-                metadata=deserialize_raw_profile(credential),
-            )
+    summaries: list[CredentialSummary] = [
+        CredentialSummary(
+            credential_bid=credential.credential_bid,
+            provider=credential.provider_name,
+            identifier=credential.identifier,
+            subject_id=credential.subject_id,
+            subject_format=credential.subject_format,
+            state=credential.state,
+            metadata=deserialize_raw_profile(credential),
         )
+        for credential in credentials
+    ]
     return summaries
 
 

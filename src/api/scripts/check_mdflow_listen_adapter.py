@@ -228,12 +228,14 @@ def _format_stream_parts(
     parts: list[tuple[str, str, int]] = []
 
     for chunk in _iter_chunks(content, chunk_sizes):
-        for item in formatter.process(chunk):
-            parts.append(
-                (str(item.content or ""), str(item.type or ""), int(item.number))
-            )
-    for item in formatter.flush():
-        parts.append((str(item.content or ""), str(item.type or ""), int(item.number)))
+        parts.extend(
+            (str(item.content or ""), str(item.type or ""), int(item.number))
+            for item in formatter.process(chunk)
+        )
+    parts.extend(
+        (str(item.content or ""), str(item.type or ""), int(item.number))
+        for item in formatter.flush()
+    )
     return parts
 
 

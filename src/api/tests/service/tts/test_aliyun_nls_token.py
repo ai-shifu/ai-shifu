@@ -1,5 +1,6 @@
 import json
 import time
+from typing import ClassVar
 from urllib.parse import parse_qs, unquote, urlparse
 
 import requests
@@ -126,7 +127,7 @@ def test_aliyun_provider_synthesize_uses_dynamic_token(monkeypatch):
 
     class DummyResponse:
         status_code = 200
-        headers = {"Content-Type": "audio/mpeg"}
+        headers: ClassVar[dict[str, str]] = {"Content-Type": "audio/mpeg"}
         content = b"audio-bytes"
 
     def fake_post(url, json=None, headers=None, timeout=None):
