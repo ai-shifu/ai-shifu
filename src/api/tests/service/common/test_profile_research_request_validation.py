@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from flaskr.service.common import profile_research_request_validation
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.common.profile_research_request_validation import (
     normalize_profile_research_session_id,
     profile_research_run_identity,
@@ -16,7 +16,7 @@ def test_session_id_normalization_accepts_only_trimmed_lowercase_hex():
     assert normalize_profile_research_session_id(f"  {_SESSION_ID}  ") == _SESSION_ID
 
     for invalid in (None, False, "too-short", "G" * 32, "0" * 31):
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             normalize_profile_research_session_id(invalid)
 
 
@@ -49,7 +49,7 @@ def test_user_input_validation_preserves_runtime_values():
     ],
 )
 def test_user_input_validation_rejects_invalid_transport_shapes(raw_user_input):
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         profile_research_user_input(
             {"user_input": raw_user_input},
             parameter_name="profile_onboarding_preview",
@@ -86,7 +86,7 @@ def test_run_identity_normalizes_the_paired_cursor_and_request_id():
     ],
 )
 def test_run_identity_rejects_invalid_cursor_or_request_id(payload):
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         profile_research_run_identity(
             payload,
             parameter_name="profile_onboarding_session",
