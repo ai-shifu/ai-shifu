@@ -25,9 +25,12 @@ that branch.
   cache scopes.
 - [x] 2026-08-20 12:20 CST: Reordered the Cook Web development image so dependency
   installation precedes source copying.
-- [ ] 2026-08-20 12:25 CST: Make each Backend Tests run save a new testmon cache
+- [x] 2026-08-20 12:25 CST: Made each Backend Tests commit save a new testmon cache
   and restore the newest compatible cache.
-- [ ] 2026-08-20 12:30 CST: Validate and publish the three-PR stack.
+- [x] 2026-08-20 12:30 CST: Validated and published the three-PR stack as
+  PRs #2536, #2537, and #2538.
+- [x] 2026-08-20 12:35 CST: Verified the corrected Backend Tests workflow saved
+  a cache under the pull request head SHA for an exact next-commit restore.
 
 ## Surprises & Discoveries
 
@@ -42,6 +45,10 @@ that branch.
 - The local worktree does not have a Docker CLI, so the bake definition cannot be
   expanded locally. Workflow parsing and repository checks are the local gate;
   the first pull request's Runtime Harness run is the live cache-scope gate.
+- A SHA-less restore prefix did not select the previous cache written under the
+  same pull request merge ref, even though both entries had the same cache
+  version. The workflow now uses the pull request head SHA as the saved key and
+  resolves its direct parent for an exact lineage restore before broad fallbacks.
 
 ## Decision Log
 
@@ -54,11 +61,35 @@ that branch.
 - Decision: keep `mode=min` for the Docker caches. Rationale: the confirmed defect
   is scope collision; changing cache breadth at the same time would make the
   result harder to attribute and may increase cache storage pressure.
+- Decision: restore the exact parent-head cache on pull request updates instead
+  of relying only on a SHA-less prefix. Rationale: live Actions runs proved exact
+  cache matches work across commits while the current-ref prefix fell through to
+  main; retaining the broad prefixes still covers rebases and multi-commit pushes.
 
 ## Outcomes & Retrospective
 
-Implementation is in progress. Record measured CI outcomes here after each pull
-request runs.
+The implementation is published as three ready pull requests:
+
+- PR #2536 isolates the API and Cook Web Docker cache scopes.
+- PR #2537 preserves the Cook Web dependency layer across source-only changes.
+- PR #2538 rolls pytest-testmon state forward after each successful commit.
+
+Workflow parsing, repository harness validation, architecture boundaries, npm
+lockfile installation, and the full lefthook pre-commit gate passed locally.
+Docker is unavailable in the worktree, so actual cache-hit rates and elapsed
+Runtime Harness times were measured in GitHub Actions:
+
+- PR #2536 completed in 7m42s cold and 6m10s warm. Its image-build step fell
+  from 3m51s to 1m47s.
+- PR #2537 completed in 7m44s cold and 5m15s warm. Its image-build step fell
+  from 3m49s to 1m19s, and the logs reported cache hits for both the API pip
+  layer and the Cook Web `npm ci` layer.
+- PR #2538's first two Backend Tests runs passed in 1m20s and saved SHA-specific
+  caches. The second run exposed that a current-PR prefix still fell through to
+  main, so the final implementation resolves and restores the direct parent head
+  SHA exactly before using branch or main fallbacks. The first corrected run
+  passed in 1m31s and saved its cache under head SHA `11cacd5f`; the next commit
+  provides the live exact-parent restore check.
 
 ## Context and Orientation
 
