@@ -516,10 +516,8 @@ export default function LearnerProfileDialog({
             : PROFILE_ONBOARDING_EVENTS.SETTINGS_CLEARED,
         );
       }
-      await runOnSaved(generation, scope);
-      if (isCurrent(generation, scope)) {
-        await onClose('saved');
-      }
+      await onClose('saved');
+      void runOnSaved(generation, scope);
     } catch (caughtError) {
       if (isCurrent(generation, scope)) {
         setError(

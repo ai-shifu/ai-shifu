@@ -800,8 +800,41 @@ describe('LearnerProfileDialog', () => {
       ([event]) => event === PROFILE_ONBOARDING_EVENTS.COMPLETED,
     );
     expect(mockTrackEvent.mock.invocationCallOrder[completedCall]).toBeLessThan(
+      onClose.mock.invocationCallOrder[0],
+    );
+    expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(
       onSaved.mock.invocationCallOrder[0],
     );
+  });
+
+  test('closes a durable save without waiting for the profile refresh', async () => {
+    const refresh = deferred<void>();
+    const onSaved = jest.fn(() => refresh.promise);
+    const onClose = jest.fn();
+    renderDialog({ exitPolicy: 'blocking', onSaved, onClose });
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+
+    fireEvent.change(profileInput(), {
+      target: { value: 'Saved before refresh' },
+    });
+    fireEvent.click(saveButton());
+
+    await waitFor(() =>
+      expect(mockUpdateLearnerProfile).toHaveBeenCalledWith(
+        'Saved before refresh',
+        undefined,
+      ),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith('saved'));
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(
+      onSaved.mock.invocationCallOrder[0],
+    );
+    expect(saveButton()).toBeEnabled();
+
+    await act(async () => {
+      refresh.resolve(undefined);
+    });
   });
 
   test('omits an unchanged nickname from guided completion', async () => {
