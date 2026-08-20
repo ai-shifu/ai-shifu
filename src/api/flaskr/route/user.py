@@ -177,6 +177,13 @@ def _request_client_ip() -> str:
     return str(request.remote_addr or "").strip()
 
 
+def _request_proxy_verified_client_ip() -> str:
+    """Return the address appended by the trusted edge proxy."""
+    if "X-Forwarded-For" in request.headers:
+        return request.headers["X-Forwarded-For"].split(",")[-1].strip()
+    return str(request.remote_addr or "").strip()
+
+
 def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
     return extract_referral_post_auth_fields(
         payload,
@@ -1106,7 +1113,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         vr = VerificationRequest(
             identifier=identifier,
             code=password,
-            metadata={"remote_addr": _request_client_ip()},
+            metadata={"remote_addr": _request_proxy_verified_client_ip()},
         )
         auth_result = provider.verify(app, vr)
         current_user = _best_effort_password_login_user(app)
